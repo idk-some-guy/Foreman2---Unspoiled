@@ -19,6 +19,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   faster first solve after launch, with identical solve results.
 - Internal modernization of the settings, factory-summary, and preset-comparison windows onto
   CommunityToolkit.Mvvm with compiled bindings; no user-visible behavior change.
+- Settings now live in a local SQLite database instead of settings.json; an existing settings.json
+  is imported into the database automatically on first launch and is not written to again.
 
 ### Removed
 

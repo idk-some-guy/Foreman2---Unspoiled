@@ -1,5 +1,6 @@
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.DataCaching.Storage;
 using Foreman.Mac.Services;
 using Foreman.Models;
 using System;
@@ -198,30 +199,32 @@ namespace Foreman.Mac.UiTests {
 
             service.Save(new AppSettings());
 
-            Assert.Contains("Failed to save settings.json", File.ReadAllText(ErrorLogging.LogFilePath));
+            Assert.Contains("Failed to save settings", File.ReadAllText(ErrorLogging.LogFilePath));
         }
 
+        //Settings now persist to foreman.db rather than settings.json (phase 9 Task 2); these three
+        //cases keep verifying Save lands under the right platform root, against the new medium.
         [Fact]
-        public void Save_WritesToLibraryApplicationSupportForemanSettingsJson() {
+        public void Save_WritesToLibraryApplicationSupportForemanDb() {
             string home = NewTempHome();
             var service = new SettingsService(home);
 
             service.Save(new AppSettings());
 
-            string expectedPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
+            string expectedPath = Path.Combine(home, "Library", "Application Support", "Foreman", "foreman.db");
             Assert.True(File.Exists(expectedPath));
         }
 
         //Linux branch of the platform fork above (docs/upstream-divergences.md, phase 8 Task 2), exercised
         //via the isMacOsOverride seam since this box only ever runs the tests on macOS.
         [Fact]
-        public void Save_OnLinux_NoXdgDataHome_WritesToDotLocalShareForemanSettingsJson() {
+        public void Save_OnLinux_NoXdgDataHome_WritesToDotLocalShareForemanDb() {
             string home = NewTempHome();
             var service = new SettingsService(home, isMacOsOverride: false);
 
             service.Save(new AppSettings());
 
-            string expectedPath = Path.Combine(home, ".local", "share", "Foreman", "settings.json");
+            string expectedPath = Path.Combine(home, ".local", "share", "Foreman", "foreman.db");
             Assert.True(File.Exists(expectedPath));
         }
 
@@ -235,11 +238,64 @@ namespace Foreman.Mac.UiTests {
 
                 service.Save(new AppSettings());
 
-                string expectedPath = Path.Combine(xdgDataHome, "Foreman", "settings.json");
+                string expectedPath = Path.Combine(xdgDataHome, "Foreman", "foreman.db");
                 Assert.True(File.Exists(expectedPath));
             } finally {
                 Environment.SetEnvironmentVariable("XDG_DATA_HOME", null);
             }
+        }
+
+        [Fact]
+        public void FreshDir_SaveThenReopen_PersistsToDbAndNeverWritesJson() {
+            string home = NewTempHome();
+            var nonDefault = BuildNonDefaultSettings();
+
+            var firstRun = new SettingsService(home);
+            var defaults = firstRun.Load();
+            firstRun.Save(nonDefault);
+            var reopened = new SettingsService(home).Load();
+
+            Assert.Equal(JsonSerializer.Serialize(new AppSettings(), ComparisonOptions), JsonSerializer.Serialize(defaults, ComparisonOptions));
+            Assert.Equal(JsonSerializer.Serialize(nonDefault, ComparisonOptions), JsonSerializer.Serialize(reopened, ComparisonOptions));
+            string settingsJsonPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
+            Assert.False(File.Exists(settingsJsonPath));
+        }
+
+        [Fact]
+        public void LegacyJsonOnly_ImportsConvertsAndHealsThenSurvivesJsonDeletion() {
+            string home = NewTempHome();
+            string settingsPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+            File.WriteAllText(settingsPath, "{ \"FlagDarkMode\": true, \"LowPriorityPower\": 100000 }");
+            var service = new SettingsService(home);
+
+            var imported = service.Load();
+
+            Assert.Equal(ThemeMode.Dark, imported.FlagDarkMode);
+            Assert.Equal(4m, imported.LowPriorityPower);
+
+            File.Delete(settingsPath);
+            var afterRestart = new SettingsService(home).Load();
+
+            Assert.Equal(ThemeMode.Dark, afterRestart.FlagDarkMode);
+            Assert.Equal(4m, afterRestart.LowPriorityPower);
+        }
+
+        [Fact]
+        public void BothJsonAndDbPresent_DbWins() {
+            string home = NewTempHome();
+            string settingsPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+            File.WriteAllText(settingsPath, "{ \"CurrentPresetName\": \"From Json\" }");
+            string dbPath = Path.Combine(home, "Library", "Application Support", "Foreman", "foreman.db");
+            using (var db = ForemanDbContext.Open(dbPath)) {
+                db.Settings.Add(new SettingsRow { Id = 1, CurrentPresetName = "From Db", AnnotTextFontFamily = "Segoe UI", AnnotTextFontSize = "14" });
+                db.SaveChanges();
+            }
+
+            var loaded = new SettingsService(home).Load();
+
+            Assert.Equal("From Db", loaded.CurrentPresetName);
         }
     }
 }

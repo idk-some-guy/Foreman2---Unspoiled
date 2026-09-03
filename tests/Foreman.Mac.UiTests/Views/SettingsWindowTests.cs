@@ -375,6 +375,10 @@ namespace Foreman.Mac.UiTests.Views {
         private static string SettingsFilePath(string home) =>
             Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
 
+        //Settings now persist to foreman.db rather than settings.json (phase 9 Task 2).
+        private static string SettingsDbPath(string home) =>
+            Path.Combine(home, "Library", "Application Support", "Foreman", "foreman.db");
+
         [AvaloniaFact]
         public async Task OpenSettingsAsync_ConfirmWithoutPresetChange_PersistsSettingsAndDoesNotReload() {
             string home = NewTempHome();
@@ -384,7 +388,7 @@ namespace Foreman.Mac.UiTests.Views {
 
             await window.OpenSettingsAsync();
 
-            Assert.True(File.Exists(SettingsFilePath(home)));
+            Assert.True(File.Exists(SettingsDbPath(home)));
             Assert.Same(originalCache, window.DataCache);
         }
 
@@ -466,7 +470,7 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.NotSame(originalCache, window.DataCache);
             Assert.Equal(SpaceAgePresetName, window.Settings!.CurrentPresetName);
-            Assert.True(File.Exists(SettingsFilePath(home)));
+            Assert.True(File.Exists(SettingsDbPath(home)));
         }
 
         [AvaloniaFact]
