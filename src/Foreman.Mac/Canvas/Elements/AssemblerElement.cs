@@ -91,11 +91,11 @@ namespace Foreman.Mac.Canvas.Elements {
                 int efficiencyModules = RecipeViewModel.AssemblerModules.Count(m => m.Module.GetConsumptionBonus() < 0 && m.Module.GetProductivityBonus() <= 0 && m.Module.GetQualityBonus() <= 0);
                 int speedModules = RecipeViewModel.AssemblerModules.Count(m => m.Module.GetSpeedBonus() > 0 && m.Module.GetConsumptionBonus() >= 0 && m.Module.GetProductivityBonus() <= 0 && m.Module.GetQualityBonus() <= 0);
                 int unknownModules = RecipeViewModel.AssemblerModules.Count - prodModules - efficiencyModules - speedModules - qualityModules;
-                GraphicsStuff.DrawStringAtPoint(canvas, new SKColor(0, 0, 139), ModuleTypeface, ModuleFontSize, string.Format(DisplayCulture.Format, "S:{0}", speedModules), trans.X, trans.Y + 10);
-                GraphicsStuff.DrawStringAtPoint(canvas, new SKColor(0, 100, 0), ModuleTypeface, ModuleFontSize, string.Format(DisplayCulture.Format, "E:{0}", efficiencyModules), trans.X, trans.Y + 20);
-                GraphicsStuff.DrawStringAtPoint(canvas, new SKColor(139, 0, 0), ModuleTypeface, ModuleFontSize, string.Format(DisplayCulture.Format, "P:{0}", prodModules), trans.X, trans.Y + 30);
-                GraphicsStuff.DrawStringAtPoint(canvas, new SKColor(255, 215, 0), ModuleTypeface, ModuleFontSize, string.Format(DisplayCulture.Format, "Q:{0}", qualityModules), trans.X, trans.Y + 40);
-                GraphicsStuff.DrawStringAtPoint(canvas, SKColors.Black, ModuleTypeface, ModuleFontSize, string.Format(DisplayCulture.Format, "U:{0}", unknownModules), trans.X, trans.Y + 50);
+                GraphicsStuff.DrawStringAtPoint(canvas, new SKColor(0, 0, 139), ModuleTypeface, ModuleFontSize, string.Create(DisplayCulture.Format, $"S:{speedModules}"), trans.X, trans.Y + 10);
+                GraphicsStuff.DrawStringAtPoint(canvas, new SKColor(0, 100, 0), ModuleTypeface, ModuleFontSize, string.Create(DisplayCulture.Format, $"E:{efficiencyModules}"), trans.X, trans.Y + 20);
+                GraphicsStuff.DrawStringAtPoint(canvas, new SKColor(139, 0, 0), ModuleTypeface, ModuleFontSize, string.Create(DisplayCulture.Format, $"P:{prodModules}"), trans.X, trans.Y + 30);
+                GraphicsStuff.DrawStringAtPoint(canvas, new SKColor(255, 215, 0), ModuleTypeface, ModuleFontSize, string.Create(DisplayCulture.Format, $"Q:{qualityModules}"), trans.X, trans.Y + 40);
+                GraphicsStuff.DrawStringAtPoint(canvas, SKColors.Black, ModuleTypeface, ModuleFontSize, string.Create(DisplayCulture.Format, $"U:{unknownModules}"), trans.X, trans.Y + 50);
             }
 
             int parentHalfWidth = Parent is RecipeNodeElement recipeParent ? recipeParent.Width : Width;
@@ -104,12 +104,12 @@ namespace Foreman.Mac.Canvas.Elements {
                 if (RecipeViewModel.GetQualityMultiplier() > 0) {
                     GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize, "Speed:\nProd:\nPower:\nQuality:", trans.X + Width + 2, trans.Y);
                     GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize,
-                        string.Format(DisplayCulture.Format, "{0:+0%; -0%; 0%}\n{1:+0%; -0%; 0%}\n{2:+0%; -0%; 0%}\n{3:+0%; -0%; 0%}", RecipeViewModel.GetSpeedMultiplier() - 1, RecipeViewModel.GetProductivityMultiplier() - 1, RecipeViewModel.GetConsumptionMultiplier() - 1, RecipeViewModel.GetQualityMultiplier()),
+                        string.Create(DisplayCulture.Format, $"{RecipeViewModel.GetSpeedMultiplier() - 1:+0%; -0%; 0%}\n{RecipeViewModel.GetProductivityMultiplier() - 1:+0%; -0%; 0%}\n{RecipeViewModel.GetConsumptionMultiplier() - 1:+0%; -0%; 0%}\n{RecipeViewModel.GetQualityMultiplier():+0%; -0%; 0%}"),
                         trans.X + Width + 26, trans.Y);
                 } else {
                     GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize, "Speed:\nProd:\nPower:", trans.X + Width + 2, trans.Y);
                     GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize,
-                        string.Format(DisplayCulture.Format, "{0:+0%; -0%; 0%}\n{1:+0%; -0%; 0%}\n{2:+0%; -0%; 0%}", RecipeViewModel.GetSpeedMultiplier() - 1, RecipeViewModel.GetProductivityMultiplier() - 1, RecipeViewModel.GetConsumptionMultiplier() - 1),
+                        string.Create(DisplayCulture.Format, $"{RecipeViewModel.GetSpeedMultiplier() - 1:+0%; -0%; 0%}\n{RecipeViewModel.GetProductivityMultiplier() - 1:+0%; -0%; 0%}\n{RecipeViewModel.GetConsumptionMultiplier() - 1:+0%; -0%; 0%}"),
                         trans.X + Width + 26, trans.Y);
                 }
 
@@ -117,7 +117,7 @@ namespace Foreman.Mac.Canvas.Elements {
             } else if (context.LevelOfDetail == LevelOfDetail.High && RecipeViewModel.SelectedAssembler.Assembler.EntityType == EntityType.Generator) {
                 GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize, "Power:", trans.X + Width, trans.Y + 10);
                 double generatorEffectivity = RecipeViewModel.GetGeneratorEffectivity();
-                GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize, string.Format(DisplayCulture.Format, "{0:P0}", generatorEffectivity), trans.X + Width + 26, trans.Y + 10);
+                GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize, string.Create(DisplayCulture.Format, $"{generatorEffectivity:P0}"), trans.X + Width + 26, trans.Y + 10);
 
                 textbox.Y = trans.Y + 24;
             }
@@ -144,7 +144,7 @@ namespace Foreman.Mac.Canvas.Elements {
                 foreach (ModuleQualityPair m in RecipeViewModel.AssemblerModules)
                     moduleCounter[m] = moduleCounter.TryGetValue(m, out int count) ? count + 1 : 1;
                 foreach (ModuleQualityPair m in moduleCounter.Keys.OrderBy(m => m.Module.FriendlyName).ThenBy(m => m.Quality.Level).ThenBy(m => m.Quality.FriendlyName))
-                    text += string.Format(DisplayCulture.Format, "\n   {0} :{1}", moduleCounter[m], m.FriendlyName);
+                    text += string.Create(DisplayCulture.Format, $"\n   {moduleCounter[m]} :{m.FriendlyName}");
 
                 Avalonia.Point screen = context.Viewport.GraphToScreen(LocalToGraph(new Point(1 + (RecipeViewModel.AssemblerModules.Count > 3 ? RecipeViewModel.AssemblerModules.Count > 6 ? ModuleSpacing * 3 / 2 : ModuleSpacing : ModuleSpacing * 3 / 2) - (Width / 2), -Height / 2)));
                 tooltips.Add(new TooltipInfo(screen, Direction.Down, text));

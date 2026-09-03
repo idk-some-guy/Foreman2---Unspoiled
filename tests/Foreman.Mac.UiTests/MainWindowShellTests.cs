@@ -28,11 +28,11 @@ using Xunit;
 
 namespace Foreman.Mac.UiTests {
     public class MainWindowShellTests {
-        private static readonly string[] ExpectedButtonNames = {
+        private static readonly string[] ExpectedButtonNames = [
             "New Graph", "Load", "Save", "Save As", "Import Graph", "Export Image",
             "Add Item", "Add Recipe", "Autoconnect", "Settings", "Help / Git repo",
             "Show Graph Summary", "Align Selected",
-        };
+        ];
 
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
 
@@ -74,9 +74,9 @@ namespace Foreman.Mac.UiTests {
         //Task 7 enables Add Item/Add Recipe/Autoconnect/Align Selected (reference §8/§10/§11 step 11); phase
         //5b Task 1 enables Settings, Task 4 enables Show Graph Summary; phase 6 Task 1 enables Save/Save As,
         //Task 2 enables Import Graph, Task 3 enables Export Image - Help stays disabled, later-task scope.
-        private static readonly string[] StillStubbedButtonNames = {
+        private static readonly string[] StillStubbedButtonNames = [
             "Help / Git repo",
-        };
+        ];
 
         [AvaloniaFact]
         public void Toolbar_NewGraphAndLoadAndTask7ButtonsAreEnabled_RemainingStubsAreNot() {

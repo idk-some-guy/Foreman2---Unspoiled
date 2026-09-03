@@ -40,7 +40,7 @@ namespace Foreman.Mac.UiTests {
         private static GraphViewerSaveDocument NewEmptyDocument(string? savedPresetName, Dictionary<string, string>? includedMods = null) => new() {
             Version = GraphSaveFormat.SaveFormatVersion,
             SavedPresetName = savedPresetName,
-            IncludedMods = includedMods ?? new Dictionary<string, string>(),
+            IncludedMods = includedMods ?? [],
             ProductionGraph = GraphSaveCodec.BuildProductionGraph(new ProductionGraph()),
         };
 
@@ -48,7 +48,7 @@ namespace Foreman.Mac.UiTests {
         //IncludedMods matches that preset's own declared mod list exactly - PresetProcessor.TestPreset flags
         //anything in the preset's own mods that isn't in the requested set as "Added".
         private static Dictionary<string, string> RealModListFor(Preset preset) =>
-            PresetProcessor.ReadPresetInfo(preset).ModList ?? new Dictionary<string, string>();
+            PresetProcessor.ReadPresetInfo(preset).ModList ?? [];
 
         //---- Fast path: exact SavedPresetName match, zero errors -> no dialog -------------------------
 

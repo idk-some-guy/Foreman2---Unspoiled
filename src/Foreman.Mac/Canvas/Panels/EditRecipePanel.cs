@@ -703,7 +703,7 @@ namespace Foreman.Mac.Canvas.Panels {
                     button.SetFillColor(item == nodeData.Fuel ? SelectedColor
                         : (item.IsMissing || !item.Available || !item.ProductionRecipes.Any(r => r.Available && r.Assemblers.Any(a => a.Available))) ? ErrorColor : DefaultButtonColor);
 
-            FuelTitle.Text = string.Format(DisplayCulture.Format, "Fuel: {0}", nodeData.Fuel is null ? "-none-" : nodeData.Fuel.FriendlyName);
+            FuelTitle.Text = string.Create(DisplayCulture.Format, $"Fuel: {(nodeData.Fuel is null ? "-none-" : nodeData.Fuel.FriendlyName)}");
             if (nodeData.Fuel is IItem selectedFuel)
                 SelectedFuelIcon.SetPopulated(selectedFuel, selectedFuel.Icon, DefaultButtonColor);
             else
@@ -792,7 +792,7 @@ namespace Foreman.Mac.Canvas.Panels {
                 assemblerModuleButtons.Add(button);
             }
 
-            AModulesLabel.Text = string.Format(DisplayCulture.Format, "Modules ({0}/{1}):", nodeData.AssemblerModules.Count, nodeData.SelectedAssembler.Assembler.ModuleSlots);
+            AModulesLabel.Text = string.Create(DisplayCulture.Format, $"Modules ({nodeData.AssemblerModules.Count}/{nodeData.SelectedAssembler.Assembler.ModuleSlots}):");
             UpdateAssemblerInfo();
         }
 
@@ -859,7 +859,7 @@ namespace Foreman.Mac.Canvas.Panels {
                 SetBeaconValues(graphUpdateRequired: true);
 
             if (nodeData.SelectedBeacon is { Beacon: IBeacon selectedBeacon, Quality: IQuality selectedBeaconQuality }) {
-                BeaconTitle.Text = string.Format(DisplayCulture.Format, "Beacon: {0}", selectedBeacon.FriendlyName);
+                BeaconTitle.Text = string.Create(DisplayCulture.Format, $"Beacon: {selectedBeacon.FriendlyName}");
                 SelectedBeaconIcon.SetPopulated(selectedBeacon, nodeData.SelectedBeacon.Icon, DefaultButtonColor);
             } else {
                 BeaconTitle.Text = "Beacon: -none-";
@@ -947,7 +947,7 @@ namespace Foreman.Mac.Canvas.Panels {
                 beaconModuleButtons.Add(button);
             }
 
-            BModulesLabel.Text = string.Format(DisplayCulture.Format, "Modules ({0}/{1}):", nodeData.BeaconModules.Count, moduleSlots);
+            BModulesLabel.Text = string.Create(DisplayCulture.Format, $"Modules ({nodeData.BeaconModules.Count}/{moduleSlots}):");
 
             UpdateBeaconInfo();
             UpdateAssemblerInfo(); //for the impact of the beacon
@@ -956,8 +956,8 @@ namespace Foreman.Mac.Canvas.Panels {
         //------------------------------------------------------------------------------------------------------Stat readout
 
         private void UpdateAssemblerInfo() {
-            AssemblerRateLabel.Text = string.Format(DisplayCulture.Format, "# of {0}:", nodeData.SelectedAssembler.Assembler.GetEntityTypeName(true));
-            AssemblerTitle.Text = string.Format(DisplayCulture.Format, "{0}: {1}", nodeData.SelectedAssembler.Assembler.GetEntityTypeName(false), nodeData.SelectedAssembler.Assembler.FriendlyName);
+            AssemblerRateLabel.Text = string.Create(DisplayCulture.Format, $"# of {nodeData.SelectedAssembler.Assembler.GetEntityTypeName(true)}:");
+            AssemblerTitle.Text = string.Create(DisplayCulture.Format, $"{nodeData.SelectedAssembler.Assembler.GetEntityTypeName(false)}: {nodeData.SelectedAssembler.Assembler.FriendlyName}");
             SelectedAssemblerIcon.SetPopulated(nodeData.SelectedAssembler.Assembler, nodeData.SelectedAssembler.Icon, DefaultButtonColor);
 
             AssemblerEnergyPercentLabel.Text = nodeData.GetConsumptionMultiplier().ToString("P0", DisplayCulture.Format);
@@ -982,16 +982,14 @@ namespace Foreman.Mac.Canvas.Panels {
             GeneratorTemperatureRangeLabel.IsVisible = isGenerator;
 
             string rateName = graphViewer.Graph.GetRateName();
-            AssemblerSpeedLabel.Text = string.Format(DisplayCulture.Format, "{0} ({1} crafts / {2})",
-                nodeData.GetAssemblerSpeed().ToString("0.##", DisplayCulture.Format),
-                nodeData.GetTotalCrafts() < 1 ? nodeData.GetTotalCrafts().ToString("0.####", DisplayCulture.Format) : nodeData.GetTotalCrafts().ToString("0.#", DisplayCulture.Format),
-                rateName);
+            AssemblerSpeedLabel.Text = string.Create(DisplayCulture.Format,
+                $"{nodeData.GetAssemblerSpeed().ToString("0.##", DisplayCulture.Format)} ({(nodeData.GetTotalCrafts() < 1 ? nodeData.GetTotalCrafts().ToString("0.####", DisplayCulture.Format) : nodeData.GetTotalCrafts().ToString("0.#", DisplayCulture.Format))} crafts / {rateName})");
 
             AssemblerEnergyLabel.Text = nodeData.SelectedAssembler.Assembler.IsBurner && nodeData.Fuel != null
-                ? string.Format(DisplayCulture.Format, "{0} ({1} fuel / {2})", GraphicsStuff.DoubleToEnergy(nodeData.GetAssemblerEnergyConsumption(), "W"), GraphicsStuff.DoubleToString(nodeData.GetTotalAssemblerFuelConsumption()), rateName)
+                ? string.Create(DisplayCulture.Format, $"{GraphicsStuff.DoubleToEnergy(nodeData.GetAssemblerEnergyConsumption(), "W")} ({GraphicsStuff.DoubleToString(nodeData.GetTotalAssemblerFuelConsumption())} fuel / {rateName})")
                 : GraphicsStuff.DoubleToEnergy(nodeData.GetAssemblerEnergyConsumption(), "W");
 
-            AssemblerPollutionLabel.Text = string.Format(DisplayCulture.Format, "{0} / min", (nodeData.GetAssemblerPollutionProduction() * 60).ToString("0.##", DisplayCulture.Format));
+            AssemblerPollutionLabel.Text = string.Create(DisplayCulture.Format, $"{(nodeData.GetAssemblerPollutionProduction() * 60).ToString("0.##", DisplayCulture.Format)} / min");
 
             if (isGenerator) {
                 double minTemp = nodeData.GetGeneratorMinimumTemperature();
@@ -1000,8 +998,8 @@ namespace Foreman.Mac.Canvas.Panels {
                 double effectivity = nodeData.GetGeneratorEffectivity();
 
                 GeneratorTemperatureRangeLabel.Text = double.IsInfinity(maxTemp)
-                    ? string.Format(DisplayCulture.Format, "min {0}°c  (optimal: {1}°c)", Math.Round(minTemp, 1).ToString("0.#", DisplayCulture.Format), Math.Round(operationalTemp, 1).ToString("0.#", DisplayCulture.Format))
-                    : string.Format(DisplayCulture.Format, "{0}-{1}°c  (optimal: {2}°c)", Math.Round(minTemp, 1).ToString("0.#", DisplayCulture.Format), Math.Round(maxTemp, 1).ToString("0.#", DisplayCulture.Format), Math.Round(operationalTemp, 1).ToString("0.#", DisplayCulture.Format));
+                    ? string.Create(DisplayCulture.Format, $"min {Math.Round(minTemp, 1).ToString("0.#", DisplayCulture.Format)}°c  (optimal: {Math.Round(operationalTemp, 1).ToString("0.#", DisplayCulture.Format)}°c)")
+                    : string.Create(DisplayCulture.Format, $"{Math.Round(minTemp, 1).ToString("0.#", DisplayCulture.Format)}-{Math.Round(maxTemp, 1).ToString("0.#", DisplayCulture.Format)}°c  (optimal: {Math.Round(operationalTemp, 1).ToString("0.#", DisplayCulture.Format)}°c)");
 
                 AssemblerEnergyLabel.Text = GraphicsStuff.DoubleToEnergy(nodeData.GetGeneratorElectricalProduction(), "W");
                 AssemblerEnergyPercentLabel.Text = effectivity.ToString("P0", DisplayCulture.Format);

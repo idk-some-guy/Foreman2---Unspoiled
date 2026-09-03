@@ -77,10 +77,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             var panel = new EditRecipePanel(node, control.Viewer);
 
             Assert.NotEmpty(panel.AModuleOptions);
-            List<string> disabledCellNames = panel.AModuleOptions
+            List<string> disabledCellNames = [.. panel.AModuleOptions
                 .Where(b => !b.IsEnabled)
-                .Select(b => (b.DataObject as IModule)?.Name ?? "?")
-                .ToList();
+                .Select(b => (b.DataObject as IModule)?.Name ?? "?")];
 
             Assert.True(node.AssemblerModules.Count < assembler.ModuleSlots,
                 $"fixture invariant broken: {node.AssemblerModules.Count} modules already equipped of {assembler.ModuleSlots} slots.");
@@ -116,14 +115,13 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             var panel = new EditRecipePanel(node, control.Viewer);
 
-            List<string> cellNames = panel.AModuleOptions.Select(b => (b.DataObject as IModule)?.Name ?? "?").ToList();
+            List<string> cellNames = [.. panel.AModuleOptions.Select(b => (b.DataObject as IModule)?.Name ?? "?")];
             Assert.Equal(9, cellNames.Count);
             Assert.DoesNotContain(cellNames, n => n.StartsWith("productivity-module", System.StringComparison.Ordinal));
 
-            List<string> disabledCellNames = panel.AModuleOptions
+            List<string> disabledCellNames = [.. panel.AModuleOptions
                 .Where(b => !b.IsEnabled)
-                .Select(b => (b.DataObject as IModule)?.Name ?? "?")
-                .ToList();
+                .Select(b => (b.DataObject as IModule)?.Name ?? "?")];
             Assert.Empty(disabledCellNames);
         }
 
@@ -160,7 +158,7 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             var panel = new EditRecipePanel(node, control.Viewer);
 
-            List<IQuality> panelQualities = cache.AvailableQualities.Where(q => q.Enabled).ToList();
+            List<IQuality> panelQualities = [.. cache.AvailableQualities.Where(q => q.Enabled)];
             int legendaryIndex = panelQualities.IndexOf(legendary);
             Assert.True(legendaryIndex >= 0, "legendary quality is not selectable on this panel.");
             panel.QualitySelector.Selector.SelectedIndex = legendaryIndex;

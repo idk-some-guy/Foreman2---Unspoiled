@@ -349,7 +349,7 @@ namespace Foreman.Mac.UiTests.Views {
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(1, window.ComparisonTabControlControl.SelectedIndex);
-            List<object> itemsRows = window.RightOnlyListViewControl.ItemsSource!.Cast<object>().ToList();
+            List<object> itemsRows = [.. window.RightOnlyListViewControl.ItemsSource!.Cast<object>()];
             List<string> realizedAfterItemsTab = RealizedRowTexts(window.RightOnlyListViewControl);
 
             Assert.NotEmpty(realizedAfterItemsTab);

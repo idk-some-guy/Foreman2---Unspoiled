@@ -406,7 +406,7 @@ namespace Foreman.DataCaching.Loading {
                 recipe = new RecipePrototype(
                     _owner,
                     boilRecipeName,
-                    ingredient == product ? string.Format(DisplayCulture.Format, "{0} boiling to {1}°c", ingredient.FriendlyName, temp.ToString("0", DisplayCulture.Format)) : string.Format(DisplayCulture.Format, "{0} boiling to {1}°c {2}", ingredient.FriendlyName, temp.ToString("0", DisplayCulture.Format), product.FriendlyName),
+                    ingredient == product ? string.Create(DisplayCulture.Format, $"{ingredient.FriendlyName} boiling to {temp.ToString("0", DisplayCulture.Format)}°c") : string.Create(DisplayCulture.Format, $"{ingredient.FriendlyName} boiling to {temp.ToString("0", DisplayCulture.Format)}°c {product.FriendlyName}"),
                     _store.EnergySubgroupBoiling,
                     boilRecipeName);
 
@@ -473,7 +473,7 @@ namespace Foreman.DataCaching.Loading {
                 recipe = new RecipePrototype(
                     _owner,
                     generationRecipeName,
-                    string.Format(DisplayCulture.Format, "{0} to Electricity", ingredient.FriendlyName),
+                    string.Create(DisplayCulture.Format, $"{ingredient.FriendlyName} to Electricity"),
                     _store.EnergySubgroupEnergy,
                     generationRecipeName);
 

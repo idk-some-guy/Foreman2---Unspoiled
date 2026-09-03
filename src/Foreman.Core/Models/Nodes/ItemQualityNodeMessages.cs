@@ -16,9 +16,9 @@ namespace Foreman.Models.Nodes {
             if (item.Item is null || item.Quality is null)
                 return errors;
             if ((errorSet & ItemMissing) != 0)
-                errors.Add(string.Format(DisplayCulture.Format, "> Item \"{0}\" doesnt exist in preset!", item.Item.FriendlyName));
+                errors.Add(string.Create(DisplayCulture.Format, $"> Item \"{item.Item.FriendlyName}\" doesnt exist in preset!"));
             if ((errorSet & QualityMissing) != 0)
-                errors.Add(string.Format(DisplayCulture.Format, "> Quality \"{0}\" doesnt exist in preset!", item.Quality.FriendlyName));
+                errors.Add(string.Create(DisplayCulture.Format, $"> Quality \"{item.Quality.FriendlyName}\" doesnt exist in preset!"));
             if ((errorSet & InvalidLinks) != 0)
                 errors.Add("> Some links are invalid!");
             return errors;
@@ -29,14 +29,14 @@ namespace Foreman.Models.Nodes {
             if (item.Quality is null)
                 return warnings;
             if ((warningSet & QualityUnavailable) != 0)
-                warnings.Add(string.Format(DisplayCulture.Format, "> Quality \"{0}\" isnt available in regular gameplay.", item.Quality.FriendlyName));
+                warnings.Add(string.Create(DisplayCulture.Format, $"> Quality \"{item.Quality.FriendlyName}\" isnt available in regular gameplay."));
             else if ((warningSet & QualityDisabled) != 0)
-                warnings.Add(string.Format(DisplayCulture.Format, "> Quality \"{0}\" isnt currently enabled.", item.Quality.FriendlyName));
+                warnings.Add(string.Create(DisplayCulture.Format, $"> Quality \"{item.Quality.FriendlyName}\" isnt currently enabled."));
             if (item.Item is not null) {
                 if ((warningSet & ItemDisabled) != 0)
-                    warnings.Add(string.Format(DisplayCulture.Format, "> Item \"{0}\" isnt currently enabled.", item.Item.FriendlyName));
+                    warnings.Add(string.Create(DisplayCulture.Format, $"> Item \"{item.Item.FriendlyName}\" isnt currently enabled."));
                 if ((warningSet & ItemUnavailable) != 0)
-                    warnings.Add(string.Format(DisplayCulture.Format, "> Item \"{0}\" is unavailable in regular play.", item.Item.FriendlyName));
+                    warnings.Add(string.Create(DisplayCulture.Format, $"> Item \"{item.Item.FriendlyName}\" is unavailable in regular play."));
             }
             return warnings;
         }

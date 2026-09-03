@@ -404,8 +404,8 @@ namespace Foreman.Mac {
             } else if (chosenPreset.Name != settings.CurrentPresetName) {
                 string previousPresetName = settings.CurrentPresetName;
                 string newPresetName = chosenPreset.Name;
-                await ShowPresetSwitchInfoAsync(string.Format(DisplayCulture.Format,
-                    "Loaded graph uses a different Preset.\nPreset switched from \"{0}\" to \"{1}\"", previousPresetName, newPresetName)).ConfigureAwait(true);
+                await ShowPresetSwitchInfoAsync(string.Create(DisplayCulture.Format,
+                    $"Loaded graph uses a different Preset.\nPreset switched from \"{previousPresetName}\" to \"{newPresetName}\"")).ConfigureAwait(true);
                 settings.CurrentPresetName = newPresetName;
                 settingsService.Save(settings);
             }
@@ -657,7 +657,7 @@ namespace Foreman.Mac {
         //Ports the title-bar format string used identically after Save/Load/New/preset-reload (reference:
         //upstream MainForm.cs:188,240,263,444).
         private void UpdateTitleBar() =>
-            Title = string.Format(DisplayCulture.Format, defaultAppName + " ({0}) - {1}", Settings?.CurrentPresetName ?? "", savefilePath ?? "Untitled");
+            Title = string.Create(DisplayCulture.Format, $"{defaultAppName} ({Settings?.CurrentPresetName ?? ""}) - {savefilePath ?? "Untitled"}");
 
         //Ports SettingsButton_Click's post-close cascade (reference upstream MainForm.cs:355-440): builds
         //Options from live state, shows the dialog, then on OK applies a preset switch/reload before always

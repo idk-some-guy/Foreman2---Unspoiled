@@ -68,17 +68,17 @@ namespace Foreman.Mac.Views {
 
                 string tooltip =
                     "Mods:\n" +
-                    string.Format(DisplayCulture.Format, "     ({0}) Correct\n", p.RequiredMods.Count - p.MissingMods.Count - p.WrongVersionMods.Count) +
-                    string.Format(DisplayCulture.Format, "     ({0}) Missing\n", p.MissingMods.Count) +
-                    string.Format(DisplayCulture.Format, "     ({0}) Extra\n", p.AddedMods.Count) +
-                    string.Format(DisplayCulture.Format, "     ({0}) Wrong Version\n", p.WrongVersionMods.Count) +
+                    string.Create(DisplayCulture.Format, $"     ({p.RequiredMods.Count - p.MissingMods.Count - p.WrongVersionMods.Count}) Correct\n") +
+                    string.Create(DisplayCulture.Format, $"     ({p.MissingMods.Count}) Missing\n") +
+                    string.Create(DisplayCulture.Format, $"     ({p.AddedMods.Count}) Extra\n") +
+                    string.Create(DisplayCulture.Format, $"     ({p.WrongVersionMods.Count}) Wrong Version\n") +
                     "Items:\n" +
-                    string.Format(DisplayCulture.Format, "     ({0}) Correct\n", p.RequiredItems.Count - p.MissingItems.Count) +
-                    string.Format(DisplayCulture.Format, "     ({0}) Missing\n", p.MissingItems.Count) +
+                    string.Create(DisplayCulture.Format, $"     ({p.RequiredItems.Count - p.MissingItems.Count}) Correct\n") +
+                    string.Create(DisplayCulture.Format, $"     ({p.MissingItems.Count}) Missing\n") +
                     "Recipes:\n" +
-                    string.Format(DisplayCulture.Format, "     ({0}) Correct\n", p.RequiredRecipes.Count - p.MissingRecipes.Count - p.IncorrectRecipes.Count) +
-                    string.Format(DisplayCulture.Format, "     ({0}) Missing\n", p.MissingRecipes.Count) +
-                    string.Format(DisplayCulture.Format, "     ({0}) Incorrect", p.IncorrectRecipes.Count);
+                    string.Create(DisplayCulture.Format, $"     ({p.RequiredRecipes.Count - p.MissingRecipes.Count - p.IncorrectRecipes.Count}) Correct\n") +
+                    string.Create(DisplayCulture.Format, $"     ({p.MissingRecipes.Count}) Missing\n") +
+                    string.Create(DisplayCulture.Format, $"     ({p.IncorrectRecipes.Count}) Incorrect");
 
                 rows.Add(new PresetRow(p.Preset,
                     modsCompatibility.ToString("%00", DisplayCulture.Format),

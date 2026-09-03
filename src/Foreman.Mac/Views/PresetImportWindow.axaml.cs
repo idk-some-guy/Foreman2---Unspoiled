@@ -278,9 +278,8 @@ namespace Foreman.Mac.Views {
         //has to show a real dialog, then hands the awaited answer back to the pipeline's calling thread.
         private Task<bool> ConfirmContinueWithMissingIconsAsync(int failedCount, int totalCount) {
             var tcs = new TaskCompletionSource<bool>();
-            string message = string.Format(DisplayCulture.Format,
-                "{0}/{1} images that were processed for icons were not found and thus some icons are likely wrong/empty. Do you still wish to continue with the preset import?",
-                failedCount, totalCount);
+            string message = string.Create(DisplayCulture.Format,
+                $"{failedCount}/{totalCount} images that were processed for icons were not found and thus some icons are likely wrong/empty. Do you still wish to continue with the preset import?");
             Dispatcher.UIThread.Post(async () => tcs.SetResult(await ShowConfirmAsync("Confirm Preset Import", message).ConfigureAwait(true)));
             return tcs.Task;
         }

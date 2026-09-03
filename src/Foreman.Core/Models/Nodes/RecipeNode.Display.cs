@@ -13,16 +13,16 @@ namespace Foreman {
             var output = new List<string>();
 
             if ((ErrorSet & RecipeNode.Errors.RecipeIsMissing) != 0) {
-                output.Add(string.Format(DisplayCulture.Format, "> Recipe \"{0}\" doesnt exist in preset!", recipeDefinition.FriendlyName));
+                output.Add(string.Create(DisplayCulture.Format, $"> Recipe \"{recipeDefinition.FriendlyName}\" doesnt exist in preset!"));
                 return output; //missing recipe is an automatic end -> we dont care about any other errors, since the only solution is to delete the node.
             }
             if ((ErrorSet & RecipeNode.Errors.RQualityIsMissing) != 0)
-                output.Add(string.Format(DisplayCulture.Format, "> Recipe's Quality \"{0}\" doesnt exist in preset!", recipeQuality.FriendlyName));
+                output.Add(string.Create(DisplayCulture.Format, $"> Recipe's Quality \"{recipeQuality.FriendlyName}\" doesnt exist in preset!"));
 
             if ((ErrorSet & RecipeNode.Errors.AssemblerIsMissing) != 0)
-                output.Add(string.Format(DisplayCulture.Format, "> Assembler \"{0}\" doesnt exist in preset!", SelectedAssembler.Assembler.FriendlyName));
+                output.Add(string.Create(DisplayCulture.Format, $"> Assembler \"{SelectedAssembler.Assembler.FriendlyName}\" doesnt exist in preset!"));
             if ((ErrorSet & RecipeNode.Errors.AQualityIsMissing) != 0)
-                output.Add(string.Format(DisplayCulture.Format, "> Assembler's Quality \"{0}\" doesnt exist in preset!", SelectedAssembler.Quality.FriendlyName));
+                output.Add(string.Create(DisplayCulture.Format, $"> Assembler's Quality \"{SelectedAssembler.Quality.FriendlyName}\" doesnt exist in preset!"));
 
             if ((ErrorSet & RecipeNode.Errors.BurnerNoFuelSet) != 0)
                 output.Add("> Burner Assembler has no fuel set!");
@@ -35,21 +35,21 @@ namespace Foreman {
             if ((ErrorSet & RecipeNode.Errors.AModuleIsMissing) != 0)
                 output.Add("> Some of the assembler modules dont exist in preset!");
             if ((ErrorSet & RecipeNode.Errors.AModuleLimitExceeded) != 0)
-                output.Add(string.Format(DisplayCulture.Format, "> Assembler has too many modules ({0}/{1})!", AssemblerModules.Count, SelectedAssembler.Assembler.ModuleSlots));
+                output.Add(string.Create(DisplayCulture.Format, $"> Assembler has too many modules ({AssemblerModules.Count}/{SelectedAssembler.Assembler.ModuleSlots})!"));
             if ((ErrorSet & RecipeNode.Errors.AModuleQualityIsMissing) != 0)
-                output.Add(string.Format(DisplayCulture.Format, "> Assembler's Module's Quality \"{0}\" doesnt exist in preset!", AssemblerModules.First(m => m.Quality.IsMissing).Quality.FriendlyName));
+                output.Add(string.Create(DisplayCulture.Format, $"> Assembler's Module's Quality \"{AssemblerModules.First(m => m.Quality.IsMissing).Quality.FriendlyName}\" doesnt exist in preset!"));
 
             if ((ErrorSet & RecipeNode.Errors.BeaconIsMissing) != 0)
-                output.Add(string.Format(DisplayCulture.Format, "> Beacon \"{0}\" doesnt exist in preset!", SelectedBeacon.Beacon?.FriendlyName ?? "(none)"));
+                output.Add(string.Create(DisplayCulture.Format, $"> Beacon \"{SelectedBeacon.Beacon?.FriendlyName ?? "(none)"}\" doesnt exist in preset!"));
             if ((ErrorSet & RecipeNode.Errors.BQualityIsMissing) != 0)
-                output.Add(string.Format(DisplayCulture.Format, "> Beacon's Quality \"{0}\" doesnt exist in preset!", SelectedBeacon.Quality?.FriendlyName ?? "(none)"));
+                output.Add(string.Create(DisplayCulture.Format, $"> Beacon's Quality \"{SelectedBeacon.Quality?.FriendlyName ?? "(none)"}\" doesnt exist in preset!"));
 
             if ((ErrorSet & RecipeNode.Errors.BModuleIsMissing) != 0)
                 output.Add("> Some of the beacon modules dont exist in preset!");
             if ((ErrorSet & RecipeNode.Errors.BModuleLimitExceeded) != 0)
                 output.Add("> Beacon has too many modules!");
             if ((ErrorSet & RecipeNode.Errors.BModuleQualityIsMissing) != 0)
-                output.Add(string.Format(DisplayCulture.Format, "> Beacon's Module's Quality \"{0}\" doesnt exist in preset!", BeaconModules.First(m => m.Quality.IsMissing).Quality.FriendlyName));
+                output.Add(string.Create(DisplayCulture.Format, $"> Beacon's Module's Quality \"{BeaconModules.First(m => m.Quality.IsMissing).Quality.FriendlyName}\" doesnt exist in preset!"));
 
             if ((ErrorSet & RecipeNode.Errors.InvalidLinks) != 0)
                 output.Add("> Some links are invalid!");

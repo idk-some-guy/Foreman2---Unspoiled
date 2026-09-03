@@ -61,7 +61,7 @@ namespace Foreman {
         public virtual double ActualSetValue { get { return ActualRate; } }
         public virtual double DesiredSetValue { get { return DesiredRate; } set { DesiredRate = value; } }
         public virtual double MaxDesiredSetValue { get { return ProductionGraph.MaxSetFlow; } }
-        public virtual string SetValueDescription { get { return string.Format(DisplayCulture.Format, "Item Flowrate (per {0})", MyGraph.GetRateName()); } }
+        public virtual string SetValueDescription { get { return string.Create(DisplayCulture.Format, $"Item Flowrate (per {MyGraph.GetRateName()})"); } }
 
         public abstract IEnumerable<ItemQualityPair> Inputs { get; }
         public abstract IEnumerable<ItemQualityPair> Outputs { get; }
