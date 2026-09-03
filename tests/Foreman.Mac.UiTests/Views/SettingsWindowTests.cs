@@ -1100,7 +1100,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.False(window.ShowNodeRecipeCheckBoxControl.IsChecked);
             Assert.True(window.RoundAssemblerCountCheckBoxControl.IsChecked);
             Assert.True(window.FlagOUSupplyNodesCheckBoxControl.IsChecked);
-            Assert.True(window.FlagDarkModeCheckBoxControl.IsChecked);
+            Assert.Equal(ThemeMode.Dark, window.FlagDarkModeDropDownControl.SelectedItem);
             Assert.False(window.ErrorArrowsCheckBoxControl.IsChecked);
             Assert.False(window.WarningArrowsCheckBoxControl.IsChecked);
             Assert.True(window.DisconnectedArrowsCheckBoxControl.IsChecked);
@@ -1133,7 +1133,7 @@ namespace Foreman.Mac.UiTests.Views {
             window.ShowNodeRecipeCheckBoxControl.IsChecked = false;
             window.RoundAssemblerCountCheckBoxControl.IsChecked = true;
             window.FlagOUSupplyNodesCheckBoxControl.IsChecked = true;
-            window.FlagDarkModeCheckBoxControl.IsChecked = true;
+            window.FlagDarkModeDropDownControl.SelectedItem = ThemeMode.Dark;
             window.ErrorArrowsCheckBoxControl.IsChecked = true;
             window.WarningArrowsCheckBoxControl.IsChecked = true;
             window.DisconnectedArrowsCheckBoxControl.IsChecked = true;
@@ -1214,24 +1214,47 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaTheory]
-        [InlineData(true, ThemeMode.Dark)]
-        [InlineData(false, ThemeMode.Light)]
-        public async Task FlagDarkModeCheckBox_Confirm_MapsToThemeMode(bool checkedState, ThemeMode expected) {
+        [InlineData(ThemeMode.System)]
+        [InlineData(ThemeMode.Light)]
+        [InlineData(ThemeMode.Dark)]
+        public async Task FlagDarkModeDropDown_Confirm_MapsToThemeModeLosslessly(ThemeMode selected) {
             var options = NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]);
             var window = new SettingsWindow(options);
 
-            window.FlagDarkModeCheckBoxControl.IsChecked = checkedState;
+            window.FlagDarkModeDropDownControl.SelectedItem = selected;
             window.SimulateConfirmClick();
 
-            Assert.Equal(expected, options.FlagDarkMode);
+            Assert.Equal(selected, options.FlagDarkMode);
         }
 
-        //Regression (human nit 1, upstream MainForm.cs:36-46): the checkbox used to commit ThemeMode.System
-        //when unchecked, which stays dark when the OS itself is dark - upstream's SetDarkMode/SetLightMode
-        //pair is strictly binary, so unchecking must force light regardless of the ambient system theme.
-        //Simulates that by leaving the app themed dark before Confirm runs.
+        //UI-level pin: the ComboBox itself carries exactly the three ThemeMode values, in enum order.
         [AvaloniaFact]
-        public async Task FlagDarkModeCheckBox_UncheckedConfirm_ForcesLightThemeEvenWithAmbientDarkSystem() {
+        public async Task FlagDarkModeDropDown_ShowsExactlyTheThreeThemeModes() {
+            var window = NewGraphOptionsWindow(await GetCacheAsync());
+
+            Assert.Equal<object>([ThemeMode.System, ThemeMode.Light, ThemeMode.Dark],
+                window.FlagDarkModeDropDownControl.ItemsSource!.Cast<object>());
+        }
+
+        //Regression (fix round 1, review finding): the old bool checkbox read System as unchecked and
+        //wrote back only Light/Dark, so ANY Confirm - even one that never touched appearance - silently
+        //clobbered System into Light. Loading System and confirming after an unrelated widget edit must
+        //leave FlagDarkMode at System.
+        [AvaloniaFact]
+        public async Task GraphOptionsTab_SystemLoadedThenUnrelatedWidgetConfirmed_StaysSystem() {
+            var options = NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]);
+            options.FlagDarkMode = ThemeMode.System;
+            var window = new SettingsWindow(options);
+
+            window.HighLodRadioButtonControl.IsChecked = true; //unrelated setting, appearance untouched
+            window.SimulateConfirmClick();
+
+            Assert.Equal(ThemeMode.System, options.FlagDarkMode);
+        }
+
+        //System selection must actually engage the OS-follow path live, not just persist to Options.
+        [AvaloniaFact]
+        public async Task FlagDarkModeDropDown_SystemConfirm_AppliesSystemThemeLive() {
             var app = (App)Avalonia.Application.Current!;
             app.ApplyTheme(ThemeMode.Dark);
 
@@ -1239,11 +1262,11 @@ namespace Foreman.Mac.UiTests.Views {
             options.FlagDarkMode = ThemeMode.Dark;
             var window = new SettingsWindow(options);
 
-            window.FlagDarkModeCheckBoxControl.IsChecked = false;
+            window.FlagDarkModeDropDownControl.SelectedItem = ThemeMode.System;
             window.SimulateConfirmClick();
             app.ApplyTheme(options.FlagDarkMode);
 
-            Assert.Equal(Avalonia.Styling.ThemeVariant.Light, app.RequestedThemeVariant);
+            Assert.Equal(Avalonia.Styling.ThemeVariant.Default, app.RequestedThemeVariant);
         }
     }
 }

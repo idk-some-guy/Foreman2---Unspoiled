@@ -22,7 +22,7 @@ namespace Foreman.Mac.UiTests.ViewModels {
             var vm = new SettingsViewModel();
             vm.LoadFrom(original);
 
-            vm.FlagDarkModeChecked = true; //bool
+            vm.FlagDarkMode = ThemeMode.Dark; //tri-state enum
             vm.HighLodChecked = true; //enum-backed (LevelOfDetail)
             vm.LowPriorityPowerValue = 5.5m; //solver decimal, passes through unchanged
             vm.PullConsumerNodesPowerValue = 2.25m; //solver decimal, passes through unchanged
@@ -104,19 +104,39 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.False(applied.UseRecipeBWfilters);
         }
 
-        //Confirms the plain-Confirm bar (upstream MainForm.cs:36-46): unchecking Dark Mode must force
-        //Light, never fall back to System, regardless of what LoadFrom originally read.
+        //Round-trip contract, all three states: FlagDarkMode carries System/Light/Dark losslessly through
+        //LoadFrom/ApplyTo now that the tri-state ComboBox replaced the binary checkbox.
+        [Theory]
+        [InlineData(ThemeMode.System)]
+        [InlineData(ThemeMode.Light)]
+        [InlineData(ThemeMode.Dark)]
+        public void LoadFromThenApplyTo_RoundTripsFlagDarkModeLosslessly(ThemeMode mode) {
+            var settings = new AppSettings { FlagDarkMode = mode };
+            var vm = new SettingsViewModel();
+            vm.LoadFrom(settings);
+
+            var applied = new AppSettings();
+            vm.ApplyTo(applied);
+
+            Assert.Equal(mode, applied.FlagDarkMode);
+        }
+
+        //Regression (fix round 1): the old bool FlagDarkModeChecked read System as unchecked and wrote
+        //back only Light/Dark, so any Confirm - even one that never touched appearance - silently
+        //clobbered System into Light. Loading System and applying after an unrelated edit must still
+        //come out as System.
         [Fact]
-        public void ApplyTo_DarkModeUnchecked_ForcesLightNeverSystem() {
+        public void ApplyTo_SystemLoadedThenUnrelatedSettingChanged_StaysSystem() {
             var settings = new AppSettings { FlagDarkMode = ThemeMode.System };
             var vm = new SettingsViewModel();
             vm.LoadFrom(settings);
 
-            vm.FlagDarkModeChecked = false;
+            vm.HighLodChecked = true;
+
             var applied = new AppSettings();
             vm.ApplyTo(applied);
 
-            Assert.Equal(ThemeMode.Light, applied.FlagDarkMode);
+            Assert.Equal(ThemeMode.System, applied.FlagDarkMode);
         }
 
         //FRESH-LIST rule: repopulating the unfiltered lists must swap in a brand new IReadOnlyList

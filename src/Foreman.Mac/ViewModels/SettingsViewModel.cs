@@ -74,7 +74,7 @@ namespace Foreman.Mac.ViewModels {
         private bool flagOUSupplyNodesChecked;
 
         [ObservableProperty]
-        private bool flagDarkModeChecked;
+        private ThemeMode flagDarkMode;
 
         [ObservableProperty]
         private bool errorArrowsChecked;
@@ -140,7 +140,7 @@ namespace Foreman.Mac.ViewModels {
             ShowNodeRecipeChecked = settings.ShowRecipeToolTip;
             RoundAssemblerCountChecked = settings.RoundAssemblerCount;
             FlagOUSupplyNodesChecked = settings.FlagOUSuppliedNodes;
-            FlagDarkModeChecked = settings.FlagDarkMode == ThemeMode.Dark;
+            FlagDarkMode = settings.FlagDarkMode;
 
             ErrorArrowsChecked = settings.ShowErrorArrows;
             WarningArrowsChecked = settings.ShowWarningArrows;
@@ -161,9 +161,9 @@ namespace Foreman.Mac.ViewModels {
             PullConsumerNodesPowerValue = Math.Min(5m, settings.PullConsumerNodesPower);
         }
 
-        //Ports CommitGraphOptionsTab (reference SettingsWindow.axaml.cs). Unchecking Dark Mode always
-        //forces Light, never System, regardless of what LoadFrom originally read (upstream MainForm.cs:
-        //36-46's SetDarkMode/SetLightMode pair is strictly binary).
+        //Ports CommitGraphOptionsTab (reference SettingsWindow.axaml.cs). FlagDarkMode round-trips
+        //losslessly through the tri-state ComboBox - unlike upstream's strictly binary SetDarkMode/
+        //SetLightMode pair, System survives a Confirm that never touched appearance.
         public void ApplyTo(AppSettings settings) {
             settings.QualitySteps = (int)QualityStepsValue.GetValueOrDefault();
             settings.LevelOfDetail = (int)(LowLodChecked ? LevelOfDetail.Low : HighLodChecked ? LevelOfDetail.High : LevelOfDetail.Medium);
@@ -177,7 +177,7 @@ namespace Foreman.Mac.ViewModels {
             settings.ShowRecipeToolTip = ShowNodeRecipeChecked;
             settings.RoundAssemblerCount = RoundAssemblerCountChecked;
             settings.FlagOUSuppliedNodes = FlagOUSupplyNodesChecked;
-            settings.FlagDarkMode = FlagDarkModeChecked ? ThemeMode.Dark : ThemeMode.Light;
+            settings.FlagDarkMode = FlagDarkMode;
 
             settings.ShowErrorArrows = ErrorArrowsChecked;
             settings.ShowWarningArrows = WarningArrowsChecked;

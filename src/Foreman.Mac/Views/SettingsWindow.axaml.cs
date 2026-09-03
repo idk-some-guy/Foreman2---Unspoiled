@@ -111,7 +111,7 @@ namespace Foreman.Mac.Views {
         private readonly CheckBox showNodeRecipeCheckBox;
         private readonly CheckBox roundAssemblerCountCheckBox;
         private readonly CheckBox flagOUSupplyNodesCheckBox;
-        private readonly CheckBox flagDarkModeCheckBox;
+        private readonly ComboBox flagDarkModeDropDown;
         private readonly CheckBox errorArrowsCheckBox;
         private readonly CheckBox warningArrowsCheckBox;
         private readonly CheckBox disconnectedArrowsCheckBox;
@@ -198,7 +198,7 @@ namespace Foreman.Mac.Views {
             showNodeRecipeCheckBox = this.FindControl<CheckBox>("ShowNodeRecipeCheckBox")!;
             roundAssemblerCountCheckBox = this.FindControl<CheckBox>("RoundAssemblerCountCheckBox")!;
             flagOUSupplyNodesCheckBox = this.FindControl<CheckBox>("FlagOUSupplyNodesCheckBox")!;
-            flagDarkModeCheckBox = this.FindControl<CheckBox>("FlagDarkModeCheckBox")!;
+            flagDarkModeDropDown = this.FindControl<ComboBox>("FlagDarkModeDropDown")!;
             errorArrowsCheckBox = this.FindControl<CheckBox>("ErrorArrowsCheckBox")!;
             warningArrowsCheckBox = this.FindControl<CheckBox>("WarningArrowsCheckBox")!;
             disconnectedArrowsCheckBox = this.FindControl<CheckBox>("DisconnectedArrowsCheckBox")!;
@@ -255,6 +255,7 @@ namespace Foreman.Mac.Views {
 
             assemblerSelectorStyleDropDown.ItemsSource = AssemblerSelector.StyleNames;
             moduleSelectorStyleDropDown.ItemsSource = ModuleSelector.StyleNames;
+            flagDarkModeDropDown.ItemsSource = Enum.GetValues<ThemeMode>();
             ViewModel.LoadFrom(BuildGraphOptionsSnapshot());
 
             UpdateModList();
@@ -787,7 +788,7 @@ namespace Foreman.Mac.Views {
         internal CheckBox ShowNodeRecipeCheckBoxControl => showNodeRecipeCheckBox;
         internal CheckBox RoundAssemblerCountCheckBoxControl => roundAssemblerCountCheckBox;
         internal CheckBox FlagOUSupplyNodesCheckBoxControl => flagOUSupplyNodesCheckBox;
-        internal CheckBox FlagDarkModeCheckBoxControl => flagDarkModeCheckBox;
+        internal ComboBox FlagDarkModeDropDownControl => flagDarkModeDropDown;
         internal CheckBox ErrorArrowsCheckBoxControl => errorArrowsCheckBox;
         internal CheckBox WarningArrowsCheckBoxControl => warningArrowsCheckBox;
         internal CheckBox DisconnectedArrowsCheckBoxControl => disconnectedArrowsCheckBox;
