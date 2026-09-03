@@ -33,14 +33,17 @@ namespace Foreman.DataCaching.DataTypes {
 
         private readonly string[] OrderCompareArray = [.. order.Split(orderSeparators).Where(s => !string.IsNullOrEmpty(s))];
 
-        public void SetIconAndColor(IconColorPair icp) {
-            this.Icon = icp.Icon ?? DataCache.UnknownIcon;
+        //Stores the pair rather than pulling .Icon out immediately - that keeps a lazily-decoded
+        //IconColorPair (phase 9 Task 6) lazy past this call, decoding only when Icon is actually read.
+        private IconColorPair? iconColorPair;
 
+        public void SetIconAndColor(IconColorPair icp) {
+            this.iconColorPair = icp;
             this.AverageColor = icp.Color;
         }
 
         public Color AverageColor { get; private set; } = Color.Black;
-        public SKBitmap Icon { get; private set; } = DataCache.UnknownIcon;
+        public SKBitmap Icon => iconColorPair?.Icon ?? DataCache.UnknownIcon;
 
         public override bool Equals(object? obj) {
             return (obj as DataObjectBasePrototype) == this;

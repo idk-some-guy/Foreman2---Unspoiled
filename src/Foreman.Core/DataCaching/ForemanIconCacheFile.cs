@@ -179,8 +179,9 @@ namespace Foreman.DataCaching {
             return await DecodeEntriesAsync(entries, progress, cancellationToken).ConfigureAwait(false);
         }
 
-        //Shared with IconCache.LoadIconCacheFromStore (phase 9 Task 5): the same PNG decode this file has
-        //always run, driven off entries that came from the db-backed IconStore instead of a fresh parse.
+        //Eager whole-atlas decode for the raw-file path (ReadAsync, still used by the FOIC round trip
+        //and tests). The db-backed path (IconCache.LoadIconCacheFromStore) decodes lazily instead - see
+        //phase 9 Task 6.
         internal static async Task<Dictionary<string, IconColorPair>> DecodeEntriesAsync(
             IReadOnlyList<FoicEntry> entries,
             IProgress<(int Decoded, int Total)>? progress,
