@@ -6,6 +6,8 @@ using System.Linq;
 namespace ForemanTest {
     [TestClass]
     public class SolverTest : ForemanTestBase {
+        protected virtual void SolveGraph(GraphBuilder.BuiltData data) => data.Solve();
+
         [TestMethod]
         public void TestBasicSolve() {
             var builder = GraphBuilder.Create();
@@ -17,7 +19,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(10, data.SupplyRate("Plate"));
         }
@@ -34,7 +36,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(10, data.SupplyRate("Ore"));
         }
@@ -51,7 +53,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(50, data.SupplyRate("Plate"));
         }
@@ -68,7 +70,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(5, data.SupplyRate("Plate"));
         }
@@ -85,7 +87,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(8, data.SupplyRate("Plate"));
         }
@@ -106,7 +108,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             var production = data.SupplyRate("Plate");
             Assert.AreEqual(10, production, "Suppliers misproduced: " + production);
@@ -128,7 +130,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(15, data.SupplyRate("Plate"));
         }
@@ -144,7 +146,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(10, data.ConsumedRate("Plate"));
         }
@@ -161,7 +163,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(10, data.SupplyRate("Ore"));
             AssertFloatsAreEqual(10, data.ConsumedRate("Plate"));
@@ -177,7 +179,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(0, data.Graph.Nodes.First().ActualRate);
         }
@@ -192,7 +194,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(10, data.Graph.Nodes.First().ActualRate);
         }
@@ -213,7 +215,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(10, data.SupplyRate("Plate"));
             AssertFloatsAreEqual(10, data.SupplyRate("Ore"));
@@ -231,7 +233,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(10, data.SupplyRate("Ore"));
         }
@@ -247,7 +249,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(2, data.RecipeRate("fixer"));
         }
@@ -264,7 +266,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(10, data.ConsumedRate("Ice"));
         }
@@ -281,7 +283,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(8, data.SupplyRate("Ore"));
         }
@@ -309,7 +311,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(10, data.ConsumedRate("Plate"));
             // Manual supplier on the furnace line delivers its full target even though only 10 plates are needed.
@@ -337,7 +339,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(15, data.ConsumedRate("Ore"));
             AssertFloatsAreEqual(10, data.ConsumedRate("Plate"));
@@ -355,7 +357,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(15, data.SupplyRate("Ore"));
 
@@ -375,7 +377,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(data.SupplyRate("Ore"), data.ConsumedRate("Plate"));
         }
@@ -407,7 +409,7 @@ namespace ForemanTest {
 
             var data = builder.Build();
 
-            data.Solve();
+            SolveGraph(data);
 
             AssertFloatsAreEqual(10, data.ConsumedRate("Battery"));
 
@@ -492,8 +494,8 @@ namespace ForemanTest {
             var dataA = builderA.Build();
             var dataB = builderB.Build();
 
-            dataA.Solve();
-            dataB.Solve();
+            SolveGraph(dataA);
+            SolveGraph(dataB);
 
             AssertFloatsAreEqual(12, dataA.ConsumedRate("Gas"));
             AssertFloatsAreEqual(12, dataB.ConsumedRate("Gas"));
