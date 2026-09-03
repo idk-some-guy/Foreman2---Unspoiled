@@ -129,5 +129,29 @@ namespace ForemanTest.Storage {
             Assert.AreEqual(2, reopened.SchemaVersions.Single().Version);
             Assert.AreEqual("pre-migration-preset", reopened.Settings.Single().CurrentPresetName);
         }
+
+        //Reproduces a process death between the ALTER TABLE and the SchemaVersion bump: the column
+        //landed but the version row is still 1, so a naive re-run would re-issue the same ALTER TABLE
+        //and hit SQLITE_ERROR "duplicate column name".
+        private string BuildCrashedMigrationFixture() {
+            string dbPath = BuildV1Fixture();
+            using (var legacy = new LegacyV1Context(dbPath)) {
+                legacy.Database.ExecuteSqlRaw("ALTER TABLE Settings ADD COLUMN UiScale REAL NOT NULL DEFAULT 1.0");
+            }
+            return dbPath;
+        }
+
+        [TestMethod]
+        public void Open_HalfMigratedV1Db_HealsWithoutThrowing_PreservesData() {
+            string dbPath = BuildCrashedMigrationFixture();
+
+            using ForemanDbContext context = ForemanDbContext.Open(dbPath);
+
+            SettingsRow row = context.Settings.Single();
+            Assert.AreEqual("pre-migration-preset", row.CurrentPresetName);
+            Assert.AreEqual(99, row.IconsSize);
+            Assert.AreEqual(1.0, row.UiScale);
+            Assert.AreEqual(2, context.SchemaVersions.Single().Version);
+        }
     }
 }

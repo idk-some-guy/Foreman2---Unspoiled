@@ -1,5 +1,8 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using System;
+using System.Data;
 using System.IO;
 using System.Linq;
 
@@ -57,13 +60,37 @@ namespace Foreman.DataCaching.Storage {
         //SchemaVersionRow keys itself by Version (no separate id column), so bumping the version is a
         //remove-then-add rather than an in-place field update.
         private static void MigrateToCurrent(ForemanDbContext context, SchemaVersionRow versionRow) {
-            if (versionRow.Version == 1) {
+            using IDbContextTransaction transaction = context.Database.BeginTransaction();
+
+            //A prior Open may have crashed after the ALTER but before the version bump below; the column
+            //would then already be there, and re-issuing the ALTER would throw "duplicate column name".
+            if (versionRow.Version == 1 && !ColumnExists(context, "Settings", "UiScale")) {
                 context.Database.ExecuteSqlRaw("ALTER TABLE Settings ADD COLUMN UiScale REAL NOT NULL DEFAULT 1.0");
             }
 
             context.SchemaVersions.Remove(versionRow);
             context.SchemaVersions.Add(new SchemaVersionRow { Version = CurrentSchemaVersion });
             context.SaveChanges();
+
+            transaction.Commit();
+        }
+
+        private static bool ColumnExists(ForemanDbContext context, string table, string column) {
+            IDbConnection connection = context.Database.GetDbConnection();
+            if (connection.State != ConnectionState.Open) {
+                connection.Open();
+            }
+
+            using IDbCommand command = connection.CreateCommand();
+            command.CommandText = $"PRAGMA table_info({table})";
+            using IDataReader reader = command.ExecuteReader();
+            int nameOrdinal = reader.GetOrdinal("name");
+            while (reader.Read()) {
+                if (string.Equals(reader.GetString(nameOrdinal), column, StringComparison.OrdinalIgnoreCase)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         //SQLITE_NOTADB - the file isn't a SQLite database at all; SQLITE_CORRUPT - its own header/pages
