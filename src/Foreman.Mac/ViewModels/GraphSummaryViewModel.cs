@@ -8,6 +8,7 @@ using Foreman;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Services;
 using Foreman.Mac.Views;
 using Foreman.Models;
 using SkiaSharp;
@@ -32,8 +33,10 @@ namespace Foreman.Mac.ViewModels {
             public double Consumption { get; set; } = c;
         }
 
-        private static readonly IBrush AvailableRowBrush = new ImmutableSolidColorBrush(Color.FromRgb(255, 255, 255));
-        private static readonly IBrush UnavailableRowBrush = new ImmutableSolidColorBrush(Color.FromRgb(255, 192, 203));
+        //Resolved fresh at the top of every Refresh() call (below) against the app's active theme variant -
+        //not readonly, since a light-only literal here is exactly the phase-5b bug this task fixes.
+        private static IBrush AvailableRowBrush = new ImmutableSolidColorBrush(Color.FromRgb(255, 255, 255));
+        private static IBrush UnavailableRowBrush = new ImmutableSolidColorBrush(Color.FromRgb(255, 192, 203));
 
         private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
 
@@ -63,6 +66,9 @@ namespace Foreman.Mac.ViewModels {
         //binds to these properties; it copies them into its own fields and rebuilds fresh filtered lists
         //before each ItemsSource assignment, which is where the reference-equality short-circuit lives.
         public void Refresh(IEnumerable<INodeViewModel> nodes) {
+            AvailableRowBrush = ThemeResources.ResolveBrush("Foreman.Color.ControlBackground", Color.FromRgb(255, 255, 255));
+            UnavailableRowBrush = ThemeResources.ResolveBrush("Foreman.Color.StatusWarningBackground", Color.FromRgb(255, 192, 203));
+
             List<IRecipeNodeViewModel> recipeNodes = [.. nodes.OfType<IRecipeNodeViewModel>()];
             List<INodeViewModel> nodeList = [.. nodes];
 

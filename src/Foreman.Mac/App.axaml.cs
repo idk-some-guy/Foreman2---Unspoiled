@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Avalonia.Styling;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.Mac.Services;
@@ -15,6 +14,10 @@ namespace Foreman.Mac {
         //Set from Program.Main before StartWithClassicDesktopLifetime runs, ahead of this instance even
         //existing - a dev-only switch to the gallery boot path (`--gallery`) instead of the normal shell.
         public static bool GalleryMode { get; set; }
+
+        public ThemeService Theme { get; }
+
+        public App() => Theme = new ThemeService(this);
 
         public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -84,12 +87,6 @@ namespace Foreman.Mac {
             }
         }
 
-        public void ApplyTheme(ThemeMode mode) {
-            RequestedThemeVariant = mode switch {
-                ThemeMode.Light => ThemeVariant.Light,
-                ThemeMode.Dark => ThemeVariant.Dark,
-                _ => ThemeVariant.Default,
-            };
-        }
+        public void ApplyTheme(ThemeMode mode) => Theme.Apply(mode);
     }
 }

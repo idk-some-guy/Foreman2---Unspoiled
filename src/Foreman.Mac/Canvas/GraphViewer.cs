@@ -1,14 +1,17 @@
+using Avalonia.Styling;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Services;
 using Foreman.Serialization;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using AvColor = Avalonia.Media.Color;
 
 namespace Foreman.Mac.Canvas {
     public sealed record GraphLoadResult(bool Success, string? ErrorMessage) {
@@ -383,10 +386,20 @@ namespace Foreman.Mac.Canvas {
         //equivalent), the light path here returns to this port's own cold-start light constants - see
         //docs/upstream-divergences.md.
         public void ApplyTheme(bool dark) {
-            SKColor bg = dark ? DarkBackground : LightBackground;
+            SKColor bg = ResolveBackgroundColor(dark);
             SKColor fg = dark ? DarkForeground : LightForeground;
             BackgroundColor = bg;
             Grid.SetGridColors(bg, fg);
+        }
+
+        //Foreman.Color.CanvasBackground per active variant (Task 1's token, not this class' own fallback
+        //constants) - resolved explicitly off the passed-in dark flag rather than ActualThemeVariant, since
+        //callers (ApplyLoadedSettings, Settings Confirm) already compute dark from FlagDarkMode themselves.
+        private static SKColor ResolveBackgroundColor(bool dark) {
+            SKColor fallback = dark ? DarkBackground : LightBackground;
+            AvColor avFallback = new(fallback.Alpha, fallback.Red, fallback.Green, fallback.Blue);
+            AvColor color = ThemeResources.ResolveColor("Foreman.Color.CanvasBackground", dark ? ThemeVariant.Dark : ThemeVariant.Light, avFallback);
+            return new SKColor(color.R, color.G, color.B, color.A);
         }
 
         //Ports ImageExportForm.ExportBitmap's two transform variants (reference §3): upstream sets its own

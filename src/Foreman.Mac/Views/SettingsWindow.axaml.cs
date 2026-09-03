@@ -258,6 +258,7 @@ namespace Foreman.Mac.Views {
             ViewModel.LoadFrom(BuildGraphOptionsSnapshot());
 
             UpdateModList();
+            EnabledObjectsListItem.RefreshTheme();
             LoadUnfilteredLists();
         }
 

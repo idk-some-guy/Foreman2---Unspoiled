@@ -11,6 +11,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Models;
 using System;
@@ -25,11 +26,9 @@ namespace Foreman.Mac.Views {
     //current graph (both constructor overloads collapse to the node-list one below, matching upstream -
     //MainForm always passes the whole session, never a subset).
     public partial class GraphSummaryWindow : Window {
-        //Both row backgrounds (see GraphSummaryViewModel's Available/UnavailableRowBrush) are light
-        //regardless of app theme, so the row text needs an explicit dark Foreground too - the live Fluent
-        //dark theme's default TextBlock foreground is white, which is invisible on either background
-        //otherwise.
-        internal static readonly IBrush RowForegroundBrush = new ImmutableSolidColorBrush(Color.FromRgb(0, 0, 0));
+        //Resolved fresh in the constructor below against the app's active theme variant, ahead of
+        //ViewModel.Refresh(nodes) - the row records' Foreground initializers read this field at construction.
+        internal static IBrush RowForegroundBrush = new ImmutableSolidColorBrush(Color.FromRgb(0, 0, 0));
         private static readonly Regex ComparerRegex = new(@"\d+", RegexOptions.Compiled);
 
         internal GraphSummaryViewModel ViewModel { get; } = new GraphSummaryViewModel();
@@ -143,6 +142,7 @@ namespace Foreman.Mac.Views {
 
             IEnumerable<IRecipeNodeViewModel> recipeNodes = [.. nodes.OfType<IRecipeNodeViewModel>()];
 
+            RowForegroundBrush = ThemeResources.ResolveBrush("Foreman.Color.StatusForeground", Color.FromRgb(0, 0, 0));
             ViewModel.Refresh(nodes);
             unfilteredAssemblerList = [.. ViewModel.Assemblers];
             unfilteredMinerList = [.. ViewModel.Miners];

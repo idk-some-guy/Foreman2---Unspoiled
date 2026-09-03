@@ -43,19 +43,21 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new SKColor(100, 100, 200), SamplePixel(surface, Size / 2 + 10, Size / 2 + 35));
         }
 
+        //Task 2: the clear color is now Foreman.Color.CanvasBackground (#1E1E20 dark / #FAFAFA light),
+        //not the pre-token literal (23,23,23)/white - see task-2-report.md's light-value-equivalence table.
         [Fact]
-        public void ApplyTheme_Dark_PaintClearsToUpstreamDarkBackground() {
+        public void ApplyTheme_Dark_PaintClearsToDarkCanvasBackgroundToken() {
             var viewer = new GraphViewer(new Viewport(Size, Size), new GridManager());
             viewer.ApplyTheme(dark: true);
 
             using SKSurface surface = SKSurface.Create(new SKImageInfo(Size, Size));
             viewer.Paint(surface.Canvas);
 
-            Assert.Equal(new SKColor(23, 23, 23), SamplePixel(surface, 5, 5));
+            Assert.Equal(new SKColor(0x1E, 0x1E, 0x20), SamplePixel(surface, 5, 5));
         }
 
         [Fact]
-        public void ApplyTheme_Light_PaintClearsToWhiteBackground() {
+        public void ApplyTheme_Light_PaintClearsToLightCanvasBackgroundToken() {
             var viewer = new GraphViewer(new Viewport(Size, Size), new GridManager());
             viewer.ApplyTheme(dark: true);
             viewer.ApplyTheme(dark: false);
@@ -63,7 +65,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             using SKSurface surface = SKSurface.Create(new SKImageInfo(Size, Size));
             viewer.Paint(surface.Canvas);
 
-            Assert.Equal(SKColors.White, SamplePixel(surface, 5, 5));
+            Assert.Equal(new SKColor(0xFA, 0xFA, 0xFA), SamplePixel(surface, 5, 5));
         }
     }
 }

@@ -7,6 +7,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- True dark mode: follows the system appearance, with manual light/dark override.
+
 ### Fixed
 
 - Low-priority recipes now work: the default priority weight overflowed the solver and failed any

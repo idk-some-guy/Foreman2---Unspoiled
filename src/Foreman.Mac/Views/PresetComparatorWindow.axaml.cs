@@ -33,7 +33,9 @@ namespace Foreman.Mac.Views {
 
         internal enum RowSimilarity { Equal, CloseEnough, Different }
 
-        internal static readonly IBrush EqualBackground = new ImmutableSolidColorBrush(Color.FromRgb(255, 255, 255));
+        //Resolved fresh at the top of every PresetComparatorViewModel.RebuildTab call against the app's
+        //active theme variant.
+        internal static IBrush EqualBackground = new ImmutableSolidColorBrush(Color.FromRgb(255, 255, 255));
 
         internal PresetComparatorViewModel ViewModel { get; } = new PresetComparatorViewModel();
 

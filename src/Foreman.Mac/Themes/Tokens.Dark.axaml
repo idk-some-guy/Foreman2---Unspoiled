@@ -18,6 +18,13 @@
   <Color x:Key="Foreman.Color.Selection">#FF9F0A</Color>
   <Color x:Key="Foreman.Color.Error">#FF453A</Color>
 
+  <!-- Status tokens: existing availability/similarity row coloring (GraphSummary, Comparator,
+       Enabled Objects), not part of the phase 9 visual-language contract - see task-2-report.md. -->
+  <Color x:Key="Foreman.Color.StatusForeground">#F2F2F2</Color>
+  <Color x:Key="Foreman.Color.StatusWarningForeground">#FF8A80</Color>
+  <Color x:Key="Foreman.Color.StatusWarningBackground">#4A2B30</Color>
+  <Color x:Key="Foreman.Color.StatusCautionBackground">#453D22</Color>
+
   <x:Double x:Key="Foreman.Space.Space1">4</x:Double>
   <x:Double x:Key="Foreman.Space.Space2">8</x:Double>
   <x:Double x:Key="Foreman.Space.Space3">12</x:Double>

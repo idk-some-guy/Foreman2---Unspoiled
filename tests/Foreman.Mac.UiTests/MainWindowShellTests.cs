@@ -281,7 +281,7 @@ namespace Foreman.Mac.UiTests {
 
             window.ApplyLoadedSettings();
 
-            Assert.Equal(new SKColor(23, 23, 23), window.GraphCanvas.Viewer.BackgroundColor);
+            Assert.Equal(new SKColor(0x1E, 0x1E, 0x20), window.GraphCanvas.Viewer.BackgroundColor);
         }
 
         [AvaloniaFact]
@@ -294,7 +294,7 @@ namespace Foreman.Mac.UiTests {
             window.Settings = new AppSettings { FlagDarkMode = ThemeMode.Light };
             window.ApplyLoadedSettings();
 
-            Assert.Equal(SKColors.White, window.GraphCanvas.Viewer.BackgroundColor);
+            Assert.Equal(new SKColor(0xFA, 0xFA, 0xFA), window.GraphCanvas.Viewer.BackgroundColor);
         }
 
         //Regression (human nit 1, upstream MainForm.cs:36-46): a Settings Confirm with "Enable Dark Mode"
@@ -314,7 +314,7 @@ namespace Foreman.Mac.UiTests {
             app.ApplyTheme(window.Settings.FlagDarkMode);
 
             Assert.Equal(ThemeVariant.Light, window.ActualThemeVariant);
-            Assert.Equal(SKColors.White, window.GraphCanvas.Viewer.BackgroundColor);
+            Assert.Equal(new SKColor(0xFA, 0xFA, 0xFA), window.GraphCanvas.Viewer.BackgroundColor);
         }
 
         //Regression (task 7): DCache/DefaultAssemblerQuality were only ever assigned inside LoadDocument, so
