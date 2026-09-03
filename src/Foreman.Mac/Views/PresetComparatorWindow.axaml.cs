@@ -4,10 +4,9 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
-using SkiaSharp;
+using Foreman.Mac.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,10 +34,8 @@ namespace Foreman.Mac.Views {
         internal enum RowSimilarity { Equal, CloseEnough, Different }
 
         internal static readonly IBrush EqualBackground = new ImmutableSolidColorBrush(Color.FromRgb(255, 255, 255));
-        private static readonly IBrush CloseEnoughBackground = new ImmutableSolidColorBrush(Color.FromRgb(240, 230, 140));
-        private static readonly IBrush DifferentBackground = new ImmutableSolidColorBrush(Color.FromRgb(255, 192, 203));
-        private static readonly IBrush AvailableForeground = new ImmutableSolidColorBrush(Color.FromRgb(0, 0, 0));
-        private static readonly IBrush UnavailableForeground = new ImmutableSolidColorBrush(Color.FromRgb(139, 0, 0));
+
+        internal PresetComparatorViewModel ViewModel { get; } = new PresetComparatorViewModel();
 
         private readonly ComboBox leftPresetSelectionBox;
         private readonly ComboBox rightPresetSelectionBox;
@@ -56,8 +53,6 @@ namespace Foreman.Mac.Views {
         private readonly ListBox rightOnlyListView;
         private readonly SyncedListPair syncedPair;
 
-        private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
-
         private readonly List<object>[] unfilteredModTabObjects = [[], [], [], []];
         private readonly List<object>[] unfilteredItemTabObjects = [[], [], [], []];
         private readonly List<object>[] unfilteredRecipeTabObjects = [[], [], [], []];
@@ -69,7 +64,6 @@ namespace Foreman.Mac.Views {
         private readonly List<object>[][] tabSet;
         private List<object>[] unfilteredSelectedTabObjects;
 
-        private readonly List<ComparatorRow>[] unfilteredSelectedTabRows = [[], [], [], []];
         private readonly List<ComparatorRow>[] filteredSelectedTabRows = [[], [], [], []];
 
         private bool comparing;
@@ -334,43 +328,17 @@ namespace Foreman.Mac.Views {
         }
 
         //Ports UpdateUnfilteredLVIs (reference PresetComparatorForm.cs:213-336): rebuilds all 4 row lists
-        //for the currently selected tab, then colors the matched Left/Right pair.
-        private void UpdateUnfilteredRows() {
-            int tabIndex = comparisonTabControl.SelectedIndex;
-            for (int i = 0; i < 4; i++) {
-                unfilteredSelectedTabRows[i].Clear();
-                foreach (object obj in unfilteredSelectedTabObjects[i])
-                    unfilteredSelectedTabRows[i].Add(tabIndex == 0 ? NewModRow((string)obj) : NewObjectRow((IDataObjectBase)obj));
-            }
+        //for the currently selected tab, then colors the matched Left/Right pair. The row-assembly itself
+        //(NewModRow/NewObjectRow, icon baking, similarity coloring) lives on PresetComparatorViewModel
+        //(Task 8) - RebuildTab always hands back fresh List instances per bucket.
+        private void UpdateUnfilteredRows() => ViewModel.RebuildTab(comparisonTabControl.SelectedIndex, unfilteredSelectedTabObjects);
 
-            for (int i = 0; i < unfilteredSelectedTabRows[Left].Count; i++) {
-                ComparatorRow l = unfilteredSelectedTabRows[Left][i];
-                ComparatorRow r = unfilteredSelectedTabRows[Right][i];
-                (bool similarInternals, bool similarNames) = EvaluateSimilarity(tabIndex, l.Name, l.Tag, r.Name, r.Tag);
-
-                RowSimilarity similarity = similarInternals ? (similarNames ? RowSimilarity.Equal : RowSimilarity.CloseEnough) : RowSimilarity.Different;
-                IBrush background = similarity switch {
-                    RowSimilarity.Equal => EqualBackground,
-                    RowSimilarity.CloseEnough => CloseEnoughBackground,
-                    _ => DifferentBackground,
-                };
-                l.Similarity = similarity;
-                l.Background = background;
-                r.Similarity = similarity;
-                r.Background = background;
-            }
-        }
-
-        //Mod rows have no Available concept - unconditionally regular/black, matching upstream's mod
-        //branch. FilterKey intentionally keeps the raw (unlowered) text here too, mirroring upstream's
-        //lvItem.Name = lvItem.Text for mods (as opposed to doBase.Name.ToLowerInvariant() below).
-        private static ComparatorRow NewModRow(string text) =>
-            new(text, text, text, null, AvailableForeground, FontStyle.Normal);
-
-        private ComparatorRow NewObjectRow(IDataObjectBase dataObject) =>
-            new(dataObject, dataObject.FriendlyName, dataObject.Name.ToLowerInvariant(), GetOrBakeIcon(dataObject.Icon),
-                dataObject.Available ? AvailableForeground : UnavailableForeground,
-                dataObject.Available ? FontStyle.Normal : FontStyle.Italic);
+        private IReadOnlyList<ComparatorRow> UnfilteredRows(int tabBucketIndex) => tabBucketIndex switch {
+            LeftOnly => ViewModel.LeftOnlyRows,
+            Left => ViewModel.LeftRows,
+            Right => ViewModel.RightRows,
+            _ => ViewModel.RightOnlyRows,
+        };
 
         //Ports UpdateFilteredLists (reference PresetComparatorForm.cs:338-385). Rebuilds fresh List
         //instances per call rather than clearing the shared arrays in place: the 4 ListBoxes stay bound to
@@ -386,7 +354,7 @@ namespace Foreman.Mac.Views {
 
             for (int i = 0; i <= RightOnly; i += 3) {
                 var filtered = new List<ComparatorRow>();
-                foreach (ComparatorRow row in unfilteredSelectedTabRows[i])
+                foreach (ComparatorRow row in UnfilteredRows(i))
                     if ((showUnavailable || row.Tag is not IDataObjectBase dObj || dObj.Available) &&
                         (row.FilterKey.Contains(filter, StringComparison.Ordinal) || row.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)))
                         filtered.Add(row);
@@ -395,9 +363,11 @@ namespace Foreman.Mac.Views {
 
             var filteredLeft = new List<ComparatorRow>();
             var filteredRight = new List<ComparatorRow>();
-            for (int j = 0; j < unfilteredSelectedTabRows[Left].Count; j++) {
-                ComparatorRow left = unfilteredSelectedTabRows[Left][j];
-                ComparatorRow right = unfilteredSelectedTabRows[Right][j];
+            IReadOnlyList<ComparatorRow> unfilteredLeft = ViewModel.LeftRows;
+            IReadOnlyList<ComparatorRow> unfilteredRight = ViewModel.RightRows;
+            for (int j = 0; j < unfilteredLeft.Count; j++) {
+                ComparatorRow left = unfilteredLeft[j];
+                ComparatorRow right = unfilteredRight[j];
 
                 bool leftIsData = left.Tag is IDataObjectBase ld && ld.Available;
                 bool rightIsData = right.Tag is IDataObjectBase rd && rd.Available;
@@ -428,34 +398,13 @@ namespace Foreman.Mac.Views {
             foreach (List<object>[] set in tabSet)
                 foreach (List<object> list in set)
                     list.Clear();
-            for (int i = 0; i < 4; i++) {
-                unfilteredSelectedTabRows[i].Clear();
+            ViewModel.Clear();
+            for (int i = 0; i < 4; i++)
                 filteredSelectedTabRows[i].Clear();
-            }
             leftOnlyListView.ItemsSource = null;
             leftListView.ItemsSource = null;
             rightListView.ItemsSource = null;
             rightOnlyListView.ItemsSource = null;
-        }
-
-        private Bitmap GetOrBakeIcon(SKBitmap icon) {
-            if (!bakedIconCache.TryGetValue(icon, out Bitmap? baked)) {
-                baked = BakeIcon(icon);
-                bakedIconCache[icon] = baked;
-            }
-            return baked;
-        }
-
-        //Matches upstream's comparator-specific IconList.ImageSize of 32x32 (its other lists elsewhere
-        //in the app use 24x24 - this form is the one exception, ported as-is).
-        private static Bitmap BakeIcon(SKBitmap icon) {
-            const int size = 32;
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(size, size, SKColorType.Bgra8888, SKAlphaType.Premul));
-            using var paint = new SKPaint { IsAntialias = true };
-            surface.Canvas.DrawBitmap(icon, new SKRect(0, 0, size, size), paint);
-            using SKPixmap pixmap = surface.PeekPixels();
-            return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, pixmap.GetPixels(),
-                new PixelSize(pixmap.Info.Width, pixmap.Info.Height), new Vector(96, 96), pixmap.RowBytes);
         }
 
         //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).

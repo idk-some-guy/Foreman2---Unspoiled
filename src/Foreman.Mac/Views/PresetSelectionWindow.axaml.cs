@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.Mac.ViewModels;
 using System.Collections.Generic;
 
 namespace Foreman.Mac.Views {
@@ -11,26 +12,32 @@ namespace Foreman.Mac.Views {
     //(Preset/Mods/Items/Recipes) is a shared Grid.ColumnDefinitions string reused by the header row and the
     //per-item DataTemplate rather than real ColumnHeaders.
     public partial class PresetSelectionWindow : Window {
+        private readonly List<PresetRow> presetRows;
         private readonly ListBox presetListView;
         private readonly Button confirmationButton;
         private readonly Button cancellingButton;
+
+        internal PresetSelectionViewModel ViewModel { get; } = new PresetSelectionViewModel();
 
         public Preset? ChosenPreset { get; private set; }
 
         public PresetSelectionWindow() : this([]) {
         }
 
-        //Ports the constructor's sort + per-package row build (PresetSelectionForm.cs:14-53): List<T>.Sort
-        //calls PresetErrorPackage.CompareTo, so the closest-matching preset lands first.
+        //Ports the constructor's sort + per-package row build (PresetSelectionForm.cs:14-53): the sort and
+        //row build now live on PresetSelectionViewModel.Load (Task 8), which calls List<T>.Sort itself, so
+        //PresetErrorPackage.CompareTo still lands the closest-matching preset first.
         public PresetSelectionWindow(List<PresetErrorPackage> presetErrors) {
             InitializeComponent();
-            presetErrors.Sort();
+            ViewModel.Load(presetErrors);
 
             presetListView = this.FindControl<ListBox>("PresetSelectionListView")!;
             confirmationButton = this.FindControl<Button>("ConfirmationButton")!;
             cancellingButton = this.FindControl<Button>("CancellingButton")!;
 
-            presetListView.ItemsSource = BuildRows(presetErrors);
+            presetRows = [.. ViewModel.Presets];
+            presetListView.ItemsSource = presetRows;
+            presetListView.SelectionChanged += (_, _) => ViewModel.Selected = presetListView.SelectedItem as PresetRow;
             presetListView.DoubleTapped += (_, _) => Commit();
             confirmationButton.Click += (_, _) => Commit();
             cancellingButton.Click += (_, _) => Close(false);
@@ -41,7 +48,7 @@ namespace Foreman.Mac.Views {
         //Ports ConfirmationButton_Click/PresetSelectionListView_MouseDoubleClick (PresetSelectionForm.cs:57-76):
         //both commit the selected row the same way.
         private void Commit() {
-            if (presetListView.SelectedItem is not PresetRow row)
+            if (ViewModel.Selected is not PresetRow row)
                 return;
             ChosenPreset = row.Preset;
             Close(true);
