@@ -1,7 +1,10 @@
+using ForemanTest.support;
 using Foreman.Models.Solver;
+using Highs;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace ForemanTest {
@@ -24,7 +27,7 @@ namespace ForemanTest {
         [TestMethod]
         public void Solve_DoesNotWriteToStdout() {
             var solver = new HighsSolver();
-            ILpVariable x = solver.MakeNumVar(0, double.PositiveInfinity, "x");
+            ILpVariable x = solver.MakeNumVar(0, double.PositiveInfinity);
             ILpConstraint constraint = solver.MakeConstraint(10, 10);
             constraint.SetCoefficient(x, 1);
             solver.SetObjectiveCoefficient(x, 1);
@@ -50,6 +53,28 @@ namespace ForemanTest {
 
             Assert.AreEqual(LpSolveStatus.Optimal, status);
             Assert.AreEqual(string.Empty, capturedOutput, "HiGHS must not print its solve banner/log to stdout by default.");
+        }
+
+        [TestMethod]
+        [DataRow(HighsStatus.kOk, HighsModelStatus.kOptimal, true)]
+        [DataRow(HighsStatus.kWarning, HighsModelStatus.kOptimal, true)]
+        [DataRow(HighsStatus.kError, HighsModelStatus.kOptimal, false)]
+        [DataRow(HighsStatus.kOk, HighsModelStatus.kInfeasible, false)]
+        public void IsUsableSolution_AcceptsKWarningAlongsideKOk_RejectsOnlyKErrorOrNonOptimalModel(
+                HighsStatus runStatus, HighsModelStatus modelStatus, bool expected) {
+            // kWarning can still carry an optimal solution (e.g. postsolve residuals) - discarding
+            // it would zero out a whole connected component for no reason. Only kError means there
+            // is nothing to read back.
+            Assert.AreEqual(expected, HighsSolver.IsUsableSolution(runStatus, modelStatus));
+        }
+
+        [TestMethod]
+        public void SolutionValueFor_ColumnBeyondTheSolutionArray_ReturnsZeroInsteadOfThrowing() {
+            var solver = new HighsSolver();
+            FieldInfo solutionField = ReflectionTestHelper.RequireField(typeof(HighsSolver), "solution", BindingFlags.NonPublic | BindingFlags.Instance);
+            solutionField.SetValue(solver, new HighsSolution(numcol: 1, numrow: 0));
+
+            Assert.AreEqual(0.0, solver.SolutionValueFor(5));
         }
     }
 }

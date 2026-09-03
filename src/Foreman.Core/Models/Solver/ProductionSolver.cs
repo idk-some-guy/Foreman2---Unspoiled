@@ -35,15 +35,9 @@ namespace Foreman.Models.Solver {
         // can be uniquely associated.
         private readonly Dictionary<object, ILpVariable> allVariables;
 
-        // We only keep track of constraints as we create them for debugging purposes; the
-        // backing LP solver doesn't expose a way to list them back.
-
         // Keep track of nodes as they are added to ensure the solution contains all of them, even if
         // there are no links.
         private readonly List<BaseNode> nodes;
-
-        // Used to ensure uniqueness of variables names
-        private int counter;
 
         private enum LinkType { LINK, ERROR }
         private enum RateType { ACTUAL, ERROR }
@@ -169,37 +163,25 @@ namespace Foreman.Models.Solver {
             return solver.MakeConstraint(low, high);
         }
 
-        private ILpVariable VariableFor(NodeLink inputLink) {
-            return VariableFor(inputLink, MakeName("link", "S(" + inputLink.ConsumerNode.NodeID + ")", "C(" + inputLink.ConsumerNode.NodeID + ")", inputLink.Item.ToString()));
-        }
-
         private ILpVariable VariableFor(BaseNode node, RateType type = RateType.ACTUAL) {
-            return VariableFor(Tuple.Create(node, type), MakeName("node", type, node.NodeID, node.ToString() ?? "ERR"));
+            return VariableFor(Tuple.Create(node, type));
         }
 
         private ILpVariable VariableForOverflow(BaseNode node, ItemQualityPair item) {
-            return VariableFor(Tuple.Create(node, item), MakeName("node-overflow", node.NodeID, node.ToString() ?? "ERR", item.ToString()));
+            return VariableFor(Tuple.Create(node, item));
         }
 
-        private ILpVariable VariableFor(object key, string name) {
+        private ILpVariable VariableFor(object key) {
             if (allVariables.TryGetValue(key, out ILpVariable? existing))
                 return existing;
 
-            ILpVariable newVar = solver.MakeNumVar(0.0, double.PositiveInfinity, name + ":" + GetSequence());
+            ILpVariable newVar = solver.MakeNumVar(0.0, double.PositiveInfinity);
             allVariables[key] = newVar;
             return newVar;
         }
 
         private double SolutionFor(object key) {
             return allVariables.TryGetValue(key, out ILpVariable? variable) ? variable.SolutionValue() : 0.0;
-        }
-
-        private int GetSequence() {
-            return this.counter += 1;
-        }
-
-        private static string MakeName(params object[] components) {
-            return string.Join(":", components).ToLowerInvariant().Replace(" ", "-");
         }
 
         // A human-readable description of the constraints. Useful for debugging.

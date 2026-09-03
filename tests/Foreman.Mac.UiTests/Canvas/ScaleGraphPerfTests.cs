@@ -33,10 +33,13 @@ namespace Foreman.Mac.UiTests.Canvas {
     //test happens to touch the solver/JIT/element-tree first affects every number below): graph is 2984
     //nodes (1000 recipe + 1984 supplier/consumer) and 1984 links. Wide-viewport paint: IconsOnly 3.6ms,
     //Simple 7.6ms, Regular 16.7ms. Culled small-viewport paint: 6.4ms vs. an uncalled fullGraph paint (all
-    //2984 nodes, PrintStyle): 47.8ms. One full solve of the 1000-node graph: 143.5ms - a cold-solver figure
-    //(no prior CreateSolver call in this run primes OR-Tools' native dylib load, reference: Task 1's
-    //94ms-11s cold-cache finding), not the warm per-solve cost the app pays after ShellBootstrapper's
-    //background warmup completes.
+    //2984 nodes, PrintStyle): 47.8ms.
+    //
+    //The solve figure below is an OR-Tools-era baseline, captured before phase 9 swapped the default
+    //solver to HiGHS (docs/solver-eval.md) - keep reading it as historical, not current: one full solve
+    //of the 1000-node graph, 143.5ms, a cold-solver figure (no prior CreateSolver call in this run primes
+    //OR-Tools' native dylib load, reference: Task 1's 94ms-11s cold-cache finding), not the warm
+    //per-solve cost the app pays after ShellBootstrapper's background warmup completes.
     public class ScaleGraphPerfTests {
         private const string PresetName = "Factorio 2.0 Space Age";
         private const int Width = 1600, Height = 1200;

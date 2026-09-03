@@ -140,12 +140,15 @@ error (`kError` / `kUnknown`), with no solution to read back. Anything at or abo
 but flags itself as numerically risky, while `1e6` is trivially fine, no warning,
 clean optimum.
 
-That last row matters directly: Task 1's fix caps the app's exponent at 6, so the
-`LowPriorityPower` and `PullOutputNodesPower` multipliers the app can actually produce
-top out at `Math.Pow(10, 6) = 1e6`. That is squarely inside HiGHS's comfortable range,
-nowhere near either the `1e20` rejection wall or the `1e10` warning threshold. Task 4's
-clamp only has to guard against a caller bypassing Task 1's own guard (defense in depth,
-not a live numeric-stability concern at today's actual coefficient values).
+That last row matters, but only for one of the app's two dials. Task 1's fix caps
+`LowPriorityPower`'s exponent at 6 at the `GraphOptimisation.cs` call site, so that
+multiplier tops out at `Math.Pow(10, 6) = 1e6`, squarely inside HiGHS's comfortable range.
+`PullOutputNodesPower` isn't capped at that same call site: `ProductionGraph`'s own default
+of 10 produces `Math.Pow(10, 10) = 1e10`, HiGHS's warning threshold, and only the Settings UI
+masks the exponent to `<= 5`, not the solve path itself. `ProductionSolver`'s error-objective
+coefficient (`1e2 / Math.Min(1e-3, minRecipeOutRate)`) is uncapped altogether and can clear
+`1e7` on an extreme `minRecipeOutRate`. Task 4's clamp is a live guard against those paths,
+not just defense in depth against a caller bypassing Task 1's own guard.
 
 ### (f) linux-x64 verification scope
 

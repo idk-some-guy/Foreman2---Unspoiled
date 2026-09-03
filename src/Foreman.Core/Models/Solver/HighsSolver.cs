@@ -8,8 +8,13 @@ namespace Foreman.Models.Solver {
     // materialize it at Solve() time.
     public class HighsSolver : ILpSolver {
         // HiGHS rejects objective coefficients >= 1e20 outright (solve-time kError/kUnknown, no
-        // solution) and warns above 1e10; see docs/solver-eval.md §e. The app's own ceiling is 1e6,
-        // so this only guards a caller bypassing that ceiling.
+        // solution) and warns above 1e10; see docs/solver-eval.md §e. This isn't just a guard
+        // against a caller bypassing an already-capped app dial: GraphOptimisation.cs caps
+        // LowPriorityPower's exponent at 6 (1e6, comfortably inside range), but PullOutputNodesPower
+        // goes through uncapped there - ProductionGraph's own default of 10 gives 1e10, HiGHS's
+        // warning threshold, and only the Settings UI masks the exponent to <= 5. ProductionSolver's
+        // error-objective coefficient (1e2 / min(1e-3, minRecipeOutRate)) is uncapped altogether and
+        // can clear 1e7 on an extreme minRecipeOutRate. This clamp is what actually keeps those live.
         private const double MaxObjectiveCoefficient = 1e9;
 
         private readonly List<(double Low, double High)> columns = [];
@@ -20,7 +25,7 @@ namespace Foreman.Models.Solver {
 
         public static HighsSolver Create() => new();
 
-        public ILpVariable MakeNumVar(double low, double high, string name) {
+        public ILpVariable MakeNumVar(double low, double high) {
             int index = columns.Count;
             columns.Add((low, high));
             objective.Add(0.0);
@@ -41,18 +46,27 @@ namespace Foreman.Models.Solver {
         public LpSolveStatus Solve() {
             using var solver = new HighsLpSolver();
             _ = solver.setBoolOptionValue("output_flag", 0);
-            _ = solver.passLp(BuildModel());
-            var runStatus = solver.run();
-            var modelStatus = solver.GetModelStatus();
+            if (solver.passLp(BuildModel()) == HighsStatus.kError)
+                return LpSolveStatus.NotOptimal;
 
-            if (runStatus != HighsStatus.kOk || modelStatus != HighsModelStatus.kOptimal)
+            HighsStatus runStatus = solver.run();
+            HighsModelStatus modelStatus = solver.GetModelStatus();
+            if (!IsUsableSolution(runStatus, modelStatus))
                 return LpSolveStatus.NotOptimal;
 
             solution = solver.getSolution();
             return LpSolveStatus.Optimal;
         }
 
-        internal double SolutionValueFor(int column) => solution?.colvalue[column] ?? 0.0;
+        // kWarning can still carry an optimal solution (e.g. postsolve residuals) - only kError
+        // means there is nothing to read back.
+        internal static bool IsUsableSolution(HighsStatus runStatus, HighsModelStatus modelStatus) =>
+            runStatus != HighsStatus.kError && modelStatus == HighsModelStatus.kOptimal;
+
+        internal double SolutionValueFor(int column) {
+            double[]? values = solution?.colvalue;
+            return values is not null && column >= 0 && column < values.Length ? values[column] : 0.0;
+        }
 
         internal void SetCoefficient(int row, int column, double coefficient) => rows[row].Coefficients[column] = coefficient;
 
