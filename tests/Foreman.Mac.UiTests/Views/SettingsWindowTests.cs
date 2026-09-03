@@ -8,16 +8,19 @@ using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.DataCaching.Storage;
 using Foreman.Mac;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
 using Foreman.Models;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -279,6 +282,114 @@ namespace Foreman.Mac.UiTests.Views {
             await window.SimulateDeletePresetMenuItemClickAsync(spared);
 
             Assert.Contains(spared, options.Presets!);
+        }
+
+        //--- Delete preset db cleanup (Task 7 fix round) --------------------------------------------------
+
+        private static ForemanDbContext OpenSharedDb() =>
+            ForemanDbContext.Open(StoragePaths.DbPath(PresetProcessor.ResolveUserDataDirectory()));
+
+        private static async Task SeedDbPresetAsync(string presetName, string pjsonText, string iconName, byte colorSeed) {
+            string datPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".dat");
+            using var bitmap = new SKBitmap(2, 2, SKColorType.Rgba8888, SKAlphaType.Premul);
+            using (var canvas = new SKCanvas(bitmap))
+                canvas.Clear(new SKColor(colorSeed, colorSeed, colorSeed, 255));
+            var icons = new Dictionary<string, IconColorPair> {
+                [iconName] = new IconColorPair(bitmap, System.Drawing.Color.FromArgb(255, colorSeed, colorSeed, colorSeed)),
+            };
+            await ForemanIconCacheFile.WriteAsync(datPath, icons);
+
+            using ForemanDbContext db = OpenSharedDb();
+            PresetStore.Import(db, presetName, pjsonText, null);
+            IconStore.ImportFoic(db, presetName, datPath);
+            File.Delete(datPath);
+        }
+
+        private static void DeleteDbRowsForTestPreset(string presetName) {
+            using ForemanDbContext db = OpenSharedDb();
+            if (db.Presets.Find(presetName) is PresetDataRow row)
+                db.Presets.Remove(row);
+            db.PresetIcons.RemoveRange(db.PresetIcons.Where(r => r.PresetName == presetName));
+            db.SaveChanges();
+        }
+
+        [AvaloniaFact]
+        public async Task DeletePresetMenuItem_Confirmed_RemovesDbRowsAndOrphanedBlobs_LeavesOtherPresetsIntact() {
+            string presetToDelete = "Delete-Db-Doomed-" + Guid.NewGuid().ToString("N");
+            string presetToKeep = "Delete-Db-Kept-" + Guid.NewGuid().ToString("N");
+            try {
+                await SeedDbPresetAsync(presetToDelete, "{\"marker\":\"doomed\"}", "doomed-icon", 41);
+                await SeedDbPresetAsync(presetToKeep, "{\"marker\":\"kept\"}", "kept-icon", 42);
+
+                string deletedBlobHash;
+                string keptBlobHash;
+                using (ForemanDbContext seedDb = OpenSharedDb()) {
+                    deletedBlobHash = seedDb.PresetIcons.Single(r => r.PresetName == presetToDelete).Sha256;
+                    keptBlobHash = seedDb.PresetIcons.Single(r => r.PresetName == presetToKeep).Sha256;
+                }
+
+                var current = new Preset(VanillaPresetName, true, true);
+                var doomed = new Preset(presetToDelete, false, false);
+                var options = NewOptions(await GetCacheAsync(), [current, doomed]);
+                var window = new SettingsWindow(options) { DeleteConfirmationStub = _ => Task.FromResult(true) };
+
+                await window.SimulateDeletePresetMenuItemClickAsync(doomed);
+
+                using ForemanDbContext verifyDb = OpenSharedDb();
+                Assert.Null(verifyDb.Presets.Find(presetToDelete));
+                Assert.Empty(verifyDb.PresetIcons.Where(r => r.PresetName == presetToDelete));
+                Assert.Null(verifyDb.IconBlobs.Find(deletedBlobHash));
+
+                Assert.NotNull(verifyDb.Presets.Find(presetToKeep));
+                Assert.Single(verifyDb.PresetIcons.Where(r => r.PresetName == presetToKeep));
+                Assert.NotNull(verifyDb.IconBlobs.Find(keptBlobHash));
+            } finally {
+                DeleteDbRowsForTestPreset(presetToDelete);
+                DeleteDbRowsForTestPreset(presetToKeep);
+            }
+        }
+
+        //Pins the staleness regression the review found: before this fix, DeletePresetAsync cleared only
+        //the disk trio, so a different preset hand-placed under the deleted name still read back the first
+        //preset's cached db content instead of its own - silently wrong data, not a crash.
+        [AvaloniaFact]
+        public async Task DeletePresetMenuItem_Confirmed_ThenDifferentPresetHandPlacedUnderSameName_ServesTheNewContent() {
+            string presetName = "Delete-Staleness-" + Guid.NewGuid().ToString("N");
+            string basePath = PresetProcessor.GetUserPresetPath(presetName, "");
+            try {
+                await SeedDbPresetAsync(presetName, "{\"marker\":\"old\"}", "old-icon", 51);
+
+                var current = new Preset(VanillaPresetName, true, true);
+                var doomed = new Preset(presetName, false, false);
+                var options = NewOptions(await GetCacheAsync(), [current, doomed]);
+                var window = new SettingsWindow(options) { DeleteConfirmationStub = _ => Task.FromResult(true) };
+                await window.SimulateDeletePresetMenuItemClickAsync(doomed);
+
+                Directory.CreateDirectory(Path.GetDirectoryName(basePath)!);
+                File.WriteAllText(basePath + ".pjson", "{\"marker\":\"new\"}");
+                using (var newBitmap = new SKBitmap(2, 2, SKColorType.Rgba8888, SKAlphaType.Premul)) {
+                    using (var canvas = new SKCanvas(newBitmap))
+                        canvas.Clear(new SKColor(52, 52, 52, 255));
+                    var newIcons = new Dictionary<string, IconColorPair> {
+                        ["new-icon"] = new IconColorPair(newBitmap, System.Drawing.Color.FromArgb(255, 52, 52, 52)),
+                    };
+                    await ForemanIconCacheFile.WriteAsync(basePath + ".dat", newIcons);
+                }
+
+                JsonObject loaded = PresetProcessor.PrepPreset(new Preset(presetName, false, false));
+
+                Assert.Equal("new", loaded["marker"]!.GetValue<string>());
+                var iconNames = PresetProcessor.GetPresetIconEntries(new Preset(presetName, false, false)).Select(i => i.Name).ToList();
+                Assert.Contains("new-icon", iconNames);
+                Assert.DoesNotContain("old-icon", iconNames);
+            } finally {
+                foreach (string extension in new[] { ".pjson", ".json", ".dat" }) {
+                    string path = basePath + extension;
+                    if (File.Exists(path))
+                        File.Delete(path);
+                }
+                DeleteDbRowsForTestPreset(presetName);
+            }
         }
 
         //--- Import (reference io-reference.md §4/§7) -----------------------------------------------------

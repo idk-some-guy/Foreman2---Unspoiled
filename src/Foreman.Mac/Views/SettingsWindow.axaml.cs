@@ -10,6 +10,7 @@ using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.DataCaching.Storage;
 using Foreman.Mac;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
@@ -619,8 +620,31 @@ namespace Foreman.Mac.Views {
                     File.Delete(path);
             }
 
+            DeletePresetDbRows(preset.Name);
+
             Options.Presets?.Remove(preset);
             presetListBox.ItemsSource = (Options.Presets ?? []).Where(p => !p.IsCurrentlySelected).ToList();
+        }
+
+        //Fix round (Task 7 review): the disk trio alone left stale PresetDataRow/PresetIconRow rows behind,
+        //so re-importing a different preset under the deleted name read back the old cached content instead
+        //of its own. Same RemoveRange shape IconStore.ImportFoic uses for its own PresetIcons rewrite, plus
+        //a sweep for IconBlobs no PresetIconRow references anymore - safe since blobs are content-addressed
+        //and shared by hash across presets.
+        private static void DeletePresetDbRows(string presetName) {
+            using ForemanDbContext db = ForemanDbContext.Open(StoragePaths.DbPath(PresetProcessor.ResolveUserDataDirectory()));
+
+            if (db.Presets.Find(presetName) is PresetDataRow dataRow)
+                db.Presets.Remove(dataRow);
+
+            List<PresetIconRow> iconRows = [.. db.PresetIcons.Where(row => row.PresetName == presetName)];
+            db.PresetIcons.RemoveRange(iconRows);
+            db.SaveChanges();
+
+            HashSet<string> referencedHashes = [.. db.PresetIcons.Select(row => row.Sha256)];
+            List<IconBlob> orphanedBlobs = [.. db.IconBlobs.Where(blob => !referencedHashes.Contains(blob.Sha256))];
+            db.IconBlobs.RemoveRange(orphanedBlobs);
+            db.SaveChanges();
         }
 
         private Task<bool> ConfirmDeleteAsync(Preset preset) =>

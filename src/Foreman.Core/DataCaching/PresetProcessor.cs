@@ -36,9 +36,11 @@ namespace Foreman.DataCaching {
             return File.Exists(userPath) ? userPath : Path.Combine(bundleDirectory, presetName + extension);
         }
 
-        //The write/delete target for a user-owned preset - never the bundle-shipped copy.
+        //The write/delete target for a user-owned preset - never the bundle-shipped copy. No-override
+        //callers resolve through ResolveUserDataDirectory, the same seam the db root uses, so the
+        //test-assembly default redirects this path too instead of only the db.
         internal static string GetUserPresetPath(string presetName, string extension, string? userPresetsDirectoryOverride = null) =>
-            Path.Combine(userPresetsDirectoryOverride ?? AppPaths.UserPresetsDirectory, presetName + extension);
+            Path.Combine(userPresetsDirectoryOverride ?? Path.Combine(ResolveUserDataDirectory(), "Presets"), presetName + extension);
 
         public static PresetInfo ReadPresetInfo(Preset preset) {
             var mods = new Dictionary<string, string>();

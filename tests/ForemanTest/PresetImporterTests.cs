@@ -85,10 +85,10 @@ namespace ForemanTest {
             Assert.IsFalse(File.Exists(Path.Combine(MacOsDirOf(installPath), "temp-save.zip")));
         }
 
-        //---- FOIC write goes db-only (Task 7) -------------------------------------------------------------
+        //---- FOIC write lands the real bytes on disk and in the db (Task 7 fix round) ----------------------
 
         [TestMethod]
-        public async Task ProcessPreset_ResolvedIcon_RealBytesLandInDb_DiskDatIsAnEmptyMarker() {
+        public async Task ProcessPreset_ResolvedIcon_RealBytesLandOnDiskAndInDb() {
             string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
             string installPath = Path.GetDirectoryName(macOsDir)!;
             string dataBaseDir = Path.Combine(installPath, "data", "base", "graphics");
@@ -112,11 +112,13 @@ namespace ForemanTest {
             string basePath = Path.Combine(userPresetsDir, "Icon Db Preset");
             Assert.IsTrue(File.Exists(basePath + ".dat"));
             List<ForemanIconCacheFile.FoicEntry> onDiskEntries = await ForemanIconCacheFile.ReadEntriesAsync(basePath + ".dat");
-            Assert.AreEqual(0, onDiskEntries.Count);
+            Assert.AreEqual(1, onDiskEntries.Count);
+            Assert.AreEqual("icon.i.iron-plate", onDiskEntries[0].Name);
 
             using ForemanDbContext db = ForemanDbContext.Open(StoragePaths.DbPath(userDataDir));
             List<string> dbIconNames = [.. IconStore.ReadPresetIcons(db, "Icon Db Preset").Select(icon => icon.Name)];
             Assert.AreEqual(1, dbIconNames.Count);
+            Assert.AreEqual("icon.i.iron-plate", dbIconNames[0]);
         }
 
         // Red-first for the working-directory pin (io-reference.md §4 step 1): before FactorioBenchmarkRunner.Run
