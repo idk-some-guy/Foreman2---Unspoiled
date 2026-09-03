@@ -1,4 +1,4 @@
-﻿using Google.OrTools.LinearSolver;
+using Google.OrTools.LinearSolver;
 using System.Collections.Generic;
 using System.Text;
 
@@ -6,8 +6,9 @@ using Solver_t = Google.OrTools.LinearSolver.Solver;
 
 namespace Foreman.Models.Solver {
     // A super thin wrapper around OrTools.LinearSolver to make up for its deficiences as a generated class.
-    public class GoogleSolver {
+    public class GoogleSolver : ILpSolver {
         private readonly Solver_t solver;
+        private readonly Objective objective;
         private readonly List<Variable> variables;
         private readonly List<Constraint> constraints;
 
@@ -17,6 +18,7 @@ namespace Foreman.Models.Solver {
 
         public GoogleSolver() {
             solver = Solver_t.CreateSolver("GLOP");
+            objective = solver.Objective();
             variables = [];
             constraints = [];
         }
@@ -46,24 +48,43 @@ namespace Foreman.Models.Solver {
             return desc.ToString();
         }
 
-        internal Objective Objective() {
-            return solver.Objective();
-        }
-
-        internal Solver_t.ResultStatus Solve() {
-            return solver.Solve();
-        }
-
-        internal Constraint MakeConstraint(double low, double high) {
-            var constraint = solver.MakeConstraint(low, high);
-            constraints.Add(constraint);
-            return constraint;
-        }
-
-        internal Variable MakeNumVar(double low, double high, string name) {
+        public ILpVariable MakeNumVar(double low, double high, string name) {
             var variable = solver.MakeNumVar(low, high, name);
             variables.Add(variable);
-            return variable;
+            return new GoogleLpVariable(variable);
         }
+
+        public ILpConstraint MakeConstraint(double low, double high) {
+            var constraint = solver.MakeConstraint(low, high);
+            constraints.Add(constraint);
+            return new GoogleLpConstraint(constraint);
+        }
+
+        public void SetObjectiveCoefficient(ILpVariable variable, double coefficient) {
+            objective.SetCoefficient(GoogleLpVariable.Unwrap(variable), coefficient);
+        }
+
+        public void SetMinimization() {
+            objective.SetMinimization();
+        }
+
+        public LpSolveStatus Solve() {
+            return solver.Solve() == Solver_t.ResultStatus.OPTIMAL ? LpSolveStatus.Optimal : LpSolveStatus.NotOptimal;
+        }
+    }
+
+    // Adapters over OrTools' generated Variable/Constraint types, which can't implement our
+    // interfaces directly.
+    internal sealed class GoogleLpVariable(Variable variable) : ILpVariable {
+        internal Variable Variable { get; } = variable;
+
+        public double SolutionValue() => Variable.SolutionValue();
+
+        internal static Variable Unwrap(ILpVariable variable) => ((GoogleLpVariable)variable).Variable;
+    }
+
+    internal sealed class GoogleLpConstraint(Constraint constraint) : ILpConstraint {
+        public void SetCoefficient(ILpVariable variable, double coefficient) =>
+            constraint.SetCoefficient(GoogleLpVariable.Unwrap(variable), coefficient);
     }
 }
