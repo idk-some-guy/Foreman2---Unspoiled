@@ -833,7 +833,9 @@ namespace Foreman.Mac.UiTests {
             var window = new MainWindow();
 
             var fileMenu = NativeMenu.GetMenu(window)!.Items.OfType<NativeMenuItem>().Single(i => i.Header == "File").Menu!;
-            var items = fileMenu.Items.OfType<NativeMenuItem>().ToDictionary(i => i.Header!, i => i.IsEnabled);
+            //Task 5: File now has separators (contract #menubar) - NativeMenuItemSeparator is itself a
+            //NativeMenuItem (Header "-"), so it has to be filtered out explicitly before grouping by Header.
+            var items = fileMenu.Items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator).ToDictionary(i => i.Header!, i => i.IsEnabled);
 
             Assert.True(items["New"]);
             Assert.True(items["Save"]);

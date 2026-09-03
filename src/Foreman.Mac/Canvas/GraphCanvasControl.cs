@@ -1053,18 +1053,41 @@ namespace Foreman.Mac.Canvas {
             if (!modifiers.HasFlag(PlatformModifiers.Primary))
                 return false;
 
-            if (key == Key.C || key == Key.X) {
-                Viewer.Context.SetClipboardText?.Invoke(key == Key.X ? NodeClipboard.Cut(Viewer) : NodeClipboard.Copy(Viewer));
+            if (key == Key.C) {
+                CopySelection();
+                return true;
+            }
+            if (key == Key.X) {
+                CutSelection();
                 return true;
             }
             if (key == Key.V) {
-                if (Viewer.Context.DCache is DataCache cache && Viewer.Context.GetClipboardText?.Invoke() is string clipboardText) {
-                    AvaloniaPoint cursorScreenPoint = hoverScreenPoint ?? new AvaloniaPoint(Viewport.Width / 2, Viewport.Height / 2);
-                    NodeClipboard.Paste(Viewer, cache, clipboardText, Viewport.ScreenToGraph(cursorScreenPoint));
-                }
+                PasteFromClipboard();
                 return true;
             }
             return false;
+        }
+
+        //Menu-driven equivalents of the Cmd+C/X/V/Delete key handling above (contract #menubar conflict
+        //resolutions 1/3): the native Edit menu's Cut/Copy/Paste/Delete items call these directly instead of
+        //a KeyGesture, so a menu click does exactly what the canvas's own keyboard shortcuts already do.
+        public void CopySelection() => Viewer.Context.SetClipboardText?.Invoke(NodeClipboard.Copy(Viewer));
+
+        public void CutSelection() => Viewer.Context.SetClipboardText?.Invoke(NodeClipboard.Cut(Viewer));
+
+        public void PasteFromClipboard() {
+            if (Viewer.Context.DCache is not DataCache cache || Viewer.Context.GetClipboardText?.Invoke() is not string clipboardText)
+                return;
+
+            AvaloniaPoint cursorScreenPoint = hoverScreenPoint ?? new AvaloniaPoint(Viewport.Width / 2, Viewport.Height / 2);
+            NodeClipboard.Paste(Viewer, cache, clipboardText, Viewport.ScreenToGraph(cursorScreenPoint));
+        }
+
+        public void DeleteSelection() {
+            if (Viewer.SelectedAnnotations.Count > 0)
+                Viewer.TryDeleteSelection();
+            else
+                Viewer.TryDeleteSelectedNodes();
         }
 
         //Ports ProductionGraphViewer_KeyUp's Delete case (reference §7): annotations-if-any-selected, else
@@ -1077,10 +1100,7 @@ namespace Foreman.Mac.Canvas {
             UpdateModifiers(e.KeyModifiers);
             RefreshLassoPreviewOnModifierChange(e.KeyModifiers);
             if (CurrentDragOperation == DragOperation.None && e.Key == Key.Delete) {
-                if (Viewer.SelectedAnnotations.Count > 0)
-                    Viewer.TryDeleteSelection();
-                else
-                    Viewer.TryDeleteSelectedNodes();
+                DeleteSelection();
                 e.Handled = true;
             }
             ApplyAxisLockModifier(e.KeyModifiers);

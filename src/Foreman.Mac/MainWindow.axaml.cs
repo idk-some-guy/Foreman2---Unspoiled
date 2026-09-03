@@ -62,6 +62,10 @@ namespace Foreman.Mac {
         //§8) without a real modal ShowDialog.
         internal Func<string, Task>? PresetSwitchInfoStub { get; set; }
 
+        //Test-only seam: lets a test observe/short-circuit the About panel without a real modal ShowDialog,
+        //same shape as GraphSummaryDialogStub above.
+        internal Action? AboutDialogStub { get; set; }
+
         //Ports MainForm's savefilePath/savefileBaselineJson fields (reference: upstream MainForm.cs, io-
         //reference.md §2). savefileBaselineJson is the dirty-check baseline: a captured JSON string, not a
         //re-read from disk, refreshed by SaveGraph/ApplyLoadedGraphUiState and cleared by New.
@@ -217,6 +221,7 @@ namespace Foreman.Mac {
             GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(minorGridlines.SelectedIndex);
             GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(majorGridlines.SelectedIndex);
             GraphCanvas.Grid.ShowGrid = gridlinesCheckbox.IsChecked == true;
+            ResyncNativeMenuCheckedStates();
 
             minorGridlines.IsEnabled = true;
             majorGridlines.IsEnabled = true;
@@ -233,18 +238,21 @@ namespace Foreman.Mac {
                 GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(minorGridlines.SelectedIndex);
                 if (Settings is AppSettings current)
                     current.MinorGridlines = minorGridlines.SelectedIndex;
+                ResyncNativeMenuCheckedStates();
                 GraphCanvas.InvalidateVisual();
             };
             majorGridlines.SelectionChanged += (_, _) => {
                 GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(majorGridlines.SelectedIndex);
                 if (Settings is AppSettings current)
                     current.MajorGridlines = majorGridlines.SelectedIndex;
+                ResyncNativeMenuCheckedStates();
                 GraphCanvas.InvalidateVisual();
             };
             gridlinesCheckbox.IsCheckedChanged += (_, _) => {
                 GraphCanvas.Grid.ShowGrid = gridlinesCheckbox.IsChecked == true;
                 if (Settings is AppSettings current)
                     current.AltGridlines = gridlinesCheckbox.IsChecked == true;
+                ResyncNativeMenuCheckedStates();
                 GraphCanvas.InvalidateVisual();
             };
             //No rateOptions.SelectionChanged += here: ResyncRateOptionsDropDown's own unsubscribe-before-
@@ -253,12 +261,14 @@ namespace Foreman.Mac {
                 GraphCanvas.Viewer.IconsOnly = iconView.IsChecked == true;
                 if (Settings is AppSettings current)
                     current.IconsOnlyView = iconView.IsChecked == true;
+                ResyncNativeMenuCheckedStates();
                 GraphCanvas.InvalidateVisual();
             };
             pauseUpdates.IsCheckedChanged += (_, _) => {
                 GraphCanvas.Viewer.Graph.PauseUpdates = pauseUpdates.IsChecked == true;
                 if (!GraphCanvas.Viewer.Graph.PauseUpdates)
                     GraphCanvas.Viewer.Graph.UpdateNodeValues();
+                ResyncNativeMenuCheckedStates();
                 GraphCanvas.InvalidateVisual();
             };
         }
@@ -270,6 +280,7 @@ namespace Foreman.Mac {
             if (Settings is AppSettings settings)
                 settings.DefaultRateUnit = unit;
             GraphCanvas.Viewer.Graph.UpdateNodeValues();
+            ResyncNativeMenuCheckedStates();
             GraphCanvas.InvalidateVisual();
         }
 
@@ -286,6 +297,12 @@ namespace Foreman.Mac {
 
             if (Settings is AppSettings settings)
                 settings.DefaultRateUnit = GraphCanvas.Viewer.Graph.SelectedRateUnit;
+
+            //The write above bypasses OnRateOptionsSelectionChanged's own resync call by design (see that
+            //handler's comment) - a plain file Load reaches this method directly (ApplyLoadedGraphUiState),
+            //not through BindViewOptionControls, so the Rate Unit submenu's checkmark needs its own resync
+            //here too.
+            ResyncNativeMenuCheckedStates();
         }
 
         private static int GridUnitFromIndex(int index) => index > 0 ? 6 * (int)Math.Pow(2, index - 1) : 0;
@@ -884,6 +901,29 @@ namespace Foreman.Mac {
                 GraphCanvas.Focus();
         }
 
+        //Foreman 2 > About Foreman 2 (contract #menubar): a plain MessageDialog, same as Dialogs.ShowInfoAsync,
+        //carrying AppVersion.VersionedDisplay - the app has no richer about-panel design to build to yet.
+        private void ShowAbout() => Async.Fire(ShowAboutAsync(), nameof(ShowAboutAsync));
+
+        internal Task ShowAboutAsync() {
+            if (AboutDialogStub is Action stub) {
+                stub();
+                return Task.CompletedTask;
+            }
+            return RealShowAboutAsync();
+        }
+
+        private async Task RealShowAboutAsync() {
+            var dialog = new MessageDialog($"Foreman 2\n{AppVersion.VersionedDisplay}") {
+                Title = "About Foreman 2",
+                WindowStartupLocation = WindowStartupLocation.Manual,
+                Position = Position + new PixelPoint(50, 50),
+            };
+            await dialog.ShowDialog(this).ConfigureAwait(true);
+            if (!GraphCanvas.FloatingPanelHost.IsOpen)
+                GraphCanvas.Focus();
+        }
+
         //Ports ReloadGraphForCurrentPreset (MainForm.cs:416-421, ProductionGraphViewer.cs:1409-1412): swaps
         //in the new preset's DataCache via LoadDataCacheForPresetAsync, then remaps the live graph onto it
         //by round-tripping through the save codec (GraphViewerSaveAssembler.BuildSaveDocument -> GraphCanvas.
@@ -970,11 +1010,160 @@ namespace Foreman.Mac {
             BeginMoveDrag(e);
         }
 
+        //Live references to the built radio/checkbox NativeMenuItems, kept so ResyncNativeMenuCheckedStates
+        //below can update their IsChecked after BuildNativeMenu's own one-time snapshot (taken before Settings
+        //is even assigned - see ApplyLoadedSettings' own boot-ordering comment).
+        private NativeMenuItem showGridlinesMenuItem = null!;
+        private NativeMenuItem iconViewMenuItem = null!;
+        private NativeMenuItem pauseCalculationsMenuItem = null!;
+        private NativeMenuItem[] minorGridlinesMenuItems = [];
+        private NativeMenuItem[] majorGridlinesMenuItems = [];
+        private NativeMenuItem[] rateUnitMenuItems = [];
+
+        //Keeps the View menu's checkmarks/radio selections in step with the popover controls they mirror -
+        //called from BindViewOptionControls' own resync tail (boot, preset switch, every Settings Confirm),
+        //ResyncRateOptionsDropDown (the plain-file-Load path that bypasses OnRateOptionsSelectionChanged by
+        //design), and each of BindViewOptionControls' own IsCheckedChanged/SelectionChanged subscriptions (a
+        //popover- or Space-driven change), so no trigger source ever leaves the menu stale.
+        private void ResyncNativeMenuCheckedStates() {
+            showGridlinesMenuItem.IsChecked = this.FindControl<CheckBox>("GridlinesCheckbox")!.IsChecked == true;
+            iconViewMenuItem.IsChecked = this.FindControl<CheckBox>("IconViewCheckBox")!.IsChecked == true;
+            pauseCalculationsMenuItem.IsChecked = this.FindControl<CheckBox>("PauseUpdatesCheckbox")!.IsChecked == true;
+            ResyncRadioChecks(minorGridlinesMenuItems, this.FindControl<ComboBox>("MinorGridlinesDropDown")!.SelectedIndex);
+            ResyncRadioChecks(majorGridlinesMenuItems, this.FindControl<ComboBox>("MajorGridlinesDropDown")!.SelectedIndex);
+            ResyncRadioChecks(rateUnitMenuItems, this.FindControl<ComboBox>("RateOptionsDropDown")!.SelectedIndex);
+        }
+
+        private static void ResyncRadioChecks(NativeMenuItem[] items, int selectedIndex) {
+            for (int i = 0; i < items.Length; i++)
+                items[i].IsChecked = i == selectedIndex;
+        }
+
+        //Native menu action handlers backing the items BuildNativeMenu wires below (contract #menubar). Kept
+        //as plain methods rather than new ShellViewModel commands so ShellViewModel's own 13-command surface
+        //(Task 4's AllThirteenCommands_AreReachableFromToolbarOrNativeMenu) stays untouched - none of these
+        //are toolbar-shared the way the existing 13 are.
+        private void MenuCut() { GraphCanvas.CutSelection(); GraphCanvas.RequestRedraw(); }
+
+        private void MenuCopy() => GraphCanvas.CopySelection();
+
+        private void MenuPaste() { GraphCanvas.PasteFromClipboard(); GraphCanvas.RequestRedraw(); }
+
+        private void MenuDelete() { GraphCanvas.DeleteSelection(); GraphCanvas.RequestRedraw(); }
+
+        private void MenuZoomIn() {
+            var center = new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2);
+            GraphCanvas.Viewport.ZoomAt(center, zoomIn: true, GraphCanvas.Viewer.Graph.Bounds);
+            GraphCanvas.RequestRedraw();
+        }
+
+        private void MenuZoomOut() {
+            var center = new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2);
+            GraphCanvas.Viewport.ZoomAt(center, zoomIn: false, GraphCanvas.Viewer.Graph.Bounds);
+            GraphCanvas.RequestRedraw();
+        }
+
+        private void MenuActualSize() {
+            var center = new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2);
+            GraphCanvas.Viewport.SetAbsoluteZoom(center, 1f, GraphCanvas.Viewer.Graph.Bounds);
+            GraphCanvas.RequestRedraw();
+        }
+
+        private void MenuFitToGraph() {
+            GraphCanvas.Viewport.FitToBounds(GraphCanvas.Viewer.Graph.Bounds, GraphCanvas.Viewer.Graph.Bounds);
+            GraphCanvas.RequestRedraw();
+        }
+
+        //Mirrors OnGraphCanvasKeyDown's own Space handler (reference §7): mutates Grid/Viewer/Settings and the
+        //popover control's displayed value directly, rather than only flipping the control and trusting
+        //BindViewOptionControls' IsCheckedChanged handler to carry it the rest of the way. ShellBootstrapper
+        //shows MainWindow (and its NativeMenu) before ApplyLoadedSettings ever runs (preset resolution and
+        //data-cache loading happen in between), so a menu click has the same live-before-bound window Space
+        //already had to handle - if BindViewOptionControls' handler is already subscribed by the time this
+        //runs, its re-write of the same values is redundant but harmless.
+        private void MenuToggleShowGridlines() {
+            GraphCanvas.Grid.ShowGrid = !GraphCanvas.Grid.ShowGrid;
+            this.FindControl<CheckBox>("GridlinesCheckbox")!.IsChecked = GraphCanvas.Grid.ShowGrid;
+            if (Settings is AppSettings settings)
+                settings.AltGridlines = GraphCanvas.Grid.ShowGrid;
+            ResyncNativeMenuCheckedStates();
+            GraphCanvas.InvalidateVisual();
+        }
+
+        private void MenuToggleIconView() {
+            GraphCanvas.Viewer.IconsOnly = !GraphCanvas.Viewer.IconsOnly;
+            this.FindControl<CheckBox>("IconViewCheckBox")!.IsChecked = GraphCanvas.Viewer.IconsOnly;
+            if (Settings is AppSettings settings)
+                settings.IconsOnlyView = GraphCanvas.Viewer.IconsOnly;
+            ResyncNativeMenuCheckedStates();
+            GraphCanvas.InvalidateVisual();
+        }
+
+        private void MenuTogglePauseCalculations() {
+            GraphCanvas.Viewer.Graph.PauseUpdates = !GraphCanvas.Viewer.Graph.PauseUpdates;
+            if (!GraphCanvas.Viewer.Graph.PauseUpdates)
+                GraphCanvas.Viewer.Graph.UpdateNodeValues();
+            this.FindControl<CheckBox>("PauseUpdatesCheckbox")!.IsChecked = GraphCanvas.Viewer.Graph.PauseUpdates;
+            ResyncNativeMenuCheckedStates();
+            GraphCanvas.InvalidateVisual();
+        }
+
+        private void MenuSetMinorGridlines(int index) {
+            this.FindControl<ComboBox>("MinorGridlinesDropDown")!.SelectedIndex = index;
+            GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(index);
+            if (Settings is AppSettings settings)
+                settings.MinorGridlines = index;
+            ResyncNativeMenuCheckedStates();
+            GraphCanvas.InvalidateVisual();
+        }
+
+        private void MenuSetMajorGridlines(int index) {
+            this.FindControl<ComboBox>("MajorGridlinesDropDown")!.SelectedIndex = index;
+            GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(index);
+            if (Settings is AppSettings settings)
+                settings.MajorGridlines = index;
+            ResyncNativeMenuCheckedStates();
+            GraphCanvas.InvalidateVisual();
+        }
+
+        private void MenuSetRateUnit(int index) {
+            this.FindControl<ComboBox>("RateOptionsDropDown")!.SelectedIndex = index;
+            var unit = (ProductionGraph.RateUnit)index;
+            GraphCanvas.Viewer.Graph.SelectedRateUnit = unit;
+            if (Settings is AppSettings settings)
+                settings.DefaultRateUnit = unit;
+            GraphCanvas.Viewer.Graph.UpdateNodeValues();
+            ResyncNativeMenuCheckedStates();
+            GraphCanvas.InvalidateVisual();
+        }
+
+        //Single-window app: hiding the main window is the whole of what "hide this app" means here. Hide
+        //Others/Show All would need to enumerate and retarget other applications' windows, which has no
+        //public Avalonia API and no native-interop layer anywhere in this codebase - see the task report.
+        private void MenuHide() => Hide();
+
+        private void MenuMinimize() => WindowState = WindowState.Minimized;
+
+        private void MenuZoomWindow() => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+        private void MenuBringAllToFront() => Activate();
+
+        //Contract #menubar's 12-item gridline vocabulary (mirrors MinorGridlinesDropDown/MajorGridlinesDropDown
+        //exactly - GridUnitFromIndex maps both the same way) and the 6-item rate vocabulary (mirrors
+        //RateOptionsDropDown/ProductionGraph.RateUnit exactly).
+        private static readonly string[] GridlineLabels = ["None", "1", "2", "4", "8", "16", "32", "64", "128", "256", "512", "1024"];
+        private static readonly string[] RateUnitLabels = ["1 sec", "1 min", "5 min", "10 min", "30 min", "1 hour"];
+
         private NativeMenu BuildNativeMenu() {
             var appMenu = new NativeMenu {
                 Items = {
-                    new NativeMenuItem("About Foreman 2") { IsEnabled = false },
-                    MenuItem("Settings", Commands.SettingsCommand),
+                    ActionItem("About Foreman 2", ShowAbout),
+                    new NativeMenuItemSeparator(),
+                    MenuItem("Settings", Commands.SettingsCommand, new KeyGesture(Key.OemComma, PlatformModifiers.Primary)),
+                    new NativeMenuItemSeparator(),
+                    ActionItem("Hide Foreman 2", MenuHide, new KeyGesture(Key.H, PlatformModifiers.Primary)),
+                    DisabledItem("Hide Others", new KeyGesture(Key.H, PlatformModifiers.Primary | KeyModifiers.Alt)),
+                    DisabledItem("Show All"),
                     new NativeMenuItemSeparator(),
                     QuitMenuItem(),
                 },
@@ -986,28 +1175,84 @@ namespace Foreman.Mac {
                     MenuItem("Open", Commands.LoadCommand, new KeyGesture(Key.O, PlatformModifiers.Primary)),
                     MenuItem("Save", Commands.SaveCommand, new KeyGesture(Key.S, PlatformModifiers.Primary)),
                     MenuItem("Save As", Commands.SaveAsCommand, new KeyGesture(Key.S, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    new NativeMenuItemSeparator(),
                     MenuItem("Import", Commands.ImportCommand),
                     MenuItem("Export Image", Commands.ExportImageCommand, new KeyGesture(Key.E, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    new NativeMenuItemSeparator(),
+                    ActionItem("Close", Close, new KeyGesture(Key.W, PlatformModifiers.Primary)),
                 },
             };
 
+            //Cut/Copy/Paste/Delete are Command-bound but gesture-less by design (contract #menubar conflicts
+            //1/3): GraphCanvasControl.OnKeyDown/OnKeyUp already own Cmd+C/X/V/Delete, so registering the same
+            //KeyGesture here would risk the native menu's key equivalent stealing the event, or firing twice.
             var editMenu = new NativeMenu {
                 Items = {
-                    new NativeMenuItem("Undo") { IsEnabled = false },
-                    new NativeMenuItem("Redo") { IsEnabled = false },
+                    DisabledItem("Undo", new KeyGesture(Key.Z, PlatformModifiers.Primary)),
+                    DisabledItem("Redo", new KeyGesture(Key.Z, PlatformModifiers.Primary | KeyModifiers.Shift)),
                     new NativeMenuItemSeparator(),
-                    new NativeMenuItem("Cut") { IsEnabled = false },
-                    new NativeMenuItem("Copy") { IsEnabled = false },
-                    new NativeMenuItem("Paste") { IsEnabled = false },
+                    ActionItem("Cut", MenuCut),
+                    ActionItem("Copy", MenuCopy),
+                    ActionItem("Paste", MenuPaste),
+                    new NativeMenuItemSeparator(),
+                    ActionItem("Delete", MenuDelete),
                 },
+            };
+
+            minorGridlinesMenuItems = RadioItems(GridlineLabels, MenuSetMinorGridlines, this.FindControl<ComboBox>("MinorGridlinesDropDown")!.SelectedIndex);
+            majorGridlinesMenuItems = RadioItems(GridlineLabels, MenuSetMajorGridlines, this.FindControl<ComboBox>("MajorGridlinesDropDown")!.SelectedIndex);
+            rateUnitMenuItems = RadioItems(RateUnitLabels, MenuSetRateUnit, this.FindControl<ComboBox>("RateOptionsDropDown")!.SelectedIndex);
+
+            //⌥⌘G, not upstream's bare Space (contract #menubar conflict 2): a global NativeMenu gesture on an
+            //unmodified key would fire even while a text field has focus, swallowing every space typed there.
+            showGridlinesMenuItem = new NativeMenuItem("Show Gridlines") {
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = this.FindControl<CheckBox>("GridlinesCheckbox")!.IsChecked == true,
+                Gesture = new KeyGesture(Key.G, PlatformModifiers.Primary | KeyModifiers.Alt),
+                Command = new RelayCommand(MenuToggleShowGridlines),
+            };
+            iconViewMenuItem = new NativeMenuItem("Icon View") {
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = this.FindControl<CheckBox>("IconViewCheckBox")!.IsChecked == true,
+                Command = new RelayCommand(MenuToggleIconView),
+            };
+            pauseCalculationsMenuItem = new NativeMenuItem("Pause All Calculations") {
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = this.FindControl<CheckBox>("PauseUpdatesCheckbox")!.IsChecked == true,
+                Gesture = new KeyGesture(Key.OemPeriod, PlatformModifiers.Primary),
+                Command = new RelayCommand(MenuTogglePauseCalculations),
             };
 
             var viewMenu = new NativeMenu {
                 Items = {
-                    new NativeMenuItem("Show Gridlines") { IsEnabled = false },
-                    new NativeMenuItem("Rate Unit") { IsEnabled = false },
-                    new NativeMenuItem("Icon View") { IsEnabled = false },
-                    new NativeMenuItem("Level of Detail") { IsEnabled = false },
+                    ActionItem("Zoom In", MenuZoomIn, new KeyGesture(Key.OemPlus, PlatformModifiers.Primary)),
+                    ActionItem("Zoom Out", MenuZoomOut, new KeyGesture(Key.OemMinus, PlatformModifiers.Primary)),
+                    ActionItem("Actual Size", MenuActualSize, new KeyGesture(Key.D0, PlatformModifiers.Primary)),
+                    ActionItem("Fit to Graph", MenuFitToGraph, new KeyGesture(Key.D0, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    new NativeMenuItemSeparator(),
+                    showGridlinesMenuItem,
+                    new NativeMenuItem("Minor Gridlines") { Menu = SubmenuFrom(minorGridlinesMenuItems) },
+                    new NativeMenuItem("Major Gridlines") { Menu = SubmenuFrom(majorGridlinesMenuItems) },
+                    new NativeMenuItemSeparator(),
+                    iconViewMenuItem,
+                    pauseCalculationsMenuItem,
+                    new NativeMenuItem("Rate Unit") { Menu = SubmenuFrom(rateUnitMenuItems) },
+                    new NativeMenuItemSeparator(),
+                    //Show/Pin Inspector (contract #menubar): the inspector panel itself is a later plan's
+                    //surface (C2/C3) - these stay disabled placeholders until that panel exists to toggle.
+                    DisabledItem("Show Inspector", new KeyGesture(Key.I, PlatformModifiers.Primary | KeyModifiers.Alt)),
+                    DisabledItem("Pin Inspector", new KeyGesture(Key.I, PlatformModifiers.Primary | KeyModifiers.Alt | KeyModifiers.Shift)),
+                    new NativeMenuItemSeparator(),
+                    DisabledItem("Level of Detail"),
+                },
+            };
+
+            var windowMenu = new NativeMenu {
+                Items = {
+                    ActionItem("Minimize", MenuMinimize, new KeyGesture(Key.M, PlatformModifiers.Primary)),
+                    ActionItem("Zoom", MenuZoomWindow),
+                    new NativeMenuItemSeparator(),
+                    ActionItem("Bring All to Front", MenuBringAllToFront),
                 },
             };
 
@@ -1019,6 +1264,7 @@ namespace Foreman.Mac {
                     new NativeMenuItem("File") { Menu = fileMenu },
                     new NativeMenuItem("Edit") { Menu = editMenu },
                     new NativeMenuItem("View") { Menu = viewMenu },
+                    new NativeMenuItem("Window") { Menu = windowMenu },
                     new NativeMenuItem("Help") { Menu = helpMenu },
                 },
             };
@@ -1026,6 +1272,36 @@ namespace Foreman.Mac {
 
         private static NativeMenuItem MenuItem(string header, IRelayCommand command, KeyGesture? gesture = null) =>
             new(header) { Command = command, IsEnabled = command.CanExecute(null), Gesture = gesture };
+
+        private static NativeMenuItem ActionItem(string header, Action action, KeyGesture? gesture = null) =>
+            new(header) { Command = new RelayCommand(action), Gesture = gesture };
+
+        private static NativeMenuItem DisabledItem(string header, KeyGesture? gesture = null) =>
+            new(header) { IsEnabled = false, Gesture = gesture };
+
+        //Builds one radio-toggle NativeMenuItem per label (contract #menubar's Minor/Major Gridlines and Rate
+        //Unit submenus): each item carries its own index as CommandParameter rather than a closure per item,
+        //so RadioItems can share one RelayCommand<int> across the whole group.
+        private static NativeMenuItem[] RadioItems(string[] labels, Action<int> onSelect, int currentIndex) {
+            var command = new RelayCommand<int>(onSelect);
+            var items = new NativeMenuItem[labels.Length];
+            for (int i = 0; i < labels.Length; i++) {
+                items[i] = new NativeMenuItem(labels[i]) {
+                    ToggleType = MenuItemToggleType.Radio,
+                    IsChecked = i == currentIndex,
+                    Command = command,
+                    CommandParameter = i,
+                };
+            }
+            return items;
+        }
+
+        private static NativeMenu SubmenuFrom(NativeMenuItem[] items) {
+            var menu = new NativeMenu();
+            foreach (NativeMenuItem item in items)
+                menu.Items.Add(item);
+            return menu;
+        }
 
         private static NativeMenuItem QuitMenuItem() {
             var item = new NativeMenuItem("Quit Foreman 2") { Gesture = new KeyGesture(Key.Q, PlatformModifiers.Primary) };

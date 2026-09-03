@@ -11,6 +11,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - True dark mode: follows the system appearance, with manual light/dark override.
 - Adjustable interface scale (100-200%) in Settings, independent of the graph canvas's own zoom.
+- A full menu bar: canvas zoom (Zoom In/Out, Actual Size, Fit to Graph), a Window menu
+  (Minimize/Zoom/Bring All to Front), and a real About panel. Gridlines, icon view, pause, minor/
+  major gridline steps, and rate unit are now menu items too, alongside their existing toolbar/
+  popover controls. Undo/Redo and Show/Pin Inspector appear as disabled placeholders for work not
+  yet built.
 
 ### Fixed
 
