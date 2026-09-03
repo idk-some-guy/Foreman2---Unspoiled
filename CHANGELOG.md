@@ -7,6 +7,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Internal modernization of the settings, factory-summary, and preset-comparison windows onto
+  CommunityToolkit.Mvvm with compiled bindings; no user-visible behavior change.
+
 ### Removed
 
 - Factorio 1.x support: pre-2.0 save import (`*.json`) and the legacy `OldImport` save-file field.

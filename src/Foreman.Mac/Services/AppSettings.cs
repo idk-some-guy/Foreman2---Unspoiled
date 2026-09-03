@@ -22,7 +22,6 @@ namespace Foreman.Mac.Services {
         public string LastSaveFileLocation { get; set; } = "";
         public bool ShowRecipeToolTip { get; set; } = true;
         public bool ShowUnavailable { get; set; }
-        public bool LockedRecipeEditorPosition { get; set; }
         public int NodeCountForSimpleView { get; set; } = 300;
         public bool UseRecipeBWfilters { get; set; } = true;
         public bool ShowWarningArrows { get; set; } = true;

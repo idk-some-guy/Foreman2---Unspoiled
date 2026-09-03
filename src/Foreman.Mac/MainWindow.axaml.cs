@@ -696,7 +696,7 @@ namespace Foreman.Mac {
 
             //Ports MainForm.cs:366-400's Graph Options tab population from live GraphViewer/Graph state,
             //falling back to the persisted AppSettings value for the couple of fields with no live control
-            //yet (LockedRecipeEditPanelPosition, ShowUnavailable/UseRecipeBWfilters - all DEV/session-only).
+            //yet (ShowUnavailable/UseRecipeBWfilters - both DEV/session-only).
             var viewer = GraphCanvas.Viewer;
             options.QualitySteps = viewer.Graph.MaxQualitySteps;
             options.LevelOfDetail = viewer.Context.LevelOfDetail;
@@ -706,7 +706,6 @@ namespace Foreman.Mac {
             options.SimplePassthroughNodes = viewer.Graph.DefaultToSimplePassthroughNodes;
             options.DynamicLinkWidth = viewer.Context.DynamicLinkWidth;
             options.ShowRecipeToolTip = viewer.Context.ShowRecipeToolTip;
-            options.LockedRecipeEditPanelPosition = settings.LockedRecipeEditorPosition;
             options.FlagOUSuppliedNodes = viewer.Context.FlagOUSuppliedNodes;
             options.FlagDarkMode = settings.FlagDarkMode;
             options.DefaultAssemblerStyle = viewer.Graph.AssemblerSelector.DefaultSelectionStyle;
@@ -758,9 +757,7 @@ namespace Foreman.Mac {
             //441-497): rather than duplicating a push-to-GraphViewer/push-to-Properties.Settings.Default
             //pair per field like upstream, we write the committed values onto AppSettings once and replay
             //them through the same ApplyLoadedSettings seam cold start and preset reloads already use -
-            //a single settings-to-live-graph path instead of two. LockedRecipeEditorPosition is persisted
-            //without a live effect yet (GraphCanvasControl.EditNode's locked-origin branch is future scope,
-            //see its own comment).
+            //a single settings-to-live-graph path instead of two.
             settings.QualitySteps = (int)options.QualitySteps;
             settings.LevelOfDetail = (int)options.LevelOfDetail;
             settings.NodeCountForSimpleView = options.NodeCountForSimpleView;
@@ -769,7 +766,6 @@ namespace Foreman.Mac {
             settings.SimplePassthroughNodes = options.SimplePassthroughNodes;
             settings.DynamicLineWidth = options.DynamicLinkWidth;
             settings.ShowRecipeToolTip = options.ShowRecipeToolTip;
-            settings.LockedRecipeEditorPosition = options.LockedRecipeEditPanelPosition;
             settings.FlagOUSuppliedNodes = options.FlagOUSuppliedNodes;
             settings.FlagDarkMode = options.FlagDarkMode;
             settings.DefaultAssemblerOption = options.DefaultAssemblerStyle;

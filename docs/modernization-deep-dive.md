@@ -178,3 +178,22 @@ Dependency-ordered, with the reasoning for each placement:
 9. **Undo/redo** — last, per the spec's own reasoning ("lands after the modernization pass has settled the code it instruments") — every node-graph mutation path is a potential command-boundary, and CommunityToolkit.Mvvm's `RelayCommand`/observable-property patterns (step 4) give the undo/redo command layer a natural home to compose into, rather than wrapping the pre-migration event-handler soup.
 
 Steps 5 and 6 are the two genuine parallelization opportunities — both are self-contained subsystems with no XAML surface, so they don't contend with the UI-layer sequence (1→2→3→4→7→8→9) for the same files.
+
+## 7. Landed in Plan A
+
+Tasks 1-9 of this section's ordering (§6 steps 1-4, plus the settings-window and report-window VM passes those steps set up for) are done:
+
+1. Factorio 1.x legacy dropped — the `OldImport` save field, the `*.json` open filter, and the dead WinForms `Settings.cs` stub are gone.
+2. Repo-scoped `.editorconfig` baseline added; `string.Format` call sites swept to culture-safe interpolated strings.
+3. Compiled bindings on by default across every bound template; the `AvaloniaUseCompiledBindingsByDefault=false` opt-out is off the solution.
+4. CommunityToolkit.Mvvm lands: `ShellViewModel` with `RelayCommand`s replaces the hand-rolled `ShellCommands.cs`.
+5. `MainWindowViewModel` takes over window-chrome state as an `ObservableObject`.
+6. `SettingsViewModel` gets a round-trip `LoadFrom`/`ApplyTo` pair covering every Settings-window field.
+7. `GraphSummaryViewModel` takes row assembly and the pure row filters out of the report window's code-behind.
+8. `PresetComparatorViewModel` and `PresetSelectionViewModel` land with per-tab fresh-instance diff lists.
+9. `AppSettings.LockedRecipeEditorPosition` retired — grepping every consumer showed the floating `EditRecipePanel` never read it for live positioning (`GraphCanvasControl.EditNode`'s locked-origin branch was dead code since the port), so the field, its Settings-window checkbox, and every round-trip in between came out together rather than leaving a setting that persisted but did nothing.
+
+Two finds worth flagging for whoever reads this next:
+
+- **The `ImmutableSolidColorBrush` race.** Task 6 hit an intermittent headless-UI-test crash: two `[AvaloniaFact]` tests running on separate dispatcher threads raced for ownership of the same static, mutable `SolidColorBrush` singleton (a pattern several row-rendering classes shared from Task 3 onward). The fix was a sweep to `Avalonia.Media.Immutable.ImmutableSolidColorBrush` everywhere those statics were read from more than one thread — worth checking for on any future window that follows the same static-brush-cache shape.
+- **Compiled-bindings type promotions.** Making bindings resolve at compile time occasionally needed a field's declared visibility widened (`private` to `internal`) so `x:DataType` markup compilation in another file could see it — a small, mechanical cost of the compiled-bindings move that showed up a few times during Task 3 and is worth expecting again wherever a new binding crosses a file boundary.

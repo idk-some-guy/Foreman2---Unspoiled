@@ -71,9 +71,6 @@ namespace Foreman.Mac.ViewModels {
         private bool roundAssemblerCountChecked;
 
         [ObservableProperty]
-        private bool recipeEditPanelPositionLockChecked;
-
-        [ObservableProperty]
         private bool flagOUSupplyNodesChecked;
 
         [ObservableProperty]
@@ -142,7 +139,6 @@ namespace Foreman.Mac.ViewModels {
             AbbreviateSciPackChecked = settings.AbbreviateSciPacks;
             ShowNodeRecipeChecked = settings.ShowRecipeToolTip;
             RoundAssemblerCountChecked = settings.RoundAssemblerCount;
-            RecipeEditPanelPositionLockChecked = settings.LockedRecipeEditorPosition;
             FlagOUSupplyNodesChecked = settings.FlagOUSuppliedNodes;
             FlagDarkModeChecked = settings.FlagDarkMode == ThemeMode.Dark;
 
@@ -180,7 +176,6 @@ namespace Foreman.Mac.ViewModels {
             settings.AbbreviateSciPacks = AbbreviateSciPackChecked;
             settings.ShowRecipeToolTip = ShowNodeRecipeChecked;
             settings.RoundAssemblerCount = RoundAssemblerCountChecked;
-            settings.LockedRecipeEditorPosition = RecipeEditPanelPositionLockChecked;
             settings.FlagOUSuppliedNodes = FlagOUSupplyNodesChecked;
             settings.FlagDarkMode = FlagDarkModeChecked ? ThemeMode.Dark : ThemeMode.Light;
 

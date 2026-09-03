@@ -42,7 +42,6 @@ namespace Foreman.Mac.UiTests {
             LastSaveFileLocation = "/Users/test/Saved Graphs/factory.fjson",
             ShowRecipeToolTip = false,
             ShowUnavailable = true,
-            LockedRecipeEditorPosition = true,
             NodeCountForSimpleView = 500,
             UseRecipeBWfilters = false,
             ShowWarningArrows = false,

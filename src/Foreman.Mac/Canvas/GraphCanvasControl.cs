@@ -138,8 +138,8 @@ namespace Foreman.Mac.Canvas {
         //upstream's editPanel/recipePanel floating side by side (leftAnchor/Direction.Right for the editor,
         //rightAnchor/Direction.Left for the recipe card) - every other node type opens EditFlowPanel alone,
         //matching upstream's unconditional else. Anchored at the node's edges the same way upstream's
-        //non-locked branch is; LockedRecipeEditPanelPosition's fixed (15,15) origin needs the Settings dialog
-        //to toggle (5b scope), so that branch isn't reachable here.
+        //non-locked branch is; upstream's fixed-origin locked branch was retired with the dead
+        //LockedRecipeEditorPosition setting (Task 9) and isn't reachable here.
         internal void EditNode(BaseNodeElement node) {
             if (Viewer.Context.DCache is not DataCache cache)
                 return;

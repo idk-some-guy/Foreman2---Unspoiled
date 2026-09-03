@@ -934,7 +934,6 @@ namespace Foreman.Mac.UiTests.Views {
             options.AbbreviateSciPacks = false;
             options.ShowRecipeToolTip = false;
             options.RoundAssemblerCount = true;
-            options.LockedRecipeEditPanelPosition = true;
             options.FlagOUSuppliedNodes = true;
             options.FlagDarkMode = ThemeMode.Dark;
             options.ShowErrorArrows = false;
@@ -985,7 +984,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.False(window.AbbreviateSciPackCheckBoxControl.IsChecked);
             Assert.False(window.ShowNodeRecipeCheckBoxControl.IsChecked);
             Assert.True(window.RoundAssemblerCountCheckBoxControl.IsChecked);
-            Assert.True(window.RecipeEditPanelPositionLockCheckBoxControl.IsChecked);
             Assert.True(window.FlagOUSupplyNodesCheckBoxControl.IsChecked);
             Assert.True(window.FlagDarkModeCheckBoxControl.IsChecked);
             Assert.False(window.ErrorArrowsCheckBoxControl.IsChecked);
@@ -1019,7 +1017,6 @@ namespace Foreman.Mac.UiTests.Views {
             window.AbbreviateSciPackCheckBoxControl.IsChecked = false;
             window.ShowNodeRecipeCheckBoxControl.IsChecked = false;
             window.RoundAssemblerCountCheckBoxControl.IsChecked = true;
-            window.RecipeEditPanelPositionLockCheckBoxControl.IsChecked = true;
             window.FlagOUSupplyNodesCheckBoxControl.IsChecked = true;
             window.FlagDarkModeCheckBoxControl.IsChecked = true;
             window.ErrorArrowsCheckBoxControl.IsChecked = true;
@@ -1050,7 +1047,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.False(options.AbbreviateSciPacks);
             Assert.False(options.ShowRecipeToolTip);
             Assert.True(options.RoundAssemblerCount);
-            Assert.True(options.LockedRecipeEditPanelPosition);
             Assert.True(options.FlagOUSuppliedNodes);
             Assert.Equal(ThemeMode.Dark, options.FlagDarkMode);
             Assert.True(options.ShowErrorArrows);

@@ -179,7 +179,6 @@
               <CheckBox Name="AbbreviateSciPackCheckBox" Content="Abbreviate science packs" IsChecked="{Binding AbbreviateSciPackChecked, Mode=TwoWay}" />
               <CheckBox Name="ShowNodeRecipeCheckBox" Content="Show recipe tool tip" IsChecked="{Binding ShowNodeRecipeChecked, Mode=TwoWay}" />
               <CheckBox Name="RoundAssemblerCountCheckBox" Content="Round building count" IsChecked="{Binding RoundAssemblerCountChecked, Mode=TwoWay}" />
-              <CheckBox Name="RecipeEditPanelPositionLockCheckBox" Content="Lock recipe editor to top left corner" IsChecked="{Binding RecipeEditPanelPositionLockChecked, Mode=TwoWay}" />
               <CheckBox Name="FlagOUSupplyNodesCheckBox" Content="Flag over or under supplied nodes" IsChecked="{Binding FlagOUSupplyNodesChecked, Mode=TwoWay}" />
               <CheckBox Name="FlagDarkModeCheckBox" Content="Enable Dark Mode" IsChecked="{Binding FlagDarkModeChecked, Mode=TwoWay}" />
             </StackPanel>

@@ -44,7 +44,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal(original.AbbreviateSciPacks, applied.AbbreviateSciPacks);
             Assert.Equal(original.ShowRecipeToolTip, applied.ShowRecipeToolTip);
             Assert.Equal(original.RoundAssemblerCount, applied.RoundAssemblerCount);
-            Assert.Equal(original.LockedRecipeEditorPosition, applied.LockedRecipeEditorPosition);
             Assert.Equal(original.FlagOUSuppliedNodes, applied.FlagOUSuppliedNodes);
             Assert.Equal(original.ShowErrorArrows, applied.ShowErrorArrows);
             Assert.Equal(original.ShowWarningArrows, applied.ShowWarningArrows);

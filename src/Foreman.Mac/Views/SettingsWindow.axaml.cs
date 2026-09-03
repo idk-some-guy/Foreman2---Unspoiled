@@ -57,7 +57,6 @@ namespace Foreman.Mac.Views {
             public bool AbbreviateSciPacks { get; set; }
             public bool ShowRecipeToolTip { get; set; }
             public bool RoundAssemblerCount { get; set; }
-            public bool LockedRecipeEditPanelPosition { get; set; }
             public bool FlagOUSuppliedNodes { get; set; }
             public ThemeMode FlagDarkMode { get; set; }
             public bool ShowErrorArrows { get; set; }
@@ -110,7 +109,6 @@ namespace Foreman.Mac.Views {
         private readonly CheckBox abbreviateSciPackCheckBox;
         private readonly CheckBox showNodeRecipeCheckBox;
         private readonly CheckBox roundAssemblerCountCheckBox;
-        private readonly CheckBox recipeEditPanelPositionLockCheckBox;
         private readonly CheckBox flagOUSupplyNodesCheckBox;
         private readonly CheckBox flagDarkModeCheckBox;
         private readonly CheckBox errorArrowsCheckBox;
@@ -198,7 +196,6 @@ namespace Foreman.Mac.Views {
             abbreviateSciPackCheckBox = this.FindControl<CheckBox>("AbbreviateSciPackCheckBox")!;
             showNodeRecipeCheckBox = this.FindControl<CheckBox>("ShowNodeRecipeCheckBox")!;
             roundAssemblerCountCheckBox = this.FindControl<CheckBox>("RoundAssemblerCountCheckBox")!;
-            recipeEditPanelPositionLockCheckBox = this.FindControl<CheckBox>("RecipeEditPanelPositionLockCheckBox")!;
             flagOUSupplyNodesCheckBox = this.FindControl<CheckBox>("FlagOUSupplyNodesCheckBox")!;
             flagDarkModeCheckBox = this.FindControl<CheckBox>("FlagDarkModeCheckBox")!;
             errorArrowsCheckBox = this.FindControl<CheckBox>("ErrorArrowsCheckBox")!;
@@ -278,7 +275,6 @@ namespace Foreman.Mac.Views {
             AbbreviateSciPacks = Options.AbbreviateSciPacks,
             ShowRecipeToolTip = Options.ShowRecipeToolTip,
             RoundAssemblerCount = Options.RoundAssemblerCount,
-            LockedRecipeEditorPosition = Options.LockedRecipeEditPanelPosition,
             FlagOUSuppliedNodes = Options.FlagOUSuppliedNodes,
             FlagDarkMode = Options.FlagDarkMode,
             ShowErrorArrows = Options.ShowErrorArrows,
@@ -316,7 +312,6 @@ namespace Foreman.Mac.Views {
             Options.AbbreviateSciPacks = snapshot.AbbreviateSciPacks;
             Options.ShowRecipeToolTip = snapshot.ShowRecipeToolTip;
             Options.RoundAssemblerCount = snapshot.RoundAssemblerCount;
-            Options.LockedRecipeEditPanelPosition = snapshot.LockedRecipeEditorPosition;
             Options.FlagOUSuppliedNodes = snapshot.FlagOUSuppliedNodes;
             Options.FlagDarkMode = snapshot.FlagDarkMode;
             Options.ShowErrorArrows = snapshot.ShowErrorArrows;
@@ -770,7 +765,6 @@ namespace Foreman.Mac.Views {
         internal CheckBox AbbreviateSciPackCheckBoxControl => abbreviateSciPackCheckBox;
         internal CheckBox ShowNodeRecipeCheckBoxControl => showNodeRecipeCheckBox;
         internal CheckBox RoundAssemblerCountCheckBoxControl => roundAssemblerCountCheckBox;
-        internal CheckBox RecipeEditPanelPositionLockCheckBoxControl => recipeEditPanelPositionLockCheckBox;
         internal CheckBox FlagOUSupplyNodesCheckBoxControl => flagOUSupplyNodesCheckBox;
         internal CheckBox FlagDarkModeCheckBoxControl => flagDarkModeCheckBox;
         internal CheckBox ErrorArrowsCheckBoxControl => errorArrowsCheckBox;
