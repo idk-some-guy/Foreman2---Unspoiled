@@ -23,10 +23,10 @@ namespace Foreman.Mac.Services {
             Action fatalExit) =>
             BootAsync(settingsService, settings, presetResolver, loadPreset, showWarning, fatalExit, SolverWarmup.RunAsync);
 
-        // warmSolver is fired right after the window shows and is never awaited: the first
-        // Solver_t.CreateSolver("GLOP") call cold-loads OR-Tools' ~55MB native tree, and doing that
-        // on a background thread here beats paying for it on the UI thread during the user's first
-        // UpdateNodeValues (perf-packaging-reference.md §1c).
+        // warmSolver is fired right after the window shows and is never awaited: the first HiGHS
+        // solve cold-loads its native dylib, and doing that on a background thread here beats
+        // paying for it on the UI thread during the user's first UpdateNodeValues
+        // (perf-packaging-reference.md §1c, docs/solver-eval.md).
         internal static async Task<MainWindow?> BootAsync(
             SettingsService settingsService,
             AppSettings settings,

@@ -4,15 +4,13 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 
 namespace ForemanTest {
-    // Pins GLOP's behavior at the shipped ProductionGraph defaults (LowPriorityPower = 4, per
-    // upstream's own comment intent of "10,000 is a nice value here"). No existing test exercises
-    // this: SolverTest.cs's cases never touch LowPriorityPower, and GraphOptionsSolverFieldsTest.cs's
-    // two LowPriorityPower cases deliberately use small exponents. These cases must keep passing
-    // against GLOP; a failure here is a shipped-default regression, not a test bug.
+    // Pins the shipped solver's behavior at the shipped ProductionGraph defaults (LowPriorityPower
+    // = 4, per upstream's own comment intent of "10,000 is a nice value here"). No existing test
+    // exercises this: SolverTest.cs's cases never touch LowPriorityPower, and
+    // GraphOptionsSolverFieldsTest.cs's two LowPriorityPower cases deliberately use small exponents.
+    // A failure here is a shipped-default regression, not a test bug.
     [TestClass]
     public class SolverDefaultsTest : ForemanTestBase {
-        protected virtual void SolveGraph(GraphBuilder.BuiltData data) => data.Solve();
-
         [TestMethod]
         public void DefaultLowPriorityPower_FeedsFiniteMultiplier() {
             var graph = new ProductionGraph();
@@ -33,7 +31,7 @@ namespace ForemanTest {
             builder.Link(builder.Supply("OreExpensive"), normal, consumer);
 
             var data = builder.Build();
-            SolveGraph(data);
+            data.Solve();
 
             AssertFloatsAreEqual(10, data.RecipeRate("normal"));
             AssertFloatsAreEqual(0, data.RecipeRate("cheap-low-priority"));
@@ -47,7 +45,7 @@ namespace ForemanTest {
             builder.Link(builder.Supply("Ore"), onlyOption, consumer);
 
             var data = builder.Build();
-            SolveGraph(data);
+            data.Solve();
 
             // The large finite coefficient on the only feasible path must not produce NaN, zero, or
             // an unbounded solve.
@@ -67,7 +65,7 @@ namespace ForemanTest {
             builder.Link(breaker, fixer);
 
             var data = builder.Build();
-            SolveGraph(data);
+            data.Solve();
 
             AssertFloatsAreEqual(2, data.RecipeRate("fixer"));
         }

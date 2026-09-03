@@ -5,14 +5,8 @@ using System.Diagnostics;
 using System.Linq;
 
 namespace Foreman.Models.Solver {
-    // A wrapper around Google's Optimization Tools, specifically the Linear Programming library. We
-    // can express a factory as a system of linear constraints, and this library takes care of
-    // solving them for us.
-    //
-    // Google also provides a library for Flow Algorithms which sounds like an appealing and
-    // potentially simpler alternative, though it's not obvious to me that the problem maps exactly.
-    //
-    // https://developers.google.com/optimization/lp/glop
+    // Expresses a factory as a system of linear constraints and hands them to an ILpSolver
+    // (HiGHS by default, see docs/solver-eval.md) to solve.
     public class ProductionSolver {
         public double LowPriorityMultiplier { get; set; }
 
@@ -41,8 +35,8 @@ namespace Foreman.Models.Solver {
         // can be uniquely associated.
         private readonly Dictionary<object, ILpVariable> allVariables;
 
-        // We only keep track of constraints as we create them for debugging purposes. OrTools
-        // doesn't provide a method for listing all constraints on a solver, which is unfortunate.
+        // We only keep track of constraints as we create them for debugging purposes; the
+        // backing LP solver doesn't expose a way to list them back.
 
         // Keep track of nodes as they are added to ensure the solution contains all of them, even if
         // there are no links.
@@ -63,7 +57,7 @@ namespace Foreman.Models.Solver {
             overflowObjectiveCoefficient = overflowObjectiveC;
             errorObjectiveCoefficient = errorObjectiveC;
 
-            solver = lpSolver ?? GoogleSolver.Create();
+            solver = lpSolver ?? HighsSolver.Create();
             allVariables = [];
             nodes = [];
         }
@@ -82,9 +76,9 @@ namespace Foreman.Models.Solver {
             solver.SetObjectiveCoefficient(nodeRate, factoryObjectiveCoefficient * factoryRateCoefficient * (node.LowPriority ? LowPriorityMultiplier : 1));
         }
 
-        // Returns null if no optimal solution can be found. Technically GLOP can return non-optimal
-        // solutions, but since I don't have any inputs that generate those I'm opting on the side of
-        // safety by treating those as non-solutions.
+        // Returns null if no optimal solution can be found. Technically a backend can return
+        // non-optimal solutions, but since I don't have any inputs that generate those I'm opting
+        // on the side of safety by treating those as non-solutions.
         public Solution? Solve() {
             if (nodes.Count == 0)
                 return new Solution([], []); //no nodes mean empty solution (no errors)

@@ -158,3 +158,111 @@ that it is present, correctly architected, and matches the same package version 
 license as the verified `osx-arm64` binary.
 
 Verdict: SPIKE-POSITIVE — Highs.Native 1.15.1
+
+## Decision gate measurements
+
+All numbers below were captured on this machine (Task 5), independently of the spike. Every
+scratch runner lived under a session scratchpad, never staged, and referenced `Foreman.Core.csproj`
+directly so the timed code paths are the real `GoogleSolver`/`HighsSolver`/`ProductionSolver`
+classes, not a re-implementation.
+
+### (a) Native payload actually bundled, osx-arm64, solver-specific dylibs only
+
+Measured two ways: directly on the NuGet cache copies (`~/.nuget/packages/...`), and by publishing
+`Foreman.Mac.csproj` for `osx-arm64` self-contained and inspecting the flat output directory the
+publish process produces (both packages are still referenced at this point in Task 5, so the
+combined publish output was filtered down to each package's own files by name before totaling).
+
+| Backend | Files | Total size | Source |
+|---|---|---|---|
+| Google.OrTools (`google.ortools.runtime.osx-arm64` 9.15.6755) | 100 | 55 MB (57,671,680 bytes reported by `du`) | NuGet cache `runtimes/osx-arm64/native/` |
+| Google.OrTools, confirmed from a real publish output | 100 (everything except the 13-file .NET-runtime baseline and Highs.Native's own `highs.dylib`) | 55 MB | `dotnet publish -r osx-arm64 --self-contained true` |
+| Highs.Native 1.15.1 | 1 (`highs.dylib`) | 4,655,952 bytes (4.4 MB) | NuGet cache `runtimes/osx-arm64/native/` |
+| Highs.Native, confirmed standalone (no OrTools referenced at all) | 1 | 4.4 MB | A scratch console app referencing only `Highs.Native`, built+published standalone |
+
+The standalone Highs.Native build is the important check here: `highs.dylib`'s own embedded
+install name is `@rpath/libhighs.1.dylib` (a build/packaging quirk — the file is self-identified
+under a different name than the one it ships under), which briefly looked like a missing-dependency
+risk once OrTools is gone, since OrTools' own runtime package happens to also carry a same-named
+`libhighs.1.dylib` (its own bundled MIP solver family, unrelated to our `Highs.Native` reference).
+Built and ran the standalone Highs-only console app with no `libhighs.1.dylib` anywhere on disk:
+it solves correctly. `otool -L` on `highs.dylib` confirms its actual runtime dependencies are only
+`libz`, `libc++`, and `libSystem.B` — all system libraries. No missing-dependency risk.
+
+Net: dropping OrTools for HiGHS cuts the solver-specific native payload from 55 MB across 100 files
+to 4.4 MB in a single file, roughly a 92% size reduction and a 99% file-count reduction.
+
+### (b) Cold first-solve wall time, fresh process per run
+
+Each run is a genuinely untouched process: a fresh copy of the solver's native dylib (a new file,
+never read by this OS before, so its pages are not in the page cache) plus a freshly built
+self-contained `osx-arm64` executable, run exactly once, immediately after building. This is
+stricter than "restart the same binary" — restarting a binary whose dylib was already read once
+just measures a warm page cache, which is why the first attempt at this measurement (reusing the
+same build across repeat runs) undercounted HiGHS by roughly 40x versus the true cold numbers below.
+Both runners build the same 2-variable/2-constraint LP from the HiGHS binding spike (§d above)
+through the actual `Solver.CreateSolver("GLOP")` / `HighsLpSolver` entry points.
+
+| Backend | Run 1 | Run 2 | Run 3 | Run 4 | Run 5 | Mean (3 official runs) |
+|---|---|---|---|---|---|---|
+| GoogleSolver (GLOP) | 9656.536 ms | 4390.770 ms | 3881.013 ms | — | — | 5976.1 ms |
+| HighsSolver (HiGHS) | 85.103 ms | 84.048 ms | 86.294 ms | 139.922 ms | 102.918 ms | 85.1 ms (3-run); 99.7 ms (5-run) |
+
+GLOP's cold range reproduces phase 7's own documented "94ms-11s cold-cache finding" (§1c of
+`docs/perf-packaging-reference.md`) almost exactly — an early, non-official probe on this same
+machine hit 11,009.6 ms once, consistent with the high end of that range. HiGHS never approaches
+that territory: worst case observed across five independent cold trials is 139.9 ms, best is
+84.0 ms, and two isolated non-official trials (a fresh single-file copy tested before the final
+5-run series was settled on) landed at 211.8 ms and 213.7 ms — high enough to matter for the
+warmup decision below even though they're outliers against the tighter 5-run spread.
+
+### (c) Solve time on the 2984-node scale baseline fixture, warm, 3 runs each
+
+Fixture: `tests/Foreman.Mac.UiTests/Canvas/ScaleGraphPerfTests.cs`'s `BuildLargeGraph` — 1000
+recipe nodes plus 1984 supplier/consumer nodes (2984 total), rebuilt node-for-node in a scratch
+console runner via `ProductionGraph` directly (no Avalonia/`GraphViewer` needed for a solve-only
+measurement). One warm-up solve primes the native dylib and JIT; the three measured runs follow in
+the same process, matching "warm" per the phase 7 precedent (§1c's own "current first-`UpdateNodeValues()`
+call against a warm-solver baseline" framing).
+
+| Backend | Run 1 | Run 2 | Run 3 | Mean |
+|---|---|---|---|---|
+| GoogleSolver (production default path, `graph.UpdateNodeValues()`) | 1.715 ms | 1.772 ms | 1.800 ms | 1.762 ms |
+| HighsSolver (explicit injection via the same connected-node-group loop `GraphOptimisation.cs` runs) | 1.580 ms | 1.504 ms | 1.506 ms | 1.530 ms |
+
+HiGHS is about 13% faster than GLOP at this scale, warm. One measurement wrinkle worth recording:
+`HighsSolver.Solve()` (as Task 3 wrote it) does not set HiGHS's `output_flag` option, so by default
+every individual solve prints a full banner and iteration table to stdout. At this fixture's scale
+(2984 nodes decompose into ~1000 independent connected components, each solved separately) that's
+roughly 1000 verbose banners per pass, which dominates wall time by two to three orders of
+magnitude if left on — the raw numbers above were captured with `output_flag` forced off in the
+scratch runner. This is a real gap in the shipped `HighsSolver.cs`, not just a measurement artifact:
+the same 2984-node graph solved through the unmodified production class would spam stdout on
+every node-group solve. Flagged for the swap below.
+
+## Decision
+
+Gate order: corpus identity, then startup weight (payload + cold first-solve), then speed.
+
+**Corpus identity**: already proven 64/64 across both backends (Task 4) — pass.
+
+**Startup weight**: HiGHS wins decisively on both halves. Payload drops from 55 MB across 100 files
+to 4.4 MB in one file (a). Cold first-solve drops from a multi-second, `du`-file-count-driven load
+(mean 5976 ms, worst case 9657 ms, reproducing phase 7's own 11-second finding) to under 150 ms in
+every trial (mean 85-100 ms depending on which run set) — roughly a 60-100x improvement, not a
+marginal one.
+
+**Speed**: HiGHS also wins outright at the 2984-node scale fixture, warm — about 13% faster than
+GLOP, not merely a tie within the 10% band the gate allows for a payload tradeoff. (The 10% tie
+band and the ~100 ms warmup bar below are the controller's dispatch-time decision rules for this
+task, recorded here since they aren't in the plan document itself.)
+
+**Ruling: SWAP.** HiGHS beats GLOP on every leg of the gate — it isn't a close call decided by the
+10%-tie allowance, it's a clean win on payload, cold-load time, and steady-state solve speed all
+at once. The one caveat is that HiGHS's own cold-load, while dramatically better than GLOP's, isn't
+reliably under the ~100 ms "no warmup needed" bar (5 fresh-process trials ranged 84-140 ms, with
+two earlier single-sample outliers over 200 ms) — so `SolverWarmup` stays, repointed at `HighsSolver`
+instead of deleted, rather than being removed outright. The `HighsSolver.Solve()` stdout-spam gap
+found while measuring (c) gets fixed as part of the swap: shipping HiGHS as the default without
+silencing it would trade a multi-second one-time freeze for a steady stream of solver logging on
+every graph edit at scale, which is its own regression.

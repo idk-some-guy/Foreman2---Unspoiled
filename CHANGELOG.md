@@ -14,6 +14,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Switched the production solver from Google OR-Tools to HiGHS: a dramatically smaller download
+  (the bundled solver drops from roughly 55 MB across 100 files to 4.4 MB in one file) and a much
+  faster first solve after launch, with identical solve results.
 - Internal modernization of the settings, factory-summary, and preset-comparison windows onto
   CommunityToolkit.Mvvm with compiled bindings; no user-visible behavior change.
 

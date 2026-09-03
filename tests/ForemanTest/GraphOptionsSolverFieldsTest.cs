@@ -16,8 +16,6 @@ namespace ForemanTest {
     //loop (MaxQualitySteps). Each case is hand-derived from that math, not just "does the number change".
     [TestClass]
     public class GraphOptionsSolverFieldsTest : ForemanTestBase {
-        protected virtual void SolveGraph(GraphBuilder.BuiltData data) => data.Solve();
-
         //factoryObjectiveCoefficient is a fixed 1e-2 (ProductionSolver.cs:62's io-ratio ctor), so a
         //recipe's objective weight is 0.01 * FactoryRate() * (LowPriority ? 10^LowPriorityPower : 1),
         //where FactoryRate() = Time / Speed (TestAssembler's speed is 1, so FactoryRate == Time here).
@@ -33,7 +31,7 @@ namespace ForemanTest {
 
             //cost(cheap) = 0.01*1*10^1 = 0.1 < cost(expensive) = 0.01*15*1 = 0.15 -> solver fully prefers cheap.
             data.Graph.LowPriorityPower = 1;
-            SolveGraph(data);
+            data.Solve();
 
             AssertFloatsAreEqual(10, data.RecipeRate("cheap"));
             AssertFloatsAreEqual(0, data.RecipeRate("expensive"));
@@ -51,7 +49,7 @@ namespace ForemanTest {
 
             //cost(cheap) = 0.01*1*10^2 = 1.0 > cost(expensive) = 0.01*15*1 = 0.15 -> solver switches entirely.
             data.Graph.LowPriorityPower = 2;
-            SolveGraph(data);
+            data.Solve();
 
             AssertFloatsAreEqual(0, data.RecipeRate("cheap"));
             AssertFloatsAreEqual(10, data.RecipeRate("expensive"));
@@ -74,7 +72,7 @@ namespace ForemanTest {
 
             data.Graph.PullOutputNodes = false;
             data.Graph.PullOutputNodesPower = 5; //max power, but the reward term is zeroed while the flag is off
-            SolveGraph(data);
+            data.Solve();
 
             AssertFloatsAreEqual(0, data.ConsumedRate("Widget"));
             AssertFloatsAreEqual(0, data.RecipeRate("expensive-recipe"));
@@ -97,7 +95,7 @@ namespace ForemanTest {
             //reward = 10^1 = 10 < factory cost 20 -> bounded optimal solution, no solver failure logged.
             data.Graph.PullOutputNodes = true;
             data.Graph.PullOutputNodesPower = 1;
-            SolveGraph(data);
+            data.Solve();
 
             AssertFloatsAreEqual(0, data.ConsumedRate("Widget"));
             string log = File.Exists(ErrorLogging.LogFilePath) ? File.ReadAllText(ErrorLogging.LogFilePath) : "";
@@ -119,7 +117,7 @@ namespace ForemanTest {
             //ProductionSolver's own "can result in an unbound solution" comment for this option.
             data.Graph.PullOutputNodes = true;
             data.Graph.PullOutputNodesPower = 2;
-            SolveGraph(data);
+            data.Solve();
 
             Assert.Contains("Solver failed to find a solution", File.ReadAllText(ErrorLogging.LogFilePath));
         }
@@ -148,18 +146,18 @@ namespace ForemanTest {
             IItem widget = node.Outputs.First(o => ReferenceEquals(o.Quality, normal)).Item!;
 
             data.Graph.MaxQualitySteps = 1;
-            SolveGraph(data);
+            data.Solve();
             AssertFloatsAreEqual(1.0, node.GetSupplyRate(new ItemQualityPair(widget, normal)) / node.ActualRate);
             Assert.IsFalse(node.Outputs.Any(o => ReferenceEquals(o.Quality, uncommon)));
 
             data.Graph.MaxQualitySteps = 2;
-            SolveGraph(data);
+            data.Solve();
             AssertFloatsAreEqual(0.7, node.GetSupplyRate(new ItemQualityPair(widget, normal)) / node.ActualRate);
             AssertFloatsAreEqual(0.3, node.GetSupplyRate(new ItemQualityPair(widget, uncommon)) / node.ActualRate);
             Assert.IsFalse(node.Outputs.Any(o => ReferenceEquals(o.Quality, rare)));
 
             data.Graph.MaxQualitySteps = 3;
-            SolveGraph(data);
+            data.Solve();
             AssertFloatsAreEqual(0.7, node.GetSupplyRate(new ItemQualityPair(widget, normal)) / node.ActualRate);
             AssertFloatsAreEqual(0.15, node.GetSupplyRate(new ItemQualityPair(widget, uncommon)) / node.ActualRate);
             AssertFloatsAreEqual(0.15, node.GetSupplyRate(new ItemQualityPair(widget, rare)) / node.ActualRate);

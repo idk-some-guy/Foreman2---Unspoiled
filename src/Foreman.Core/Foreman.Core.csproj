@@ -12,9 +12,7 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Google.OrTools" Version="9.15.6755" />
     <PackageReference Include="Highs.Native" Version="1.15.1" />
-    <PackageReference Include="Google.Protobuf" Version="3.34.1" />
     <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
     <PackageReference Include="SkiaSharp" Version="3.119.1" />
     <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="3.119.1" />

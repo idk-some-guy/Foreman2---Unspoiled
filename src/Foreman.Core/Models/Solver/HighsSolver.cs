@@ -40,6 +40,7 @@ namespace Foreman.Models.Solver {
 
         public LpSolveStatus Solve() {
             using var solver = new HighsLpSolver();
+            _ = solver.setBoolOptionValue("output_flag", 0);
             _ = solver.passLp(BuildModel());
             var runStatus = solver.run();
             var modelStatus = solver.GetModelStatus();
