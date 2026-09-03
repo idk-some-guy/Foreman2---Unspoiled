@@ -589,7 +589,18 @@ namespace Foreman.Mac.UiTests {
 
             var label = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "VersionLabel");
 
-            Assert.Equal("v 1.0.0 based on 2.4.0", label.Text);
+            var informational = typeof(AppVersion).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                .InformationalVersion;
+            var shortSemVer = informational?.Split('+')[0];
+            Assert.Matches(@"^\d+\.\d+\.\d+$", shortSemVer);
+
+            var upstream = typeof(AppVersion).Assembly
+                .GetCustomAttributes<AssemblyMetadataAttribute>()
+                .FirstOrDefault(a => a.Key == "UpstreamVersion")?.Value;
+            Assert.Matches(@"^\d+\.\d+\.\d+$", upstream);
+
+            Assert.Equal($"v {shortSemVer} based on {upstream}", label.Text);
         }
 
         [AvaloniaFact]

@@ -1,6 +1,9 @@
 using Foreman;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Linq;
+using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace ForemanTest {
     [TestClass]
@@ -18,7 +21,14 @@ namespace ForemanTest {
 
         [TestMethod]
         public void ShortSemVer_MatchesDirectoryBuildPropsVersion() {
-            Assert.AreEqual("1.0.0", AppVersion.ShortSemVer);
+            var informational = typeof(AppVersion).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                .InformationalVersion;
+            Assert.IsFalse(string.IsNullOrEmpty(informational), "assembly has no informational version");
+            var expected = informational!.Split('+')[0];
+
+            StringAssert.Matches(expected, new Regex(@"^\d+\.\d+\.\d+$"));
+            Assert.AreEqual(expected, AppVersion.ShortSemVer);
         }
 
         [TestMethod]
@@ -28,7 +38,13 @@ namespace ForemanTest {
 
         [TestMethod]
         public void VersionedDisplay_MatchesSpecFormat() {
-            Assert.AreEqual("v 1.0.0 based on 2.4.0", AppVersion.VersionedDisplay);
+            var upstream = typeof(AppVersion).Assembly
+                .GetCustomAttributes<AssemblyMetadataAttribute>()
+                .FirstOrDefault(a => a.Key == "UpstreamVersion")?.Value;
+            Assert.IsFalse(string.IsNullOrWhiteSpace(upstream), "assembly has no UpstreamVersion metadata");
+            StringAssert.Matches(upstream!, new Regex(@"^\d+\.\d+\.\d+$"));
+
+            Assert.AreEqual($"v {AppVersion.ShortSemVer} based on {upstream}", AppVersion.VersionedDisplay);
         }
     }
 }
