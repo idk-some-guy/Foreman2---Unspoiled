@@ -54,6 +54,9 @@ namespace Foreman.DataCaching.Storage {
         public decimal LowPriorityPower { get; set; }
         public bool PullConsumerNodes { get; set; }
         public decimal PullConsumerNodesPower { get; set; }
+
+        //Added schema version 2 (phase 9 Task 3) - see ForemanDbContext.Open's v1->v2 ALTER TABLE step.
+        public double UiScale { get; set; }
     }
 
     //A single imported preset, compressed with zstd; CustomOverlayJson holds the presetCustom

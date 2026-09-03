@@ -96,6 +96,7 @@ namespace Foreman.Mac {
             BindToolbarButtons();
             GraphCanvas.KeyDown += OnGraphCanvasKeyDown;
             NativeMenu.SetMenu(this, BuildNativeMenu());
+            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -708,6 +709,7 @@ namespace Foreman.Mac {
             options.ShowRecipeToolTip = viewer.Context.ShowRecipeToolTip;
             options.FlagOUSuppliedNodes = viewer.Context.FlagOUSuppliedNodes;
             options.FlagDarkMode = settings.FlagDarkMode;
+            options.UiScale = settings.UiScale;
             options.DefaultAssemblerStyle = viewer.Graph.AssemblerSelector.DefaultSelectionStyle;
             options.DefaultModuleStyle = viewer.Graph.ModuleSelector.DefaultSelectionStyle;
             options.DefaultNodeDirection = viewer.Graph.DefaultNodeDirection;
@@ -768,6 +770,7 @@ namespace Foreman.Mac {
             settings.ShowRecipeToolTip = options.ShowRecipeToolTip;
             settings.FlagOUSuppliedNodes = options.FlagOUSuppliedNodes;
             settings.FlagDarkMode = options.FlagDarkMode;
+            settings.UiScale = options.UiScale;
             settings.DefaultAssemblerOption = options.DefaultAssemblerStyle;
             settings.DefaultModuleOption = options.DefaultModuleStyle;
             settings.DefaultNodeDirection = options.DefaultNodeDirection;
@@ -788,6 +791,7 @@ namespace Foreman.Mac {
 
             ApplyLoadedSettings();
             (Application.Current as App)?.ApplyTheme(settings.FlagDarkMode);
+            WindowScaler.SetScale(settings.UiScale);
 
             //Ports MainForm.cs:501-503's apply-tail: a Confirm must actually re-solve against the settings
             //just committed, not just write them onto AppSettings/the live graph properties.

@@ -1065,6 +1065,7 @@ namespace Foreman.Mac.UiTests.Views {
             options.SolverLowPriorityPower = 2.5m;
             options.SolverPullConsumerNodes = true;
             options.SolverPullConsumerNodesPower = 3.5m;
+            options.UiScale = 1.5;
         }
 
         //Contract: docs/panels-reference.md:222/upstream SettingsForm.Designer.cs:1457,1460,1619-1633. The
@@ -1115,6 +1116,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(2.5m, window.LowPriorityPowerInputControl.Value);
             Assert.True(window.PullConsumerNodesCheckBoxControl.IsChecked);
             Assert.Equal(3.5m, window.PullConsumerNodesPowerInputControl.Value);
+            Assert.Equal("150%", window.UiScaleDropDownControl.SelectedItem);
         }
 
         [AvaloniaFact]
@@ -1148,6 +1150,7 @@ namespace Foreman.Mac.UiTests.Views {
             window.LowPriorityPowerInputControl.Value = 6m;
             window.PullConsumerNodesCheckBoxControl.IsChecked = true;
             window.PullConsumerNodesPowerInputControl.Value = 5m;
+            window.UiScaleDropDownControl.SelectedItem = "125%";
 
             window.SimulateConfirmClick();
 
@@ -1178,6 +1181,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(6m, options.SolverLowPriorityPower);
             Assert.True(options.SolverPullConsumerNodes);
             Assert.Equal(5m, options.SolverPullConsumerNodesPower);
+            Assert.Equal(1.25, options.UiScale);
         }
 
         //Regression: every Graph Options widget write must route through CommitPendingChanges (Confirm,
@@ -1267,6 +1271,47 @@ namespace Foreman.Mac.UiTests.Views {
             app.ApplyTheme(options.FlagDarkMode);
 
             Assert.Equal(Avalonia.Styling.ThemeVariant.Default, app.RequestedThemeVariant);
+        }
+
+        //--- UI Scale ComboBox (Task 3) --------------------------------------------------------------------
+
+        [AvaloniaTheory]
+        [InlineData("100%", 1.00)]
+        [InlineData("110%", 1.10)]
+        [InlineData("125%", 1.25)]
+        [InlineData("150%", 1.50)]
+        [InlineData("200%", 2.00)]
+        public async Task UiScaleDropDown_Confirm_MapsToScaleLosslessly(string label, double expectedScale) {
+            var options = NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]);
+            var window = new SettingsWindow(options);
+
+            window.UiScaleDropDownControl.SelectedItem = label;
+            window.SimulateConfirmClick();
+
+            Assert.Equal(expectedScale, options.UiScale);
+        }
+
+        //UI-level pin: the ComboBox carries exactly the five discrete steps, in ascending order.
+        [AvaloniaFact]
+        public async Task UiScaleDropDown_ShowsExactlyTheFiveSteps() {
+            var window = NewGraphOptionsWindow(await GetCacheAsync());
+
+            Assert.Equal<object>(["100%", "110%", "125%", "150%", "200%"],
+                window.UiScaleDropDownControl.ItemsSource!.Cast<object>());
+        }
+
+        //Same clobber-prevention contract as FlagDarkMode's System case: a Confirm that never touches the
+        //scale control must not silently reset it to whatever the widget's default selection would imply.
+        [AvaloniaFact]
+        public async Task GraphOptionsTab_UiScaleLoadedThenUnrelatedWidgetConfirmed_StaysSame() {
+            var options = NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]);
+            options.UiScale = 1.5;
+            var window = new SettingsWindow(options);
+
+            window.HighLodRadioButtonControl.IsChecked = true;
+            window.SimulateConfirmClick();
+
+            Assert.Equal(1.5, options.UiScale);
         }
     }
 }

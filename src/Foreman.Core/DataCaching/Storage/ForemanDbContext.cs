@@ -24,8 +24,13 @@ namespace Foreman.DataCaching.Storage {
         //safe to run from two threads at once against the same not-yet-existing file.
         private static readonly object BootstrapLock = new();
 
-        //Opens (creating if needed) the db at dbPath and seeds SchemaVersion=1 exactly once;
-        //idempotent across repeated calls on the same path.
+        //Bumped for the Settings.UiScale column (phase 9 Task 3). EnsureCreated only creates a db from
+        //scratch - it never alters an existing file's schema - so a db already on disk needs its own
+        //ALTER TABLE step to pick up a new column; see MigrateToCurrent below.
+        private const int CurrentSchemaVersion = 2;
+
+        //Opens (creating if needed) the db at dbPath and seeds SchemaVersion=1 (or migrates a v1 db
+        //forward to CurrentSchemaVersion) exactly once; idempotent across repeated calls on the same path.
         public static ForemanDbContext Open(string dbPath) {
             string? directory = Path.GetDirectoryName(dbPath);
             if (!string.IsNullOrEmpty(directory)) {
@@ -35,13 +40,30 @@ namespace Foreman.DataCaching.Storage {
             lock (BootstrapLock) {
                 ForemanDbContext context = OpenOrQuarantine(dbPath);
 
-                if (!context.SchemaVersions.Any()) {
-                    context.SchemaVersions.Add(new SchemaVersionRow { Version = 1 });
+                SchemaVersionRow? versionRow = context.SchemaVersions.SingleOrDefault();
+                if (versionRow is null) {
+                    //Brand new file - EnsureCreated just built the full current-model schema (UiScale
+                    //column included), so there's nothing to migrate.
+                    context.SchemaVersions.Add(new SchemaVersionRow { Version = CurrentSchemaVersion });
                     context.SaveChanges();
+                } else if (versionRow.Version < CurrentSchemaVersion) {
+                    MigrateToCurrent(context, versionRow);
                 }
 
                 return context;
             }
+        }
+
+        //SchemaVersionRow keys itself by Version (no separate id column), so bumping the version is a
+        //remove-then-add rather than an in-place field update.
+        private static void MigrateToCurrent(ForemanDbContext context, SchemaVersionRow versionRow) {
+            if (versionRow.Version == 1) {
+                context.Database.ExecuteSqlRaw("ALTER TABLE Settings ADD COLUMN UiScale REAL NOT NULL DEFAULT 1.0");
+            }
+
+            context.SchemaVersions.Remove(versionRow);
+            context.SchemaVersions.Add(new SchemaVersionRow { Version = CurrentSchemaVersion });
+            context.SaveChanges();
         }
 
         //SQLITE_NOTADB - the file isn't a SQLite database at all; SQLITE_CORRUPT - its own header/pages

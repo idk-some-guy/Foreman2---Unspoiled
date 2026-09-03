@@ -25,18 +25,21 @@ namespace ForemanTest.Storage {
             }
         }
 
+        //Version 2 since phase 9 Task 3 (Settings.UiScale) - a brand new db's EnsureCreated pass already
+        //builds the current-model schema, so it seeds straight to the current version instead of
+        //seeding 1 and immediately migrating.
         [TestMethod]
         public void Open_CreatesDbFile_AndSeedsSchemaVersionOnce() {
             string dbPath = StoragePaths.DbPath(tempRoot);
 
             using (ForemanDbContext context = ForemanDbContext.Open(dbPath)) {
                 Assert.IsTrue(File.Exists(dbPath));
-                Assert.AreEqual(1, context.SchemaVersions.Single().Version);
+                Assert.AreEqual(2, context.SchemaVersions.Single().Version);
             }
 
             using (ForemanDbContext reopened = ForemanDbContext.Open(dbPath)) {
                 Assert.AreEqual(1, reopened.SchemaVersions.Count());
-                Assert.AreEqual(1, reopened.SchemaVersions.Single().Version);
+                Assert.AreEqual(2, reopened.SchemaVersions.Single().Version);
             }
         }
 

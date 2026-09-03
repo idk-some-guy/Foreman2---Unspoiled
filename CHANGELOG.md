@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - True dark mode: follows the system appearance, with manual light/dark override.
+- Adjustable interface scale (100-200%) in Settings, independent of the graph canvas's own zoom.
 
 ### Fixed
 

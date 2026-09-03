@@ -58,5 +58,10 @@ namespace Foreman.Mac.Services {
         public decimal LowPriorityPower { get; set; } = 4;
         public bool PullConsumerNodes { get; set; }
         public decimal PullConsumerNodesPower { get; set; } = 1;
+
+        //Phase 9 Task 3 - no upstream counterpart (WinForms has no display-scale setting of its own).
+        //Clamped to [1.0, 2.0] on load (SettingsService.HealUiScale); the Settings UI only ever offers
+        //the discrete 100/110/125/150/200% steps within that range.
+        public double UiScale { get; set; } = 1.0;
     }
 }

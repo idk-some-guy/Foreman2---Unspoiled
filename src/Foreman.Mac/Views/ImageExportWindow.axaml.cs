@@ -4,6 +4,7 @@ using Avalonia.Platform.Storage;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Services;
 using SkiaSharp;
 using System;
 using System.Drawing;
@@ -61,6 +62,7 @@ namespace Foreman.Mac.Views {
             exportButton.Click += (_, _) => Async.Fire(ExportAsync(), nameof(ExportAsync));
             scaleSelectionBox.SelectionChanged += (_, _) => UpdateSizeLabel();
             viewLimitCheckBox.IsCheckedChanged += (_, _) => UpdateSizeLabel();
+            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

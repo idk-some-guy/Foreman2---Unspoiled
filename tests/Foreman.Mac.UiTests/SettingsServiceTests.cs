@@ -3,6 +3,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.Storage;
 using Foreman.Mac.Services;
 using Foreman.Models;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.IO;
 using System.Text.Json;
@@ -75,6 +76,7 @@ namespace Foreman.Mac.UiTests {
             LowPriorityPower = 2.5m,
             PullConsumerNodes = true,
             PullConsumerNodesPower = 3.5m,
+            UiScale = 1.5,
         };
 
         [Fact]
@@ -102,6 +104,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(4m, settings.LowPriorityPower);
             Assert.False(settings.PullConsumerNodes);
             Assert.Equal(1m, settings.PullConsumerNodesPower);
+            Assert.Equal(1.0, settings.UiScale);
         }
 
         [Theory]
@@ -169,6 +172,32 @@ namespace Foreman.Mac.UiTests {
             var settings = service.Load();
 
             Assert.Equal(5m, settings.PullConsumerNodesPower);
+        }
+
+        [Fact]
+        public void Load_OutOfRangeUiScale_ClampsToOne() {
+            string home = NewTempHome();
+            string settingsPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+            File.WriteAllText(settingsPath, "{ \"UiScale\": 0.5 }");
+            var service = new SettingsService(home);
+
+            var settings = service.Load();
+
+            Assert.Equal(1.0, settings.UiScale);
+        }
+
+        [Fact]
+        public void Load_OutOfRangeUiScale_ClampsToTwo() {
+            string home = NewTempHome();
+            string settingsPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+            File.WriteAllText(settingsPath, "{ \"UiScale\": 3.0 }");
+            var service = new SettingsService(home);
+
+            var settings = service.Load();
+
+            Assert.Equal(2.0, settings.UiScale);
         }
 
         [Fact]
@@ -314,6 +343,47 @@ namespace Foreman.Mac.UiTests {
             var loaded = new SettingsService(home).Load();
 
             Assert.Equal("From Db", loaded.CurrentPresetName);
+        }
+
+        //Reproduces a Task-B2-era db (pre-Task-3, no UiScale column) via EF's own DDL generator so this
+        //stays faithful to the real schema instead of hand-guessed SQL - see ForemanDbContext.Open's
+        //v1->v2 ALTER TABLE step, which SettingsService.Load relies on transparently through Open.
+        private sealed class LegacyV1Context(string dbPath) : DbContext {
+            public DbSet<SettingsRow> Settings => Set<SettingsRow>();
+            public DbSet<SchemaVersionRow> SchemaVersions => Set<SchemaVersionRow>();
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
+                optionsBuilder.UseSqlite($"Data Source={dbPath}");
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder) {
+                modelBuilder.Entity<SettingsRow>(entity => {
+                    entity.ToTable("Settings");
+                    entity.Ignore(row => row.UiScale);
+                    entity.HasKey(row => row.Id);
+                    entity.Property(row => row.Id).ValueGeneratedNever();
+                    entity.Property(row => row.LowPriorityPower).HasPrecision(18, 6);
+                    entity.Property(row => row.PullConsumerNodesPower).HasPrecision(18, 6);
+                });
+                modelBuilder.Entity<SchemaVersionRow>(entity => entity.HasKey(row => row.Version));
+            }
+        }
+
+        [Fact]
+        public void Load_PreExistingV1Db_MigratesAndDefaultsUiScaleToOne() {
+            string home = NewTempHome();
+            string dbPath = Path.Combine(home, "Library", "Application Support", "Foreman", "foreman.db");
+            Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
+            using (var legacy = new LegacyV1Context(dbPath)) {
+                legacy.Database.EnsureCreated();
+                legacy.Settings.Add(new SettingsRow { Id = 1, CurrentPresetName = "pre-migration-preset", AnnotTextFontFamily = "Segoe UI", AnnotTextFontSize = "14" });
+                legacy.SchemaVersions.Add(new SchemaVersionRow { Version = 1 });
+                legacy.SaveChanges();
+            }
+
+            var settings = new SettingsService(home).Load();
+
+            Assert.Equal("pre-migration-preset", settings.CurrentPresetName);
+            Assert.Equal(1.0, settings.UiScale);
         }
     }
 }

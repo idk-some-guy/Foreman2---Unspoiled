@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Foreman.Mac.Services;
 
 namespace Foreman.Mac.Views {
     public partial class ConfirmDialog : Window {
@@ -11,6 +12,7 @@ namespace Foreman.Mac.Views {
             this.FindControl<TextBlock>("MessageTextBlock")!.Text = message;
             this.FindControl<Button>("YesButton")!.Click += (_, _) => Close(true);
             this.FindControl<Button>("NoButton")!.Click += (_, _) => Close(false);
+            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

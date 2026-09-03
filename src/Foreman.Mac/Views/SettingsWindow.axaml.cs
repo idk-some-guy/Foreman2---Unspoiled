@@ -74,6 +74,7 @@ namespace Foreman.Mac.Views {
             public decimal SolverLowPriorityPower { get; set; }
             public bool SolverPullConsumerNodes { get; set; }
             public decimal SolverPullConsumerNodesPower { get; set; }
+            public double UiScale { get; set; } = 1.0;
         }
 
         private readonly TextBlock currentPresetLabel;
@@ -112,6 +113,7 @@ namespace Foreman.Mac.Views {
         private readonly CheckBox roundAssemblerCountCheckBox;
         private readonly CheckBox flagOUSupplyNodesCheckBox;
         private readonly ComboBox flagDarkModeDropDown;
+        private readonly ComboBox uiScaleDropDown;
         private readonly CheckBox errorArrowsCheckBox;
         private readonly CheckBox warningArrowsCheckBox;
         private readonly CheckBox disconnectedArrowsCheckBox;
@@ -199,6 +201,7 @@ namespace Foreman.Mac.Views {
             roundAssemblerCountCheckBox = this.FindControl<CheckBox>("RoundAssemblerCountCheckBox")!;
             flagOUSupplyNodesCheckBox = this.FindControl<CheckBox>("FlagOUSupplyNodesCheckBox")!;
             flagDarkModeDropDown = this.FindControl<ComboBox>("FlagDarkModeDropDown")!;
+            uiScaleDropDown = this.FindControl<ComboBox>("UiScaleDropDown")!;
             errorArrowsCheckBox = this.FindControl<CheckBox>("ErrorArrowsCheckBox")!;
             warningArrowsCheckBox = this.FindControl<CheckBox>("WarningArrowsCheckBox")!;
             disconnectedArrowsCheckBox = this.FindControl<CheckBox>("DisconnectedArrowsCheckBox")!;
@@ -256,11 +259,13 @@ namespace Foreman.Mac.Views {
             assemblerSelectorStyleDropDown.ItemsSource = AssemblerSelector.StyleNames;
             moduleSelectorStyleDropDown.ItemsSource = ModuleSelector.StyleNames;
             flagDarkModeDropDown.ItemsSource = Enum.GetValues<ThemeMode>();
+            uiScaleDropDown.ItemsSource = SettingsViewModel.UiScaleLabels;
             ViewModel.LoadFrom(BuildGraphOptionsSnapshot());
 
             UpdateModList();
             EnabledObjectsListItem.RefreshTheme();
             LoadUnfilteredLists();
+            WindowScaler.Track(this);
         }
 
         //Ports the Graph Options tab's constructor read (reference SettingsForm.cs:121-174): translates
@@ -294,6 +299,7 @@ namespace Foreman.Mac.Views {
             LowPriorityPower = Options.SolverLowPriorityPower,
             PullConsumerNodes = Options.SolverPullConsumerNodes,
             PullConsumerNodesPower = Options.SolverPullConsumerNodesPower,
+            UiScale = Options.UiScale,
         };
 
         //Ports UpdateSettings' Graph Options half (reference SettingsForm.cs:429-475): every widget on this
@@ -331,6 +337,7 @@ namespace Foreman.Mac.Views {
             Options.SolverLowPriorityPower = snapshot.LowPriorityPower;
             Options.SolverPullConsumerNodes = snapshot.PullConsumerNodes;
             Options.SolverPullConsumerNodesPower = snapshot.PullConsumerNodesPower;
+            Options.UiScale = snapshot.UiScale;
         }
 
         private IEnumerable<ListBox> AllListViews {
@@ -789,6 +796,7 @@ namespace Foreman.Mac.Views {
         internal CheckBox RoundAssemblerCountCheckBoxControl => roundAssemblerCountCheckBox;
         internal CheckBox FlagOUSupplyNodesCheckBoxControl => flagOUSupplyNodesCheckBox;
         internal ComboBox FlagDarkModeDropDownControl => flagDarkModeDropDown;
+        internal ComboBox UiScaleDropDownControl => uiScaleDropDown;
         internal CheckBox ErrorArrowsCheckBoxControl => errorArrowsCheckBox;
         internal CheckBox WarningArrowsCheckBoxControl => warningArrowsCheckBox;
         internal CheckBox DisconnectedArrowsCheckBoxControl => disconnectedArrowsCheckBox;

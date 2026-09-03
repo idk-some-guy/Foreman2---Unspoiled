@@ -210,6 +210,8 @@ namespace Foreman.Mac.Views {
                 int c = column;
                 WireHeader("KeyNodesHeader" + c, () => SortKeyNodesColumn(c));
             }
+
+            WindowScaler.Track(this);
         }
 
         private void WireHeader(string name, Action sort) => this.FindControl<Button>(name)!.Click += (_, _) => sort();

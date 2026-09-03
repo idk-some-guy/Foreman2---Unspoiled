@@ -60,7 +60,7 @@ namespace Foreman.Mac.Services {
             SettingsRow? row = TryFindRow();
             if (row is not null) {
                 AppSettings fromDb = ToAppSettings(row);
-                HealSolverPowerDefaults(fromDb);
+                HealLoadedDefaults(fromDb);
                 return fromDb;
             }
 
@@ -78,7 +78,7 @@ namespace Foreman.Mac.Services {
             try {
                 string json = File.ReadAllText(settingsFilePath);
                 var settings = JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions) ?? new AppSettings();
-                HealSolverPowerDefaults(settings);
+                HealLoadedDefaults(settings);
                 return settings;
             } catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException) {
                 ErrorLogging.LogLine("Failed to load settings.json, using defaults: " + ex);
@@ -86,11 +86,12 @@ namespace Foreman.Mac.Services {
             }
         }
 
-        private static void HealSolverPowerDefaults(AppSettings settings) {
+        private static void HealLoadedDefaults(AppSettings settings) {
             settings.LowPriorityPower = settings.LowPriorityPower == LegacyLowPriorityPower
                 ? 4m
                 : Math.Clamp(settings.LowPriorityPower, 1m, 6m);
             settings.PullConsumerNodesPower = Math.Clamp(settings.PullConsumerNodesPower, 0m, 5m);
+            settings.UiScale = Math.Clamp(settings.UiScale, 1.0, 2.0);
         }
 
         public void Save(AppSettings settings) => SaveToDb(settings);
@@ -169,6 +170,7 @@ namespace Foreman.Mac.Services {
             LowPriorityPower = settings.LowPriorityPower,
             PullConsumerNodes = settings.PullConsumerNodes,
             PullConsumerNodesPower = settings.PullConsumerNodesPower,
+            UiScale = settings.UiScale,
         };
 
         private static AppSettings ToAppSettings(SettingsRow row) => new() {
@@ -219,6 +221,7 @@ namespace Foreman.Mac.Services {
             LowPriorityPower = row.LowPriorityPower,
             PullConsumerNodes = row.PullConsumerNodes,
             PullConsumerNodesPower = row.PullConsumerNodesPower,
+            UiScale = row.UiScale,
         };
     }
 }

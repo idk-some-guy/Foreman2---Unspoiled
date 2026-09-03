@@ -184,6 +184,10 @@
                 <TextBlock Grid.Column="0" Text="Appearance:" VerticalAlignment="Center" Margin="0,0,8,0" />
                 <ComboBox Name="FlagDarkModeDropDown" Grid.Column="1" Width="140" SelectedItem="{Binding FlagDarkMode, Mode=TwoWay}" />
               </Grid>
+              <Grid ColumnDefinitions="Auto,Auto">
+                <TextBlock Grid.Column="0" Text="UI Scale:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <ComboBox Name="UiScaleDropDown" Grid.Column="1" Width="140" SelectedItem="{Binding UiScaleLabel, Mode=TwoWay}" />
+              </Grid>
             </StackPanel>
 
             <StackPanel Spacing="4">

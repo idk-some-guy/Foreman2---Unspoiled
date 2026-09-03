@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Foreman.Mac.Services;
 
 namespace Foreman.Mac.Views {
     public partial class MessageDialog : Window {
@@ -13,6 +14,7 @@ namespace Foreman.Mac.Views {
             InitializeComponent();
             messageTextBlock = this.FindControl<TextBlock>("MessageTextBlock")!;
             messageTextBlock.Text = message;
+            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

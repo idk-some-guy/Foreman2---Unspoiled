@@ -57,6 +57,7 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal(original.ShowUnavailable, applied.ShowUnavailable);
             Assert.Equal(original.UseRecipeBWfilters, applied.UseRecipeBWfilters);
             Assert.Equal(original.PullConsumerNodes, applied.PullConsumerNodes);
+            Assert.Equal(original.UiScale, applied.UiScale);
         }
 
         [Fact]
@@ -137,6 +138,67 @@ namespace Foreman.Mac.UiTests.ViewModels {
             vm.ApplyTo(applied);
 
             Assert.Equal(ThemeMode.System, applied.FlagDarkMode);
+        }
+
+        //UI Scale ComboBox (Task 3): discrete 100/110/125/150/200% steps map onto AppSettings.UiScale
+        //losslessly - the Task-2 clobber lesson (FlagDarkMode's System) applies here too, so a Confirm
+        //that never touches the scale control must still write back exactly the value LoadFrom read.
+        [Theory]
+        [InlineData(1.00, "100%")]
+        [InlineData(1.10, "110%")]
+        [InlineData(1.25, "125%")]
+        [InlineData(1.50, "150%")]
+        [InlineData(2.00, "200%")]
+        public void LoadFrom_UiScale_SelectsMatchingLabel(double scale, string expectedLabel) {
+            var settings = new AppSettings { UiScale = scale };
+            var vm = new SettingsViewModel();
+
+            vm.LoadFrom(settings);
+
+            Assert.Equal(expectedLabel, vm.UiScaleLabel);
+        }
+
+        [Theory]
+        [InlineData(1.00)]
+        [InlineData(1.10)]
+        [InlineData(1.25)]
+        [InlineData(1.50)]
+        [InlineData(2.00)]
+        public void LoadFromThenApplyTo_RoundTripsUiScaleLosslessly(double scale) {
+            var settings = new AppSettings { UiScale = scale };
+            var vm = new SettingsViewModel();
+            vm.LoadFrom(settings);
+
+            var applied = new AppSettings();
+            vm.ApplyTo(applied);
+
+            Assert.Equal(scale, applied.UiScale);
+        }
+
+        [Fact]
+        public void ApplyTo_UiScaleLoadedThenUnrelatedSettingChanged_StaysSame() {
+            var settings = new AppSettings { UiScale = 1.5 };
+            var vm = new SettingsViewModel();
+            vm.LoadFrom(settings);
+
+            vm.HighLodChecked = true;
+
+            var applied = new AppSettings();
+            vm.ApplyTo(applied);
+
+            Assert.Equal(1.5, applied.UiScale);
+        }
+
+        //An off-list value (legacy data, a hand-edited db) snaps to its nearest step on load rather than
+        //throwing or silently defaulting to 100%.
+        [Fact]
+        public void LoadFrom_OffListUiScale_SnapsToNearestStep() {
+            var settings = new AppSettings { UiScale = 1.4 };
+            var vm = new SettingsViewModel();
+
+            vm.LoadFrom(settings);
+
+            Assert.Equal("150%", vm.UiScaleLabel);
         }
 
         //FRESH-LIST rule: repopulating the unfiltered lists must swap in a brand new IReadOnlyList

@@ -76,6 +76,7 @@ namespace Foreman.Mac.Views {
 
             okButton.Click += (_, _) => ApplyOk();
             cancelButton.Click += (_, _) => ApplyCancel();
+            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

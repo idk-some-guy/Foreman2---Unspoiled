@@ -8,6 +8,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.Mac.Services;
 using SkiaSharp;
 using System.Collections.Generic;
 using System.Linq;
@@ -48,6 +49,7 @@ namespace Foreman.Mac.Views {
             cancellationButton.Click += (_, _) => Cancel();
 
             PopulateSciencePackOptions();
+            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

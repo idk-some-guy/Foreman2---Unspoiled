@@ -3,6 +3,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.Mac.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -53,6 +54,7 @@ namespace Foreman.Mac.Views {
 
             cancelButton.Click += (_, _) => CancelLoad();
             Opened += (_, _) => Async.Fire(RunAsync(), nameof(RunAsync));
+            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

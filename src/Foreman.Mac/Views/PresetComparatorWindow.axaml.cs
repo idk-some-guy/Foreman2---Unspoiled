@@ -6,6 +6,7 @@ using Avalonia.Media.Immutable;
 using Avalonia.Media.Imaging;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -146,6 +147,7 @@ namespace Foreman.Mac.Views {
             };
 
             UpdateProcessButtonCaption();
+            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

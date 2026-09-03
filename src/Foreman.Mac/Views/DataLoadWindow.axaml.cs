@@ -3,6 +3,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.Mac.Services;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -41,6 +42,7 @@ namespace Foreman.Mac.Views {
             selectedPreset = preset;
             this.filterRecipes = filterRecipes;
             LoadTask = RunLoadAsync();
+            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

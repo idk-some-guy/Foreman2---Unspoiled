@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using System.Collections.Generic;
 
@@ -41,6 +42,7 @@ namespace Foreman.Mac.Views {
             presetListView.DoubleTapped += (_, _) => Commit();
             confirmationButton.Click += (_, _) => Commit();
             cancellingButton.Click += (_, _) => Close(false);
+            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

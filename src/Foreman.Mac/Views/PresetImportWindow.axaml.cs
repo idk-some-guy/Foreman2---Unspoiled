@@ -5,6 +5,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.Mac.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -101,6 +102,7 @@ namespace Foreman.Mac.Views {
             presetNameTextBox.TextChanging += (_, _) => OnPresetNameChanging();
             okButton.Click += (_, _) => Async.Fire(RunImportAsync(), nameof(RunImportAsync));
             cancelButton.Click += (_, _) => CancelImport();
+            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

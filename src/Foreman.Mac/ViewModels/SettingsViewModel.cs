@@ -121,6 +121,18 @@ namespace Foreman.Mac.ViewModels {
         [ObservableProperty]
         private decimal? pullConsumerNodesPowerValue;
 
+        //UI Scale ComboBox (Task 3): discrete steps only, so the widget carries a formatted label rather
+        //than the raw double - keeps the XAML side identical in shape to FlagDarkModeDropDown's plain
+        //ItemsSource/SelectedItem binding.
+        private static readonly (string Label, double Scale)[] UiScaleSteps = [
+            ("100%", 1.00), ("110%", 1.10), ("125%", 1.25), ("150%", 1.50), ("200%", 2.00),
+        ];
+
+        public static IReadOnlyList<string> UiScaleLabels { get; } = [.. UiScaleSteps.Select(s => s.Label)];
+
+        [ObservableProperty]
+        private string uiScaleLabel = "100%";
+
         //Ports LoadGraphOptionsTab (reference SettingsWindow.axaml.cs): seeds every widget-backing
         //property from an AppSettings snapshot. NodeCountForSimpleView/LowPriorityPower/
         //PullConsumerNodesPower keep the widget-Maximum clamp their NumericUpDown counterparts carry in
@@ -159,6 +171,8 @@ namespace Foreman.Mac.ViewModels {
             LowPriorityPowerValue = Math.Min(6m, settings.LowPriorityPower);
             PullConsumerNodesChecked = settings.PullConsumerNodes;
             PullConsumerNodesPowerValue = Math.Min(5m, settings.PullConsumerNodesPower);
+
+            UiScaleLabel = UiScaleSteps.OrderBy(step => Math.Abs(step.Scale - settings.UiScale)).First().Label;
         }
 
         //Ports CommitGraphOptionsTab (reference SettingsWindow.axaml.cs). FlagDarkMode round-trips
@@ -196,6 +210,8 @@ namespace Foreman.Mac.ViewModels {
             settings.LowPriorityPower = LowPriorityPowerValue.GetValueOrDefault();
             settings.PullConsumerNodes = PullConsumerNodesChecked;
             settings.PullConsumerNodesPower = PullConsumerNodesPowerValue.GetValueOrDefault();
+
+            settings.UiScale = UiScaleSteps.First(step => step.Label == UiScaleLabel).Scale;
         }
 
         //--- Enabled Objects tab ------------------------------------------------------------------------
