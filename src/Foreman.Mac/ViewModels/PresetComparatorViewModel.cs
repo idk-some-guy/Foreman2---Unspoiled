@@ -12,10 +12,10 @@ using System.Collections.Generic;
 namespace Foreman.Mac.ViewModels {
     //Splits PresetComparatorWindow.axaml.cs's per-tab row assembly off into its own VM (Task 8):
     //ProcessMods/ProcessObjects/EvaluateSimilarity stay on the window (existing tests call them there),
-    //RebuildTab is what UpdateUnfilteredRows used to do. This window IS the 5b reference-equality bug
-    //site (see PresetComparatorWindow's UpdateFilteredLists comment) - RebuildTab always hands back fresh
-    //List instances per bucket rather than clearing the previous ones in place, same fresh-instance rule
-    //Task 7's GraphSummaryViewModel.Refresh follows.
+    //RebuildTab is what UpdateUnfilteredRows used to do. RebuildTab always hands back fresh List instances
+    //per bucket rather than clearing the previous ones in place. This window never binds to these
+    //properties either; the reference-equality short-circuit lives in UpdateFilteredLists, which builds
+    //brand-new filtered lists before each ItemsSource assignment (see its own comment).
     internal sealed partial class PresetComparatorViewModel : ObservableObject {
         private static readonly IBrush AvailableForeground = new ImmutableSolidColorBrush(Color.FromRgb(0, 0, 0));
         private static readonly IBrush UnavailableForeground = new ImmutableSolidColorBrush(Color.FromRgb(139, 0, 0));

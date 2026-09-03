@@ -59,9 +59,9 @@ namespace Foreman.Mac.ViewModels {
         private IReadOnlyList<KeyNodeRow> keyNodes = [];
 
         //Ports the constructor's four LoadUnfiltered* calls (reference GraphSummaryWindow.axaml.cs before
-        //Task 7). Every property is reassigned to a brand-new list on every call - FRESH-LIST rule, same as
-        //SettingsViewModel.RefreshFilteredLists - so a bound ListBox always sees the change even when a
-        //re-Refresh happens to produce equal-looking rows.
+        //Task 7). Every property is reassigned to a brand-new list on every call. GraphSummaryWindow never
+        //binds to these properties; it copies them into its own fields and rebuilds fresh filtered lists
+        //before each ItemsSource assignment, which is where the reference-equality short-circuit lives.
         public void Refresh(IEnumerable<INodeViewModel> nodes) {
             List<IRecipeNodeViewModel> recipeNodes = [.. nodes.OfType<IRecipeNodeViewModel>()];
             List<INodeViewModel> nodeList = [.. nodes];

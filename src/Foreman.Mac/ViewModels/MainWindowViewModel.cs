@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace Foreman.Mac.ViewModels {
-    //Window-chrome state split off MainWindow.axaml.cs: title/dirty/filename/preset/version label. Canvas
+    //Window-chrome state split off MainWindow.axaml.cs: title/filename/preset/version label. Canvas
     //interaction, save/load orchestration, and dialog plumbing stay in the code-behind.
     public sealed partial class MainWindowViewModel : ObservableObject {
         private const string AppName = "Foreman 2";
@@ -10,23 +10,12 @@ namespace Foreman.Mac.ViewModels {
         private string windowTitle = AppName;
 
         [ObservableProperty]
-        private bool isDirty;
-
-        [ObservableProperty]
         private string? currentFileName;
 
         [ObservableProperty]
         private string? presetName;
 
         public string VersionLabel { get; } = AppVersion.VersionedDisplay;
-
-        public ShellViewModel Shell { get; }
-
-        public MainWindowViewModel(ShellViewModel shell) {
-            Shell = shell;
-        }
-
-        partial void OnIsDirtyChanged(bool value) => RecomputeTitle();
 
         partial void OnCurrentFileNameChanged(string? value) => RecomputeTitle();
 

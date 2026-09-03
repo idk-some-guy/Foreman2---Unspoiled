@@ -90,7 +90,7 @@ namespace Foreman.Mac {
                 onAlignSelection: () => { GraphCanvas.FloatingPanelHost.Close(); GraphCanvas.Viewer.AlignSelected(); GraphCanvas.RequestRedraw(); },
                 onSettings: () => Async.Fire(OpenSettingsAsync(), nameof(OpenSettingsAsync)),
                 onGraphSummary: () => Async.Fire(OpenGraphSummaryAsync(), nameof(OpenGraphSummaryAsync)));
-            ViewModel = new MainWindowViewModel(Commands);
+            ViewModel = new MainWindowViewModel();
             DataContext = ViewModel;
 
             BindToolbarButtons();

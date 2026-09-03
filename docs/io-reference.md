@@ -95,7 +95,6 @@ GraphViewerSaveDocument {
         ExtraProdForNonMiners = ..., AssemblerSelectorStyle = viewer.Graph.AssemblerSelector.DefaultSelectionStyle,       // ProductionGraph already carries AssemblerSelector/ModuleSelector/FuelSelector
         ModuleSelectorStyle = ..., FuelPriorityList = [.. viewer.Graph.FuelSelector.FuelPriority.Select(i => i.Name)],
         EnabledRecipes/Assemblers/Modules/Beacons = <sort cache.{Recipes,Assemblers,Modules,Beacons}.Values.Where(x => x.Enabled).Select(x => x.Name)>,  // upstream's private SortEnabled<T>, ~4 LOC, needs re-adding
-        OldImport = false
     },
     Annotations = viewer's live AnnotationElements.Select(a => a.ToSaveData()).ToList(),  // AnnotationElement.ToSaveData() already exists (Canvas/Elements/AnnotationElement.cs:296)
     AnnotationDpi = AnnotationDeviceDpi                            // private const already on GraphViewer (`:34`) - the assembly function needs to live in/alongside GraphViewer to reach it, or the const needs widening
