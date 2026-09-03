@@ -44,6 +44,11 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
+        public void ApplicationName_IsSetToForeman2() {
+            Assert.Equal("Foreman 2", Application.Current!.Name);
+        }
+
+        [AvaloniaFact]
         public async Task BootAndShowAsync_BootShellSucceeds_AssignsMainWindowAndSwitchesShutdownMode() {
             var app = (App)Application.Current!;
             var desktop = new ClassicDesktopStyleApplicationLifetime();

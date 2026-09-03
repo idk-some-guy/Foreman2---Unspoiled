@@ -7,6 +7,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-03
+
+### Fixed
+
+- The macOS menu bar named the app "Avalonia Application" instead of Foreman 2.
+
 ## [1.0.0] - 2026-09-03
 
 First public release: a native macOS port of
