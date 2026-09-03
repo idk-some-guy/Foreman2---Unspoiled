@@ -3,7 +3,16 @@
              x:Class="Foreman.Mac.App"
              Name="Foreman 2"
              RequestedThemeVariant="Default">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceInclude x:Key="Light" Source="avares://Foreman.Mac/Themes/Tokens.Light.axaml" />
+        <ResourceInclude x:Key="Dark" Source="avares://Foreman.Mac/Themes/Tokens.Dark.axaml" />
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
   <Application.Styles>
     <FluentTheme />
+    <StyleInclude Source="avares://Foreman.Mac/Themes/Foreman.Styles.axaml" />
   </Application.Styles>
 </Application>
