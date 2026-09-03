@@ -1,0 +1,57 @@
+name: CI
+
+# PR gate for both public branches, plus manual dispatch. Runs the build/test suite and
+# the repo-cleanliness checks the publication verification established: no planning
+# artifacts, no AI attribution in any commit message on the PR.
+on:
+  pull_request:
+    branches: [main, parity]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: '10.0.x'
+
+jobs:
+  cleanliness:
+    name: Repo cleanliness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: No planning artifacts in the tree
+        run: |
+          if git ls-files | grep -E '^(docs/superpowers|\.superpowers)/' ; then
+            echo "::error::planning artifacts must not be committed"
+            exit 1
+          fi
+          echo "clean"
+
+      - name: No AI attribution in PR commit messages
+        if: github.event_name == 'pull_request'
+        run: |
+          RANGE="origin/${{ github.base_ref }}..HEAD"
+          if git log --format=%B "$RANGE" | grep -iE 'co-authored-by: claude|claude-session|generated with .*claude' ; then
+            echo "::error::commit messages must carry no AI attribution"
+            exit 1
+          fi
+          echo "clean"
+
+  build-test:
+    name: Build and test (macOS)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Build (warnings are errors)
+        run: dotnet build ForemanMac.slnx --no-incremental -v q
+
+      - name: Test
+        run: dotnet test ForemanMac.slnx -v minimal

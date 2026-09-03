@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Foreman.Mac.Views.PresetSelectionWindow"
+        Title="Please select Preset"
+        Width="460"
+        Height="360"
+        MinWidth="460"
+        MinHeight="300"
+        WindowStartupLocation="Manual"
+        Background="{DynamicResource SystemChromeMediumColor}">
+  <Window.Styles>
+    <!-- Fluent's default ListBoxItem padding/min-height reads far sparser than upstream's dense WinForms
+         rows; this tightens it back down to match the comparator/settings lists' own compact class. -->
+    <Style Selector="ListBox.compact ListBoxItem">
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="MinHeight" Value="22" />
+    </Style>
+  </Window.Styles>
+  <Window.Resources>
+    <DataTemplate x:Key="PresetRowTemplate">
+      <Grid ColumnDefinitions="200,70,70,90" ToolTip.Tip="{Binding Tooltip}">
+        <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Text="{Binding ModsText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+        <TextBlock Grid.Column="2" Text="{Binding ItemsText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+        <TextBlock Grid.Column="3" Text="{Binding RecipesText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+      </Grid>
+    </DataTemplate>
+  </Window.Resources>
+  <DockPanel Margin="12">
+    <TextBlock DockPanel.Dock="Top" Text="No preset was found to match the saved graph exactly." TextWrapping="Wrap" Margin="0,0,0,2" />
+    <TextBlock DockPanel.Dock="Top" Text="Please select which preset you wish to use based on the given compatibility ratings." TextWrapping="Wrap" Margin="0,0,0,8" />
+
+    <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,*" Margin="0,8,0,0">
+      <Button Name="ConfirmationButton" Grid.Column="0" Content="Load with seleted preset" HorizontalAlignment="Stretch" Margin="0,0,4,0" IsDefault="True" />
+      <Button Name="CancellingButton" Grid.Column="1" Content="Dont Load" HorizontalAlignment="Stretch" Margin="4,0,0,0" IsCancel="True" />
+    </Grid>
+
+    <Grid ColumnDefinitions="200,70,70,90" Margin="0,0,0,2">
+      <TextBlock Grid.Column="0" Text="Preset" FontWeight="Bold" />
+      <TextBlock Grid.Column="1" Text="Mods (%)" FontWeight="Bold" HorizontalAlignment="Right" />
+      <TextBlock Grid.Column="2" Text="Items (%)" FontWeight="Bold" HorizontalAlignment="Right" />
+      <TextBlock Grid.Column="3" Text="Recipes (%)" FontWeight="Bold" HorizontalAlignment="Right" />
+    </Grid>
+    <ListBox Name="PresetSelectionListView" Classes="compact" ItemTemplate="{StaticResource PresetRowTemplate}" BorderThickness="1" BorderBrush="Gray">
+      <ListBox.ItemsPanel>
+        <ItemsPanelTemplate>
+          <VirtualizingStackPanel />
+        </ItemsPanelTemplate>
+      </ListBox.ItemsPanel>
+    </ListBox>
+  </DockPanel>
+</Window>

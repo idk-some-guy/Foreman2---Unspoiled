@@ -1,0 +1,235 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Foreman.Mac.Views.SettingsWindow"
+        Title="Settings"
+        Width="680"
+        Height="540"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource SystemChromeMediumColor}">
+  <Window.Styles>
+    <!-- Fluent's default ListBoxItem padding/min-height reads far sparser than upstream's dense WinForms
+         rows (24px icon, minimal chrome); this tightens it back down on the enabled-objects lists. -->
+    <Style Selector="ListBox.compact ListBoxItem">
+      <Setter Property="Padding" Value="2,1" />
+      <Setter Property="MinHeight" Value="26" />
+    </Style>
+  </Window.Styles>
+  <Window.Resources>
+    <DataTemplate x:Key="EnabledObjectRowTemplate">
+      <Border Background="{Binding RowBackground}" Padding="4,1" HorizontalAlignment="Stretch">
+        <StackPanel Orientation="Horizontal" Spacing="6" ToolTip.Tip="{Binding TooltipContent}">
+          <Viewbox Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center">
+            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Padding="4,0,0,0" />
+          </Viewbox>
+          <Image Source="{Binding Icon}" Width="24" Height="24" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding Name}" Foreground="{Binding Foreground}" VerticalAlignment="Center" />
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+  </Window.Resources>
+  <DockPanel Margin="12">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+      <Button Name="CancelSettingsButton" Content="Cancel" IsCancel="True" />
+      <Button Name="ConfirmButton" Content="Confirm" IsDefault="True" />
+    </StackPanel>
+    <TabControl Name="MainTabControl">
+      <TabItem Header="Presets">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,0,0,8">
+            <TextBlock Text="Current:" FontWeight="Bold" />
+            <TextBlock Name="CurrentPresetLabel" FontWeight="Bold" />
+          </StackPanel>
+          <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
+            <Button Name="ImportPresetButton" Content="Import New Preset From Factorio" HorizontalAlignment="Stretch" />
+            <Button Name="ComparePresetsButton" Content="Compare Presets" HorizontalAlignment="Stretch" />
+          </StackPanel>
+          <Grid ColumnDefinitions="*,*">
+            <DockPanel Grid.Column="0" Margin="0,0,8,0">
+              <TextBlock DockPanel.Dock="Top" Text="Mods (read-only):" FontWeight="Bold" Margin="0,0,0,4" />
+              <ListBox Name="ModSelectionBox" />
+            </DockPanel>
+            <ListBox Name="PresetListBox" Grid.Column="1">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Name}" />
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+              <ListBox.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Name="SelectPresetMenuItem" Header="Select Preset" />
+                  <MenuItem Name="DeletePresetMenuItem" Header="Delete Preset" />
+                </ContextMenu>
+              </ListBox.ContextMenu>
+            </ListBox>
+          </Grid>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Enabled Objects">
+        <DockPanel Margin="8">
+          <StackPanel DockPanel.Dock="Top" Spacing="4">
+            <Button Name="LoadEnabledFromSaveButton" Content="Load from save" HorizontalAlignment="Stretch" />
+            <Button Name="SetEnabledFromSciencePacksButton" Content="Assign based on science packs" HorizontalAlignment="Stretch" />
+            <Button Name="EnableAllButton" Content="Enable All" HorizontalAlignment="Stretch" />
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Filter:" VerticalAlignment="Center" Margin="0,0,4,0" />
+              <TextBox Name="FilterTextBox" Grid.Row="0" Grid.Column="1" />
+              <CheckBox Name="ShowUnavailablesFilterCheckBox" Grid.Row="1" Grid.Column="1" Content="Show Unavailables" Margin="0,4,0,0" />
+            </Grid>
+          </StackPanel>
+          <TabControl Name="EnabledObjectsTabControl" Margin="0,8,0,0">
+            <TabItem Header="Assemblers">
+              <ListBox Name="AssemblerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+              </ListBox>
+            </TabItem>
+            <TabItem Header="Miners">
+              <ListBox Name="MinerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+              </ListBox>
+            </TabItem>
+            <TabItem Header="Power">
+              <ListBox Name="PowerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+              </ListBox>
+            </TabItem>
+            <TabItem Header="Beacons">
+              <ListBox Name="BeaconListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+              </ListBox>
+            </TabItem>
+            <TabItem Header="Modules">
+              <ListBox Name="ModuleListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+              </ListBox>
+            </TabItem>
+            <TabItem Header="Recipes">
+              <ListBox Name="RecipeListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+              </ListBox>
+            </TabItem>
+            <TabItem Header="Qualities">
+              <ListBox Name="QualityListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+              </ListBox>
+            </TabItem>
+          </TabControl>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Graph Options">
+        <ScrollViewer>
+          <StackPanel Margin="8" Spacing="10">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Graph Options" FontWeight="Bold" />
+              <Grid ColumnDefinitions="Auto,Auto">
+                <TextBlock Grid.Column="0" Text="Maximum Quality Steps" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <NumericUpDown Name="QualityStepsInput" Grid.Column="1" Minimum="1" Maximum="20" Increment="1" FormatString="0" Width="110" />
+              </Grid>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Node Graphics:" FontWeight="Bold" />
+              <Grid ColumnDefinitions="Auto,Auto,Auto,Auto">
+                <TextBlock Grid.Column="0" Text="Level of detail:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <RadioButton Name="LowLodRadioButton" Grid.Column="1" GroupName="LevelOfDetail" Content="Low" />
+                <RadioButton Name="MediumLodRadioButton" Grid.Column="2" GroupName="LevelOfDetail" Content="Med" />
+                <RadioButton Name="HighLodRadioButton" Grid.Column="3" GroupName="LevelOfDetail" Content="High" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,Auto">
+                <TextBlock Grid.Column="0" Text="Maximum number of graphical objects:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <NumericUpDown Name="NodeCountForSimpleViewInput" Grid.Column="1" Minimum="0" Maximum="2000" Increment="25" FormatString="0" Width="130" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,Auto">
+                <TextBlock Grid.Column="0" Text="Icon Size in icon view:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <NumericUpDown Name="IconsSizeInput" Grid.Column="1" Minimum="8" Maximum="256" Increment="1" FormatString="0" Width="110" />
+              </Grid>
+              <CheckBox Name="ArrowsOnLinksCheckBox" Content="Draw arrows to show direction on link lines (non-dynamic link-width)" />
+              <CheckBox Name="DynamicLWCheckBox" Content="Dynamic link-width" />
+              <CheckBox Name="AbbreviateSciPackCheckBox" Content="Abbreviate science packs" />
+              <CheckBox Name="ShowNodeRecipeCheckBox" Content="Show recipe tool tip" />
+              <CheckBox Name="RoundAssemblerCountCheckBox" Content="Round building count" />
+              <CheckBox Name="RecipeEditPanelPositionLockCheckBox" Content="Lock recipe editor to top left corner" />
+              <CheckBox Name="FlagOUSupplyNodesCheckBox" Content="Flag over or under supplied nodes" />
+              <CheckBox Name="FlagDarkModeCheckBox" Content="Enable Dark Mode" />
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Guide-Arrows:" FontWeight="Bold" />
+              <CheckBox Name="ErrorArrowsCheckBox" Content="Display arrows pointing to any node errors" />
+              <CheckBox Name="WarningArrowsCheckBox" Content="Display arrows pointing to any node warnings" />
+              <CheckBox Name="DisconnectedArrowsCheckBox" Content="Display arrows pointing to any node with missing links" />
+              <CheckBox Name="OUSuppliedArrowsCheckBox" Content="Display arrows pointing to any under-supplied or over-producing node" />
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Defaults" FontWeight="Bold" />
+              <Grid ColumnDefinitions="Auto,Auto">
+                <TextBlock Grid.Column="0" Text="Assemblers:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <ComboBox Name="AssemblerSelectorStyleDropDown" Grid.Column="1" Width="200" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,Auto">
+                <TextBlock Grid.Column="0" Text="Modules:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <ComboBox Name="ModuleSelectorStyleDropDown" Grid.Column="1" Width="200" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,Auto,Auto">
+                <TextBlock Grid.Column="0" Text="Node Direction:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <ComboBox Name="NodeDirectionDropDown" Grid.Column="1" Width="140">
+                  <ComboBoxItem Content="Up (default)" />
+                  <ComboBoxItem Content="Down" />
+                </ComboBox>
+                <CheckBox Name="SmartNodeDirectionCheckBox" Grid.Column="2" Content="Smart Direction" Margin="8,0,0,0" />
+              </Grid>
+              <CheckBox Name="SimplePassthroughNodesCheckBox" Content="Use simple-draw passthrough nodes as default" />
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Advanced" FontWeight="Bold" />
+              <CheckBox Name="ShowProductivityBonusOnAllCheckBox" Content="Enable extra productivity bonus for all entities (instead of only miners)" />
+              <CheckBox Name="ShowUnavailablesCheckBox" Content="Show unavailable items (DEV)" />
+              <CheckBox Name="LoadBarrelingCheckBox" Content="Load barreling &amp; crating recipes (DEV)" />
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Advanced (Solver options)" FontWeight="Bold" />
+              <Grid ColumnDefinitions="Auto,Auto">
+                <TextBlock Grid.Column="0" Text="Low priority multiplier   (10^n, 2 default):" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <NumericUpDown Name="LowPriorityPowerInput" Grid.Column="1" Minimum="1" Maximum="6" Increment="0.2" FormatString="0.0" Width="160" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,Auto">
+                <CheckBox Name="PullConsumerNodesCheckBox" Grid.Column="0" Content="Maximize output nodes:   Power (10^n):" />
+                <NumericUpDown Name="PullConsumerNodesPowerInput" Grid.Column="1" Minimum="0" Maximum="5" Increment="0.1" FormatString="0.0" Width="160" />
+              </Grid>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

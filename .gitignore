@@ -1,0 +1,9 @@
+upstream/
+bin/
+obj/
+.DS_Store
+.superpowers/
+*.user
+.claude/settings.local.json
+docs/superpowers/
+packaging/out/

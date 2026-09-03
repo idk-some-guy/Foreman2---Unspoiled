@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- MSTest's own MTP runner, required now that Avalonia.Headless.XUnit 12.x forced the UI test
+         project onto Microsoft.Testing.Platform: dotnet test's MTP mode is solution-wide. -->
+    <EnableMSTestRunner>true</EnableMSTestRunner>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AssemblyTitle>ForemanTest</AssemblyTitle>
+    <Product>ForemanTest</Product>
+    <Copyright>Copyright © 2017</Copyright>
+    <VersionPrefix>99.99.99</VersionPrefix>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Platforms>AnyCPU;x64;x86</Platforms>
+    <WarningsAsErrors>nullable</WarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="4.2.2" />
+    <PackageReference Include="MSTest.TestFramework" Version="4.2.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Foreman.Core/Foreman.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="assets/**" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Presets/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

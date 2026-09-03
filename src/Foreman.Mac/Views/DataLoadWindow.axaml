@@ -1,0 +1,14 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Foreman.Mac.Views.DataLoadWindow"
+        Title="Preparing Foreman"
+        Width="420"
+        Height="110"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource SystemChromeMediumColor}">
+  <StackPanel Margin="16" Spacing="8">
+    <TextBlock Name="StatusTextBlock" Text="" />
+    <ProgressBar Name="LoadProgressBar" Minimum="0" Maximum="100" Value="0" />
+  </StackPanel>
+</Window>

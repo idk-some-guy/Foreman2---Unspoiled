@@ -1,0 +1,95 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Foreman.Mac.MainWindow"
+        Title="Foreman 2"
+        Width="1500"
+        Height="768"
+        Background="{DynamicResource SystemChromeMediumColor}">
+  <!-- Avalonia 12 widened the Fluent toolbar buttons' measured text metrics enough that the toolbar's
+       three Auto-sized groups plus the version label now demand ~1492px - past the old 1024 width, which
+       pushed Show Graph Summary off the visible window. 1500 gives the row room to actually fit. -->
+  <!-- FluentTheme's default Window background (SystemRegionBrush) is pure black in dark mode by design; SystemChromeMediumColor is the themed dark-gray surface. -->
+  <Grid RowDefinitions="Auto,*">
+    <Grid Grid.Row="0" Margin="8" ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+      <UniformGrid Name="MenuButtonsGroup" Grid.Column="0" Columns="3" Margin="0,0,8,0">
+        <Button Name="NewGraphButton" Content="New Graph" AutomationProperties.Name="New Graph" Margin="2" />
+        <Button Name="LoadGraphButton" Content="Load" AutomationProperties.Name="Load" Margin="2" />
+        <Button Name="SaveButton" Content="Save" AutomationProperties.Name="Save" Margin="2" />
+        <Button Name="SaveAsGraphButton" Content="Save As" AutomationProperties.Name="Save As" Margin="2" />
+        <Button Name="ImportGraphButton" Content="Import Graph" AutomationProperties.Name="Import Graph" Margin="2" />
+        <Button Name="ExportImageButton" Content="Export Image" AutomationProperties.Name="Export Image" Margin="2" />
+        <Button Name="AddItemButton" Content="Add Item" AutomationProperties.Name="Add Item" Margin="2" />
+        <Button Name="AddRecipeButton" Content="Add Recipe" AutomationProperties.Name="Add Recipe" Margin="2" />
+        <Button Name="AutoconnectButton" Content="Autoconnect" AutomationProperties.Name="Autoconnect" Margin="2" />
+        <Button Name="SettingsButton" Content="Settings" AutomationProperties.Name="Settings" Margin="2" />
+        <Button Name="HelpButton" Content="Help / Git repo" AutomationProperties.Name="Help / Git repo" Margin="2" />
+      </UniformGrid>
+
+      <Border Name="GridLinesGroupBox" Grid.Column="1" BorderBrush="{DynamicResource SystemBaseMediumLowColor}" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,8,0">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Gridlines (2n scaling)" FontWeight="Bold" />
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Minor Gridlines:" VerticalAlignment="Center" />
+            <ComboBox Name="MinorGridlinesDropDown">
+              <ComboBoxItem>none</ComboBoxItem>
+              <ComboBoxItem>1</ComboBoxItem>
+              <ComboBoxItem>2</ComboBoxItem>
+              <ComboBoxItem>4</ComboBoxItem>
+              <ComboBoxItem>8</ComboBoxItem>
+              <ComboBoxItem>16</ComboBoxItem>
+              <ComboBoxItem>32</ComboBoxItem>
+              <ComboBoxItem>64</ComboBoxItem>
+              <ComboBoxItem>128</ComboBoxItem>
+              <ComboBoxItem>256</ComboBoxItem>
+              <ComboBoxItem>512</ComboBoxItem>
+              <ComboBoxItem>1024</ComboBoxItem>
+            </ComboBox>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Major Gridlines:" VerticalAlignment="Center" />
+            <ComboBox Name="MajorGridlinesDropDown">
+              <ComboBoxItem>None</ComboBoxItem>
+              <ComboBoxItem>1</ComboBoxItem>
+              <ComboBoxItem>2</ComboBoxItem>
+              <ComboBoxItem>4</ComboBoxItem>
+              <ComboBoxItem>8</ComboBoxItem>
+              <ComboBoxItem>16</ComboBoxItem>
+              <ComboBoxItem>32</ComboBoxItem>
+              <ComboBoxItem>64</ComboBoxItem>
+              <ComboBoxItem>128</ComboBoxItem>
+              <ComboBoxItem>256</ComboBoxItem>
+              <ComboBoxItem>512</ComboBoxItem>
+              <ComboBoxItem>1024</ComboBoxItem>
+            </ComboBox>
+          </StackPanel>
+          <CheckBox Name="GridlinesCheckbox" Content="Show Gridlines" />
+          <Button Name="AlignSelectionButton" Content="Align Selected" AutomationProperties.Name="Align Selected" />
+        </StackPanel>
+      </Border>
+
+      <Border Name="ProductionGroupBox" Grid.Column="2" BorderBrush="{DynamicResource SystemBaseMediumLowColor}" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,8,0">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Graph Options:" FontWeight="Bold" />
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Base Time:" VerticalAlignment="Center" />
+            <ComboBox Name="RateOptionsDropDown">
+              <ComboBoxItem>1 sec</ComboBoxItem>
+              <ComboBoxItem>1 min</ComboBoxItem>
+              <ComboBoxItem>5 min</ComboBoxItem>
+              <ComboBoxItem>10 min</ComboBoxItem>
+              <ComboBoxItem>30 min</ComboBoxItem>
+              <ComboBoxItem>1 hour</ComboBoxItem>
+            </ComboBox>
+          </StackPanel>
+          <Button Name="GraphSummaryButton" Content="Show Graph Summary" AutomationProperties.Name="Show Graph Summary" />
+          <CheckBox Name="IconViewCheckBox" Content="Icon View" />
+          <CheckBox Name="PauseUpdatesCheckbox" Content="Pause all calculations" />
+        </StackPanel>
+      </Border>
+
+      <TextBlock Name="VersionLabel" Grid.Column="4" VerticalAlignment="Top" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" />
+    </Grid>
+
+    <ContentControl Name="GraphViewerHost" Grid.Row="1" />
+  </Grid>
+</Window>

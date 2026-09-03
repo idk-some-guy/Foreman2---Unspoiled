@@ -1,0 +1,16 @@
+<Project>
+  <!-- Single source of truth for the app's release version. Every project under the repo root
+       inherits Version, so the in-app label, Info.plist, and the packaged bundle/dmg never drift
+       from each other again.
+       UpstreamVersion is the DanielKote/Foreman2 release the parity branch currently tracks,
+       upstream/'s latest tag (git describe: v2.4.0-5-gf3dcc54, no newer tag), recorded here once
+       rather than hand-edited in UI code. -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <UpstreamVersion>2.4.0</UpstreamVersion>
+    <Copyright>©2021 Daniel Kotes; ©2014 Nick Powell; ©2026 Jozef Tokarcik (macOS/Linux port)</Copyright>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="UpstreamVersion" Value="$(UpstreamVersion)" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,13 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Foreman.Mac.Views.SaveFileLoadWindow"
+        Title="Loading Factorio Save"
+        Width="300"
+        SizeToContent="Height"
+        CanResize="False"
+        Background="{DynamicResource SystemChromeMediumColor}">
+  <StackPanel Margin="16" Orientation="Horizontal" Spacing="12">
+    <TextBlock Name="StatusLabel" Text="Please wait... Running Factorio" VerticalAlignment="Center" />
+    <Button Name="CancelButton" Content="Cancel" IsCancel="True" />
+  </StackPanel>
+</Window>

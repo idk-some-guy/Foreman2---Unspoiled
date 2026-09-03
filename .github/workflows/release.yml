@@ -1,0 +1,146 @@
+name: Release
+
+# A `v*` tag push or an explicit manual dispatch (naming an existing tag) are the only
+# triggers - never a branch push, so this workflow cannot run on ordinary commits.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing v* tag to build and release (e.g. v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_VERSION: '10.0.x'
+
+jobs:
+  version-check:
+    name: Verify tag matches Directory.Build.props
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Compare tag version to Directory.Build.props Version
+        id: check
+        env:
+          DISPATCH_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          TAG_NAME="${DISPATCH_TAG:-$GITHUB_REF_NAME}"
+          TAG_VERSION="${TAG_NAME#v}"
+          PROPS_VERSION="$(grep -m1 -oE '<Version>[^<]+</Version>' Directory.Build.props | sed -E 's#</?Version>##g')"
+          echo "tag version: $TAG_VERSION"
+          echo "Directory.Build.props version: $PROPS_VERSION"
+          if [ "$TAG_VERSION" != "$PROPS_VERSION" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match Directory.Build.props Version ($PROPS_VERSION)"
+            exit 1
+          fi
+          echo "version=$PROPS_VERSION" >> "$GITHUB_OUTPUT"
+
+  macos-build:
+    name: Build macOS dmg
+    needs: version-check
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Run packaging pipeline
+        run: packaging/build-all.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: packaging/out/Foreman2.dmg
+          if-no-files-found: error
+
+  linux-build:
+    name: Build Linux tarball
+    needs: version-check
+    # build-linux.sh cross-compiles fine from macOS, but running it on an actual ubuntu-latest
+    # runner is truer to what a Linux user gets: the RID's native runtime pack, not a
+    # cross-published one, and it exercises the same tar/permissions bits Linux itself enforces.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Run packaging pipeline
+        run: packaging/build-linux.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-tarball
+          path: packaging/out/Foreman2-*-linux-x64.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: [version-check, macos-build, linux-build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-dmg
+          path: dist
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-tarball
+          path: dist
+
+      - name: Extract CHANGELOG section for this version
+        id: changelog
+        run: |
+          VERSION="${{ needs.version-check.outputs.version }}"
+          NOTES="$(awk -v ver="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if ($0 ~ "^## \\[" ver "\\]") { found = 1; print; next }
+              next
+            }
+            found { print }
+          ' CHANGELOG.md)"
+          if [ -z "$NOTES" ]; then
+            echo "::error::CHANGELOG.md has no ## [$VERSION] section"
+            exit 1
+          fi
+          {
+            echo "notes<<CHANGELOG_EOF"
+            echo "$NOTES"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTES: ${{ steps.changelog.outputs.notes }}
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          echo "$NOTES" > release-notes.md
+          gh release create "$RELEASE_TAG" \
+            dist/Foreman2.dmg \
+            dist/Foreman2-*-linux-x64.tar.gz \
+            --title "$RELEASE_TAG" \
+            --notes-file release-notes.md

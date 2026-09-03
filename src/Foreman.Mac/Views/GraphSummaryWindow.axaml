@@ -1,0 +1,211 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Foreman.Mac.Views.GraphSummaryWindow"
+        Title="Factory summary:"
+        Width="780"
+        Height="540"
+        MinWidth="780"
+        MinHeight="540"
+        WindowStartupLocation="Manual"
+        Background="{DynamicResource SystemChromeMediumColor}">
+  <Window.Styles>
+    <Style Selector="Button.ColumnHeader">
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="TextBlock.TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <!-- Fluent's default ListBoxItem padding/min-height reads far sparser than upstream's dense WinForms
+         rows (20px icon, minimal chrome); this tightens it back down on the summary lists. -->
+    <Style Selector="ListBox.compact ListBoxItem">
+      <Setter Property="Padding" Value="2,1" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+  </Window.Styles>
+  <Window.Resources>
+    <DataTemplate x:Key="BuildingRowTemplate">
+      <Border Background="{Binding Background}" Padding="2">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="{Binding CountText}" Foreground="{Binding Foreground}" Width="100" />
+          <Image Source="{Binding Icon}" Width="20" Height="20" Margin="0,0,4,0" />
+          <TextBlock Text="{Binding Name}" Foreground="{Binding Foreground}" Width="228" />
+          <TextBlock Text="{Binding PowerText}" Foreground="{Binding Foreground}" Width="100" />
+          <TextBlock Text="{Binding PowerBText}" Foreground="{Binding Foreground}" Width="100" />
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+    <DataTemplate x:Key="BeaconRowTemplate">
+      <Border Background="{Binding Background}" Padding="2">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="{Binding CountText}" Foreground="{Binding Foreground}" Width="100" />
+          <Image Source="{Binding Icon}" Width="20" Height="20" Margin="0,0,4,0" />
+          <TextBlock Text="{Binding Name}" Foreground="{Binding Foreground}" Width="228" />
+          <TextBlock Text="{Binding PowerBText}" Foreground="{Binding Foreground}" Width="100" />
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+    <DataTemplate x:Key="ItemRowTemplate">
+      <Border Background="{Binding Background}" Padding="2">
+        <StackPanel Orientation="Horizontal">
+          <Image Source="{Binding Icon}" Width="20" Height="20" Margin="0,0,4,0" />
+          <TextBlock Text="{Binding Name}" Foreground="{Binding Foreground}" Width="130" />
+          <TextBlock Text="{Binding InText}" Foreground="{Binding Foreground}" Width="75" />
+          <TextBlock Text="{Binding InULText}" Foreground="{Binding Foreground}" Width="75" />
+          <TextBlock Text="{Binding OutText}" Foreground="{Binding Foreground}" Width="75" />
+          <TextBlock Text="{Binding OutULText}" Foreground="{Binding Foreground}" Width="75" />
+          <TextBlock Text="{Binding OverprodText}" Foreground="{Binding Foreground}" Width="75" />
+          <TextBlock Text="{Binding ProducedText}" Foreground="{Binding Foreground}" Width="75" />
+          <TextBlock Text="{Binding ConsumedText}" Foreground="{Binding Foreground}" Width="75" />
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+    <DataTemplate x:Key="KeyNodeRowTemplate">
+      <Border Padding="2">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="{Binding TypeText}" Width="100" />
+          <Image Source="{Binding Icon}" Width="20" Height="20" Margin="0,0,4,0" />
+          <TextBlock Text="{Binding DetailsText}" Width="176" />
+          <TextBlock Text="{Binding TitleText}" Width="200" />
+          <TextBlock Text="{Binding ThroughputText}" Width="80" />
+          <TextBlock Text="{Binding FactoriesText}" Width="80" />
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+  </Window.Resources>
+  <TabControl Name="MainTabControl" Margin="8">
+    <TabItem Header="Buildings">
+      <DockPanel Margin="8">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,6">
+          <TextBlock Grid.Column="0" Text="Filter:" VerticalAlignment="Center" Margin="0,0,4,0" />
+          <TextBox Name="BuildingsFilterTextBox" Grid.Column="1" />
+          <Button Name="BuildingsExportButton" Grid.Column="2" Content="Export CSV" Margin="6,0,0,0" />
+        </Grid>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="14" Margin="0,0,0,6">
+          <TextBlock Name="BuildingCountLabel" Text="#Buildings: " />
+          <TextBlock Name="BeaconCountLabel" Text="#Beacons: " />
+          <TextBlock Name="PowerConsumptionLabel" Text="Power Consumption: " />
+          <TextBlock Name="PowerProductionLabel" Text="Power Production: " />
+          <TextBlock Name="PowerNetLabel" Text="Net Power: " IsVisible="False" />
+        </StackPanel>
+        <TabControl Name="BuildingsTabControl">
+          <TabItem Header="Assemblers">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                <Button Name="AssemblerHeader0" Classes="ColumnHeader" Content="#" Width="100" />
+                <Button Name="AssemblerHeader1" Classes="ColumnHeader" Content="Name" Width="228" Margin="24,0,0,0" />
+                <Button Name="AssemblerHeader2" Classes="ColumnHeader" Content="Power (Assembler)" Width="100" />
+                <Button Name="AssemblerHeader3" Classes="ColumnHeader" Content="Power (Beacons)" Width="100" />
+              </StackPanel>
+              <ListBox Name="AssemblerListView" Classes="compact" ItemTemplate="{StaticResource BuildingRowTemplate}" />
+            </DockPanel>
+          </TabItem>
+          <TabItem Header="Miners">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                <Button Name="MinerHeader0" Classes="ColumnHeader" Content="#" Width="100" />
+                <Button Name="MinerHeader1" Classes="ColumnHeader" Content="Name" Width="228" Margin="24,0,0,0" />
+                <Button Name="MinerHeader2" Classes="ColumnHeader" Content="Power (Extractor)" Width="100" />
+                <Button Name="MinerHeader3" Classes="ColumnHeader" Content="Power (Beacons)" Width="100" />
+              </StackPanel>
+              <ListBox Name="MinerListView" Classes="compact" ItemTemplate="{StaticResource BuildingRowTemplate}" />
+            </DockPanel>
+          </TabItem>
+          <TabItem Header="Power">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                <Button Name="PowerHeader0" Classes="ColumnHeader" Content="#" Width="100" />
+                <Button Name="PowerHeader1" Classes="ColumnHeader" Content="Name" Width="228" Margin="24,0,0,0" />
+                <Button Name="PowerHeader2" Classes="ColumnHeader" Content="Power Generated" Width="100" />
+                <Button Name="PowerHeader3" Classes="ColumnHeader" Content="Power Consumed" Width="100" />
+              </StackPanel>
+              <ListBox Name="PowerListView" Classes="compact" ItemTemplate="{StaticResource BuildingRowTemplate}" />
+            </DockPanel>
+          </TabItem>
+          <TabItem Header="Beacons">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                <Button Name="BeaconHeader0" Classes="ColumnHeader" Content="#" Width="100" />
+                <Button Name="BeaconHeader1" Classes="ColumnHeader" Content="Name" Width="228" Margin="24,0,0,0" />
+                <Button Name="BeaconHeader2" Classes="ColumnHeader" Content="Power (Beacon)" Width="100" />
+              </StackPanel>
+              <ListBox Name="BeaconListView" Classes="compact" ItemTemplate="{StaticResource BeaconRowTemplate}" />
+            </DockPanel>
+          </TabItem>
+        </TabControl>
+      </DockPanel>
+    </TabItem>
+    <TabItem Name="ItemsFluidsTabItem" Header="Items/Fluids">
+      <DockPanel Margin="8">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,6">
+          <TextBlock Grid.Column="0" Text="Filter:" VerticalAlignment="Center" Margin="0,0,4,0" />
+          <TextBox Name="ItemsFilterTextBox" Grid.Column="1" />
+          <Button Name="ItemsExportButton" Grid.Column="2" Content="Export CSV" Margin="6,0,0,0" />
+        </Grid>
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+          <CheckBox Name="InputFilterCheckBox" Content="Input" IsChecked="True" />
+          <CheckBox Name="InputUnlinkedFilterCheckBox" Content="Input (unlinked)" IsChecked="True" Margin="8,0,0,0" />
+          <CheckBox Name="OutputFilterCheckBox" Content="Output" IsChecked="True" Margin="8,0,0,0" />
+          <CheckBox Name="OutputUnlinkedFilterCheckBox" Content="Output (unlinked)" IsChecked="True" Margin="8,0,0,0" />
+          <CheckBox Name="OutputOverproducedFilterCheckBox" Content="Output (overproduced)" IsChecked="True" Margin="8,0,0,0" />
+          <CheckBox Name="ProductionFilterCheckBox" Content="Production" IsChecked="True" Margin="8,0,0,0" />
+          <CheckBox Name="ConsumptionFilterCheckBox" Content="Consumption" IsChecked="True" Margin="8,0,0,0" />
+        </WrapPanel>
+        <TabControl Name="ItemsTabControl">
+          <TabItem Header="Items">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                <Button Name="ItemsHeader0" Classes="ColumnHeader" Content="Item" Width="150" />
+                <Button Name="ItemsHeader1" Classes="ColumnHeader" Content="In" Width="75" />
+                <Button Name="ItemsHeader2" Classes="ColumnHeader" Content="In (x link)" Width="75" />
+                <Button Name="ItemsHeader3" Classes="ColumnHeader" Content="Out" Width="75" />
+                <Button Name="ItemsHeader4" Classes="ColumnHeader" Content="Out (x link)" Width="75" />
+                <Button Name="ItemsHeader5" Classes="ColumnHeader" Content="Overprod." Width="75" />
+                <Button Name="ItemsHeader6" Classes="ColumnHeader" Content="Produced" Width="75" />
+                <Button Name="ItemsHeader7" Classes="ColumnHeader" Content="Consumed" Width="75" />
+              </StackPanel>
+              <ListBox Name="ItemsListView" Classes="compact" ItemTemplate="{StaticResource ItemRowTemplate}" />
+            </DockPanel>
+          </TabItem>
+          <TabItem Header="Fluids">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                <Button Name="FluidsHeader0" Classes="ColumnHeader" Content="Fluid" Width="150" />
+                <Button Name="FluidsHeader1" Classes="ColumnHeader" Content="In" Width="75" />
+                <Button Name="FluidsHeader2" Classes="ColumnHeader" Content="In (x link)" Width="75" />
+                <Button Name="FluidsHeader3" Classes="ColumnHeader" Content="Out" Width="75" />
+                <Button Name="FluidsHeader4" Classes="ColumnHeader" Content="Out (x link)" Width="75" />
+                <Button Name="FluidsHeader5" Classes="ColumnHeader" Content="Overprod." Width="75" />
+                <Button Name="FluidsHeader6" Classes="ColumnHeader" Content="Produced" Width="75" />
+                <Button Name="FluidsHeader7" Classes="ColumnHeader" Content="Consumed" Width="75" />
+              </StackPanel>
+              <ListBox Name="FluidsListView" Classes="compact" ItemTemplate="{StaticResource ItemRowTemplate}" />
+            </DockPanel>
+          </TabItem>
+        </TabControl>
+      </DockPanel>
+    </TabItem>
+    <TabItem Header="Key Nodes">
+      <DockPanel Margin="8">
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,6">
+          <TextBlock Grid.Column="0" Text="Filter:" VerticalAlignment="Center" Margin="0,0,4,0" />
+          <TextBox Name="KeyNodesFilterTextBox" Grid.Column="1" />
+          <Button Name="KeyNodesExportButton" Grid.Column="2" Content="Export CSV" Margin="6,0,0,0" />
+        </Grid>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+          <CheckBox Name="SupplierNodeFilterCheckBox" Content="Supplier Nodes" IsChecked="True" />
+          <CheckBox Name="ConsumerNodeFilterCheckBox" Content="Consumer Nodes" IsChecked="True" Margin="8,0,0,0" />
+          <CheckBox Name="PassthroughNodeFilterCheckBox" Content="Passthrough Nodes" IsChecked="True" Margin="8,0,0,0" />
+          <CheckBox Name="RecipeNodeFilterCheckBox" Content="Recipe Nodes" IsChecked="True" Margin="8,0,0,0" />
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+          <Button Name="KeyNodesHeader0" Classes="ColumnHeader" Content="Node Type" Width="100" />
+          <Button Name="KeyNodesHeader1" Classes="ColumnHeader" Content="Node Details" Width="200" />
+          <Button Name="KeyNodesHeader2" Classes="ColumnHeader" Content="Node Title" Width="200" />
+          <Button Name="KeyNodesHeader3" Classes="ColumnHeader" Content="Throughput" Width="80" />
+          <Button Name="KeyNodesHeader4" Classes="ColumnHeader" Content="Factories" Width="80" />
+        </StackPanel>
+        <ListBox Name="KeyNodesListView" Classes="compact" ItemTemplate="{StaticResource KeyNodeRowTemplate}" />
+      </DockPanel>
+    </TabItem>
+  </TabControl>
+</Window>

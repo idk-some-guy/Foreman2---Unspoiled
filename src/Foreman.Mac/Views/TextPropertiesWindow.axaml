@@ -1,0 +1,50 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Foreman.Mac.Views.TextPropertiesWindow"
+        Title="Text Properties"
+        Width="360"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource SystemChromeMediumColor}">
+  <StackPanel Margin="16" Spacing="10">
+    <TextBox Name="TextInput" AcceptsReturn="True" Height="70" TextWrapping="Wrap" />
+
+    <TextBlock Name="FontPreviewLabel" Text="AaBbYyZz" FontSize="18" HorizontalAlignment="Center" Margin="0,4" />
+
+    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+      <ComboBox Name="FontFamilyCombo" Grid.Column="0" HorizontalAlignment="Stretch" />
+      <NumericUpDown Name="FontSizeInput" Grid.Column="1" Width="90" Minimum="6" Maximum="288" Increment="1" />
+      <CheckBox Name="BoldCheckBox" Grid.Column="2" Content="B" Margin="4,0,0,0" />
+      <CheckBox Name="ItalicCheckBox" Grid.Column="3" Content="I" Margin="4,0,0,0" />
+    </Grid>
+
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <RadioButton Name="AlignLeftRadio" GroupName="TextAlign" Content="Left" />
+      <RadioButton Name="AlignCenterRadio" GroupName="TextAlign" Content="Center" />
+      <RadioButton Name="AlignRightRadio" GroupName="TextAlign" Content="Right" />
+    </StackPanel>
+
+    <TextBlock Text="Text color" FontWeight="Bold" />
+    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto">
+      <NumericUpDown Name="TextColorRedInput" Grid.Column="0" Width="72" Minimum="0" Maximum="255" />
+      <NumericUpDown Name="TextColorGreenInput" Grid.Column="1" Width="72" Minimum="0" Maximum="255" />
+      <NumericUpDown Name="TextColorBlueInput" Grid.Column="2" Width="72" Minimum="0" Maximum="255" />
+      <Border Name="TextColorSwatch" Grid.Column="3" Width="28" Height="28" Margin="8,0,0,0" BorderBrush="Gray" BorderThickness="1" />
+    </Grid>
+
+    <CheckBox Name="TransparentCheckBox" Content="Transparent background" />
+    <TextBlock Text="Background color" FontWeight="Bold" />
+    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto">
+      <NumericUpDown Name="BackColorRedInput" Grid.Column="0" Width="72" Minimum="0" Maximum="255" />
+      <NumericUpDown Name="BackColorGreenInput" Grid.Column="1" Width="72" Minimum="0" Maximum="255" />
+      <NumericUpDown Name="BackColorBlueInput" Grid.Column="2" Width="72" Minimum="0" Maximum="255" />
+      <Border Name="BackColorSwatch" Grid.Column="3" Width="28" Height="28" Margin="8,0,0,0" BorderBrush="Gray" BorderThickness="1" />
+    </Grid>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button Name="CancelButton" Content="Cancel" />
+      <Button Name="OKButton" Content="OK" />
+    </StackPanel>
+  </StackPanel>
+</Window>

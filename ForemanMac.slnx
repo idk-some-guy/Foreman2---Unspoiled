@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Foreman.Core/Foreman.Core.csproj" />
+    <Project Path="src/Foreman.Mac/Foreman.Mac.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ForemanTest/ForemanTest.csproj" />
+    <Project Path="tests/Foreman.Mac.UiTests/Foreman.Mac.UiTests.csproj" />
+  </Folder>
+</Solution>

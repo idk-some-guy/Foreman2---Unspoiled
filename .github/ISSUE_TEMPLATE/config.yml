@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Windows support requests
+    url: https://github.com/DanielKote/Foreman2/issues
+    about: This project is macOS and Linux only, and always will be. Windows is covered by upstream Foreman2, please open Windows-related requests there.
+  - name: Get a feature adopted into upstream Foreman2
+    url: https://github.com/DanielKote/Foreman2/issues
+    about: If you'd like an Unspoiled-only feature considered for upstream Foreman2 itself, raise it in upstream's tracker.

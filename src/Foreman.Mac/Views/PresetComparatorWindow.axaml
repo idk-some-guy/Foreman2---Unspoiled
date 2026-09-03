@@ -1,0 +1,111 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Foreman.Mac.Views.PresetComparatorWindow"
+        Title="Preset Comparer"
+        Width="1000"
+        Height="700"
+        MinWidth="679"
+        MinHeight="414"
+        WindowStartupLocation="Manual"
+        Background="{DynamicResource SystemChromeMediumColor}">
+  <Window.Styles>
+    <!-- Fluent's default ListBoxItem padding/min-height reads far sparser than upstream's dense WinForms
+         rows (24px icon, minimal chrome); this tightens it back down on the four comparator lists. -->
+    <Style Selector="ListBox.compact ListBoxItem">
+      <Setter Property="Padding" Value="2,1" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+  </Window.Styles>
+  <Window.Resources>
+    <DataTemplate x:Key="ComparatorRowTemplate">
+      <Border Background="{Binding Background}" Padding="4,1">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Image Source="{Binding Icon}" Width="24" Height="24" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding Name}" Foreground="{Binding Foreground}" FontStyle="{Binding FontStyle}" VerticalAlignment="Center" />
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+  </Window.Resources>
+  <Grid Margin="8" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,*">
+    <Border Name="PresetSelectionGroup" Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" BorderBrush="Gray" BorderThickness="1" Padding="6" Margin="0,0,4,4">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="Preset Selection" FontWeight="Bold" Margin="0,0,0,4" />
+        <Grid ColumnDefinitions="*,Auto,*">
+          <ComboBox Name="LeftPresetSelectionBox" Grid.Column="0" HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Name}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBlock Grid.Column="1" Text="&lt;-- vs --&gt;" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0" />
+          <ComboBox Name="RightPresetSelectionBox" Grid.Column="2" HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Name}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </DockPanel>
+    </Border>
+    <Button Name="ProcessPresetsButton" Grid.Row="0" Grid.Column="1" Content="Read Presets And Compare" Margin="4,0,0,4" />
+    <Button Name="CloseButton" Grid.Row="1" Grid.Column="1" Content="Close" Margin="4,0,0,4" IsCancel="True" />
+
+    <TabControl Name="ComparisonTabControl" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,4">
+      <TabItem Header="Mods" />
+      <TabItem Header="Items" />
+      <TabItem Header="Recipes" />
+      <TabItem Header="Assemblers" />
+      <TabItem Header="Miners" />
+      <TabItem Header="Power" />
+      <TabItem Header="Beacons" />
+      <TabItem Header="Modules" />
+    </TabControl>
+
+    <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" RowDefinitions="Auto,Auto,*" ColumnDefinitions="*,*,*,*">
+      <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,4">
+        <TextBlock Grid.Column="0" Text="Filter:" VerticalAlignment="Center" Margin="0,0,4,0" />
+        <TextBox Name="FilterTextBox" Grid.Column="1" />
+        <CheckBox Name="ShowUnavailableCheckBox" Grid.Column="2" Content="Show Unavailables" Margin="8,0,0,0" />
+      </Grid>
+
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="Left Preset Exclusive:" VerticalAlignment="Center" />
+      <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+        <TextBlock Text="Both Presets:" VerticalAlignment="Center" />
+        <CheckBox Name="HideEqualObjectsCheckBox" Content="Hide Equal" IsChecked="True" />
+        <CheckBox Name="HideSimilarObjectsCheckBox" Content="Hide Similar" />
+      </StackPanel>
+      <TextBlock Grid.Row="1" Grid.Column="3" Text="Right Preset Exclusive:" HorizontalAlignment="Right" VerticalAlignment="Center" />
+
+      <ListBox Name="LeftOnlyListView" Grid.Row="2" Grid.Column="0" Classes="compact" ItemTemplate="{StaticResource ComparatorRowTemplate}" Margin="0,0,4,0">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+      </ListBox>
+      <ListBox Name="LeftListView" Grid.Row="2" Grid.Column="1" Classes="compact" ItemTemplate="{StaticResource ComparatorRowTemplate}" Margin="4,0">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+      </ListBox>
+      <ListBox Name="RightListView" Grid.Row="2" Grid.Column="2" Classes="compact" ItemTemplate="{StaticResource ComparatorRowTemplate}" Margin="4,0">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+      </ListBox>
+      <ListBox Name="RightOnlyListView" Grid.Row="2" Grid.Column="3" Classes="compact" ItemTemplate="{StaticResource ComparatorRowTemplate}" Margin="4,0,0,0">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+      </ListBox>
+    </Grid>
+  </Grid>
+</Window>

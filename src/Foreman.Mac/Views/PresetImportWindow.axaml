@@ -1,0 +1,44 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Foreman.Mac.Views.PresetImportWindow"
+        Title="Import Preset"
+        Width="460"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="Manual"
+        Background="{DynamicResource SystemChromeMediumColor}">
+  <StackPanel Margin="12" Spacing="10">
+    <StackPanel Spacing="2">
+      <TextBlock Text="Factorio Location:" FontWeight="Bold" />
+      <ComboBox Name="FactorioLocationComboBox" HorizontalAlignment="Stretch" IsVisible="False" />
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBox Name="FactorioLocationTextBox" Grid.Column="0" Margin="0,0,6,0" />
+        <Button Name="FactorioBrowseButton" Grid.Column="1" Content="Browse..." />
+      </Grid>
+    </StackPanel>
+    <StackPanel Spacing="2">
+      <TextBlock Text="Factorio Settings:" FontWeight="Bold" />
+      <TextBlock Text="NOTE: Language, Active Mods, and Mod options are to be set within Factorio!" TextWrapping="Wrap" />
+    </StackPanel>
+    <StackPanel Spacing="2">
+      <TextBlock Text="Preset Name:" FontWeight="Bold" />
+      <TextBox Name="PresetNameTextBox" Text="Factorio 2.0 Space Age" MaxLength="40" Background="Moccasin" />
+      <TextBlock Text="5-40 characters: letters, numbers, brackets, dash or underscore." TextWrapping="Wrap" FontSize="11" />
+    </StackPanel>
+    <StackPanel Spacing="2">
+      <TextBlock Text="Mod Folder Location (leave blank for auto-detect):" FontWeight="Bold" />
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBox Name="ModsLocationTextBox" Grid.Column="0" Margin="0,0,6,0" />
+        <Button Name="ModsBrowseButton" Grid.Column="1" Content="Browse..." />
+      </Grid>
+    </StackPanel>
+    <Grid ColumnDefinitions="*,Auto">
+      <Button Name="OKButton" Grid.Column="0" Content="Import" Margin="0,0,6,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsDefault="True" />
+      <Button Name="CancelButton" Grid.Column="1" Content="Cancel" IsCancel="True" />
+    </Grid>
+    <StackPanel Name="ProgressPanel" Spacing="2" IsVisible="False">
+      <TextBlock Name="StatusTextBlock" Text="" />
+      <ProgressBar Name="ImportProgressBar" Minimum="0" Maximum="100" Value="0" />
+    </StackPanel>
+  </StackPanel>
+</Window>
