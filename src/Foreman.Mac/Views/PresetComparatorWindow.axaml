@@ -1,5 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Foreman.Mac.Views"
+        xmlns:p="using:Foreman"
         x:Class="Foreman.Mac.Views.PresetComparatorWindow"
         Title="Preset Comparer"
         Width="1000"
@@ -17,7 +19,7 @@
     </Style>
   </Window.Styles>
   <Window.Resources>
-    <DataTemplate x:Key="ComparatorRowTemplate">
+    <DataTemplate x:Key="ComparatorRowTemplate" x:DataType="v:ComparatorRow">
       <Border Background="{Binding Background}" Padding="4,1">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <Image Source="{Binding Icon}" Width="24" Height="24" VerticalAlignment="Center" />
@@ -33,7 +35,7 @@
         <Grid ColumnDefinitions="*,Auto,*">
           <ComboBox Name="LeftPresetSelectionBox" Grid.Column="0" HorizontalAlignment="Stretch">
             <ComboBox.ItemTemplate>
-              <DataTemplate>
+              <DataTemplate x:DataType="p:Preset">
                 <TextBlock Text="{Binding Name}" />
               </DataTemplate>
             </ComboBox.ItemTemplate>
@@ -41,7 +43,7 @@
           <TextBlock Grid.Column="1" Text="&lt;-- vs --&gt;" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0" />
           <ComboBox Name="RightPresetSelectionBox" Grid.Column="2" HorizontalAlignment="Stretch">
             <ComboBox.ItemTemplate>
-              <DataTemplate>
+              <DataTemplate x:DataType="p:Preset">
                 <TextBlock Text="{Binding Name}" />
               </DataTemplate>
             </ComboBox.ItemTemplate>

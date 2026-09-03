@@ -78,7 +78,7 @@ namespace Foreman.Mac.UiTests.Views {
 
             var window = new PresetSelectionWindow(errors);
 
-            var rowNames = ((List<PresetSelectionWindow.PresetRow>)window.PresetSelectionListViewControl.ItemsSource!).Select(r => r.Name).ToList();
+            var rowNames = ((List<PresetRow>)window.PresetSelectionListViewControl.ItemsSource!).Select(r => r.Name).ToList();
             Assert.Equal(["Best", "Middle", "Worst"], rowNames);
         }
 
@@ -93,9 +93,9 @@ namespace Foreman.Mac.UiTests.Views {
             var errors = NewPackage(preset, requiredMods: 4, missingMods: 1, addedMods: 0, wrongVersionMods: 0,
                 requiredItems: 10, missingItems: 2, requiredRecipes: 5, missingRecipes: 1, incorrectRecipes: 1);
 
-            List<PresetSelectionWindow.PresetRow> rows = PresetSelectionWindow.BuildRows([errors]);
+            List<PresetRow> rows = PresetSelectionWindow.BuildRows([errors]);
 
-            PresetSelectionWindow.PresetRow row = Assert.Single(rows);
+            PresetRow row = Assert.Single(rows);
             Assert.Equal("%75", row.ModsText);
             Assert.Equal("%80", row.ItemsText);
             Assert.Equal("%60", row.RecipesText);
@@ -109,7 +109,7 @@ namespace Foreman.Mac.UiTests.Views {
             var errors = NewPackage(preset, requiredMods: 4, missingMods: 1, addedMods: 1, wrongVersionMods: 1,
                 requiredItems: 3, missingItems: 1, requiredRecipes: 6, missingRecipes: 2, incorrectRecipes: 1);
 
-            List<PresetSelectionWindow.PresetRow> rows = PresetSelectionWindow.BuildRows([errors]);
+            List<PresetRow> rows = PresetSelectionWindow.BuildRows([errors]);
 
             string expected =
                 "Mods:\n" +

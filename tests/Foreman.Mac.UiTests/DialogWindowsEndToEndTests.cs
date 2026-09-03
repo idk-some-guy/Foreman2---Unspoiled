@@ -368,7 +368,7 @@ namespace Foreman.Mac.UiTests {
             await window.OpenGraphSummaryAsync();
 
             Assert.Equal("#Buildings: 0", firstOpen!.BuildingCountLabelControl.Text); //no recipe/assembler nodes yet
-            GraphSummaryWindow.ItemRow ironRowFirst = Assert.Single(firstOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == ironPlate);
+            ItemRow ironRowFirst = Assert.Single(firstOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == ironPlate);
             Assert.Equal(12.5, ironRowFirst.InValue, 3);
             firstOpen.Close();
 
@@ -381,9 +381,9 @@ namespace Foreman.Mac.UiTests {
             await window.OpenGraphSummaryAsync();
 
             Assert.Equal(2, secondOpen!.UnfilteredItemsList.Count); //reopen picks up the edit rather than reusing a stale snapshot
-            GraphSummaryWindow.ItemRow ironRowSecond = Assert.Single(secondOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == ironPlate);
+            ItemRow ironRowSecond = Assert.Single(secondOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == ironPlate);
             Assert.Equal(12.5, ironRowSecond.InValue, 3);
-            GraphSummaryWindow.ItemRow copperRow = Assert.Single(secondOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == copperPlate);
+            ItemRow copperRow = Assert.Single(secondOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == copperPlate);
             Assert.Equal(7, copperRow.InValue, 3);
             secondOpen.Close();
         }
@@ -425,7 +425,7 @@ namespace Foreman.Mac.UiTests {
             await window.OpenGraphSummaryAsync();
 
             Assert.NotEqual("#Buildings: 0", summary!.BuildingCountLabelControl.Text);
-            GraphSummaryWindow.BuildingRow assemblerRow = Assert.Single(summary.UnfilteredAssemblerList);
+            BuildingRow assemblerRow = Assert.Single(summary.UnfilteredAssemblerList);
             Assert.NotEqual("0", assemblerRow.CountText);
             summary.Close();
         }

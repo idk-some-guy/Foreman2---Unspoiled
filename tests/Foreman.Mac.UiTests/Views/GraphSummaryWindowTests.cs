@@ -155,13 +155,13 @@ namespace Foreman.Mac.UiTests.Views {
 
             var window = NewWindow(fx);
 
-            GraphSummaryWindow.BuildingRow buildingRow = Assert.Single(window.UnfilteredAssemblerList);
+            BuildingRow buildingRow = Assert.Single(window.UnfilteredAssemblerList);
             ContrastAssert.Readable(buildingRow.Foreground, buildingRow.Background);
 
-            GraphSummaryWindow.BeaconRow beaconRow = Assert.Single(window.UnfilteredBeaconList);
+            BeaconRow beaconRow = Assert.Single(window.UnfilteredBeaconList);
             ContrastAssert.Readable(beaconRow.Foreground, beaconRow.Background);
 
-            GraphSummaryWindow.ItemRow itemRow = window.UnfilteredItemsList.First();
+            ItemRow itemRow = window.UnfilteredItemsList.First();
             ContrastAssert.Readable(itemRow.Foreground, itemRow.Background);
         }
 
@@ -269,7 +269,7 @@ namespace Foreman.Mac.UiTests.Views {
 
             var window = NewWindow(fx);
 
-            GraphSummaryWindow.BeaconRow row = Assert.Single(window.UnfilteredBeaconList);
+            BeaconRow row = Assert.Single(window.UnfilteredBeaconList);
             Assert.Equal("4", row.CountText);
             Assert.Equal(expectedPower, row.PowerBValue, precision: 6);
         }
@@ -291,13 +291,13 @@ namespace Foreman.Mac.UiTests.Views {
 
             var window = NewWindow(fx);
 
-            GraphSummaryWindow.ItemRow inputRow = window.UnfilteredItemsList.Single(r => r.Name == "Iron Plate" || r.Name.Contains("Plate", StringComparison.OrdinalIgnoreCase));
+            ItemRow inputRow = window.UnfilteredItemsList.Single(r => r.Name == "Iron Plate" || r.Name.Contains("Plate", StringComparison.OrdinalIgnoreCase));
             Assert.Equal("-", inputRow.InText);
             Assert.NotEqual("-", inputRow.InULText);
             Assert.Equal("-", inputRow.ConsumedText);
             Assert.Equal(expectedConsume, inputRow.InULValue, precision: 6);
 
-            GraphSummaryWindow.ItemRow outputRow = window.UnfilteredItemsList.Single(r => r.Name.Contains("Gear", StringComparison.OrdinalIgnoreCase));
+            ItemRow outputRow = window.UnfilteredItemsList.Single(r => r.Name.Contains("Gear", StringComparison.OrdinalIgnoreCase));
             //Unlinked (no output link at all) AND overproduced (supplyUsedRate is 0 with no link consuming
             //it) are independent flags upstream - both fire together here, not one or the other.
             Assert.NotEqual("-", outputRow.OutULText);
@@ -321,7 +321,7 @@ namespace Foreman.Mac.UiTests.Views {
 
             var window = NewWindow(fx);
 
-            GraphSummaryWindow.ItemRow inputRow = window.UnfilteredItemsList.Single(r => r.Name.Contains("Plate", StringComparison.OrdinalIgnoreCase));
+            ItemRow inputRow = window.UnfilteredItemsList.Single(r => r.Name.Contains("Plate", StringComparison.OrdinalIgnoreCase));
             Assert.Equal("-", inputRow.InULText);
             Assert.NotEqual("-", inputRow.ConsumedText);
             Assert.Equal(expectedConsume, inputRow.ConsumedValue, precision: 6);
@@ -346,7 +346,7 @@ namespace Foreman.Mac.UiTests.Views {
 
             var window = NewWindow(fx);
 
-            GraphSummaryWindow.ItemRow outputRow = window.UnfilteredItemsList.Single(r => r.Name.Contains("Gear", StringComparison.OrdinalIgnoreCase));
+            ItemRow outputRow = window.UnfilteredItemsList.Single(r => r.Name.Contains("Gear", StringComparison.OrdinalIgnoreCase));
             Assert.Equal("-", outputRow.OutULText);
             Assert.NotEqual("-", outputRow.OverprodText);
             //recipeNode.ActualSetValue stays pinned at 2 factories regardless of the consumer's own pinned
@@ -384,7 +384,7 @@ namespace Foreman.Mac.UiTests.Views {
             window.OutputOverproducedFilterCheckBoxControl.IsChecked = false;
             window.ConsumptionFilterCheckBoxControl.IsChecked = false;
 
-            var visible = ((IEnumerable<GraphSummaryWindow.ItemRow>)window.ItemsListViewControl.ItemsSource!).ToList();
+            var visible = ((IEnumerable<ItemRow>)window.ItemsListViewControl.ItemsSource!).ToList();
 
             Assert.All(visible, r => Assert.NotEqual("-", r.ProducedText));
             Assert.DoesNotContain(visible, r => r.Name.Contains("Plate", StringComparison.OrdinalIgnoreCase));
@@ -407,7 +407,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.True(window.PassthroughNodeFilterCheckBoxControl.IsChecked);
             Assert.True(window.RecipeNodeFilterCheckBoxControl.IsChecked);
 
-            GraphSummaryWindow.KeyNodeRow row = Assert.Single(window.UnfilteredKeyNodesList);
+            KeyNodeRow row = Assert.Single(window.UnfilteredKeyNodesList);
             Assert.Same(keySupplier, row.Tag);
             Assert.DoesNotContain(window.UnfilteredKeyNodesList, r => ReferenceEquals(r.Tag, plainSupplier));
         }
@@ -422,7 +422,7 @@ namespace Foreman.Mac.UiTests.Views {
 
             var window = NewWindow(fx);
 
-            GraphSummaryWindow.KeyNodeRow row = Assert.Single(window.UnfilteredKeyNodesList);
+            KeyNodeRow row = Assert.Single(window.UnfilteredKeyNodesList);
             Assert.Equal("-", row.ThroughputText);
             Assert.Equal(3.5, row.FactoriesValue, precision: 6);
         }
@@ -437,7 +437,7 @@ namespace Foreman.Mac.UiTests.Views {
 
             var window = NewWindow(fx);
 
-            GraphSummaryWindow.KeyNodeRow row = Assert.Single(window.UnfilteredKeyNodesList);
+            KeyNodeRow row = Assert.Single(window.UnfilteredKeyNodesList);
             Assert.Equal("-", row.FactoriesText);
             Assert.Equal(7.5, row.ThroughputValue, precision: 6);
         }
@@ -469,7 +469,7 @@ namespace Foreman.Mac.UiTests.Views {
             fx.Graph.UpdateNodeValues();
 
             var window = NewWindow(fx);
-            var combined = new List<GraphSummaryWindow.BuildingRow>();
+            var combined = new List<BuildingRow>();
             combined.AddRange(window.UnfilteredAssemblerList);
             combined.AddRange(window.UnfilteredMinerList);
             var owner = window.AssemblerListViewControl;

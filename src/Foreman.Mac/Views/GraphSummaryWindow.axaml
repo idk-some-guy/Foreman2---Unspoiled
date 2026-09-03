@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="using:Foreman.Mac.Views"
         x:Class="Foreman.Mac.Views.GraphSummaryWindow"
         Title="Factory summary:"
         Width="780"
@@ -23,7 +24,7 @@
     </Style>
   </Window.Styles>
   <Window.Resources>
-    <DataTemplate x:Key="BuildingRowTemplate">
+    <DataTemplate x:Key="BuildingRowTemplate" x:DataType="v:BuildingRow">
       <Border Background="{Binding Background}" Padding="2">
         <StackPanel Orientation="Horizontal">
           <TextBlock Text="{Binding CountText}" Foreground="{Binding Foreground}" Width="100" />
@@ -34,7 +35,7 @@
         </StackPanel>
       </Border>
     </DataTemplate>
-    <DataTemplate x:Key="BeaconRowTemplate">
+    <DataTemplate x:Key="BeaconRowTemplate" x:DataType="v:BeaconRow">
       <Border Background="{Binding Background}" Padding="2">
         <StackPanel Orientation="Horizontal">
           <TextBlock Text="{Binding CountText}" Foreground="{Binding Foreground}" Width="100" />
@@ -44,7 +45,7 @@
         </StackPanel>
       </Border>
     </DataTemplate>
-    <DataTemplate x:Key="ItemRowTemplate">
+    <DataTemplate x:Key="ItemRowTemplate" x:DataType="v:ItemRow">
       <Border Background="{Binding Background}" Padding="2">
         <StackPanel Orientation="Horizontal">
           <Image Source="{Binding Icon}" Width="20" Height="20" Margin="0,0,4,0" />
@@ -59,7 +60,7 @@
         </StackPanel>
       </Border>
     </DataTemplate>
-    <DataTemplate x:Key="KeyNodeRowTemplate">
+    <DataTemplate x:Key="KeyNodeRowTemplate" x:DataType="v:KeyNodeRow">
       <Border Padding="2">
         <StackPanel Orientation="Horizontal">
           <TextBlock Text="{Binding TypeText}" Width="100" />

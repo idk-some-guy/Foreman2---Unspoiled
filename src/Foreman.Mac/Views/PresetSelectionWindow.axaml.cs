@@ -11,15 +11,6 @@ namespace Foreman.Mac.Views {
     //(Preset/Mods/Items/Recipes) is a shared Grid.ColumnDefinitions string reused by the header row and the
     //per-item DataTemplate rather than real ColumnHeaders.
     public partial class PresetSelectionWindow : Window {
-        internal sealed class PresetRow(Preset preset, string modsText, string itemsText, string recipesText, string tooltip) {
-            public Preset Preset { get; } = preset;
-            public string Name => Preset.Name;
-            public string ModsText { get; } = modsText;
-            public string ItemsText { get; } = itemsText;
-            public string RecipesText { get; } = recipesText;
-            public string Tooltip { get; } = tooltip;
-        }
-
         private readonly ListBox presetListView;
         private readonly Button confirmationButton;
         private readonly Button cancellingButton;
@@ -104,5 +95,14 @@ namespace Foreman.Mac.Views {
             Commit();
         }
         internal void SimulateCancelClick() => Close(false);
+    }
+
+    internal sealed class PresetRow(Preset preset, string modsText, string itemsText, string recipesText, string tooltip) {
+        public Preset Preset { get; } = preset;
+        public string Name => Preset.Name;
+        public string ModsText { get; } = modsText;
+        public string ItemsText { get; } = itemsText;
+        public string RecipesText { get; } = recipesText;
+        public string Tooltip { get; } = tooltip;
     }
 }

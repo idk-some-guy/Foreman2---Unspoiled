@@ -33,18 +33,7 @@ namespace Foreman.Mac.Views {
 
         internal enum RowSimilarity { Equal, CloseEnough, Different }
 
-        internal sealed class ComparatorRow(object tag, string name, string filterKey, Bitmap? icon, IBrush foreground, FontStyle fontStyle) {
-            public object Tag { get; } = tag;
-            public string Name { get; } = name;
-            public string FilterKey { get; } = filterKey;
-            public Bitmap? Icon { get; } = icon;
-            public IBrush Foreground { get; } = foreground;
-            public FontStyle FontStyle { get; } = fontStyle;
-            public IBrush Background { get; set; } = EqualBackground;
-            public RowSimilarity Similarity { get; set; } = RowSimilarity.Equal;
-        }
-
-        private static readonly IBrush EqualBackground = new SolidColorBrush(Color.FromRgb(255, 255, 255));
+        internal static readonly IBrush EqualBackground = new SolidColorBrush(Color.FromRgb(255, 255, 255));
         private static readonly IBrush CloseEnoughBackground = new SolidColorBrush(Color.FromRgb(240, 230, 140));
         private static readonly IBrush DifferentBackground = new SolidColorBrush(Color.FromRgb(255, 192, 203));
         private static readonly IBrush AvailableForeground = new SolidColorBrush(Color.FromRgb(0, 0, 0));
@@ -487,5 +476,16 @@ namespace Foreman.Mac.Views {
         internal bool Comparing => comparing;
 
         internal Task SimulateProcessPresetsClickAsync() => ProcessPresetsClickedAsync();
+    }
+
+    internal sealed class ComparatorRow(object tag, string name, string filterKey, Bitmap? icon, IBrush foreground, FontStyle fontStyle) {
+        public object Tag { get; } = tag;
+        public string Name { get; } = name;
+        public string FilterKey { get; } = filterKey;
+        public Bitmap? Icon { get; } = icon;
+        public IBrush Foreground { get; } = foreground;
+        public FontStyle FontStyle { get; } = fontStyle;
+        public IBrush Background { get; set; } = PresetComparatorWindow.EqualBackground;
+        public PresetComparatorWindow.RowSimilarity Similarity { get; set; } = PresetComparatorWindow.RowSimilarity.Equal;
     }
 }

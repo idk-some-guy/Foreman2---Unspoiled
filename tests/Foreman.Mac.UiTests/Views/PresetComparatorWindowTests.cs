@@ -338,7 +338,7 @@ namespace Foreman.Mac.UiTests.Views {
 
             //Space Age's own mods (space-age, quality, elevated-rails, ...) are exclusive to it, so
             //RightOnlyListView is the bucket guaranteed non-empty on the Mods tab.
-            string[] modNames = [.. window.RightOnlyListViewControl.ItemsSource!.Cast<PresetComparatorWindow.ComparatorRow>().Select(r => r.Name)];
+            string[] modNames = [.. window.RightOnlyListViewControl.ItemsSource!.Cast<ComparatorRow>().Select(r => r.Name)];
             Assert.NotEmpty(modNames);
             Assert.NotEmpty(RealizedRowTexts(window.RightOnlyListViewControl));
 
@@ -356,7 +356,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.DoesNotContain(realizedAfterItemsTab, text => modNames.Contains(text));
             //The virtualized panel only realizes rows near the top of the viewport, so assert against the
             //first row it actually reports rather than an arbitrarily chosen off-screen item.
-            string firstItemRowName = itemsRows.Cast<PresetComparatorWindow.ComparatorRow>().First().Name;
+            string firstItemRowName = itemsRows.Cast<ComparatorRow>().First().Name;
             Assert.Contains(realizedAfterItemsTab, text => text == firstItemRowName);
 
             TabItem recipesTab = window.ComparisonTabControlControl.Items.OfType<TabItem>().ElementAt(2);

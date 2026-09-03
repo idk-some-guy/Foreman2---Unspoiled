@@ -25,70 +25,6 @@ namespace Foreman.Mac.Views {
     //current graph (both constructor overloads collapse to the node-list one below, matching upstream -
     //MainForm always passes the whole session, never a subset).
     public partial class GraphSummaryWindow : Window {
-        internal sealed class BuildingRow(object tag, string rowKey, Bitmap? icon, IBrush background, string countText, string name, string powerText, double powerValue, string powerBText, double powerBValue) {
-            public object Tag { get; } = tag;
-            public string RowKey { get; } = rowKey;
-            public Bitmap? Icon { get; } = icon;
-            public IBrush Background { get; } = background;
-            public IBrush Foreground { get; } = RowForegroundBrush;
-            public string CountText { get; } = countText;
-            public string Name { get; } = name;
-            public string PowerText { get; } = powerText;
-            public double PowerValue { get; } = powerValue;
-            public string PowerBText { get; } = powerBText;
-            public double PowerBValue { get; } = powerBValue;
-        }
-
-        internal sealed class BeaconRow(object tag, string rowKey, Bitmap? icon, IBrush background, string countText, string name, string powerBText, double powerBValue) {
-            public object Tag { get; } = tag;
-            public string RowKey { get; } = rowKey;
-            public Bitmap? Icon { get; } = icon;
-            public IBrush Background { get; } = background;
-            public IBrush Foreground { get; } = RowForegroundBrush;
-            public string CountText { get; } = countText;
-            public string Name { get; } = name;
-            public string PowerBText { get; } = powerBText;
-            public double PowerBValue { get; } = powerBValue;
-        }
-
-        internal sealed class ItemRow(object tag, string rowKey, Bitmap? icon, IBrush background, string name,
-                string inText, double inValue, string inULText, double inULValue, string outText, double outValue,
-                string outULText, double outULValue, string overprodText, double overprodValue, string producedText, double producedValue, string consumedText, double consumedValue) {
-            public object Tag { get; } = tag;
-            public string RowKey { get; } = rowKey;
-            public Bitmap? Icon { get; } = icon;
-            public IBrush Background { get; } = background;
-            public IBrush Foreground { get; } = RowForegroundBrush;
-            public string Name { get; } = name;
-            public string InText { get; } = inText;
-            public double InValue { get; } = inValue;
-            public string InULText { get; } = inULText;
-            public double InULValue { get; } = inULValue;
-            public string OutText { get; } = outText;
-            public double OutValue { get; } = outValue;
-            public string OutULText { get; } = outULText;
-            public double OutULValue { get; } = outULValue;
-            public string OverprodText { get; } = overprodText;
-            public double OverprodValue { get; } = overprodValue;
-            public string ProducedText { get; } = producedText;
-            public double ProducedValue { get; } = producedValue;
-            public string ConsumedText { get; } = consumedText;
-            public double ConsumedValue { get; } = consumedValue;
-        }
-
-        internal sealed class KeyNodeRow(object tag, string rowKey, Bitmap? icon, string typeText, string detailsText, string titleText, string throughputText, double throughputValue, string factoriesText, double factoriesValue) {
-            public object Tag { get; } = tag;
-            public string RowKey { get; } = rowKey;
-            public Bitmap? Icon { get; } = icon;
-            public string TypeText { get; } = typeText;
-            public string DetailsText { get; } = detailsText;
-            public string TitleText { get; } = titleText;
-            public string ThroughputText { get; } = throughputText;
-            public double ThroughputValue { get; } = throughputValue;
-            public string FactoriesText { get; } = factoriesText;
-            public double FactoriesValue { get; } = factoriesValue;
-        }
-
         private sealed class ItemCounter(double i, double iu, double o, double ou, double oo, double p, double c) {
             public double Input { get; set; } = i;
             public double InputUnlinked { get; set; } = iu;
@@ -105,7 +41,7 @@ namespace Foreman.Mac.Views {
         //Both row backgrounds above are light regardless of app theme, so the row text needs an explicit
         //dark Foreground too - the live Fluent dark theme's default TextBlock foreground is white, which is
         //invisible on either background otherwise.
-        private static readonly IBrush RowForegroundBrush = new SolidColorBrush(Color.FromRgb(0, 0, 0));
+        internal static readonly IBrush RowForegroundBrush = new SolidColorBrush(Color.FromRgb(0, 0, 0));
         private static readonly Regex ComparerRegex = new(@"\d+", RegexOptions.Compiled);
 
         private readonly List<BuildingRow> unfilteredAssemblerList = [];
@@ -810,5 +746,69 @@ namespace Foreman.Mac.Views {
         internal void SimulateExportBuildingsClick() => Async.Fire(ExportBuildingsCsvAsync(), nameof(ExportBuildingsCsvAsync));
         internal void SimulateExportItemsClick() => Async.Fire(ExportItemsCsvAsync(), nameof(ExportItemsCsvAsync));
         internal void SimulateExportKeyNodesClick() => Async.Fire(ExportKeyNodesCsvAsync(), nameof(ExportKeyNodesCsvAsync));
+    }
+
+    internal sealed class BuildingRow(object tag, string rowKey, Bitmap? icon, IBrush background, string countText, string name, string powerText, double powerValue, string powerBText, double powerBValue) {
+        public object Tag { get; } = tag;
+        public string RowKey { get; } = rowKey;
+        public Bitmap? Icon { get; } = icon;
+        public IBrush Background { get; } = background;
+        public IBrush Foreground { get; } = GraphSummaryWindow.RowForegroundBrush;
+        public string CountText { get; } = countText;
+        public string Name { get; } = name;
+        public string PowerText { get; } = powerText;
+        public double PowerValue { get; } = powerValue;
+        public string PowerBText { get; } = powerBText;
+        public double PowerBValue { get; } = powerBValue;
+    }
+
+    internal sealed class BeaconRow(object tag, string rowKey, Bitmap? icon, IBrush background, string countText, string name, string powerBText, double powerBValue) {
+        public object Tag { get; } = tag;
+        public string RowKey { get; } = rowKey;
+        public Bitmap? Icon { get; } = icon;
+        public IBrush Background { get; } = background;
+        public IBrush Foreground { get; } = GraphSummaryWindow.RowForegroundBrush;
+        public string CountText { get; } = countText;
+        public string Name { get; } = name;
+        public string PowerBText { get; } = powerBText;
+        public double PowerBValue { get; } = powerBValue;
+    }
+
+    internal sealed class ItemRow(object tag, string rowKey, Bitmap? icon, IBrush background, string name,
+            string inText, double inValue, string inULText, double inULValue, string outText, double outValue,
+            string outULText, double outULValue, string overprodText, double overprodValue, string producedText, double producedValue, string consumedText, double consumedValue) {
+        public object Tag { get; } = tag;
+        public string RowKey { get; } = rowKey;
+        public Bitmap? Icon { get; } = icon;
+        public IBrush Background { get; } = background;
+        public IBrush Foreground { get; } = GraphSummaryWindow.RowForegroundBrush;
+        public string Name { get; } = name;
+        public string InText { get; } = inText;
+        public double InValue { get; } = inValue;
+        public string InULText { get; } = inULText;
+        public double InULValue { get; } = inULValue;
+        public string OutText { get; } = outText;
+        public double OutValue { get; } = outValue;
+        public string OutULText { get; } = outULText;
+        public double OutULValue { get; } = outULValue;
+        public string OverprodText { get; } = overprodText;
+        public double OverprodValue { get; } = overprodValue;
+        public string ProducedText { get; } = producedText;
+        public double ProducedValue { get; } = producedValue;
+        public string ConsumedText { get; } = consumedText;
+        public double ConsumedValue { get; } = consumedValue;
+    }
+
+    internal sealed class KeyNodeRow(object tag, string rowKey, Bitmap? icon, string typeText, string detailsText, string titleText, string throughputText, double throughputValue, string factoriesText, double factoriesValue) {
+        public object Tag { get; } = tag;
+        public string RowKey { get; } = rowKey;
+        public Bitmap? Icon { get; } = icon;
+        public string TypeText { get; } = typeText;
+        public string DetailsText { get; } = detailsText;
+        public string TitleText { get; } = titleText;
+        public string ThroughputText { get; } = throughputText;
+        public double ThroughputValue { get; } = throughputValue;
+        public string FactoriesText { get; } = factoriesText;
+        public double FactoriesValue { get; } = factoriesValue;
     }
 }

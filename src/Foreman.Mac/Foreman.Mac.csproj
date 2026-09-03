@@ -11,9 +11,6 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <ApplicationManifest />
     <AvaloniaNameGeneratorIsEnabled>false</AvaloniaNameGeneratorIsEnabled>
-    <!-- Avalonia 12 flips compiled bindings on by default; the ported XAML binds against untyped
-         row view-models with no x:DataType, so keep the 11.x reflection-binding default. -->
-    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.2" />
