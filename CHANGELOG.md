@@ -7,6 +7,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Removed
+
+- Factorio 1.x support: pre-2.0 save import (`*.json`) and the legacy `OldImport` save-file field.
+
 ## [1.0.0] - 2026-09-03
 
 First public release: a native macOS port of

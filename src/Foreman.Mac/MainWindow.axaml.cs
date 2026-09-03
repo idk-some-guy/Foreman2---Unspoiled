@@ -301,7 +301,7 @@ namespace Foreman.Mac {
                 Title = "Open Graph",
                 AllowMultiple = false,
                 SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(new Uri(AppPaths.SavedGraphsDirectory)).ConfigureAwait(true),
-                FileTypeFilter = [new FilePickerFileType("Foreman files") { Patterns = ["*.fjson", "*.json"] }],
+                FileTypeFilter = [new FilePickerFileType("Foreman files") { Patterns = ["*.fjson"] }],
             }).ConfigureAwait(true);
             if (files.Count == 0)
                 return;
@@ -494,7 +494,7 @@ namespace Foreman.Mac {
                 Title = "Import Graph",
                 AllowMultiple = false,
                 SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(new Uri(AppPaths.SavedGraphsDirectory)).ConfigureAwait(true),
-                FileTypeFilter = [new FilePickerFileType("Foreman files") { Patterns = ["*.fjson", "*.json"] }],
+                FileTypeFilter = [new FilePickerFileType("Foreman files") { Patterns = ["*.fjson"] }],
             }).ConfigureAwait(true);
             if (files.Count == 0)
                 return;

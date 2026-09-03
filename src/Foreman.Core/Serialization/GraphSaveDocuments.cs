@@ -116,7 +116,6 @@ namespace Foreman.Serialization {
         public IReadOnlyList<string> EnabledAssemblers { get; init; } = [];
         public IReadOnlyList<string> EnabledModules { get; init; } = [];
         public IReadOnlyList<string> EnabledBeacons { get; init; } = [];
-        public bool OldImport { get; init; }
     }
 
     public sealed class GraphViewerSaveDocument {

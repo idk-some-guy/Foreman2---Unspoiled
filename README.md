@@ -37,6 +37,8 @@ The `main` branch, "Unspoiled," is where this project extends freely beyond upst
 
 **Current state:** `main` has not yet diverged from `parity` beyond this restructuring (project rebranding, the badged app icon, and the `io.idksome.foreman2.unspoilt` bundle identifier). Feature work on `main` starts after this restructure.
 
+Unspoiled drops support for Factorio 1.x: presets and save files require Factorio 2.0 or later.
+
 **How to get it:** same as Ported, built from the `main` branch instead. Unspoiled versions follow their own semver as `main` diverges.
 
 ## Installing

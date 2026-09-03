@@ -291,6 +291,24 @@ namespace ForemanTest {
         }
 
         [TestMethod]
+        public void GraphSaveCodec_ReadViewer_ToleratesRemovedOldImportField() {
+            var data = BuildSimpleChain();
+            var document = new GraphViewerSaveDocument {
+                Version = GraphSaveFormat.SaveFormatVersion,
+                ProductionGraph = GraphSaveCodec.BuildProductionGraph(data.Graph),
+                Ui = new GraphViewerUiSaveData()
+            };
+            var parsed = JsonNode.Parse(GraphSaveCodec.WriteViewerDocumentToString(document, writeIndented: false));
+            Assert.IsNotNull(parsed);
+            JsonNode json = parsed;
+            json["OldImport"] = true;
+
+            GraphViewerSaveDocument? restored = GraphSaveCodec.ReadViewer(json.ToJsonString());
+
+            Assert.IsNotNull(restored);
+        }
+
+        [TestMethod]
         public void GraphSaveWireMapper_NullUi_PreservedThroughRoundTrip() {
             var data = BuildSimpleChain();
             var document = new GraphViewerSaveDocument {

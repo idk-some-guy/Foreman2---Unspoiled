@@ -40,7 +40,6 @@ namespace Foreman.Serialization {
         public List<string>? EnabledAssemblers { get; set; }
         public List<string>? EnabledModules { get; set; }
         public List<string>? EnabledBeacons { get; set; }
-        public bool OldImport { get; set; }
         public ProductionGraphWire? ProductionGraph { get; set; }
         public List<AnnotationSaveData>? Annotations { get; set; }
         public int? AnnotationDpi { get; set; }

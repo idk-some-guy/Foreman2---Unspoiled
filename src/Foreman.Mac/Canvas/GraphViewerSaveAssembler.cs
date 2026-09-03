@@ -28,7 +28,6 @@ namespace Foreman.Mac.Canvas {
                 EnabledAssemblers = SortEnabled(cache.Assemblers.Values),
                 EnabledModules = SortEnabled(cache.Modules.Values),
                 EnabledBeacons = SortEnabled(cache.Beacons.Values),
-                OldImport = false,
             },
             Annotations = [.. viewer.Annotations.Select(a => a.ToSaveData())],
             AnnotationDpi = GraphViewer.AnnotationDeviceDpi,
