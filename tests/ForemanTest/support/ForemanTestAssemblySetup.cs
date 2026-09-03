@@ -14,6 +14,12 @@ namespace ForemanTest.support {
         public static void AssemblyInitialize(TestContext _) {
             string directory = Path.Combine(Path.GetTempPath(), "foreman-tests-errorlog-" + Guid.NewGuid().ToString("N"));
             ErrorLogging.SetDefaultLogDirectory(directory);
+
+            //Phase 9 Task 5: PresetProcessor/PresetImporter now open a db (foreman.db) whenever a caller
+            //omits its own directory override - same reasoning as the log directory above, pointed at a
+            //per-run temp directory instead of the real AppPaths.UserDataDirectory.
+            string dbDirectory = Path.Combine(Path.GetTempPath(), "foreman-tests-db-" + Guid.NewGuid().ToString("N"));
+            PresetProcessor.SetDefaultUserDataDirectoryOverride(dbDirectory);
         }
 
         [AssemblyCleanup]

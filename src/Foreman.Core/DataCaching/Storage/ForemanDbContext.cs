@@ -16,6 +16,13 @@ namespace Foreman.DataCaching.Storage {
         public DbSet<PresetIconRow> PresetIcons => Set<PresetIconRow>();
         public DbSet<SchemaVersionRow> SchemaVersions => Set<SchemaVersionRow>();
 
+        //Guards first-time schema creation/seeding against concurrent Open calls on the same process
+        //(phase 9 Task 5: PresetProcessor/PresetImporter open the db far more often than the original
+        //single settings-service caller did, so two callers racing a brand-new db file is now a real
+        //scenario, not just a theoretical one) - EnsureCreated and the SchemaVersion seed insert aren't
+        //safe to run from two threads at once against the same not-yet-existing file.
+        private static readonly object BootstrapLock = new();
+
         //Opens (creating if needed) the db at dbPath and seeds SchemaVersion=1 exactly once;
         //idempotent across repeated calls on the same path.
         public static ForemanDbContext Open(string dbPath) {
@@ -25,11 +32,14 @@ namespace Foreman.DataCaching.Storage {
             }
 
             ForemanDbContext context = new ForemanDbContext(dbPath);
-            context.Database.EnsureCreated();
 
-            if (!context.SchemaVersions.Any()) {
-                context.SchemaVersions.Add(new SchemaVersionRow { Version = 1 });
-                context.SaveChanges();
+            lock (BootstrapLock) {
+                context.Database.EnsureCreated();
+
+                if (!context.SchemaVersions.Any()) {
+                    context.SchemaVersions.Add(new SchemaVersionRow { Version = 1 });
+                    context.SaveChanges();
+                }
             }
 
             return context;

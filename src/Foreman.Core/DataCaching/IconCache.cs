@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -114,6 +115,31 @@ namespace Foreman.DataCaching {
             } catch (Exception ex) {
                 ErrorLogging.LogException(ex, $"Failed to load icon cache from {path}");
                 ErrorLogging.LogLine($"Icon cache unreadable: the icon cache \"{Path.GetFileName(path)}\" could not be read. Re-import the preset to rebuild the cache.");
+                return [];
+            }
+        }
+
+        //Db-first counterpart to LoadIconCache (phase 9 Task 5): same eager whole-atlas decode, same
+        //progress translation, sourced from IconStore.ReadPresetIcons instead of the FOIC file directly.
+        public static async Task<Dictionary<string, IconColorPair>> LoadIconCacheFromStore(
+                IReadOnlyList<(string Name, int Tint, byte[] PngBytes)> presetIcons,
+                IProgress<KeyValuePair<int, string>> progress, int startingPercent, int endingPercent) {
+            try {
+                List<ForemanIconCacheFile.FoicEntry> entries = [.. presetIcons
+                    .Select(entry => new ForemanIconCacheFile.FoicEntry(entry.Name, entry.Tint, entry.PngBytes))];
+
+                int lastReportedPercent = startingPercent - 1;
+                var iconProgress = new Progress<(int Decoded, int Total)>(state => {
+                    int percent = startingPercent + (int)((endingPercent - startingPercent) * (double)state.Decoded / Math.Max(state.Total, 1));
+                    if (percent <= lastReportedPercent)
+                        return;
+                    lastReportedPercent = percent;
+                    progress.Report(new(percent, "Loading Icons..."));
+                });
+                return await ForemanIconCacheFile.DecodeEntriesAsync(entries, iconProgress, default).ConfigureAwait(false);
+            } catch (Exception ex) {
+                ErrorLogging.LogException(ex, "Failed to decode preset icons from storage");
+                ErrorLogging.LogLine("Icon cache unreadable: the stored preset icons could not be decoded. Re-import the preset to rebuild the cache.");
                 return [];
             }
         }

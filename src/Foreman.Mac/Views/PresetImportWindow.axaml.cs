@@ -256,7 +256,9 @@ namespace Foreman.Mac.Views {
             });
 
             ImportStarted = true;
-            var process = ProcessPresetStub ?? PresetImporter.ProcessPreset;
+            Func<string, string, string, string, string, IProgress<KeyValuePair<int, string>>, Func<int, int, Task<bool>>, CancellationToken, Task<PresetImporter.Result>> defaultProcess =
+                (a, b, c, d, e, f, g, h) => PresetImporter.ProcessPreset(a, b, c, d, e, f, g, h);
+            var process = ProcessPresetStub ?? defaultProcess;
             PresetImporter.Result result = await Task.Run(() => process(
                 installPath, modsPath, AppPaths.ScratchDirectory, NewPresetName, AppPaths.UserPresetsDirectory,
                 progress, ConfirmContinueWithMissingIconsAsync, cts.Token)).ConfigureAwait(true);

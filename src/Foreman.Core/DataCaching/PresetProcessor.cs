@@ -1,4 +1,6 @@
 ﻿using Foreman.DataCaching.DataTypes;
+using Foreman.DataCaching.Storage;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,6 +10,20 @@ using System.Threading.Tasks;
 
 namespace Foreman.DataCaching {
     public static class PresetProcessor {
+        private static string? defaultUserDataDirectoryOverride;
+
+        //Test-only seam (mirrors ErrorLogging.SetDefaultLogDirectory / AppPaths.SetIsMacOsOverride): lets
+        //a test assembly point the preset/icon db at a per-run temp directory once, so no test reaches the
+        //real AppPaths.UserDataDirectory (~/Library/Application Support/Foreman) even without its own
+        //per-call override.
+        internal static void SetDefaultUserDataDirectoryOverride(string? path) => defaultUserDataDirectoryOverride = path;
+
+        //The db root for the preset/icon store: an explicit per-call override wins (the same seam
+        //GetPresetPath's userPresetsDirectoryOverride already is - reused here rather than adding a new
+        //parameter), then the test-assembly default above, then the real AppPaths location.
+        internal static string ResolveUserDataDirectory(string? userDataDirectoryOverride = null) =>
+            userDataDirectoryOverride ?? defaultUserDataDirectoryOverride ?? AppPaths.UserDataDirectory;
+
         //File-location policy (docs/upstream-divergences.md): a preset is read from the user's writable
         //Presets directory when it exists there, falling back to the bundle-shipped one otherwise - the user
         //copy wins on a name collision (its content, not just its name), since that's what Task 7's import
@@ -45,16 +61,69 @@ namespace Foreman.DataCaching {
 
         }
 
+        //Db-first (phase 9 Task 5): a preset already in PresetStore/IconStore is read straight from
+        //the db; the first load of a preset reads the legacy .pjson/.json/.dat files exactly as before,
+        //imports both stores, then proceeds from the db it just wrote - so a second load never touches
+        //the legacy files again. GetPresetPath's dual-dir resolution (user directory wins) is unchanged
+        //and still runs, both for the first-load legacy read and to notice presetCustom.json edits below.
         //The two directory overrides are the same test-only seam GetPresetPath already takes; every
-        //production call site omits them.
+        //production call site omits them (userPresetsDirectoryOverride also doubles as the db-root
+        //override - see ResolveUserDataDirectory).
         public static JsonObject PrepPreset(Preset preset, string? userPresetsDirectoryOverride = null, string? bundlePresetsDirectoryOverride = null) {
-            string presetPath = GetPresetPath(preset.Name, ".pjson", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
-            string presetCustomPath = GetPresetPath(preset.Name, ".json", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+            using ForemanDbContext db = OpenDb(userPresetsDirectoryOverride);
 
-            JsonObject jsonData = PresetJson.ParseObject(Utf8File.ReadAllText(presetPath));
-            if (File.Exists(presetCustomPath))
-                PresetJson.MergePresetOverlay(jsonData, PresetJson.ParseObject(Utf8File.ReadAllText(presetCustomPath)));
+            (string pjsonText, string? overlayText) = ReadOrImportPreset(db, preset.Name, userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+
+            //A user can edit presetCustom.json between runs; re-import the overlay part whenever its
+            //current text no longer matches what's stored, so the edit takes effect on this load.
+            string presetCustomPath = GetPresetPath(preset.Name, ".json", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+            string? currentOverlayText = File.Exists(presetCustomPath) ? Utf8File.ReadAllText(presetCustomPath) : null;
+            if (currentOverlayText != overlayText) {
+                PresetStore.Import(db, preset.Name, pjsonText, currentOverlayText);
+                overlayText = currentOverlayText;
+            }
+
+            JsonObject jsonData = PresetJson.ParseObject(pjsonText);
+            if (overlayText is not null)
+                PresetJson.MergePresetOverlay(jsonData, PresetJson.ParseObject(overlayText));
             return jsonData;
+        }
+
+        //Icons for the same preset, once PrepPreset has guaranteed the db is populated (this always runs
+        //after PrepPreset in DataCache.LoadAllData, matching upstream's own load order).
+        internal static IReadOnlyList<(string Name, int Tint, byte[] PngBytes)> GetPresetIconEntries(Preset preset, string? userPresetsDirectoryOverride = null) {
+            using ForemanDbContext db = OpenDb(userPresetsDirectoryOverride);
+            return [.. IconStore.ReadPresetIcons(db, preset.Name)];
+        }
+
+        private static ForemanDbContext OpenDb(string? userPresetsDirectoryOverride) =>
+            ForemanDbContext.Open(StoragePaths.DbPath(ResolveUserDataDirectory(userPresetsDirectoryOverride)));
+
+        private static (string PJsonText, string? OverlayText) ReadOrImportPreset(
+                ForemanDbContext db, string presetName, string? userPresetsDirectoryOverride, string? bundlePresetsDirectoryOverride) {
+            bool presetCached = db.Presets.Any(row => row.PresetName == presetName)
+                && db.PresetIcons.Any(row => row.PresetName == presetName);
+
+            if (!presetCached) {
+                string presetPath = GetPresetPath(presetName, ".pjson", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+                string presetCustomPath = GetPresetPath(presetName, ".json", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+
+                string pjsonText = Utf8File.ReadAllText(presetPath);
+                string? overlayText = File.Exists(presetCustomPath) ? Utf8File.ReadAllText(presetCustomPath) : null;
+                string datPath = GetPresetPath(presetName, ".dat", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+
+                try {
+                    PresetStore.Import(db, presetName, pjsonText, overlayText);
+                    if (File.Exists(datPath))
+                        IconStore.ImportFoic(db, presetName, datPath);
+                } catch (DbUpdateException) {
+                    //Another caller imported this exact preset name concurrently and won the race - its
+                    //data is what we'd have written anyway, so drop our own failed insert and read theirs.
+                    db.ChangeTracker.Clear();
+                }
+            }
+
+            return PresetStore.Read(db, presetName);
         }
 
         //this preset comparer loads a 'light' version of the preset - basically loading the items and entities as strings only (no data), and only the minimal info for recipes (name, ingredients + amounts, products + amounts)

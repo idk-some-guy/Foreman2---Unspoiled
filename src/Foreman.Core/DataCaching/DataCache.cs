@@ -81,8 +81,8 @@ namespace Foreman.DataCaching {
             Version = PresetJson.GetInt32(jsonData, PresetExportFormat.VersionPropertyName) ?? 0;
 
             _store.IconCache = loadIcons
-                ? await IconCache.LoadIconCache(
-                    PresetProcessor.GetPresetPath(preset.Name, ".dat", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride),
+                ? await IconCache.LoadIconCacheFromStore(
+                    PresetProcessor.GetPresetIconEntries(preset, userPresetsDirectoryOverride),
                     progress, 0, 90).ConfigureAwait(false)
                 : [];
 

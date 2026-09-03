@@ -1,0 +1,101 @@
+using Foreman;
+using Foreman.DataCaching;
+using Foreman.DataCaching.Storage;
+using ForemanTest.support;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using SkiaSharp;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Text.Json.Nodes;
+using System.Threading.Tasks;
+
+namespace ForemanTest.Storage {
+    //Covers phase 9 Task 5 (db-first preset read wiring): DataCache.LoadAllData routes through
+    //PresetProcessor's db-backed read path now, importing a preset into PresetStore/IconStore the
+    //first time it's loaded and reading straight from the db afterward. The pjson here is a byte-for-byte
+    //copy of the real bundled Vanilla preset (same reasoning as DataCacheImportedPresetTests: a
+    //hand-rolled minimal preset risks tripping DataCachePostLoadProcessor's consistency checks), paired
+    //with a genuinely miniature writer-built FOIC .dat (one icon) so the icon round trip stays cheap
+    //to assert byte-for-byte.
+    [TestClass]
+    public class PresetDbFlowTests {
+        private const string PresetName = "Db Flow Miniature";
+        private const string IconName = "icon.i.iron-plate";
+
+        private string tempDir = "";
+
+        [TestInitialize]
+        public void CreateTempDir() {
+            tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(tempDir);
+        }
+
+        [TestCleanup]
+        public void DeleteTempDir() {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, true);
+        }
+
+        private static SKBitmap SolidBitmap(byte r, byte g, byte b) {
+            var bitmap = new SKBitmap(2, 2, SKColorType.Rgba8888, SKAlphaType.Premul);
+            using SKCanvas canvas = new(bitmap);
+            canvas.Clear(new SKColor(r, g, b, 255));
+            return bitmap;
+        }
+
+        [TestMethod]
+        public async Task LoadAllData_FirstLoadImportsIntoDb_SecondLoadWithLegacyFilesDeletedMatchesFirst() {
+            if (!VanillaDataCacheFixture.PresetsAvailable)
+                Assert.Inconclusive($"Preset folder not found: {VanillaDataCacheFixture.PresetsDirectory}");
+
+            string pjsonPath = Path.Combine(tempDir, PresetName + ".pjson");
+            string datPath = Path.Combine(tempDir, PresetName + ".dat");
+
+            string pjsonText = File.ReadAllText(Path.Combine(VanillaDataCacheFixture.PresetsDirectory, VanillaDataCacheFixture.PresetName + ".pjson"));
+            File.WriteAllText(pjsonPath, pjsonText);
+
+            using SKBitmap ironBitmap = SolidBitmap(200, 40, 40);
+            var icons = new Dictionary<string, IconColorPair> {
+                [IconName] = new IconColorPair(ironBitmap, Color.FromArgb(255, 10, 20, 30)),
+            };
+            await ForemanIconCacheFile.WriteAsync(datPath, icons);
+
+            //control: the untouched legacy readers, on the original files, before any db involvement.
+            JsonObject controlJson = PresetJson.ParseObject(pjsonText);
+            int controlItemCount = PresetJson.CountArray(controlJson, "items");
+            int controlRecipeCount = PresetJson.CountArray(controlJson, "recipes");
+            var controlIcons = await ForemanIconCacheFile.ReadAsync(datPath);
+            byte[] controlIronBytes = controlIcons[IconName].Icon!.Bytes;
+
+            string dbPath = StoragePaths.DbPath(tempDir);
+
+            var firstCache = new DataCache(filterRecipes: true);
+            await firstCache.LoadAllData(new Preset(PresetName, true, true), NullProgress.Instance, userPresetsDirectoryOverride: tempDir);
+
+            using (var db = new ForemanDbContext(dbPath)) {
+                Assert.IsTrue(db.Presets.Any(row => row.PresetName == PresetName), "expected a PresetDataRow after the first load.");
+                Assert.IsTrue(db.PresetIcons.Any(row => row.PresetName == PresetName), "expected PresetIconRows after the first load.");
+            }
+
+            Assert.AreEqual(controlItemCount, PresetJson.CountArray(PresetProcessor.PrepPreset(new Preset(PresetName, true, true), tempDir), "items"));
+            Assert.AreEqual(controlRecipeCount, PresetJson.CountArray(PresetProcessor.PrepPreset(new Preset(PresetName, true, true), tempDir), "recipes"));
+
+            var firstStore = TestDataCacheHelper.RequireStore(firstCache);
+            CollectionAssert.AreEqual(controlIronBytes, firstStore.IconCache![IconName].Icon!.Bytes);
+
+            File.Delete(pjsonPath);
+            File.Delete(datPath);
+
+            var secondCache = new DataCache(filterRecipes: true);
+            await secondCache.LoadAllData(new Preset(PresetName, true, true), NullProgress.Instance, userPresetsDirectoryOverride: tempDir);
+
+            Assert.AreEqual(firstCache.Items.Count, secondCache.Items.Count);
+            Assert.AreEqual(firstCache.Recipes.Count, secondCache.Recipes.Count);
+
+            var secondStore = TestDataCacheHelper.RequireStore(secondCache);
+            CollectionAssert.AreEqual(controlIronBytes, secondStore.IconCache![IconName].Icon!.Bytes);
+        }
+    }
+}

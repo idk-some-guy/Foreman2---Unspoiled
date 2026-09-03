@@ -176,7 +176,15 @@ namespace Foreman.DataCaching {
             IProgress<(int Decoded, int Total)>? progress,
             CancellationToken cancellationToken) {
             List<FoicEntry> entries = await ParseEntriesAsync(payload, expectedEntryCount, expectedUncompressedSize, cancellationToken).ConfigureAwait(false);
+            return await DecodeEntriesAsync(entries, progress, cancellationToken).ConfigureAwait(false);
+        }
 
+        //Shared with IconCache.LoadIconCacheFromStore (phase 9 Task 5): the same PNG decode this file has
+        //always run, driven off entries that came from the db-backed IconStore instead of a fresh parse.
+        internal static async Task<Dictionary<string, IconColorPair>> DecodeEntriesAsync(
+            IReadOnlyList<FoicEntry> entries,
+            IProgress<(int Decoded, int Total)>? progress,
+            CancellationToken cancellationToken) {
             var iconCache = new Dictionary<string, IconColorPair>(entries.Count, StringComparer.Ordinal);
             for (int i = 0; i < entries.Count; i++) {
                 cancellationToken.ThrowIfCancellationRequested();

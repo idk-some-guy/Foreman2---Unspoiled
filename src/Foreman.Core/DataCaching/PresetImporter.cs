@@ -1,3 +1,4 @@
+using Foreman.DataCaching.Storage;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -36,6 +37,8 @@ namespace Foreman.DataCaching {
             public string? WarningMessage { get; init; }
         }
 
+        //userDataDirectoryOverride is the same test-only db-root seam PresetProcessor.ResolveUserDataDirectory
+        //takes; every production call site omits it.
         public static async Task<Result> ProcessPreset(
             string installPath,
             string modsPath,
@@ -44,7 +47,8 @@ namespace Foreman.DataCaching {
             string userPresetsDirectory,
             IProgress<KeyValuePair<int, string>> progress,
             Func<int, int, Task<bool>> confirmContinueWithMissingIconsAsync,
-            CancellationToken token) {
+            CancellationToken token,
+            string? userDataDirectoryOverride = null) {
 
             string exePath = FactorioPathsProcessor.GetExecutablePath(installPath);
             Directory.CreateDirectory(scratchDirectory);
@@ -233,6 +237,17 @@ namespace Foreman.DataCaching {
             }
 
             FactorioModListHelper.SetModState(modsPath, "foremanexport", enabled: false, removeFromListWhenDisabled: true);
+
+            //Lands the freshly written trio in the db too (phase 9 Task 5), so a later DataCache load
+            //goes db-first immediately instead of needing its own one-time import. The written files
+            //stay the user preset dir listing's source, unchanged.
+            using (ForemanDbContext db = ForemanDbContext.Open(StoragePaths.DbPath(PresetProcessor.ResolveUserDataDirectory(userDataDirectoryOverride)))) {
+                string pjsonText = Utf8File.ReadAllText(presetBasePath + ".pjson");
+                string? overlayText = File.Exists(presetBasePath + ".json") ? Utf8File.ReadAllText(presetBasePath + ".json") : null;
+                PresetStore.Import(db, newPresetName, pjsonText, overlayText);
+                IconStore.ImportFoic(db, newPresetName, presetBasePath + ".dat");
+            }
+
             return new Result { Outcome = PresetImportOutcome.Ok, NewPresetName = newPresetName };
         }
 
