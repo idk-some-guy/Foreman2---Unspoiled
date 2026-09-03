@@ -119,6 +119,58 @@ namespace Foreman.Mac.UiTests {
         }
 
         [Fact]
+        public void Load_LegacyLowPriorityPower_HealsToFour() {
+            string home = NewTempHome();
+            string settingsPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+            File.WriteAllText(settingsPath, "{ \"LowPriorityPower\": 100000 }");
+            var service = new SettingsService(home);
+
+            var settings = service.Load();
+
+            Assert.Equal(4m, settings.LowPriorityPower);
+        }
+
+        [Fact]
+        public void Load_InRangeLowPriorityPower_PassesThroughUntouched() {
+            string home = NewTempHome();
+            string settingsPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+            File.WriteAllText(settingsPath, "{ \"LowPriorityPower\": 5 }");
+            var service = new SettingsService(home);
+
+            var settings = service.Load();
+
+            Assert.Equal(5m, settings.LowPriorityPower);
+        }
+
+        [Fact]
+        public void Load_OutOfRangeLowPriorityPower_ClampsToSettingsUiMaximum() {
+            string home = NewTempHome();
+            string settingsPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+            File.WriteAllText(settingsPath, "{ \"LowPriorityPower\": 9 }");
+            var service = new SettingsService(home);
+
+            var settings = service.Load();
+
+            Assert.Equal(6m, settings.LowPriorityPower);
+        }
+
+        [Fact]
+        public void Load_OutOfRangePullConsumerNodesPower_ClampsToSettingsUiMaximum() {
+            string home = NewTempHome();
+            string settingsPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+            File.WriteAllText(settingsPath, "{ \"PullConsumerNodesPower\": 9 }");
+            var service = new SettingsService(home);
+
+            var settings = service.Load();
+
+            Assert.Equal(5m, settings.PullConsumerNodesPower);
+        }
+
+        [Fact]
         public void Load_CorruptFile_ReturnsDefaultsWithoutThrowing() {
             string home = NewTempHome();
             string settingsPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");

@@ -25,7 +25,7 @@ namespace Foreman {
             foreach (RecipeNode node in nodeGroup.Where(n => n is RecipeNode))
                 minRatio = Math.Min(minRatio, node.GetMinOutputRatio());
 
-            var solver = new ProductionSolver(PullOutputNodes, Math.Pow(10, PullOutputNodesPower), minRatio, Math.Pow(10, LowPriorityPower));
+            var solver = new ProductionSolver(PullOutputNodes, Math.Pow(10, PullOutputNodesPower), minRatio, Math.Pow(10, Math.Min(LowPriorityPower, 6))); //capped at the UI's max (6); an uncapped value like the legacy 1e5 default overflows Math.Pow to Infinity and fails the whole node group
 
             foreach (BaseNode node in nodeGroup)
                 node.AddConstraints(solver);

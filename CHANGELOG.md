@@ -7,6 +7,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Low-priority recipes now work: the default priority weight overflowed the solver and failed any
+  graph using one. Existing settings carrying the broken value are healed automatically.
+
 ### Changed
 
 - Internal modernization of the settings, factory-summary, and preset-comparison windows onto

@@ -40,17 +40,32 @@ namespace Foreman.Mac.Services {
             settingsFilePath = Path.Combine(userDataRoot, "Foreman", "settings.json");
         }
 
+        //Legacy settings.json files can carry the upstream-verbatim LowPriorityPower default (1e5),
+        //which overflowed the solver's objective to Infinity (docs/upstream-divergences.md). Heal that
+        //exact value on load and clamp both solver-power fields to the same bounds their NumericUpDown
+        //counterparts enforce in the Settings UI (SettingsViewModel.LoadFrom).
+        private const decimal LegacyLowPriorityPower = 100000m;
+
         public AppSettings Load() {
             if (!File.Exists(settingsFilePath))
                 return new AppSettings();
 
             try {
                 string json = File.ReadAllText(settingsFilePath);
-                return JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions) ?? new AppSettings();
+                var settings = JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions) ?? new AppSettings();
+                HealSolverPowerDefaults(settings);
+                return settings;
             } catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException) {
                 ErrorLogging.LogLine("Failed to load settings.json, using defaults: " + ex);
                 return new AppSettings();
             }
+        }
+
+        private static void HealSolverPowerDefaults(AppSettings settings) {
+            settings.LowPriorityPower = settings.LowPriorityPower == LegacyLowPriorityPower
+                ? 4m
+                : Math.Clamp(settings.LowPriorityPower, 1m, 6m);
+            settings.PullConsumerNodesPower = Math.Clamp(settings.PullConsumerNodesPower, 0m, 5m);
         }
 
         public void Save(AppSettings settings) {

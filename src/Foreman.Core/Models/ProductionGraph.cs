@@ -124,7 +124,7 @@ namespace Foreman {
             DefaultNodeDirection = NodeDirection.Up;
             PullOutputNodes = false;
             PullOutputNodesPower = 10;
-            LowPriorityPower = 1e5;
+            LowPriorityPower = 4;
 
             nodes = [];
             nodeLinks = [];
