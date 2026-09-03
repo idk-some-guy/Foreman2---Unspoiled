@@ -281,6 +281,24 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(4m, afterRestart.LowPriorityPower);
         }
 
+        //Final-review C1: a garbage foreman.db (disk corruption, a killed write) must not brick every
+        //future launch - the db is a rebuildable cache, so a bad file gets quarantined and Load falls
+        //back to the legacy json/defaults path instead of throwing.
+        [Fact]
+        public void Load_CorruptDbFile_QuarantinesFileAndReturnsDefaults() {
+            string home = NewTempHome();
+            string foremanDir = Path.Combine(home, "Library", "Application Support", "Foreman");
+            Directory.CreateDirectory(foremanDir);
+            string dbPath = Path.Combine(foremanDir, "foreman.db");
+            File.WriteAllBytes(dbPath, [1, 2, 3, 4, 5]);
+            var service = new SettingsService(home);
+
+            var settings = service.Load();
+
+            Assert.Equal(JsonSerializer.Serialize(new AppSettings(), ComparisonOptions), JsonSerializer.Serialize(settings, ComparisonOptions));
+            Assert.True(File.Exists(dbPath + ".corrupt"));
+        }
+
         [Fact]
         public void BothJsonAndDbPresent_DbWins() {
             string home = NewTempHome();

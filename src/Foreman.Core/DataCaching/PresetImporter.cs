@@ -1,6 +1,7 @@
 using Foreman.DataCaching.Storage;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
@@ -241,11 +242,17 @@ namespace Foreman.DataCaching {
             //Mirrors PresetProcessor.ReadOrImportPreset's own db-import pattern: the real FOIC bytes land
             //on disk at the normal preset path, exactly as before phase 9, then get imported into the db
             //from that same file, so a deleted foreman.db still leaves every imported preset recoverable.
-            using (ForemanDbContext db = ForemanDbContext.Open(StoragePaths.DbPath(PresetProcessor.ResolveUserDataDirectory(userDataDirectoryOverride)))) {
+            //By this point the export itself already succeeded and every file is on disk, so a db failure
+            //here logs and falls through rather than reporting the export as failed - the next PrepPreset
+            //call reimports from those same files on its own cache miss.
+            try {
+                using ForemanDbContext db = ForemanDbContext.Open(StoragePaths.DbPath(PresetProcessor.ResolveUserDataDirectory(userDataDirectoryOverride)));
                 string pjsonText = Utf8File.ReadAllText(presetBasePath + ".pjson");
                 string? overlayText = File.Exists(presetBasePath + ".json") ? Utf8File.ReadAllText(presetBasePath + ".json") : null;
                 PresetStore.Import(db, newPresetName, pjsonText, overlayText);
                 IconStore.ImportFoic(db, newPresetName, presetBasePath + ".dat");
+            } catch (DbException ex) {
+                ErrorLogging.LogException(ex, $"Failed to import preset '{newPresetName}' into foreman.db; it will reimport from disk on next load");
             }
 
             return new Result { Outcome = PresetImportOutcome.Ok, NewPresetName = newPresetName };

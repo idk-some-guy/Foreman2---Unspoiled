@@ -77,10 +77,11 @@ namespace Foreman.DataCaching {
             (string pjsonText, string? overlayText) = ReadOrImportPreset(db, preset.Name, userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
 
             //A user can edit presetCustom.json between runs; re-import the overlay part whenever its
-            //current text no longer matches what's stored, so the edit takes effect on this load.
+            //current text no longer matches what's stored, so the edit takes effect on this load. A
+            //missing file is no news, not an edit - it must never wipe an overlay already in the db.
             string presetCustomPath = GetPresetPath(preset.Name, ".json", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
             string? currentOverlayText = File.Exists(presetCustomPath) ? Utf8File.ReadAllText(presetCustomPath) : null;
-            if (currentOverlayText != overlayText) {
+            if (currentOverlayText is not null && currentOverlayText != overlayText) {
                 PresetStore.Import(db, preset.Name, pjsonText, currentOverlayText);
                 overlayText = currentOverlayText;
             }
@@ -103,31 +104,42 @@ namespace Foreman.DataCaching {
 
         private static (string PJsonText, string? OverlayText) ReadOrImportPreset(
                 ForemanDbContext db, string presetName, string? userPresetsDirectoryOverride, string? bundlePresetsDirectoryOverride) {
-            bool presetCached = db.Presets.Any(row => row.PresetName == presetName)
-                && db.PresetIcons.Any(row => row.PresetName == presetName);
+            //Split: a preset with no .dat file never gets a PresetIconRow, so gating
+            //the pjson import on icon-row presence too meant it re-read and re-imported .pjson off disk
+            //on every single load - and threw FileNotFoundException outright once that file was deleted
+            //after the first "cached" load. The pjson and icon halves now cache independently.
+            bool presetDataCached = db.Presets.Any(row => row.PresetName == presetName);
+            bool iconsCached = db.PresetIcons.Any(row => row.PresetName == presetName);
 
-            if (!presetCached) {
+            if (!presetDataCached) {
                 string presetPath = GetPresetPath(presetName, ".pjson", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
                 string presetCustomPath = GetPresetPath(presetName, ".json", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
 
                 string pjsonText = Utf8File.ReadAllText(presetPath);
                 string? overlayText = File.Exists(presetCustomPath) ? Utf8File.ReadAllText(presetCustomPath) : null;
-                string datPath = GetPresetPath(presetName, ".dat", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
 
                 try {
                     PresetStore.Import(db, presetName, pjsonText, overlayText);
-                    if (File.Exists(datPath))
-                        IconStore.ImportFoic(db, presetName, datPath);
                 } catch (DbUpdateException) {
                     //Another caller imported this exact preset name concurrently and won the race - its
                     //data is what we'd have written anyway, so drop our own failed insert and read theirs.
                     db.ChangeTracker.Clear();
+                }
+            }
 
-                    //IconBlobs.Sha256 is shared across presets by design, so a different preset's concurrent
-                    //import of the same byte-identical icon can trip this same catch and leave our own
-                    //PresetIcons rows missing; ImportFoic is idempotent, so retry it once now.
-                    if (File.Exists(datPath) && !db.PresetIcons.Any(row => row.PresetName == presetName))
+            if (!iconsCached) {
+                string datPath = GetPresetPath(presetName, ".dat", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+                if (File.Exists(datPath)) {
+                    try {
                         IconStore.ImportFoic(db, presetName, datPath);
+                    } catch (DbUpdateException) {
+                        //IconBlobs.Sha256 is shared across presets by design, so a different preset's concurrent
+                        //import of the same byte-identical icon can trip this catch and leave our own
+                        //PresetIcons rows missing; ImportFoic is idempotent, so retry it once now.
+                        db.ChangeTracker.Clear();
+                        if (!db.PresetIcons.Any(row => row.PresetName == presetName))
+                            IconStore.ImportFoic(db, presetName, datPath);
+                    }
                 }
             }
 

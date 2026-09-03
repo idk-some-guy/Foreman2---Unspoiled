@@ -64,23 +64,39 @@ namespace Foreman.DataCaching {
 
         private static readonly SKSamplingOptions BilinearSampling = new(SKFilterMode.Linear, SKMipmapMode.None);
 
-        public static SKBitmap UnknownIcon {
-            get {
-                field ??= GetIcon(Path.Combine("Graphics", "UnknownIcon.png"), 32);
-                return field;
-            }
+        //Testable seam: counts the loads the three cached icons below trigger, so a
+        //concurrency test can prove exactly one load happens under a race rather than one per racing thread.
+        internal static int CachedIconLoadCount => Volatile.Read(ref cachedIconLoadCount);
+        private static int cachedIconLoadCount;
+        internal static void ResetCachedIconsForTests() {
+            Volatile.Write(ref cachedIconLoadCount, 0);
+            unknownIcon = new Lazy<SKBitmap>(LoadUnknownIcon, LazyThreadSafetyMode.ExecutionAndPublication);
+            spoilageIcon = new Lazy<SKBitmap?>(LoadSpoilageIcon, LazyThreadSafetyMode.ExecutionAndPublication);
+            plantingIcon = new Lazy<SKBitmap?>(LoadPlantingIcon, LazyThreadSafetyMode.ExecutionAndPublication);
         }
-        public static SKBitmap? SpoilageIcon {
-            get {
-                field ??= GetIcon(Path.Combine("Graphics", "SpoilAssembler.png"), 96);
-                return field;
-            }
+
+        //No longer warmed eagerly at load (Task 6), so first touch can come from concurrent render
+        //threads; Lazy with ExecutionAndPublication guarantees one load and one shared bitmap, the same
+        //mode IconColorPair's own lazy decode above already uses.
+        private static Lazy<SKBitmap> unknownIcon = new(LoadUnknownIcon, LazyThreadSafetyMode.ExecutionAndPublication);
+        private static Lazy<SKBitmap?> spoilageIcon = new(LoadSpoilageIcon, LazyThreadSafetyMode.ExecutionAndPublication);
+        private static Lazy<SKBitmap?> plantingIcon = new(LoadPlantingIcon, LazyThreadSafetyMode.ExecutionAndPublication);
+
+        public static SKBitmap UnknownIcon => unknownIcon.Value;
+        public static SKBitmap? SpoilageIcon => spoilageIcon.Value;
+        public static SKBitmap? PlantingIcon => plantingIcon.Value;
+
+        private static SKBitmap LoadUnknownIcon() {
+            Interlocked.Increment(ref cachedIconLoadCount);
+            return GetIcon(Path.Combine("Graphics", "UnknownIcon.png"), 32);
         }
-        public static SKBitmap? PlantingIcon {
-            get {
-                field ??= GetIcon(Path.Combine("Graphics", "PlantAssembler.png"), 96);
-                return field;
-            }
+        private static SKBitmap? LoadSpoilageIcon() {
+            Interlocked.Increment(ref cachedIconLoadCount);
+            return GetIcon(Path.Combine("Graphics", "SpoilAssembler.png"), 96);
+        }
+        private static SKBitmap? LoadPlantingIcon() {
+            Interlocked.Increment(ref cachedIconLoadCount);
+            return GetIcon(Path.Combine("Graphics", "PlantAssembler.png"), 96);
         }
 
         //A relative `path` (every Foreman-bundled Graphics/*.png caller in this file and DataCacheBootstrap.cs)

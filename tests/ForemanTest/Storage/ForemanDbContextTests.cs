@@ -1,7 +1,9 @@
 using Foreman.DataCaching.Storage;
+using Microsoft.Data.Sqlite;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.IO;
 using System.Linq;
+using System.Runtime.Versioning;
 
 namespace ForemanTest.Storage {
     //Exercises ForemanDbContext's lifecycle (phase 9 Task 1): temp-dir-only, never touches real
@@ -55,6 +57,31 @@ namespace ForemanTest.Storage {
                 SettingsRow row = reopened.Settings.Single();
                 Assert.AreEqual("vanilla-2.0", row.CurrentPresetName);
                 Assert.AreEqual(99, row.IconsSize);
+            }
+        }
+
+        //A locked-down directory is a different failure from corruption (SQLITE_READONLY vs
+        //SQLITE_NOTADB/SQLITE_CORRUPT): quarantining a perfectly good db file over a transient write
+        //failure would itself be a data-loss bug, so Open must let this one propagate untouched.
+        [TestMethod]
+        [UnsupportedOSPlatform("windows")]
+        public void Open_ReadOnlyDirectory_PropagatesSqliteException_DoesNotQuarantine() {
+            string dbPath = StoragePaths.DbPath(tempRoot);
+            using (ForemanDbContext.Open(dbPath)) { }
+
+            //Microsoft.Data.Sqlite pools connections by path; without clearing the pool, the reopen
+            //below would reuse a handle opened before the chmod and never hit the permission wall.
+            SqliteConnection.ClearAllPools();
+            File.SetUnixFileMode(tempRoot, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+
+            try {
+                Assert.ThrowsExactly<SqliteException>(() => {
+                    using ForemanDbContext context = ForemanDbContext.Open(dbPath);
+                });
+
+                Assert.IsFalse(File.Exists(dbPath + ".corrupt"));
+            } finally {
+                File.SetUnixFileMode(tempRoot, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             }
         }
     }

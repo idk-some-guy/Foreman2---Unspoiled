@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,6 +30,16 @@ namespace Foreman.DataCaching.Storage {
             }
 
             db.SaveChanges();
+            RemoveOrphanedBlobs(db);
+        }
+
+        //Sweeps any IconBlob no PresetIconRow references anymore - safe since blobs are content-addressed
+        //and shared by hash across presets. Runs after ImportFoic's own row replacement (a re-import with
+        //a changed icon set can orphan a blob) and after preset delete (SettingsWindow.DeletePresetDbRows).
+        //Key-only: never materializes a blob's PngBytes just to decide whether to delete it.
+        public static void RemoveOrphanedBlobs(ForemanDbContext db) {
+            HashSet<string> referencedHashes = [.. db.PresetIcons.Select(row => row.Sha256)];
+            db.IconBlobs.Where(blob => !referencedHashes.Contains(blob.Sha256)).ExecuteDelete();
         }
 
         public static IEnumerable<(string Name, int Tint, byte[] PngBytes)> ReadPresetIcons(ForemanDbContext db, string presetName) =>

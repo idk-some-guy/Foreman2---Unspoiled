@@ -119,5 +119,40 @@ namespace ForemanTest.Storage {
             Assert.AreEqual(3, db.IconBlobs.Count());
             Assert.AreEqual(2, db.PresetIcons.Count(row => row.PresetName == "preset-2"));
         }
+
+        //Final-review I3/M2: re-importing a preset whose icon set changed must sweep any IconBlob no
+        //PresetIconRow references anymore - the same orphan sweep DeletePresetDbRows already ran on
+        //delete, now shared into ImportFoic itself so a re-import gets it too.
+        [TestMethod]
+        public void ImportFoic_ReimportWithChangedIcons_RemovesOrphanedBlob_KeepsBlobsStillReferenced() {
+            using SKBitmap sharedBitmap = SolidBitmap(200, 40, 40);
+            using SKBitmap oldUniqueBitmap = SolidBitmap(40, 200, 40);
+            using SKBitmap newUniqueBitmap = SolidBitmap(40, 40, 200);
+            byte[] oldUniquePng = EncodePng(oldUniqueBitmap);
+            byte[] newUniquePng = EncodePng(newUniqueBitmap);
+
+            string firstDatPath = WriteMiniatureFoic("preset-1.foic", new Dictionary<string, IconColorPair> {
+                ["entry-a"] = new IconColorPair(sharedBitmap, Color.FromArgb(255, 10, 20, 30)),
+                ["entry-b"] = new IconColorPair(oldUniqueBitmap, Color.FromArgb(255, 40, 50, 60)),
+            });
+            string otherPresetDatPath = WriteMiniatureFoic("preset-2.foic", new Dictionary<string, IconColorPair> {
+                ["entry-x"] = new IconColorPair(sharedBitmap, Color.FromArgb(255, 70, 80, 90)),
+            });
+
+            using ForemanDbContext db = ForemanDbContext.Open(StoragePaths.DbPath(tempRoot));
+            IconStore.ImportFoic(db, "preset-1", firstDatPath);
+            IconStore.ImportFoic(db, "preset-2", otherPresetDatPath);
+
+            string secondDatPath = WriteMiniatureFoic("preset-1-v2.foic", new Dictionary<string, IconColorPair> {
+                ["entry-a"] = new IconColorPair(sharedBitmap, Color.FromArgb(255, 10, 20, 30)),
+                ["entry-b"] = new IconColorPair(newUniqueBitmap, Color.FromArgb(255, 40, 50, 60)),
+            });
+            IconStore.ImportFoic(db, "preset-1", secondDatPath);
+
+            List<byte[]> remainingBlobs = [.. db.IconBlobs.Select(blob => blob.PngBytes)];
+            Assert.IsFalse(remainingBlobs.Any(bytes => bytes.SequenceEqual(oldUniquePng)), "orphaned blob should have been swept.");
+            Assert.IsTrue(remainingBlobs.Any(bytes => bytes.SequenceEqual(newUniquePng)), "newly imported blob should be present.");
+            Assert.AreEqual(2, db.IconBlobs.Count(), "shared blob (still referenced by preset-2) should remain, alongside the new unique blob.");
+        }
     }
 }

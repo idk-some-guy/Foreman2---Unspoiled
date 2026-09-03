@@ -2,6 +2,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.Storage;
 using Foreman.Models;
 using System;
+using System.Data.Common;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -98,7 +99,7 @@ namespace Foreman.Mac.Services {
             try {
                 using ForemanDbContext db = ForemanDbContext.Open(dbPath);
                 return db.Settings.Find(SettingsRowId);
-            } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
+            } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DbException) {
                 ErrorLogging.LogLine("Failed to load settings db, falling back to json/defaults: " + ex);
                 return null;
             }
@@ -114,7 +115,7 @@ namespace Foreman.Mac.Services {
                 else
                     db.Entry(existing).CurrentValues.SetValues(row);
                 db.SaveChanges();
-            } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
+            } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DbException) {
                 ErrorLogging.LogLine("Failed to save settings: " + ex);
             }
         }

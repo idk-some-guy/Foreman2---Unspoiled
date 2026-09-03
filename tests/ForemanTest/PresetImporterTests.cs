@@ -384,6 +384,44 @@ namespace ForemanTest {
             Assert.IsTrue(File.Exists(basePath + ".dat"));
         }
 
+        //---- db import failure after a completed export must not discard the result (final-review I4) ----
+
+        //The .pjson/.json/.dat are already safely on disk by the time the db import runs - PrepPreset's
+        //own reimport-on-cache-miss picks them up on the next load regardless, so a db write failure here
+        //must log and still report success rather than tell the user their export failed.
+        [TestMethod]
+        public async Task ProcessPreset_DbImportFails_StillReturnsOk_FilesRemainOnDisk() {
+            const string p2 = "{\"mods\":[]}";
+            var (installPath, modsPath, scratchDir) = BuildFixture("", "{}", p2);
+            string userPresetsDir = NewTempDir();
+            string userDataDir = NewTempDir();
+
+            //Seed the schema while the directory is still writable, then lock the directory down - the db
+            //file itself stays readable, so ForemanDbContext.Open succeeds, but the write transaction
+            //PresetStore.Import/IconStore.ImportFoic need (journal/WAL files alongside it) cannot land.
+            using (ForemanDbContext db = ForemanDbContext.Open(StoragePaths.DbPath(userDataDir)))
+                _ = db.SchemaVersions.Count();
+            //Microsoft.Data.Sqlite pools connections by path; without clearing the pool, the write below
+            //would reuse a handle opened before the chmod and never actually hit the permission wall.
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            File.SetUnixFileMode(userDataDir, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+
+            try {
+                PresetImporter.Result result = await PresetImporter.ProcessPreset(
+                    installPath, modsPath, scratchDir, "Db Fail Preset", userPresetsDir,
+                    new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None,
+                    userDataDirectoryOverride: userDataDir);
+
+                Assert.AreEqual(PresetImportOutcome.Ok, result.Outcome, result.WarningMessage);
+                string basePath = Path.Combine(userPresetsDir, "Db Fail Preset");
+                Assert.IsTrue(File.Exists(basePath + ".pjson"));
+                Assert.IsTrue(File.Exists(basePath + ".json"));
+                Assert.IsTrue(File.Exists(basePath + ".dat"));
+            } finally {
+                File.SetUnixFileMode(userDataDir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+        }
+
         //---- CleanupFailedImport in isolation (reference §4 step 8) ----------------------------------------
 
         [TestMethod]

@@ -105,5 +105,19 @@ namespace ForemanTest {
             _ = item.Icon;
             Assert.AreEqual(1, IconCache.LazyDecodeCount, "re-reading .Icon must not redecode.");
         }
+
+        //Final-review M1: UnknownIcon/SpoilageIcon/PlantingIcon are no longer warmed eagerly at load, so
+        //their first touch can now come from concurrent render threads racing an unsynchronized
+        //`field ??= GetIcon(...)`. Mirrors the lazy-decode concurrency test above for the same guarantee:
+        //exactly one load, every caller sharing the same bitmap.
+        [TestMethod]
+        public async Task UnknownIcon_ConcurrentFirstAccess_LoadsOnceAndSharesTheBitmap() {
+            IconCache.ResetCachedIconsForTests();
+
+            SKBitmap[] results = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() => IconCache.UnknownIcon)));
+
+            Assert.AreEqual(1, IconCache.CachedIconLoadCount);
+            Assert.IsTrue(results.All(r => ReferenceEquals(r, results[0])));
+        }
     }
 }

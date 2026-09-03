@@ -628,9 +628,8 @@ namespace Foreman.Mac.Views {
 
         //Fix round (Task 7 review): the disk trio alone left stale PresetDataRow/PresetIconRow rows behind,
         //so re-importing a different preset under the deleted name read back the old cached content instead
-        //of its own. Same RemoveRange shape IconStore.ImportFoic uses for its own PresetIcons rewrite, plus
-        //a sweep for IconBlobs no PresetIconRow references anymore - safe since blobs are content-addressed
-        //and shared by hash across presets.
+        //of its own. The orphaned-IconBlob sweep itself lives in IconStore now, shared with ImportFoic's own
+        //re-import case.
         private static void DeletePresetDbRows(string presetName) {
             using ForemanDbContext db = ForemanDbContext.Open(StoragePaths.DbPath(PresetProcessor.ResolveUserDataDirectory()));
 
@@ -641,10 +640,7 @@ namespace Foreman.Mac.Views {
             db.PresetIcons.RemoveRange(iconRows);
             db.SaveChanges();
 
-            HashSet<string> referencedHashes = [.. db.PresetIcons.Select(row => row.Sha256)];
-            List<IconBlob> orphanedBlobs = [.. db.IconBlobs.Where(blob => !referencedHashes.Contains(blob.Sha256))];
-            db.IconBlobs.RemoveRange(orphanedBlobs);
-            db.SaveChanges();
+            IconStore.RemoveOrphanedBlobs(db);
         }
 
         private Task<bool> ConfirmDeleteAsync(Preset preset) =>

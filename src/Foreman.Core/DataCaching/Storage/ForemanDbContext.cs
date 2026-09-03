@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using System.IO;
 using System.Linq;
@@ -31,18 +32,59 @@ namespace Foreman.DataCaching.Storage {
                 Directory.CreateDirectory(directory);
             }
 
-            ForemanDbContext context = new ForemanDbContext(dbPath);
-
             lock (BootstrapLock) {
-                context.Database.EnsureCreated();
+                ForemanDbContext context = OpenOrQuarantine(dbPath);
 
                 if (!context.SchemaVersions.Any()) {
                     context.SchemaVersions.Add(new SchemaVersionRow { Version = 1 });
                     context.SaveChanges();
                 }
-            }
 
-            return context;
+                return context;
+            }
+        }
+
+        //SQLITE_NOTADB - the file isn't a SQLite database at all; SQLITE_CORRUPT - its own header/pages
+        //are corrupt. Anything else a write can throw (locked, readonly, disk full, ...) is a real failure
+        //the caller needs to see - quarantining a perfectly good db file over a transient write failure
+        //would be its own data-loss bug.
+        private const int SqliteErrorNotADatabase = 26;
+        private const int SqliteErrorCorrupt = 11;
+
+        //foreman.db is a rebuildable cache (settings fall back to json/defaults, presets reimport from
+        //the legacy .pjson/.dat still on disk), so a file EnsureCreated can't open because it's actually
+        //corrupt gets moved aside instead of taking the whole app down on every launch.
+        private static ForemanDbContext OpenOrQuarantine(string dbPath) {
+            ForemanDbContext context = new ForemanDbContext(dbPath);
+            try {
+                context.Database.EnsureCreated();
+                return context;
+            } catch (SqliteException ex) when (ex.SqliteErrorCode is SqliteErrorNotADatabase or SqliteErrorCorrupt) {
+                context.Dispose();
+                //Microsoft.Data.Sqlite pools native connections by file path; without clearing the pool
+                //here, a fresh connection after the file move below can still hand back a handle bound
+                //to the old (now-renamed) inode instead of the new file.
+                SqliteConnection.ClearAllPools();
+                ErrorLogging.LogException(ex, $"foreman.db at '{dbPath}' is unreadable; quarantining and recreating");
+                QuarantineCorruptDb(dbPath);
+                context = new ForemanDbContext(dbPath);
+                context.Database.EnsureCreated();
+                return context;
+            }
+        }
+
+        private static void QuarantineCorruptDb(string dbPath) {
+            MoveAside(dbPath, dbPath + ".corrupt");
+            MoveAside(dbPath + "-wal", dbPath + "-wal.corrupt");
+            MoveAside(dbPath + "-shm", dbPath + "-shm.corrupt");
+        }
+
+        private static void MoveAside(string sourcePath, string destinationPath) {
+            if (!File.Exists(sourcePath))
+                return;
+            if (File.Exists(destinationPath))
+                File.Delete(destinationPath);
+            File.Move(sourcePath, destinationPath);
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) {

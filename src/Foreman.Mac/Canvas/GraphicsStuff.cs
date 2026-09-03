@@ -42,7 +42,7 @@ namespace Foreman.Mac.Canvas {
 
         //Same per-thread scratch pattern as RentPaint/RentFont above, exposed for GraphElement.Draw()
         //implementations that used to hold their own mutate-reset SKPaint/SKPath as per-instance fields
-        //(final-review C1): those fields raced whenever the same element instance painted on two threads
+        //: those fields raced whenever the same element instance painted on two threads
         //at once - the compositor's render thread for the live canvas and the UI thread for
         //ImageExportWindow's direct Paint() call both walk the same shared GraphViewer's element tree.
         //Separate ThreadStatic slots from threadPaint/threadFont above so a Draw() that also calls
