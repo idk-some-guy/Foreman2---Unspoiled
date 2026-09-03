@@ -197,3 +197,17 @@ Two finds worth flagging for whoever reads this next:
 
 - **The `ImmutableSolidColorBrush` race.** Task 6 hit an intermittent headless-UI-test crash: two `[AvaloniaFact]` tests running on separate dispatcher threads raced for ownership of the same static, mutable `SolidColorBrush` singleton (a pattern several row-rendering classes shared from Task 3 onward). The fix was a sweep to `Avalonia.Media.Immutable.ImmutableSolidColorBrush` everywhere those statics were read from more than one thread — worth checking for on any future window that follows the same static-brush-cache shape.
 - **Compiled-bindings type promotions.** Making bindings resolve at compile time occasionally needed a field's declared visibility widened (`private` to `internal`) so `x:DataType` markup compilation in another file could see it — a small, mechanical cost of the compiled-bindings move that showed up a few times during Task 3 and is worth expecting again wherever a new binding crosses a file boundary.
+
+## 8. Landed in Plan B2
+
+§6 step 6 (SQLite/EF Core storage, §5) is done:
+
+1. `ForemanDbContext` (`Microsoft.EntityFrameworkCore.Sqlite`) scaffolded with the five tables `SettingsRow`/`PresetDataRow`/`IconBlob`/`PresetIconRow`/`SchemaVersionRow`, opened at `foreman.db` under `AppPaths.UserDataDirectory`.
+2. Settings go db-first: `settings.json` imports into `SettingsRow` once, on the first load that finds no db row, and is never written to again.
+3. Icon storage goes content-hash-keyed: `IconBlob` rows key on PNG `Sha256`, `PresetIconRow` points in by hash, so the duplication §5b measured directly (21.6% of Space Age's icon bytes, 31.1% of Vanilla's, both from pixel-identical PNGs repeating across icon variants) collapses to one shared row per distinct PNG instead of one copy per preset per icon.
+4. Preset data joins it: each preset's base `.pjson` compresses into `PresetDataRow.CompressedPJson` (zstd level 19, the same algorithm and level FOIC already used), with the `presetCustom.json` overlay stored as a separate column so an overlay edit never forces re-importing the base document.
+5. Preset loading goes db-first: a cache hit on both `PresetDataRow` and `PresetIconRow` serves straight from the db; a miss reads the legacy `.pjson`/`.json`/`.dat` trio once (bundle-shipped or user-imported) and imports it, so every load after the first never touches those files again.
+6. Icon PNGs decode lazily, at first paint rather than at import or preset-load time — measured 288ms → 68ms (4.2x) loading a real Space Age preset, against the eager whole-atlas decode §5a described.
+7. Closeout: the one remaining production write into a legacy on-disk format — `PresetImporter`'s freshly exported `.dat` — goes db-only. It still writes an empty, schema-valid FOIC marker to the user Presets directory (real icon bytes now go straight to `IconBlob`/`PresetIconRow`), since the Presets-tab listing and the Settings window's mod-info display both still scan that directory directly rather than reading the db.
+
+Legacy `settings.json`/`.pjson`/`.json`/`.dat` files stay on disk purely as one-time import sources (§12 of `docs/io-reference.md` has the full schema and import-semantics writeup); production code past this point only ever reads them, never rewrites them, aside from the marker write in point 7 above.

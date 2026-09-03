@@ -19,10 +19,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   faster first solve after launch, with identical solve results.
 - Internal modernization of the settings, factory-summary, and preset-comparison windows onto
   CommunityToolkit.Mvvm with compiled bindings; no user-visible behavior change.
-- Settings now live in a local SQLite database instead of settings.json; an existing settings.json
-  is imported into the database automatically on first launch and is not written to again.
-- Preset data and icons now cached in the local database; first load of each preset migrates
-  automatically.
+- Settings, preset data, and preset icons now live in a local SQLite database instead of
+  scattered files; an existing settings.json or preset import is migrated in automatically the
+  first time it's needed and isn't written to again.
 - Icons decode on first use instead of all at once at preset load, cutting load time for the
   bundled Space Age preset roughly fourfold.
 

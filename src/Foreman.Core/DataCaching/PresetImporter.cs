@@ -26,6 +26,7 @@ namespace Foreman.DataCaching {
             "Foreman export could not be completed because this instance of Factorio is currently running. Please stop expanding the factory for just a brief moment and let the export commence in peace!";
 
         private static readonly char[] ExtraNameChars = ['(', ')', '-', '_', '.', ' '];
+        private static readonly Dictionary<string, IconColorPair> EmptyIconCache = [];
 
         //Ports PresetNameTextBox_TextChanged's character filter (reference §4 step 8).
         public static string FilterName(string text) =>
@@ -213,6 +214,7 @@ namespace Foreman.DataCaching {
                 if (PresetJson.GetString(objJToken, "name") is string name && PresetJson.GetString(objJToken, "version") is string version)
                     modSet.Add(name.ToLowerInvariant(), version);
 
+            string scratchDatPath = Path.Combine(scratchDirectory, newPresetName + ".dat");
             using (var icProcessor = new IconCacheProcessor()) {
                 if (!icProcessor.PrepareModPaths(modSet, modsPath, Path.Combine(installPath, "data"), token)) {
                     CleanupFailedImport(tempSavePath, modsPath, presetBasePath);
@@ -222,15 +224,17 @@ namespace Foreman.DataCaching {
                     return Fail("Mod inconsistency detected. Try to see if launching Factorio gives an error?");
                 }
 
-                if (!await icProcessor.CreateIconCache(iconJObject, presetBasePath + ".dat", progress, 30, 100, token).ConfigureAwait(false)) {
+                if (!await icProcessor.CreateIconCache(iconJObject, scratchDatPath, progress, 30, 100, token).ConfigureAwait(false)) {
                     if (token.IsCancellationRequested) {
                         CleanupFailedImport(tempSavePath, modsPath, presetBasePath);
+                        DeleteIfExists(scratchDatPath);
                         return Cancelled();
                     }
                     ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "{0}/{1} images were not found while processing icons.", icProcessor.FailedPathCount, icProcessor.TotalPathCount));
                     bool proceed = await confirmContinueWithMissingIconsAsync(icProcessor.FailedPathCount, icProcessor.TotalPathCount).ConfigureAwait(false);
                     if (!proceed) {
                         CleanupFailedImport(tempSavePath, modsPath, presetBasePath);
+                        DeleteIfExists(scratchDatPath);
                         return Cancelled();
                     }
                 }
@@ -238,15 +242,19 @@ namespace Foreman.DataCaching {
 
             FactorioModListHelper.SetModState(modsPath, "foremanexport", enabled: false, removeFromListWhenDisabled: true);
 
-            //Lands the freshly written trio in the db too (phase 9 Task 5), so a later DataCache load
-            //goes db-first immediately instead of needing its own one-time import. The written files
-            //stay the user preset dir listing's source, unchanged.
+            //Lands the pjson/overlay and the real icon bytes in the db (phase 9 Tasks 5/7), so a later
+            //DataCache load goes db-first immediately instead of needing its own one-time import. The FOIC
+            //write is db-only now: scratchDatPath is a throwaway import source, never the user preset dir.
+            //CollectPresetNames still gates its listing on a paired .dat file existing there, so we leave an
+            //empty FOIC marker behind rather than a second on-disk copy of the (already deduped) icon bytes.
             using (ForemanDbContext db = ForemanDbContext.Open(StoragePaths.DbPath(PresetProcessor.ResolveUserDataDirectory(userDataDirectoryOverride)))) {
                 string pjsonText = Utf8File.ReadAllText(presetBasePath + ".pjson");
                 string? overlayText = File.Exists(presetBasePath + ".json") ? Utf8File.ReadAllText(presetBasePath + ".json") : null;
                 PresetStore.Import(db, newPresetName, pjsonText, overlayText);
-                IconStore.ImportFoic(db, newPresetName, presetBasePath + ".dat");
+                IconStore.ImportFoic(db, newPresetName, scratchDatPath);
             }
+            await ForemanIconCacheFile.WriteAsync(presetBasePath + ".dat", EmptyIconCache).ConfigureAwait(false);
+            DeleteIfExists(scratchDatPath);
 
             return new Result { Outcome = PresetImportOutcome.Ok, NewPresetName = newPresetName };
         }
@@ -310,5 +318,10 @@ namespace Foreman.DataCaching {
 
         private static Result Fail(string message) => new() { Outcome = PresetImportOutcome.Failed, WarningMessage = message };
         private static Result Cancelled() => new() { Outcome = PresetImportOutcome.Cancel };
+
+        private static void DeleteIfExists(string path) {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
     }
 }

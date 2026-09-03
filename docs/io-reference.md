@@ -265,3 +265,35 @@ Steps 1-4 (~350 LOC) close out the graph-file half; steps 5 (~250 LOC) and 11 (~
 4. **Writing into `AppPaths.ExecutableDirectory` (Presets/Saved-Graphs/Exported-Graphs, all currently resolved relative to the executable, matching upstream's `Application.StartupPath` pattern) is a real design question for a signed macOS `.app` bundle**, not just a path-separator fix. `PresetResolver`/`PresetProcessor`/the already-shipped `DeletePresetAsync` all write there today and it works in dev, but a distributed, code-signed `.app` bundle is conventionally read-only at its own bundle path — Preset Import (§4, writes `.pjson`/`.json`/`.dat`) and Save/SaveAs's default folder (§2) are the two places this phase adds *new* writes into that same directory, at higher volume than the existing delete-only case. Decide once (e.g. move to `~/Library/Application Support/Foreman/` for Presets, `~/Documents` for saved graphs) rather than each new dialog picking its own convention.
 5. **`ProcessSaveData` (§5) and `SciencePacksLoadForm`'s `ConfirmationButton_Click` (§6) implement the identical assembler/beacon/module transitive-enable derivation twice upstream** (`SavefileLoadForm.cs:244-269` vs `SciencePacksLoadForm.cs:132-157`, byte-for-byte identical loop structure). Porting each in isolation risks porting the duplication too; factor it into one shared helper the first time either dialog is built, since the second dialog's implementation should just call it.
 6. **Validating against a real, installed Factorio binary is exclusively Jozef's-gate scope.** It's a manual check he runs himself, never part of the automated test suite — launching the real Factorio process from a test would be slow, machine-dependent, and (per this project's global constraints) a real Factorio launch isn't permitted from an agent-run verification pass.
+
+## 12. Storage (SQLite, phase 9 / Plan B2)
+
+Settings, preset data, and preset icons are cached in one SQLite database, `foreman.db`, opened via `ForemanDbContext.Open(StoragePaths.DbPath(AppPaths.UserDataDirectory))` — `~/Library/Application Support/Foreman/foreman.db` on macOS, `$XDG_DATA_HOME/Foreman/foreman.db` (falling back to `~/.local/share/Foreman/foreman.db`) on Linux. `Open` creates the file and seeds `SchemaVersion=1` on first use, guarded by a process-wide lock against two callers racing a not-yet-existing db.
+
+### Schema (`src/Foreman.Core/DataCaching/Storage/StorageEntities.cs`)
+
+| Table | Key | Columns | Written by |
+|---|---|---|---|
+| `SettingsRow` | `Id` (always 1) | one typed column per `AppSettings` property (47 currently) | `SettingsService.SaveToDb` |
+| `PresetDataRow` | `PresetName` | `CompressedPJson` (zstd level 19), `CustomOverlayJson`, `ImportedUtc` | `PresetStore.Import` |
+| `IconBlob` | `Sha256` | `PngBytes` | `IconStore.ImportFoic` |
+| `PresetIconRow` | `(PresetName, IconName)` | `Tint`, `Sha256` (FK into `IconBlob`) | `IconStore.ImportFoic` |
+| `SchemaVersionRow` | `Version` | seeded once at `Version=1` | `ForemanDbContext.Open` |
+
+`IconBlob` is content-addressed: two presets sharing byte-identical PNGs (common — Foreman's vanilla/mod icon set repeats across presets) share one row, keyed by `Sha256`. Icon PNGs decode from those bytes lazily, at first paint rather than at import or preset-load time (Task 6: 288ms → 68ms, 4.2x, measured against the eager whole-atlas decode it replaced, on a real Space Age preset).
+
+### Import semantics
+
+Every entity is db-first with a one-time import on a cache miss:
+
+- **Settings** — `SettingsService.Load` returns the db row when one exists; otherwise it reads legacy `settings.json`, immediately persists it to `SettingsRow`, and never reads the file again for that install.
+- **Preset data + icons** — `PresetProcessor.PrepPreset`/`ReadOrImportPreset` check `PresetDataRow`/`PresetIconRow` for the preset name; on a miss it reads the legacy `.pjson`/`.json`/`.dat` trio (bundle-shipped or user-imported, via `GetPresetPath`'s existing dual-directory resolution), imports both stores, then serves the db row it just wrote. A `presetCustom.json` overlay edited between runs is re-diffed and re-imported on every load, independent of the base preset's cache state.
+- One disclosed gap: a preset whose legacy `.dat` never existed (no icons at all — true only for two of this repo's own dev fixtures, "Factorio 2.0 Pyanodon" and "Factorio 2.0 SEKrastorio") never satisfies the `PresetIconRow` half of the cache check, so it re-reads `.pjson` on every load instead of caching once. Content stays correct; those two presets just miss the one-time-import optimization (Task 5 — no real bundled or user-imported preset ships without a `.dat`, so this doesn't reach production presets).
+
+### Legacy-file policy
+
+Legacy `settings.json`/`.pjson`/`.json`/`.dat` files are read-only import sources from this phase on. Production code writes into them in exactly one remaining place:
+
+`PresetImporter.ProcessPreset` still writes the freshly exported preset's `.pjson`/`.json` to the user's writable Presets directory in full. That content is what `PresetProcessor.ReadPresetInfo` reads directly (the Settings window's per-preset mod-list display) and what `PresetResolver.CollectPresetNames` scans to build the Presets-tab listing — neither path is db-first, so both still depend on the files being there. The same import also writes an empty, schema-valid FOIC marker (`ForemanIconCacheFile.WriteAsync` with zero icons) to that preset's `.dat`, solely so `CollectPresetNames`'s pairing gate (a `.pjson` needs a matching `.dat` to be listed) keeps listing the preset. The real icon bytes go straight into `IconBlob`/`PresetIconRow` from a throwaway scratch-directory copy that's deleted once the import commits (Task 7); the on-disk `.dat` for an imported preset is never the icon source of truth again, and `ForemanIconCacheFile.WriteAsync`'s only other callers are tests.
+
+Delete-preset (`SettingsWindow.DeletePresetAsync`) removes the on-disk `.pjson`/`.json`/`.dat` trio only; it doesn't clear the matching `PresetDataRow`/`PresetIconRow` rows. That predates phase 9 and is out of Task 7's scope, noted here because it means a deleted-then-reimported preset name currently reads back whatever the db still has cached rather than a clean slate.

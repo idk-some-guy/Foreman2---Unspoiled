@@ -1,10 +1,12 @@
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.DataCaching.Storage;
 using ForemanTest.support;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
@@ -81,6 +83,40 @@ namespace ForemanTest {
             //never touches the Factorio executable's own directory - the working-directory pin (io-reference.md
             //§4 step 1) keeps temp-save.zip out of there entirely.
             Assert.IsFalse(File.Exists(Path.Combine(MacOsDirOf(installPath), "temp-save.zip")));
+        }
+
+        //---- FOIC write goes db-only (Task 7) -------------------------------------------------------------
+
+        [TestMethod]
+        public async Task ProcessPreset_ResolvedIcon_RealBytesLandInDb_DiskDatIsAnEmptyMarker() {
+            string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
+            string installPath = Path.GetDirectoryName(macOsDir)!;
+            string dataBaseDir = Path.Combine(installPath, "data", "base", "graphics");
+            Directory.CreateDirectory(dataBaseDir);
+            File.Copy(Path.Combine(AppPaths.ExecutableDirectory, "Graphics", "UnknownIcon.png"), Path.Combine(dataBaseDir, "icon.png"));
+            const string p1 = "{\"items\":[{\"icon_name\":\"icon.i.iron-plate\",\"icon_data\":{\"icon\":\"__base__/graphics/icon.png\",\"icon_size\":32}}]}";
+            const string p2 = "{\"mods\":[]}";
+            StubFactorioHarness.WriteExportScript(macOsDir, "", p1, p2);
+            string modsPath = NewTempDir();
+            string scratchDir = NewTempDir();
+            string userPresetsDir = NewTempDir();
+            string userDataDir = NewTempDir();
+
+            PresetImporter.Result result = await PresetImporter.ProcessPreset(
+                installPath, modsPath, scratchDir, "Icon Db Preset", userPresetsDir,
+                new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None,
+                userDataDirectoryOverride: userDataDir);
+
+            Assert.AreEqual(PresetImportOutcome.Ok, result.Outcome, result.WarningMessage);
+
+            string basePath = Path.Combine(userPresetsDir, "Icon Db Preset");
+            Assert.IsTrue(File.Exists(basePath + ".dat"));
+            List<ForemanIconCacheFile.FoicEntry> onDiskEntries = await ForemanIconCacheFile.ReadEntriesAsync(basePath + ".dat");
+            Assert.AreEqual(0, onDiskEntries.Count);
+
+            using ForemanDbContext db = ForemanDbContext.Open(StoragePaths.DbPath(userDataDir));
+            List<string> dbIconNames = [.. IconStore.ReadPresetIcons(db, "Icon Db Preset").Select(icon => icon.Name)];
+            Assert.AreEqual(1, dbIconNames.Count);
         }
 
         // Red-first for the working-directory pin (io-reference.md §4 step 1): before FactorioBenchmarkRunner.Run
