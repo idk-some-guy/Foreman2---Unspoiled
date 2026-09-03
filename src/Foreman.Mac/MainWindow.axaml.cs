@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 namespace Foreman.Mac {
     public partial class MainWindow : Window {
         public ShellViewModel Commands { get; }
+        public MainWindowViewModel ViewModel { get; }
         public ContentControl GraphViewerHost { get; }
         public GraphCanvasControl GraphCanvas { get; }
         public Foreman.DataCaching.DataCache? DataCache { get; set; }
@@ -66,7 +67,6 @@ namespace Foreman.Mac {
         //re-read from disk, refreshed by SaveGraph/ApplyLoadedGraphUiState and cleared by New.
         private string? savefilePath;
         private string? savefileBaselineJson;
-        private readonly string defaultAppName;
 
         internal string? SaveFilePath => savefilePath;
         internal string? SaveFileBaselineJson => savefileBaselineJson;
@@ -74,7 +74,6 @@ namespace Foreman.Mac {
         public MainWindow() {
             InitializeComponent();
             WindowState = WindowState.Maximized;
-            defaultAppName = Title ?? "Foreman 2";
             GraphViewerHost = this.FindControl<ContentControl>("GraphViewerHost")!;
             GraphCanvas = new GraphCanvasControl();
             GraphViewerHost.Content = GraphCanvas;
@@ -91,10 +90,11 @@ namespace Foreman.Mac {
                 onAlignSelection: () => { GraphCanvas.FloatingPanelHost.Close(); GraphCanvas.Viewer.AlignSelected(); GraphCanvas.RequestRedraw(); },
                 onSettings: () => Async.Fire(OpenSettingsAsync(), nameof(OpenSettingsAsync)),
                 onGraphSummary: () => Async.Fire(OpenGraphSummaryAsync(), nameof(OpenGraphSummaryAsync)));
+            ViewModel = new MainWindowViewModel(Commands);
+            DataContext = ViewModel;
 
             BindToolbarButtons();
             GraphCanvas.KeyDown += OnGraphCanvasKeyDown;
-            this.FindControl<TextBlock>("VersionLabel")!.Text = AppVersion.VersionedDisplay;
             NativeMenu.SetMenu(this, BuildNativeMenu());
         }
 
@@ -657,9 +657,11 @@ namespace Foreman.Mac {
         }
 
         //Ports the title-bar format string used identically after Save/Load/New/preset-reload (reference:
-        //upstream MainForm.cs:188,240,263,444).
-        private void UpdateTitleBar() =>
-            Title = string.Create(DisplayCulture.Format, $"{defaultAppName} ({Settings?.CurrentPresetName ?? ""}) - {savefilePath ?? "Untitled"}");
+        //upstream MainForm.cs:188,240,263,444). The format itself now lives in MainWindowViewModel.RecomputeTitle.
+        private void UpdateTitleBar() {
+            ViewModel.PresetName = Settings?.CurrentPresetName;
+            ViewModel.CurrentFileName = savefilePath;
+        }
 
         //Ports SettingsButton_Click's post-close cascade (reference upstream MainForm.cs:355-440): builds
         //Options from live state, shows the dialog, then on OK applies a preset switch/reload before always

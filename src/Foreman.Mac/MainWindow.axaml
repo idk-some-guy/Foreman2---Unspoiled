@@ -1,7 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Foreman.Mac.ViewModels"
         x:Class="Foreman.Mac.MainWindow"
-        Title="Foreman 2"
+        x:DataType="vm:MainWindowViewModel"
+        Title="{Binding WindowTitle}"
         Width="1500"
         Height="768"
         Background="{DynamicResource SystemChromeMediumColor}">
@@ -87,7 +89,7 @@
         </StackPanel>
       </Border>
 
-      <TextBlock Name="VersionLabel" Grid.Column="4" VerticalAlignment="Top" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" />
+      <TextBlock Name="VersionLabel" Grid.Column="4" VerticalAlignment="Top" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" Text="{Binding VersionLabel}" />
     </Grid>
 
     <ContentControl Name="GraphViewerHost" Grid.Row="1" />
