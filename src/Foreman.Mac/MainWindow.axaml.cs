@@ -912,18 +912,17 @@ namespace Foreman.Mac {
             GraphCanvas.RequestRedraw();
         }
 
+        //Task 4: Save As/Import Graph/Help move to menu-bar-only per contract #toolbar's action mapping
+        //(BuildNativeMenu already wires all three) - the toolbar keeps the ten highest-frequency commands.
         private void BindToolbarButtons() {
             Bind("NewGraphButton", Commands.NewCommand);
             Bind("LoadGraphButton", Commands.LoadCommand);
             Bind("SaveButton", Commands.SaveCommand);
-            Bind("SaveAsGraphButton", Commands.SaveAsCommand);
-            Bind("ImportGraphButton", Commands.ImportCommand);
             Bind("ExportImageButton", Commands.ExportImageCommand);
             Bind("AddItemButton", Commands.AddItemCommand);
             Bind("AddRecipeButton", Commands.AddRecipeCommand);
             Bind("AutoconnectButton", Commands.AutoconnectCommand);
             Bind("SettingsButton", Commands.SettingsCommand);
-            Bind("HelpButton", Commands.HelpCommand);
             Bind("GraphSummaryButton", Commands.GraphSummaryCommand);
             Bind("AlignSelectionButton", Commands.AlignSelectionCommand);
         }
@@ -946,6 +945,29 @@ namespace Foreman.Mac {
             var button = this.FindControl<Button>(buttonName)!;
             button.Command = command;
             button.IsEnabled = command.CanExecute(null);
+        }
+
+        //Test-only seam: counts genuine BeginMoveDrag requests raised by OnTitleBarPointerPressed below, so
+        //a headless test can prove the empty titlebar background is draggable while a toolbar button press
+        //(which the Button itself handles first) never reaches this handler at all.
+        internal int TitleBarDragRequestCount { get; private set; }
+
+        //Ports macOS's native "drag empty titlebar to move, double-click to zoom" behavior onto the unified
+        //titlebar toolbar (macos-design window conventions): ExtendClientAreaToDecorationsHint hands us the
+        //whole row as ordinary content, so both gestures need an explicit handler here. Buttons placed on
+        //top of this Grid already mark PointerPressed handled before it bubbles here, so only clicks on the
+        //empty background between/around them ever reach this method.
+        private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e) {
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+                return;
+
+            if (e.ClickCount == 2) {
+                WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+                return;
+            }
+
+            TitleBarDragRequestCount++;
+            BeginMoveDrag(e);
         }
 
         private NativeMenu BuildNativeMenu() {

@@ -34,4 +34,49 @@
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
   </Style>
 
+  <!-- Unified titlebar toolbar (contract #toolbar): flat icon buttons on the titlebar surface itself,
+       tinted on hover/press instead of drawing FluentTheme's default bordered chrome. -->
+  <Style Selector="Button.foreman-toolbar-icon">
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Button.foreman-toolbar-wide">
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Button.foreman-toolbar-icon:pointerover /template/ ContentPresenter, Button.foreman-toolbar-wide:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+  </Style>
+
+  <Style Selector="TextBlock.foreman-toolbar-glyph">
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.EmphasizedBody.FontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="TextBlock.foreman-toolbar-label">
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Body.FontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Border.foreman-toolbar-separator">
+    <Setter Property="Width" Value="1" />
+    <Setter Property="Height" Value="20" />
+    <Setter Property="Margin" Value="4,0" />
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.BorderStrong}" />
+  </Style>
+
 </Styles>

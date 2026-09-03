@@ -19,6 +19,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- The toolbar and window titlebar are unified into one row, macOS-style, with icon-and-label
+  buttons for the most common actions; Save As, Import Graph, and Help move to the menu bar only.
+  Gridlines and graph-options controls (rate unit, icon view, pause) now live behind a View
+  Options button instead of sitting always-open on the toolbar.
 - Switched the production solver from Google OR-Tools to HiGHS: a dramatically smaller download
   (the bundled solver drops from roughly 55 MB across 100 files to 4.4 MB in one file) and a much
   faster first solve after launch, with identical solve results.

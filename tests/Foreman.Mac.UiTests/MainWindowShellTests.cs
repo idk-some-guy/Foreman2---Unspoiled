@@ -1,12 +1,15 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using SkiaSharp;
 using Foreman;
 using Foreman.DataCaching;
@@ -17,6 +20,7 @@ using Foreman.Models;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
+using Foreman.Mac.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -28,9 +32,12 @@ using Xunit;
 
 namespace Foreman.Mac.UiTests {
     public class MainWindowShellTests {
+        //Task 4 (contract #toolbar): the unified titlebar toolbar keeps the ten highest-frequency commands
+        //as buttons; Save As/Import Graph/Help move to menu-bar-only (BuildNativeMenu already wires all
+        //three - see NativeMenu_FileNewSaveImportAndExportAreEnabled below and the Help menu item).
         private static readonly string[] ExpectedButtonNames = [
-            "New Graph", "Load", "Save", "Save As", "Import Graph", "Export Image",
-            "Add Item", "Add Recipe", "Autoconnect", "Settings", "Help / Git repo",
+            "New Graph", "Load", "Save", "Export Image",
+            "Add Item", "Add Recipe", "Autoconnect", "Settings",
             "Show Graph Summary", "Align Selected",
         ];
 
@@ -61,7 +68,7 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public void Toolbar_ContainsAllThirteenCommandButtons() {
+        public void Toolbar_ContainsAllTenButtons() {
             var window = new MainWindow();
             window.Show();
 
@@ -71,15 +78,10 @@ namespace Foreman.Mac.UiTests {
                 Assert.Contains(expected, names);
         }
 
-        //Task 7 enables Add Item/Add Recipe/Autoconnect/Align Selected (reference §8/§10/§11 step 11); phase
-        //5b Task 1 enables Settings, Task 4 enables Show Graph Summary; phase 6 Task 1 enables Save/Save As,
-        //Task 2 enables Import Graph, Task 3 enables Export Image - Help stays disabled, later-task scope.
-        private static readonly string[] StillStubbedButtonNames = [
-            "Help / Git repo",
-        ];
-
+        //Task 4 (phase 9 toolbar rebuild): Help's toolbar button was retired along with Save As/Import Graph
+        //(menu-bar-only now), so every remaining toolbar button is a wired, enabled command.
         [AvaloniaFact]
-        public void Toolbar_NewGraphAndLoadAndTask7ButtonsAreEnabled_RemainingStubsAreNot() {
+        public void Toolbar_AllTenButtonsAreEnabled() {
             var window = new MainWindow();
             window.Show();
 
@@ -88,16 +90,196 @@ namespace Foreman.Mac.UiTests {
                 .ToDictionary(b => AutomationProperties.GetName(b)!, b => b.IsEnabled);
 
             Assert.Equal(ExpectedButtonNames.Length, buttons.Count);
-            foreach (string name in ExpectedButtonNames.Where(n => !StillStubbedButtonNames.Contains(n)))
+            foreach (string name in ExpectedButtonNames)
                 Assert.True(buttons[name], name);
-            foreach (string name in StillStubbedButtonNames)
-                Assert.False(buttons[name], name);
+        }
+
+        //Task 4 new: the contract retires Save As/Import Graph/Help from the toolbar, but every one of the
+        //13 ShellViewModel commands must still be reachable from somewhere - the toolbar's 10 buttons plus
+        //BuildNativeMenu's own bindings for the other 3 (Save As, Import, Help all already wired there).
+        [AvaloniaFact]
+        public void AllThirteenCommands_AreReachableFromToolbarOrNativeMenu() {
+            var window = new MainWindow();
+            window.Show();
+
+            var commandsByProperty = typeof(ShellViewModel).GetProperties()
+                .Where(p => typeof(IRelayCommand).IsAssignableFrom(p.PropertyType))
+                .ToDictionary(p => p.Name, p => (IRelayCommand)p.GetValue(window.Commands)!);
+            Assert.Equal(13, commandsByProperty.Count);
+
+            var toolbarCommands = window.GetVisualDescendants().OfType<Button>()
+                .Select(b => b.Command).OfType<IRelayCommand>().ToHashSet();
+            var menuCommands = AllNativeMenuItems(NativeMenu.GetMenu(window)!)
+                .Select(i => i.Command).OfType<IRelayCommand>().ToHashSet();
+
+            foreach ((string name, IRelayCommand command) in commandsByProperty)
+                Assert.True(toolbarCommands.Contains(command) || menuCommands.Contains(command), name);
+        }
+
+        private static IEnumerable<NativeMenuItem> AllNativeMenuItems(NativeMenu menu) {
+            foreach (NativeMenuItem item in menu.Items.OfType<NativeMenuItem>()) {
+                yield return item;
+                if (item.Menu is NativeMenu submenu)
+                    foreach (NativeMenuItem nested in AllNativeMenuItems(submenu))
+                        yield return nested;
+            }
+        }
+
+        //Task 4: the empty titlebar background is the drag region; a button sitting on top of it must
+        //intercept its own click first (macos-design: buttons stay clickable, not draggable).
+        [AvaloniaFact]
+        public void TitleBar_EmptyBackgroundPress_RequestsMoveDrag_ButtonPress_DoesNot() {
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var titleBar = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "TitleBarRow");
+            Avalonia.Point emptyPoint = WindowCenterOf(titleBar, window); //center of the titlebar's flexible middle column - empty of buttons, and the title TextBlock there has no Background so pointer events pass through to the Grid
+            window.MouseDown(emptyPoint, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(emptyPoint, MouseButton.Left, RawInputModifiers.None);
+
+            Assert.Equal(1, window.TitleBarDragRequestCount);
+
+            RealClick(window, "Settings");
+
+            Assert.Equal(1, window.TitleBarDragRequestCount);
+        }
+
+        //Task 4: double-clicking the empty titlebar toggles maximize, same as a native macOS titlebar
+        //(macos-design: preserve system window behaviors, including zoom).
+        [AvaloniaFact]
+        public void TitleBar_EmptyBackgroundDoubleClick_TogglesMaximizedState() {
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(WindowState.Maximized, window.WindowState);
+
+            var titleBar = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "TitleBarRow");
+            Avalonia.Point emptyPoint = WindowCenterOf(titleBar, window); //center of the titlebar's flexible middle column - empty of buttons, and the title TextBlock there has no Background so pointer events pass through to the Grid
+            window.MouseDown(emptyPoint, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(emptyPoint, MouseButton.Left, RawInputModifiers.None);
+            window.MouseDown(emptyPoint, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(emptyPoint, MouseButton.Left, RawInputModifiers.None);
+
+            Assert.Equal(WindowState.Normal, window.WindowState);
+        }
+
+        //Task 4: contract #toolbar groups New/Load/Save first, then Add Item/Add Recipe/Autoconnect/Align
+        //Selected, then Export Image/Graph Summary/View Options - proven here by X-position ordering rather
+        //than assuming Avalonia enumerates visual children left-to-right.
+        [AvaloniaFact]
+        public void Toolbar_ButtonsAreOrderedPerContractGroups() {
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            string[] expectedOrder = [
+                "New Graph", "Load", "Save",
+                "Add Item", "Add Recipe", "Autoconnect", "Align Selected",
+                "Export Image", "Show Graph Summary", "View Options",
+            ];
+            double[] positions = [.. expectedOrder
+                .Select(name => window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == name))
+                .Select(b => WindowCenterOf(b, window).X)];
+
+            for (int i = 1; i < positions.Length; i++)
+                Assert.True(positions[i] > positions[i - 1], $"{expectedOrder[i]} should sit right of {expectedOrder[i - 1]}");
+        }
+
+        //Task 4: both-theme render sanity on the titlebar surface (phase 5b ContrastAssert pattern) - the
+        //title text and toolbar glyphs must resolve different, legible colors in light vs dark.
+        [AvaloniaFact]
+        public void TitleBar_ThemedAcrossLightAndDark_ResolvesDifferentColors() {
+            var app = (App)Application.Current!;
+
+            app.ApplyTheme(ThemeMode.Light);
+            var lightWindow = new MainWindow();
+            lightWindow.Show();
+            Color lightTitlebar = TitleBarBackgroundColor(lightWindow);
+            Color lightGlyph = ToolbarGlyphColor(lightWindow, "New Graph");
+
+            app.ApplyTheme(ThemeMode.Dark);
+            var darkWindow = new MainWindow();
+            darkWindow.Show();
+            Color darkTitlebar = TitleBarBackgroundColor(darkWindow);
+            Color darkGlyph = ToolbarGlyphColor(darkWindow, "New Graph");
+
+            Assert.NotEqual(lightTitlebar, darkTitlebar);
+            Assert.NotEqual(lightGlyph, darkGlyph);
+        }
+
+        private static Color TitleBarBackgroundColor(MainWindow window) {
+            var titleBar = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "TitleBarRow");
+            return Assert.IsAssignableFrom<ISolidColorBrush>(titleBar.Background).Color;
+        }
+
+        private static Color ToolbarGlyphColor(MainWindow window, string buttonAutomationName) {
+            var button = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == buttonAutomationName);
+            var glyph = button.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Classes.Contains("foreman-toolbar-glyph"));
+            return Assert.IsAssignableFrom<ISolidColorBrush>(glyph.Foreground).Color;
+        }
+
+        //Fix round 1 (popover redo, contract #decisions §1 mockup): View Options is a Popup anchored under
+        //its toolbar button now, not a docked Grid.Row strip - opens it first via the same command the
+        //button click drives, the open-then-locate shape DialogWindowsEndToEndTests already uses elsewhere.
+        private static void OpenViewOptions(MainWindow window) {
+            window.ViewModel.ToggleViewOptionsCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        [AvaloniaFact]
+        public void ViewOptionsPopover_DefaultsToClosed() {
+            var window = new MainWindow();
+            window.Show();
+
+            var popover = window.GetVisualDescendants().OfType<Popup>().Single(p => p.Name == "ViewOptionsPopover");
+
+            Assert.False(popover.IsOpen);
+        }
+
+        [AvaloniaFact]
+        public void ViewOptionsButton_RealClick_OpensThenClosesThePopover() {
+            var window = new MainWindow();
+            window.Show();
+            var popover = window.GetVisualDescendants().OfType<Popup>().Single(p => p.Name == "ViewOptionsPopover");
+
+            RealClick(window, "View Options");
+            Assert.True(popover.IsOpen);
+
+            RealClick(window, "View Options");
+            Assert.False(popover.IsOpen);
+        }
+
+        //Contract #decisions §1: "anchored under the button", not a full-width docked strip.
+        [AvaloniaFact]
+        public void ViewOptionsPopover_AnchoredUnderViewOptionsButton() {
+            var window = new MainWindow();
+            window.Show();
+            var button = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "View Options");
+            var popover = window.GetVisualDescendants().OfType<Popup>().Single(p => p.Name == "ViewOptionsPopover");
+
+            Assert.Same(button, popover.PlacementTarget);
+            Assert.Equal(PlacementMode.Bottom, popover.Placement);
+        }
+
+        //Contract #decisions §1: a compact rounded card, not the old full-width Grid.Row strip.
+        [AvaloniaFact]
+        public void ViewOptionsPopover_WhenOpen_CardIsCompactNotFullWindowWidth() {
+            var window = new MainWindow();
+            window.Show();
+            OpenViewOptions(window);
+
+            var card = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "ViewOptionsCard");
+
+            Assert.True(card.Bounds.Width < window.Width / 2,
+                $"expected a compact card, got width {card.Bounds.Width} against window width {window.Width}");
         }
 
         [AvaloniaFact]
         public void GridlinesAndGraphOptionsControls_AreEnabled() {
             var window = new MainWindow();
             window.Show();
+            OpenViewOptions(window);
 
             foreach (string name in new[] { "MinorGridlinesDropDown", "MajorGridlinesDropDown", "RateOptionsDropDown" })
                 Assert.True(window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == name).IsEnabled);
@@ -112,6 +294,7 @@ namespace Foreman.Mac.UiTests {
         public void SpaceKey_OnGraphCanvas_TogglesShowGridAndSyncsTheGridlinesCheckbox() {
             var window = new MainWindow();
             window.Show();
+            OpenViewOptions(window);
             var checkbox = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "GridlinesCheckbox");
             window.GraphCanvas.Grid.ShowGrid = false;
             checkbox.IsChecked = false;
@@ -190,6 +373,7 @@ namespace Foreman.Mac.UiTests {
             window.ApplyLoadedSettings();
 
             Assert.True(window.GraphCanvas.Viewer.IconsOnly);
+            OpenViewOptions(window);
             var checkbox = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "IconViewCheckBox");
             Assert.True(checkbox.IsChecked);
         }
@@ -384,6 +568,7 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Viewer.Graph.NodeValuesUpdated += (_, _) => solveCount++;
             window.ResyncRateOptionsDropDown();
 
+            OpenViewOptions(window);
             var rateOptions = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "RateOptionsDropDown");
             Assert.Equal((int)expectedUnit, rateOptions.SelectedIndex);
             Assert.Equal(expectedUnit, window.Settings!.DefaultRateUnit);
@@ -406,6 +591,7 @@ namespace Foreman.Mac.UiTests {
             int solveCount = 0;
             window.GraphCanvas.Viewer.Graph.NodeValuesUpdated += (_, _) => solveCount++;
 
+            OpenViewOptions(window);
             var pauseUpdates = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "PauseUpdatesCheckbox");
             pauseUpdates.IsChecked = true;
             pauseUpdates.IsChecked = false; //resuming updates fires UpdateNodeValues once per subscribed handler
@@ -431,6 +617,7 @@ namespace Foreman.Mac.UiTests {
 
             window.ApplyLoadedSettings();
 
+            OpenViewOptions(window);
             var rateOptions = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "RateOptionsDropDown");
             Assert.Equal((int)ProductionGraph.RateUnit.Per1Hour, rateOptions.SelectedIndex);
             Assert.Equal(0, solveCount);
@@ -672,6 +859,8 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
         }
 
+        //Fix round 1: GridLinesGroupBox now lives inside the View Options popover - opened first on both
+        //windows before the color lookup, same as every other repointed lookup above.
         [AvaloniaFact]
         public void GroupBoxBorders_ThemedAcrossLightAndDark_ResolveDifferentColors() {
             var app = (App)Application.Current!;
@@ -679,11 +868,13 @@ namespace Foreman.Mac.UiTests {
             app.ApplyTheme(ThemeMode.Light);
             var lightWindow = new MainWindow();
             lightWindow.Show();
+            OpenViewOptions(lightWindow);
             var lightColor = GroupBoxBorderColor(lightWindow, "GridLinesGroupBox");
 
             app.ApplyTheme(ThemeMode.Dark);
             var darkWindow = new MainWindow();
             darkWindow.Show();
+            OpenViewOptions(darkWindow);
             var darkColor = GroupBoxBorderColor(darkWindow, "GridLinesGroupBox");
 
             Assert.NotEqual(lightColor, darkColor);

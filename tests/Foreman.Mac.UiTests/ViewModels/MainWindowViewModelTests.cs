@@ -46,5 +46,25 @@ namespace Foreman.Mac.UiTests.ViewModels {
 
             Assert.Equal(AppVersion.VersionedDisplay, vm.VersionLabel);
         }
+
+        //Task 4: the View Options popover (contract #toolbar, Gridlines + Graph Options fold) is chrome
+        //state, same category as WindowTitle - closed by default so the canvas gets the full window on boot.
+        [Fact]
+        public void IsViewOptionsOpen_DefaultsToFalse() {
+            var vm = new MainWindowViewModel();
+
+            Assert.False(vm.IsViewOptionsOpen);
+        }
+
+        [Fact]
+        public void ToggleViewOptionsCommand_Execute_TogglesIsViewOptionsOpen() {
+            var vm = new MainWindowViewModel();
+
+            vm.ToggleViewOptionsCommand.Execute(null);
+            Assert.True(vm.IsViewOptionsOpen);
+
+            vm.ToggleViewOptionsCommand.Execute(null);
+            Assert.False(vm.IsViewOptionsOpen);
+        }
     }
 }

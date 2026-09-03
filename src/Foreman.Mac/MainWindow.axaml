@@ -2,95 +2,163 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Foreman.Mac.ViewModels"
         x:Class="Foreman.Mac.MainWindow"
+        x:Name="RootWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="{Binding WindowTitle}"
         Width="1500"
         Height="768"
-        Background="{DynamicResource SystemChromeMediumColor}">
-  <!-- Avalonia 12 widened the Fluent toolbar buttons' measured text metrics enough that the toolbar's
-       three Auto-sized groups plus the version label now demand ~1492px - past the old 1024 width, which
-       pushed Show Graph Summary off the visible window. 1500 gives the row room to actually fit. -->
-  <!-- FluentTheme's default Window background (SystemRegionBrush) is pure black in dark mode by design; SystemChromeMediumColor is the themed dark-gray surface. -->
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="52"
+        Background="{DynamicResource Foreman.Color.WindowBackground}">
+  <!-- Unified titlebar toolbar (contract #toolbar, ratified Variant B - icon+label): the OS titlebar and
+       the command bar are one row. ExtendClientAreaTitleBarHeightHint reserves that row's height for the
+       real traffic lights (macos-design: "do not fake traffic lights"); WindowDecorationMargin below is the
+       platform-reported safe area they occupy, so the leftmost button group never sits under them. -->
   <Grid RowDefinitions="Auto,*">
-    <Grid Grid.Row="0" Margin="8" ColumnDefinitions="Auto,Auto,Auto,*,Auto">
-      <UniformGrid Name="MenuButtonsGroup" Grid.Column="0" Columns="3" Margin="0,0,8,0">
-        <Button Name="NewGraphButton" Content="New Graph" AutomationProperties.Name="New Graph" Margin="2" />
-        <Button Name="LoadGraphButton" Content="Load" AutomationProperties.Name="Load" Margin="2" />
-        <Button Name="SaveButton" Content="Save" AutomationProperties.Name="Save" Margin="2" />
-        <Button Name="SaveAsGraphButton" Content="Save As" AutomationProperties.Name="Save As" Margin="2" />
-        <Button Name="ImportGraphButton" Content="Import Graph" AutomationProperties.Name="Import Graph" Margin="2" />
-        <Button Name="ExportImageButton" Content="Export Image" AutomationProperties.Name="Export Image" Margin="2" />
-        <Button Name="AddItemButton" Content="Add Item" AutomationProperties.Name="Add Item" Margin="2" />
-        <Button Name="AddRecipeButton" Content="Add Recipe" AutomationProperties.Name="Add Recipe" Margin="2" />
-        <Button Name="AutoconnectButton" Content="Autoconnect" AutomationProperties.Name="Autoconnect" Margin="2" />
-        <Button Name="SettingsButton" Content="Settings" AutomationProperties.Name="Settings" Margin="2" />
-        <Button Name="HelpButton" Content="Help / Git repo" AutomationProperties.Name="Help / Git repo" Margin="2" />
-      </UniformGrid>
+    <Grid Name="TitleBarRow" Grid.Row="0" Height="52" ColumnDefinitions="Auto,*,Auto"
+          Background="{DynamicResource Foreman.Color.TitlebarBackground}"
+          PointerPressed="OnTitleBarPointerPressed">
+      <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                  Spacing="{StaticResource Foreman.Space.Space1}"
+                  Margin="{Binding #RootWindow.WindowDecorationMargin}">
+        <Button Name="NewGraphButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="New Graph" ToolTip.Tip="New Graph">
+          <TextBlock Text="✚" Classes="foreman-toolbar-glyph" />
+        </Button>
+        <Button Name="LoadGraphButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Load" ToolTip.Tip="Load">
+          <TextBlock Text="⤓" Classes="foreman-toolbar-glyph" />
+        </Button>
+        <Button Name="SaveButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Save" ToolTip.Tip="Save">
+          <TextBlock Text="⇩" Classes="foreman-toolbar-glyph" />
+        </Button>
 
-      <Border Name="GridLinesGroupBox" Grid.Column="1" BorderBrush="{DynamicResource SystemBaseMediumLowColor}" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,8,0">
-        <StackPanel Spacing="4">
-          <TextBlock Text="Gridlines (2n scaling)" FontWeight="Bold" />
-          <StackPanel Orientation="Horizontal" Spacing="4">
-            <TextBlock Text="Minor Gridlines:" VerticalAlignment="Center" />
-            <ComboBox Name="MinorGridlinesDropDown">
-              <ComboBoxItem>none</ComboBoxItem>
-              <ComboBoxItem>1</ComboBoxItem>
-              <ComboBoxItem>2</ComboBoxItem>
-              <ComboBoxItem>4</ComboBoxItem>
-              <ComboBoxItem>8</ComboBoxItem>
-              <ComboBoxItem>16</ComboBoxItem>
-              <ComboBoxItem>32</ComboBoxItem>
-              <ComboBoxItem>64</ComboBoxItem>
-              <ComboBoxItem>128</ComboBoxItem>
-              <ComboBoxItem>256</ComboBoxItem>
-              <ComboBoxItem>512</ComboBoxItem>
-              <ComboBoxItem>1024</ComboBoxItem>
-            </ComboBox>
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="4">
-            <TextBlock Text="Major Gridlines:" VerticalAlignment="Center" />
-            <ComboBox Name="MajorGridlinesDropDown">
-              <ComboBoxItem>None</ComboBoxItem>
-              <ComboBoxItem>1</ComboBoxItem>
-              <ComboBoxItem>2</ComboBoxItem>
-              <ComboBoxItem>4</ComboBoxItem>
-              <ComboBoxItem>8</ComboBoxItem>
-              <ComboBoxItem>16</ComboBoxItem>
-              <ComboBoxItem>32</ComboBoxItem>
-              <ComboBoxItem>64</ComboBoxItem>
-              <ComboBoxItem>128</ComboBoxItem>
-              <ComboBoxItem>256</ComboBoxItem>
-              <ComboBoxItem>512</ComboBoxItem>
-              <ComboBoxItem>1024</ComboBoxItem>
-            </ComboBox>
-          </StackPanel>
-          <CheckBox Name="GridlinesCheckbox" Content="Show Gridlines" />
-          <Button Name="AlignSelectionButton" Content="Align Selected" AutomationProperties.Name="Align Selected" />
-        </StackPanel>
-      </Border>
+        <Border Classes="foreman-toolbar-separator" />
 
-      <Border Name="ProductionGroupBox" Grid.Column="2" BorderBrush="{DynamicResource SystemBaseMediumLowColor}" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,8,0">
-        <StackPanel Spacing="4">
-          <TextBlock Text="Graph Options:" FontWeight="Bold" />
-          <StackPanel Orientation="Horizontal" Spacing="4">
-            <TextBlock Text="Base Time:" VerticalAlignment="Center" />
-            <ComboBox Name="RateOptionsDropDown">
-              <ComboBoxItem>1 sec</ComboBoxItem>
-              <ComboBoxItem>1 min</ComboBoxItem>
-              <ComboBoxItem>5 min</ComboBoxItem>
-              <ComboBoxItem>10 min</ComboBoxItem>
-              <ComboBoxItem>30 min</ComboBoxItem>
-              <ComboBoxItem>1 hour</ComboBoxItem>
-            </ComboBox>
+        <Button Name="AddItemButton" Classes="foreman-toolbar-wide" AutomationProperties.Name="Add Item" ToolTip.Tip="Add Item">
+          <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
+            <TextBlock Text="▢" Classes="foreman-toolbar-glyph" />
+            <TextBlock Text="Item" Classes="foreman-toolbar-label" />
           </StackPanel>
-          <Button Name="GraphSummaryButton" Content="Show Graph Summary" AutomationProperties.Name="Show Graph Summary" />
-          <CheckBox Name="IconViewCheckBox" Content="Icon View" />
-          <CheckBox Name="PauseUpdatesCheckbox" Content="Pause all calculations" />
-        </StackPanel>
-      </Border>
+        </Button>
+        <Button Name="AddRecipeButton" Classes="foreman-toolbar-wide" AutomationProperties.Name="Add Recipe" ToolTip.Tip="Add Recipe">
+          <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
+            <TextBlock Text="◎" Classes="foreman-toolbar-glyph" />
+            <TextBlock Text="Recipe" Classes="foreman-toolbar-label" />
+          </StackPanel>
+        </Button>
+        <Button Name="AutoconnectButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Autoconnect" ToolTip.Tip="Autoconnect">
+          <TextBlock Text="⇌" Classes="foreman-toolbar-glyph" />
+        </Button>
+        <Button Name="AlignSelectionButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Align Selected" ToolTip.Tip="Align Selected">
+          <TextBlock Text="⊟" Classes="foreman-toolbar-glyph" />
+        </Button>
 
-      <TextBlock Name="VersionLabel" Grid.Column="4" VerticalAlignment="Top" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" Text="{Binding VersionLabel}" />
+        <Border Classes="foreman-toolbar-separator" />
+
+        <Button Name="ExportImageButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Export Image" ToolTip.Tip="Export Image">
+          <TextBlock Text="⇓" Classes="foreman-toolbar-glyph" />
+        </Button>
+        <Button Name="GraphSummaryButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Show Graph Summary" ToolTip.Tip="Graph Summary">
+          <TextBlock Text="Ⅲ" Classes="foreman-toolbar-glyph" />
+        </Button>
+        <Button Name="ViewOptionsButton" Classes="foreman-toolbar-icon" Command="{Binding ToggleViewOptionsCommand}"
+                AutomationProperties.Name="View Options" ToolTip.Tip="View Options">
+          <TextBlock Text="≡" Classes="foreman-toolbar-glyph" />
+        </Button>
+      </StackPanel>
+
+      <TextBlock Grid.Column="1" Text="{Binding WindowTitle}" Classes="foreman-window-title"
+                 Foreground="{DynamicResource Foreman.Color.Text}"
+                 HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+
+      <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                  Spacing="{StaticResource Foreman.Space.Space2}" Margin="12">
+        <!-- Contract #toolbar retires this from the titlebar to the About panel/Settings footer - both are
+             Task 5/6 surfaces this task doesn't touch, so it stays here (unobtrusive, caption-styled) rather
+             than disappearing with nowhere to land. -->
+        <TextBlock Name="VersionLabel" Text="{Binding VersionLabel}" Classes="foreman-caption"
+                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="140" />
+        <Button Name="SettingsButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Settings" ToolTip.Tip="Settings">
+          <TextBlock Text="⚙" Classes="foreman-toolbar-glyph" />
+        </Button>
+      </StackPanel>
     </Grid>
+
+    <!-- View Options popover (contract #decisions §1 mockup: Gridlines + Graph Options group boxes fold
+         into a compact rounded card anchored under ViewOptionsButton, not a full-width docked strip). A
+         Popup's content isn't a Window visual descendant while closed - BindViewOptionControls and
+         ResyncRateOptionsDropDown still find these controls unaffected (this.FindControl resolves through
+         the compiled NameScope, which is populated at construction regardless of visual attachment); tests
+         that walk the visual tree open the popover first. -->
+    <Popup Name="ViewOptionsPopover" PlacementTarget="{Binding #ViewOptionsButton}" Placement="Bottom"
+           IsOpen="{Binding IsViewOptionsOpen}">
+      <Border Name="ViewOptionsCard" Background="{DynamicResource Foreman.Color.ControlBackground}"
+              BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
+              CornerRadius="9" Padding="12">
+        <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space4}">
+          <Border Name="GridLinesGroupBox" BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
+                  CornerRadius="6" Padding="8">
+            <StackPanel Spacing="{StaticResource Foreman.Space.Space1}">
+              <TextBlock Text="Gridlines (2n scaling)" Classes="foreman-emphasized-body" />
+              <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
+                <TextBlock Text="Minor Gridlines:" VerticalAlignment="Center" Classes="foreman-body" />
+                <ComboBox Name="MinorGridlinesDropDown">
+                  <ComboBoxItem>none</ComboBoxItem>
+                  <ComboBoxItem>1</ComboBoxItem>
+                  <ComboBoxItem>2</ComboBoxItem>
+                  <ComboBoxItem>4</ComboBoxItem>
+                  <ComboBoxItem>8</ComboBoxItem>
+                  <ComboBoxItem>16</ComboBoxItem>
+                  <ComboBoxItem>32</ComboBoxItem>
+                  <ComboBoxItem>64</ComboBoxItem>
+                  <ComboBoxItem>128</ComboBoxItem>
+                  <ComboBoxItem>256</ComboBoxItem>
+                  <ComboBoxItem>512</ComboBoxItem>
+                  <ComboBoxItem>1024</ComboBoxItem>
+                </ComboBox>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
+                <TextBlock Text="Major Gridlines:" VerticalAlignment="Center" Classes="foreman-body" />
+                <ComboBox Name="MajorGridlinesDropDown">
+                  <ComboBoxItem>None</ComboBoxItem>
+                  <ComboBoxItem>1</ComboBoxItem>
+                  <ComboBoxItem>2</ComboBoxItem>
+                  <ComboBoxItem>4</ComboBoxItem>
+                  <ComboBoxItem>8</ComboBoxItem>
+                  <ComboBoxItem>16</ComboBoxItem>
+                  <ComboBoxItem>32</ComboBoxItem>
+                  <ComboBoxItem>64</ComboBoxItem>
+                  <ComboBoxItem>128</ComboBoxItem>
+                  <ComboBoxItem>256</ComboBoxItem>
+                  <ComboBoxItem>512</ComboBoxItem>
+                  <ComboBoxItem>1024</ComboBoxItem>
+                </ComboBox>
+              </StackPanel>
+              <CheckBox Name="GridlinesCheckbox" Content="Show Gridlines" />
+              </StackPanel>
+          </Border>
+
+          <Border Name="ProductionGroupBox" BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
+                  CornerRadius="6" Padding="8">
+            <StackPanel Spacing="{StaticResource Foreman.Space.Space1}">
+              <TextBlock Text="Graph Options" Classes="foreman-emphasized-body" />
+              <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
+                <TextBlock Text="Rate Unit:" VerticalAlignment="Center" Classes="foreman-body" />
+                <ComboBox Name="RateOptionsDropDown">
+                  <ComboBoxItem>1 sec</ComboBoxItem>
+                  <ComboBoxItem>1 min</ComboBoxItem>
+                  <ComboBoxItem>5 min</ComboBoxItem>
+                  <ComboBoxItem>10 min</ComboBoxItem>
+                  <ComboBoxItem>30 min</ComboBoxItem>
+                  <ComboBoxItem>1 hour</ComboBoxItem>
+                </ComboBox>
+              </StackPanel>
+              <CheckBox Name="IconViewCheckBox" Content="Icon View" />
+              <CheckBox Name="PauseUpdatesCheckbox" Content="Pause all calculations" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Border>
+    </Popup>
 
     <ContentControl Name="GraphViewerHost" Grid.Row="1" />
   </Grid>

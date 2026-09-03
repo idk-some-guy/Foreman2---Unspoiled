@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
@@ -448,6 +449,10 @@ namespace Foreman.Mac.UiTests {
             MainWindow window = NewReadyWindow(vanilla, settings, tempHome, presetsOverride: null); //real Presets dir: need the real >=2-preset guard to pass
 
             window.GraphCanvas.Focus();
+            //Fix round 1 (popover redo): GridlinesCheckbox lives inside the View Options popover now, not a
+            //visual descendant of the window until it's open.
+            window.ViewModel.ToggleViewOptionsCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
             CheckBox gridlinesCheckbox = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "GridlinesCheckbox");
             window.GraphCanvas.Grid.ShowGrid = false;
             gridlinesCheckbox.IsChecked = false;
@@ -525,6 +530,10 @@ namespace Foreman.Mac.UiTests {
             int solveCount = 0;
             window.GraphCanvas.Viewer.Graph.NodeValuesUpdated += (_, _) => solveCount++;
 
+            //Fix round 1 (popover redo): RateOptionsDropDown lives inside the View Options popover now, not a
+            //visual descendant of the window until it's open.
+            window.ViewModel.ToggleViewOptionsCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
             var rateOptions = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "RateOptionsDropDown");
             rateOptions.SelectedIndex = (rateOptions.SelectedIndex + 1) % rateOptions.ItemCount;
 
@@ -546,9 +555,11 @@ namespace Foreman.Mac.UiTests {
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(cache, settings, tempHome);
 
-            CheckBox gridlinesCheckbox = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "GridlinesCheckbox");
-            gridlinesCheckbox.Focus();
-            Assert.True(gridlinesCheckbox.IsFocused);
+            //Any other focusable control proves the point; task 4 moved GridlinesCheckbox behind the
+            //collapsed View Options panel, so it's no longer a plain always-focusable toolbar control.
+            Button newGraphButton = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "NewGraphButton");
+            newGraphButton.Focus();
+            Assert.True(newGraphButton.IsFocused);
 
             Task openTask = window.OpenSettingsAsync();
             SettingsWindow settingsWindow = window.OwnedWindows.OfType<SettingsWindow>().Single();
@@ -565,9 +576,11 @@ namespace Foreman.Mac.UiTests {
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(cache, settings, tempHome);
 
-            CheckBox gridlinesCheckbox = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "GridlinesCheckbox");
-            gridlinesCheckbox.Focus();
-            Assert.True(gridlinesCheckbox.IsFocused);
+            //Any other focusable control proves the point; task 4 moved GridlinesCheckbox behind the
+            //collapsed View Options panel, so it's no longer a plain always-focusable toolbar control.
+            Button newGraphButton = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "NewGraphButton");
+            newGraphButton.Focus();
+            Assert.True(newGraphButton.IsFocused);
 
             Task openTask = window.OpenGraphSummaryAsync();
             GraphSummaryWindow summaryWindow = window.OwnedWindows.OfType<GraphSummaryWindow>().Single();
