@@ -97,5 +97,42 @@ namespace ForemanTest.Storage {
             var secondStore = TestDataCacheHelper.RequireStore(secondCache);
             CollectionAssert.AreEqual(controlIronBytes, secondStore.IconCache![IconName].Icon!.Bytes);
         }
+
+        [TestMethod]
+        public async Task PrepPreset_PresetRowImportedWithoutIconRows_RecoversIconsOnLoad() {
+            if (!VanillaDataCacheFixture.PresetsAvailable)
+                Assert.Inconclusive($"Preset folder not found: {VanillaDataCacheFixture.PresetsDirectory}");
+
+            string pjsonPath = Path.Combine(tempDir, PresetName + ".pjson");
+            string datPath = Path.Combine(tempDir, PresetName + ".dat");
+
+            string pjsonText = File.ReadAllText(Path.Combine(VanillaDataCacheFixture.PresetsDirectory, VanillaDataCacheFixture.PresetName + ".pjson"));
+            File.WriteAllText(pjsonPath, pjsonText);
+
+            using SKBitmap ironBitmap = SolidBitmap(200, 40, 40);
+            var icons = new Dictionary<string, IconColorPair> {
+                [IconName] = new IconColorPair(ironBitmap, Color.FromArgb(255, 10, 20, 30)),
+            };
+            await ForemanIconCacheFile.WriteAsync(datPath, icons);
+            var controlEntries = await ForemanIconCacheFile.ReadEntriesAsync(datPath);
+            byte[] controlIronPngBytes = controlEntries.Single(entry => entry.Name == IconName).PngBytes;
+
+            string dbPath = StoragePaths.DbPath(tempDir);
+
+            //Stand-in for the state a swallowed cross-preset IconBlobs.Sha256 race can leave behind:
+            //the preset row committed, but no PresetIcons rows for it yet.
+            using (var db = ForemanDbContext.Open(dbPath))
+                PresetStore.Import(db, PresetName, pjsonText, null);
+
+            using (var db = ForemanDbContext.Open(dbPath))
+                Assert.IsFalse(db.PresetIcons.Any(row => row.PresetName == PresetName), "test setup should not have pre-populated icon rows.");
+
+            var preset = new Preset(PresetName, true, true);
+            PresetProcessor.PrepPreset(preset, tempDir);
+            var iconEntries = PresetProcessor.GetPresetIconEntries(preset, tempDir);
+
+            Assert.AreEqual(1, iconEntries.Count);
+            CollectionAssert.AreEqual(controlIronPngBytes, iconEntries.Single(entry => entry.Name == IconName).PngBytes);
+        }
     }
 }

@@ -120,6 +120,12 @@ namespace Foreman.DataCaching {
                     //Another caller imported this exact preset name concurrently and won the race - its
                     //data is what we'd have written anyway, so drop our own failed insert and read theirs.
                     db.ChangeTracker.Clear();
+
+                    //IconBlobs.Sha256 is shared across presets by design, so a different preset's concurrent
+                    //import of the same byte-identical icon can trip this same catch and leave our own
+                    //PresetIcons rows missing; ImportFoic is idempotent, so retry it once now.
+                    if (File.Exists(datPath) && !db.PresetIcons.Any(row => row.PresetName == presetName))
+                        IconStore.ImportFoic(db, presetName, datPath);
                 }
             }
 
