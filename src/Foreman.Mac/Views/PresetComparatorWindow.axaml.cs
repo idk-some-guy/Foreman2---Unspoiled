@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Foreman.DataCaching;
@@ -33,11 +34,11 @@ namespace Foreman.Mac.Views {
 
         internal enum RowSimilarity { Equal, CloseEnough, Different }
 
-        internal static readonly IBrush EqualBackground = new SolidColorBrush(Color.FromRgb(255, 255, 255));
-        private static readonly IBrush CloseEnoughBackground = new SolidColorBrush(Color.FromRgb(240, 230, 140));
-        private static readonly IBrush DifferentBackground = new SolidColorBrush(Color.FromRgb(255, 192, 203));
-        private static readonly IBrush AvailableForeground = new SolidColorBrush(Color.FromRgb(0, 0, 0));
-        private static readonly IBrush UnavailableForeground = new SolidColorBrush(Color.FromRgb(139, 0, 0));
+        internal static readonly IBrush EqualBackground = new ImmutableSolidColorBrush(Color.FromRgb(255, 255, 255));
+        private static readonly IBrush CloseEnoughBackground = new ImmutableSolidColorBrush(Color.FromRgb(240, 230, 140));
+        private static readonly IBrush DifferentBackground = new ImmutableSolidColorBrush(Color.FromRgb(255, 192, 203));
+        private static readonly IBrush AvailableForeground = new ImmutableSolidColorBrush(Color.FromRgb(0, 0, 0));
+        private static readonly IBrush UnavailableForeground = new ImmutableSolidColorBrush(Color.FromRgb(139, 0, 0));
 
         private readonly ComboBox leftPresetSelectionBox;
         private readonly ComboBox rightPresetSelectionBox;

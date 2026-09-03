@@ -14,6 +14,7 @@ using Foreman.Mac;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
+using Foreman.Mac.ViewModels;
 using Foreman.Models;
 using SkiaSharp;
 using System;
@@ -142,6 +143,10 @@ namespace Foreman.Mac.Views {
 
         public SettingsWindowOptions Options { get; }
 
+        //Graph Options tab and Enabled Objects lists (Task 6) - Presets-tab orchestration stays in this
+        //code-behind since it needs window services (dialogs, preset-list rebuilds).
+        public SettingsViewModel ViewModel { get; }
+
         //Injectable seam for "Load from save" (mirrors MainWindow.SettingsService): defaults to the real
         //settings.json when unset, so tests can point it at a temp-directory-scoped instance instead.
         public SettingsService? SettingsService { get; set; }
@@ -156,6 +161,8 @@ namespace Foreman.Mac.Views {
         public SettingsWindow(SettingsWindowOptions options) {
             InitializeComponent();
             Options = options;
+            ViewModel = new SettingsViewModel();
+            DataContext = ViewModel;
 
             currentPresetLabel = this.FindControl<TextBlock>("CurrentPresetLabel")!;
             modSelectionBox = this.FindControl<ListBox>("ModSelectionBox")!;
@@ -241,11 +248,6 @@ namespace Foreman.Mac.Views {
             confirmButton.Click += (_, _) => ApplyConfirm();
             cancelButton.Click += (_, _) => ApplyCancel();
 
-            //TextChanging (not TextChanged) - TextChanged defers via Dispatcher.UIThread.Post (see
-            //EditFlowPanel's equivalent comment), TextChanging fires synchronously per keystroke, matching
-            //upstream's immediate per-keystroke Filters_Changed (reference SettingsForm.cs:338-340).
-            filterTextBox.TextChanging += (_, _) => UpdateFilteredLists();
-            showUnavailablesFilterCheckBox.IsCheckedChanged += (_, _) => UpdateFilteredLists();
             loadEnabledFromSaveButton.Click += (_, _) => Async.Fire(ShowLoadFromSaveAsync(), nameof(ShowLoadFromSaveAsync));
             setEnabledFromSciencePacksButton.Click += (_, _) => Async.Fire(ShowAssignFromSciencePacksAsync(), nameof(ShowAssignFromSciencePacksAsync));
             enableAllButton.Click += (_, _) => EnableAll();
@@ -253,106 +255,84 @@ namespace Foreman.Mac.Views {
             foreach (ListBox list in AllListViews)
                 WireSelectAllShortcut(list);
 
-            LoadGraphOptionsTab();
+            assemblerSelectorStyleDropDown.ItemsSource = AssemblerSelector.StyleNames;
+            moduleSelectorStyleDropDown.ItemsSource = ModuleSelector.StyleNames;
+            ViewModel.LoadFrom(BuildGraphOptionsSnapshot());
 
             UpdateModList();
             LoadUnfilteredLists();
         }
 
-        //Ports the Graph Options tab's constructor read (reference SettingsForm.cs:121-174): seeds every
-        //widget from Options once, up front - Confirm/preset-switch commits go back through
-        //CommitPendingChanges below, matching upstream's constructor-read / UpdateSettings-write split.
-        private void LoadGraphOptionsTab() {
-            qualityStepsInput.Value = Options.QualitySteps;
-
-            switch (Options.LevelOfDetail) {
-                case LevelOfDetail.Low:
-                    lowLodRadioButton.IsChecked = true;
-                    break;
-                case LevelOfDetail.High:
-                    highLodRadioButton.IsChecked = true;
-                    break;
-                default:
-                    mediumLodRadioButton.IsChecked = true;
-                    break;
-            }
-            nodeCountForSimpleViewInput.Value = Math.Min(nodeCountForSimpleViewInput.Maximum, Options.NodeCountForSimpleView);
-            iconsSizeInput.Value = Options.IconsOnlyIconSize;
-
-            arrowsOnLinksCheckBox.IsChecked = Options.ArrowsOnLinks;
-            simplePassthroughNodesCheckBox.IsChecked = Options.SimplePassthroughNodes;
-            dynamicLWCheckBox.IsChecked = Options.DynamicLinkWidth;
-            abbreviateSciPackCheckBox.IsChecked = Options.AbbreviateSciPacks;
-            showNodeRecipeCheckBox.IsChecked = Options.ShowRecipeToolTip;
-            roundAssemblerCountCheckBox.IsChecked = Options.RoundAssemblerCount;
-            recipeEditPanelPositionLockCheckBox.IsChecked = Options.LockedRecipeEditPanelPosition;
-            flagOUSupplyNodesCheckBox.IsChecked = Options.FlagOUSuppliedNodes;
-            flagDarkModeCheckBox.IsChecked = Options.FlagDarkMode == ThemeMode.Dark;
-
-            errorArrowsCheckBox.IsChecked = Options.ShowErrorArrows;
-            warningArrowsCheckBox.IsChecked = Options.ShowWarningArrows;
-            disconnectedArrowsCheckBox.IsChecked = Options.ShowDisconnectedArrows;
-            ouSuppliedArrowsCheckBox.IsChecked = Options.ShowOUSuppliedArrows;
-
-            nodeDirectionDropDown.SelectedIndex = Options.DefaultNodeDirection == NodeDirection.Down ? 1 : 0;
-            smartNodeDirectionCheckBox.IsChecked = Options.SmartNodeDirection;
-
-            assemblerSelectorStyleDropDown.ItemsSource = AssemblerSelector.StyleNames;
-            assemblerSelectorStyleDropDown.SelectedIndex = (int)Options.DefaultAssemblerStyle;
-            moduleSelectorStyleDropDown.ItemsSource = ModuleSelector.StyleNames;
-            moduleSelectorStyleDropDown.SelectedIndex = (int)Options.DefaultModuleStyle;
-
-            showProductivityBonusOnAllCheckBox.IsChecked = Options.EnableExtraProductivityForNonMiners;
-            showUnavailablesCheckBox.IsChecked = Options.DevShowUnavailableItems;
-            loadBarrelingCheckBox.IsChecked = !Options.DevUseRecipeBWFilters;
-
-            lowPriorityPowerInput.Value = Math.Min(lowPriorityPowerInput.Maximum, Options.SolverLowPriorityPower);
-            pullConsumerNodesCheckBox.IsChecked = Options.SolverPullConsumerNodes;
-            pullConsumerNodesPowerInput.Value = Math.Min(pullConsumerNodesPowerInput.Maximum, Options.SolverPullConsumerNodesPower);
-        }
+        //Ports the Graph Options tab's constructor read (reference SettingsForm.cs:121-174): translates
+        //Options into the AppSettings shape SettingsViewModel.LoadFrom/ApplyTo round-trips against, since
+        //Options is this window's own boundary type (populated by MainWindow from live graph/viewer state,
+        //not from AppSettings directly).
+        private AppSettings BuildGraphOptionsSnapshot() => new() {
+            QualitySteps = (int)Options.QualitySteps,
+            LevelOfDetail = (int)Options.LevelOfDetail,
+            NodeCountForSimpleView = Options.NodeCountForSimpleView,
+            IconsSize = Options.IconsOnlyIconSize,
+            ArrowsOnLinks = Options.ArrowsOnLinks,
+            SimplePassthroughNodes = Options.SimplePassthroughNodes,
+            DynamicLineWidth = Options.DynamicLinkWidth,
+            AbbreviateSciPacks = Options.AbbreviateSciPacks,
+            ShowRecipeToolTip = Options.ShowRecipeToolTip,
+            RoundAssemblerCount = Options.RoundAssemblerCount,
+            LockedRecipeEditorPosition = Options.LockedRecipeEditPanelPosition,
+            FlagOUSuppliedNodes = Options.FlagOUSuppliedNodes,
+            FlagDarkMode = Options.FlagDarkMode,
+            ShowErrorArrows = Options.ShowErrorArrows,
+            ShowWarningArrows = Options.ShowWarningArrows,
+            ShowDisconnectedArrows = Options.ShowDisconnectedArrows,
+            ShowOUSuppliedArrows = Options.ShowOUSuppliedArrows,
+            DefaultAssemblerOption = Options.DefaultAssemblerStyle,
+            DefaultModuleOption = Options.DefaultModuleStyle,
+            DefaultNodeDirection = Options.DefaultNodeDirection,
+            SmartNodeDirection = Options.SmartNodeDirection,
+            EnableExtraProductivityForNonMiners = Options.EnableExtraProductivityForNonMiners,
+            ShowUnavailable = Options.DevShowUnavailableItems,
+            UseRecipeBWfilters = Options.DevUseRecipeBWFilters,
+            LowPriorityPower = Options.SolverLowPriorityPower,
+            PullConsumerNodes = Options.SolverPullConsumerNodes,
+            PullConsumerNodesPower = Options.SolverPullConsumerNodesPower,
+        };
 
         //Ports UpdateSettings' Graph Options half (reference SettingsForm.cs:429-475): every widget on this
         //tab writes back into Options only from here, called by CommitPendingChanges below - never live-on-
-        //click (that's Enabled Objects' own membership toggle, reference §5).
+        //click (that's Enabled Objects' own membership toggle, reference §5). Routes through
+        //SettingsViewModel.ApplyTo and back through the same AppSettings-shaped snapshot LoadFrom above
+        //reads from.
         private void CommitGraphOptionsTab() {
-            Options.QualitySteps = (uint)qualityStepsInput.Value.GetValueOrDefault();
+            var snapshot = new AppSettings();
+            ViewModel.ApplyTo(snapshot);
 
-            Options.LevelOfDetail = lowLodRadioButton.IsChecked == true ? LevelOfDetail.Low
-                : highLodRadioButton.IsChecked == true ? LevelOfDetail.High
-                : LevelOfDetail.Medium;
-            Options.NodeCountForSimpleView = (int)nodeCountForSimpleViewInput.Value.GetValueOrDefault();
-            Options.IconsOnlyIconSize = (int)iconsSizeInput.Value.GetValueOrDefault();
-
-            Options.ArrowsOnLinks = arrowsOnLinksCheckBox.IsChecked == true;
-            Options.SimplePassthroughNodes = simplePassthroughNodesCheckBox.IsChecked == true;
-            Options.DynamicLinkWidth = dynamicLWCheckBox.IsChecked == true;
-            Options.AbbreviateSciPacks = abbreviateSciPackCheckBox.IsChecked == true;
-            Options.ShowRecipeToolTip = showNodeRecipeCheckBox.IsChecked == true;
-            Options.RoundAssemblerCount = roundAssemblerCountCheckBox.IsChecked == true;
-            Options.LockedRecipeEditPanelPosition = recipeEditPanelPositionLockCheckBox.IsChecked == true;
-            Options.FlagOUSuppliedNodes = flagOUSupplyNodesCheckBox.IsChecked == true;
-            //Upstream's checkbox is binary (MainForm.cs:36-46: checked -> SetDarkMode, unchecked -> SetLightMode,
-            //no OS-follow option) - unchecked must force Light, not System, or an OS already in dark appearance
-            //leaves the app dark despite the user unchecking the box.
-            Options.FlagDarkMode = flagDarkModeCheckBox.IsChecked == true ? ThemeMode.Dark : ThemeMode.Light;
-
-            Options.ShowErrorArrows = errorArrowsCheckBox.IsChecked == true;
-            Options.ShowWarningArrows = warningArrowsCheckBox.IsChecked == true;
-            Options.ShowDisconnectedArrows = disconnectedArrowsCheckBox.IsChecked == true;
-            Options.ShowOUSuppliedArrows = ouSuppliedArrowsCheckBox.IsChecked == true;
-
-            Options.DefaultAssemblerStyle = (AssemblerSelector.Style)assemblerSelectorStyleDropDown.SelectedIndex;
-            Options.DefaultModuleStyle = (ModuleSelector.Style)moduleSelectorStyleDropDown.SelectedIndex;
-            Options.DefaultNodeDirection = nodeDirectionDropDown.SelectedIndex == 1 ? NodeDirection.Down : NodeDirection.Up;
-            Options.SmartNodeDirection = smartNodeDirectionCheckBox.IsChecked == true;
-
-            Options.EnableExtraProductivityForNonMiners = showProductivityBonusOnAllCheckBox.IsChecked == true;
-            Options.DevShowUnavailableItems = showUnavailablesCheckBox.IsChecked == true;
-            Options.DevUseRecipeBWFilters = loadBarrelingCheckBox.IsChecked != true;
-
-            Options.SolverLowPriorityPower = lowPriorityPowerInput.Value.GetValueOrDefault();
-            Options.SolverPullConsumerNodes = pullConsumerNodesCheckBox.IsChecked == true;
-            Options.SolverPullConsumerNodesPower = pullConsumerNodesPowerInput.Value.GetValueOrDefault();
+            Options.QualitySteps = (uint)snapshot.QualitySteps;
+            Options.LevelOfDetail = (LevelOfDetail)snapshot.LevelOfDetail;
+            Options.NodeCountForSimpleView = snapshot.NodeCountForSimpleView;
+            Options.IconsOnlyIconSize = snapshot.IconsSize;
+            Options.ArrowsOnLinks = snapshot.ArrowsOnLinks;
+            Options.SimplePassthroughNodes = snapshot.SimplePassthroughNodes;
+            Options.DynamicLinkWidth = snapshot.DynamicLineWidth;
+            Options.AbbreviateSciPacks = snapshot.AbbreviateSciPacks;
+            Options.ShowRecipeToolTip = snapshot.ShowRecipeToolTip;
+            Options.RoundAssemblerCount = snapshot.RoundAssemblerCount;
+            Options.LockedRecipeEditPanelPosition = snapshot.LockedRecipeEditorPosition;
+            Options.FlagOUSuppliedNodes = snapshot.FlagOUSuppliedNodes;
+            Options.FlagDarkMode = snapshot.FlagDarkMode;
+            Options.ShowErrorArrows = snapshot.ShowErrorArrows;
+            Options.ShowWarningArrows = snapshot.ShowWarningArrows;
+            Options.ShowDisconnectedArrows = snapshot.ShowDisconnectedArrows;
+            Options.ShowOUSuppliedArrows = snapshot.ShowOUSuppliedArrows;
+            Options.DefaultAssemblerStyle = snapshot.DefaultAssemblerOption;
+            Options.DefaultModuleStyle = snapshot.DefaultModuleOption;
+            Options.DefaultNodeDirection = snapshot.DefaultNodeDirection;
+            Options.SmartNodeDirection = snapshot.SmartNodeDirection;
+            Options.EnableExtraProductivityForNonMiners = snapshot.EnableExtraProductivityForNonMiners;
+            Options.DevShowUnavailableItems = snapshot.ShowUnavailable;
+            Options.DevUseRecipeBWFilters = snapshot.UseRecipeBWfilters;
+            Options.SolverLowPriorityPower = snapshot.LowPriorityPower;
+            Options.SolverPullConsumerNodes = snapshot.PullConsumerNodes;
+            Options.SolverPullConsumerNodesPower = snapshot.PullConsumerNodesPower;
         }
 
         private IEnumerable<ListBox> AllListViews {
@@ -395,7 +375,8 @@ namespace Foreman.Mac.Views {
                 if (item.DataObject is IRecipe recipe)
                     item.TooltipContent = new Image { Source = BakeRecipeTooltip(recipe) };
 
-            UpdateFilteredLists();
+            ViewModel.LoadUnfilteredLists(unfilteredAssemblerList, unfilteredMinerList, unfilteredPowerList,
+                unfilteredBeaconList, unfilteredModuleList, unfilteredRecipeList, unfilteredQualityList);
         }
 
         private void LoadUnfilteredList<T>(IEnumerable<T> origin, List<EnabledObjectsListItem> destination, ListBox list, bool sortByQualityOrder = false) where T : IDataObjectBase {
@@ -465,28 +446,6 @@ namespace Foreman.Mac.Views {
                 new PixelSize(pixmap.Info.Width, pixmap.Info.Height), new Vector(96, 96), pixmap.RowBytes);
         }
 
-        //Ports UpdateFilteredList (reference SettingsForm.cs:242-255): reassigning ItemsSource each call
-        //(rather than upstream's Clear+AddRange into a fixed VirtualListSize) sidesteps that WinForms
-        //virtual-mode bookkeeping entirely - Avalonia's ItemsSource swap is inherently consistent.
-        private void UpdateFilteredLists() {
-            assemblerListView.ItemsSource = FilterList(unfilteredAssemblerList);
-            minerListView.ItemsSource = FilterList(unfilteredMinerList);
-            powerListView.ItemsSource = FilterList(unfilteredPowerList);
-            beaconListView.ItemsSource = FilterList(unfilteredBeaconList);
-            moduleListView.ItemsSource = FilterList(unfilteredModuleList);
-            recipeListView.ItemsSource = FilterList(unfilteredRecipeList);
-            qualityListView.ItemsSource = FilterList(unfilteredQualityList);
-        }
-
-        private List<EnabledObjectsListItem> FilterList(List<EnabledObjectsListItem> unfiltered) {
-            string filter = filterTextBox.Text ?? "";
-            bool showUnavailables = showUnavailablesFilterCheckBox.IsChecked ?? false;
-
-            return [.. unfiltered.Where(item =>
-                (showUnavailables || item.DataObject.Available) &&
-                (string.IsNullOrEmpty(filter) || item.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)))];
-        }
-
         //Ports EnableAllButton_Click (reference SettingsForm.cs:559-580) verbatim.
         private void EnableAll() {
             Options.EnabledObjects.Clear();
@@ -514,7 +473,7 @@ namespace Foreman.Mac.Views {
                 foreach (EnabledObjectsListItem item in list)
                     item.IsChecked = Options.EnabledObjects.Contains(item.DataObject);
 
-            UpdateFilteredLists();
+            ViewModel.RefreshFilteredLists();
         }
 
         //Ports ListView_KeyDown's Ctrl+A (reference SettingsForm.cs:344-347), Cmd on macOS/Ctrl on Linux

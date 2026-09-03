@@ -1,4 +1,5 @@
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Media.Imaging;
 using Foreman.DataCaching.DataTypes;
 using System.ComponentModel;
@@ -9,13 +10,13 @@ namespace Foreman.Mac.Views {
     //mirrors ListViewItem.Checked and raises change notification so a bound CheckBox reflects updates
     //the row itself didn't make (Enable All).
     public sealed class EnabledObjectsListItem : INotifyPropertyChanged {
-        private static readonly IBrush AvailableBrush = new SolidColorBrush(Color.FromRgb(255, 255, 255));
-        private static readonly IBrush UnavailableBrush = new SolidColorBrush(Color.FromRgb(255, 192, 203));
+        private static readonly IBrush AvailableBrush = new ImmutableSolidColorBrush(Color.FromRgb(255, 255, 255));
+        private static readonly IBrush UnavailableBrush = new ImmutableSolidColorBrush(Color.FromRgb(255, 192, 203));
 
         //Both row backgrounds are light regardless of app theme, so the row text needs an explicit dark
         //Foreground too - the live Fluent dark theme's default TextBlock foreground is white, which is
         //invisible on either background otherwise.
-        private static readonly IBrush ForegroundBrush = new SolidColorBrush(Color.FromRgb(0, 0, 0));
+        private static readonly IBrush ForegroundBrush = new ImmutableSolidColorBrush(Color.FromRgb(0, 0, 0));
 
         public event PropertyChangedEventHandler? PropertyChanged;
 

@@ -1,8 +1,10 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:v="using:Foreman.Mac.Views"
+        xmlns:vm="using:Foreman.Mac.ViewModels"
         xmlns:p="using:Foreman"
         x:Class="Foreman.Mac.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
         Title="Settings"
         Width="680"
         Height="540"
@@ -74,13 +76,13 @@
             <Button Name="EnableAllButton" Content="Enable All" HorizontalAlignment="Stretch" />
             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0">
               <TextBlock Grid.Row="0" Grid.Column="0" Text="Filter:" VerticalAlignment="Center" Margin="0,0,4,0" />
-              <TextBox Name="FilterTextBox" Grid.Row="0" Grid.Column="1" />
-              <CheckBox Name="ShowUnavailablesFilterCheckBox" Grid.Row="1" Grid.Column="1" Content="Show Unavailables" Margin="0,4,0,0" />
+              <TextBox Name="FilterTextBox" Grid.Row="0" Grid.Column="1" Text="{Binding FilterText, Mode=TwoWay}" />
+              <CheckBox Name="ShowUnavailablesFilterCheckBox" Grid.Row="1" Grid.Column="1" Content="Show Unavailables" Margin="0,4,0,0" IsChecked="{Binding ShowUnavailablesFilterChecked, Mode=TwoWay}" />
             </Grid>
           </StackPanel>
           <TabControl Name="EnabledObjectsTabControl" Margin="0,8,0,0">
             <TabItem Header="Assemblers">
-              <ListBox Name="AssemblerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+              <ListBox Name="AssemblerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding AssemblerObjects}">
                 <ListBox.ItemsPanel>
                   <ItemsPanelTemplate>
                     <VirtualizingStackPanel />
@@ -89,7 +91,7 @@
               </ListBox>
             </TabItem>
             <TabItem Header="Miners">
-              <ListBox Name="MinerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+              <ListBox Name="MinerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding MinerObjects}">
                 <ListBox.ItemsPanel>
                   <ItemsPanelTemplate>
                     <VirtualizingStackPanel />
@@ -98,7 +100,7 @@
               </ListBox>
             </TabItem>
             <TabItem Header="Power">
-              <ListBox Name="PowerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+              <ListBox Name="PowerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding PowerObjects}">
                 <ListBox.ItemsPanel>
                   <ItemsPanelTemplate>
                     <VirtualizingStackPanel />
@@ -107,7 +109,7 @@
               </ListBox>
             </TabItem>
             <TabItem Header="Beacons">
-              <ListBox Name="BeaconListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+              <ListBox Name="BeaconListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding BeaconObjects}">
                 <ListBox.ItemsPanel>
                   <ItemsPanelTemplate>
                     <VirtualizingStackPanel />
@@ -116,7 +118,7 @@
               </ListBox>
             </TabItem>
             <TabItem Header="Modules">
-              <ListBox Name="ModuleListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+              <ListBox Name="ModuleListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding ModuleObjects}">
                 <ListBox.ItemsPanel>
                   <ItemsPanelTemplate>
                     <VirtualizingStackPanel />
@@ -125,7 +127,7 @@
               </ListBox>
             </TabItem>
             <TabItem Header="Recipes">
-              <ListBox Name="RecipeListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+              <ListBox Name="RecipeListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding RecipeObjects}">
                 <ListBox.ItemsPanel>
                   <ItemsPanelTemplate>
                     <VirtualizingStackPanel />
@@ -134,7 +136,7 @@
               </ListBox>
             </TabItem>
             <TabItem Header="Qualities">
-              <ListBox Name="QualityListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}">
+              <ListBox Name="QualityListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding QualityObjects}">
                 <ListBox.ItemsPanel>
                   <ItemsPanelTemplate>
                     <VirtualizingStackPanel />
@@ -152,7 +154,7 @@
               <TextBlock Text="Graph Options" FontWeight="Bold" />
               <Grid ColumnDefinitions="Auto,Auto">
                 <TextBlock Grid.Column="0" Text="Maximum Quality Steps" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <NumericUpDown Name="QualityStepsInput" Grid.Column="1" Minimum="1" Maximum="20" Increment="1" FormatString="0" Width="110" />
+                <NumericUpDown Name="QualityStepsInput" Grid.Column="1" Minimum="1" Maximum="20" Increment="1" FormatString="0" Width="110" Value="{Binding QualityStepsValue, Mode=TwoWay}" />
               </Grid>
             </StackPanel>
 
@@ -160,73 +162,73 @@
               <TextBlock Text="Node Graphics:" FontWeight="Bold" />
               <Grid ColumnDefinitions="Auto,Auto,Auto,Auto">
                 <TextBlock Grid.Column="0" Text="Level of detail:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <RadioButton Name="LowLodRadioButton" Grid.Column="1" GroupName="LevelOfDetail" Content="Low" />
-                <RadioButton Name="MediumLodRadioButton" Grid.Column="2" GroupName="LevelOfDetail" Content="Med" />
-                <RadioButton Name="HighLodRadioButton" Grid.Column="3" GroupName="LevelOfDetail" Content="High" />
+                <RadioButton Name="LowLodRadioButton" Grid.Column="1" GroupName="LevelOfDetail" Content="Low" IsChecked="{Binding LowLodChecked, Mode=TwoWay}" />
+                <RadioButton Name="MediumLodRadioButton" Grid.Column="2" GroupName="LevelOfDetail" Content="Med" IsChecked="{Binding MediumLodChecked, Mode=TwoWay}" />
+                <RadioButton Name="HighLodRadioButton" Grid.Column="3" GroupName="LevelOfDetail" Content="High" IsChecked="{Binding HighLodChecked, Mode=TwoWay}" />
               </Grid>
               <Grid ColumnDefinitions="Auto,Auto">
                 <TextBlock Grid.Column="0" Text="Maximum number of graphical objects:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <NumericUpDown Name="NodeCountForSimpleViewInput" Grid.Column="1" Minimum="0" Maximum="2000" Increment="25" FormatString="0" Width="130" />
+                <NumericUpDown Name="NodeCountForSimpleViewInput" Grid.Column="1" Minimum="0" Maximum="2000" Increment="25" FormatString="0" Width="130" Value="{Binding NodeCountForSimpleViewValue, Mode=TwoWay}" />
               </Grid>
               <Grid ColumnDefinitions="Auto,Auto">
                 <TextBlock Grid.Column="0" Text="Icon Size in icon view:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <NumericUpDown Name="IconsSizeInput" Grid.Column="1" Minimum="8" Maximum="256" Increment="1" FormatString="0" Width="110" />
+                <NumericUpDown Name="IconsSizeInput" Grid.Column="1" Minimum="8" Maximum="256" Increment="1" FormatString="0" Width="110" Value="{Binding IconsSizeValue, Mode=TwoWay}" />
               </Grid>
-              <CheckBox Name="ArrowsOnLinksCheckBox" Content="Draw arrows to show direction on link lines (non-dynamic link-width)" />
-              <CheckBox Name="DynamicLWCheckBox" Content="Dynamic link-width" />
-              <CheckBox Name="AbbreviateSciPackCheckBox" Content="Abbreviate science packs" />
-              <CheckBox Name="ShowNodeRecipeCheckBox" Content="Show recipe tool tip" />
-              <CheckBox Name="RoundAssemblerCountCheckBox" Content="Round building count" />
-              <CheckBox Name="RecipeEditPanelPositionLockCheckBox" Content="Lock recipe editor to top left corner" />
-              <CheckBox Name="FlagOUSupplyNodesCheckBox" Content="Flag over or under supplied nodes" />
-              <CheckBox Name="FlagDarkModeCheckBox" Content="Enable Dark Mode" />
+              <CheckBox Name="ArrowsOnLinksCheckBox" Content="Draw arrows to show direction on link lines (non-dynamic link-width)" IsChecked="{Binding ArrowsOnLinksChecked, Mode=TwoWay}" />
+              <CheckBox Name="DynamicLWCheckBox" Content="Dynamic link-width" IsChecked="{Binding DynamicLWChecked, Mode=TwoWay}" />
+              <CheckBox Name="AbbreviateSciPackCheckBox" Content="Abbreviate science packs" IsChecked="{Binding AbbreviateSciPackChecked, Mode=TwoWay}" />
+              <CheckBox Name="ShowNodeRecipeCheckBox" Content="Show recipe tool tip" IsChecked="{Binding ShowNodeRecipeChecked, Mode=TwoWay}" />
+              <CheckBox Name="RoundAssemblerCountCheckBox" Content="Round building count" IsChecked="{Binding RoundAssemblerCountChecked, Mode=TwoWay}" />
+              <CheckBox Name="RecipeEditPanelPositionLockCheckBox" Content="Lock recipe editor to top left corner" IsChecked="{Binding RecipeEditPanelPositionLockChecked, Mode=TwoWay}" />
+              <CheckBox Name="FlagOUSupplyNodesCheckBox" Content="Flag over or under supplied nodes" IsChecked="{Binding FlagOUSupplyNodesChecked, Mode=TwoWay}" />
+              <CheckBox Name="FlagDarkModeCheckBox" Content="Enable Dark Mode" IsChecked="{Binding FlagDarkModeChecked, Mode=TwoWay}" />
             </StackPanel>
 
             <StackPanel Spacing="4">
               <TextBlock Text="Guide-Arrows:" FontWeight="Bold" />
-              <CheckBox Name="ErrorArrowsCheckBox" Content="Display arrows pointing to any node errors" />
-              <CheckBox Name="WarningArrowsCheckBox" Content="Display arrows pointing to any node warnings" />
-              <CheckBox Name="DisconnectedArrowsCheckBox" Content="Display arrows pointing to any node with missing links" />
-              <CheckBox Name="OUSuppliedArrowsCheckBox" Content="Display arrows pointing to any under-supplied or over-producing node" />
+              <CheckBox Name="ErrorArrowsCheckBox" Content="Display arrows pointing to any node errors" IsChecked="{Binding ErrorArrowsChecked, Mode=TwoWay}" />
+              <CheckBox Name="WarningArrowsCheckBox" Content="Display arrows pointing to any node warnings" IsChecked="{Binding WarningArrowsChecked, Mode=TwoWay}" />
+              <CheckBox Name="DisconnectedArrowsCheckBox" Content="Display arrows pointing to any node with missing links" IsChecked="{Binding DisconnectedArrowsChecked, Mode=TwoWay}" />
+              <CheckBox Name="OUSuppliedArrowsCheckBox" Content="Display arrows pointing to any under-supplied or over-producing node" IsChecked="{Binding OuSuppliedArrowsChecked, Mode=TwoWay}" />
             </StackPanel>
 
             <StackPanel Spacing="4">
               <TextBlock Text="Defaults" FontWeight="Bold" />
               <Grid ColumnDefinitions="Auto,Auto">
                 <TextBlock Grid.Column="0" Text="Assemblers:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <ComboBox Name="AssemblerSelectorStyleDropDown" Grid.Column="1" Width="200" />
+                <ComboBox Name="AssemblerSelectorStyleDropDown" Grid.Column="1" Width="200" SelectedIndex="{Binding AssemblerSelectorStyleIndex, Mode=TwoWay}" />
               </Grid>
               <Grid ColumnDefinitions="Auto,Auto">
                 <TextBlock Grid.Column="0" Text="Modules:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <ComboBox Name="ModuleSelectorStyleDropDown" Grid.Column="1" Width="200" />
+                <ComboBox Name="ModuleSelectorStyleDropDown" Grid.Column="1" Width="200" SelectedIndex="{Binding ModuleSelectorStyleIndex, Mode=TwoWay}" />
               </Grid>
               <Grid ColumnDefinitions="Auto,Auto,Auto">
                 <TextBlock Grid.Column="0" Text="Node Direction:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <ComboBox Name="NodeDirectionDropDown" Grid.Column="1" Width="140">
+                <ComboBox Name="NodeDirectionDropDown" Grid.Column="1" Width="140" SelectedIndex="{Binding NodeDirectionIndex, Mode=TwoWay}">
                   <ComboBoxItem Content="Up (default)" />
                   <ComboBoxItem Content="Down" />
                 </ComboBox>
-                <CheckBox Name="SmartNodeDirectionCheckBox" Grid.Column="2" Content="Smart Direction" Margin="8,0,0,0" />
+                <CheckBox Name="SmartNodeDirectionCheckBox" Grid.Column="2" Content="Smart Direction" Margin="8,0,0,0" IsChecked="{Binding SmartNodeDirectionChecked, Mode=TwoWay}" />
               </Grid>
-              <CheckBox Name="SimplePassthroughNodesCheckBox" Content="Use simple-draw passthrough nodes as default" />
+              <CheckBox Name="SimplePassthroughNodesCheckBox" Content="Use simple-draw passthrough nodes as default" IsChecked="{Binding SimplePassthroughNodesChecked, Mode=TwoWay}" />
             </StackPanel>
 
             <StackPanel Spacing="4">
               <TextBlock Text="Advanced" FontWeight="Bold" />
-              <CheckBox Name="ShowProductivityBonusOnAllCheckBox" Content="Enable extra productivity bonus for all entities (instead of only miners)" />
-              <CheckBox Name="ShowUnavailablesCheckBox" Content="Show unavailable items (DEV)" />
-              <CheckBox Name="LoadBarrelingCheckBox" Content="Load barreling &amp; crating recipes (DEV)" />
+              <CheckBox Name="ShowProductivityBonusOnAllCheckBox" Content="Enable extra productivity bonus for all entities (instead of only miners)" IsChecked="{Binding ShowProductivityBonusOnAllChecked, Mode=TwoWay}" />
+              <CheckBox Name="ShowUnavailablesCheckBox" Content="Show unavailable items (DEV)" IsChecked="{Binding ShowUnavailablesChecked, Mode=TwoWay}" />
+              <CheckBox Name="LoadBarrelingCheckBox" Content="Load barreling &amp; crating recipes (DEV)" IsChecked="{Binding LoadBarrelingChecked, Mode=TwoWay}" />
             </StackPanel>
 
             <StackPanel Spacing="4">
               <TextBlock Text="Advanced (Solver options)" FontWeight="Bold" />
               <Grid ColumnDefinitions="Auto,Auto">
                 <TextBlock Grid.Column="0" Text="Low priority multiplier   (10^n, 2 default):" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <NumericUpDown Name="LowPriorityPowerInput" Grid.Column="1" Minimum="1" Maximum="6" Increment="0.2" FormatString="0.0" Width="160" />
+                <NumericUpDown Name="LowPriorityPowerInput" Grid.Column="1" Minimum="1" Maximum="6" Increment="0.2" FormatString="0.0" Width="160" Value="{Binding LowPriorityPowerValue, Mode=TwoWay}" />
               </Grid>
               <Grid ColumnDefinitions="Auto,Auto">
-                <CheckBox Name="PullConsumerNodesCheckBox" Grid.Column="0" Content="Maximize output nodes:   Power (10^n):" />
-                <NumericUpDown Name="PullConsumerNodesPowerInput" Grid.Column="1" Minimum="0" Maximum="5" Increment="0.1" FormatString="0.0" Width="160" />
+                <CheckBox Name="PullConsumerNodesCheckBox" Grid.Column="0" Content="Maximize output nodes:   Power (10^n):" IsChecked="{Binding PullConsumerNodesChecked, Mode=TwoWay}" />
+                <NumericUpDown Name="PullConsumerNodesPowerInput" Grid.Column="1" Minimum="0" Maximum="5" Increment="0.1" FormatString="0.0" Width="160" Value="{Binding PullConsumerNodesPowerValue, Mode=TwoWay}" />
               </Grid>
             </StackPanel>
           </StackPanel>

@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
@@ -35,13 +36,13 @@ namespace Foreman.Mac.Views {
             public double Consumption { get; set; } = c;
         }
 
-        private static readonly IBrush AvailableRowBrush = new SolidColorBrush(Color.FromRgb(255, 255, 255));
-        private static readonly IBrush UnavailableRowBrush = new SolidColorBrush(Color.FromRgb(255, 192, 203));
+        private static readonly IBrush AvailableRowBrush = new ImmutableSolidColorBrush(Color.FromRgb(255, 255, 255));
+        private static readonly IBrush UnavailableRowBrush = new ImmutableSolidColorBrush(Color.FromRgb(255, 192, 203));
 
         //Both row backgrounds above are light regardless of app theme, so the row text needs an explicit
         //dark Foreground too - the live Fluent dark theme's default TextBlock foreground is white, which is
         //invisible on either background otherwise.
-        internal static readonly IBrush RowForegroundBrush = new SolidColorBrush(Color.FromRgb(0, 0, 0));
+        internal static readonly IBrush RowForegroundBrush = new ImmutableSolidColorBrush(Color.FromRgb(0, 0, 0));
         private static readonly Regex ComparerRegex = new(@"\d+", RegexOptions.Compiled);
 
         private readonly List<BuildingRow> unfilteredAssemblerList = [];

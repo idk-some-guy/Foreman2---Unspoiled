@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
@@ -43,8 +44,8 @@ namespace Foreman.Mac.Canvas.Panels {
         //solid-black chrome (this Border's own Background, below).
         internal static readonly Color SectionHeaderColor = Color.FromRgb(40, 40, 40);
         internal static readonly Color SectionBodyColor = Color.FromRgb(65, 65, 65);
-        private static readonly IBrush SectionHeaderBrush = new SolidColorBrush(SectionHeaderColor);
-        private static readonly IBrush SectionBodyBrush = new SolidColorBrush(SectionBodyColor);
+        private static readonly IBrush SectionHeaderBrush = new ImmutableSolidColorBrush(SectionHeaderColor);
+        private static readonly IBrush SectionBodyBrush = new ImmutableSolidColorBrush(SectionBodyColor);
 
         private readonly GraphViewer graphViewer;
         private readonly RecipeNodeController nodeController;
