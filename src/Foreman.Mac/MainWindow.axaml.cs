@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using CommunityToolkit.Mvvm.Input;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
@@ -12,6 +13,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
+using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using Foreman.Serialization;
 using System;
@@ -22,7 +24,7 @@ using System.Threading.Tasks;
 
 namespace Foreman.Mac {
     public partial class MainWindow : Window {
-        public ShellCommands Commands { get; }
+        public ShellViewModel Commands { get; }
         public ContentControl GraphViewerHost { get; }
         public GraphCanvasControl GraphCanvas { get; }
         public Foreman.DataCaching.DataCache? DataCache { get; set; }
@@ -76,7 +78,7 @@ namespace Foreman.Mac {
             GraphViewerHost = this.FindControl<ContentControl>("GraphViewerHost")!;
             GraphCanvas = new GraphCanvasControl();
             GraphViewerHost.Content = GraphCanvas;
-            Commands = new ShellCommands(
+            Commands = new ShellViewModel(
                 onNew: () => Async.Fire(NewGraphAsync(), nameof(NewGraphAsync)),
                 onLoad: () => Async.Fire(LoadGraphAsync(), nameof(LoadGraphAsync)),
                 onSave: () => Async.Fire(SaveGraphOrPromptAsync(), nameof(SaveGraphOrPromptAsync)),
@@ -909,19 +911,19 @@ namespace Foreman.Mac {
         }
 
         private void BindToolbarButtons() {
-            Bind("NewGraphButton", Commands.New);
-            Bind("LoadGraphButton", Commands.Load);
-            Bind("SaveButton", Commands.Save);
-            Bind("SaveAsGraphButton", Commands.SaveAs);
-            Bind("ImportGraphButton", Commands.Import);
-            Bind("ExportImageButton", Commands.ExportImage);
-            Bind("AddItemButton", Commands.AddItem);
-            Bind("AddRecipeButton", Commands.AddRecipe);
-            Bind("AutoconnectButton", Commands.Autoconnect);
-            Bind("SettingsButton", Commands.Settings);
-            Bind("HelpButton", Commands.Help);
-            Bind("GraphSummaryButton", Commands.GraphSummary);
-            Bind("AlignSelectionButton", Commands.AlignSelection);
+            Bind("NewGraphButton", Commands.NewCommand);
+            Bind("LoadGraphButton", Commands.LoadCommand);
+            Bind("SaveButton", Commands.SaveCommand);
+            Bind("SaveAsGraphButton", Commands.SaveAsCommand);
+            Bind("ImportGraphButton", Commands.ImportCommand);
+            Bind("ExportImageButton", Commands.ExportImageCommand);
+            Bind("AddItemButton", Commands.AddItemCommand);
+            Bind("AddRecipeButton", Commands.AddRecipeCommand);
+            Bind("AutoconnectButton", Commands.AutoconnectCommand);
+            Bind("SettingsButton", Commands.SettingsCommand);
+            Bind("HelpButton", Commands.HelpCommand);
+            Bind("GraphSummaryButton", Commands.GraphSummaryCommand);
+            Bind("AlignSelectionButton", Commands.AlignSelectionCommand);
         }
 
         //Ports GraphViewer_KeyDown's Space handler (reference §7): a separate subscription on the canvas
@@ -938,17 +940,17 @@ namespace Foreman.Mac {
             e.Handled = true;
         }
 
-        private void Bind(string buttonName, ShellCommand command) {
+        private void Bind(string buttonName, IRelayCommand command) {
             var button = this.FindControl<Button>(buttonName)!;
             button.Command = command;
-            button.IsEnabled = command.IsImplemented;
+            button.IsEnabled = command.CanExecute(null);
         }
 
         private NativeMenu BuildNativeMenu() {
             var appMenu = new NativeMenu {
                 Items = {
                     new NativeMenuItem("About Foreman 2") { IsEnabled = false },
-                    MenuItem("Settings", Commands.Settings),
+                    MenuItem("Settings", Commands.SettingsCommand),
                     new NativeMenuItemSeparator(),
                     QuitMenuItem(),
                 },
@@ -956,12 +958,12 @@ namespace Foreman.Mac {
 
             var fileMenu = new NativeMenu {
                 Items = {
-                    MenuItem("New", Commands.New, new KeyGesture(Key.N, PlatformModifiers.Primary)),
-                    MenuItem("Open", Commands.Load, new KeyGesture(Key.O, PlatformModifiers.Primary)),
-                    MenuItem("Save", Commands.Save, new KeyGesture(Key.S, PlatformModifiers.Primary)),
-                    MenuItem("Save As", Commands.SaveAs, new KeyGesture(Key.S, PlatformModifiers.Primary | KeyModifiers.Shift)),
-                    MenuItem("Import", Commands.Import),
-                    MenuItem("Export Image", Commands.ExportImage, new KeyGesture(Key.E, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    MenuItem("New", Commands.NewCommand, new KeyGesture(Key.N, PlatformModifiers.Primary)),
+                    MenuItem("Open", Commands.LoadCommand, new KeyGesture(Key.O, PlatformModifiers.Primary)),
+                    MenuItem("Save", Commands.SaveCommand, new KeyGesture(Key.S, PlatformModifiers.Primary)),
+                    MenuItem("Save As", Commands.SaveAsCommand, new KeyGesture(Key.S, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    MenuItem("Import", Commands.ImportCommand),
+                    MenuItem("Export Image", Commands.ExportImageCommand, new KeyGesture(Key.E, PlatformModifiers.Primary | KeyModifiers.Shift)),
                 },
             };
 
@@ -985,7 +987,7 @@ namespace Foreman.Mac {
                 },
             };
 
-            var helpMenu = new NativeMenu { Items = { MenuItem("Help / Git repo", Commands.Help) } };
+            var helpMenu = new NativeMenu { Items = { MenuItem("Help / Git repo", Commands.HelpCommand) } };
 
             return new NativeMenu {
                 Items = {
@@ -998,8 +1000,8 @@ namespace Foreman.Mac {
             };
         }
 
-        private static NativeMenuItem MenuItem(string header, ShellCommand command, KeyGesture? gesture = null) =>
-            new(header) { Command = command, IsEnabled = command.IsImplemented, Gesture = gesture };
+        private static NativeMenuItem MenuItem(string header, IRelayCommand command, KeyGesture? gesture = null) =>
+            new(header) { Command = command, IsEnabled = command.CanExecute(null), Gesture = gesture };
 
         private static NativeMenuItem QuitMenuItem() {
             var item = new NativeMenuItem("Quit Foreman 2") { Gesture = new KeyGesture(Key.Q, PlatformModifiers.Primary) };

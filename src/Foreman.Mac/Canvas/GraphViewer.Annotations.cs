@@ -189,8 +189,8 @@ namespace Foreman.Mac.Canvas {
 
         //Ports ImportAnnotationsWithOffset (reference §9): a fixed-offset counterpart to ImportAnnotationsAtOrigin
         //(upstream's Import Graph menu action uses this one, paste uses the centroid version above). Not wired
-        //to anything in this port yet - MainWindow's Import command is still an unimplemented ShellCommand
-        //stub (task 12/P5 scope), ported here so the clipboard/import pairing stays complete per the reference.
+        //to anything in this port yet - MainWindow's Import command is still an unimplemented stub
+        //(task 12/P5 scope), ported here so the clipboard/import pairing stays complete per the reference.
         public void ImportAnnotationsWithOffset(IReadOnlyList<Foreman.Serialization.AnnotationSaveData> annotations, Size offset) {
             foreach (Foreman.Serialization.AnnotationSaveData data in annotations) {
                 if (!AnnotationLoader.TryCreateAnnotationFromSave(data, dpiScale: 1f, out AnnotationElement? ann))

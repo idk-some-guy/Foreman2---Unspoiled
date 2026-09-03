@@ -449,7 +449,7 @@ namespace Foreman.Mac.UiTests {
             Assert.NotEmpty(window.GraphCanvas.Viewer.NodeElements);
             int redrawCountBeforeNew = window.GraphCanvas.RedrawRequestCount;
 
-            window.Commands.New.Execute(null);
+            window.Commands.NewCommand.Execute(null);
 
             Assert.Empty(window.GraphCanvas.Viewer.NodeElements);
             Assert.Same(window.GraphCanvas, window.GraphViewerHost.Content);
@@ -469,7 +469,7 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.FloatingPanelHost.Show(new Border { Width = 50, Height = 50, Focusable = true }, new System.Drawing.Point(0, 0));
             Assert.True(window.GraphCanvas.FloatingPanelHost.IsOpen);
 
-            window.Commands.New.Execute(null);
+            window.Commands.NewCommand.Execute(null);
 
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
         }
