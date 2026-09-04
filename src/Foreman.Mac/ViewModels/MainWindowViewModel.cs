@@ -22,6 +22,17 @@ namespace Foreman.Mac.ViewModels {
 
         public string VersionLabel { get; } = AppVersion.VersionedDisplay;
 
+        //Canvas selection lands here via SetSelection; Inspector.IsVisible folds pin/override/selection
+        //into one flag the sidebar binds against.
+        public InspectorViewModel Inspector { get; } = new();
+
+        public bool IsInspectorVisible => Inspector.IsVisible;
+
+        public bool IsInspectorPinned {
+            get => Inspector.IsPinned;
+            set => Inspector.IsPinned = value;
+        }
+
         //Task 8 (contract #toolbar's "Iron Plate Line — Edited"): the app name moved to the menu bar, the
         //titlebar shows only the document - CurrentFileName carries the save path, stripped to a bare name.
         public string DocumentTitle =>
@@ -40,6 +51,12 @@ namespace Foreman.Mac.ViewModels {
 
         public MainWindowViewModel() {
             ToggleViewOptionsCommand = new RelayCommand(() => IsViewOptionsOpen = !IsViewOptionsOpen);
+            Inspector.PropertyChanged += (_, e) => {
+                if (e.PropertyName == nameof(InspectorViewModel.IsVisible))
+                    OnPropertyChanged(nameof(IsInspectorVisible));
+                else if (e.PropertyName == nameof(InspectorViewModel.IsPinned))
+                    OnPropertyChanged(nameof(IsInspectorPinned));
+            };
         }
     }
 }

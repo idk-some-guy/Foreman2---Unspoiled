@@ -20,6 +20,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   to the menu bar's own zoom commands.
 - The Save button tints when the graph has unsaved changes, and Align Selected disables itself when
   nothing is selected.
+- An inspector view model tracking the canvas selection: it shows the Recipe or Flow segment for a
+  single node, a "N nodes selected" count for multiple, and stays visible when pinned or opened
+  from the menu even with nothing selected.
 
 ### Fixed
 
