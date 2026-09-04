@@ -228,4 +228,18 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Error}" />
   </Style>
 
+  <!-- InspectorGroup's title row (Task 6): flat, full-width, left-aligned like foreman-toolbar-wide -
+       clicking it (or Enter/Space while focused) toggles IsExpanded. -->
+  <Style Selector="Button.foreman-group-header">
+    <Setter Property="Padding" Value="4,2" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+  </Style>
+
+  <Style Selector="Button.foreman-group-header:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+  </Style>
+
 </Styles>

@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Foreman.Mac.ViewModels"
+             xmlns:insp="using:Foreman.Mac.Views.Inspector"
              x:Class="Foreman.Mac.Views.Inspector.InspectorView"
              x:DataType="vm:InspectorViewModel">
   <!-- IsVisible is driven from MainWindow.axaml.cs (ViewModel.IsInspectorVisible), not a binding here -
@@ -17,6 +18,13 @@
           <TextBlock Name="IdentityName" Classes="foreman-inspector-title" />
           <TextBlock Name="IdentitySubtitle" Classes="foreman-inspector-subtitle" />
         </StackPanel>
+        <Button Name="QualityButton" Content="Quality" IsVisible="False" VerticalAlignment="Center">
+          <Button.Flyout>
+            <Flyout Placement="Bottom">
+              <insp:PickGrid Name="QualityGrid" />
+            </Flyout>
+          </Button.Flyout>
+        </Button>
       </StackPanel>
 
       <!-- Recipe/Flow segment display - not interactive yet (task 4/5 wire switching); Refresh() in the

@@ -1,14 +1,23 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Foreman.DataCaching;
+using Foreman.DataCaching.DataTypes;
+using Foreman.DataCaching.Loading;
 using Foreman.Mac.Services;
+using Foreman.Mac.ViewModels;
+using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
+using Foreman.Models.Nodes;
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -68,6 +77,80 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             string expected = $"{recipe.SelectedAssembler.Assembler.FriendlyName} · {recipe.SelectedAssembler.Quality.FriendlyName}";
             Assert.Equal(expected, window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text);
+        }
+
+        //Migrates EditRecipePanelTests.cs's quality-selector coverage onto the identity row's own quality
+        //button: unlike that panel's default-only selector, a pick here writes straight through to the
+        //node's current assembler (RecipeSegmentViewModel.PickQuality), so the subtitle updates immediately.
+        [AvaloniaFact]
+        public void QualityButton_ListsQualitiesAndPickQuality_WritesThroughAndUpdatesSubtitle() {
+            DataCache cache = new(filterRecipes: true);
+            var normal = new QualityPrototype(cache, "normal", "Normal", "a");
+            var legendary = new QualityPrototype(cache, "legendary", "Legendary", "b") { Level = 1 };
+            FieldInfo storeField = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var store = (DataCacheStore)storeField.GetValue(cache)!;
+            store.Qualities[normal.Name] = normal;
+            store.Qualities[legendary.Name] = legendary;
+            store.DefaultQuality = normal;
+
+            var group = new GroupPrototype(cache, "production", "Production", "a");
+            store.Groups[group.Name] = group;
+            var subgroup = new SubgroupPrototype(cache, "production-sub", "a");
+            subgroup.MyGroupInternal = group;
+            group.SubgroupsInternal.Add(subgroup);
+            store.Subgroups[subgroup.Name] = subgroup;
+
+            var ore = new ItemPrototype(cache, "ore", "ore", subgroup, "a") { Available = true };
+            store.Items[ore.Name] = ore;
+            var plate = new ItemPrototype(cache, "plate", "plate", subgroup, "a") { Available = true };
+            store.Items[plate.Name] = plate;
+            var recipe = new RecipePrototype(cache, "smelt", "smelt", subgroup, "a") { Available = true, Time = 1 };
+            recipe.InternalOneWayAddIngredient(ore, 1);
+            ore.ConsumptionRecipesInternal.Add(recipe);
+            recipe.InternalOneWayAddProduct(plate, 1, 0);
+            plate.ProductionRecipesInternal.Add(recipe);
+            store.Recipes[recipe.Name] = recipe;
+
+            var electric = new AssemblerPrototype(cache, "electric-assembler", "Electric Furnace", EntityType.Assembler, EnergySource.Electric) { Available = true, Enabled = true };
+            recipe.AssemblersInternal.Add(electric);
+            electric.RecipesInternal.Add(recipe);
+
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.ApplyLoadedSettings();
+            window.GraphCanvas.Viewer.Context.DCache = cache;
+            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = normal;
+            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(new RecipeQualityPair(recipe, normal), new System.Drawing.Point(0, 0));
+            Dispatcher.UIThread.RunJobs();
+
+            var node = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.Session.View.Nodes.Single();
+            if (window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(node.Id) is not RecipeNodeController controller)
+                throw new Xunit.Sdk.XunitException("Recipe node has no controller.");
+            controller.SetAssembler(new AssemblerQualityPair(electric, normal));
+            window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
+
+            InspectorTestSupport.Select(window, node);
+
+            Button qualityButton = window.Inspector.FindControl<Button>("QualityButton")!;
+            Assert.True(qualityButton.IsVisible);
+            PickGrid qualityGrid = window.Inspector.FindControl<PickGrid>("QualityGrid")!;
+            Assert.Equal(2, qualityGrid.Items.Count);
+
+            qualityButton.Flyout!.ShowAt(qualityButton);
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+            Button legendaryCell = qualityGrid.GetVisualDescendants().OfType<Button>()
+                .Single(b => Equals((b.DataContext as PickGridItem)?.Key, legendary));
+            Point center = new(legendaryCell.Bounds.Width / 2, legendaryCell.Bounds.Height / 2);
+            Point screen = legendaryCell.TranslatePoint(center, window) ?? center;
+            window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(legendary, node.SelectedAssembler.Quality);
+            Assert.Equal($"{electric.FriendlyName} · {legendary.FriendlyName}", window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text);
         }
 
         [AvaloniaFact]

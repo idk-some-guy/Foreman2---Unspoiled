@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Layout;
 using Avalonia.Metadata;
 
 namespace Foreman.Mac.Views.Inspector {
@@ -19,6 +20,8 @@ namespace Foreman.Mac.Views.Inspector {
             AvaloniaProperty.Register<InspectorGroup, object?>(nameof(GroupContent));
 
         private readonly TextBlock titleText;
+        private readonly TextBlock disclosureGlyph;
+        private readonly Button headerButton;
         private readonly ContentPresenter contentHost;
 
         public string? Title {
@@ -37,25 +40,37 @@ namespace Foreman.Mac.Views.Inspector {
             set => SetValue(GroupContentProperty, value);
         }
 
+        //Title row is a real Button - pointer press/release and Enter/Space (when focused) both fire
+        //Click for free, toggling IsExpanded the same way.
         public InspectorGroup() {
             titleText = new TextBlock();
             titleText.Classes.Add("foreman-section-header");
+            disclosureGlyph = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+            disclosureGlyph.Classes.Add("foreman-caption");
+            var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Children = { disclosureGlyph, titleText } };
+            headerButton = new Button { Name = "GroupHeader", Content = headerRow, HorizontalAlignment = HorizontalAlignment.Left };
+            headerButton.Classes.Add("foreman-group-header");
+            headerButton.Click += (_, _) => IsExpanded = !IsExpanded;
             contentHost = new ContentPresenter();
-            Content = new StackPanel { Spacing = 4, Children = { titleText, contentHost } };
+            Content = new StackPanel { Spacing = 4, Children = { headerButton, contentHost } };
             DataContextChanged += (_, _) => SyncGroupContentDataContext();
+            UpdateDisclosureGlyph();
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
             if (change.Property == TitleProperty)
                 titleText.Text = Title;
-            else if (change.Property == IsExpandedProperty)
+            else if (change.Property == IsExpandedProperty) {
                 contentHost.IsVisible = IsExpanded;
-            else if (change.Property == GroupContentProperty) {
+                UpdateDisclosureGlyph();
+            } else if (change.Property == GroupContentProperty) {
                 contentHost.Content = GroupContent;
                 SyncGroupContentDataContext();
             }
         }
+
+        private void UpdateDisclosureGlyph() => disclosureGlyph.Text = IsExpanded ? "▾" : "▸";
 
         private void SyncGroupContentDataContext() {
             if (GroupContent is Control content)

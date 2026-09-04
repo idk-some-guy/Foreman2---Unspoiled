@@ -35,6 +35,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   toggle, low priority and key node fields, an assembler picker with live speed/productivity/
   pollution stats, average neighbours and extra productivity, and a fuel picker for burner
   assemblers. Built on a new reusable PickGrid control for icon pickers.
+- The inspector's Recipe segment now covers Modules and Beacon too: an equipped-module grid you tap
+  to remove, an options grid to add, a beacon picker with its own module grid and the three beacon
+  steppers, and a quality button on the identity row that re-quals the node's assembler and updates
+  its subtitle immediately.
 
 ### Fixed
 

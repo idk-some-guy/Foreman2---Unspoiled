@@ -19,6 +19,8 @@ namespace Foreman.Mac.Views.Inspector {
         private readonly Image identityIcon;
         private readonly TextBlock identityName;
         private readonly TextBlock identitySubtitle;
+        private readonly Button qualityButton;
+        private readonly PickGrid qualityGrid;
         private readonly TextBlock recipeSegmentLabel;
         private readonly TextBlock flowSegmentLabel;
         private readonly ContentControl segmentHost;
@@ -44,6 +46,8 @@ namespace Foreman.Mac.Views.Inspector {
             identityIcon = this.FindControl<Image>("IdentityIcon")!;
             identityName = this.FindControl<TextBlock>("IdentityName")!;
             identitySubtitle = this.FindControl<TextBlock>("IdentitySubtitle")!;
+            qualityButton = this.FindControl<Button>("QualityButton")!;
+            qualityGrid = this.FindControl<PickGrid>("QualityGrid")!;
             recipeSegmentLabel = this.FindControl<TextBlock>("RecipeSegmentLabel")!;
             flowSegmentLabel = this.FindControl<TextBlock>("FlowSegmentLabel")!;
             segmentHost = this.FindControl<ContentControl>("SegmentHost")!;
@@ -59,6 +63,8 @@ namespace Foreman.Mac.Views.Inspector {
             scope.Register("IdentityIcon", identityIcon);
             scope.Register("IdentityName", identityName);
             scope.Register("IdentitySubtitle", identitySubtitle);
+            scope.Register("QualityButton", qualityButton);
+            scope.Register("QualityGrid", qualityGrid);
             scope.Register("RecipeSegmentLabel", recipeSegmentLabel);
             scope.Register("FlowSegmentLabel", flowSegmentLabel);
             scope.Register("SegmentHost", segmentHost);
@@ -68,6 +74,7 @@ namespace Foreman.Mac.Views.Inspector {
             scope.Register("RecipeSegment", recipeSegmentView);
             NameScope.SetNameScope(this, scope);
 
+            qualityGrid.ItemActivated += QualityGrid_ItemActivated;
             DataContextChanged += (_, _) => BindViewModel();
             BindViewModel();
         }
@@ -95,6 +102,7 @@ namespace Foreman.Mac.Views.Inspector {
                 identityName.Text = "";
                 identitySubtitle.Text = "";
                 segmentHost.Content = null;
+                SetQualityButton(null);
                 return;
             }
 
@@ -109,15 +117,32 @@ namespace Foreman.Mac.Views.Inspector {
 
             if (Viewer is not GraphViewer viewer) {
                 segmentHost.Content = null;
+                SetQualityButton(null);
             } else if (recipeActive && node is IRecipeNodeViewModel recipeNode && viewer.Context.DCache is DataCache cache) {
                 recipeSegmentView.Bind(recipeNode, viewer, cache, Settings, RequestRedraw);
                 segmentHost.Content = recipeSegmentView;
+                SetQualityButton(recipeSegmentView.ViewModel);
             } else if (!recipeActive) {
                 flowSegmentView.Bind(node, viewer, RequestRedraw);
                 segmentHost.Content = flowSegmentView;
+                SetQualityButton(null);
             } else {
                 segmentHost.Content = null;
+                SetQualityButton(null);
             }
+        }
+
+        private void SetQualityButton(RecipeSegmentViewModel? recipeViewModel) {
+            qualityButton.IsVisible = recipeViewModel?.ShowsQuality ?? false;
+            qualityGrid.Items = recipeViewModel?.QualityOptions ?? [];
+        }
+
+        //Picking a quality re-quals the node's assembler directly (RecipeSegmentViewModel.PickQuality), so
+        //the identity subtitle and the grid's own selection highlight both need a fresh Refresh() here.
+        private void QualityGrid_ItemActivated(object? sender, PickGridItem item) {
+            recipeSegmentView.ViewModel?.PickQuality(item);
+            Refresh();
+            qualityButton.Flyout?.Hide();
         }
 
         //Forwarded from MainWindow's two rate-unit change paths (MenuSetRateUnit, the View Options

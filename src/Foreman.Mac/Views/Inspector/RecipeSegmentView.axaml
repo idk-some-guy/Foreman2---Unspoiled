@@ -52,5 +52,49 @@
     <insp:InspectorGroup Title="Fuel" IsVisible="{Binding ShowsFuel}">
       <insp:PickGrid Name="FuelGrid" Items="{Binding FuelOptions}" />
     </insp:InspectorGroup>
+
+    <insp:InspectorGroup Title="{Binding ModulesTitle}">
+      <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
+        <insp:PickGrid Name="EquippedGrid" Items="{Binding EquippedModules}" />
+        <TextBlock Text="Tap an equipped module to remove it; tap an option below to add."
+                   Classes="foreman-caption" TextWrapping="Wrap"
+                   Foreground="{DynamicResource Foreman.Color.TextTertiary}" />
+        <insp:PickGrid Name="ModuleOptionsGrid" Items="{Binding ModuleOptions}" />
+      </StackPanel>
+    </insp:InspectorGroup>
+
+    <insp:InspectorGroup Name="BeaconGroup" Title="Beacon" IsExpanded="{Binding HasBeacon}">
+      <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
+        <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space2}">
+          <Image Name="SelectedBeaconIcon" Width="24" Height="24" Source="{Binding SelectedBeacon.Icon}" />
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Name="BeaconNameText" Text="{Binding BeaconName}" Classes="foreman-body" />
+            <TextBlock Text="Tap to choose a beacon" Classes="foreman-caption" IsVisible="{Binding !HasBeacon}" />
+          </StackPanel>
+          <Button Name="ClearBeaconButton" Content="Clear" IsVisible="{Binding HasBeacon}" />
+        </StackPanel>
+        <insp:PickGrid Name="BeaconOptions" Items="{Binding BeaconOptions}" />
+
+        <StackPanel Name="BeaconDetail" Spacing="{StaticResource Foreman.Space.Space2}" IsVisible="{Binding HasBeacon}">
+          <insp:PickGrid Name="EquippedBeaconGrid" Items="{Binding EquippedBeaconModules}" />
+          <insp:PickGrid Name="BeaconModuleOptionsGrid" Items="{Binding BeaconModuleOptions}" />
+          <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space2}">
+            <TextBlock Text="# Beacons" VerticalAlignment="Center" Classes="foreman-caption" />
+            <NumericUpDown Name="BeaconCountValue" Minimum="0" Maximum="1000" FormatString="N2"
+                            Value="{Binding BeaconCount, Mode=TwoWay}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space2}">
+            <TextBlock Text="/ Assembler" VerticalAlignment="Center" Classes="foreman-caption" />
+            <NumericUpDown Name="BeaconsPerAssemblerValue" Minimum="0" Maximum="1000" FormatString="N2"
+                            Value="{Binding BeaconsPerAssembler, Mode=TwoWay}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space2}">
+            <TextBlock Text="Additional" VerticalAlignment="Center" Classes="foreman-caption" />
+            <NumericUpDown Name="BeaconsTotalValue" Minimum="0" Maximum="1000" FormatString="N2"
+                            Value="{Binding BeaconsTotal, Mode=TwoWay}" />
+          </StackPanel>
+        </StackPanel>
+      </StackPanel>
+    </insp:InspectorGroup>
   </StackPanel>
 </UserControl>

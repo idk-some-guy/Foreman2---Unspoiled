@@ -15,12 +15,10 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.ViewModels {
-    //Backs RecipeSegmentView (Task 5, part 1 - Rate/Assembler/Fuel; Modules/Beacon/quality land in Task 6):
-    //the recipe node editor, ported from EditRecipePanel onto the docked inspector. Setters call the same
-    //RecipeNodeController methods EditRecipePanel called directly - suppressWrites keeps Refresh() (reading
-    //node state back into these properties) from bouncing those same writes back out at the node. Task 5
-    //has no quality picker yet, so every AssemblerQualityPair built here carries the node's own current
-    //quality forward rather than reading one back from a selector.
+    //Backs RecipeSegmentView: the recipe node editor, ported from EditRecipePanel onto the docked inspector.
+    //Setters call the same RecipeNodeController methods EditRecipePanel called directly - suppressWrites
+    //keeps Refresh() (reading node state back into these properties) from bouncing those same writes back
+    //out at the node.
     public sealed partial class RecipeSegmentViewModel : ObservableObject {
         private const int PickIconSize = 28;
 
@@ -28,7 +26,6 @@ namespace Foreman.Mac.ViewModels {
         private readonly GraphViewer viewer;
         private readonly RecipeNodeController controller;
 
-        //Carried for Task 6 (quality/module/beacon groups on this same class); unread by Task 5.
         private DataCache Cache { get; }
         private AppSettings Settings { get; }
         private readonly Action? requestRedraw;
@@ -62,6 +59,29 @@ namespace Foreman.Mac.ViewModels {
         public bool ShowsFuel { get; private set; }
         public IReadOnlyList<PickGridItem> FuelOptions { get; private set; } = [];
 
+        public string ModulesTitle { get; private set; } = "";
+        public IReadOnlyList<PickGridItem> EquippedModules { get; private set; } = [];
+        public IReadOnlyList<PickGridItem> ModuleOptions { get; private set; } = [];
+
+        public bool HasBeacon { get; private set; }
+        public string BeaconName { get; private set; } = "-none-";
+        public PickGridItem? SelectedBeacon { get; private set; }
+        public IReadOnlyList<PickGridItem> BeaconOptions { get; private set; } = [];
+        public IReadOnlyList<PickGridItem> EquippedBeaconModules { get; private set; } = [];
+        public IReadOnlyList<PickGridItem> BeaconModuleOptions { get; private set; } = [];
+
+        public bool ShowsQuality { get; private set; }
+        public IReadOnlyList<PickGridItem> QualityOptions { get; private set; } = [];
+
+        [ObservableProperty]
+        private double beaconCount;
+
+        [ObservableProperty]
+        private double beaconsPerAssembler;
+
+        [ObservableProperty]
+        private double beaconsTotal;
+
         //Same conditions as EditRecipePanel.cs's UpdateAssembler (~L646-654), minus its one-way latch:
         //that panel gets rebuilt on every open, so hiding a field for good the moment it's ever
         //disqualified is harmless there. This view model outlives many assembler picks on the same
@@ -94,6 +114,9 @@ namespace Foreman.Mac.ViewModels {
             KeyNodeTitle = node.KeyNodeTitle;
             AvgNeighbours = node.NeighbourCount;
             ExtraProductivityPercent = node.ExtraProductivity * 100;
+            BeaconCount = node.BeaconCount;
+            BeaconsPerAssembler = node.BeaconsPerAssembler;
+            BeaconsTotal = node.BeaconsConst;
             RefreshComputed();
             suppressWrites = false;
         }
@@ -121,6 +144,190 @@ namespace Foreman.Mac.ViewModels {
                 || node.SelectedAssembler.Assembler.EntityType == EntityType.Miner
                 || viewer.Graph.EnableExtraProductivityForNonMiners;
             OnPropertyChanged(nameof(ShowsExtraProductivity));
+
+            RefreshModules();
+            RefreshBeacon();
+            RefreshQuality();
+        }
+
+        //------------------------------------------------------------------------------------------------------Modules
+
+        private void RefreshModules() {
+            IAssembler assembler = node.SelectedAssembler.Assembler;
+            ModulesTitle = $"Modules ({node.AssemblerModules.Count}/{assembler.ModuleSlots})";
+            OnPropertyChanged(nameof(ModulesTitle));
+
+            List<IModule> eligible = GetAssemblerModuleOptions();
+            EquippedModules = [.. node.AssemblerModules.Select((pair, i) => BuildItem(pair.Module, pair.Icon, isSelected: false,
+                isAvailable: !pair.Module.IsMissing && pair.Module.Available && pair.Module.Enabled && eligible.Contains(pair.Module) && i < assembler.ModuleSlots))];
+            OnPropertyChanged(nameof(EquippedModules));
+
+            ModuleOptions = [.. eligible.Select(module => BuildItem(module,
+                new ModuleQualityPair(module, node.SelectedAssembler.Quality).Icon, isSelected: false,
+                isAvailable: module.Available && !module.IsMissing))];
+            OnPropertyChanged(nameof(ModuleOptions));
+        }
+
+        //Mirrors EditRecipePanel.cs's GetAssemblerModuleOptions filter.
+        private List<IModule> GetAssemblerModuleOptions() =>
+            node.SelectedAssembler.Assembler.AllowModules && node.BaseRecipe is { Recipe: IRecipe recipe }
+                ? [.. recipe.AssemblerModules.Intersect(node.SelectedAssembler.Assembler.Modules).Where(m => m.Enabled).OrderBy(m => m.LFriendlyName)]
+                : [];
+
+        public void AddModule(PickGridItem item) {
+            if (item.Key is not IModule module || node.AssemblerModules.Count >= node.SelectedAssembler.Assembler.ModuleSlots)
+                return;
+            controller.AddAssemblerModule(new ModuleQualityPair(module, node.SelectedAssembler.Quality));
+            viewer.Graph.UpdateNodeValues();
+            RefreshComputed();
+            requestRedraw?.Invoke();
+        }
+
+        public void RemoveEquippedModule(PickGridItem item) {
+            int index = IndexOf(EquippedModules, item);
+            if (index < 0)
+                return;
+            controller.RemoveAssemblerModule(index);
+            viewer.Graph.UpdateNodeValues();
+            RefreshComputed();
+            requestRedraw?.Invoke();
+        }
+
+        //------------------------------------------------------------------------------------------------------Beacon
+
+        private void RefreshBeacon() {
+            BeaconQualityPair selected = node.SelectedBeacon;
+            HasBeacon = selected;
+            OnPropertyChanged(nameof(HasBeacon));
+            BeaconName = selected.Beacon?.FriendlyName ?? "-none-";
+            OnPropertyChanged(nameof(BeaconName));
+            SelectedBeacon = selected.Beacon is IBeacon beacon
+                ? BuildItem(beacon, selected.Icon, isSelected: true, isAvailable: beacon.Available && !beacon.IsMissing)
+                : null;
+            OnPropertyChanged(nameof(SelectedBeacon));
+
+            BeaconOptions = BuildBeaconOptions();
+            OnPropertyChanged(nameof(BeaconOptions));
+
+            List<IModule> eligible = GetBeaconModuleOptions();
+            int slots = selected.Beacon is IBeacon beaconForSlots ? beaconForSlots.ModuleSlots : 0;
+            EquippedBeaconModules = [.. node.BeaconModules.Select((pair, i) => BuildItem(pair.Module, pair.Icon, isSelected: false,
+                isAvailable: !pair.Module.IsMissing && pair.Module.Available && pair.Module.Enabled && eligible.Contains(pair.Module) && i < slots))];
+            OnPropertyChanged(nameof(EquippedBeaconModules));
+
+            BeaconModuleOptions = [.. eligible.Select(module => BuildItem(module,
+                new ModuleQualityPair(module, node.SelectedAssembler.Quality).Icon, isSelected: false,
+                isAvailable: module.Available && !module.IsMissing))];
+            OnPropertyChanged(nameof(BeaconModuleOptions));
+        }
+
+        private IReadOnlyList<PickGridItem> BuildBeaconOptions() {
+            if (node.BaseRecipe is not { Recipe: IRecipe recipe } || !node.SelectedAssembler.Assembler.AllowBeacons)
+                return [];
+            List<IModule> compatibleModules = [.. recipe.BeaconModules];
+            return [.. Cache.Beacons.Values.Where(b => b.Enabled && compatibleModules.Any(m => b.Modules.Contains(m)))
+                .Select(beacon => {
+                    var pair = new BeaconQualityPair(beacon, node.SelectedAssembler.Quality);
+                    bool isSelected = node.SelectedBeacon is { Beacon: IBeacon selectedBeacon }
+                        && selectedBeacon == beacon && node.SelectedBeacon.Quality == node.SelectedAssembler.Quality;
+                    return BuildItem(beacon, pair.Icon, isSelected, isAvailable: beacon.Available && !beacon.IsMissing);
+                })];
+        }
+
+        //Mirrors EditRecipePanel.cs's GetBeaconModuleOptions filter.
+        private List<IModule> GetBeaconModuleOptions() =>
+            node.SelectedAssembler.Assembler.AllowBeacons && node.SelectedBeacon.Beacon is IBeacon beacon && node.BaseRecipe is { Recipe: IRecipe recipe }
+                ? [.. recipe.BeaconModules.Intersect(beacon.Modules).Where(m => m.Enabled).OrderBy(m => m.LFriendlyName)]
+                : [];
+
+        public void PickBeacon(PickGridItem item) {
+            if (item.Key is not IBeacon beacon)
+                return;
+            controller.SetBeacon(new BeaconQualityPair(beacon, node.SelectedAssembler.Quality));
+            viewer.Graph.UpdateNodeValues();
+            Refresh();
+            requestRedraw?.Invoke();
+        }
+
+        public void ClearBeacon() {
+            controller.ClearBeacon();
+            viewer.Graph.UpdateNodeValues();
+            Refresh();
+            requestRedraw?.Invoke();
+        }
+
+        public void AddBeaconModule(PickGridItem item) {
+            if (item.Key is not IModule module || node.SelectedBeacon.Beacon is not IBeacon beacon || node.BeaconModules.Count >= beacon.ModuleSlots)
+                return;
+            controller.AddBeaconModule(new ModuleQualityPair(module, node.SelectedAssembler.Quality));
+            viewer.Graph.UpdateNodeValues();
+            RefreshComputed();
+            requestRedraw?.Invoke();
+        }
+
+        public void RemoveEquippedBeaconModule(PickGridItem item) {
+            int index = IndexOf(EquippedBeaconModules, item);
+            if (index < 0)
+                return;
+            controller.RemoveBeaconModule(index);
+            viewer.Graph.UpdateNodeValues();
+            RefreshComputed();
+            requestRedraw?.Invoke();
+        }
+
+        partial void OnBeaconCountChanged(double value) {
+            if (suppressWrites || node.BeaconCount == value)
+                return;
+            controller.SetBeaconCount(value);
+            viewer.Graph.UpdateNodeValues();
+            RefreshComputed();
+            requestRedraw?.Invoke();
+        }
+
+        //Matches EditRecipePanel.cs's RISK 1: only the beacon count re-solves the graph.
+        partial void OnBeaconsPerAssemblerChanged(double value) {
+            if (suppressWrites || node.BeaconsPerAssembler == value)
+                return;
+            controller.SetBeaconsPerAssembler(value);
+            RefreshComputed();
+            requestRedraw?.Invoke();
+        }
+
+        partial void OnBeaconsTotalChanged(double value) {
+            if (suppressWrites || node.BeaconsConst == value)
+                return;
+            controller.SetBeaconsCont(value);
+            RefreshComputed();
+            requestRedraw?.Invoke();
+        }
+
+        //------------------------------------------------------------------------------------------------------Quality
+
+        private void RefreshQuality() {
+            List<IQuality> qualities = [.. Cache.AvailableQualities.Where(q => q.Enabled)];
+            ShowsQuality = qualities.Count > 0;
+            OnPropertyChanged(nameof(ShowsQuality));
+            QualityOptions = [.. qualities.Select(quality => BuildItem(quality, quality.Icon,
+                isSelected: quality == node.SelectedAssembler.Quality, isAvailable: quality.Available && !quality.IsMissing))];
+            OnPropertyChanged(nameof(QualityOptions));
+        }
+
+        //Re-qualities the node's current assembler in place, unlike EditRecipePanel's default-only selector.
+        public void PickQuality(PickGridItem item) {
+            if (item.Key is not IQuality quality)
+                return;
+            controller.SetAssembler(new AssemblerQualityPair(node.SelectedAssembler.Assembler, quality));
+            viewer.Graph.DefaultAssemblerQuality = quality;
+            viewer.Graph.UpdateNodeValues();
+            Refresh();
+            requestRedraw?.Invoke();
+        }
+
+        private static int IndexOf(IReadOnlyList<PickGridItem> items, PickGridItem item) {
+            for (int i = 0; i < items.Count; i++)
+                if (items[i] == item)
+                    return i;
+            return -1;
         }
 
         //Switching to Fixed pushes whatever's currently displayed (the solver's own ActualSetValue while the
