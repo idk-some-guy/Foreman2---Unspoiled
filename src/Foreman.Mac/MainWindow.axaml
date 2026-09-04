@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Foreman.Mac.ViewModels"
+        xmlns:conv="using:Foreman.Mac.Converters"
         x:Class="Foreman.Mac.MainWindow"
         x:Name="RootWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -11,16 +12,19 @@
         ExtendClientAreaTitleBarHeightHint="52"
         Background="{DynamicResource Foreman.Color.WindowBackground}">
   <!-- Unified titlebar toolbar (contract #toolbar, ratified Variant B - icon+label): the OS titlebar and
-       the command bar are one row. ExtendClientAreaTitleBarHeightHint reserves that row's height for the
-       real traffic lights (macos-design: "do not fake traffic lights"); WindowDecorationMargin below is the
-       platform-reported safe area they occupy, so the leftmost button group never sits under them. -->
+       the command bar are one row, its height single-sourced from ExtendClientAreaTitleBarHeightHint below
+       instead of repeating the literal. WindowDecorationMargin only ever carries a top inset on macOS, never
+       a left one (gate-failure diagnosis 2026-09-03), so TrafficLightInsetConverter turns "extension is
+       active" into the leading group's left-only clearance; ClipToBounds plus this row's own ZIndex keep any
+       future chrome overflow from reaching the canvas below. -->
   <Grid RowDefinitions="Auto,*">
-    <Grid Name="TitleBarRow" Grid.Row="0" Height="52" ColumnDefinitions="Auto,*,Auto"
+    <Grid Name="TitleBarRow" Grid.Row="0" Height="{Binding #RootWindow.ExtendClientAreaTitleBarHeightHint}"
+          ColumnDefinitions="Auto,*,Auto" ClipToBounds="True" ZIndex="1"
           Background="{DynamicResource Foreman.Color.TitlebarBackground}"
           PointerPressed="OnTitleBarPointerPressed">
       <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
                   Spacing="{StaticResource Foreman.Space.Space1}"
-                  Margin="{Binding #RootWindow.WindowDecorationMargin}">
+                  Margin="{Binding #RootWindow.WindowDecorationMargin, Converter={x:Static conv:TrafficLightInsetConverter.Instance}}">
         <Button Name="NewGraphButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="New Graph" ToolTip.Tip="New Graph">
           <TextBlock Text="✚" Classes="foreman-toolbar-glyph" />
         </Button>
