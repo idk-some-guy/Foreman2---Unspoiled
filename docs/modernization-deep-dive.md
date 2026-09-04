@@ -211,3 +211,55 @@ Two finds worth flagging for whoever reads this next:
 7. Closeout: the one remaining production write into a legacy on-disk format — `PresetImporter`'s freshly exported `.dat` — goes db-only. It still writes an empty, schema-valid FOIC marker to the user Presets directory (real icon bytes now go straight to `IconBlob`/`PresetIconRow`), since the Presets-tab listing and the Settings window's mod-info display both still scan that directory directly rather than reading the db.
 
 Legacy `settings.json`/`.pjson`/`.json`/`.dat` files stay on disk purely as one-time import sources (§12 of `docs/io-reference.md` has the full schema and import-semantics writeup); production code past this point only ever reads them, never rewrites them, aside from the marker write in point 7 above.
+
+## 9. Landed in Plan C1
+
+The UI-foundations round (tasks 1-7 of this plan) is done:
+
+1. Design tokens: `Foreman.Color.*`/`Foreman.Space.*`/`Foreman.Type.*` resource dictionaries
+   (`Themes/Tokens.Light.axaml`, `Themes/Tokens.Dark.axaml`), consumed via `DynamicResource` for
+   colors and `StaticResource` for spacing/type.
+2. True dark mode: `ThemeService` maps a tri-state `ThemeMode` (Light/Dark/System) onto Avalonia's
+   `RequestedThemeVariant`; System additionally tracks the platform's own color scheme live, for the
+   surfaces that aren't resource-bound (Skia clear colors, row DTOs built once in code).
+3. Display scaling: `WindowScaler` wraps every window's content in a `LayoutTransformControl`;
+   `AppSettings.UiScale` persists a v1-to-v2 schema-migrated value across five steps (100-200%),
+   independent of the graph canvas's own zoom.
+4. Unified titlebar toolbar (Variant B, icon+label): the OS titlebar and the command bar collapse
+   into one row, and the gridlines/graph-options controls move into a `Popup`-based View Options
+   popover anchored under its own toolbar button.
+5. Full menu bar: canvas zoom, a Window menu, and a real About panel, plus every toolbar/popover
+   control duplicated as a menu item; Undo/Redo and Show/Pin Inspector ship as disabled placeholders
+   for work this plan deliberately doesn't build yet.
+6. Toolbar state that follows the live session: the Save button's dirty tint, Align Selected's
+   enable/disable, and the zoom stepper now resync off the same aggregate session events the canvas
+   already used for paint invalidation, instead of needing a manual refresh anywhere.
+
+Four finds worth flagging for whoever reads this next:
+
+- **The tri-state clobber.** Task 2's first pass kept upstream's binary dark-mode checkbox; saving
+  Settings while System was active silently forced it to Light or Dark, since a two-state control
+  can't round-trip a three-state value. Fixed with a real tri-state picker and a regression test
+  pinning that an unrelated Settings edit no longer drops System.
+- **The atomic migration fix.** Task 3's v1-to-v2 `UiScale` column migration ran the `ALTER TABLE`
+  and the schema-version bump as two separate operations; a process death between them left every
+  later `Open` re-running the `ALTER` into an uncaught `duplicate column name` exception, bricking
+  the db permanently. Fixed by wrapping both in one transaction plus a `PRAGMA table_info` existence
+  guard, so a half-migrated db heals itself on the next open instead of throwing.
+- **The popover ruling.** Task 4's first pass built View Options as a full-width docked strip;
+  review found the ratified contract mockup shows a compact rounded card anchored under its toolbar
+  button instead. Rebuilt on `Popup`/`PlacementTarget`, verified against a headless probe that
+  `Popup` content is a window visual descendant while open, which removed the technical objection
+  the first pass had raised against that shape.
+- **The `[Fact]`/`[AvaloniaFact]` race.** A test using the plain `[Fact]` attribute can run on a bare
+  thread with no Avalonia dispatcher pumped, alongside `[AvaloniaFact]` tests that do; when both
+  touch `Application.Current` in the same run, whichever wins the race decides whether a
+  theme-resource lookup sees the real token or a pre-token fallback constant. Any test that reads
+  live theme state belongs behind `[AvaloniaFact]`, not `[Fact]`, even one that never touches the UI
+  tree directly.
+
+Deliberately out of C1's scope, carried forward for whichever plan picks it up next: the inspector,
+modals-to-sheets, choosers, and the radial menu (C2); the canvas's own visual language (node/link/
+grid-dot rendering), the welcome window, and the graph library (C3). The ⌥⌘G gridlines menu item
+lands in C1 as a menu-contract entry toggling the existing gridline flag; the dots' actual rendering
+stays C3's to redo.

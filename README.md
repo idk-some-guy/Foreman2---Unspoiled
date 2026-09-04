@@ -35,7 +35,7 @@ The in-app version string reads `v 1.0.0 based on 2.4.0`: `1.0.0` is this port's
 
 The `main` branch, "Unspoiled," is where this project extends freely beyond upstream: modernization, new features, anything that departs from upstream Foreman2's own direction. This section is kept current with every user-facing change as it lands on `main`.
 
-**Current state:** `main` has not yet diverged from `parity` beyond this restructuring (project rebranding, the badged app icon, and the `io.idksome.foreman2.unspoilt` bundle identifier). Feature work on `main` starts after this restructure.
+**Current state:** `main` has diverged from `parity` with real feature work, beyond the initial rebranding. The window now supports true dark mode (follow the system appearance, or set light/dark manually) and an adjustable interface scale, independent of the graph canvas's own zoom. The toolbar and titlebar are unified into one row, macOS-style, with a View Options popover replacing the always-open gridlines/graph-options controls, and a full menu bar covers canvas zoom, window commands, and a real About panel. See the [Changelog](CHANGELOG.md) for the complete list, including internal modernization that doesn't change what you see.
 
 Unspoiled drops support for Factorio 1.x: presets and save files require Factorio 2.0 or later.
 

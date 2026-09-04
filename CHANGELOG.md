@@ -17,8 +17,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   popover controls. Undo/Redo and Show/Pin Inspector appear as disabled placeholders for work not
   yet built.
 - A zoom stepper on the toolbar, showing the canvas's current scale with quick in/out buttons next
-  to the menu bar's own zoom commands. The Save button now tints when the graph has unsaved
-  changes, and Align Selected disables itself when nothing is selected.
+  to the menu bar's own zoom commands.
+- The Save button tints when the graph has unsaved changes, and Align Selected disables itself when
+  nothing is selected.
 
 ### Fixed
 

@@ -1,6 +1,11 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
@@ -8,6 +13,7 @@ using Foreman.DataCaching.Loading;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
+using System;
 using System.Linq;
 using System.Reflection;
 using Xunit;
@@ -146,6 +152,66 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Single(window.GetVisualDescendants().OfType<EditRecipePanel>());
             Assert.Single(window.GetVisualDescendants().OfType<RecipePanel>());
+        }
+
+        //Task 6: WindowScaler was disclosed-unscaled for the gallery (task-6-brief) - Track wraps
+        //window.Content in a LayoutTransformControl, the same seam every other window (MainWindow,
+        //SettingsWindow, GraphSummaryWindow, PresetComparatorWindow) already goes through.
+        [AvaloniaFact]
+        public void Construction_TracksWindowScaler() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            Assert.IsType<LayoutTransformControl>(window.Content);
+        }
+
+        private static Button FindByName(Window window, string name) =>
+            window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == name);
+
+        private static void RealClick(Window window, Button button) {
+            Dispatcher.UIThread.RunJobs();
+            Avalonia.Point center = Avalonia.VisualExtensions.TranslatePoint(button, new Avalonia.Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+            window.MouseDown(center, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(center, MouseButton.Left, RawInputModifiers.None);
+        }
+
+        //Task 6 gate tool (task-6-brief): the Design language section shows every retokened surface this
+        //plan touched - toolbar/titlebar, the View Options popover, and the three status-colored row kinds.
+        [AvaloniaFact]
+        public void ThemeShowcase_BuildsATilePerRetokenedSurface() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            string[] captions = [.. window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
+            Assert.Contains("Toolbar / Titlebar", captions);
+            Assert.Contains("View Options popover", captions);
+            Assert.Contains("Graph Summary rows", captions);
+            Assert.Contains("Preset Comparator rows", captions);
+            Assert.Contains("Enabled Objects rows", captions);
+
+            Assert.Contains(window.GetVisualDescendants().OfType<Button>(), b => b.Classes.Contains("foreman-toolbar-icon"));
+            Assert.Contains(window.GetVisualDescendants().OfType<Button>(), b => b.Classes.Contains("foreman-toolbar-wide"));
+        }
+
+        //The toggle is the gate tool's whole point (task-6-brief: "genuinely useful for eyeballing both
+        //themes quickly") - a real click has to flip the live app theme and rebuild the section against it.
+        [AvaloniaFact]
+        public void ThemeToggleButton_RealClick_FlipsRequestedThemeVariantAndRebuildsShowcase() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Application app = Application.Current!;
+            ThemeVariant before = app.ActualThemeVariant;
+            Control contentBefore = Assert.IsType<ContentControl>(
+                window.GetVisualDescendants().OfType<ContentControl>().Single(c => c.Name == "ThemeShowcaseHost")).Content as Control ?? throw new InvalidOperationException();
+
+            RealClick(window, FindByName(window, "ThemeToggleButton"));
+
+            Assert.NotEqual(before, app.ActualThemeVariant);
+            ContentControl host = window.GetVisualDescendants().OfType<ContentControl>().Single(c => c.Name == "ThemeShowcaseHost");
+            Assert.NotSame(contentBefore, host.Content);
         }
     }
 }

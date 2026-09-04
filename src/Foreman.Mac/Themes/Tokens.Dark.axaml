@@ -36,6 +36,19 @@
   <x:Double x:Key="Foreman.Space.RadiusWindow">11</x:Double>
   <x:Double x:Key="Foreman.Space.PickerCell">26</x:Double>
 
+  <!-- Typed companions of the Space/Radius doubles above, same numbers: CornerRadius and
+       Thickness (Margin/Padding) properties reject a boxed x:Double resource at style-application
+       time, so anything binding those properties needs its own typed resource instead. -->
+  <Thickness x:Key="Foreman.Thickness.Space1">4</Thickness>
+  <Thickness x:Key="Foreman.Thickness.Space2">8</Thickness>
+  <Thickness x:Key="Foreman.Thickness.Space3">12</Thickness>
+  <Thickness x:Key="Foreman.Thickness.Space4">16</Thickness>
+  <Thickness x:Key="Foreman.Thickness.Space5">24</Thickness>
+  <Thickness x:Key="Foreman.Thickness.Space6">32</Thickness>
+  <CornerRadius x:Key="Foreman.Radius.Control">6</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.Card">9</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.Window">11</CornerRadius>
+
   <x:Double x:Key="Foreman.Type.LargeTitle.FontSize">20</x:Double>
   <FontWeight x:Key="Foreman.Type.LargeTitle.FontWeight">700</FontWeight>
   <x:Double x:Key="Foreman.Type.WindowTitle.FontSize">13</x:Double>
