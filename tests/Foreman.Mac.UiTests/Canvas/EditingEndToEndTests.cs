@@ -1,3 +1,4 @@
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -6,10 +7,12 @@ using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
+using Foreman.Mac;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.UiTests.support;
+using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using Foreman.Serialization;
@@ -121,6 +124,16 @@ namespace Foreman.Mac.UiTests.Canvas {
             ClickCanvasPoint(control, new Point((int)screen.X, (int)screen.Y));
         }
 
+        //MainWindow nests GraphCanvas under a toolbar/menu bar, unlike NewControl's bare
+        //window-is-the-canvas fixture above, so a real click needs the canvas point translated into the
+        //window's own coordinate space first.
+        private static void ClickNodeBodyOnMainWindow(MainWindow window, BaseNodeElement node) {
+            AvaloniaPoint canvasPoint = window.GraphCanvas.Viewport.GraphToScreen(node.Location);
+            AvaloniaPoint screen = Avalonia.VisualExtensions.TranslatePoint(window.GraphCanvas, canvasPoint, window) ?? canvasPoint;
+            window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
+        }
+
         //Task 6's phase gate: the real left-click-to-edit dispatch (docs/panels-reference.md §8), opening a
         //real EditRecipePanel through the same click routing BuildSmallFactory's chooser-only flow above never
         //exercises, then closing it via a plain canvas click elsewhere (Task 1's click-outside-closes,
@@ -163,34 +176,43 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //Same phase gate for the other dispatch branch (RecipeNodeElement -> EditRecipePanel above,
         //everything else -> selection only, Task 4) - a supplier node's fixed rate, set through the real
-        //click-then-controller path (the inspector's Flow segment does the controller call in the real app;
-        //FlowSegmentTests own that field-level behavior) rather than direct panel construction.
+        //click-then-sidebar path: a real click selects the node (GraphCanvasControl.EditNode), then the
+        //value is set through the inspector's own Flow segment controls (RateFixed/RateValue), not a direct
+        //controller call, so this still proves "edit through the real sidebar controls, save, reload" end
+        //to end.
         [AvaloniaFact]
         public async Task ClickToEdit_SupplierNode_SetFixedRate_PersistsThroughSaveAndReload() {
             DataCache cache = await GetCacheAsync();
-            GraphCanvasControl control = NewControl(cache);
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.GraphCanvas.Viewport.SetSize(2 * Half, 2 * Half);
+            window.GraphCanvas.Viewer.Context.DCache = cache;
+            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
 
             IItem ironPlate = cache.Items["iron-plate"];
             IQuality quality = cache.DefaultQuality!;
-            NodeId supplierId = control.Viewer.Session.Editor.CreateSupplierNode(new ItemQualityPair(ironPlate, quality), new Point(0, 0));
-            BaseNodeElement supplier = control.NodeElements.Single(n => n.ViewModel.Id == supplierId);
+            NodeId supplierId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(new ItemQualityPair(ironPlate, quality), new Point(0, 0));
+            BaseNodeElement supplier = window.GraphCanvas.NodeElements.Single(n => n.ViewModel.Id == supplierId);
             supplier.RequestStateUpdate();
             supplier.PrePaint(); //stands in for the first real paint pass that would otherwise position its item tab (see ClickToEditTests)
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
-            ClickNodeBody(control, supplier);
-            Assert.False(control.FloatingPanelHost.IsOpen);
-            Assert.Contains(supplier, control.Viewer.SelectedNodes);
+            ClickNodeBodyOnMainWindow(window, supplier);
+            Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
+            Assert.Contains(supplier, window.GraphCanvas.Viewer.SelectedNodes);
 
-            if (control.Viewer.Session.Editor.RequestNodeController(supplierId) is not BaseNodeController controller)
-                throw new Xunit.Sdk.XunitException("Supplier node has no controller.");
-            controller.SetRateType(RateType.Manual);
-            controller.SetDesiredSetValue(12.5);
+            var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
+            view.FindControl<RadioButton>("RateFixed")!.IsChecked = true;
+            view.FindControl<NumericUpDown>("RateValue")!.Value = 12.5m;
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
             Assert.Equal(RateType.Manual, supplier.ViewModel.RateType);
             Assert.Equal(12.5, supplier.ViewModel.DesiredSetValue, 3);
 
             var document = new GraphViewerSaveDocument {
                 Version = GraphSaveFormat.SaveFormatVersion,
-                ProductionGraph = GraphSaveCodec.BuildProductionGraph(control.Viewer.Graph),
+                ProductionGraph = GraphSaveCodec.BuildProductionGraph(window.GraphCanvas.Viewer.Graph),
             };
             string json = GraphSaveCodec.WriteViewerDocumentToString(document);
 

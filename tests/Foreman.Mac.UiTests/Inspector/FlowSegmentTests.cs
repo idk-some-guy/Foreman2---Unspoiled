@@ -35,16 +35,29 @@ namespace Foreman.Mac.UiTests.Inspector {
 
         [AvaloniaFact]
         public async Task FixedRate_WritesDesiredSetValueThroughController() {
-            (MainWindow window, INodeViewModel node) = await InspectorTestSupport.OpenWithPassthroughAsync();
-            InspectorTestSupport.Select(window, node);
+            //Supplier -> consumer, matching EditFlowPanelTests' own FixedRateEdit_UpdatesNodeAndResolvesDownstream
+            //fixture: a passthrough with nothing feeding it can never push anything past itself, so it can't
+            //stand in for the original's downstream-resolve assertion the way it does for the rest of this file.
+            MainWindow window = await InspectorTestSupport.OpenEmptyWindowAsync();
+            DataCache cache = window.DataCache!;
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId supplierId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new Point(-100, 0));
+            NodeId consumerId = window.GraphCanvas.Viewer.Session.Editor.CreateConsumerNode(pair, new Point(100, 0));
+            window.GraphCanvas.Viewer.Session.Editor.CreateLink(supplierId, consumerId, pair);
+            window.GraphCanvas.Viewer.Session.View.TryGetNode(supplierId, out INodeViewModel? supplier);
+            window.GraphCanvas.Viewer.Session.View.TryGetNode(consumerId, out INodeViewModel? consumer);
+            Dispatcher.UIThread.RunJobs();
+
+            InspectorTestSupport.Select(window, supplier!);
 
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
             view.FindControl<RadioButton>("RateFixed")!.IsChecked = true;
             view.FindControl<NumericUpDown>("RateValue")!.Value = 90;
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(RateType.Manual, node.RateType);
-            Assert.Equal(90, node.DesiredRate, 3);
+            Assert.Equal(RateType.Manual, supplier!.RateType);
+            Assert.Equal(90, supplier.DesiredRate, 3);
+            Assert.Equal(90, consumer!.ActualSetValue, 3); //downstream resolve, matching EditFlowPanelTests' original assertion
         }
 
         [AvaloniaFact]
@@ -67,7 +80,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         //InspectorView wires it from MainWindow (GraphCanvas.InvalidateVisual). Overriding the callback with
         //a counter before Select forces FlowSegmentView.Bind to capture that override.
         [AvaloniaFact]
-        public async Task KeyNodeToggle_TitleEdit_AndSimplifyToggle_EachRequestCanvasRedraw() {
+        public async Task FixedRateToggle_KeyNodeToggle_TitleEdit_AndSimplifyToggle_EachRequestCanvasRedraw() {
             MainWindow window = await InspectorTestSupport.OpenEmptyWindowAsync();
             DataCache cache = window.DataCache!;
             var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
@@ -80,9 +93,14 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorTestSupport.Select(window, node!);
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
 
-            view.FindControl<ToggleSwitch>("KeyNode")!.IsChecked = true;
+            view.FindControl<RadioButton>("RateFixed")!.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
             Assert.True(redrawCount > 0);
+
+            int afterFixedRate = redrawCount;
+            view.FindControl<ToggleSwitch>("KeyNode")!.IsChecked = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(redrawCount > afterFixedRate);
 
             int afterKeyNode = redrawCount;
             view.FindControl<TextBox>("KeyNodeTitle")!.Text = "Main output";
