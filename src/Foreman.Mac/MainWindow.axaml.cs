@@ -82,6 +82,25 @@ namespace Foreman.Mac {
         internal string? SaveFilePath => savefilePath;
         internal string? SaveFileBaselineJson => savefileBaselineJson;
 
+        //I-2 (final fix wave): the ThemeService this window listens to for a live OS appearance flip while
+        //FlagDarkMode is System - defaults to the app-wide singleton (set at the end of the constructor
+        //below), swappable so a test can point it at a ThemeService built around a stubbed
+        //IPlatformColorSource (FakeColorSource, DarkModeTests) instead.
+        private ThemeService? liveThemeService;
+
+        internal ThemeService? LiveThemeService {
+            get => liveThemeService;
+            set {
+                if (liveThemeService is not null)
+                    liveThemeService.Changed -= OnThemeServiceChanged;
+                liveThemeService = value;
+                if (liveThemeService is not null)
+                    liveThemeService.Changed += OnThemeServiceChanged;
+            }
+        }
+
+        private void OnThemeServiceChanged(object? sender, EventArgs e) => ApplyCanvasTheme();
+
         public MainWindow() {
             InitializeComponent();
             WindowState = WindowState.Maximized;
@@ -129,6 +148,13 @@ namespace Foreman.Mac {
             GraphCanvas.ViewScaleChanged += (_, _) => ResyncZoomLabel();
             NativeMenu.SetMenu(this, BuildNativeMenu());
             WindowScaler.Track(this);
+            //I-3 (final fix wave): the View Options card carries its own LayoutTransformControl (MainWindow.
+            //axaml) since it renders inside ViewOptionsPopover's own popup root, outside the wrapper Track
+            //just built above.
+            WindowScaler.TrackPopupContent(this, this.FindControl<LayoutTransformControl>("ViewOptionsCardScaler")!);
+
+            LiveThemeService = (Application.Current as App)?.Theme;
+            Closed += (_, _) => LiveThemeService = null;
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -166,13 +192,13 @@ namespace Foreman.Mac {
             GraphCanvas.Viewer.Context.EnableExtraProductivityForNonMiners = settings.EnableExtraProductivityForNonMiners;
             GraphCanvas.Viewer.IconsOnly = settings.IconsOnlyView;
 
-            //Ports MainForm.SetDarkMode/SetLightMode's cold-start read (upstream MainForm.cs:36-46): App.
-            //ApplyTheme only swaps the window chrome's ThemeVariant, so the canvas needs its own seed here -
-            //same seam boot, preset reload, and every Settings Confirm already replay through.
-            bool isDark = settings.FlagDarkMode == ThemeMode.Dark ||
-                (settings.FlagDarkMode == ThemeMode.System && Application.Current?.ActualThemeVariant == ThemeVariant.Dark);
-            GraphCanvas.Viewer.ApplyTheme(isDark);
-            GraphCanvas.RequestRedraw();
+            //C-1 (final fix wave): WindowScaler.SetScale moved here from OpenSettingsAsync's own Confirm
+            //tail - this is the same seam (boot, preset reload, every Settings Confirm) the theme seed
+            //below already replays through, so a persisted UiScale now takes effect at cold start instead
+            //of only after the user opens Settings once.
+            WindowScaler.SetScale(settings.UiScale);
+
+            ApplyCanvasTheme();
 
             //Ports the SmartNodeDirection/DefaultNodeDirection cold-start read (reference §8): wired here
             //rather than at construction since GraphCanvasControl has no settings reference of its own.
@@ -215,6 +241,22 @@ namespace Foreman.Mac {
             arrowRenderer.ShowOUNodeArrows = settings.ShowOUSuppliedArrows;
 
             BindViewOptionControls(settings);
+        }
+
+        //Ports MainForm.SetDarkMode/SetLightMode's cold-start read (upstream MainForm.cs:36-46): App.
+        //ApplyTheme only swaps the window chrome's ThemeVariant, so the canvas needs its own seed here -
+        //replayed at boot, preset reload, and every Settings Confirm (all via ApplyLoadedSettings above,
+        //which calls this directly), and now also on a live OS appearance flip while FlagDarkMode is
+        //System (LiveThemeService.Changed, wired in the constructor) - GraphCanvas's Skia surface has no
+        //DynamicResource of its own to pick that last one up for free.
+        private void ApplyCanvasTheme() {
+            if (Settings is not AppSettings settings)
+                return;
+
+            bool isDark = settings.FlagDarkMode == ThemeMode.Dark ||
+                (settings.FlagDarkMode == ThemeMode.System && Application.Current?.ActualThemeVariant == ThemeVariant.Dark);
+            GraphCanvas.Viewer.ApplyTheme(isDark);
+            GraphCanvas.RequestRedraw();
         }
 
         //Called from boot, ReloadForPresetAsync, and every OpenSettingsAsync Confirm (twice on a preset-
@@ -838,9 +880,13 @@ namespace Foreman.Mac {
             if (options.LastSaveFileLocation is string lastSaveFileLocation)
                 settings.LastSaveFileLocation = lastSaveFileLocation;
 
-            ApplyLoadedSettings();
+            //I-1 (final fix wave): App.ApplyTheme has to run before ApplyLoadedSettings, not after -
+            //ApplyLoadedSettings' own isDark computation (via ApplyCanvasTheme) reads
+            //Application.Current.ActualThemeVariant for the System case, which is still the *pre*-Confirm
+            //variant until ApplyTheme below sets it, so the swapped order was reading a stale value on a
+            //System Confirm that also changed something else on the same click.
             (Application.Current as App)?.ApplyTheme(settings.FlagDarkMode);
-            WindowScaler.SetScale(settings.UiScale);
+            ApplyLoadedSettings();
 
             //Ports MainForm.cs:501-503's apply-tail: a Confirm must actually re-solve against the settings
             //just committed, not just write them onto AppSettings/the live graph properties.
@@ -934,7 +980,9 @@ namespace Foreman.Mac {
         }
 
         //Foreman 2 > About Foreman 2 (contract #menubar): a plain MessageDialog, same as Dialogs.ShowInfoAsync,
-        //carrying AppVersion.VersionedDisplay - the app has no richer about-panel design to build to yet.
+        //carrying ViewModel.VersionLabel (== AppVersion.VersionedDisplay) - the app has no richer
+        //about-panel design to build to yet. I-4 (final fix wave): the titlebar's own version TextBlock is
+        //gone, so this dialog is now the label's only reader.
         private void ShowAbout() => Async.Fire(ShowAboutAsync(), nameof(ShowAboutAsync));
 
         internal Task ShowAboutAsync() {
@@ -946,7 +994,7 @@ namespace Foreman.Mac {
         }
 
         private async Task RealShowAboutAsync() {
-            var dialog = new MessageDialog($"Foreman 2\n{AppVersion.VersionedDisplay}") {
+            var dialog = new MessageDialog($"Foreman 2\n{ViewModel.VersionLabel}") {
                 Title = "About Foreman 2",
                 WindowStartupLocation = WindowStartupLocation.Manual,
                 Position = Position + new PixelPoint(50, 50),
@@ -1351,9 +1399,13 @@ namespace Foreman.Mac {
             return menu;
         }
 
+        //M-3 (final fix wave): TryShutdown, not Shutdown - Shutdown tears every window down unconditionally,
+        //bypassing MainWindow.OnClosing's own unsaved-changes gate the same way ⌘W's Close command doesn't.
+        //TryShutdown closes each open window first (raising the ordinary Closing event on every one of
+        //them), so a dirty graph still prompts on ⌘Q exactly as it does on ⌘W or the traffic-light close.
         private static NativeMenuItem QuitMenuItem() {
             var item = new NativeMenuItem("Quit Foreman 2") { Gesture = new KeyGesture(Key.Q, PlatformModifiers.Primary) };
-            item.Click += (_, _) => (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+            item.Click += (_, _) => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.TryShutdown();
             return item;
         }
     }

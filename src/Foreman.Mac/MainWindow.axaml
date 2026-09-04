@@ -90,11 +90,6 @@
           </StackPanel>
         </Border>
 
-        <!-- Contract #toolbar retires this from the titlebar to the About panel/Settings footer - both are
-             Task 5/6 surfaces this task doesn't touch, so it stays here (unobtrusive, caption-styled) rather
-             than disappearing with nowhere to land. -->
-        <TextBlock Name="VersionLabel" Text="{Binding VersionLabel}" Classes="foreman-caption"
-                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="140" />
         <Button Name="SettingsButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Settings" ToolTip.Tip="Settings">
           <TextBlock Text="⚙" Classes="foreman-toolbar-glyph" />
         </Button>
@@ -109,73 +104,78 @@
          that walk the visual tree open the popover first. -->
     <Popup Name="ViewOptionsPopover" PlacementTarget="{Binding #ViewOptionsButton}" Placement="Bottom"
            IsOpen="{Binding IsViewOptionsOpen}">
-      <Border Name="ViewOptionsCard" Background="{DynamicResource Foreman.Color.ControlBackground}"
-              BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
-              CornerRadius="{StaticResource Foreman.Radius.Card}" Padding="{StaticResource Foreman.Thickness.Space3}">
-        <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space4}">
-          <Border Name="GridLinesGroupBox" BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
-                  CornerRadius="{StaticResource Foreman.Radius.Control}" Padding="{StaticResource Foreman.Thickness.Space2}">
-            <StackPanel Spacing="{StaticResource Foreman.Space.Space1}">
-              <TextBlock Text="Gridlines (2n scaling)" Classes="foreman-emphasized-body" />
-              <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
-                <TextBlock Text="Minor Gridlines:" VerticalAlignment="Center" Classes="foreman-body" />
-                <ComboBox Name="MinorGridlinesDropDown">
-                  <ComboBoxItem>none</ComboBoxItem>
-                  <ComboBoxItem>1</ComboBoxItem>
-                  <ComboBoxItem>2</ComboBoxItem>
-                  <ComboBoxItem>4</ComboBoxItem>
-                  <ComboBoxItem>8</ComboBoxItem>
-                  <ComboBoxItem>16</ComboBoxItem>
-                  <ComboBoxItem>32</ComboBoxItem>
-                  <ComboBoxItem>64</ComboBoxItem>
-                  <ComboBoxItem>128</ComboBoxItem>
-                  <ComboBoxItem>256</ComboBoxItem>
-                  <ComboBoxItem>512</ComboBoxItem>
-                  <ComboBoxItem>1024</ComboBoxItem>
-                </ComboBox>
+      <!-- I-3 (final fix wave): a Popup's content renders in its own popup root, outside the
+           LayoutTransformControl WindowScaler.Track wraps Window.Content in - this card needs its own,
+           registered with WindowScaler.TrackPopupContent in the code-behind constructor. -->
+      <LayoutTransformControl Name="ViewOptionsCardScaler">
+        <Border Name="ViewOptionsCard" Background="{DynamicResource Foreman.Color.ControlBackground}"
+                BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
+                CornerRadius="{StaticResource Foreman.Radius.Card}" Padding="{StaticResource Foreman.Thickness.Space3}">
+          <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space4}">
+            <Border Name="GridLinesGroupBox" BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
+                    CornerRadius="{StaticResource Foreman.Radius.Control}" Padding="{StaticResource Foreman.Thickness.Space2}">
+              <StackPanel Spacing="{StaticResource Foreman.Space.Space1}">
+                <TextBlock Text="Gridlines (2n scaling)" Classes="foreman-emphasized-body" />
+                <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
+                  <TextBlock Text="Minor Gridlines:" VerticalAlignment="Center" Classes="foreman-body" />
+                  <ComboBox Name="MinorGridlinesDropDown">
+                    <ComboBoxItem>none</ComboBoxItem>
+                    <ComboBoxItem>1</ComboBoxItem>
+                    <ComboBoxItem>2</ComboBoxItem>
+                    <ComboBoxItem>4</ComboBoxItem>
+                    <ComboBoxItem>8</ComboBoxItem>
+                    <ComboBoxItem>16</ComboBoxItem>
+                    <ComboBoxItem>32</ComboBoxItem>
+                    <ComboBoxItem>64</ComboBoxItem>
+                    <ComboBoxItem>128</ComboBoxItem>
+                    <ComboBoxItem>256</ComboBoxItem>
+                    <ComboBoxItem>512</ComboBoxItem>
+                    <ComboBoxItem>1024</ComboBoxItem>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
+                  <TextBlock Text="Major Gridlines:" VerticalAlignment="Center" Classes="foreman-body" />
+                  <ComboBox Name="MajorGridlinesDropDown">
+                    <ComboBoxItem>None</ComboBoxItem>
+                    <ComboBoxItem>1</ComboBoxItem>
+                    <ComboBoxItem>2</ComboBoxItem>
+                    <ComboBoxItem>4</ComboBoxItem>
+                    <ComboBoxItem>8</ComboBoxItem>
+                    <ComboBoxItem>16</ComboBoxItem>
+                    <ComboBoxItem>32</ComboBoxItem>
+                    <ComboBoxItem>64</ComboBoxItem>
+                    <ComboBoxItem>128</ComboBoxItem>
+                    <ComboBoxItem>256</ComboBoxItem>
+                    <ComboBoxItem>512</ComboBoxItem>
+                    <ComboBoxItem>1024</ComboBoxItem>
+                  </ComboBox>
+                </StackPanel>
+                <CheckBox Name="GridlinesCheckbox" Content="Show Gridlines" />
               </StackPanel>
-              <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
-                <TextBlock Text="Major Gridlines:" VerticalAlignment="Center" Classes="foreman-body" />
-                <ComboBox Name="MajorGridlinesDropDown">
-                  <ComboBoxItem>None</ComboBoxItem>
-                  <ComboBoxItem>1</ComboBoxItem>
-                  <ComboBoxItem>2</ComboBoxItem>
-                  <ComboBoxItem>4</ComboBoxItem>
-                  <ComboBoxItem>8</ComboBoxItem>
-                  <ComboBoxItem>16</ComboBoxItem>
-                  <ComboBoxItem>32</ComboBoxItem>
-                  <ComboBoxItem>64</ComboBoxItem>
-                  <ComboBoxItem>128</ComboBoxItem>
-                  <ComboBoxItem>256</ComboBoxItem>
-                  <ComboBoxItem>512</ComboBoxItem>
-                  <ComboBoxItem>1024</ComboBoxItem>
-                </ComboBox>
-              </StackPanel>
-              <CheckBox Name="GridlinesCheckbox" Content="Show Gridlines" />
-              </StackPanel>
-          </Border>
+            </Border>
 
-          <Border Name="ProductionGroupBox" BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
-                  CornerRadius="{StaticResource Foreman.Radius.Control}" Padding="{StaticResource Foreman.Thickness.Space2}">
-            <StackPanel Spacing="{StaticResource Foreman.Space.Space1}">
-              <TextBlock Text="Graph Options" Classes="foreman-emphasized-body" />
-              <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
-                <TextBlock Text="Rate Unit:" VerticalAlignment="Center" Classes="foreman-body" />
-                <ComboBox Name="RateOptionsDropDown">
-                  <ComboBoxItem>1 sec</ComboBoxItem>
-                  <ComboBoxItem>1 min</ComboBoxItem>
-                  <ComboBoxItem>5 min</ComboBoxItem>
-                  <ComboBoxItem>10 min</ComboBoxItem>
-                  <ComboBoxItem>30 min</ComboBoxItem>
-                  <ComboBoxItem>1 hour</ComboBoxItem>
-                </ComboBox>
+            <Border Name="ProductionGroupBox" BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
+                    CornerRadius="{StaticResource Foreman.Radius.Control}" Padding="{StaticResource Foreman.Thickness.Space2}">
+              <StackPanel Spacing="{StaticResource Foreman.Space.Space1}">
+                <TextBlock Text="Graph Options" Classes="foreman-emphasized-body" />
+                <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
+                  <TextBlock Text="Rate Unit:" VerticalAlignment="Center" Classes="foreman-body" />
+                  <ComboBox Name="RateOptionsDropDown">
+                    <ComboBoxItem>1 sec</ComboBoxItem>
+                    <ComboBoxItem>1 min</ComboBoxItem>
+                    <ComboBoxItem>5 min</ComboBoxItem>
+                    <ComboBoxItem>10 min</ComboBoxItem>
+                    <ComboBoxItem>30 min</ComboBoxItem>
+                    <ComboBoxItem>1 hour</ComboBoxItem>
+                  </ComboBox>
+                </StackPanel>
+                <CheckBox Name="IconViewCheckBox" Content="Icon View" />
+                <CheckBox Name="PauseUpdatesCheckbox" Content="Pause all calculations" />
               </StackPanel>
-              <CheckBox Name="IconViewCheckBox" Content="Icon View" />
-              <CheckBox Name="PauseUpdatesCheckbox" Content="Pause all calculations" />
-            </StackPanel>
-          </Border>
-        </StackPanel>
-      </Border>
+            </Border>
+          </StackPanel>
+        </Border>
+      </LayoutTransformControl>
     </Popup>
 
     <ContentControl Name="GraphViewerHost" Grid.Row="1" />

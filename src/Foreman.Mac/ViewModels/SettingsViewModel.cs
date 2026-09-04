@@ -211,7 +211,11 @@ namespace Foreman.Mac.ViewModels {
             settings.PullConsumerNodes = PullConsumerNodesChecked;
             settings.PullConsumerNodesPower = PullConsumerNodesPowerValue.GetValueOrDefault();
 
-            settings.UiScale = UiScaleSteps.First(step => step.Label == UiScaleLabel).Scale;
+            //M-7 (final fix wave): FirstOrDefault, not First - UiScaleLabel is free-form storage even
+            //though every real caller only ever puts a list-matching value in it, so a mismatch falls back
+            //to 100% instead of throwing.
+            (string Label, double Scale) fallbackStep = ("100%", 1.0);
+            settings.UiScale = UiScaleSteps.FirstOrDefault(step => step.Label == UiScaleLabel, fallbackStep).Scale;
         }
 
         //--- Enabled Objects tab ------------------------------------------------------------------------

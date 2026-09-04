@@ -21,6 +21,7 @@ using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
+using Foreman.Mac.Views;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -504,6 +505,42 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(new SKColor(0xFA, 0xFA, 0xFA), window.GraphCanvas.Viewer.BackgroundColor);
         }
 
+        //I-1 (final fix wave regression): OpenSettingsAsync's own tail used to run ApplyLoadedSettings
+        //(which reads Application.Current.ActualThemeVariant for FlagDarkMode.System's isDark check)
+        //before App.ApplyTheme actually updated RequestedThemeVariant, so a System Confirm read the stale
+        //pre-Confirm variant instead of the one it had just committed. With the app forced Dark going in
+        //and nothing else overriding this headless harness's own Light platform default, a correctly
+        //ordered Confirm to System must land the canvas Light, not stay stuck on the pre-Confirm Dark.
+        [AvaloniaFact]
+        public async Task OpenSettingsAsync_ConfirmSystemWhileAppCurrentlyDark_CanvasResolvesLight() {
+            var app = (App)Application.Current!;
+            app.ApplyTheme(ThemeMode.Dark);
+
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = MinimalCacheWithDefaultQuality();
+            window.Settings = new AppSettings { FlagDarkMode = ThemeMode.Dark };
+            window.PresetResolver = new PresetResolver(NewTempDir());
+            window.SettingsService = new SettingsService(NewTempDir());
+            window.ApplyLoadedSettings();
+
+            window.SettingsDialogStub = options => {
+                options.FlagDarkMode = ThemeMode.System;
+                return Task.FromResult<bool?>(true);
+            };
+
+            await window.OpenSettingsAsync();
+
+            Assert.Equal(ThemeVariant.Light, Application.Current!.ActualThemeVariant);
+            Assert.Equal(new SKColor(0xFA, 0xFA, 0xFA), window.GraphCanvas.Viewer.BackgroundColor);
+        }
+
+        private static string NewTempDir() {
+            string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+
         //Regression (task 7): DCache/DefaultAssemblerQuality were only ever assigned inside LoadDocument, so
         //a fresh/New graph had neither before the first file load - blocking recipe-node creation and this
         //task's Add Item/Add Recipe choosers (both need Viewer.Context.DCache) from ever working at boot.
@@ -887,22 +924,31 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
         }
 
+        //I-4 (final fix wave): the titlebar's own VersionLabel TextBlock is gone (contract #toolbar retired
+        //it in favor of the About panel) - these two tests move to the real dialog ShowAboutAsync opens.
         [AvaloniaFact]
-        public void VersionLabel_ShowsAppVersion() {
+        public async Task AboutPanel_ShowsAppVersion() {
             var window = new MainWindow();
             window.Show();
 
-            var label = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "VersionLabel");
+            Task openTask = window.ShowAboutAsync();
+            MessageDialog about = window.OwnedWindows.OfType<MessageDialog>().Single();
+            var label = about.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "MessageTextBlock");
 
-            Assert.Equal(AppVersion.VersionedDisplay, label.Text);
+            Assert.Contains(AppVersion.VersionedDisplay, label.Text);
+
+            about.Close();
+            await openTask;
         }
 
         [AvaloniaFact]
-        public void VersionLabel_MatchesSpecFormatVerbatim() {
+        public async Task AboutPanel_MatchesSpecFormatVerbatim() {
             var window = new MainWindow();
             window.Show();
 
-            var label = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "VersionLabel");
+            Task openTask = window.ShowAboutAsync();
+            MessageDialog about = window.OwnedWindows.OfType<MessageDialog>().Single();
+            var label = about.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "MessageTextBlock");
 
             var informational = typeof(AppVersion).Assembly
                 .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
@@ -915,7 +961,10 @@ namespace Foreman.Mac.UiTests {
                 .FirstOrDefault(a => a.Key == "UpstreamVersion")?.Value;
             Assert.Matches(@"^\d+\.\d+\.\d+$", upstream);
 
-            Assert.Equal($"v {shortSemVer} based on {upstream}", label.Text);
+            Assert.Equal($"Foreman 2\nv {shortSemVer} based on {upstream}", label.Text);
+
+            about.Close();
+            await openTask;
         }
 
         [AvaloniaFact]

@@ -55,20 +55,26 @@ namespace Foreman.Mac.Views {
             //gallery. ThemeToggleButton flips the app's RequestedThemeVariant (there's only ever one window
             //open in gallery mode, so this is safe) and rebuilds the section against the freshly active theme.
             var themeShowcaseHost = new ContentControl { Name = "ThemeShowcaseHost", Content = BuildThemeShowcaseSection(cache) };
+            //M-6 (final fix wave): this header used to hardcode Brushes.Black, so it stayed black through a
+            //theme toggle while every retokened surface below it flipped - resolved once at construction
+            //isn't enough on its own (nothing here re-renders on a resource change the way a real
+            //DynamicResource binding would), so the toggle handler below re-resolves it explicitly too.
+            var themeHeader = new TextBlock {
+                Text = "Design language (Task 6 gate)",
+                Foreground = ThemeResources.ResolveBrush("Foreman.Color.Text", Colors.Black),
+                FontWeight = FontWeight.Bold,
+            };
             var themeToggleButton = new Button { Name = "ThemeToggleButton", Content = "Toggle Theme (Light/Dark)" };
             themeToggleButton.Click += (_, _) => {
                 Application app = Application.Current!;
                 app.RequestedThemeVariant = app.ActualThemeVariant == ThemeVariant.Dark ? ThemeVariant.Light : ThemeVariant.Dark;
+                themeHeader.Foreground = ThemeResources.ResolveBrush("Foreman.Color.Text", Colors.Black);
                 themeShowcaseHost.Content = BuildThemeShowcaseSection(cache);
             };
             var themeSection = new StackPanel {
                 Spacing = 6,
                 Margin = new Thickness(16),
-                Children = {
-                    new TextBlock { Text = "Design language (Task 6 gate)", Foreground = Brushes.Black, FontWeight = FontWeight.Bold },
-                    themeToggleButton,
-                    themeShowcaseHost,
-                },
+                Children = { themeHeader, themeToggleButton, themeShowcaseHost },
             };
 
             Content = new ScrollViewer {

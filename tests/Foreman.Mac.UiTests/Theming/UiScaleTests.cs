@@ -91,6 +91,50 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(1.5, transform.ScaleY);
         }
 
+        //C-1 (final fix wave): a persisted UiScale used to only take effect once the user opened Settings
+        //and confirmed - ApplyLoadedSettings (boot, preset reload, every Confirm) now calls
+        //WindowScaler.SetScale itself, so a fresh launch picks up the saved scale immediately.
+        [AvaloniaFact]
+        public void ApplyLoadedSettings_UiScaleFromSettings_ScalesWindowAtBoot() {
+            var window = new MainWindow { Settings = new AppSettings { UiScale = 1.5 } };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            window.ApplyLoadedSettings();
+            Dispatcher.UIThread.RunJobs();
+
+            var wrapper = Assert.IsType<LayoutTransformControl>(window.Content);
+            var transform = Assert.IsType<ScaleTransform>(wrapper.LayoutTransform);
+            Assert.Equal(1.5, transform.ScaleX);
+            Assert.Equal(1.5, transform.ScaleY);
+        }
+
+        //I-3 (final fix wave): the View Options card renders inside its own popup root, outside the
+        //LayoutTransformControl WindowScaler.Track wraps Window.Content in - proven here empirically at
+        //200% (the review's own repro), not just asserted against the wrapper's own transform in isolation.
+        [AvaloniaFact]
+        public void SetScale_ViewOptionsPopoverContent_TracksToolbarScale() {
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.ViewModel.ToggleViewOptionsCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            var toolbarButton = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "NewGraphButton");
+            var card = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "ViewOptionsCard");
+            double toolbarWidthAtDefault = TransformedWidth(toolbarButton, window);
+            double cardWidthAtDefault = TransformedWidth(card, window);
+
+            WindowScaler.SetScale(2.0);
+            Dispatcher.UIThread.RunJobs();
+
+            double toolbarWidthAtDouble = TransformedWidth(toolbarButton, window);
+            double cardWidthAtDouble = TransformedWidth(card, window);
+
+            Assert.Equal(toolbarWidthAtDefault * 2.0, toolbarWidthAtDouble, 2);
+            Assert.Equal(cardWidthAtDefault * 2.0, cardWidthAtDouble, 2);
+        }
+
         [AvaloniaFact]
         public void SetScale_OutOfRangeValue_Clamps() {
             WindowScaler.SetScale(0.4);

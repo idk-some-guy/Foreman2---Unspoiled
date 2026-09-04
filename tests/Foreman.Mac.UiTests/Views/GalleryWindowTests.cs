@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -212,6 +213,28 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.NotEqual(before, app.ActualThemeVariant);
             ContentControl host = window.GetVisualDescendants().OfType<ContentControl>().Single(c => c.Name == "ThemeShowcaseHost");
             Assert.NotSame(contentBefore, host.Content);
+        }
+
+        //M-6 (final fix wave): the header used to hardcode Brushes.Black, staying black through a theme
+        //toggle while every retokened surface below it flipped - it now reads Foreman.Color.Text like the
+        //rest of the showcase, so it tracks the toggle too.
+        [AvaloniaFact]
+        public void DesignLanguageHeader_ForegroundTracksThemedTextToken() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Application app = Application.Current!;
+
+            TextBlock Header() => window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Design language (Task 6 gate)");
+
+            Color expectedBefore = ThemeResources.ResolveColor("Foreman.Color.Text", app.ActualThemeVariant, Colors.Black);
+            Assert.Equal(expectedBefore, Assert.IsType<ImmutableSolidColorBrush>(Header().Foreground).Color);
+
+            RealClick(window, FindByName(window, "ThemeToggleButton"));
+
+            Color expectedAfter = ThemeResources.ResolveColor("Foreman.Color.Text", app.ActualThemeVariant, Colors.Black);
+            Assert.NotEqual(expectedBefore, expectedAfter);
+            Assert.Equal(expectedAfter, Assert.IsType<ImmutableSolidColorBrush>(Header().Foreground).Color);
         }
     }
 }

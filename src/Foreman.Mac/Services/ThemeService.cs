@@ -47,6 +47,13 @@ namespace Foreman.Mac.Services {
 
         public bool IsDark { get; private set; }
 
+        //I-2 (final fix wave): fires only for a live OS appearance flip while System is active (the
+        //colorSource subscription below) - Apply(Light/Dark/System) already has a synchronous caller
+        //(App.ApplyTheme) that doesn't need a second notification path. MainWindow is this event's
+        //subscriber: it re-runs the canvas's own theme seed, the one surface with no DynamicResource of
+        //its own to pick up RequestedThemeVariant=Default's OS-follow for free.
+        public event EventHandler? Changed;
+
         public void Apply(ThemeMode mode) {
             Unsubscribe();
             switch (mode) {
@@ -70,7 +77,10 @@ namespace Foreman.Mac.Services {
                 return;
 
             IsDark = colorSource.IsDark;
-            changedHandler = (_, _) => IsDark = colorSource.IsDark;
+            changedHandler = (_, _) => {
+                IsDark = colorSource.IsDark;
+                Changed?.Invoke(this, EventArgs.Empty);
+            };
             colorSource.Changed += changedHandler;
         }
 

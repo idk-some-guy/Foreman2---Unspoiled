@@ -201,6 +201,19 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal("150%", vm.UiScaleLabel);
         }
 
+        //M-7 (final fix wave): UiScaleLabel is plain string storage, not an enum - no real caller can put
+        //a value in it that isn't one of UiScaleSteps' own labels, but ApplyTo must not throw if one ever
+        //does (a future widget bug, a bad test double); FirstOrDefault falls back to 100% instead.
+        [Fact]
+        public void ApplyTo_UiScaleLabelNotOnList_FallsBackToOneHundredPercent() {
+            var vm = new SettingsViewModel { UiScaleLabel = "not-a-real-step" };
+
+            var applied = new AppSettings();
+            vm.ApplyTo(applied);
+
+            Assert.Equal(1.0, applied.UiScale);
+        }
+
         //FRESH-LIST rule: repopulating the unfiltered lists must swap in a brand new IReadOnlyList
         //instance, never a mutated-in-place one - Avalonia's ItemsSource binding short-circuits a
         //reference-equal reassignment and the bound ListBox never re-renders.

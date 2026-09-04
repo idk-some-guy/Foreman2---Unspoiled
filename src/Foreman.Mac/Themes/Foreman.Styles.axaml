@@ -68,6 +68,15 @@
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Accent}" />
   </Style>
 
+  <!-- M-5 (final fix wave): the plain :pointerover rule above sets ContentPresenter.Background directly,
+       which outranks .on's Background setter on the Button itself (the template's ContentPresenter only
+       inherits that one via TemplateBinding) - so hovering a dirty Save button used to swap the accent
+       tint for the generic hover gray. This selector targets the same ContentPresenter .on does, with one
+       more qualifier than the plain hover rule, so the accent wins while still hovered. -->
+  <Style Selector="Button.foreman-toolbar-icon.on:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
+  </Style>
+
   <Style Selector="TextBlock.foreman-toolbar-glyph">
     <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.EmphasizedBody.FontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />

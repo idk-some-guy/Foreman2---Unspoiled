@@ -11,6 +11,7 @@ using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.Views;
 using Foreman.Mac.Views;
 using Foreman.Models;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -120,6 +121,33 @@ namespace Foreman.Mac.UiTests.Theming {
             service.Dispose();
 
             Assert.Equal(0, colorSource.SubscriberCount);
+        }
+
+        //I-2 (final fix wave): ThemeService.IsDark used to be write-only - nothing consumed a live OS
+        //appearance flip while System was active, so the Skia-painted canvas (no DynamicResource of its
+        //own) never followed it. MainWindow.LiveThemeService now wires the new Changed event through to
+        //the same canvas theme seed ApplyLoadedSettings uses (ApplyCanvasTheme, which reads
+        //Application.Current.ActualThemeVariant - Avalonia itself guards IPlatformSettings against test
+        //doubles, so a real OS flip is forced the same way this file's other tests fake an "ambient dark
+        //system": a direct RequestedThemeVariant assignment). colorSource.SetDark is the actual trigger
+        //under test - it's the one thing that fires ThemeService.Changed and, before this fix, was the one
+        //thing MainWindow never listened for.
+        [AvaloniaFact]
+        public void OsColorFlip_InSystemMode_ChangesCanvasBackgroundColor() {
+            var colorSource = new FakeColorSource(isDark: false);
+            var themeService = new ThemeService((App)Application.Current!, colorSource);
+            themeService.Apply(ThemeMode.System);
+
+            var window = new MainWindow { LiveThemeService = themeService, Settings = new AppSettings { FlagDarkMode = ThemeMode.System } };
+            window.Show();
+            window.ApplyLoadedSettings();
+            SKColor before = window.GraphCanvas.Viewer.BackgroundColor;
+
+            Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+            colorSource.SetDark(true);
+
+            SKColor after = window.GraphCanvas.Viewer.BackgroundColor;
+            Assert.NotEqual(before, after);
         }
 
         //--- GraphSummary rows ------------------------------------------------------------------------------
