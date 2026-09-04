@@ -15,7 +15,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.ViewModels {
-    //Backs RecipeSegmentView, ported from EditRecipePanel - suppressWrites stops Refresh() from bouncing its own reads back out through the controller.
+    //Backs RecipeSegmentView - suppressWrites stops Refresh() from bouncing its own reads back out through the controller.
     public sealed partial class RecipeSegmentViewModel : ObservableObject {
         private const int PickIconSize = 28;
 
@@ -79,11 +79,9 @@ namespace Foreman.Mac.ViewModels {
         [ObservableProperty]
         private double beaconsTotal;
 
-        //Same conditions as EditRecipePanel.cs's UpdateAssembler (~L646-654), minus its one-way latch:
-        //that panel gets rebuilt on every open, so hiding a field for good the moment it's ever
-        //disqualified is harmless there. This view model outlives many assembler picks on the same
-        //node, so both properties stay pure functions of the current assembler/recipe instead -
-        //picking a reactor after a plain assembler shows the neighbours stepper again, and so on.
+        //Pure functions of the current assembler/recipe, not a one-way latch: this view model outlives
+        //many assembler picks on the same node, so picking a reactor after a plain assembler shows the
+        //neighbours stepper again, and so on.
         public bool ShowsNeighbours { get; private set; }
         public bool ShowsExtraProductivity { get; private set; }
 
@@ -131,8 +129,7 @@ namespace Foreman.Mac.ViewModels {
             FuelOptions = ShowsFuel ? BuildFuelOptions() : [];
             OnPropertyChanged(nameof(FuelOptions));
 
-            //EditRecipePanel.cs L646-654's own conditions, negated (see the declaration comment above
-            //for why this is a pure recompute rather than that panel's one-way latch).
+            //See the declaration comment above for why this is a pure recompute, not a one-way latch.
             ShowsNeighbours = node.SelectedAssembler.Assembler.EntityType == EntityType.Reactor;
             OnPropertyChanged(nameof(ShowsNeighbours));
 
@@ -165,7 +162,7 @@ namespace Foreman.Mac.ViewModels {
             OnPropertyChanged(nameof(ModuleOptions));
         }
 
-        //Mirrors EditRecipePanel.cs's GetAssemblerModuleOptions filter.
+        //Recipe's own assembler-module list intersected with what the current assembler actually accepts.
         private List<IModule> GetAssemblerModuleOptions() =>
             node.SelectedAssembler.Assembler.AllowModules && node.BaseRecipe is { Recipe: IRecipe recipe }
                 ? [.. recipe.AssemblerModules.Intersect(node.SelectedAssembler.Assembler.Modules).Where(m => m.Enabled).OrderBy(m => m.LFriendlyName)]
@@ -231,7 +228,7 @@ namespace Foreman.Mac.ViewModels {
                 })];
         }
 
-        //Mirrors EditRecipePanel.cs's GetBeaconModuleOptions filter.
+        //Recipe's own beacon-module list intersected with what the selected beacon actually accepts.
         private List<IModule> GetBeaconModuleOptions() =>
             node.SelectedAssembler.Assembler.AllowBeacons && node.SelectedBeacon.Beacon is IBeacon beacon && node.BaseRecipe is { Recipe: IRecipe recipe }
                 ? [.. recipe.BeaconModules.Intersect(beacon.Modules).Where(m => m.Enabled).OrderBy(m => m.LFriendlyName)]
@@ -281,7 +278,7 @@ namespace Foreman.Mac.ViewModels {
             requestRedraw?.Invoke();
         }
 
-        //Matches EditRecipePanel.cs's RISK 1: only the beacon count re-solves the graph.
+        //Unlike OnBeaconCountChanged above, only the beacon count itself re-solves the graph.
         partial void OnBeaconsPerAssemblerChanged(double value) {
             if (suppressWrites || node.BeaconsPerAssembler == value)
                 return;
@@ -309,7 +306,8 @@ namespace Foreman.Mac.ViewModels {
             OnPropertyChanged(nameof(QualityOptions));
         }
 
-        //Re-qualities the node's current assembler in place, unlike EditRecipePanel's default-only selector.
+        //Re-qualities the node's current assembler in place and writes straight through, rather than only
+        //setting a default for the next pick.
         public void PickQuality(PickGridItem item) {
             if (item.Key is not IQuality quality)
                 return;
@@ -437,10 +435,32 @@ namespace Foreman.Mac.ViewModels {
             new(dataObject, dataObject.FriendlyName, "", icon is null ? null : IconBaker.GetOrBake(iconCache, icon, PickIconSize), isSelected, isAvailable);
 
         private string BuildStats() {
+            EntityType entityType = node.SelectedAssembler.Assembler.EntityType;
+            if (entityType == EntityType.Generator)
+                return BuildGeneratorStats();
+            if (entityType is not (EntityType.Assembler or EntityType.Miner or EntityType.OffshorePump))
+                return ""; //Reactor and anything else outside the assembler stat set: no Speed/Prod/Pollution readout
+
             string speed = node.GetSpeedMultiplier().ToString("P0", DisplayCulture.Format);
             string productivity = node.GetProductivityMultiplier().ToString("P0", DisplayCulture.Format);
             string pollution = (node.GetAssemblerPollutionProduction() * 60).ToString("0.##", DisplayCulture.Format);
             return $"Speed {speed} · Prod {productivity} · Pollution {pollution}/m";
+        }
+
+        //Temperature range, effectivity, and electrical production for a Generator-type assembler
+        //(RecipeNode.Display.cs's GetGeneratorMinimumTemperature/GetGeneratorMaximumTemperature/
+        //GetGeneratorEffectivity/GetGeneratorElectricalProduction).
+        private string BuildGeneratorStats() {
+            double minTemp = node.GetGeneratorMinimumTemperature();
+            double maxTemp = node.GetGeneratorMaximumTemperature();
+            double operationalTemp = node.SelectedAssembler.Assembler.OperationTemperature;
+            double effectivity = node.GetGeneratorEffectivity();
+
+            string range = double.IsInfinity(maxTemp)
+                ? $"min {Math.Round(minTemp, 1).ToString("0.#", DisplayCulture.Format)}°c  (optimal: {Math.Round(operationalTemp, 1).ToString("0.#", DisplayCulture.Format)}°c)"
+                : $"{Math.Round(minTemp, 1).ToString("0.#", DisplayCulture.Format)}-{Math.Round(maxTemp, 1).ToString("0.#", DisplayCulture.Format)}°c  (optimal: {Math.Round(operationalTemp, 1).ToString("0.#", DisplayCulture.Format)}°c)";
+            string production = GraphicsStuff.DoubleToEnergy(node.GetGeneratorElectricalProduction(), "W");
+            return $"{range} · Effectivity {effectivity.ToString("P0", DisplayCulture.Format)} · {production}";
         }
     }
 }

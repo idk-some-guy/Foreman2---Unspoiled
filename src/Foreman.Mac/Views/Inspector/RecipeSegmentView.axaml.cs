@@ -9,7 +9,7 @@ using Foreman.Mac.ViewModels;
 using System;
 
 namespace Foreman.Mac.Views.Inspector {
-    //Docked replacement for EditRecipePanel's Rate/Assembler/Fuel/Modules/Beacon groups. RateAuto isn't
+    //The inspector's Rate/Assembler/Fuel/Modules/Beacon groups for a recipe node. RateAuto isn't
     //bound in XAML - its RadioButton grouping with RateFixed already flips RateFixed.IsChecked (and so
     //RecipeSegmentViewModel.IsFixedRate, via its own TwoWay binding) whenever Auto gets picked instead -
     //same pattern as FlowSegmentView.

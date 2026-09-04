@@ -24,11 +24,10 @@ using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Migrates the Rate/Assembler/Fuel/priority/key-node coverage of EditRecipePanelTests.cs (Canvas/Panels)
-    //onto the docked RecipeSegmentView (Task 5, part 1). Modules/Beacon/quality stay on the original file
-    //for Task 6. Same lightweight custom-DataCache fixture as the original (no vanilla preset load needed)
-    //so this file's own assembler/fuel mix - one electric, one burner, one preset-disabled - stays under
-    //direct control the way EditRecipePanelTests' RecipeFixture built it.
+    //Rate/Assembler/Fuel/priority/key-node coverage for the docked RecipeSegmentView (Task 5, part 1).
+    //Modules/Beacon/quality live in the sibling files from Task 6. Lightweight custom-DataCache fixture (no
+    //vanilla preset load needed) so this file's own assembler/fuel mix - one electric, one burner, one
+    //preset-disabled - stays under direct control.
     public class RecipeSegmentRateAssemblerTests {
         private sealed class Fixture {
             public required DataCache Cache;
@@ -152,7 +151,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         }
 
         //---- Standard fixture: an electric assembler, a burner assembler (with a producible fuel), and a
-        //preset-disabled assembler, matching EditRecipePanelTests' own RecipeFixture. ----
+        //preset-disabled assembler. ----
 
         private sealed class RecipeFixture {
             public required Fixture Fx;
@@ -469,8 +468,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(2, node.NeighbourCount, 3);
         }
 
-        //---- ShowsNeighbours / ShowsExtraProductivity: mirrors EditRecipePanel.cs's UpdateAssembler
-        //(~L646-654) one-way visibility latch ----
+        //---- ShowsNeighbours / ShowsExtraProductivity visibility gating ----
 
         [AvaloniaFact]
         public void ReactorAssembler_ShowsNeighboursStepper() {
@@ -541,9 +539,8 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.True(view.FindControl<NumericUpDown>("ExtraProductivityValue")!.IsVisible);
         }
 
-        //Neither gate is a one-way latch: the inspector keeps the same view model across many
-        //assembler picks on the same node (unlike EditRecipePanel, rebuilt fresh on every open), so
-        //picking back out of a qualifying assembler must hide the field again.
+        //Neither gate is a one-way latch: the inspector keeps the same view model across many assembler
+        //picks on the same node, so picking back out of a qualifying assembler must hide the field again.
         [AvaloniaFact]
         public void AssemblerSwitch_TogglesNeighboursVisibility_PlainToReactorToPlain() {
             RecipeFixture rf = NewRecipeFixture();
@@ -620,9 +617,8 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
-            //By hand (same fixture as EditRecipePanelTests' own version of this case): assembler base speed
-            //2.0, +50% from the one equipped module -> speed multiplier 1.5; productivity multiplier = base 0
-            //+ 0.1 module bonus + 1 = 1.1.
+            //By hand: assembler base speed 2.0, +50% from the one equipped module -> speed multiplier 1.5;
+            //productivity multiplier = base 0 + 0.1 module bonus + 1 = 1.1.
             double expectedSpeedMultiplier = 1.5;
             double expectedProductivityMultiplier = 1.1;
 
@@ -630,6 +626,43 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Contains($"Speed {expectedSpeedMultiplier.ToString("P0", DisplayCulture.Format)}", stats);
             Assert.Contains($"Prod {expectedProductivityMultiplier.ToString("P0", DisplayCulture.Format)}", stats);
             Assert.Contains("/m", stats);
+        }
+
+        //Generator branch of BuildStats (RecipeNode.Display.cs's GetGeneratorMinimumTemperature/
+        //GetGeneratorMaximumTemperature/GetGeneratorEffectivity): a small standalone assembler+recipe pair
+        //on the shared fixture's cache, no preset needed. An unconnected generator node has no input links,
+        //so GetGeneratorAverageTemperature's own zero-inputs branch returns the assembler's
+        //OperationTemperature verbatim, making effectivity deterministically 100% by construction (average
+        //temp == operation temp) - a clean hand-derivable case.
+        [AvaloniaFact]
+        public void GeneratorStatReadout_MatchesHandDerivedValues() {
+            RecipeFixture rf = NewRecipeFixture();
+            var steam = new FluidPrototype(rf.Fx.Cache, "steam", "Steam", rf.Fx.Subgroup, "a") { Available = true, IsTemperatureDependent = true, DefaultTemperature = 15 };
+            Store(rf.Fx.Cache).Items[steam.Name] = steam;
+
+            var generatorRecipe = new RecipePrototype(rf.Fx.Cache, "generate-power", "Generate Power", rf.Fx.Subgroup, "a") { Available = true };
+            generatorRecipe.InternalOneWayAddIngredient(steam, 1, 100, 500); //ingredient temperature range: 100-500 c
+            steam.ConsumptionRecipesInternal.Add(generatorRecipe);
+            Store(rf.Fx.Cache).Recipes[generatorRecipe.Name] = generatorRecipe;
+
+            AssemblerPrototype generator = NewAssembler(rf.Fx, "generator", EnergySource.Electric, EntityType.Generator);
+            generator.OperationTemperature = 500;
+            generator.EnergyProductionInternal[rf.Fx.Normal] = 1_000_000.0; //1 MW
+            LinkAssembler(generatorRecipe, generator);
+
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, generatorRecipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(generator, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+
+            //By hand: min temp = max(steam.DefaultTemperature(15)+0.1, ingredient range min(100)) = 100;
+            //max temp = ingredient range max = 500; unconnected node -> average temp == OperationTemperature
+            //(500) -> effectivity = (500-15)/(500-15) = 1.0 = 100%; production = 1,000,000W * 1.0 = 1 MW.
+            string stats = view.ViewModel!.AssemblerStats;
+            Assert.Contains("100-500°c  (optimal: 500°c)", stats);
+            Assert.Contains(1.0.ToString("P0", DisplayCulture.Format), stats);
+            Assert.Contains(GraphicsStuff.DoubleToEnergy(1_000_000.0, "W"), stats);
         }
     }
 

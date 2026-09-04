@@ -1,14 +1,12 @@
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
-using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Models;
@@ -125,9 +123,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Same(first, second);
         }
 
-        //Rider 7 (final fix wave): EditNode had no DCache guard, unlike every other chooser/edit-panel entry
-        //point in this file - a RecipeNodeElement edit before DataCache finishes loading threw straight out
-        //of EditRecipePanel's ctor instead of safely no-op'ing like its siblings.
+        //Rider 7 (final fix wave): EditNode had no DCache guard, unlike every other chooser entry point in
+        //this file - an edit before DataCache finishes loading must no-op like its siblings, not throw.
         [AvaloniaFact]
         public void EditNode_NoDataCache_DoesNotThrowAndOpensNoPanel() {
             var cache = new DataCache(filterRecipes: true);
@@ -156,12 +153,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.False(control.FloatingPanelHost.IsOpen);
         }
 
-        //Ports EditRecipeNode's dispatch (upstream ProductionGraphViewer.cs 538-576, reference §9's
-        //composition note): editing a recipe node opens two independently-floated cooperating panels -
-        //EditRecipePanel anchored left of the node, a standalone RecipePanel anchored right of it - rather
-        //than one merged panel with the recipe card embedded inside it.
+        //A recipe node's body click only selects (Task 7): the paired floating editor and its standalone
+        //recipe card upstream opened here (ProductionGraphViewer.cs 538-576) now live in the inspector
+        //sidebar's Recipe segment instead.
         [AvaloniaFact]
-        public void EditNode_RecipeNode_OpensPairedEditAndRecipePanels() {
+        public void EditNode_RecipeNode_SelectsOnly_NoFloatingPanel() {
             var cache = new DataCache(filterRecipes: true);
             var subgroup = new SubgroupPrototype(cache, "§§test:subgroup", "z");
             var quality = new QualityPrototype(cache, "normal", "Normal", "a");
@@ -205,10 +201,8 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             control.EditNode(element);
 
-            var editPanel = Assert.IsType<EditRecipePanel>(control.FloatingPanelHost.Content);
-            Assert.IsType<RecipePanel>(control.FloatingPanelHost.CompanionContent);
-            Assert.Empty(editPanel.GetVisualDescendants().OfType<RecipePanel>());
-            Assert.True(control.FloatingPanelHost.Bounds.Right <= control.FloatingPanelHost.CompanionBounds.Left);
+            Assert.False(control.FloatingPanelHost.IsOpen);
+            Assert.Contains(element, control.Viewer.SelectedNodes);
         }
 
         //Final-review I2: Viewer/Grid were IDisposable with no caller (dead code). This proves the control's

@@ -23,7 +23,7 @@ using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Migrates the module/beacon coverage of EditRecipePanelTests.cs onto RecipeSegmentView's Modules and Beacon groups.
+    //Module/beacon coverage for RecipeSegmentView's Modules and Beacon groups.
     public class RecipeSegmentModulesBeaconTests {
         private sealed class Fixture {
             public required DataCache Cache;
@@ -383,7 +383,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Empty(view.ViewModel!.BeaconModuleOptions);
         }
 
-        //---- Beacon steppers: only the count re-solves the graph (EditRecipePanel's RISK 1, verbatim) ----
+        //---- Beacon steppers: only the count re-solves the graph ----
 
         [AvaloniaFact]
         public void BeaconCountEdit_Resolves() {

@@ -139,30 +139,14 @@ namespace Foreman.Mac.Canvas {
             MouseDownElement = null;
         }
 
-        //Ports EditNode/EditRecipeNode's dispatch (reference §8/§9 step 6, upstream ProductionGraphViewer.cs
-        //512-586): a RecipeNodeElement still opens the real EditRecipePanel paired with a standalone
-        //RecipePanel - upstream's editPanel/recipePanel floating side by side (leftAnchor/Direction.Right for
-        //the editor, rightAnchor/Direction.Left for the recipe card). Every other node type used to open
-        //EditFlowPanel the same way; that editor now lives in the inspector sidebar's Flow segment (Task 4),
-        //so a click on one of those bodies just selects the node and lets the inspector follow.
+        //Ports EditNode's dispatch entry point (reference §8/§9 step 6, upstream ProductionGraphViewer.cs
+        //512-586): every node type just selects on a body click now. The paired floating recipe editor and
+        //its standalone recipe card upstream opened for a RecipeNodeElement (Task 5-6's port) and the
+        //earlier EditFlowPanel for everything else (Task 4) both live in the inspector sidebar's Recipe/Flow
+        //segments today (Task 7 retired the recipe pair).
         internal void EditNode(BaseNodeElement node) {
             if (Viewer.Context.DCache is not DataCache)
                 return;
-
-            if (node is RecipeNodeElement && node.ViewModel is IRecipeNodeViewModel recipeViewModel) {
-                if (recipeViewModel.BaseRecipe.Recipe is not IRecipe baseRecipe)
-                    return;
-
-                var leftAnchor = new DrawingPoint(node.X - (node.Width / 2), node.Y);
-                var editPanel = new EditRecipePanel(recipeViewModel, Viewer) {
-                    RequestRedraw = RequestRedraw,
-                    RequestReposition = FloatingPanelHost.Reposition,
-                };
-                var recipePanel = new RecipePanel([baseRecipe], Viewer.Context.AbbreviateSciPacks);
-                var rightAnchor = new DrawingPoint(node.X + (node.Width / 2), node.Y);
-                FloatingPanelHost.ShowPaired(editPanel, leftAnchor, Direction.Right, recipePanel, rightAnchor, Direction.Left);
-                return;
-            }
 
             Viewer.SetSelection([node]);
         }
@@ -338,7 +322,7 @@ namespace Foreman.Mac.Canvas {
             //falls through to the canvas handling below instead of being swallowed.
             if (FloatingPanelHost.IsOpen) {
                 var pressedPoint = new DrawingPoint((int)screenPoint.X, (int)screenPoint.Y);
-                if (FloatingPanelHost.Bounds.Contains(pressedPoint) || FloatingPanelHost.CompanionBounds.Contains(pressedPoint)) {
+                if (FloatingPanelHost.Bounds.Contains(pressedPoint)) {
                     e.Handled = true;
                     return;
                 }
@@ -410,7 +394,7 @@ namespace Foreman.Mac.Canvas {
             //hover tooltip - only the panel's own controls should see it.
             if (FloatingPanelHost.IsOpen) {
                 var movedPoint = new DrawingPoint((int)screenPoint.X, (int)screenPoint.Y);
-                if (FloatingPanelHost.Bounds.Contains(movedPoint) || FloatingPanelHost.CompanionBounds.Contains(movedPoint))
+                if (FloatingPanelHost.Bounds.Contains(movedPoint))
                     return;
             }
 
@@ -548,7 +532,7 @@ namespace Foreman.Mac.Canvas {
             //on whatever's underneath) right through the panel's own chrome.
             if (FloatingPanelHost.IsOpen) {
                 var releasedPoint = new DrawingPoint((int)releaseScreenPoint.X, (int)releaseScreenPoint.Y);
-                if (FloatingPanelHost.Bounds.Contains(releasedPoint) || FloatingPanelHost.CompanionBounds.Contains(releasedPoint)) {
+                if (FloatingPanelHost.Bounds.Contains(releasedPoint)) {
                     e.Handled = true;
                     return;
                 }

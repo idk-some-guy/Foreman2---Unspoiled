@@ -79,9 +79,29 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(expected, window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text);
         }
 
-        //Migrates EditRecipePanelTests.cs's quality-selector coverage onto the identity row's own quality
-        //button: unlike that panel's default-only selector, a pick here writes straight through to the
-        //node's current assembler (RecipeSegmentViewModel.PickQuality), so the subtitle updates immediately.
+        //Task 7: the paired floating recipe editor and its standalone recipe card are retired - a real click
+        //on a recipe node now only selects it, and the inspector's own Recipe segment takes over.
+        [AvaloniaFact]
+        public async Task ClickingRecipeNode_SelectsAndShowsRecipeSegment_NoFloatingPanel() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            var node = window.GraphCanvas.Viewer.NodeElements.First();
+            node.RequestStateUpdate();
+            node.PrePaint();
+            Dispatcher.UIThread.RunJobs();
+            Avalonia.Point canvasPoint = window.GraphCanvas.Viewport.GraphToScreen(node.Location);
+            Avalonia.Point screen = Avalonia.VisualExtensions.TranslatePoint(window.GraphCanvas, canvasPoint, window) ?? canvasPoint;
+
+            window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
+            Assert.True(window.Inspector.IsVisible);
+            Assert.IsType<RecipeSegmentView>(window.Inspector.FindControl<ContentControl>("SegmentHost")!.Content);
+        }
+
+        //The identity row's own quality button: a pick writes straight through to the node's current
+        //assembler (RecipeSegmentViewModel.PickQuality), so the subtitle updates immediately.
         [AvaloniaFact]
         public void QualityButton_ListsQualitiesAndPickQuality_WritesThroughAndUpdatesSubtitle() {
             DataCache cache = new(filterRecipes: true);

@@ -20,10 +20,10 @@ using System.Reflection;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Task: dev-only gallery smoke test (docs entry: "--gallery" mode). Builds a small fixture cache with the
-    //same shape as EditRecipePanelTests' RecipeFixture - a recipe with an electric assembler (modules +
-    //beacon) alongside a burner alternative (fuel) - so GalleryWindow's showcase-recipe search has real
-    //content to populate the EditRecipePanel tile with, then proves every expected tile actually gets built.
+    //Task: dev-only gallery smoke test (docs entry: "--gallery" mode). Builds a small fixture cache - a
+    //recipe with an electric assembler (modules + beacon) alongside a burner alternative (fuel) - so
+    //GalleryWindow's showcase-recipe search has real content to feed the chooser tiles, then proves every
+    //expected tile actually gets built.
     public class GalleryWindowTests {
         private static DataCacheStore Store(DataCache cache) {
             FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -106,7 +106,6 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Contains("ItemChooserPanel", captions);
             Assert.Contains("RecipeChooserPanel", captions);
-            Assert.Contains("EditRecipePanel", captions);
             Assert.Contains("QualityPicker", captions);
         }
 
@@ -126,9 +125,8 @@ namespace Foreman.Mac.UiTests.Views {
             Control[] panels = [
                 window.GetVisualDescendants().OfType<ItemChooserPanel>().Single(),
                 window.GetVisualDescendants().OfType<RecipeChooserPanel>().Single(),
-                window.GetVisualDescendants().OfType<EditRecipePanel>().Single(),
-                //IRChooserPanel and EditRecipePanel each embed their own QualityPicker too; the standalone
-                //gallery tile is the one ChromeWrap made a direct Border child, not one of those.
+                //IRChooserPanel embeds its own QualityPicker too; the standalone gallery tile is the one
+                //ChromeWrap made a direct Border child, not that one.
                 window.GetVisualDescendants().OfType<QualityPicker>().Single(p => p.Parent is Border),
             ];
 
@@ -136,21 +134,6 @@ namespace Foreman.Mac.UiTests.Views {
                 Border chrome = panel as Border ?? panel.GetVisualAncestors().OfType<Border>().First();
                 Assert.Equal(Colors.Black, Assert.IsAssignableFrom<ISolidColorBrush>(chrome.Background).Color);
             }
-        }
-
-        //Finding B1 (2026-09-02 gallery review): the real app floats EditRecipePanel next to its own
-        //RecipePanel (upstream EditRecipeNode's editPanel+recipePanel pair) rather than embedding the recipe
-        //card inside the edit panel - the gallery tile should show the same pairing, not the edit panel alone.
-        [AvaloniaFact]
-        public void EditRecipePanelTile_AlsoShowsItsCompanionRecipePanel() {
-            DataCache cache = NewFixtureCache();
-            var settings = new AppSettings();
-
-            var window = new GalleryWindow(cache, settings);
-            window.Show();
-
-            Assert.Single(window.GetVisualDescendants().OfType<EditRecipePanel>());
-            Assert.Single(window.GetVisualDescendants().OfType<RecipePanel>());
         }
 
         //Task 6: WindowScaler was disclosed-unscaled for the gallery (task-6-brief) - Track wraps

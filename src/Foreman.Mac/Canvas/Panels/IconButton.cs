@@ -70,8 +70,7 @@ namespace Foreman.Mac.Canvas.Panels {
 
         public void SetPopulated(IDataObjectBase populated, Color fillColor) => SetPopulated(populated, populated.Icon, fillColor);
 
-        //Overload for EditRecipePanel's per-quality buttons (docs/panels-reference.md §3's InitializeBaseButton):
-        //the grid cell's icon there is quality-combined (AssemblerQualityPair.Icon and friends), not the plain
+        //Overload for a quality-combined icon (AssemblerQualityPair.Icon and friends), not the plain
         //data-object icon SetPopulated(IDataObjectBase, Color) above assumes.
         public void SetPopulated(IDataObjectBase populated, SKBitmap? icon, Color fillColor) {
             DataObject = populated;
@@ -96,8 +95,8 @@ namespace Foreman.Mac.Canvas.Panels {
         }
 
         //Mirrors upstream NFButton.OnEnabledChanged (see class comment above): callers outside this class
-        //toggle IsEnabled directly (EditRecipePanel's UpdateAssemblerModules/UpdateBeaconModules gray out
-        //option cells once slots fill), bypassing SetPopulated/SetFillColor/SetEmpty. Without this override
+        //toggle IsEnabled directly (IRChooserPanel.UpdateGroupButton grays out a group whose recipes/items
+        //are all filtered out), bypassing SetPopulated/SetFillColor/SetEmpty. Without this override
         //the grayscale filter's cached bitmap never invalidates, so a cell that goes disabled then re-enabled
         //stays stuck painting whatever it last baked.
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {

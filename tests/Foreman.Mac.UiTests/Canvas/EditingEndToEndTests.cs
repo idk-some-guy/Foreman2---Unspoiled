@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
@@ -12,6 +13,7 @@ using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.UiTests.support;
+using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
 using Foreman.Models.Nodes;
@@ -134,35 +136,53 @@ namespace Foreman.Mac.UiTests.Canvas {
             window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
         }
 
-        //Task 6's phase gate: the real left-click-to-edit dispatch (docs/panels-reference.md §8), opening a
-        //real EditRecipePanel through the same click routing BuildSmallFactory's chooser-only flow above never
-        //exercises, then closing it via a plain canvas click elsewhere (Task 1's click-outside-closes,
-        //reference §7) before proving the edit itself survives a save/reload round-trip.
+        //A real MouseDown/Up through the window, translated from the target control's own bounds - unlike
+        //Click(Control)'s direct-to-control synth above, this is what a PickGrid cell (a real Avalonia
+        //Button) needs to register its own Click.
+        private static void ClickThroughWindow(AvaloniaWindow window, Avalonia.Controls.Control control) {
+            var center = new AvaloniaPoint(control.Bounds.Width / 2, control.Bounds.Height / 2);
+            AvaloniaPoint screen = Avalonia.VisualExtensions.TranslatePoint(control, center, window) ?? center;
+            window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        //Task 7's phase gate: the real left-click-to-edit dispatch (docs/panels-reference.md §8) selects a
+        //recipe node, then the assembler is changed through the inspector's own Recipe segment (the paired
+        //floating editor this test used to open is retired), before proving the edit survives a save/reload
+        //round-trip.
         [AvaloniaFact]
         public async Task ClickToEdit_RecipeNode_ChangeAssembler_PersistsThroughSaveAndReload() {
             DataCache cache = await GetCacheAsync();
-            GraphCanvasControl control = NewControl(cache);
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.GraphCanvas.Viewport.SetSize(2 * Half, 2 * Half);
+            window.GraphCanvas.Viewer.Context.DCache = cache;
+            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
 
-            RecipeNodeElement smelter = await AddRecipeViaChooser(control, cache, "iron-plate", new Point(0, 0));
+            RecipeNodeElement smelter = await AddRecipeViaChooser(window.GraphCanvas, cache, "iron-plate", new Point(0, 0));
             var recipeViewModel = (IRecipeNodeViewModel)smelter.ViewModel;
             IAssembler originalAssembler = recipeViewModel.SelectedAssembler.Assembler;
+            Dispatcher.UIThread.RunJobs();
 
-            ClickNodeBody(control, smelter);
-            var panel = Assert.IsType<EditRecipePanel>(control.FloatingPanelHost.Content);
+            ClickNodeBodyOnMainWindow(window, smelter);
+            Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
+            Assert.Contains(smelter, window.GraphCanvas.Viewer.SelectedNodes);
 
-            IconButton alternateAssemblerButton = panel.AssemblerOptions.First(b => !Equals(b.DataObject, originalAssembler));
-            var alternateAssembler = (IAssembler)alternateAssemblerButton.DataObject!;
-            Click(alternateAssemblerButton);
+            var view = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            var assemblerGrid = view.FindControl<PickGrid>("AssemblerGrid")!;
+            Button alternateAssemblerButton = assemblerGrid.GetVisualDescendants().OfType<Button>()
+                .First(b => !Equals((b.DataContext as PickGridItem)?.Key, originalAssembler));
+            var alternateAssembler = (IAssembler)((PickGridItem)alternateAssemblerButton.DataContext!).Key!;
+            ClickThroughWindow(window, alternateAssemblerButton);
             Assert.Equal(alternateAssembler, recipeViewModel.SelectedAssembler.Assembler);
-
-            //Same click that closes the panel still lands on the canvas underneath it (Task 1 semantics) -
-            //here it's just empty space, so nothing else happens beyond the close itself.
-            ClickCanvasPoint(control, new Point(2 * Half - 20, 2 * Half - 20));
-            Assert.False(control.FloatingPanelHost.IsOpen);
 
             var document = new GraphViewerSaveDocument {
                 Version = GraphSaveFormat.SaveFormatVersion,
-                ProductionGraph = GraphSaveCodec.BuildProductionGraph(control.Viewer.Graph),
+                ProductionGraph = GraphSaveCodec.BuildProductionGraph(window.GraphCanvas.Viewer.Graph),
             };
             string json = GraphSaveCodec.WriteViewerDocumentToString(document);
 
@@ -174,8 +194,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(alternateAssembler, reloadedRecipe.SelectedAssembler.Assembler);
         }
 
-        //Same phase gate for the other dispatch branch (RecipeNodeElement -> EditRecipePanel above,
-        //everything else -> selection only, Task 4) - a supplier node's fixed rate, set through the real
+        //Same phase gate for the other dispatch branch - a supplier node's fixed rate, set through the real
         //click-then-sidebar path: a real click selects the node (GraphCanvasControl.EditNode), then the
         //value is set through the inspector's own Flow segment controls (RateFixed/RateValue), not a direct
         //controller call, so this still proves "edit through the real sidebar controls, save, reload" end
@@ -318,41 +337,6 @@ namespace Foreman.Mac.UiTests.Canvas {
                 $"Synthesized factory: {control.NodeElements.Count} nodes, {control.LinkElements.Count} links, {control.Viewer.Annotations.Count} annotations{Environment.NewLine}");
 
             Assert.True(File.Exists(Path.Combine(workspaceDir, "task-7-overview.png")));
-        }
-
-        //---- Task 6 deliverable: a node with its edit panel open, opened through the real click dispatch
-        //rather than direct panel construction (EditRecipePanelTests' own render already covers the panel in
-        //isolation) ----
-
-        [AvaloniaFact]
-        public async Task VisualGate_ClickToEdit_RecipeNodeWithEditPanelOpen_RendersToSddWorkspace() {
-            DataCache cache = await GetCacheAsync();
-            GraphCanvasControl control = NewControl(cache);
-
-            RecipeNodeElement smelter = await AddRecipeViaChooser(control, cache, "iron-plate", new Point(0, 0));
-            control.Viewer.Graph.UpdateNodeValues();
-
-            ClickNodeBody(control, smelter);
-            var panel = Assert.IsType<EditRecipePanel>(control.FloatingPanelHost.Content);
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(2 * Half, 2 * Half));
-            control.Render(surface.Canvas);
-
-            Rectangle panelBounds = control.FloatingPanelHost.Bounds;
-            surface.Canvas.Save();
-            surface.Canvas.Translate(panelBounds.X, panelBounds.Y);
-            panel.RenderOffscreen(surface.Canvas, panelBounds.Width, panelBounds.Height);
-            surface.Canvas.Restore();
-
-            using SKImage image = surface.Snapshot();
-            using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
-
-            string workspaceDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".superpowers", "sdd", "2026-09-02-phase5a-floating-panels");
-            Directory.CreateDirectory(workspaceDir);
-            string outPath = Path.Combine(workspaceDir, "task-6-click-to-edit-render.png");
-            File.WriteAllBytes(outPath, data.ToArray());
-
-            Assert.True(new FileInfo(outPath).Length > 0);
         }
     }
 }

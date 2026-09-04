@@ -48,7 +48,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             //ApplyLoadedSettings only seeds Context.DCache/DefaultAssemblerQuality when Settings is set (a
             //full boot does that); no test-only AppSettings exists here, so set both directly - same as
             //OpenEmptyWindowAsync below, and needed by the Recipe segment (RecipeSegmentViewModel reads
-            //Context.DCache the same way EditRecipePanel did).
+            //Context.DCache directly).
             window.GraphCanvas.Viewer.Context.DCache = cache;
             window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
             var pair = new RecipeQualityPair(cache.Recipes["iron-plate"], cache.DefaultQuality!);

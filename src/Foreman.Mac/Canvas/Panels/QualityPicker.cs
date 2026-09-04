@@ -7,9 +7,8 @@ using System.Linq;
 
 namespace Foreman.Mac.Canvas.Panels {
     //Shared "Quality:" label + selector (docs/panels-reference.md §9 cross-cutting note): IRChooserPanel's
-    //QualitySelector and EditRecipePanel's own copy are the same population dance in upstream (foreach
-    //enabled IQuality, add FriendlyName, disable the combo when only one quality exists) - pulled out once
-    //here instead of duplicated per panel.
+    //QualitySelector population dance (foreach enabled IQuality, add FriendlyName, disable the combo when
+    //only one quality exists) pulled out once here instead of duplicated per panel.
     public sealed class QualityPicker : StackPanel {
         private readonly ComboBox selector;
         private readonly List<IQuality> qualities = [];
