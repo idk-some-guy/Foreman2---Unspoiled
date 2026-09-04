@@ -23,11 +23,7 @@ using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Migrates the module/beacon coverage of EditRecipePanelTests.cs (Canvas/Panels) onto the docked
-    //RecipeSegmentView's Modules and Beacon groups (Task 6). Task 5 already migrated Rate/Assembler/Fuel
-    //(RecipeSegmentRateAssemblerTests.cs); the WinForms-chrome-only cases there (IconButton repaint
-    //staleness, tooltip text, header font size) have no analogue on PickGrid's plain Avalonia Buttons and
-    //stay behind on the original panel for now.
+    //Migrates the module/beacon coverage of EditRecipePanelTests.cs onto RecipeSegmentView's Modules and Beacon groups.
     public class RecipeSegmentModulesBeaconTests {
         private sealed class Fixture {
             public required DataCache Cache;
@@ -293,6 +289,32 @@ namespace Foreman.Mac.UiTests.Inspector {
             Click(host, GridCellFor(host, beaconOptions, rf.Beacon));
 
             Assert.True(beaconGroup.IsExpanded);
+        }
+
+        //A manual header click must use SetCurrentValue, not the plain setter - otherwise it clears the
+        //live {Binding HasBeacon} for good, and later HasBeacon changes stop reaching IsExpanded.
+        [AvaloniaFact]
+        public void BeaconGroup_ManualHeaderClick_DoesNotBreakTheLiveHasBeaconBinding() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            InspectorGroup beaconGroup = view.FindControl<InspectorGroup>("BeaconGroup")!;
+
+            Click(host, GroupHeaderOf(beaconGroup)); //expand by hand
+            Assert.True(beaconGroup.IsExpanded);
+            Click(host, GroupHeaderOf(beaconGroup)); //collapse by hand again
+            Assert.False(beaconGroup.IsExpanded);
+
+            view.ViewModel!.PickBeacon(view.ViewModel!.BeaconOptions[0]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(beaconGroup.IsExpanded); //HasBeacon flipped true - the binding must still be live
+
+            view.ViewModel!.ClearBeacon();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(beaconGroup.IsExpanded); //HasBeacon flipped false - collapses on its own too
         }
 
         [AvaloniaFact]

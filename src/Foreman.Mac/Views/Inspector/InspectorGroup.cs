@@ -50,7 +50,7 @@ namespace Foreman.Mac.Views.Inspector {
             var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Children = { disclosureGlyph, titleText } };
             headerButton = new Button { Name = "GroupHeader", Content = headerRow, HorizontalAlignment = HorizontalAlignment.Left };
             headerButton.Classes.Add("foreman-group-header");
-            headerButton.Click += (_, _) => IsExpanded = !IsExpanded;
+            headerButton.Click += (_, _) => SetCurrentValue(IsExpandedProperty, !IsExpanded);
             contentHost = new ContentPresenter();
             Content = new StackPanel { Spacing = 4, Children = { headerButton, contentHost } };
             DataContextChanged += (_, _) => SyncGroupContentDataContext();

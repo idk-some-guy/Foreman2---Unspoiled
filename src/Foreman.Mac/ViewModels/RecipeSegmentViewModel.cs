@@ -15,10 +15,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.ViewModels {
-    //Backs RecipeSegmentView: the recipe node editor, ported from EditRecipePanel onto the docked inspector.
-    //Setters call the same RecipeNodeController methods EditRecipePanel called directly - suppressWrites
-    //keeps Refresh() (reading node state back into these properties) from bouncing those same writes back
-    //out at the node.
+    //Backs RecipeSegmentView, ported from EditRecipePanel - suppressWrites stops Refresh() from bouncing its own reads back out through the controller.
     public sealed partial class RecipeSegmentViewModel : ObservableObject {
         private const int PickIconSize = 28;
 

@@ -18,13 +18,7 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Migrates EditRecipePanelSpaceAgeQualityTests.cs's real-preset icon-compositing coverage onto
-    //RecipeSegmentViewModel.PickQuality (Task 6, fix round 2 rulings): unlike EditRecipePanel's own
-    //QualitySelector, a pick here re-quals the node's current assembler immediately (RecipeSegmentViewModel
-    //writes through) *and* leaves graphViewer.Graph.DefaultAssemblerQuality set, matching the old panel's
-    //own selector-sets-a-default behavior - so every option list this ViewModel builds off
-    //node.SelectedAssembler.Quality (Module/Beacon/BeaconModule options included) already reflects the
-    //picked quality for whatever gets picked next, with no separate "default" plumbing required.
+    //Migrates EditRecipePanelSpaceAgeQualityTests.cs's real-preset icon-compositing coverage onto RecipeSegmentViewModel.PickQuality, which writes through immediately unlike EditRecipePanel's own QualitySelector.
     public class RecipeSegmentQualityTests {
         private const string PresetName = "Factorio 2.0 Space Age";
 

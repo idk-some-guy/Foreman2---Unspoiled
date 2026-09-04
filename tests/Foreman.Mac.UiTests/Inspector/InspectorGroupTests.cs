@@ -1,11 +1,13 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Data;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.Mac.Views.Inspector;
+using System.ComponentModel;
 using System.Linq;
 using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
@@ -80,6 +82,37 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(group.IsExpanded);
+        }
+
+        private sealed class BoolSource : INotifyPropertyChanged {
+            private bool flag;
+            public event PropertyChangedEventHandler? PropertyChanged;
+            public bool Flag {
+                get => flag;
+                set { flag = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Flag))); }
+            }
+        }
+
+        //The header click must use SetCurrentValue - a plain setter clears whatever binding is on
+        //IsExpandedProperty, so a later source-driven change would never reach the control again.
+        [AvaloniaFact]
+        public void TitleClick_DoesNotSeverALiveIsExpandedBinding() {
+            (AvaloniaWindow host, InspectorGroup group) = NewGroup(isExpanded: false);
+            var source = new BoolSource();
+            group.Bind(InspectorGroup.IsExpandedProperty, new Binding(nameof(BoolSource.Flag)) { Source = source });
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(group.IsExpanded);
+
+            Click(host, HeaderOf(group));
+            Assert.True(group.IsExpanded);
+
+            source.Flag = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(group.IsExpanded);
+
+            source.Flag = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(group.IsExpanded);
         }
     }
 }
