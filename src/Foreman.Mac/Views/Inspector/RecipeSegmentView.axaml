@@ -80,7 +80,7 @@
           <insp:PickGrid Name="BeaconModuleOptionsGrid" Items="{Binding BeaconModuleOptions}" />
           <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space2}">
             <TextBlock Text="# Beacons" VerticalAlignment="Center" Classes="foreman-caption" />
-            <NumericUpDown Name="BeaconCountValue" Minimum="0" Maximum="1000" FormatString="N2"
+            <NumericUpDown Name="BeaconCountValue" Minimum="0" Maximum="1000" FormatString="0.##"
                             Value="{Binding BeaconCount, Mode=TwoWay}" />
           </StackPanel>
           <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space2}">

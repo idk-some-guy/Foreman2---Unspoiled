@@ -447,5 +447,36 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(oracle.Resolved);
             Assert.Equal(4, node.BeaconsConst, 3);
         }
+
+        //Deliberate WinForms-parity divergence, not chrome: BeaconCountValue keeps a bare-integer display
+        //for whole counts (dropping the trailing ".00") while the other two beacon fields stay at their own
+        //two-decimal display, matching the deleted EditRecipePanel's own explicit split between "0.##" and
+        //"N2"-equivalent formatting.
+        [AvaloniaFact]
+        public void BeaconCountInput_WholeValue_DisplaysBareInteger() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.SetBeacon(new BeaconQualityPair(rf.Beacon, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            NumericUpDown beaconCount = view.FindControl<NumericUpDown>("BeaconCountValue")!;
+            NumericUpDown beaconsPerAssembler = view.FindControl<NumericUpDown>("BeaconsPerAssemblerValue")!;
+            NumericUpDown beaconsTotal = view.FindControl<NumericUpDown>("BeaconsTotalValue")!;
+
+            beaconCount.Value = 1m;
+            Assert.Equal("1", beaconCount.Text);
+
+            beaconCount.Value = 1.5m;
+            Assert.Equal("1.5", beaconCount.Text);
+
+            beaconsPerAssembler.Value = 2m;
+            Assert.Equal("2.00", beaconsPerAssembler.Text);
+
+            beaconsTotal.Value = 3m;
+            Assert.Equal("3.00", beaconsTotal.Text);
+        }
     }
 }
