@@ -41,6 +41,7 @@ namespace Foreman.Mac.Views {
         private readonly Button cancelButton;
 
         private bool suppressLiveUpdates = true;
+        private bool resultSet;
 
         public Action? RequestRedraw { get; set; }
         public AppSettings? Settings { get; set; }
@@ -220,6 +221,7 @@ namespace Foreman.Mac.Views {
         //Ports the OK path (reference §6): SaveDefaults persists the current values as the session/AppSettings
         //defaults, then closes with a true result.
         internal void ApplyOk() {
+            resultSet = true;
             TextAnnotationElement.SaveDefaults(element, Settings);
             Close(true);
         }
@@ -227,9 +229,22 @@ namespace Foreman.Mac.Views {
         //Ports the Cancel path (reference §6): reverts every field from the construction-time snapshot before
         //closing, so the live-previewed edits never stick.
         internal void ApplyCancel() {
+            resultSet = true;
             original.RevertOnto(element);
             RequestRedraw?.Invoke();
             Close(false);
+        }
+
+        //Fix round 1: every field applies live as the user types, straight onto the domain element - OK and
+        //Cancel both already resolve that (persist vs. revert), but a red-button close skips both, leaving
+        //the element mutated with no revert and no dirty signal. resultSet distinguishes an OK/Cancel close
+        //(already handled) from any other one (title bar close, Cmd+W, window manager).
+        protected override void OnClosing(WindowClosingEventArgs e) {
+            if (!resultSet) {
+                original.RevertOnto(element);
+                RequestRedraw?.Invoke();
+            }
+            base.OnClosing(e);
         }
     }
 }

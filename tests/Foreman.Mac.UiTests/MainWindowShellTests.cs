@@ -1254,5 +1254,53 @@ namespace Foreman.Mac.UiTests {
 
             Assert.True(window.ViewModel.IsDirty);
         }
+
+        //Fix round 1: every field on these two windows applies live onto the domain element as the user
+        //types - OK persists it, Cancel reverts it, but closing via the red button (or Cmd+W, or the
+        //window manager) used to skip both and leave the element mutated with no revert and no dirty
+        //signal. Drives the real window (not TextPropertiesDialogStub) so OnClosing's revert actually runs.
+        [AvaloniaFact]
+        public void TextPropertiesWindow_CloseWithoutOkOrCancel_RevertsAndStaysClean() {
+            var window = new MainWindow();
+            window.Show();
+            var text = new TextAnnotationElement(new System.Drawing.Point(0, 0));
+            window.GraphCanvas.Viewer.AddAnnotationElement(text);
+            string originalText = text.Text;
+            window.ViewModel.IsDirty = false; //the add above already dirtied it - reset to isolate the close
+
+            window.GraphCanvas.Viewer.ShowAnnotationPropertiesDialog?.Invoke(text);
+            TextPropertiesWindow dialog = window.OwnedWindows.OfType<TextPropertiesWindow>().Single();
+            dialog.TextInputControl.Text = originalText + " edited live";
+            Dispatcher.UIThread.RunJobs();
+            Assert.NotEqual(originalText, text.Text); //confirms the live-apply actually landed before close
+
+            dialog.Close();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(originalText, text.Text);
+            Assert.False(window.ViewModel.IsDirty);
+        }
+
+        [AvaloniaFact]
+        public void ShapePropertiesWindow_CloseWithoutOkOrCancel_RevertsAndStaysClean() {
+            var window = new MainWindow();
+            window.Show();
+            var shape = new ShapeAnnotationElement(new System.Drawing.Point(0, 0), 200, 150);
+            window.GraphCanvas.Viewer.AddAnnotationElement(shape);
+            int originalBorderWidth = shape.BorderWidth;
+            window.ViewModel.IsDirty = false; //the add above already dirtied it - reset to isolate the close
+
+            window.GraphCanvas.Viewer.ShowAnnotationPropertiesDialog?.Invoke(shape);
+            ShapePropertiesWindow dialog = window.OwnedWindows.OfType<ShapePropertiesWindow>().Single();
+            dialog.BorderWidthInputControl.Value = originalBorderWidth + 23;
+            Dispatcher.UIThread.RunJobs();
+            Assert.NotEqual(originalBorderWidth, shape.BorderWidth); //confirms the live-apply actually landed
+
+            dialog.Close();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(originalBorderWidth, shape.BorderWidth);
+            Assert.False(window.ViewModel.IsDirty);
+        }
     }
 }

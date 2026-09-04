@@ -35,6 +35,8 @@ namespace Foreman.Mac.Views {
         public Action? RequestRedraw { get; set; }
         public AppSettings? Settings { get; set; }
 
+        private bool resultSet;
+
         private readonly record struct Snapshot(
             ShapeAnnotationElement.ShapeType ShapeType, SKColor FillColor, SKColor BorderColor, int BorderWidth) {
             public static Snapshot Capture(ShapeAnnotationElement e) => new(e.CurrentShapeType, e.FillColor, e.BorderColor, e.BorderWidth);
@@ -161,14 +163,27 @@ namespace Foreman.Mac.Views {
         internal NumericUpDown BorderWidthInputControl => borderWidthInput;
 
         internal void ApplyOk() {
+            resultSet = true;
             ShapeAnnotationElement.SaveDefaults(element, Settings);
             Close(true);
         }
 
         internal void ApplyCancel() {
+            resultSet = true;
             original.RevertOnto(element);
             RequestRedraw?.Invoke();
             Close(false);
+        }
+
+        //Fix round 1 (mirrors TextPropertiesWindow): every field applies live onto the domain element, so a
+        //red-button close - neither OK nor Cancel - must still revert. resultSet marks the two closes that
+        //already handled it.
+        protected override void OnClosing(WindowClosingEventArgs e) {
+            if (!resultSet) {
+                original.RevertOnto(element);
+                RequestRedraw?.Invoke();
+            }
+            base.OnClosing(e);
         }
     }
 }
