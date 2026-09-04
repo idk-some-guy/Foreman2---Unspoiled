@@ -27,6 +27,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   it hands the width straight back to the canvas.
 - View menu's Show Inspector and Pin Inspector are now live toggles (⌥⌘I and ⇧⌥⌘I). Pinning the
   sidebar persists across restarts.
+- The inspector's Flow segment: rate (Auto/Fixed with a live value), key node title, and a
+  simplify-throughput toggle for passthrough nodes, for every non-recipe node type. Selecting a
+  supplier, consumer, passthrough, spoil, or plant node now edits it right there in the sidebar
+  instead of opening a floating panel.
 
 ### Fixed
 

@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             xmlns:insp="using:Foreman.Mac.Views.Inspector"
+             x:Class="Foreman.Mac.Views.Inspector.FlowSegmentView"
+             x:DataType="vm:FlowSegmentViewModel">
+  <StackPanel Spacing="{StaticResource Foreman.Space.Space4}" Margin="{StaticResource Foreman.Thickness.Space3}">
+    <insp:InspectorGroup Title="Rate">
+      <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
+        <Border Classes="foreman-segment-strip" HorizontalAlignment="Left">
+          <StackPanel Orientation="Horizontal" Spacing="2">
+            <RadioButton Name="RateAuto" GroupName="FlowRateType" Content="Auto" Classes="foreman-segment-item" />
+            <RadioButton Name="RateFixed" GroupName="FlowRateType" Content="Fixed" Classes="foreman-segment-item"
+                         IsChecked="{Binding IsFixedRate, Mode=TwoWay}" />
+          </StackPanel>
+        </Border>
+        <NumericUpDown Name="RateValue" Minimum="0" FormatString="N4"
+                        IsEnabled="{Binding IsFixedRate}"
+                        Value="{Binding FixedRate, Mode=TwoWay}" />
+      </StackPanel>
+    </insp:InspectorGroup>
+
+    <insp:InspectorGroup Title="Node">
+      <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
+        <ToggleSwitch Name="KeyNode" Content="Key Node" IsChecked="{Binding IsKeyNode, Mode=TwoWay}" />
+        <TextBox Name="KeyNodeTitle" MaxLength="200" IsVisible="{Binding IsKeyNode}"
+                  Text="{Binding KeyNodeTitle, Mode=TwoWay}" />
+        <ToggleSwitch Name="Simplify" Content="Simplify throughput" IsVisible="{Binding ShowsSimplify}"
+                      IsChecked="{Binding SimplifyThroughput, Mode=TwoWay}" />
+      </StackPanel>
+    </insp:InspectorGroup>
+  </StackPanel>
+</UserControl>

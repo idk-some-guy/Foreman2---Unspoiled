@@ -140,22 +140,20 @@ namespace Foreman.Mac.Canvas {
         }
 
         //Ports EditNode/EditRecipeNode's dispatch (reference §8/§9 step 6, upstream ProductionGraphViewer.cs
-        //512-586): a RecipeNodeElement opens the real EditRecipePanel paired with a standalone RecipePanel -
-        //upstream's editPanel/recipePanel floating side by side (leftAnchor/Direction.Right for the editor,
-        //rightAnchor/Direction.Left for the recipe card) - every other node type opens EditFlowPanel alone,
-        //matching upstream's unconditional else. Anchored at the node's edges the same way upstream's
-        //non-locked branch is; upstream's fixed-origin locked branch was retired with the dead
-        //LockedRecipeEditorPosition setting (Task 9) and isn't reachable here.
+        //512-586): a RecipeNodeElement still opens the real EditRecipePanel paired with a standalone
+        //RecipePanel - upstream's editPanel/recipePanel floating side by side (leftAnchor/Direction.Right for
+        //the editor, rightAnchor/Direction.Left for the recipe card). Every other node type used to open
+        //EditFlowPanel the same way; that editor now lives in the inspector sidebar's Flow segment (Task 4),
+        //so a click on one of those bodies just selects the node and lets the inspector follow.
         internal void EditNode(BaseNodeElement node) {
-            if (Viewer.Context.DCache is not DataCache cache)
+            if (Viewer.Context.DCache is not DataCache)
                 return;
-
-            var leftAnchor = new DrawingPoint(node.X - (node.Width / 2), node.Y);
 
             if (node is RecipeNodeElement && node.ViewModel is IRecipeNodeViewModel recipeViewModel) {
                 if (recipeViewModel.BaseRecipe.Recipe is not IRecipe baseRecipe)
                     return;
 
+                var leftAnchor = new DrawingPoint(node.X - (node.Width / 2), node.Y);
                 var editPanel = new EditRecipePanel(recipeViewModel, Viewer) {
                     RequestRedraw = RequestRedraw,
                     RequestReposition = FloatingPanelHost.Reposition,
@@ -166,11 +164,7 @@ namespace Foreman.Mac.Canvas {
                 return;
             }
 
-            var flowPanel = new EditFlowPanel(node.ViewModel, Viewer) {
-                RequestRedraw = RequestRedraw,
-                RequestReposition = FloatingPanelHost.Reposition,
-            };
-            FloatingPanelHost.Show(flowPanel, leftAnchor, Direction.Right);
+            Viewer.SetSelection([node]);
         }
 
         //IMPORTANT 4 (final fix wave, reference §7): loading a save over an open edit/chooser panel left it

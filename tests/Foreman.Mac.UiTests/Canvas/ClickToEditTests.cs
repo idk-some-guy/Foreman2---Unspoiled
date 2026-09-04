@@ -19,9 +19,9 @@ using AvaloniaWindow = Avalonia.Controls.Window;
 namespace Foreman.Mac.UiTests.Canvas {
     //Exercises Task 6's real click-to-edit wiring (docs/panels-reference.md §8/§9 step 6): BaseNodeElement.
     //MouseUpLeft's fallback now calls Context.EditNode (GraphCanvasControl.EditNode), which dispatches by node
-    //type to a real EditRecipePanel/EditFlowPanel instead of the retired P4 no-op stub. EditFlowPanelTests/
-    //EditRecipePanelTests already cover each panel's own field behavior once constructed directly - this file
-    //covers the dispatch itself: which node type opens which panel, that a tab click doesn't, that the panel
+    //type to a real EditRecipePanel or, for everything else, a plain selection (Task 4 moved that editor into
+    //the inspector's Flow segment - see Inspector/FlowSegmentTests.cs). This file covers the dispatch itself:
+    //which node type opens the recipe panel vs. only selects, that a tab click does neither, that the panel
     //this dispatch opens still obeys Task 1's click-outside-closes-and-falls-through rule, and that the
     //RequestRedraw/RequestReposition callbacks this task wires actually reach GraphCanvasControl.
     public class ClickToEditTests {
@@ -140,7 +140,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         private static void ClickNodeBody(Fixture fx, BaseNodeElement node) =>
             ClickScreenPoint(fx.Window, fx.Control.Viewport.GraphToScreen(node.Location));
 
-        //---- dispatch-by-node-type (reference §8: RecipeNodeElement -> EditRecipePanel, everything else -> EditFlowPanel) ----
+        //---- dispatch-by-node-type (reference §8: RecipeNodeElement -> EditRecipePanel, everything else -> selection only) ----
 
         [AvaloniaFact]
         public void ClickRecipeNodeBody_OpensEditRecipePanel() {
@@ -153,33 +153,36 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [AvaloniaFact]
-        public void ClickSupplierNodeBody_OpensEditFlowPanel() {
+        public void ClickSupplierNodeBody_SelectsOnly_NoFloatingPanel() {
             Fixture fx = NewFixture();
             BaseNodeElement node = AddSupplierNode(fx, Point.Empty);
 
             ClickNodeBody(fx, node);
 
-            Assert.IsType<EditFlowPanel>(fx.Control.FloatingPanelHost.Content);
+            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.Contains(node, fx.Control.Viewer.SelectedNodes);
         }
 
         [AvaloniaFact]
-        public void ClickConsumerNodeBody_OpensEditFlowPanel() {
+        public void ClickConsumerNodeBody_SelectsOnly_NoFloatingPanel() {
             Fixture fx = NewFixture();
             BaseNodeElement node = AddConsumerNode(fx, Point.Empty);
 
             ClickNodeBody(fx, node);
 
-            Assert.IsType<EditFlowPanel>(fx.Control.FloatingPanelHost.Content);
+            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.Contains(node, fx.Control.Viewer.SelectedNodes);
         }
 
         [AvaloniaFact]
-        public void ClickPassthroughNodeBody_OpensEditFlowPanel() {
+        public void ClickPassthroughNodeBody_SelectsOnly_NoFloatingPanel() {
             Fixture fx = NewFixture();
             BaseNodeElement node = AddPassthroughNode(fx, Point.Empty);
 
             ClickNodeBody(fx, node);
 
-            Assert.IsType<EditFlowPanel>(fx.Control.FloatingPanelHost.Content);
+            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.Contains(node, fx.Control.Viewer.SelectedNodes);
         }
 
         //---- tab vs body (reference §4/§8: a tab claims the point before EditNode ever runs) ----
@@ -211,21 +214,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.False(fx.Control.FloatingPanelHost.IsOpen);
         }
 
-        //---- RequestRedraw wired (reference §8's Task 4/5 note: EditFlowPanel/EditRecipePanel expose the
+        //---- RequestRedraw wired (reference §8's Task 4/5 note: EditRecipePanel exposes the
         //callback, Task 6 sets it) ----
-
-        [AvaloniaFact]
-        public void EditFlowPanel_FixedRateEdit_RequestsRedrawOnRealControl() {
-            Fixture fx = NewFixture();
-            BaseNodeElement node = AddSupplierNode(fx, Point.Empty);
-            ClickNodeBody(fx, node);
-            var panel = Assert.IsType<EditFlowPanel>(fx.Control.FloatingPanelHost.Content);
-            int before = fx.Control.RedrawRequestCount;
-
-            panel.FixedOption.IsChecked = true;
-
-            Assert.True(fx.Control.RedrawRequestCount > before);
-        }
 
         [AvaloniaFact]
         public void EditRecipePanel_FixedRateEdit_RequestsRedrawOnRealControl() {

@@ -162,8 +162,9 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         //Same phase gate for the other dispatch branch (RecipeNodeElement -> EditRecipePanel above,
-        //everything else -> EditFlowPanel here) - a supplier node's fixed rate, set through the real click
-        //path rather than direct panel construction (EditFlowPanelTests' own job).
+        //everything else -> selection only, Task 4) - a supplier node's fixed rate, set through the real
+        //click-then-controller path (the inspector's Flow segment does the controller call in the real app;
+        //FlowSegmentTests own that field-level behavior) rather than direct panel construction.
         [AvaloniaFact]
         public async Task ClickToEdit_SupplierNode_SetFixedRate_PersistsThroughSaveAndReload() {
             DataCache cache = await GetCacheAsync();
@@ -177,15 +178,15 @@ namespace Foreman.Mac.UiTests.Canvas {
             supplier.PrePaint(); //stands in for the first real paint pass that would otherwise position its item tab (see ClickToEditTests)
 
             ClickNodeBody(control, supplier);
-            var panel = Assert.IsType<EditFlowPanel>(control.FloatingPanelHost.Content);
+            Assert.False(control.FloatingPanelHost.IsOpen);
+            Assert.Contains(supplier, control.Viewer.SelectedNodes);
 
-            panel.FixedOption.IsChecked = true;
-            panel.FixedFlowInput.Value = 12.5m;
+            if (control.Viewer.Session.Editor.RequestNodeController(supplierId) is not BaseNodeController controller)
+                throw new Xunit.Sdk.XunitException("Supplier node has no controller.");
+            controller.SetRateType(RateType.Manual);
+            controller.SetDesiredSetValue(12.5);
             Assert.Equal(RateType.Manual, supplier.ViewModel.RateType);
             Assert.Equal(12.5, supplier.ViewModel.DesiredSetValue, 3);
-
-            ClickCanvasPoint(control, new Point(2 * Half - 20, 2 * Half - 20));
-            Assert.False(control.FloatingPanelHost.IsOpen);
 
             var document = new GraphViewerSaveDocument {
                 Version = GraphSaveFormat.SaveFormatVersion,

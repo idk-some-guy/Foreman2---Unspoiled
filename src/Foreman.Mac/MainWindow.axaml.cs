@@ -121,6 +121,8 @@ namespace Foreman.Mac {
             GraphCanvas = new GraphCanvasControl();
             GraphViewerHost.Content = GraphCanvas;
             Inspector = this.FindControl<InspectorView>("Inspector")!;
+            Inspector.Viewer = GraphCanvas.Viewer;
+            Inspector.RequestRedraw = () => GraphCanvas.InvalidateVisual();
             ZoomInCommand = new RelayCommand(MenuZoomIn);
             ZoomOutCommand = new RelayCommand(MenuZoomOut);
             Commands = new ShellViewModel(
@@ -380,6 +382,7 @@ namespace Foreman.Mac {
             GraphCanvas.Viewer.Graph.UpdateNodeValues();
             ResyncNativeMenuCheckedStates();
             GraphCanvas.InvalidateVisual();
+            Inspector.RefreshSegment();
         }
 
         //Ports ApplyLoadedGraphUiState's dropdown resync (upstream MainForm.cs:227-231, first thing it does
@@ -1284,6 +1287,7 @@ namespace Foreman.Mac {
             GraphCanvas.Viewer.Graph.UpdateNodeValues();
             ResyncNativeMenuCheckedStates();
             GraphCanvas.InvalidateVisual();
+            Inspector.RefreshSegment();
         }
 
         //Single-window app: hiding the main window is the whole of what "hide this app" means here. Hide

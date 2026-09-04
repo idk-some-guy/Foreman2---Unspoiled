@@ -106,7 +106,6 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Contains("ItemChooserPanel", captions);
             Assert.Contains("RecipeChooserPanel", captions);
-            Assert.Contains("EditFlowPanel", captions);
             Assert.Contains("EditRecipePanel", captions);
             Assert.Contains("QualityPicker", captions);
         }
@@ -127,7 +126,6 @@ namespace Foreman.Mac.UiTests.Views {
             Control[] panels = [
                 window.GetVisualDescendants().OfType<ItemChooserPanel>().Single(),
                 window.GetVisualDescendants().OfType<RecipeChooserPanel>().Single(),
-                window.GetVisualDescendants().OfType<EditFlowPanel>().Single(),
                 window.GetVisualDescendants().OfType<EditRecipePanel>().Single(),
                 //IRChooserPanel and EditRecipePanel each embed their own QualityPicker too; the standalone
                 //gallery tile is the one ChromeWrap made a direct Border child, not one of those.
