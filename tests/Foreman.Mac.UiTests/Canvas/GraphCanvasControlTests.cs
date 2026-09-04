@@ -10,6 +10,7 @@ using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using SkiaSharp;
@@ -88,10 +89,10 @@ namespace Foreman.Mac.UiTests.Canvas {
             window.Show();
             control.Focus();
 
-            window.KeyPressQwerty(PhysicalKey.MetaLeft, RawInputModifiers.Meta);
+            CanvasKeys.KeyDownOnCanvas(control, Key.LWin, KeyModifiers.Meta);
             Assert.True(control.IsPassthroughBusModifierHeld);
 
-            window.KeyReleaseQwerty(PhysicalKey.MetaLeft, RawInputModifiers.None);
+            CanvasKeys.KeyUpOnCanvas(control, Key.LWin);
             Assert.False(control.IsPassthroughBusModifierHeld);
         }
 
@@ -103,10 +104,10 @@ namespace Foreman.Mac.UiTests.Canvas {
             window.Show();
             control.Focus();
 
-            window.KeyPressQwerty(PhysicalKey.ControlLeft, RawInputModifiers.Control);
+            CanvasKeys.KeyDownOnCanvas(control, Key.LeftCtrl, KeyModifiers.Control);
             Assert.True(control.IsPassthroughBusModifierHeld);
 
-            window.KeyReleaseQwerty(PhysicalKey.ControlLeft, RawInputModifiers.None);
+            CanvasKeys.KeyUpOnCanvas(control, Key.LeftCtrl);
             Assert.False(control.IsPassthroughBusModifierHeld);
         }
 

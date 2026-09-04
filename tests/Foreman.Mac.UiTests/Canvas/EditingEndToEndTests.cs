@@ -9,6 +9,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using Foreman.Serialization;
@@ -235,9 +236,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             BaseNodeElement toDelete = control.Viewer.SelectedNodes.First(); //one of the just-pasted pair
             control.Viewer.SetSelection([toDelete]);
             control.Focus();
-            AvaloniaWindow window = (AvaloniaWindow)Avalonia.Controls.TopLevel.GetTopLevel(control)!;
-            window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
-            window.KeyReleaseQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(control, Key.Delete);
             Assert.Equal(3, control.NodeElements.Count);
 
             //---- save to string, reload ----

@@ -6,6 +6,7 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views;
 using Foreman.Models;
 using Foreman.Serialization;
@@ -335,7 +336,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.LastContextMenuEntries!.Single(e => e.Caption == "Add Shape").Invoke!.Invoke();
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Escape);
 
             var corner = origin + new AvaloniaPoint(80, 80);
             fx.Window.MouseDown(origin, MouseButton.Left, RawInputModifiers.None);

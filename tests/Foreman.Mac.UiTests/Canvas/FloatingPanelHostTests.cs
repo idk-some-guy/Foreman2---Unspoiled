@@ -8,6 +8,7 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using System.Drawing;
 using System.Linq;
@@ -215,7 +216,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Fixture fx = NewFixture();
             fx.Control.FloatingPanelHost.Show(TrivialPanel(), new Point(0, 0));
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Escape);
 
             Assert.False(fx.Control.FloatingPanelHost.IsOpen);
         }
@@ -242,8 +243,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             int x = node.X;
             fx.Control.FloatingPanelHost.Show(TrivialPanel(), new Point(0, 0));
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
-            fx.Window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Escape);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Right);
 
             Assert.NotEqual(x, node.X);
         }
@@ -294,7 +295,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             int y = node.Y;
             fx.Control.FloatingPanelHost.Show(TrivialPanel(), new Point(0, 0));
 
-            fx.Window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Right);
 
             Assert.Equal(x, node.X);
             Assert.Equal(y, node.Y);
@@ -307,7 +308,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Viewer.SetSelection([node]);
             fx.Control.FloatingPanelHost.Show(TrivialPanel(), new Point(0, 0));
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Delete);
 
             Assert.Contains(node, fx.Control.Viewer.SelectedNodes);
             Assert.Contains(node, fx.Control.NodeElements);
@@ -381,7 +382,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Fixture fx = NewFixture();
             fx.Control.FloatingPanelHost.ShowPaired(TrivialPanel(), new Point(0, 0), Direction.Right, FixedSizePanel(), new Point(0, 0), Direction.Left);
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Escape);
 
             Assert.False(fx.Control.FloatingPanelHost.IsOpen);
             Assert.Null(fx.Control.FloatingPanelHost.CompanionContent);

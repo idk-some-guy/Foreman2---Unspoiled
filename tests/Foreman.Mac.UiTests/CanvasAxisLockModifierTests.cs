@@ -7,6 +7,7 @@ using Avalonia.Layout;
 using Avalonia.Threading;
 using Foreman.Mac;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.UiTests.support;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
@@ -20,7 +21,7 @@ namespace Foreman.Mac.UiTests {
             window.Show();
             Dispatcher.UIThread.RunJobs();
             window.GraphCanvas.Focus();
-            window.KeyPressQwerty(PhysicalKey.ShiftLeft, RawInputModifiers.Shift); //no matching KeyRelease - mirrors the sheet swallowing it
+            CanvasKeys.KeyDownOnCanvas(window.GraphCanvas, Key.LeftShift, KeyModifiers.Shift); //no matching KeyUp - mirrors the sheet swallowing it
             Assert.True(window.GraphCanvas.Grid.LockDragToAxis);
 
             window.MouseDown(CanvasCenter(window), MouseButton.Left, RawInputModifiers.None);

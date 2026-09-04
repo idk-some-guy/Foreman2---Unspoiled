@@ -11,6 +11,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using SkiaSharp;
 using System.Collections.Generic;
@@ -374,8 +375,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Viewer.SetSelection([supplier]);
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
-            fx.Window.KeyReleaseQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Delete);
 
             Assert.Empty(fx.Control.Viewer.NodeElements);
         }
@@ -390,8 +390,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             annotation.IsSelected = true;
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
-            fx.Window.KeyReleaseQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Delete);
 
             Assert.Empty(fx.Control.Viewer.Annotations);
             Assert.Single(fx.Control.Viewer.NodeElements);
@@ -412,8 +411,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             annotation.IsSelected = true;
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
-            fx.Window.KeyReleaseQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Delete);
 
             Assert.Empty(fx.Control.Viewer.NodeElements);
             Assert.Empty(fx.Control.Viewer.Annotations);

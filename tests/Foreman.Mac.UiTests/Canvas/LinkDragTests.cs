@@ -11,6 +11,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using SkiaSharp;
 using System.Collections.Generic;
@@ -300,7 +301,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.NotNull(fx.Control.DraggedLink);
 
             fx.Control.Focus();
-            fx.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Escape);
 
             Assert.Null(fx.Control.DraggedLink);
             Assert.Null(fx.Control.MouseDownElement);

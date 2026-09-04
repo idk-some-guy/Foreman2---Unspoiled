@@ -21,6 +21,7 @@ using Foreman.Models;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using System;
@@ -404,12 +405,12 @@ namespace Foreman.Mac.UiTests {
             checkbox.IsChecked = false;
             window.GraphCanvas.Focus();
 
-            window.KeyPressQwerty(PhysicalKey.Space, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(window.GraphCanvas, Key.Space);
 
             Assert.True(window.GraphCanvas.Grid.ShowGrid);
             Assert.True(checkbox.IsChecked);
 
-            window.KeyPressQwerty(PhysicalKey.Space, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(window.GraphCanvas, Key.Space);
 
             Assert.False(window.GraphCanvas.Grid.ShowGrid);
             Assert.False(checkbox.IsChecked);

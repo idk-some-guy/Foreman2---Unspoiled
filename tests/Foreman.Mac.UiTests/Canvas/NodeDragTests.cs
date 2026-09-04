@@ -6,6 +6,7 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using SkiaSharp;
 using System;
@@ -111,7 +112,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new Point(30, 0), node.Location);
 
             fx.Control.Focus();
-            fx.Window.KeyPressQwerty(PhysicalKey.ShiftLeft, RawInputModifiers.Shift);
+            CanvasKeys.KeyDownOnCanvas(fx.Control, Key.LeftShift, KeyModifiers.Shift);
             Assert.True(fx.Control.Grid.LockDragToAxis);
             Assert.Equal(new Point(30, 0), fx.Control.Grid.DragOrigin); //re-anchored to the node's current, aligned location
 
@@ -154,7 +155,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Window.MouseMove(start + new AvaloniaPoint(30, 0), RawInputModifiers.LeftMouseButton); //move to (30,0)
 
             fx.Control.Focus();
-            fx.Window.KeyPressQwerty(PhysicalKey.ShiftLeft, RawInputModifiers.Shift);
+            CanvasKeys.KeyDownOnCanvas(fx.Control, Key.LeftShift, KeyModifiers.Shift);
             Assert.True(fx.Control.Grid.LockDragToAxis);
 
             using SKSurface surface = SKSurface.Create(new SKImageInfo(2 * Half, 2 * Half));
@@ -238,16 +239,16 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Viewer.SetSelection([node]);
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Right);
             Assert.Equal(new Point(115, 100), node.Location);
 
-            fx.Window.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Down);
             Assert.Equal(new Point(115, 115), node.Location);
 
-            fx.Window.KeyPressQwerty(PhysicalKey.ArrowLeft, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Left);
             Assert.Equal(new Point(100, 115), node.Location);
 
-            fx.Window.KeyPressQwerty(PhysicalKey.ArrowUp, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Up);
             Assert.Equal(new Point(100, 100), node.Location);
         }
 
@@ -258,7 +259,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Viewer.SetSelection([node]);
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Right);
 
             Assert.Equal(new Point(6, 0), node.Location);
         }
@@ -271,7 +272,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Viewer.SetSelection([node]);
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.Shift);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Right, KeyModifiers.Shift);
 
             Assert.Equal(new Point(40, 0), node.Location); //10*4
         }
@@ -285,7 +286,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Viewer.SetSelection([node]);
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.Shift);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Down, KeyModifiers.Shift);
 
             Assert.Equal(new Point(0, 50), node.Location);
         }
@@ -299,16 +300,16 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Focus();
             Point origin = fx.Control.Viewport.ViewOffset;
 
-            fx.Window.KeyPressQwerty(PhysicalKey.W, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.W);
             Assert.Equal(new Point(origin.X, origin.Y + 10), fx.Control.Viewport.ViewOffset);
 
-            fx.Window.KeyPressQwerty(PhysicalKey.A, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.A);
             Assert.Equal(new Point(origin.X + 10, origin.Y + 10), fx.Control.Viewport.ViewOffset);
 
-            fx.Window.KeyPressQwerty(PhysicalKey.S, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.S);
             Assert.Equal(new Point(origin.X + 10, origin.Y), fx.Control.Viewport.ViewOffset);
 
-            fx.Window.KeyPressQwerty(PhysicalKey.D, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.D);
             Assert.Equal(origin, fx.Control.Viewport.ViewOffset);
         }
 
@@ -319,7 +320,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Focus();
             Point origin = fx.Control.Viewport.ViewOffset;
 
-            fx.Window.KeyPressQwerty(PhysicalKey.W, RawInputModifiers.Shift);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.W, KeyModifiers.Shift);
 
             Assert.Equal(new Point(origin.X, origin.Y + 50), fx.Control.Viewport.ViewOffset); //10*5
         }

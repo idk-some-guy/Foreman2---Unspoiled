@@ -9,6 +9,7 @@ using Foreman.Graph;
 using Foreman.Mac;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using Foreman.Serialization;
 using SkiaSharp;
@@ -326,7 +327,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Contains(nodeC, fx.Control.Viewer.CurrentSelectionNodes);
 
             fx.Control.Focus();
-            fx.Window.KeyReleaseQwerty(PhysicalKey.AltLeft, RawInputModifiers.None); //releases Alt without moving the mouse
+            CanvasKeys.KeyUpOnCanvas(fx.Control, Key.LeftAlt); //releases Alt without moving the mouse
             fx.Window.MouseUp(corner, MouseButton.Left, RawInputModifiers.None);
 
             Assert.DoesNotContain(nodeA, fx.Control.Viewer.SelectedNodes);
@@ -357,8 +358,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Contains(nodeB, fx.Control.Viewer.CurrentSelectionNodes);
 
             fx.Control.Focus();
-            fx.Window.KeyReleaseQwerty(PhysicalKey.AltLeft, RawInputModifiers.None);
-            fx.Window.KeyPressQwerty(PhysicalKey.MetaLeft, RawInputModifiers.Meta); //presses Cmd without moving the mouse
+            CanvasKeys.KeyUpOnCanvas(fx.Control, Key.LeftAlt);
+            CanvasKeys.KeyDownOnCanvas(fx.Control, Key.LWin, KeyModifiers.Meta); //presses Cmd without moving the mouse
             fx.Window.MouseUp(corner, MouseButton.Left, RawInputModifiers.Meta);
 
             Assert.Contains(nodeA, fx.Control.Viewer.SelectedNodes);
