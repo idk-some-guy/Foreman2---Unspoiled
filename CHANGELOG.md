@@ -23,6 +23,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - An inspector view model tracking the canvas selection: it shows the Recipe or Flow segment for a
   single node, a "N nodes selected" count for multiple, and stays visible when pinned or opened
   from the menu even with nothing selected.
+- The inspector sidebar itself: a 300pt column to the right of the canvas showing the selected
+  node's icon, name, and a Recipe/Flow/Supplier/Consumer/Passthrough/Spoil/Plant subtitle. Hiding
+  it hands the width straight back to the canvas.
 
 ### Fixed
 

@@ -5,6 +5,7 @@
   <Color x:Key="Foreman.Color.WindowBackground">#ECECEF</Color>
   <Color x:Key="Foreman.Color.TitlebarBackground">#E7E7EA</Color>
   <Color x:Key="Foreman.Color.SidebarBackground">#EFEFF1</Color>
+  <Color x:Key="Foreman.Color.InspectorBackground">#EFEFF1</Color>
   <Color x:Key="Foreman.Color.ControlBackground">#FFFFFF</Color>
   <Color x:Key="Foreman.Color.ControlBackgroundHover">#F5F5F6</Color>
   <Color x:Key="Foreman.Color.WellBackground">#FFFFFF</Color>
@@ -67,5 +68,10 @@
   <x:Double x:Key="Foreman.Type.AboutName.FontSize">15</x:Double>
   <x:Double x:Key="Foreman.Type.AboutVersion.FontSize">11.5</x:Double>
   <x:Double x:Key="Foreman.Type.AboutTagline.FontSize">10.5</x:Double>
+  <x:Double x:Key="Foreman.Type.InspectorTitle.FontSize">13</x:Double>
+  <FontWeight x:Key="Foreman.Type.InspectorTitle.FontWeight">600</FontWeight>
+  <x:Double x:Key="Foreman.Type.InspectorSubtitle.FontSize">11.5</x:Double>
+
+  <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
 
 </ResourceDictionary>

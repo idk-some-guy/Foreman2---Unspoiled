@@ -145,4 +145,40 @@
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
+  <!-- Inspector sidebar (phase 9 C2a task 2): identity row text and the Recipe/Flow segment strip.
+       No dedicated segmented-control idiom shipped in C1, so the strip reuses the zoom stepper's rounded-
+       border shape above; it's display-only until task 4/5 wire up switching. -->
+  <Style Selector="TextBlock.foreman-inspector-title">
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.InspectorTitle.FontSize}" />
+    <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.InspectorTitle.FontWeight}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+
+  <Style Selector="TextBlock.foreman-inspector-subtitle">
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.InspectorSubtitle.FontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+
+  <Style Selector="Border.foreman-segment-strip">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Padding" Value="2" />
+  </Style>
+
+  <Style Selector="TextBlock.foreman-segment-item">
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.ToolbarLabel.FontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    <Setter Property="Padding" Value="8,3" />
+    <Setter Property="TextAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="TextBlock.foreman-segment-item.active">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Accent}" />
+  </Style>
+
 </Styles>

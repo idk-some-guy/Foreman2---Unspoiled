@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             x:Class="Foreman.Mac.Views.Inspector.InspectorView"
+             x:DataType="vm:InspectorViewModel">
+  <!-- IsVisible is driven from MainWindow.axaml.cs (ViewModel.IsInspectorVisible), not a binding here -
+       InspectorView's own DataContext is the nested Inspector view model, not MainWindowViewModel, and
+       compiled bindings can't cross that boundary from a XAML attribute on this same element. -->
+  <Border Width="{DynamicResource Foreman.Size.InspectorWidth}"
+          Background="{DynamicResource Foreman.Color.InspectorBackground}"
+          BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1,0,0,0">
+    <Grid RowDefinitions="Auto,Auto,*">
+      <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space2}"
+                  Margin="{StaticResource Foreman.Thickness.Space3}" IsVisible="{Binding HasNode}">
+        <Image Name="IdentityIcon" Width="28" Height="28" />
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Name="IdentityName" Classes="foreman-inspector-title" />
+          <TextBlock Name="IdentitySubtitle" Classes="foreman-inspector-subtitle" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Recipe/Flow segment display - not interactive yet (task 4/5 wire switching); Refresh() in the
+           code-behind toggles which label carries .active off InspectorViewModel.Segment. -->
+      <Border Grid.Row="1" Name="SegmentControl" Classes="foreman-segment-strip" HorizontalAlignment="Left"
+              Margin="{StaticResource Foreman.Thickness.Space3}" IsVisible="{Binding HasNode}">
+        <StackPanel Orientation="Horizontal" Spacing="2">
+          <TextBlock Name="RecipeSegmentLabel" Text="Recipe" Classes="foreman-segment-item" />
+          <TextBlock Name="FlowSegmentLabel" Text="Flow" Classes="foreman-segment-item" />
+        </StackPanel>
+      </Border>
+
+      <ContentControl Grid.Row="2" Name="SegmentHost" IsVisible="{Binding HasNode}" />
+      <TextBlock Grid.Row="2" Name="EmptyState" Text="{Binding EmptyStateText}" IsVisible="{Binding !HasNode}"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                 Foreground="{DynamicResource Foreman.Color.TextTertiary}" />
+    </Grid>
+  </Border>
+</UserControl>

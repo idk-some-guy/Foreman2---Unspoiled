@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Foreman.Mac.ViewModels"
         xmlns:conv="using:Foreman.Mac.Converters"
+        xmlns:inspector="using:Foreman.Mac.Views.Inspector"
         x:Class="Foreman.Mac.MainWindow"
         x:Name="RootWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -256,6 +257,14 @@
       </LayoutTransformControl>
     </Popup>
 
-    <ContentControl Name="GraphViewerHost" Grid.Row="1" />
+    <!-- Inspector sidebar (phase 9 C2a task 2): shares this row with the canvas host rather than getting
+         its own Track registration - both live inside the same WindowScaler-wrapped Content, so the
+         sidebar scales for free. Column 1 is Auto-sized to InspectorView's own fixed Border width, so
+         hiding it (MainWindow.axaml.cs code-behind, not a binding here - see InspectorView.axaml's own
+         comment) collapses the column and the canvas reclaims the width. -->
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+      <ContentControl Name="GraphViewerHost" Grid.Column="0" />
+      <inspector:InspectorView Grid.Column="1" Name="Inspector" DataContext="{Binding Inspector}" />
+    </Grid>
   </Grid>
 </Window>
