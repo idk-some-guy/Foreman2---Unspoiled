@@ -419,7 +419,7 @@ namespace Foreman.Mac.Views {
 
         private const int EnabledObjectsIconSize = 24;
 
-        private Bitmap GetOrBakeIcon(SKBitmap icon) => Inspector.IconBaker.GetOrBake(bakedIconCache, icon, EnabledObjectsIconSize);
+        private Bitmap GetOrBakeIcon(SKBitmap icon) => IconBaker.GetOrBake(bakedIconCache, icon, EnabledObjectsIconSize);
 
         //Bakes RecipePainter's (already-ported, docs/panels-reference.md §7) single-recipe layout into a
         //static image for the row's ToolTip.Tip - the same GPU-lease-avoidance bake used for icons above,
@@ -430,7 +430,7 @@ namespace Foreman.Mac.Views {
             System.Drawing.Size size = RecipePainter.GetSize(recipes, abbreviateSciPacks: false);
             using SKSurface surface = SKSurface.Create(new SKImageInfo(Math.Max(1, size.Width), Math.Max(1, size.Height), SKColorType.Bgra8888, SKAlphaType.Premul));
             RecipePainter.Paint(recipes, surface.Canvas, new DrawingPoint(0, 0), abbreviateSciPacks: false);
-            return Inspector.IconBaker.SnapshotToBitmap(surface);
+            return IconBaker.SnapshotToBitmap(surface);
         }
 
         //Ports EnableAllButton_Click (reference SettingsForm.cs:559-580) verbatim.

@@ -1,8 +1,6 @@
-using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Foreman;
 using Foreman.DataCaching.DataTypes;
@@ -271,25 +269,7 @@ namespace Foreman.Mac.ViewModels {
         }
 
         //Dedups baked icons by source SKBitmap reference (same intent as SettingsWindow.GetOrBakeIcon).
-        private Bitmap? GetOrBakeIcon(SKBitmap? icon) {
-            if (icon is null)
-                return null;
-            if (!bakedIconCache.TryGetValue(icon, out Bitmap? baked)) {
-                baked = BakeIcon(icon);
-                bakedIconCache[icon] = baked;
-            }
-            return baked;
-        }
-
-        private static Bitmap BakeIcon(SKBitmap icon) {
-            const int size = 24;
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(size, size, SKColorType.Bgra8888, SKAlphaType.Premul));
-            using var paint = new SKPaint { IsAntialias = true };
-            surface.Canvas.DrawBitmap(icon, new SKRect(0, 0, size, size), paint);
-            using SKPixmap pixmap = surface.PeekPixels();
-            return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, pixmap.GetPixels(),
-                new PixelSize(pixmap.Info.Width, pixmap.Info.Height), new Vector(96, 96), pixmap.RowBytes);
-        }
+        private Bitmap? GetOrBakeIcon(SKBitmap? icon) => icon is null ? null : IconBaker.GetOrBake(bakedIconCache, icon, 24);
 
         //-------------------------------------------------------------------------------------------------------Row filters
 

@@ -154,6 +154,7 @@ namespace Foreman.Mac.Canvas {
             foreach (BaseNodeElement node in SelectedNodes.ToList())
                 Session.Editor.DeleteNode(node.ViewModel.Id);
             SelectedNodes.Clear();
+            RaiseSelectionChanged();
 
             foreach (AnnotationElement ann in SelectedAnnotations.ToList())
                 RemoveAnnotationElement(ann);

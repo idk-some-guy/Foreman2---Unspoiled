@@ -10,7 +10,6 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
-using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
@@ -191,7 +190,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             var view = new RecipeSegmentView();
             var host = new AvaloniaWindow { Content = view, Width = 400, Height = 900 };
             host.Show();
-            view.Bind(node, rf.Fx.Control.Viewer, rf.Fx.Cache, new AppSettings());
+            view.Bind(node, rf.Fx.Control.Viewer, rf.Fx.Cache);
             Dispatcher.UIThread.RunJobs();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
             return (host, view);
@@ -291,10 +290,11 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.True(beaconGroup.IsExpanded);
         }
 
-        //A manual header click must use SetCurrentValue, not the plain setter - otherwise it clears the
-        //live {Binding HasBeacon} for good, and later HasBeacon changes stop reaching IsExpanded.
+        //A manual header click must not stop later HasBeacon flips from reaching IsExpanded - the view
+        //only re-syncs IsExpanded on an actual flip (see RecipeSegmentView.OnRecipeViewModelPropertyChanged),
+        //so a hand click's own toggle stays independent of that tracking.
         [AvaloniaFact]
-        public void BeaconGroup_ManualHeaderClick_DoesNotBreakTheLiveHasBeaconBinding() {
+        public void BeaconGroup_ManualHeaderClick_DoesNotBreakLaterHasBeaconFlips() {
             RecipeFixture rf = NewRecipeFixture();
             IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
             ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
@@ -310,11 +310,35 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             view.ViewModel!.PickBeacon(view.ViewModel!.BeaconOptions[0]);
             Dispatcher.UIThread.RunJobs();
-            Assert.True(beaconGroup.IsExpanded); //HasBeacon flipped true - the binding must still be live
+            Assert.True(beaconGroup.IsExpanded); //HasBeacon flipped true - still tracked after the hand click
 
             view.ViewModel!.ClearBeacon();
             Dispatcher.UIThread.RunJobs();
             Assert.False(beaconGroup.IsExpanded); //HasBeacon flipped false - collapses on its own too
+        }
+
+        //Fix round: a live {Binding HasBeacon} used to re-push IsExpanded on every RefreshComputed, snapping
+        //a manual collapse back open on the next unrelated solve.
+        [AvaloniaFact]
+        public void BeaconGroup_ManualCollapse_SurvivesASolveWithBeaconUnchanged() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.SetBeacon(new BeaconQualityPair(rf.Beacon, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            InspectorGroup beaconGroup = view.FindControl<InspectorGroup>("BeaconGroup")!;
+            Assert.True(beaconGroup.IsExpanded); //seeded expanded at Bind(): HasBeacon was already true
+
+            Click(host, GroupHeaderOf(beaconGroup)); //collapse by hand
+            Assert.False(beaconGroup.IsExpanded);
+
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues(); //a plain re-solve, beacon unchanged
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(beaconGroup.IsExpanded);
         }
 
         [AvaloniaFact]

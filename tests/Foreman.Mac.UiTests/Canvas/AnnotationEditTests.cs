@@ -1,6 +1,7 @@
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
@@ -78,6 +79,27 @@ namespace Foreman.Mac.UiTests.Canvas {
             var shape = new ShapeAnnotationElement(location, width, height);
             fx.Control.Viewer.AddAnnotationElement(shape);
             return shape;
+        }
+
+        //---- Annotation add/remove drives the session's one GraphMutated signal (reference §8's dirty tint) ----
+
+        [AvaloniaFact]
+        public async Task AddingTextAnnotation_RaisesOneGraphMutated_RemovingItRaisesOne() {
+            Fixture fx = NewFixture();
+            int mutatedCount = 0;
+            fx.Control.Viewer.Session.GraphMutated += (_, _) => mutatedCount++;
+            fx.Control.TextPropertiesDialogStub = _ => Task.FromResult(true);
+
+            await fx.Control.AddTextAnnotationAsync(new Point(0, 0));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(1, mutatedCount);
+            AnnotationElement added = fx.Control.Viewer.Annotations.Single();
+
+            mutatedCount = 0;
+            fx.Control.Viewer.RemoveAnnotationElement(added);
+
+            Assert.Equal(1, mutatedCount);
         }
 
         //---- 8-handle resize math (reference §6's ApplyResize, derived coords at ViewScale 1) ----

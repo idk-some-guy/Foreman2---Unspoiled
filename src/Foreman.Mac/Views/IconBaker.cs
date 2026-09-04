@@ -4,9 +4,10 @@ using Avalonia.Platform;
 using SkiaSharp;
 using System.Collections.Generic;
 
-namespace Foreman.Mac.Views.Inspector {
-    //Shared by InspectorView/SettingsWindow/PickGrid: draws an SKBitmap onto a fresh Skia surface at a
-    //fixed size and snapshots it into an Avalonia Bitmap, off the GPU lease every other frame-live control
+namespace Foreman.Mac.Views {
+    //Shared by InspectorView/SettingsWindow/PickGrid/GraphSummary/PresetComparator/SciencePacksWindow: draws
+    //an SKBitmap onto a fresh Skia surface at a fixed size and snapshots it into an Avalonia Bitmap, off the
+    //GPU lease every other frame-live control
     //takes (see IconButton's comment on nested Skia leases corrupting the frame on macOS). Each caller keeps
     //its own cache dictionary - bake size varies per call site, so a shared cache keyed only on the source
     //SKBitmap would collide.

@@ -34,7 +34,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             vm.SetSelection([FakeNodes.Recipe(), FakeNodes.Passthrough(), FakeNodes.Recipe()]);
             Assert.Null(vm.Node);
             Assert.Equal("3 nodes selected", vm.EmptyStateText);
-            Assert.False(vm.IsVisible);
+            Assert.True(vm.IsVisible);
         }
 
         [Fact]

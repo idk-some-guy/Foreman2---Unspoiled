@@ -6,8 +6,8 @@ using Avalonia.Platform;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
-using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
+using Foreman.Mac.Views;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -31,11 +31,6 @@ namespace Foreman.Mac.Views.Inspector {
         //Set by MainWindow right after construction (InspectorView's own DataContext only ever carries the
         //InspectorViewModel, not the canvas) - the Flow segment needs it to build FlowSegmentViewModel.
         public GraphViewer? Viewer { get; set; }
-
-        //Set by MainWindow's ApplyLoadedSettings (Settings isn't ready at construction time) - the Recipe
-        //segment needs it to build RecipeSegmentViewModel. Defaults to a fresh instance so a test window
-        //that never assigns one still gets a working Recipe segment.
-        public AppSettings Settings { get; set; } = new();
 
         //Set by MainWindow to GraphCanvas.InvalidateVisual - EditFlowPanel's own RequestRedraw callback,
         //ported here since the floating panel it used to thread that through no longer exists.
@@ -76,7 +71,14 @@ namespace Foreman.Mac.Views.Inspector {
 
             qualityGrid.ItemActivated += QualityGrid_ItemActivated;
             DataContextChanged += (_, _) => BindViewModel();
+            DetachedFromVisualTree += (_, _) => DisposeBakedIcons();
             BindViewModel();
+        }
+
+        private void DisposeBakedIcons() {
+            foreach (Bitmap bitmap in bakedIconCache.Values)
+                bitmap.Dispose();
+            bakedIconCache.Clear();
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -119,7 +121,7 @@ namespace Foreman.Mac.Views.Inspector {
                 segmentHost.Content = null;
                 SetQualityButton(null);
             } else if (recipeActive && node is IRecipeNodeViewModel recipeNode && viewer.Context.DCache is DataCache cache) {
-                recipeSegmentView.Bind(recipeNode, viewer, cache, Settings, RequestRedraw);
+                recipeSegmentView.Bind(recipeNode, viewer, cache, RequestRedraw);
                 segmentHost.Content = recipeSegmentView;
                 SetQualityButton(recipeSegmentView.ViewModel);
             } else if (!recipeActive) {

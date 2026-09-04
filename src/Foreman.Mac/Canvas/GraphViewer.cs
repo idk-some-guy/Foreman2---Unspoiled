@@ -546,8 +546,10 @@ namespace Foreman.Mac.Canvas {
                 return;
             NodeElementDictionary.Remove(e.ViewModel.Id);
             NodeElements.Remove(element);
-            SelectedNodes.Remove(element);
+            bool wasSelected = SelectedNodes.Remove(element);
             element.Dispose();
+            if (wasSelected)
+                RaiseSelectionChanged();
         }
 
         private void OnLinkViewModelAdded(object? sender, LinkViewModelEventArgs e) {

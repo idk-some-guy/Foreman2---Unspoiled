@@ -5,7 +5,6 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
-using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
@@ -72,7 +71,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         public async Task PickQuality_IconsResolve_ForModuleOptions() {
             DataCache cache = await GetCacheAsync();
             (GraphCanvasControl control, _, IQuality legendary, IRecipeNodeViewModel node) = NewFixture(cache);
-            var vm = new RecipeSegmentViewModel(node, control.Viewer, cache, new AppSettings());
+            var vm = new RecipeSegmentViewModel(node, control.Viewer, cache);
 
             PickGridItem qualityItem = vm.QualityOptions.Single(i => Equals(i.Key, legendary));
             vm.PickQuality(qualityItem);
@@ -86,7 +85,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         public async Task PickQuality_ThenAddModule_EquipsAtThePickedQuality() {
             DataCache cache = await GetCacheAsync();
             (GraphCanvasControl control, _, IQuality legendary, IRecipeNodeViewModel node) = NewFixture(cache);
-            var vm = new RecipeSegmentViewModel(node, control.Viewer, cache, new AppSettings());
+            var vm = new RecipeSegmentViewModel(node, control.Viewer, cache);
 
             vm.PickQuality(vm.QualityOptions.Single(i => Equals(i.Key, legendary)));
             vm.AddModule(vm.ModuleOptions[0]);
@@ -99,7 +98,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         public async Task PickQuality_ThenPickBeacon_UsesThePickedQuality() {
             DataCache cache = await GetCacheAsync();
             (GraphCanvasControl control, _, IQuality legendary, IRecipeNodeViewModel node) = NewFixture(cache);
-            var vm = new RecipeSegmentViewModel(node, control.Viewer, cache, new AppSettings());
+            var vm = new RecipeSegmentViewModel(node, control.Viewer, cache);
 
             vm.PickQuality(vm.QualityOptions.Single(i => Equals(i.Key, legendary)));
             Assert.NotEmpty(vm.BeaconOptions);
@@ -113,7 +112,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         public async Task PickQuality_ThenAddBeaconModule_UsesThePickedQuality() {
             DataCache cache = await GetCacheAsync();
             (GraphCanvasControl control, _, IQuality legendary, IRecipeNodeViewModel node) = NewFixture(cache);
-            var vm = new RecipeSegmentViewModel(node, control.Viewer, cache, new AppSettings());
+            var vm = new RecipeSegmentViewModel(node, control.Viewer, cache);
 
             vm.PickQuality(vm.QualityOptions.Single(i => Equals(i.Key, legendary)));
             vm.PickBeacon(vm.BeaconOptions[0]);
@@ -128,7 +127,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         public async Task PickQuality_SetsGraphDefaultAssemblerQuality() {
             DataCache cache = await GetCacheAsync();
             (GraphCanvasControl control, _, IQuality legendary, IRecipeNodeViewModel node) = NewFixture(cache);
-            var vm = new RecipeSegmentViewModel(node, control.Viewer, cache, new AppSettings());
+            var vm = new RecipeSegmentViewModel(node, control.Viewer, cache);
 
             vm.PickQuality(vm.QualityOptions.Single(i => Equals(i.Key, legendary)));
 

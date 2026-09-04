@@ -58,6 +58,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The Save button's dirty tint no longer lights up on a plain solve with nothing to save. It now
   tracks one genuine graph-mutated signal instead of five, so it lights on real edits, node drags,
   and annotation changes, and stays off when the graph just recalculates its rates.
+- Deleting the inspected node, whether with the canvas Delete key, a node's own right-click Delete,
+  or the error notice's Delete resolution, no longer leaves the inspector open on a node that's
+  gone; the sidebar closes with it.
+- Selecting two or more nodes now shows the inspector's own "N nodes selected" state instead of
+  hiding the sidebar.
+- Picking the assembler or quality that's already selected no longer marks the graph as having
+  unsaved changes.
+- Manually collapsing the Beacon group in the inspector's Recipe segment now sticks; it no longer
+  snaps back open on the next unrelated solve.
 
 ### Changed
 

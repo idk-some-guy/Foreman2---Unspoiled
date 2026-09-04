@@ -19,7 +19,7 @@ namespace Foreman.Mac.ViewModels {
         public bool HasNode => Node is not null;
         public InspectorSegment Segment => Node is IRecipeNodeViewModel ? InspectorSegment.Recipe : InspectorSegment.Flow;
         public string EmptyStateText => Selection.Count > 1 ? $"{Selection.Count} nodes selected" : "No selection";
-        public bool IsVisible => IsPinned || ShowOverride || HasNode;
+        public bool IsVisible => IsPinned || ShowOverride || Selection.Count > 0;
 
         public void SetSelection(IReadOnlyList<INodeViewModel> nodes) {
             bool wasVisible = IsVisible;

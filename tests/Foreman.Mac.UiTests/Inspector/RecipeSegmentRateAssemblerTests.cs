@@ -10,7 +10,6 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
-using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
@@ -204,7 +203,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             var view = new RecipeSegmentView();
             var host = new AvaloniaWindow { Content = view, Width = 400, Height = 600 };
             host.Show();
-            view.Bind(node, rf.Fx.Control.Viewer, rf.Fx.Cache, new AppSettings());
+            view.Bind(node, rf.Fx.Control.Viewer, rf.Fx.Cache);
             Dispatcher.UIThread.RunJobs();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
             return (host, view);

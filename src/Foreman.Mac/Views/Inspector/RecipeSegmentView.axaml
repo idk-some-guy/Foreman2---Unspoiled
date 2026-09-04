@@ -63,7 +63,7 @@
       </StackPanel>
     </insp:InspectorGroup>
 
-    <insp:InspectorGroup Name="BeaconGroup" Title="Beacon" IsExpanded="{Binding HasBeacon}">
+    <insp:InspectorGroup Name="BeaconGroup" Title="Beacon">
       <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
         <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space2}">
           <Image Name="SelectedBeaconIcon" Width="24" Height="24" Source="{Binding SelectedBeacon.Icon}" />

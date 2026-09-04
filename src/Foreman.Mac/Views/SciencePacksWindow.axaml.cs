@@ -1,11 +1,9 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Services;
@@ -132,22 +130,7 @@ namespace Foreman.Mac.Views {
             Close(false);
         }
 
-        private Bitmap GetOrBakeIcon(SKBitmap icon) {
-            if (!bakedIconCache.TryGetValue(icon, out Bitmap? baked)) {
-                baked = BakeIcon(icon);
-                bakedIconCache[icon] = baked;
-            }
-            return baked;
-        }
-
-        private static Bitmap BakeIcon(SKBitmap icon) {
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(IconSize, IconSize, SKColorType.Bgra8888, SKAlphaType.Premul));
-            using var paint = new SKPaint { IsAntialias = true };
-            surface.Canvas.DrawBitmap(icon, new SKRect(0, 0, IconSize, IconSize), paint);
-            using SKPixmap pixmap = surface.PeekPixels();
-            return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, pixmap.GetPixels(),
-                new PixelSize(pixmap.Info.Width, pixmap.Info.Height), new Vector(96, 96), pixmap.RowBytes);
-        }
+        private Bitmap GetOrBakeIcon(SKBitmap icon) => IconBaker.GetOrBake(bakedIconCache, icon, IconSize);
 
         //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
         internal UniformGrid SciencePackGridControl => sciencePackGrid;

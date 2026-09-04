@@ -1,8 +1,6 @@
-using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Services;
@@ -103,24 +101,8 @@ namespace Foreman.Mac.ViewModels {
                 dataObject.Available ? AvailableForeground : UnavailableForeground,
                 dataObject.Available ? FontStyle.Normal : FontStyle.Italic);
 
-        private Bitmap GetOrBakeIcon(SKBitmap icon) {
-            if (!bakedIconCache.TryGetValue(icon, out Bitmap? baked)) {
-                baked = BakeIcon(icon);
-                bakedIconCache[icon] = baked;
-            }
-            return baked;
-        }
-
         //Matches upstream's comparator-specific IconList.ImageSize of 32x32 (its other lists elsewhere
         //in the app use 24x24 - this form is the one exception, ported as-is).
-        private static Bitmap BakeIcon(SKBitmap icon) {
-            const int size = 32;
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(size, size, SKColorType.Bgra8888, SKAlphaType.Premul));
-            using var paint = new SKPaint { IsAntialias = true };
-            surface.Canvas.DrawBitmap(icon, new SKRect(0, 0, size, size), paint);
-            using SKPixmap pixmap = surface.PeekPixels();
-            return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, pixmap.GetPixels(),
-                new PixelSize(pixmap.Info.Width, pixmap.Info.Height), new Vector(96, 96), pixmap.RowBytes);
-        }
+        private Bitmap GetOrBakeIcon(SKBitmap icon) => IconBaker.GetOrBake(bakedIconCache, icon, 32);
     }
 }

@@ -5,7 +5,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
-using Foreman.Mac.Services;
+using Foreman.Mac.Views;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
 using Foreman.Models.Nodes;
@@ -24,7 +24,6 @@ namespace Foreman.Mac.ViewModels {
         private readonly RecipeNodeController controller;
 
         private DataCache Cache { get; }
-        private AppSettings Settings { get; }
         private readonly Action? requestRedraw;
         private readonly Dictionary<SKBitmap, Bitmap> iconCache = [];
         private bool suppressWrites;
@@ -85,11 +84,10 @@ namespace Foreman.Mac.ViewModels {
         public bool ShowsNeighbours { get; private set; }
         public bool ShowsExtraProductivity { get; private set; }
 
-        public RecipeSegmentViewModel(IRecipeNodeViewModel node, GraphViewer viewer, DataCache cache, AppSettings settings, Action? requestRedraw = null) {
+        public RecipeSegmentViewModel(IRecipeNodeViewModel node, GraphViewer viewer, DataCache cache, Action? requestRedraw = null) {
             this.node = node;
             this.viewer = viewer;
             Cache = cache;
-            Settings = settings;
             this.requestRedraw = requestRedraw;
             if (viewer.Session.Editor.RequestNodeController(node.Id) is not RecipeNodeController requestedController)
                 throw new InvalidOperationException("Recipe node has no controller.");
@@ -309,7 +307,7 @@ namespace Foreman.Mac.ViewModels {
         //Re-qualities the node's current assembler in place and writes straight through, rather than only
         //setting a default for the next pick.
         public void PickQuality(PickGridItem item) {
-            if (item.Key is not IQuality quality)
+            if (item.Key is not IQuality quality || quality == node.SelectedAssembler.Quality)
                 return;
             controller.SetAssembler(new AssemblerQualityPair(node.SelectedAssembler.Assembler, quality));
             viewer.Graph.DefaultAssemblerQuality = quality;
@@ -394,7 +392,7 @@ namespace Foreman.Mac.ViewModels {
         }
 
         public void PickAssembler(PickGridItem item) {
-            if (item.Key is not IAssembler assembler)
+            if (item.Key is not IAssembler assembler || assembler == node.SelectedAssembler.Assembler)
                 return;
             controller.SetAssembler(new AssemblerQualityPair(assembler, node.SelectedAssembler.Quality));
             viewer.Graph.UpdateNodeValues();

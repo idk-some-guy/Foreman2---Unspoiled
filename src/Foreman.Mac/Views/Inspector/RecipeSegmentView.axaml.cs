@@ -4,9 +4,9 @@ using Avalonia.Markup.Xaml;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
-using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using System;
+using System.ComponentModel;
 
 namespace Foreman.Mac.Views.Inspector {
     //The inspector's Rate/Assembler/Fuel/Modules/Beacon groups for a recipe node. RateAuto isn't
@@ -23,7 +23,9 @@ namespace Foreman.Mac.Views.Inspector {
         private readonly PickGrid equippedBeaconGrid;
         private readonly PickGrid beaconModuleOptionsGrid;
         private readonly Button clearBeaconButton;
+        private readonly InspectorGroup beaconGroup;
         private GraphViewer? boundViewer;
+        private bool lastHasBeacon;
 
         public RecipeSegmentViewModel? ViewModel { get; private set; }
 
@@ -38,6 +40,7 @@ namespace Foreman.Mac.Views.Inspector {
             equippedBeaconGrid = this.FindControl<PickGrid>("EquippedBeaconGrid")!;
             beaconModuleOptionsGrid = this.FindControl<PickGrid>("BeaconModuleOptionsGrid")!;
             clearBeaconButton = this.FindControl<Button>("ClearBeaconButton")!;
+            beaconGroup = this.FindControl<InspectorGroup>("BeaconGroup")!;
             rateAuto.IsCheckedChanged += RateAuto_IsCheckedChanged;
             assemblerGrid.ItemActivated += (_, item) => ViewModel?.PickAssembler(item);
             fuelGrid.ItemActivated += (_, item) => ViewModel?.PickFuel(item);
@@ -52,12 +55,15 @@ namespace Foreman.Mac.Views.Inspector {
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        internal void Bind(IRecipeNodeViewModel node, GraphViewer viewer, DataCache cache, AppSettings settings, Action? requestRedraw = null) {
+        internal void Bind(IRecipeNodeViewModel node, GraphViewer viewer, DataCache cache, Action? requestRedraw = null) {
             Detach();
             boundViewer = viewer;
-            ViewModel = new RecipeSegmentViewModel(node, viewer, cache, settings, requestRedraw);
+            ViewModel = new RecipeSegmentViewModel(node, viewer, cache, requestRedraw);
             DataContext = ViewModel;
             rateAuto.IsChecked = !ViewModel.IsFixedRate;
+            lastHasBeacon = ViewModel.HasBeacon;
+            beaconGroup.IsExpanded = lastHasBeacon;
+            ViewModel.PropertyChanged += OnRecipeViewModelPropertyChanged;
             viewer.Session.NodeValuesUpdated += OnNodeValuesUpdated;
         }
 
@@ -74,10 +80,22 @@ namespace Foreman.Mac.Views.Inspector {
 
         private void OnNodeValuesUpdated(object? sender, EventArgs e) => Refresh();
 
+        //HasBeacon flipping is the only trigger for a code-driven IsExpanded change - a plain re-solve with
+        //the beacon unchanged must not re-collapse or re-expand a group the user set by hand (fix round: a
+        //live {Binding HasBeacon} used to re-push on every RefreshComputed, undoing a manual collapse).
+        private void OnRecipeViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+            if (e.PropertyName != nameof(RecipeSegmentViewModel.HasBeacon) || ViewModel is null || ViewModel.HasBeacon == lastHasBeacon)
+                return;
+            lastHasBeacon = ViewModel.HasBeacon;
+            beaconGroup.IsExpanded = lastHasBeacon;
+        }
+
         private void Detach() {
             if (boundViewer is not null)
                 boundViewer.Session.NodeValuesUpdated -= OnNodeValuesUpdated;
             boundViewer = null;
+            if (ViewModel is not null)
+                ViewModel.PropertyChanged -= OnRecipeViewModelPropertyChanged;
         }
     }
 }

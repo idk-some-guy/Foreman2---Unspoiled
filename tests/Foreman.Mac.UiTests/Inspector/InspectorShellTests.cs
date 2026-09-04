@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -10,11 +11,14 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
 using Foreman.Models.Nodes;
+using SkiaSharp;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -98,6 +102,36 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
             Assert.True(window.Inspector.IsVisible);
             Assert.IsType<RecipeSegmentView>(window.Inspector.FindControl<ContentControl>("SegmentHost")!.Content);
+        }
+
+        //Fix round: picking the already-selected assembler/quality cell used to dirty the document even
+        //though nothing changed - RecipeNodeController.SetAssembler always ends with Mutated().
+        [AvaloniaFact]
+        public async Task PickAssembler_AlreadySelected_RaisesNoGraphMutated_AndStaysClean() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            var recipe = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.NodeElements.First().ViewModel;
+            InspectorTestSupport.Select(window, recipe);
+            var recipeSegmentView = (RecipeSegmentView)window.Inspector.FindControl<ContentControl>("SegmentHost")!.Content!;
+            window.ViewModel.IsDirty = false; //selecting the node above didn't mutate the graph, but reset to isolate the pick
+
+            PickGridItem selectedItem = recipeSegmentView.ViewModel!.AssemblerOptions.Single(i => Equals(i.Key, recipe.SelectedAssembler.Assembler));
+            recipeSegmentView.ViewModel!.PickAssembler(selectedItem);
+
+            Assert.False(window.ViewModel.IsDirty);
+        }
+
+        [AvaloniaFact]
+        public async Task PickQuality_AlreadySelected_RaisesNoGraphMutated_AndStaysClean() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            var recipe = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.NodeElements.First().ViewModel;
+            InspectorTestSupport.Select(window, recipe);
+            var recipeSegmentView = (RecipeSegmentView)window.Inspector.FindControl<ContentControl>("SegmentHost")!.Content!;
+            window.ViewModel.IsDirty = false; //selecting the node above didn't mutate the graph, but reset to isolate the pick
+
+            PickGridItem selectedItem = recipeSegmentView.ViewModel!.QualityOptions.Single(i => Equals(i.Key, recipe.SelectedAssembler.Quality));
+            recipeSegmentView.ViewModel!.PickQuality(selectedItem);
+
+            Assert.False(window.ViewModel.IsDirty);
         }
 
         //The identity row's own quality button: a pick writes straight through to the node's current
@@ -253,6 +287,53 @@ namespace Foreman.Mac.UiTests.Inspector {
             } finally {
                 File.Delete(path);
             }
+        }
+
+        //Fix round: deleting the inspected node used to leave the inspector on a dead node - neither
+        //OnNodeViewModelRemoved nor TryDeleteSelection raised SelectionChanged, so nothing told the
+        //inspector its selection was gone.
+        [AvaloniaFact]
+        public async Task DeletingInspectedNode_ViaDeleteKey_ClearsInspectorAndHidesSidebar() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(window.Inspector.IsVisible);
+
+            CanvasKeys.PressOnCanvas(window.GraphCanvas, Key.Delete);
+
+            Assert.Null(window.ViewModel.Inspector.Node);
+            Assert.False(window.Inspector.IsVisible);
+        }
+
+        [AvaloniaFact]
+        public async Task DeletingInspectedNode_ViaTryDeleteSelection_ClearsInspectorAndHidesSidebar() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(window.Inspector.IsVisible);
+
+            window.GraphCanvas.Viewer.TryDeleteSelection();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Null(window.ViewModel.Inspector.Node);
+            Assert.False(window.Inspector.IsVisible);
+        }
+
+        //Fix round: bakedIconCache kept every baked identity-icon Bitmap alive for the life of the process -
+        //nothing ever disposed them, even once the window (and the icons with it) was gone.
+        [AvaloniaFact]
+        public async Task WindowClose_DisposesBakedIdentityIcons() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+
+            FieldInfo field = typeof(InspectorView).GetField("bakedIconCache", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var cache = (Dictionary<SKBitmap, Bitmap>)field.GetValue(window.Inspector)!;
+            Assert.NotEmpty(cache);
+
+            window.Content = null; //detaches the visual tree, same as the owning window closing for real
+
+            Assert.Empty(cache);
         }
 
         private static string NewTempDir() {
