@@ -592,63 +592,80 @@ namespace Foreman {
 
         //-----------------------------------------------------------------------Set functions
 
-        public void SetPriority(bool lowPriority) { MyNode.LowPriority = lowPriority; MyNode.UpdateState(); }
-
-        public void SetNeighbourCount(double count) { if (MyNode.NeighbourCount != count) MyNode.NeighbourCount = count; }
-        public void SetExtraProductivityBonus(double bonus) { if (MyNode.ExtraProductivityBonus != bonus) MyNode.ExtraProductivityBonus = bonus; }
-        public void SetBeaconCount(double count) { if (MyNode.BeaconCount != count) MyNode.BeaconCount = count; }
-        public void SetBeaconsPerAssembler(double beacons) { if (MyNode.BeaconsPerAssembler != beacons) MyNode.BeaconsPerAssembler = beacons; }
-        public void SetBeaconsCont(double beacons) { if (MyNode.BeaconsConst != beacons) MyNode.BeaconsConst = beacons; }
-
-        public void SetAssembler(AssemblerQualityPair assembler) {
-            MyNode.SelectedAssembler = assembler;
-
-            //fuel
-            if (!assembler.Assembler.IsBurner)
-                SetFuel(null);
-            else if (MyNode.Fuel != null && assembler.Assembler.Fuels.Contains(MyNode.Fuel))
-                SetFuel(MyNode.Fuel);
-            else
-                AutoSetFuel();
-
-            //check for invalid modules
-            for (int i = MyNode.AssemblerModules.Count - 1; i >= 0; i--)
-                if (MyNode.AssemblerModules[i].Module.IsMissing ||
-                    !MyNode.SelectedAssembler.Assembler.Modules.Contains(MyNode.AssemblerModules[i].Module) ||
-                    !MyNode.RecipeDefinition.AssemblerModules.Contains(MyNode.AssemblerModules[i].Module) ||
-                    !MyNode.AssemblerModules[i].Quality.Available ||
-                    MyNode.AssemblerModules[i].Quality.IsMissing) { MyNode.AssemblerModulesRemoveAt(i); }
-
-            //check for too many modules
-            while (MyNode.AssemblerModules.Count > MyNode.SelectedAssembler.Assembler.ModuleSlots)
-                MyNode.AssemblerModulesRemoveAt(MyNode.AssemblerModules.Count - 1);
-
-            //check if any modules work (if none work, then turn off beacon)
-            if (MyNode.SelectedAssembler.Assembler.Modules.Count == 0 || MyNode.RecipeDefinition.AssemblerModules.Count == 0)
-                ClearBeacon();
-            else //update beacon
-                SetBeacon(MyNode.SelectedBeacon);
-
-            MyNode.UpdateInputsAndOutputs();
+        public void SetPriority(bool lowPriority) {
+            bool changed = MyNode.LowPriority != lowPriority;
+            MyNode.LowPriority = lowPriority;
             MyNode.UpdateState();
+            if (changed) Mutated();
+        }
+
+        public void SetNeighbourCount(double count) { if (MyNode.NeighbourCount != count) { MyNode.NeighbourCount = count; Mutated(); } }
+        public void SetExtraProductivityBonus(double bonus) { if (MyNode.ExtraProductivityBonus != bonus) { MyNode.ExtraProductivityBonus = bonus; Mutated(); } }
+        public void SetBeaconCount(double count) { if (MyNode.BeaconCount != count) { MyNode.BeaconCount = count; Mutated(); } }
+        public void SetBeaconsPerAssembler(double beacons) { if (MyNode.BeaconsPerAssembler != beacons) { MyNode.BeaconsPerAssembler = beacons; Mutated(); } }
+        public void SetBeaconsCont(double beacons) { if (MyNode.BeaconsConst != beacons) { MyNode.BeaconsConst = beacons; Mutated(); } }
+
+        //Cascades into SetFuel/AutoSetFuel and ClearBeacon/SetBeacon below - each raises its own Mutated()
+        //when called directly from the inspector, so the cascade here runs suppressed and this is the only
+        //call that reaches the session for a single assembler change.
+        public void SetAssembler(AssemblerQualityPair assembler) {
+            RunWithoutMutationNotify(() => {
+                MyNode.SelectedAssembler = assembler;
+
+                //fuel
+                if (!assembler.Assembler.IsBurner)
+                    SetFuel(null);
+                else if (MyNode.Fuel != null && assembler.Assembler.Fuels.Contains(MyNode.Fuel))
+                    SetFuel(MyNode.Fuel);
+                else
+                    AutoSetFuel();
+
+                //check for invalid modules
+                for (int i = MyNode.AssemblerModules.Count - 1; i >= 0; i--)
+                    if (MyNode.AssemblerModules[i].Module.IsMissing ||
+                        !MyNode.SelectedAssembler.Assembler.Modules.Contains(MyNode.AssemblerModules[i].Module) ||
+                        !MyNode.RecipeDefinition.AssemblerModules.Contains(MyNode.AssemblerModules[i].Module) ||
+                        !MyNode.AssemblerModules[i].Quality.Available ||
+                        MyNode.AssemblerModules[i].Quality.IsMissing) { MyNode.AssemblerModulesRemoveAt(i); }
+
+                //check for too many modules
+                while (MyNode.AssemblerModules.Count > MyNode.SelectedAssembler.Assembler.ModuleSlots)
+                    MyNode.AssemblerModulesRemoveAt(MyNode.AssemblerModules.Count - 1);
+
+                //check if any modules work (if none work, then turn off beacon)
+                if (MyNode.SelectedAssembler.Assembler.Modules.Count == 0 || MyNode.RecipeDefinition.AssemblerModules.Count == 0)
+                    ClearBeacon();
+                else //update beacon
+                    SetBeacon(MyNode.SelectedBeacon);
+
+                MyNode.UpdateInputsAndOutputs();
+                MyNode.UpdateState();
+            });
+            Mutated();
         }
 
         public void AutoSetAssembler() {
-            var quality = (MyNode.SelectedAssembler.Quality.IsMissing || !MyNode.SelectedAssembler.Quality.Enabled) ? MyNode.SelectedAssembler.Assembler.Owner.DefaultQuality : MyNode.SelectedAssembler.Quality;
-            IAssembler assembler = MyNode.MyGraph.AssemblerSelector.GetAssembler(MyNode.RecipeDefinition);
+            RunWithoutMutationNotify(() => {
+                var quality = (MyNode.SelectedAssembler.Quality.IsMissing || !MyNode.SelectedAssembler.Quality.Enabled) ? MyNode.SelectedAssembler.Assembler.Owner.DefaultQuality : MyNode.SelectedAssembler.Quality;
+                IAssembler assembler = MyNode.MyGraph.AssemblerSelector.GetAssembler(MyNode.RecipeDefinition);
 
-            if (quality is not null)
-                SetAssembler(new AssemblerQualityPair(assembler, quality));
-            AutoSetFuel();
+                if (quality is not null)
+                    SetAssembler(new AssemblerQualityPair(assembler, quality));
+                AutoSetFuel();
+            });
+            Mutated();
         }
 
         public void AutoSetAssembler(AssemblerSelector.Style style) {
-            var quality = (MyNode.SelectedAssembler.Quality.IsMissing || !MyNode.SelectedAssembler.Quality.Enabled) ? MyNode.SelectedAssembler.Assembler.Owner.DefaultQuality : MyNode.SelectedAssembler.Quality;
-            IAssembler assembler = AssemblerSelector.GetAssembler(MyNode.RecipeDefinition, style);
+            RunWithoutMutationNotify(() => {
+                var quality = (MyNode.SelectedAssembler.Quality.IsMissing || !MyNode.SelectedAssembler.Quality.Enabled) ? MyNode.SelectedAssembler.Assembler.Owner.DefaultQuality : MyNode.SelectedAssembler.Quality;
+                IAssembler assembler = AssemblerSelector.GetAssembler(MyNode.RecipeDefinition, style);
 
-            if (quality is not null)
-                SetAssembler(new AssemblerQualityPair(assembler, quality));
-            AutoSetFuel();
+                if (quality is not null)
+                    SetAssembler(new AssemblerQualityPair(assembler, quality));
+                AutoSetFuel();
+            });
+            Mutated();
         }
 
         public void SetFuel(IItem? fuel) {
@@ -668,6 +685,7 @@ namespace Foreman {
                 MyNode.Fuel = fuel;
                 MyNode.MyGraph.FuelSelector.UseFuel(fuel);
                 MyNode.UpdateState();
+                Mutated();
             }
         }
 
@@ -682,6 +700,7 @@ namespace Foreman {
             MyNode.BeaconsPerAssembler = 0;
             MyNode.BeaconsConst = 0;
             MyNode.UpdateState();
+            Mutated();
         }
 
         public void SetBeacon(BeaconQualityPair beacon) {
@@ -706,33 +725,40 @@ namespace Foreman {
                 MyNode.BeaconModulesRemoveAt(MyNode.BeaconModules.Count - 1);
 
             MyNode.UpdateState();
+            Mutated();
         }
 
         public void AddAssemblerModule(ModuleQualityPair module) {
             MyNode.AssemblerModulesAdd(module);
             MyNode.UpdateState();
+            Mutated();
         }
 
         public void AddAssemblerModules(ModuleQualityPair module) {
             while (MyNode.AssemblerModules.Count < MyNode.SelectedAssembler.Assembler.ModuleSlots)
                 MyNode.AssemblerModulesAdd(module);
             MyNode.UpdateState();
+            Mutated();
         }
 
         public void RemoveAssemblerModule(int index) {
-            if (index >= 0 && index < MyNode.AssemblerModules.Count)
+            if (index >= 0 && index < MyNode.AssemblerModules.Count) {
                 MyNode.AssemblerModulesRemoveAt(index);
+                Mutated();
+            }
             MyNode.UpdateState();
         }
 
         public void RemoveAssemblerModules(ModuleQualityPair module) {
             MyNode.AssemblerModulesRemoveAll(module);
             MyNode.UpdateState();
+            Mutated();
         }
 
         public void RemoveAssemblerModules() {
             MyNode.AssemblerModulesClear();
             MyNode.UpdateState();
+            Mutated();
         }
 
         public void SetAssemblerModules(IEnumerable<ModuleQualityPair> modules, bool filterModules) {
@@ -747,6 +773,7 @@ namespace Foreman {
                     MyNode.AssemblerModulesAddRange(modules);
             }
             MyNode.UpdateState();
+            Mutated();
         }
 
         public void AutoSetAssemblerModules() {
@@ -757,6 +784,7 @@ namespace Foreman {
                 .OfType<(IModule, IQuality)>()
                 .Select(i => new ModuleQualityPair(i.Item1, i.Item2)));
             MyNode.UpdateState();
+            Mutated();
         }
 
         public void AutoSetAssemblerModules(ModuleSelector.Style style) {
@@ -767,11 +795,13 @@ namespace Foreman {
                 .OfType<(IModule, IQuality)>()
                 .Select(i => new ModuleQualityPair(i.Item1, i.Item2)));
             MyNode.UpdateState();
+            Mutated();
         }
 
         public void AddBeaconModule(ModuleQualityPair module) {
             MyNode.BeaconModulesAdd(module);
             MyNode.UpdateState();
+            Mutated();
         }
 
         public void AddBeaconModules(ModuleQualityPair module) {
@@ -780,17 +810,21 @@ namespace Foreman {
             while (MyNode.BeaconModules.Count < beacon.ModuleSlots)
                 MyNode.BeaconModulesAdd(module);
             MyNode.UpdateState();
+            Mutated();
         }
 
         public void RemoveBeaconModule(int index) {
-            if (index >= 0 && index < MyNode.BeaconModules.Count)
+            if (index >= 0 && index < MyNode.BeaconModules.Count) {
                 MyNode.BeaconModulesRemoveAt(index);
+                Mutated();
+            }
             MyNode.UpdateState();
         }
 
         public void RemoveBeaconModules(ModuleQualityPair module) {
             MyNode.BeaconModulesRemoveAll(module);
             MyNode.UpdateState();
+            Mutated();
         }
 
         public void SetBeaconModules(IEnumerable<ModuleQualityPair> modules, bool filterModules) {
@@ -807,6 +841,7 @@ namespace Foreman {
                     MyNode.BeaconModulesAddRange(modules);
             }
             MyNode.UpdateState();
+            Mutated();
         }
     }
 }

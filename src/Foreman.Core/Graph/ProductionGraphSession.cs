@@ -31,6 +31,16 @@ namespace Foreman.Graph {
         public event EventHandler? GraphCleared;
         public event EventHandler? NodeValuesUpdated;
 
+        //Task 8: fires once per real graph mutation - node/link add/remove, every node-property setter,
+        //a committed node drag, an annotation add/remove/edit. A plain solve (NodeValuesUpdated) never
+        //raises this; that was the old dirty wiring's bug.
+        public event EventHandler? GraphMutated;
+
+        //internal, not private: the drag-end and annotation-apply paths in Foreman.Mac commit their own
+        //mutations directly (they can't route through a BaseNodeController - annotations aren't domain
+        //nodes, and a location commit is a UI-level decision, not a per-move one).
+        internal void NotifyMutated() => GraphMutated?.Invoke(this, EventArgs.Empty);
+
         public void Attach() {
             if (_attached)
                 return;
@@ -41,6 +51,7 @@ namespace Foreman.Graph {
             Graph.LinkDeleted += OnLinkDeleted;
             Graph.NodeValuesUpdated += OnNodeValuesUpdated;
             Graph.GraphCleared += OnGraphCleared;
+            Graph.NodeMutated += OnNodeMutated;
             BackfillExistingGraph();
         }
 
@@ -54,6 +65,7 @@ namespace Foreman.Graph {
             Graph.LinkDeleted -= OnLinkDeleted;
             Graph.NodeValuesUpdated -= OnNodeValuesUpdated;
             Graph.GraphCleared -= OnGraphCleared;
+            Graph.NodeMutated -= OnNodeMutated;
         }
 
         internal INodeLinkViewModel GetOrCreateLinkViewModel(NodeLink link) {
@@ -80,6 +92,7 @@ namespace Foreman.Graph {
         private void OnNodeAdded(object? sender, NodeEventArgs e) {
             INodeViewModel viewModel = EnsureNodeViewModel(e.Node);
             NodeViewModelAdded?.Invoke(this, new NodeViewModelEventArgs(viewModel));
+            NotifyMutated();
         }
 
         private void OnNodeDeleted(object? sender, NodeEventArgs e) {
@@ -88,10 +101,13 @@ namespace Foreman.Graph {
                 return;
             RemoveNodeViewModel(viewModel.Id);
             NodeViewModelRemoved?.Invoke(this, new NodeViewModelEventArgs(viewModel));
+            NotifyMutated();
         }
 
-        private void OnLinkAdded(object? sender, NodeLinkEventArgs e) =>
+        private void OnLinkAdded(object? sender, NodeLinkEventArgs e) {
             GetOrCreateLinkViewModel(e.Link);
+            NotifyMutated();
+        }
 
         private void OnLinkDeleted(object? sender, NodeLinkEventArgs e) {
             if (!_domainLinkIds.TryGetValue(e.Link, out LinkId id))
@@ -101,7 +117,10 @@ namespace Foreman.Graph {
             RemoveLinkViewModel(id, e.Link);
             _domainLinkIds.Remove(e.Link);
             LinkViewModelRemoved?.Invoke(this, new LinkViewModelEventArgs(viewModel));
+            NotifyMutated();
         }
+
+        private void OnNodeMutated(object? sender, EventArgs e) => NotifyMutated();
 
         private void OnNodeValuesUpdated(object? sender, EventArgs e) {
             foreach (INodeViewModel node in _view.Nodes) {

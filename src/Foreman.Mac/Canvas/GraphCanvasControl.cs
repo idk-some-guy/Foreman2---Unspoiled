@@ -581,6 +581,11 @@ namespace Foreman.Mac.Canvas {
                         //drag - MouseDown's click-to-drop path (above) is what finally ends it later.
                         if (!ViewBeingDragged)
                             releaseGhost.MouseUp(graphPoint, MouseButton.Left);
+                    } else if (CurrentDragOperation == DragOperation.Item) {
+                        //Task 8: OnPointerMoved already committed every intermediate position straight to
+                        //the domain node/annotation (real-time drag rendering) - GraphMutated only fires
+                        //once here, at release, so a drag dirties the document once instead of per pixel.
+                        Viewer.Session.NotifyMutated();
                     } else if (CurrentDragOperation == DragOperation.None && MouseDownElement is BaseNodeElement clickedNode) {
                         SelectionModifier modifier = ModifierFor(e.KeyModifiers);
                         if (modifier == SelectionModifier.Remove) {
@@ -981,12 +986,16 @@ namespace Foreman.Mac.Canvas {
         }
 
         private async Task ShowExistingTextPropertiesAsync(TextAnnotationElement element) {
-            await ShowTextPropertiesDialogAsync(element).ConfigureAwait(true);
+            bool confirmed = await ShowTextPropertiesDialogAsync(element).ConfigureAwait(true);
+            if (confirmed)
+                Viewer.Session.NotifyMutated();
             RequestRedraw();
         }
 
         private async Task ShowExistingShapePropertiesAsync(ShapeAnnotationElement element) {
-            await ShowShapePropertiesDialogAsync(element).ConfigureAwait(true);
+            bool confirmed = await ShowShapePropertiesDialogAsync(element).ConfigureAwait(true);
+            if (confirmed)
+                Viewer.Session.NotifyMutated();
             RequestRedraw();
         }
 
@@ -1159,12 +1168,18 @@ namespace Foreman.Mac.Canvas {
         //Ports the selectedNodes/selectedAnnotations halves of ProcessCmdKey's arrow branch - both move by
         //the same raw dx/dy, annotations are never grid-snapped anywhere in upstream.
         private void MoveSelection(int dx, int dy) {
-            foreach (BaseNodeElement node in Viewer.SelectedNodes)
+            bool moved = false;
+            foreach (BaseNodeElement node in Viewer.SelectedNodes) {
                 node.SetLocation(new DrawingPoint(node.X + dx, node.Y + dy));
+                moved = true;
+            }
             foreach (AnnotationElement annotation in Viewer.SelectedAnnotations) {
                 annotation.X += dx;
                 annotation.Y += dy;
+                moved = true;
             }
+            if (moved)
+                Viewer.Session.NotifyMutated();
         }
 
         //WASD panning always hard-limits to Graph.Bounds in upstream (its UpdateGraphBounds() call there

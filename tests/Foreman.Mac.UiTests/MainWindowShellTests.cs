@@ -1200,5 +1200,59 @@ namespace Foreman.Mac.UiTests {
             var border = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == borderName);
             return Assert.IsAssignableFrom<ISolidColorBrush>(border.BorderBrush).Color;
         }
+
+        //---- Task 8: GraphMutated replaces the five-event dirty wiring ------------------------------------
+
+        [AvaloniaFact]
+        public async Task NodeDrag_SetsDirty() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId id = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            BaseNodeElement element = window.GraphCanvas.Viewer.NodeElementDictionary[id];
+            element.RequestStateUpdate();
+            element.PrePaint(); //HitTest needs the element's paint bounds computed to find it
+            window.ViewModel.IsDirty = false; //the add above already dirtied it - reset to isolate the drag
+            Dispatcher.UIThread.RunJobs(); //forces layout so GraphCanvas has real Bounds to translate through
+
+            Point canvasPoint = window.GraphCanvas.Viewport.GraphToScreen(element.Location);
+            Point screenPoint = window.GraphCanvas.TranslatePoint(canvasPoint, window)!.Value;
+            Point dragTo = screenPoint + new Point(40, 0);
+            window.MouseDown(screenPoint, MouseButton.Left, RawInputModifiers.None);
+            window.MouseMove(dragTo, RawInputModifiers.LeftMouseButton); //crosses the drag threshold
+            window.MouseMove(dragTo, RawInputModifiers.LeftMouseButton); //arms BaseNodeElement.Dragged
+            window.MouseMove(dragTo, RawInputModifiers.LeftMouseButton); //actually moves the node
+            window.MouseUp(dragTo, MouseButton.Left, RawInputModifiers.None);
+
+            Assert.True(window.ViewModel.IsDirty);
+        }
+
+        //Regression for the C1 gate's M-4 finding: NodeValuesUpdated used to drive IsDirty directly, so a
+        //plain solve (no edit at all) lit the Save tint with nothing new to save.
+        [AvaloniaFact]
+        public void SolveWithoutChange_DoesNotSetDirty() {
+            var window = new MainWindow();
+            window.Show();
+
+            window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
+
+            Assert.False(window.ViewModel.IsDirty);
+        }
+
+        [AvaloniaFact]
+        public void AnnotationEdit_SetsDirty() {
+            var window = new MainWindow();
+            window.Show();
+            var text = new TextAnnotationElement(new System.Drawing.Point(0, 0));
+            window.GraphCanvas.Viewer.AddAnnotationElement(text);
+            window.ViewModel.IsDirty = false; //the add above already dirtied it - reset to isolate the edit
+            window.GraphCanvas.TextPropertiesDialogStub = _ => Task.FromResult(true); //simulates clicking OK
+
+            window.GraphCanvas.Viewer.ShowAnnotationPropertiesDialog?.Invoke(text);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(window.ViewModel.IsDirty);
+        }
     }
 }

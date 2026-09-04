@@ -155,14 +155,11 @@ namespace Foreman.Mac {
                     Inspector.IsVisible = ViewModel.IsInspectorVisible;
             };
 
-            //Task 7 (contract #toolbar's Save .on dirty-tint state): the same five aggregate session events
-            //GraphViewer's own constructor already subscribes to for paint invalidation (reference this
-            //class's own comment there) - a UI hint only, never the close-confirmation gate.
-            GraphCanvas.Viewer.Session.NodeViewModelAdded += (_, _) => ViewModel.IsDirty = true;
-            GraphCanvas.Viewer.Session.NodeViewModelRemoved += (_, _) => ViewModel.IsDirty = true;
-            GraphCanvas.Viewer.Session.LinkViewModelAdded += (_, _) => ViewModel.IsDirty = true;
-            GraphCanvas.Viewer.Session.LinkViewModelRemoved += (_, _) => ViewModel.IsDirty = true;
-            GraphCanvas.Viewer.Session.NodeValuesUpdated += (_, _) => ViewModel.IsDirty = true;
+            //Task 8 (contract #toolbar's Save .on dirty-tint state): one genuine graph-mutated signal -
+            //node/link add/remove, node-property edits, a committed node drag, annotation add/remove/edit.
+            //Replaces the five-event wiring the C1 gate flagged (M-4): NodeValuesUpdated fired on a plain
+            //solve too, so Save lit up with nothing to save - a UI hint only, never the close-confirmation gate.
+            GraphCanvas.Viewer.Session.GraphMutated += (_, _) => ViewModel.IsDirty = true;
 
             BindToolbarButtons();
             GraphCanvas.KeyDown += OnGraphCanvasKeyDown;

@@ -124,6 +124,7 @@ namespace Foreman.Models.Nodes {
                 foreach (NodeLink link in MyNode.OutputLinks.Where(l => l.Item.Item is IItem linkItem && !MyNode.BasePlantProcess.ProductList.Contains(linkItem)))
                     link.Controller.Delete();
                 MyNode.UpdateState();
+                Mutated();
             }
         }
 

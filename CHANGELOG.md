@@ -55,6 +55,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   Shift held during a drag no longer gets stuck locking the axis once a file picker steals focus.
 - About Foreman 2 now shows the real design-mock panel: the app icon, centered name, version, and
   tagline, instead of a plain left-aligned message box with no icon.
+- The Save button's dirty tint no longer lights up on a plain solve with nothing to save. It now
+  tracks one genuine graph-mutated signal instead of five, so it lights on real edits, node drags,
+  and annotation changes, and stays off when the graph just recalculates its rates.
 
 ### Changed
 

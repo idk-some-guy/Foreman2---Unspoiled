@@ -32,12 +32,14 @@ namespace Foreman.Mac.Canvas {
                 RemoveAnnotationElement = RemoveAnnotationElement,
             };
             Annotations.Add(element);
+            Session.NotifyMutated();
         }
 
         public void RemoveAnnotationElement(AnnotationElement element) {
             Annotations.Remove(element);
             SelectedAnnotations.Remove(element);
             element.Dispose();
+            Session.NotifyMutated();
         }
 
         public void ClearAnnotationSelection() {

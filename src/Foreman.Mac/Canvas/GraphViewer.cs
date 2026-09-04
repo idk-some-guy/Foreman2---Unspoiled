@@ -347,8 +347,16 @@ namespace Foreman.Mac.Canvas {
         //Ports AlignSelected (reference §8/§11 step 11's Align Selected wiring): grid-snaps every selected
         //node in place, no-op for anything not on the grid already.
         public void AlignSelected() {
-            foreach (BaseNodeElement node in SelectedNodes)
-                node.SetLocation(Grid.AlignToGrid(node.Location));
+            bool moved = false;
+            foreach (BaseNodeElement node in SelectedNodes) {
+                Point aligned = Grid.AlignToGrid(node.Location);
+                if (aligned == node.Location)
+                    continue;
+                node.SetLocation(aligned);
+                moved = true;
+            }
+            if (moved)
+                Session.NotifyMutated();
         }
 
         //Ports AutoconnectDisconnectedInputs (reference §8): the whole-graph pass behind the Autoconnect

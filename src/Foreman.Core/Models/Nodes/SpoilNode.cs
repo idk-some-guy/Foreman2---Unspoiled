@@ -112,6 +112,7 @@ namespace Foreman.Models.Nodes {
                     link.Controller.Delete();
                 MyNode.OutputItem = correctSpoilResult;
                 MyNode.UpdateState();
+                Mutated();
             }
         }
 

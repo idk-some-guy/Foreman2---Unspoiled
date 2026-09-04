@@ -96,6 +96,11 @@ namespace Foreman {
         public event EventHandler<EventArgs>? NodeValuesUpdated;
         public event EventHandler? GraphCleared;
 
+        //Task 8: the one channel a BaseNodeController setter has back to the session it belongs to -
+        //controllers only ever see their node's own graph, never the session that wraps it.
+        internal event EventHandler? NodeMutated;
+        internal void NotifyNodeMutated() => NodeMutated?.Invoke(this, EventArgs.Empty);
+
         public Rectangle Bounds {
             get {
                 if (nodes.Count == 0)
