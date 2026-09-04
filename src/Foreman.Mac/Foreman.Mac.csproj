@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="../Foreman.Core/Foreman.Core.csproj" />
     <Content Include="Presets/**" CopyToOutputDirectory="PreserveNewest" />
+    <AvaloniaResource Include="Assets/**" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Foreman.Mac.UiTests" />

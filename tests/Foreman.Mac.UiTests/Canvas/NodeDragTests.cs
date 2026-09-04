@@ -115,10 +115,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.True(fx.Control.Grid.LockDragToAxis);
             Assert.Equal(new Point(30, 0), fx.Control.Grid.DragOrigin); //re-anchored to the node's current, aligned location
 
-            fx.Window.MouseMove(start + new AvaloniaPoint(55, 15), RawInputModifiers.LeftMouseButton | RawInputModifiers.None);
+            //C2: pointer events re-derive the lock from their own KeyModifiers each move, so these keep holding Shift.
+            fx.Window.MouseMove(start + new AvaloniaPoint(55, 15), RawInputModifiers.LeftMouseButton | RawInputModifiers.Shift);
             Assert.Equal(new Point(60, 0), node.Location); //|dx|>|dy| from DragOrigin -> Y pinned, X free
 
-            fx.Window.MouseMove(start + new AvaloniaPoint(35, 40), RawInputModifiers.LeftMouseButton | RawInputModifiers.None);
+            fx.Window.MouseMove(start + new AvaloniaPoint(35, 40), RawInputModifiers.LeftMouseButton | RawInputModifiers.Shift);
             Assert.Equal(new Point(30, 40), node.Location); //overshoot flips it: |dy|>|dx| now -> X pinned back to DragOrigin, Y free
         }
 

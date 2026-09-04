@@ -19,7 +19,15 @@ namespace Foreman.Mac {
 
         public App() => Theme = new ThemeService(this);
 
-        public override void Initialize() => AvaloniaXamlLoader.Load(this);
+        //AvaloniaNativeMenuExporter reads Application's NativeMenu exactly once, from its own constructor,
+        //which AvaloniaNativePlatformExtensions.UseAvaloniaNative runs via AfterSetup - after Initialize()
+        //but before OnFrameworkInitializationCompleted (AppBuilder.Setup). Setting it any later (MainWindow's
+        //constructor, which only runs from OnFrameworkInitializationCompleted) is invisible to the exporter,
+        //which falls back to its own "About Avalonia" menu and never looks again.
+        public override void Initialize() {
+            AvaloniaXamlLoader.Load(this);
+            NativeMenu.SetMenu(this, MainWindow.BuildAppMenu());
+        }
 
         public override void OnFrameworkInitializationCompleted() {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

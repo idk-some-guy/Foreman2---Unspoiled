@@ -6,6 +6,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using ShapePath = Avalonia.Controls.Shapes.Path;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -39,7 +40,7 @@ namespace Foreman.Mac.UiTests {
         private static readonly string[] ExpectedButtonNames = [
             "New Graph", "Load", "Save", "Export Image",
             "Add Item", "Add Recipe", "Autoconnect", "Settings",
-            "Show Graph Summary", "Align Selected",
+            "Graph Summary", "Align Selected",
         ];
 
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
@@ -113,8 +114,10 @@ namespace Foreman.Mac.UiTests {
 
             var toolbarCommands = window.GetVisualDescendants().OfType<Button>()
                 .Select(b => b.Command).OfType<IRelayCommand>().ToHashSet();
+            //C1 wraps every menu item's Command in DeferredMenuCommand; unwrap to compare against the raw instances.
             var menuCommands = AllNativeMenuItems(NativeMenu.GetMenu(window)!)
-                .Select(i => i.Command).OfType<IRelayCommand>().ToHashSet();
+                .Select(i => i.Command).OfType<MainWindow.DeferredMenuCommand>()
+                .Select(d => d.Inner).OfType<IRelayCommand>().ToHashSet();
 
             foreach ((string name, IRelayCommand command) in commandsByProperty)
                 Assert.True(toolbarCommands.Contains(command) || menuCommands.Contains(command), name);
@@ -180,7 +183,7 @@ namespace Foreman.Mac.UiTests {
             string[] expectedOrder = [
                 "New Graph", "Load", "Save",
                 "Add Item", "Add Recipe", "Autoconnect", "Align Selected",
-                "Export Image", "Show Graph Summary", "View Options",
+                "Export Image", "Graph Summary", "View Options",
             ];
             double[] positions = [.. expectedOrder
                 .Select(name => window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == name))
@@ -219,8 +222,72 @@ namespace Foreman.Mac.UiTests {
 
         private static Color ToolbarGlyphColor(MainWindow window, string buttonAutomationName) {
             var button = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == buttonAutomationName);
-            var glyph = button.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Classes.Contains("foreman-toolbar-glyph"));
-            return Assert.IsAssignableFrom<ISolidColorBrush>(glyph.Foreground).Color;
+            var glyph = button.GetVisualDescendants().OfType<ShapePath>().Single(p => p.Classes.Contains("foreman-toolbar-glyph"));
+            return Assert.IsAssignableFrom<ISolidColorBrush>(glyph.Stroke).Color;
+        }
+
+        //Task 8 (contract #toolbar, §05 B): every action button is icon+label now - a vector Path (lifted
+        //from the mock's own SVGs) plus a text label, never one without the other.
+        [AvaloniaFact]
+        public void Toolbar_EveryActionButton_HasPathIconAndLabel() {
+            var window = new MainWindow();
+            window.Show();
+
+            foreach (string name in ExpectedButtonNames.Append("View Options")) {
+                var button = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == name);
+                Assert.True(button.Classes.Contains("foreman-toolbar-wide"), name);
+                Assert.Contains(button.GetVisualDescendants().OfType<ShapePath>(), p => p.Classes.Contains("foreman-toolbar-glyph"));
+                var label = button.GetVisualDescendants().OfType<TextBlock>().SingleOrDefault(t => t.Classes.Contains("foreman-toolbar-label"));
+                Assert.False(string.IsNullOrWhiteSpace(label?.Text), name);
+            }
+        }
+
+        //Task 8 (contract #05 B "Toolbar action labels", ratified): the exact short label text per button.
+        [AvaloniaFact]
+        public void Toolbar_ActionButtons_ShowRatifiedLabelText() {
+            var window = new MainWindow();
+            window.Show();
+
+            var expectedLabels = new Dictionary<string, string> {
+                ["New Graph"] = "New",
+                ["Load"] = "Load",
+                ["Save"] = "Save",
+                ["Add Item"] = "Item",
+                ["Add Recipe"] = "Recipe",
+                ["Autoconnect"] = "Autoconnect",
+                ["Align Selected"] = "Align",
+                ["Export Image"] = "Export",
+                ["Graph Summary"] = "Summary",
+                ["View Options"] = "View Options",
+                ["Settings"] = "Settings",
+            };
+
+            foreach ((string automationName, string expectedLabel) in expectedLabels) {
+                var button = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == automationName);
+                var label = button.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Classes.Contains("foreman-toolbar-label"));
+                Assert.Equal(expectedLabel, label.Text);
+            }
+        }
+
+        //Task 8 (contract #toolbar's document title, ratified "Iron Plate Line — Edited"): two Runs so the
+        //suffix can carry its own weight/color, live-tracking IsDirty without rebuilding the TextBlock.
+        [AvaloniaFact]
+        public void TitleBarTitle_TwoRuns_TrackIsDirtyLive() {
+            var window = new MainWindow();
+            window.Show();
+            window.ViewModel.CurrentFileName = "Iron Plate Line.fjson";
+            Dispatcher.UIThread.RunJobs();
+
+            var title = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Classes.Contains("foreman-window-title"));
+            var runs = title.Inlines!.OfType<Avalonia.Controls.Documents.Run>().ToList();
+            Assert.Equal(2, runs.Count);
+            Assert.Equal("Iron Plate Line", runs[0].Text);
+            Assert.Equal("", runs[1].Text);
+
+            window.ViewModel.IsDirty = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(" — Edited", runs[1].Text);
         }
 
         //Fix round 1 (popover redo, contract #decisions §1 mockup): View Options is a Popup anchored under
@@ -252,6 +319,39 @@ namespace Foreman.Mac.UiTests {
 
             RealClick(window, "View Options");
             Assert.False(popover.IsOpen);
+        }
+
+        //Fix round 2 (Jozef's live finding): a macOS popover light-dismisses on an outside click rather
+        //than waiting for its own button to be pressed again.
+        [AvaloniaFact]
+        public void ViewOptionsPopover_PointerPressOutside_ClosesIt() {
+            var window = new MainWindow();
+            window.Show();
+            OpenViewOptions(window);
+            var popover = window.GetVisualDescendants().OfType<Popup>().Single(p => p.Name == "ViewOptionsPopover");
+
+            Avalonia.Point outsidePoint = WindowCenterOf(window.GraphCanvas, window);
+            window.MouseDown(outsidePoint, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(popover.IsOpen);
+            Assert.False(window.ViewModel.IsViewOptionsOpen);
+        }
+
+        //The dismissing press must be consumed, not passed through to the button underneath - otherwise
+        //the same click that closes it immediately reopens it.
+        [AvaloniaFact]
+        public void ViewOptionsButton_RealClick_WhileOpen_ClosesAndStaysClosed() {
+            var window = new MainWindow();
+            window.Show();
+            OpenViewOptions(window);
+            var popover = window.GetVisualDescendants().OfType<Popup>().Single(p => p.Name == "ViewOptionsPopover");
+
+            RealClick(window, "View Options");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(popover.IsOpen);
+            Assert.False(window.ViewModel.IsViewOptionsOpen);
         }
 
         //Contract #decisions §1: "anchored under the button", not a full-width docked strip.
@@ -829,8 +929,9 @@ namespace Foreman.Mac.UiTests {
             Button stepperZoomIn = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "Zoom In");
             Button stepperZoomOut = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "Zoom Out");
 
-            Assert.Same(menuZoomIn.Command, stepperZoomIn.Command);
-            Assert.Same(menuZoomOut.Command, stepperZoomOut.Command);
+            //C1 wraps the native menu item's Command in a deferring forwarder - unwrap to compare instances.
+            Assert.Same(((MainWindow.DeferredMenuCommand)menuZoomIn.Command!).Inner, stepperZoomIn.Command);
+            Assert.Same(((MainWindow.DeferredMenuCommand)menuZoomOut.Command!).Inner, stepperZoomOut.Command);
         }
 
         [AvaloniaFact]
@@ -906,7 +1007,7 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.FloatingPanelHost.Show(new Border { Width = 50, Height = 50, Focusable = true }, new System.Drawing.Point(0, 0));
             Assert.True(window.GraphCanvas.FloatingPanelHost.IsOpen);
 
-            RealClick(window, "Show Graph Summary");
+            RealClick(window, "Graph Summary");
 
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
         }
@@ -925,17 +1026,17 @@ namespace Foreman.Mac.UiTests {
         }
 
         //I-4 (final fix wave): the titlebar's own VersionLabel TextBlock is gone (contract #toolbar retired
-        //it in favor of the About panel) - these two tests move to the real dialog ShowAboutAsync opens.
+        //it in favor of the About panel) - these two tests move to the real window ShowAboutAsync opens.
+        //Task 10: the panel became a real AboutWindow (design doc .about-card) instead of a MessageDialog.
         [AvaloniaFact]
         public async Task AboutPanel_ShowsAppVersion() {
             var window = new MainWindow();
             window.Show();
 
             Task openTask = window.ShowAboutAsync();
-            MessageDialog about = window.OwnedWindows.OfType<MessageDialog>().Single();
-            var label = about.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "MessageTextBlock");
+            AboutWindow about = window.OwnedWindows.OfType<AboutWindow>().Single();
 
-            Assert.Contains(AppVersion.VersionedDisplay, label.Text);
+            Assert.Equal(AppVersion.VersionedDisplay, about.VersionTextBlockControl.Text);
 
             about.Close();
             await openTask;
@@ -947,8 +1048,7 @@ namespace Foreman.Mac.UiTests {
             window.Show();
 
             Task openTask = window.ShowAboutAsync();
-            MessageDialog about = window.OwnedWindows.OfType<MessageDialog>().Single();
-            var label = about.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "MessageTextBlock");
+            AboutWindow about = window.OwnedWindows.OfType<AboutWindow>().Single();
 
             var informational = typeof(AppVersion).Assembly
                 .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
@@ -961,7 +1061,9 @@ namespace Foreman.Mac.UiTests {
                 .FirstOrDefault(a => a.Key == "UpstreamVersion")?.Value;
             Assert.Matches(@"^\d+\.\d+\.\d+$", upstream);
 
-            Assert.Equal($"Foreman 2\nv {shortSemVer} based on {upstream}", label.Text);
+            Assert.Equal("Foreman 2", about.AppNameTextBlockControl.Text);
+            Assert.Equal($"v {shortSemVer} based on {upstream}", about.VersionTextBlockControl.Text);
+            Assert.Equal("A Factorio production-chain planner", about.TaglineTextBlockControl.Text);
 
             about.Close();
             await openTask;

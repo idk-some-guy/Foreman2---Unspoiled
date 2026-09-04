@@ -9,6 +9,9 @@
         <ResourceInclude x:Key="Light" Source="avares://Foreman.Mac/Themes/Tokens.Light.axaml" />
         <ResourceInclude x:Key="Dark" Source="avares://Foreman.Mac/Themes/Tokens.Dark.axaml" />
       </ResourceDictionary.ThemeDictionaries>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://Foreman.Mac/Themes/ToolbarIcons.axaml" />
+      </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>
   <Application.Styles>

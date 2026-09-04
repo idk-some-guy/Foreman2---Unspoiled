@@ -8,7 +8,7 @@ namespace Foreman.Mac.UiTests {
             var window = new MainWindow();
             window.Show();
 
-            Assert.Equal("Foreman 2", window.Title);
+            Assert.Equal("Untitled", window.Title);
             Assert.True(window.IsVisible);
         }
     }

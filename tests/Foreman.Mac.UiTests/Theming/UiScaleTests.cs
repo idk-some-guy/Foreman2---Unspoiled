@@ -21,7 +21,7 @@ namespace Foreman.Mac.UiTests.Theming {
     //measure real Avalonia layout (TranslatePoint through the live visual tree) rather than asserting on
     //WindowScaler's own bookkeeping, since the whole point of the mechanism is what it does to on-screen
     //bounds.
-    public class UiScaleTests {
+    public class UiScaleTests : IDisposable {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
 
         private static readonly SemaphoreSlim CacheGate = new(1, 1);
@@ -45,8 +45,19 @@ namespace Foreman.Mac.UiTests.Theming {
 
         //WindowScaler carries static, process-wide state (mirrors ThemeService's Application.Current
         //singleton, already reset explicitly per-test by DarkModeTests) - reset before every test here so
-        //a leftover scale from a previous test can't leak in.
+        //a leftover scale from a previous test can't leak in. The constructor alone only protected the
+        //NEXT UiScaleTests instance; under real parallel collections, every other concurrently-running
+        //test's window shares this same static (WindowScaler.Track bakes whatever scale is current into
+        //any window built anywhere in the process), so a test that left the scale non-default after its
+        //last assert kept contaminating unrelated windows until the next UiScaleTests instance happened to
+        //run. Dispose closes that gap the same way TitleBarChromeMetricsTests' own try/finally already does
+        //for its one scale-mutating test.
         public UiScaleTests() => WindowScaler.SetScale(1.0);
+
+        public void Dispose() {
+            WindowScaler.SetScale(1.0);
+            GC.SuppressFinalize(this);
+        }
 
         private static SettingsWindow.SettingsWindowOptions NewOptions(DataCache cache) =>
             new(cache) { Presets = [new Preset(VanillaPresetName, true, true)] };

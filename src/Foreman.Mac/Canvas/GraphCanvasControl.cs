@@ -356,6 +356,9 @@ namespace Foreman.Mac.Canvas {
             DrawingPoint graphPoint = Viewport.ScreenToGraph(screenPoint);
             PointerPointProperties properties = e.GetCurrentPoint(this).Properties;
             UpdateModifiers(e.KeyModifiers);
+            //C2: pointer events carry fresh modifiers straight from the OS, unlike the cached KeyUp/KeyDown
+            //tracking a picker sheet can strand mid-drag - re-deriving here self-heals a stuck Shift.
+            ApplyAxisLockModifier(e.KeyModifiers);
 
             //Ghost-first priority (reference §1's clickedElement resolution): a link drag in progress claims
             //every click, ignoring whatever node/annotation is actually under the cursor.
@@ -421,6 +424,7 @@ namespace Foreman.Mac.Canvas {
             DrawingPoint graphPoint = Viewport.ScreenToGraph(screenPoint);
             PointerPointProperties properties = e.GetCurrentPoint(this).Properties;
             UpdateModifiers(e.KeyModifiers);
+            ApplyAxisLockModifier(e.KeyModifiers); //C2: same self-heal as OnPointerPressed above
 
             //Ports the unconditional draggedLinkElement?.MouseMoved(graph_location) call upstream makes
             //ahead of its own DragOperation switch (reference §3): the ghost tracks the cursor on every move

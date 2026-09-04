@@ -25,55 +25,120 @@
       <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
                   Spacing="{StaticResource Foreman.Space.Space1}"
                   Margin="{Binding #RootWindow.WindowDecorationMargin, Converter={x:Static conv:TrafficLightInsetConverter.Instance}}">
-        <Button Name="NewGraphButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="New Graph" ToolTip.Tip="New Graph">
-          <TextBlock Text="✚" Classes="foreman-toolbar-glyph" />
+        <Button Name="NewGraphButton" Classes="foreman-toolbar-wide" AutomationProperties.Name="New Graph" ToolTip.Tip="New Graph">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="20" Height="20">
+                <Path Data="{StaticResource Foreman.Icon.New}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+              </Canvas>
+            </Viewbox>
+            <TextBlock Text="New" Classes="foreman-toolbar-label" />
+          </StackPanel>
         </Button>
-        <Button Name="LoadGraphButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Load" ToolTip.Tip="Load">
-          <TextBlock Text="⤓" Classes="foreman-toolbar-glyph" />
+        <Button Name="LoadGraphButton" Classes="foreman-toolbar-wide" AutomationProperties.Name="Load" ToolTip.Tip="Load">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="20" Height="20">
+                <Path Data="{StaticResource Foreman.Icon.Load}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+              </Canvas>
+            </Viewbox>
+            <TextBlock Text="Load" Classes="foreman-toolbar-label" />
+          </StackPanel>
         </Button>
-        <Button Name="SaveButton" Classes="foreman-toolbar-icon" Classes.on="{Binding IsDirty}"
+        <Button Name="SaveButton" Classes="foreman-toolbar-wide" Classes.on="{Binding IsDirty}"
                 AutomationProperties.Name="Save" ToolTip.Tip="Save">
-          <TextBlock Text="⇩" Classes="foreman-toolbar-glyph" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="20" Height="20">
+                <Path Data="{StaticResource Foreman.Icon.Save}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+              </Canvas>
+            </Viewbox>
+            <TextBlock Text="Save" Classes="foreman-toolbar-label" />
+          </StackPanel>
         </Button>
 
         <Border Classes="foreman-toolbar-separator" />
 
         <Button Name="AddItemButton" Classes="foreman-toolbar-wide" AutomationProperties.Name="Add Item" ToolTip.Tip="Add Item">
-          <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
-            <TextBlock Text="▢" Classes="foreman-toolbar-glyph" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="20" Height="20">
+                <Path Data="{StaticResource Foreman.Icon.AddItem}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+              </Canvas>
+            </Viewbox>
             <TextBlock Text="Item" Classes="foreman-toolbar-label" />
           </StackPanel>
         </Button>
         <Button Name="AddRecipeButton" Classes="foreman-toolbar-wide" AutomationProperties.Name="Add Recipe" ToolTip.Tip="Add Recipe">
-          <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
-            <TextBlock Text="◎" Classes="foreman-toolbar-glyph" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="20" Height="20">
+                <Path Data="{StaticResource Foreman.Icon.AddRecipe}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+              </Canvas>
+            </Viewbox>
             <TextBlock Text="Recipe" Classes="foreman-toolbar-label" />
           </StackPanel>
         </Button>
-        <Button Name="AutoconnectButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Autoconnect" ToolTip.Tip="Autoconnect">
-          <TextBlock Text="⇌" Classes="foreman-toolbar-glyph" />
+        <Button Name="AutoconnectButton" Classes="foreman-toolbar-wide" AutomationProperties.Name="Autoconnect" ToolTip.Tip="Autoconnect">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="20" Height="20">
+                <Path Data="{StaticResource Foreman.Icon.Autoconnect}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+              </Canvas>
+            </Viewbox>
+            <TextBlock Text="Autoconnect" Classes="foreman-toolbar-label" />
+          </StackPanel>
         </Button>
-        <Button Name="AlignSelectionButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Align Selected" ToolTip.Tip="Align Selected">
-          <TextBlock Text="⊟" Classes="foreman-toolbar-glyph" />
+        <Button Name="AlignSelectionButton" Classes="foreman-toolbar-wide" AutomationProperties.Name="Align Selected" ToolTip.Tip="Align Selected">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="20" Height="20">
+                <Path Data="{StaticResource Foreman.Icon.AlignSelected}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+              </Canvas>
+            </Viewbox>
+            <TextBlock Text="Align" Classes="foreman-toolbar-label" />
+          </StackPanel>
         </Button>
 
         <Border Classes="foreman-toolbar-separator" />
 
-        <Button Name="ExportImageButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Export Image" ToolTip.Tip="Export Image">
-          <TextBlock Text="⇓" Classes="foreman-toolbar-glyph" />
+        <Button Name="ExportImageButton" Classes="foreman-toolbar-wide" AutomationProperties.Name="Export Image" ToolTip.Tip="Export Image">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="20" Height="20">
+                <Path Data="{StaticResource Foreman.Icon.ExportImage}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+              </Canvas>
+            </Viewbox>
+            <TextBlock Text="Export" Classes="foreman-toolbar-label" />
+          </StackPanel>
         </Button>
-        <Button Name="GraphSummaryButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Show Graph Summary" ToolTip.Tip="Graph Summary">
-          <TextBlock Text="Ⅲ" Classes="foreman-toolbar-glyph" />
+        <Button Name="GraphSummaryButton" Classes="foreman-toolbar-wide" AutomationProperties.Name="Graph Summary" ToolTip.Tip="Graph Summary">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="20" Height="20">
+                <Path Data="{StaticResource Foreman.Icon.GraphSummary}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+              </Canvas>
+            </Viewbox>
+            <TextBlock Text="Summary" Classes="foreman-toolbar-label" />
+          </StackPanel>
         </Button>
-        <Button Name="ViewOptionsButton" Classes="foreman-toolbar-icon" Command="{Binding ToggleViewOptionsCommand}"
+        <Button Name="ViewOptionsButton" Classes="foreman-toolbar-wide" Command="{Binding ToggleViewOptionsCommand}"
                 AutomationProperties.Name="View Options" ToolTip.Tip="View Options">
-          <TextBlock Text="≡" Classes="foreman-toolbar-glyph" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="20" Height="20">
+                <Path Data="{StaticResource Foreman.Icon.ViewOptions}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+                <Path Data="{StaticResource Foreman.Icon.ViewOptions.Fill}" Classes="foreman-toolbar-glyph-fill" Stroke="{x:Null}" />
+              </Canvas>
+            </Viewbox>
+            <TextBlock Text="View Options" Classes="foreman-toolbar-label" />
+          </StackPanel>
         </Button>
       </StackPanel>
 
-      <TextBlock Grid.Column="1" Text="{Binding WindowTitle}" Classes="foreman-window-title"
+      <TextBlock Grid.Column="1" Classes="foreman-window-title"
                  Foreground="{DynamicResource Foreman.Color.Text}"
-                 HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                 HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"><Run Text="{Binding DocumentTitle}" /><Run Text="{Binding EditedSuffix}" Foreground="{DynamicResource Foreman.Color.TextTertiary}" FontWeight="Normal" /></TextBlock>
 
       <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
                   Spacing="{StaticResource Foreman.Space.Space2}" Margin="{StaticResource Foreman.Thickness.Space3}">
@@ -94,8 +159,15 @@
           </StackPanel>
         </Border>
 
-        <Button Name="SettingsButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Settings" ToolTip.Tip="Settings">
-          <TextBlock Text="⚙" Classes="foreman-toolbar-glyph" />
+        <Button Name="SettingsButton" Classes="foreman-toolbar-wide" AutomationProperties.Name="Settings" ToolTip.Tip="Settings">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Viewbox Width="16" Height="16">
+              <Canvas Width="20" Height="20">
+                <Path Data="{StaticResource Foreman.Icon.Settings}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+              </Canvas>
+            </Viewbox>
+            <TextBlock Text="Settings" Classes="foreman-toolbar-label" />
+          </StackPanel>
         </Button>
       </StackPanel>
     </Grid>
@@ -105,9 +177,11 @@
          Popup's content isn't a Window visual descendant while closed - BindViewOptionControls and
          ResyncRateOptionsDropDown still find these controls unaffected (this.FindControl resolves through
          the compiled NameScope, which is populated at construction regardless of visual attachment); tests
-         that walk the visual tree open the popover first. -->
+         that walk the visual tree open the popover first. Fix round 2: light-dismiss like a real macOS
+         popover - TwoWay so a light-dismiss close writes back to IsViewOptionsOpen instead of just the
+         Popup's local value. -->
     <Popup Name="ViewOptionsPopover" PlacementTarget="{Binding #ViewOptionsButton}" Placement="Bottom"
-           IsOpen="{Binding IsViewOptionsOpen}">
+           IsOpen="{Binding IsViewOptionsOpen, Mode=TwoWay}" IsLightDismissEnabled="True">
       <!-- I-3 (final fix wave): a Popup's content renders in its own popup root, outside the
            LayoutTransformControl WindowScaler.Track wraps Window.Content in - this card needs its own,
            registered with WindowScaler.TrackPopupContent in the code-behind constructor. -->

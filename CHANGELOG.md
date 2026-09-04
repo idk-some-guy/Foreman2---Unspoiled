@@ -25,6 +25,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Low-priority recipes now work: the default priority weight overflowed the solver and failed any
   graph using one. Existing settings carrying the broken value are healed automatically.
+- The toolbar now uses real vector icons matching the design mock instead of placeholder glyphs,
+  and every button pairs its icon with a text label. The window title shows the open document's
+  name instead of the app name, with an "Edited" marker while the graph has unsaved changes.
+- The View Options popover now light-dismisses like a real macOS popover: a click anywhere outside
+  it closes it instead of waiting for its own button to be clicked again.
+- The application menu shows About Foreman 2 again instead of Avalonia's own About panel. The
+  Minor/Major Gridlines and Rate Unit radio items, permanently grayed out, are enabled again.
+  Opening a file or cancelling Save As no longer leaves the menu bar looking stuck engaged, and a
+  Shift held during a drag no longer gets stuck locking the axis once a file picker steals focus.
+- About Foreman 2 now shows the real design-mock panel: the app icon, centered name, version, and
+  tagline, instead of a plain left-aligned message box with no icon.
 
 ### Changed
 

@@ -4,40 +4,74 @@ using Xunit;
 
 namespace Foreman.Mac.UiTests.ViewModels {
     public class MainWindowViewModelTests {
+        //Task 8 (contract #toolbar's document title "Iron Plate Line — Edited"): the app name lives in the
+        //menu bar now, not the titlebar - an untitled document shows just "Untitled".
         [Fact]
-        public void Constructor_DefaultsTitleToAppName() {
+        public void Constructor_DefaultsDocumentTitleToUntitled() {
             var vm = new MainWindowViewModel();
 
-            Assert.Equal("Foreman 2", vm.WindowTitle);
-        }
-
-        //Exact current format, MainWindow.axaml.cs:661-662 (UpdateTitleBar): "{appName} ({presetName}) - {path}".
-        [Fact]
-        public void Title_TracksFileName() {
-            var vm = new MainWindowViewModel();
-
-            vm.CurrentFileName = "base.fjson";
-
-            Assert.Equal("Foreman 2 () - base.fjson", vm.WindowTitle);
+            Assert.Equal("Untitled", vm.DocumentTitle);
+            Assert.Equal("", vm.EditedSuffix);
+            Assert.Equal("Untitled", vm.WindowTitle);
         }
 
         [Fact]
-        public void Title_NoFileName_ShowsUntitled() {
+        public void DocumentTitle_TracksFileName_ExtensionStripped() {
             var vm = new MainWindowViewModel();
 
-            vm.PresetName = "Some Preset";
+            vm.CurrentFileName = "Iron Plate Line.fjson";
 
-            Assert.Equal("Foreman 2 (Some Preset) - Untitled", vm.WindowTitle);
+            Assert.Equal("Iron Plate Line", vm.DocumentTitle);
         }
 
         [Fact]
-        public void Title_PresetAndFileNameBothSet_MatchesSaveLoadFormat() {
+        public void DocumentTitle_FullPath_UsesFileNameOnly() {
             var vm = new MainWindowViewModel();
 
-            vm.PresetName = "Some Preset";
             vm.CurrentFileName = "/tmp/flowchart.fjson";
 
-            Assert.Equal("Foreman 2 (Some Preset) - /tmp/flowchart.fjson", vm.WindowTitle);
+            Assert.Equal("flowchart", vm.DocumentTitle);
+        }
+
+        [Fact]
+        public void DocumentTitle_NoFileName_ShowsUntitled() {
+            var vm = new MainWindowViewModel();
+
+            vm.CurrentFileName = null;
+
+            Assert.Equal("Untitled", vm.DocumentTitle);
+        }
+
+        [Fact]
+        public void EditedSuffix_WhenDirty_ShowsEmDashEdited() {
+            var vm = new MainWindowViewModel();
+
+            vm.IsDirty = true;
+
+            Assert.Equal(" — Edited", vm.EditedSuffix);
+        }
+
+        [Fact]
+        public void EditedSuffix_WhenClean_IsEmpty() {
+            var vm = new MainWindowViewModel();
+
+            vm.IsDirty = false;
+
+            Assert.Equal("", vm.EditedSuffix);
+        }
+
+        [Fact]
+        public void WindowTitle_CombinesDocumentTitleAndEditedSuffix_TracksBothLive() {
+            var vm = new MainWindowViewModel();
+
+            vm.CurrentFileName = "Iron Plate Line.fjson";
+            Assert.Equal("Iron Plate Line", vm.WindowTitle);
+
+            vm.IsDirty = true;
+            Assert.Equal("Iron Plate Line — Edited", vm.WindowTitle);
+
+            vm.IsDirty = false;
+            Assert.Equal("Iron Plate Line", vm.WindowTitle);
         }
 
         [Fact]

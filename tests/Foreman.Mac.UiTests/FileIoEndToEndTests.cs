@@ -112,7 +112,7 @@ namespace Foreman.Mac.UiTests {
             window.SaveFilePathStub = () => Task.FromResult<string?>(path);
             try {
                 await window.SaveGraphAsAsync();
-                Assert.Equal("Foreman 2 (" + VanillaPresetName + ") - " + path, window.Title);
+                Assert.Equal(Path.GetFileNameWithoutExtension(path), window.Title);
                 string savedJson = await File.ReadAllTextAsync(path);
 
                 //Modify the graph after the save, so the load below finds it dirty.
@@ -126,7 +126,7 @@ namespace Foreman.Mac.UiTests {
 
                 await window.LoadGraphJsonAsync(savedJson, path);
 
-                Assert.Equal("Foreman 2 (" + VanillaPresetName + ") - " + path, window.Title);
+                Assert.Equal(Path.GetFileNameWithoutExtension(path), window.Title);
                 Assert.Equal(path, window.SaveFilePath);
 
                 INodeViewModel node = Assert.Single(window.GraphCanvas.Viewer.Session.View.Nodes);

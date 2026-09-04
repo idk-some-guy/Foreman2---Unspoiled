@@ -62,5 +62,10 @@
   <FontWeight x:Key="Foreman.Type.EmphasizedBody.FontWeight">600</FontWeight>
   <x:Double x:Key="Foreman.Type.Caption.FontSize">11</x:Double>
   <FontWeight x:Key="Foreman.Type.Caption.FontWeight">400</FontWeight>
+  <x:Double x:Key="Foreman.Type.ToolbarLabel.FontSize">11.5</x:Double>
+  <FontWeight x:Key="Foreman.Type.ToolbarLabel.FontWeight">500</FontWeight>
+  <x:Double x:Key="Foreman.Type.AboutName.FontSize">15</x:Double>
+  <x:Double x:Key="Foreman.Type.AboutVersion.FontSize">11.5</x:Double>
+  <x:Double x:Key="Foreman.Type.AboutTagline.FontSize">10.5</x:Double>
 
 </ResourceDictionary>

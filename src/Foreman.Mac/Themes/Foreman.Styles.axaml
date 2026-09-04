@@ -60,12 +60,14 @@
     <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
   </Style>
 
-  <!-- Save's dirty-state accent tint (contract #toolbar's .on state) - IsDirty toggles this class. -->
-  <Style Selector="Button.foreman-toolbar-icon.on">
+  <!-- Save's dirty-state accent tint (contract #toolbar's .on state) - IsDirty toggles this class. Every
+       action button is the wide (icon+label) form now (task 8), so .on targets foreman-toolbar-wide;
+       foreman-toolbar-icon itself stays defined above for GalleryWindow's icon-only showcase tile. -->
+  <Style Selector="Button.foreman-toolbar-wide.on">
     <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
   </Style>
-  <Style Selector="Button.foreman-toolbar-icon.on TextBlock.foreman-toolbar-glyph">
-    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Accent}" />
+  <Style Selector="Button.foreman-toolbar-wide.on Path.foreman-toolbar-glyph">
+    <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.Accent}" />
   </Style>
 
   <!-- M-5 (final fix wave): the plain :pointerover rule above sets ContentPresenter.Background directly,
@@ -73,18 +75,32 @@
        inherits that one via TemplateBinding) - so hovering a dirty Save button used to swap the accent
        tint for the generic hover gray. This selector targets the same ContentPresenter .on does, with one
        more qualifier than the plain hover rule, so the accent wins while still hovered. -->
-  <Style Selector="Button.foreman-toolbar-icon.on:pointerover /template/ ContentPresenter">
+  <Style Selector="Button.foreman-toolbar-wide.on:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
   </Style>
 
+  <!-- Task 8 (contract #toolbar mock's own <svg>): the toolbar glyphs are vector paths now, not font
+       characters - the zoom stepper's −/+ stay TextBlock, so that selector is untouched below. -->
   <Style Selector="TextBlock.foreman-toolbar-glyph">
     <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.EmphasizedBody.FontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
+  <Style Selector="Path.foreman-toolbar-glyph">
+    <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    <Setter Property="StrokeThickness" Value="1.5" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+  </Style>
+
+  <Style Selector="Path.foreman-toolbar-glyph-fill">
+    <Setter Property="Fill" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+  </Style>
+
   <Style Selector="TextBlock.foreman-toolbar-label">
-    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Body.FontSize}" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.ToolbarLabel.FontSize}" />
+    <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.ToolbarLabel.FontWeight}" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>

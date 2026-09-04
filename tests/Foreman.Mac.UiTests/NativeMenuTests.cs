@@ -1,6 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
@@ -45,6 +47,9 @@ namespace Foreman.Mac.UiTests {
 
         private static NativeMenu TopMenu(MainWindow window) => NativeMenu.GetMenu(window)!;
 
+        //A: the bold application menu is Application-scoped, not the window's own first item.
+        private static NativeMenu AppMenu() => NativeMenu.GetMenu(Application.Current!)!;
+
         private static NativeMenu SubMenu(NativeMenu menu, string header) =>
             menu.Items.OfType<NativeMenuItem>().Single(i => i.Header == header).Menu!;
 
@@ -67,43 +72,85 @@ namespace Foreman.Mac.UiTests {
         //---- top-level structure ----
 
         [AvaloniaFact]
-        public void TopLevel_IsAppFileEditViewWindowHelpInOrder() {
+        public void TopLevel_IsFileEditViewWindowHelpInOrder() {
             var window = new MainWindow();
 
             var headers = TopMenu(window).Items.OfType<NativeMenuItem>().Select(i => i.Header).ToList();
 
-            Assert.Equal([null, "File", "Edit", "View", "Window", "Help"], headers);
+            Assert.Equal(["File", "Edit", "View", "Window", "Help"], headers);
         }
 
         //---- Foreman 2 (app) menu ----
+
+        //A: set on Application.Current, or the ObjC side falls back to Avalonia's own "About Avalonia" app menu.
+        [AvaloniaFact]
+        public void AppMenu_IsSetOnApplicationWithAboutFirstAndExactlyOneQuit() {
+            var window = new MainWindow();
+
+            NativeMenu appMenu = AppMenu();
+
+            Assert.Equal("About Foreman 2", RealItems(appMenu)[0].Header);
+            Assert.Single(RealItems(appMenu), i => i.Header == "Quit Foreman 2");
+        }
+
+        //Pins both native structures exactly, item by item, including separators - other tests here only look up items by header.
+        [AvaloniaFact]
+        public void AppMenu_And_WindowMenu_MatchTheContractShapeExactly() {
+            var window = new MainWindow();
+
+            var appHeaders = AppMenu().Items.OfType<NativeMenuItem>().Select(i => i.Header).ToList();
+            var windowHeaders = TopMenu(window).Items.OfType<NativeMenuItem>().Select(i => i.Header).ToList();
+
+            Assert.Equal(
+                ["About Foreman 2", "-", "Settings", "-", "Hide Foreman 2", "Hide Others", "Show All", "-", "Quit Foreman 2"],
+                appHeaders);
+            Assert.Equal(["File", "Edit", "View", "Window", "Help"], windowHeaders);
+        }
 
         [AvaloniaFact]
         public void AppMenu_AboutIsEnabledWithNoGesture() {
             var window = new MainWindow();
 
-            NativeMenuItem about = ItemNamed(SubMenu(TopMenu(window), null!), "About Foreman 2");
+            NativeMenuItem about = ItemNamed(AppMenu(), "About Foreman 2");
 
             Assert.True(about.IsEnabled);
             Assert.Null(about.Gesture);
         }
 
+        //Show() makes this the ActiveWindow the app menu's action items resolve at click time (see
+        //MainWindow.WindowActionItem) - the app menu itself is Application-scoped and built before any
+        //window exists, so it has no window of its own to close over.
         [AvaloniaFact]
         public void AppMenu_About_ClickInvokesTheAboutDialogStub() {
             var window = new MainWindow();
+            window.Show();
             bool shown = false;
             window.AboutDialogStub = () => shown = true;
-            NativeMenuItem about = ItemNamed(SubMenu(TopMenu(window), null!), "About Foreman 2");
+            NativeMenuItem about = ItemNamed(AppMenu(), "About Foreman 2");
 
             about.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
 
             Assert.True(shown);
+        }
+
+        //Proves the real fix: the app menu is readable on Application.Current before any MainWindow is ever
+        //constructed - it's built in App.Initialize, at the point AvaloniaNativeMenuExporter's own
+        //Application-target constructor actually reads it (see AppMenu_IsSetOnApplicationWithAboutFirstAndExactlyOneQuit
+        //for the shape check; this test only pins the timing).
+        [AvaloniaFact]
+        public void AppMenu_IsPresentOnApplicationBeforeAnyMainWindowExists() {
+            NativeMenu appMenu = AppMenu();
+
+            Assert.Equal("About Foreman 2", RealItems(appMenu)[0].Header);
+            Assert.Single(RealItems(appMenu), i => i.Header == "Quit Foreman 2");
         }
 
         [AvaloniaFact]
         public void AppMenu_SettingsHasCmdCommaGesture() {
             var window = new MainWindow();
 
-            NativeMenuItem settings = ItemNamed(SubMenu(TopMenu(window), null!), "Settings");
+            NativeMenuItem settings = ItemNamed(AppMenu(), "Settings");
 
             Assert.Equal(Key.OemComma, settings.Gesture!.Key);
             Assert.Equal(KeyModifiers.Meta, settings.Gesture.KeyModifiers);
@@ -113,24 +160,23 @@ namespace Foreman.Mac.UiTests {
         public void AppMenu_Hide_HasCmdHGestureAndHidesTheWindow() {
             var window = new MainWindow();
             window.Show();
-            NativeMenuItem hide = ItemNamed(SubMenu(TopMenu(window), null!), "Hide Foreman 2");
+            NativeMenuItem hide = ItemNamed(AppMenu(), "Hide Foreman 2");
 
             Assert.Equal(Key.H, hide.Gesture!.Key);
             Assert.Equal(KeyModifiers.Meta, hide.Gesture.KeyModifiers);
             Assert.True(hide.IsEnabled);
 
             hide.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
 
             Assert.False(window.IsVisible);
         }
 
-        //Hide Others/Show All (contract #menubar, new-in-9): Avalonia exposes no public API for enumerating
-        //or retargeting other applications' windows, and this codebase has no native-interop layer to build
-        //one - disabled placeholders, disclosed in the task report rather than faked.
+        //Hide Others/Show All: Avalonia 12.1.2's backing implementation is internal with no public surface, so these are disabled placeholders.
         [AvaloniaFact]
         public void AppMenu_HideOthersAndShowAll_AreDisabledPlaceholders() {
             var window = new MainWindow();
-            NativeMenu appMenu = SubMenu(TopMenu(window), null!);
+            NativeMenu appMenu = AppMenu();
 
             NativeMenuItem hideOthers = ItemNamed(appMenu, "Hide Others");
             NativeMenuItem showAll = ItemNamed(appMenu, "Show All");
@@ -145,7 +191,7 @@ namespace Foreman.Mac.UiTests {
         public void AppMenu_QuitHasCmdQGesture() {
             var window = new MainWindow();
 
-            NativeMenuItem quit = ItemNamed(SubMenu(TopMenu(window), null!), "Quit Foreman 2");
+            NativeMenuItem quit = ItemNamed(AppMenu(), "Quit Foreman 2");
 
             Assert.Equal(Key.Q, quit.Gesture!.Key);
             Assert.Equal(KeyModifiers.Meta, quit.Gesture.KeyModifiers);
@@ -234,6 +280,7 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Viewer.Context.SetClipboardText = text => written = text;
 
             ItemNamed(SubMenu(TopMenu(window), "Edit"), "Copy").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
 
             Assert.NotNull(written);
         }
@@ -250,6 +297,7 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Viewer.SetSelection([.. window.GraphCanvas.Viewer.NodeElements]);
 
             ItemNamed(SubMenu(TopMenu(window), "Edit"), "Delete").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
 
             Assert.Empty(window.GraphCanvas.Viewer.NodeElements);
         }
@@ -280,6 +328,7 @@ namespace Foreman.Mac.UiTests {
             float before = window.GraphCanvas.Viewport.ViewScale;
 
             ItemNamed(SubMenu(TopMenu(window), "View"), "Zoom In").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
 
             Assert.True(window.GraphCanvas.Viewport.ViewScale > before);
         }
@@ -292,6 +341,7 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Viewport.ZoomAt(new Avalonia.Point(400, 300), zoomIn: true);
 
             ItemNamed(SubMenu(TopMenu(window), "View"), "Actual Size").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(1f, window.GraphCanvas.Viewport.ViewScale);
         }
@@ -322,6 +372,7 @@ namespace Foreman.Mac.UiTests {
             NativeMenuItem showGridlines = ItemNamed(SubMenu(TopMenu(window), "View"), "Show Gridlines");
 
             showGridlines.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
 
             Assert.True(window.GraphCanvas.Grid.ShowGrid);
             Assert.True(checkbox.IsChecked);
@@ -351,8 +402,27 @@ namespace Foreman.Mac.UiTests {
             NativeMenuItem eight = minorSubmenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "8");
 
             eight.Command!.Execute(eight.CommandParameter);
+            Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(4, dropdown.SelectedIndex); //index 4 = "8"
+        }
+
+        //B: NativeMenuItem only recomputes IsEnabled when its Command is (re)assigned, so Command must be set after CommandParameter.
+        [AvaloniaFact]
+        public void RadioItems_AllReportEnabledAfterBuildNativeMenu() {
+            var window = new MainWindow();
+            NativeMenu viewMenu = SubMenu(TopMenu(window), "View");
+
+            var minor = SubMenu(viewMenu, "Minor Gridlines").Items.OfType<NativeMenuItem>().ToList();
+            var major = SubMenu(viewMenu, "Major Gridlines").Items.OfType<NativeMenuItem>().ToList();
+            var rate = SubMenu(viewMenu, "Rate Unit").Items.OfType<NativeMenuItem>().ToList();
+
+            Assert.Equal(12, minor.Count);
+            Assert.Equal(12, major.Count);
+            Assert.Equal(6, rate.Count);
+            Assert.All(minor, i => Assert.True(i.IsEnabled, i.Header));
+            Assert.All(major, i => Assert.True(i.IsEnabled, i.Header));
+            Assert.All(rate, i => Assert.True(i.IsEnabled, i.Header));
         }
 
         [AvaloniaFact]
@@ -379,6 +449,7 @@ namespace Foreman.Mac.UiTests {
             checkbox.IsChecked = false;
 
             ItemNamed(SubMenu(TopMenu(window), "View"), "Icon View").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
 
             Assert.True(checkbox.IsChecked);
         }
@@ -404,6 +475,7 @@ namespace Foreman.Mac.UiTests {
             NativeMenuItem fiveMin = rateUnitSubmenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "5 min");
 
             fiveMin.Command!.Execute(fiveMin.CommandParameter);
+            Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(2, dropdown.SelectedIndex);
         }
@@ -478,6 +550,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(KeyModifiers.Meta, minimize.Gesture.KeyModifiers);
 
             minimize.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(WindowState.Minimized, window.WindowState);
         }
@@ -491,9 +564,11 @@ namespace Foreman.Mac.UiTests {
             Assert.Null(zoom.Gesture);
 
             zoom.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
             Assert.Equal(WindowState.Normal, window.WindowState);
 
             zoom.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
             Assert.Equal(WindowState.Maximized, window.WindowState);
         }
 
@@ -505,6 +580,24 @@ namespace Foreman.Mac.UiTests {
 
             Assert.True(bringToFront.IsEnabled);
             Assert.Null(bringToFront.Gesture);
+        }
+
+        //---- C1: menu dispatch deferral ----
+
+        //C1: Execute must return before the wrapped action runs, and the action must only run once the dispatcher is pumped.
+        [AvaloniaFact]
+        public void MenuCommand_ExecuteDefersTheWrappedActionToTheDispatcher() {
+            var window = new MainWindow();
+            window.Show();
+            bool shown = false;
+            window.AboutDialogStub = () => shown = true;
+            NativeMenuItem about = ItemNamed(AppMenu(), "About Foreman 2");
+
+            about.Command!.Execute(null);
+            Assert.False(shown);
+
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(shown);
         }
     }
 }

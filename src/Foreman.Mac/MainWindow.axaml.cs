@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Foreman;
 using Foreman.DataCaching;
@@ -21,6 +22,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace Foreman.Mac {
     public partial class MainWindow : Window {
@@ -101,6 +103,15 @@ namespace Foreman.Mac {
 
         private void OnThemeServiceChanged(object? sender, EventArgs e) => ApplyCanvasTheme();
 
+        //A (contract #menubar): the bold app menu lives on Application, built once in App.Initialize
+        //before any MainWindow exists (see the call site there), so its About/Settings/Hide items can't
+        //close over a window instance - they resolve the live target here instead, at click time.
+        internal static MainWindow? MostRecentlyOpened { get; private set; }
+
+        private static MainWindow? ActiveWindow =>
+            (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow as MainWindow
+            ?? MostRecentlyOpened;
+
         public MainWindow() {
             InitializeComponent();
             WindowState = WindowState.Maximized;
@@ -147,6 +158,7 @@ namespace Foreman.Mac {
             //control's own signal instead of a fifth call site inside those methods.
             GraphCanvas.ViewScaleChanged += (_, _) => ResyncZoomLabel();
             NativeMenu.SetMenu(this, BuildNativeMenu());
+            Opened += (_, _) => MostRecentlyOpened = this;
             WindowScaler.Track(this);
             //I-3 (final fix wave): the View Options card carries its own LayoutTransformControl (MainWindow.
             //axaml) since it renders inside ViewOptionsPopover's own popup root, outside the wrapper Track
@@ -748,10 +760,10 @@ namespace Foreman.Mac {
             }
         }
 
-        //Ports the title-bar format string used identically after Save/Load/New/preset-reload (reference:
-        //upstream MainForm.cs:188,240,263,444). The format itself now lives in MainWindowViewModel.RecomputeTitle.
+        //Ports the title-bar update used identically after Save/Load/New/preset-reload (reference: upstream
+        //MainForm.cs:188,240,263,444) - the preset no longer appears in the title (contract #toolbar), just
+        //the document name, computed in MainWindowViewModel.DocumentTitle.
         private void UpdateTitleBar() {
-            ViewModel.PresetName = Settings?.CurrentPresetName;
             ViewModel.CurrentFileName = savefilePath;
         }
 
@@ -979,10 +991,9 @@ namespace Foreman.Mac {
                 GraphCanvas.Focus();
         }
 
-        //Foreman 2 > About Foreman 2 (contract #menubar): a plain MessageDialog, same as Dialogs.ShowInfoAsync,
-        //carrying ViewModel.VersionLabel (== AppVersion.VersionedDisplay) - the app has no richer
-        //about-panel design to build to yet. I-4 (final fix wave): the titlebar's own version TextBlock is
-        //gone, so this dialog is now the label's only reader.
+        //Foreman 2 > About Foreman 2 (contract #menubar): the ratified About panel (design doc .about-card),
+        //carrying ViewModel.VersionLabel (== AppVersion.VersionedDisplay). I-4 (final fix wave): the
+        //titlebar's own version TextBlock is gone, so this panel is now the label's only reader.
         private void ShowAbout() => Async.Fire(ShowAboutAsync(), nameof(ShowAboutAsync));
 
         internal Task ShowAboutAsync() {
@@ -994,11 +1005,7 @@ namespace Foreman.Mac {
         }
 
         private async Task RealShowAboutAsync() {
-            var dialog = new MessageDialog($"Foreman 2\n{ViewModel.VersionLabel}") {
-                Title = "About Foreman 2",
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Position = Position + new PixelPoint(50, 50),
-            };
+            var dialog = new AboutWindow(ViewModel.VersionLabel);
             await dialog.ShowDialog(this).ConfigureAwait(true);
             if (!GraphCanvas.FloatingPanelHost.IsOpen)
                 GraphCanvas.Focus();
@@ -1250,14 +1257,15 @@ namespace Foreman.Mac {
         private static readonly string[] GridlineLabels = ["None", "1", "2", "4", "8", "16", "32", "64", "128", "256", "512", "1024"];
         private static readonly string[] RateUnitLabels = ["1 sec", "1 min", "5 min", "10 min", "30 min", "1 hour"];
 
-        private NativeMenu BuildNativeMenu() {
-            var appMenu = new NativeMenu {
+        //A (contract #menubar): lives on Application.Current, not the window - see App.Initialize's call site.
+        internal static NativeMenu BuildAppMenu() =>
+            new() {
                 Items = {
-                    ActionItem("About Foreman 2", ShowAbout),
+                    WindowActionItem("About Foreman 2", w => w.ShowAbout()),
                     new NativeMenuItemSeparator(),
-                    MenuItem("Settings", Commands.SettingsCommand, new KeyGesture(Key.OemComma, PlatformModifiers.Primary)),
+                    WindowActionItem("Settings", w => w.Commands.SettingsCommand.Execute(null), new KeyGesture(Key.OemComma, PlatformModifiers.Primary)),
                     new NativeMenuItemSeparator(),
-                    ActionItem("Hide Foreman 2", MenuHide, new KeyGesture(Key.H, PlatformModifiers.Primary)),
+                    WindowActionItem("Hide Foreman 2", w => w.Hide(), new KeyGesture(Key.H, PlatformModifiers.Primary)),
                     DisabledItem("Hide Others", new KeyGesture(Key.H, PlatformModifiers.Primary | KeyModifiers.Alt)),
                     DisabledItem("Show All"),
                     new NativeMenuItemSeparator(),
@@ -1265,6 +1273,12 @@ namespace Foreman.Mac {
                 },
             };
 
+        //Built before any MainWindow exists (App.Initialize), so unlike ActionItem/MenuItem below this
+        //resolves ActiveWindow at click time instead of closing over `this`; a no-op if no window is open.
+        private static NativeMenuItem WindowActionItem(string header, Action<MainWindow> action, KeyGesture? gesture = null) =>
+            new(header) { Command = new DeferredMenuCommand(new RelayCommand(() => { if (ActiveWindow is MainWindow w) action(w); })), Gesture = gesture };
+
+        private NativeMenu BuildNativeMenu() {
             var fileMenu = new NativeMenu {
                 Items = {
                     MenuItem("New", Commands.NewCommand, new KeyGesture(Key.N, PlatformModifiers.Primary)),
@@ -1305,18 +1319,18 @@ namespace Foreman.Mac {
                 ToggleType = MenuItemToggleType.CheckBox,
                 IsChecked = this.FindControl<CheckBox>("GridlinesCheckbox")!.IsChecked == true,
                 Gesture = new KeyGesture(Key.G, PlatformModifiers.Primary | KeyModifiers.Alt),
-                Command = new RelayCommand(MenuToggleShowGridlines),
+                Command = new DeferredMenuCommand(new RelayCommand(MenuToggleShowGridlines)),
             };
             iconViewMenuItem = new NativeMenuItem("Icon View") {
                 ToggleType = MenuItemToggleType.CheckBox,
                 IsChecked = this.FindControl<CheckBox>("IconViewCheckBox")!.IsChecked == true,
-                Command = new RelayCommand(MenuToggleIconView),
+                Command = new DeferredMenuCommand(new RelayCommand(MenuToggleIconView)),
             };
             pauseCalculationsMenuItem = new NativeMenuItem("Pause All Calculations") {
                 ToggleType = MenuItemToggleType.CheckBox,
                 IsChecked = this.FindControl<CheckBox>("PauseUpdatesCheckbox")!.IsChecked == true,
                 Gesture = new KeyGesture(Key.OemPeriod, PlatformModifiers.Primary),
-                Command = new RelayCommand(MenuTogglePauseCalculations),
+                Command = new DeferredMenuCommand(new RelayCommand(MenuTogglePauseCalculations)),
             };
 
             var viewMenu = new NativeMenu {
@@ -1356,7 +1370,6 @@ namespace Foreman.Mac {
 
             return new NativeMenu {
                 Items = {
-                    new NativeMenuItem { Menu = appMenu },
                     new NativeMenuItem("File") { Menu = fileMenu },
                     new NativeMenuItem("Edit") { Menu = editMenu },
                     new NativeMenuItem("View") { Menu = viewMenu },
@@ -1367,10 +1380,10 @@ namespace Foreman.Mac {
         }
 
         private static NativeMenuItem MenuItem(string header, IRelayCommand command, KeyGesture? gesture = null) =>
-            new(header) { Command = command, IsEnabled = command.CanExecute(null), Gesture = gesture };
+            new(header) { Command = new DeferredMenuCommand(command), IsEnabled = command.CanExecute(null), Gesture = gesture };
 
         private static NativeMenuItem ActionItem(string header, Action action, KeyGesture? gesture = null) =>
-            new(header) { Command = new RelayCommand(action), Gesture = gesture };
+            new(header) { Command = new DeferredMenuCommand(new RelayCommand(action)), Gesture = gesture };
 
         private static NativeMenuItem DisabledItem(string header, KeyGesture? gesture = null) =>
             new(header) { IsEnabled = false, Gesture = gesture };
@@ -1379,14 +1392,15 @@ namespace Foreman.Mac {
         //Unit submenus): each item carries its own index as CommandParameter rather than a closure per item,
         //so RadioItems can share one RelayCommand<int> across the whole group.
         private static NativeMenuItem[] RadioItems(string[] labels, Action<int> onSelect, int currentIndex) {
-            var command = new RelayCommand<int>(onSelect);
+            var command = new DeferredMenuCommand(new RelayCommand<int>(onSelect));
             var items = new NativeMenuItem[labels.Length];
             for (int i = 0; i < labels.Length; i++) {
                 items[i] = new NativeMenuItem(labels[i]) {
                     ToggleType = MenuItemToggleType.Radio,
                     IsChecked = i == currentIndex,
-                    Command = command,
+                    //B: CommandParameter must be set before Command, or IsEnabled snapshots CanExecute(null).
                     CommandParameter = i,
+                    Command = command,
                 };
             }
             return items;
@@ -1404,9 +1418,25 @@ namespace Foreman.Mac {
         //TryShutdown closes each open window first (raising the ordinary Closing event on every one of
         //them), so a dirty graph still prompts on ⌘Q exactly as it does on ⌘W or the traffic-light close.
         private static NativeMenuItem QuitMenuItem() {
-            var item = new NativeMenuItem("Quit Foreman 2") { Gesture = new KeyGesture(Key.Q, PlatformModifiers.Primary) };
-            item.Click += (_, _) => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.TryShutdown();
-            return item;
+            var command = new RelayCommand(() => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.TryShutdown());
+            return new NativeMenuItem("Quit Foreman 2") {
+                Gesture = new KeyGesture(Key.Q, PlatformModifiers.Primary),
+                Command = new DeferredMenuCommand(command),
+            };
+        }
+
+        //C1: defers Execute past AppKit's synchronous menu dispatch, so an async sheet doesn't strand the menu open.
+        internal sealed class DeferredMenuCommand(ICommand inner) : ICommand {
+            internal ICommand Inner { get; } = inner;
+
+            public event EventHandler? CanExecuteChanged {
+                add => Inner.CanExecuteChanged += value;
+                remove => Inner.CanExecuteChanged -= value;
+            }
+
+            public bool CanExecute(object? parameter) => Inner.CanExecute(parameter);
+
+            public void Execute(object? parameter) => Dispatcher.UIThread.Post(() => Inner.Execute(parameter), DispatcherPriority.Background);
         }
     }
 }

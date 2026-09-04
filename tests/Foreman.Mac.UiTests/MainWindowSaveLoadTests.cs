@@ -60,7 +60,7 @@ namespace Foreman.Mac.UiTests {
                 Assert.Equal(path, window.SaveFilePath);
                 Assert.NotNull(window.SaveFileBaselineJson);
                 Assert.Equal(File.ReadAllText(path), window.SaveFileBaselineJson);
-                Assert.Equal("Foreman 2 (Some Preset) - " + path, window.Title);
+                Assert.Equal(Path.GetFileNameWithoutExtension(path), window.Title);
                 Assert.NotNull(GraphSaveCodec.ReadViewer(window.SaveFileBaselineJson!));
             } finally {
                 File.Delete(path);
