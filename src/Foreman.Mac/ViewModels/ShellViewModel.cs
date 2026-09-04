@@ -18,7 +18,7 @@ namespace Foreman.Mac.ViewModels {
         public IRelayCommand HelpCommand { get; } = new RelayCommand(() => { }, () => false);
         public IRelayCommand AlignSelectionCommand { get; }
 
-        public ShellViewModel(Action onNew, Action onLoad, Action onSave, Action onSaveAs, Action onImport, Action onExportImage, Action onAddItem, Action onAddRecipe, Action onAutoconnect, Action onAlignSelection, Action onSettings, Action onGraphSummary) {
+        public ShellViewModel(Action onNew, Action onLoad, Action onSave, Action onSaveAs, Action onImport, Action onExportImage, Action onAddItem, Action onAddRecipe, Action onAutoconnect, Action onAlignSelection, Action onSettings, Action onGraphSummary, Func<bool>? canExecuteAlignSelection = null) {
             NewCommand = new RelayCommand(onNew);
             LoadCommand = new RelayCommand(onLoad);
             SaveCommand = new RelayCommand(onSave);
@@ -28,7 +28,9 @@ namespace Foreman.Mac.ViewModels {
             AddItemCommand = new RelayCommand(onAddItem);
             AddRecipeCommand = new RelayCommand(onAddRecipe);
             AutoconnectCommand = new RelayCommand(onAutoconnect);
-            AlignSelectionCommand = new RelayCommand(onAlignSelection);
+            //Task 7 (contract #toolbar): Align Selected's .disabled empty-selection state - defaults to
+            //always-enabled so ShellViewModelTests' plain constructor call keeps working unchanged.
+            AlignSelectionCommand = new RelayCommand(onAlignSelection, canExecuteAlignSelection ?? (() => true));
             SettingsCommand = new RelayCommand(onSettings);
             GraphSummaryCommand = new RelayCommand(onGraphSummary);
         }

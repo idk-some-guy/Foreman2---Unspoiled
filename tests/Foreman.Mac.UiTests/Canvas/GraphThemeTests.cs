@@ -1,3 +1,4 @@
+using Avalonia.Headless.XUnit;
 using Foreman.Mac.Canvas;
 using SkiaSharp;
 using System.Drawing;
@@ -45,7 +46,15 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //Task 2: the clear color is now Foreman.Color.CanvasBackground (#1E1E20 dark / #FAFAFA light),
         //not the pre-token literal (23,23,23)/white - see task-2-report.md's light-value-equivalence table.
-        [Fact]
+        //Every other test in the suite that touches Application.Current's theme resources runs under
+        //[AvaloniaFact], which blocks until Avalonia.Headless's HeadlessUnitTestSession singleton has set
+        //Application.Current up; these two ran under plain [Fact] instead, so whether Foreman.Color.
+        //CanvasBackground resolved to the real token or ResolveBackgroundColor's fallback constant depended
+        //on whether some other AvaloniaFact test happened to have already initialized the process-wide
+        //Application first - a race that "moves" as the suite's parallel scheduling changes, not a leaked
+        //RequestedThemeVariant (no test forces a variant and fails to restore it; the value read back here
+        //is passed in explicitly, per call, to ResolveColor's variant parameter).
+        [AvaloniaFact]
         public void ApplyTheme_Dark_PaintClearsToDarkCanvasBackgroundToken() {
             var viewer = new GraphViewer(new Viewport(Size, Size), new GridManager());
             viewer.ApplyTheme(dark: true);
@@ -56,7 +65,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new SKColor(0x1E, 0x1E, 0x20), SamplePixel(surface, 5, 5));
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void ApplyTheme_Light_PaintClearsToLightCanvasBackgroundToken() {
             var viewer = new GraphViewer(new Viewport(Size, Size), new GridManager());
             viewer.ApplyTheme(dark: true);

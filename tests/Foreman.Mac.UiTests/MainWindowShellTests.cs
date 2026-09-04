@@ -79,7 +79,10 @@ namespace Foreman.Mac.UiTests {
         }
 
         //Task 4 (phase 9 toolbar rebuild): Help's toolbar button was retired along with Save As/Import Graph
-        //(menu-bar-only now), so every remaining toolbar button is a wired, enabled command.
+        //(menu-bar-only now), so every remaining toolbar button is a wired, enabled command. Align Selected
+        //is excluded here since task 7 gives it a selection-driven CanExecute (contract #toolbar's
+        //.disabled empty-selection state) - a fresh window has no selection, so it starts disabled; its own
+        //states are asserted separately below.
         [AvaloniaFact]
         public void Toolbar_AllTenButtonsAreEnabled() {
             var window = new MainWindow();
@@ -90,7 +93,7 @@ namespace Foreman.Mac.UiTests {
                 .ToDictionary(b => AutomationProperties.GetName(b)!, b => b.IsEnabled);
 
             Assert.Equal(ExpectedButtonNames.Length, buttons.Count);
-            foreach (string name in ExpectedButtonNames)
+            foreach (string name in ExpectedButtonNames.Where(n => n != "Align Selected"))
                 Assert.True(buttons[name], name);
         }
 
@@ -708,15 +711,140 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public void AlignSelectionButton_RealClick_ClosesOpenFloatingPanel() {
+        public async Task AlignSelectionButton_RealClick_ClosesOpenFloatingPanel() {
             var window = new MainWindow();
             window.Show();
+            DataCache cache = await GetCacheAsync();
+            window.GraphCanvas.Viewer.LoadDocument(cache, FlowchartJson());
+            window.GraphCanvas.Viewer.SetSelection([.. window.GraphCanvas.Viewer.NodeElements.Take(2)]); //a selection-gated button (task 7) needs one to be clickable at all
             window.GraphCanvas.FloatingPanelHost.Show(new Border { Width = 50, Height = 50, Focusable = true }, new System.Drawing.Point(0, 0));
             Assert.True(window.GraphCanvas.FloatingPanelHost.IsOpen);
 
             RealClick(window, "Align Selected");
 
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
+        }
+
+        //Task 7 (contract #toolbar's Align Selected .disabled empty-selection state): CanExecute now tracks
+        //the canvas's live selection instead of always being true.
+        [AvaloniaFact]
+        public void AlignSelectionCommand_EmptySelection_CanExecuteIsFalse() {
+            var window = new MainWindow();
+            window.Show();
+
+            Assert.False(window.Commands.AlignSelectionCommand.CanExecute(null));
+        }
+
+        [AvaloniaFact]
+        public async Task AlignSelectionCommand_TwoNodesSelected_CanExecuteIsTrue() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            window.GraphCanvas.Viewer.LoadDocument(cache, FlowchartJson());
+
+            window.GraphCanvas.Viewer.SetSelection([.. window.GraphCanvas.Viewer.NodeElements.Take(2)]);
+
+            Assert.True(window.Commands.AlignSelectionCommand.CanExecute(null));
+        }
+
+        [AvaloniaFact]
+        public async Task AlignSelectionCommand_SelectionClearedAfterSelecting_CanExecuteReturnsToFalse() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            window.GraphCanvas.Viewer.LoadDocument(cache, FlowchartJson());
+            window.GraphCanvas.Viewer.SetSelection([.. window.GraphCanvas.Viewer.NodeElements.Take(2)]);
+            Assert.True(window.Commands.AlignSelectionCommand.CanExecute(null));
+
+            window.GraphCanvas.Viewer.ClearSelection();
+
+            Assert.False(window.Commands.AlignSelectionCommand.CanExecute(null));
+        }
+
+        //Fires-only-when-enabled: an empty-selection Execute() call must be a genuine no-op button state,
+        //not merely a command that happens to align zero nodes - RealClick on a disabled Button never
+        //dispatches Command.Execute at all (Avalonia hit-tests IsEnabled first).
+        [AvaloniaFact]
+        public void AlignSelectionButton_EmptySelection_RealClick_DoesNotOpenFloatingPanel() {
+            var window = new MainWindow();
+            window.Show();
+            int redrawCountBefore = window.GraphCanvas.RedrawRequestCount;
+
+            RealClick(window, "Align Selected");
+
+            Assert.Equal(redrawCountBefore, window.GraphCanvas.RedrawRequestCount); //onAlignSelection's own RequestRedraw never ran
+        }
+
+        //---- Zoom stepper (task 7, contract #toolbar's zoom stepper marked "(new)") -----------------------
+
+        //The stepper must not open a second zoom path alongside the View menu's Zoom In/Zoom Out (task 5,
+        //NativeMenuTests.ViewMenu_ZoomIn_IncreasesViewScale) - both bind the exact same MainWindow command
+        //instance, so this proves it structurally rather than just observing the same end effect twice.
+        [AvaloniaFact]
+        public void ZoomStepper_InAndOutButtons_ShareCommandInstancesWithViewMenu() {
+            var window = new MainWindow();
+            window.Show();
+            var viewMenu = NativeMenu.GetMenu(window)!.Items.OfType<NativeMenuItem>()
+                .Single(i => i.Header == "View").Menu!;
+            NativeMenuItem menuZoomIn = viewMenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "Zoom In");
+            NativeMenuItem menuZoomOut = viewMenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "Zoom Out");
+
+            Button stepperZoomIn = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "Zoom In");
+            Button stepperZoomOut = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "Zoom Out");
+
+            Assert.Same(menuZoomIn.Command, stepperZoomIn.Command);
+            Assert.Same(menuZoomOut.Command, stepperZoomOut.Command);
+        }
+
+        [AvaloniaFact]
+        public void ZoomStepper_ZoomInButton_RealClick_IncreasesViewScale() {
+            var window = new MainWindow();
+            window.Show();
+            float before = window.GraphCanvas.Viewport.ViewScale;
+
+            RealClick(window, "Zoom In");
+
+            Assert.True(window.GraphCanvas.Viewport.ViewScale > before);
+        }
+
+        [AvaloniaFact]
+        public void ZoomStepper_ZoomOutButton_RealClick_DecreasesViewScale() {
+            var window = new MainWindow();
+            window.Show();
+            float before = window.GraphCanvas.Viewport.ViewScale;
+
+            RealClick(window, "Zoom Out");
+
+            Assert.True(window.GraphCanvas.Viewport.ViewScale < before);
+        }
+
+        [AvaloniaFact]
+        public void ZoomStepper_ValueLabel_TracksViewScaleAfterZoomInClick() {
+            var window = new MainWindow();
+            window.Show();
+
+            RealClick(window, "Zoom In");
+
+            var valueLabel = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "ZoomValueLabel");
+            int expectedPercent = (int)Math.Round(window.GraphCanvas.Viewport.ViewScale * 100);
+            Assert.Equal($"{expectedPercent}%", valueLabel.Text);
+        }
+
+        //Fix round 1: mouse-wheel zoom went through GraphCanvasControl.OnPointerWheelChanged directly,
+        //bypassing every one of ResyncZoomLabel's four call sites, so the readout went stale on a wheel-zoom
+        //session until the next stepper/menu click. Exercises the real input pipeline (MouseWheel, not a
+        //direct Viewport.ZoomAt call) so it only passes once GraphCanvasControl's own wheel handler notifies
+        //MainWindow the same way a stepper click does.
+        [AvaloniaFact]
+        public void ZoomValueLabel_TracksViewScaleAfterMouseWheelZoom() {
+            var window = new MainWindow();
+            window.Show();
+
+            window.MouseWheel(new Point(750, 400), new Vector(0, 1));
+
+            var valueLabel = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "ZoomValueLabel");
+            int expectedPercent = (int)Math.Round(window.GraphCanvas.Viewport.ViewScale * 100);
+            Assert.Equal($"{expectedPercent}%", valueLabel.Text);
         }
 
         [AvaloniaFact]

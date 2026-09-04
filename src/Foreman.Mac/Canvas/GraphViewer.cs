@@ -248,6 +248,13 @@ namespace Foreman.Mac.Canvas {
 
         //----------------------------------------------Selection functions (reference §1)
 
+        //Task 7 (contract #toolbar's Align Selected .disabled empty-selection state): the aggregate signal
+        //AlignSelectionCommand's CanExecute re-queries on, raised from every method below that touches
+        //SelectedNodes plus the two raw toggle-select mutations GraphCanvasControl still does directly.
+        public event EventHandler? SelectionChanged;
+
+        internal void RaiseSelectionChanged() => SelectionChanged?.Invoke(this, EventArgs.Empty);
+
         //Ports SetSelection: replaces the full selection outright, syncing every node's Highlighted flag
         //with membership.
         public void SetSelection(IEnumerable<BaseNodeElement> newSelection) {
@@ -259,6 +266,7 @@ namespace Foreman.Mac.Canvas {
 
             foreach (BaseNodeElement element in SelectedNodes)
                 element.Highlighted = true;
+            RaiseSelectionChanged();
         }
 
         //Ports UpdateSelection: recomputes every node's Highlighted flag as a lasso preview for the given
@@ -299,6 +307,7 @@ namespace Foreman.Mac.Canvas {
                 SelectedNodes.UnionWith(CurrentSelectionNodes);
             }
             CurrentSelectionNodes.Clear();
+            RaiseSelectionChanged();
         }
 
         //Extended to also clear annotation selection (reference §1/§4a's MouseDown clear-on-empty-click and
@@ -309,6 +318,7 @@ namespace Foreman.Mac.Canvas {
             SelectedNodes.Clear();
             CurrentSelectionNodes.Clear();
             ClearAnnotationSelection();
+            RaiseSelectionChanged();
         }
 
         //Ports TryDeleteSelectedNodes' >10 confirm (reference §4b): upstream blocks synchronously on a
@@ -324,6 +334,7 @@ namespace Foreman.Mac.Canvas {
                 Session.Editor.DeleteNode(node.ViewModel.Id);
             SelectedNodes.Clear();
             Graph.UpdateNodeValues();
+            RaiseSelectionChanged();
         }
 
         public void FlipSelectedNodes() {

@@ -20,6 +20,13 @@ namespace Foreman.Mac.ViewModels {
         [ObservableProperty]
         private bool isViewOptionsOpen;
 
+        //Task 7 (contract #toolbar's Save .on dirty-tint state): a cheap UI hint set on any graph mutation
+        //event and cleared on save/load/new - MainWindow.axaml.cs wires both ends. The authoritative dirty
+        //gate stays TestGraphSavedStatusAsync's content-hash compare; this flag never feeds it, so it may
+        //disagree with the hash in either direction without risking a silent data-losing close.
+        [ObservableProperty]
+        private bool isDirty;
+
         public string VersionLabel { get; } = AppVersion.VersionedDisplay;
 
         //Folds the old GridLinesGroupBox/ProductionGroupBox into the contract's #toolbar View Options

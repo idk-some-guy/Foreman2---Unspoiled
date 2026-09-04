@@ -61,6 +61,12 @@ namespace Foreman.Mac.Canvas {
         public List<LinkElement> LinkElements => Viewer.LinkElements;
         public List<AnnotationElement> Annotations => Viewer.Annotations;
 
+        //Fix round 1: mouse-wheel zoom is the one Viewport.ViewScale-changing path that doesn't go through
+        //a MainWindow method, so it's the one path MainWindow.ResyncZoomLabel's four call sites couldn't
+        //reach directly. Mirrors GraphViewer.SelectionChanged's shape for the same reason - a minimal signal
+        //MainWindow subscribes to, rather than making Viewport itself bindable.
+        public event EventHandler? ViewScaleChanged;
+
         internal DragOperation CurrentDragOperation { get; private set; } = DragOperation.None;
         internal GraphElement? MouseDownElement { get; private set; }
         internal bool ViewBeingDragged { get; private set; }
@@ -315,6 +321,7 @@ namespace Foreman.Mac.Canvas {
 
             AvaloniaPoint position = e.GetPosition(this);
             Viewport.ZoomAt(position, e.Delta.Y > 0, Viewer.Graph.Bounds);
+            ViewScaleChanged?.Invoke(this, EventArgs.Empty);
             FloatingPanelHost.Reposition();
             InvalidateVisual();
             e.Handled = true;
@@ -597,12 +604,14 @@ namespace Foreman.Mac.Canvas {
                         if (modifier == SelectionModifier.Remove) {
                             Viewer.SelectedNodes.Remove(clickedNode);
                             clickedNode.Highlighted = false;
+                            Viewer.RaiseSelectionChanged();
                         } else if (modifier == SelectionModifier.Add) {
                             if (clickedNode.Highlighted)
                                 Viewer.SelectedNodes.Remove(clickedNode);
                             else
                                 Viewer.SelectedNodes.Add(clickedNode);
                             clickedNode.Highlighted = !clickedNode.Highlighted;
+                            Viewer.RaiseSelectionChanged();
                         } else if (!ViewBeingDragged) {
                             clickedNode.MouseUpLeft(graphPoint);
                         }

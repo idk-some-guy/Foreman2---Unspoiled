@@ -26,6 +26,13 @@ namespace Foreman.Mac {
     public partial class MainWindow : Window {
         public ShellViewModel Commands { get; }
         public MainWindowViewModel ViewModel { get; }
+
+        //Task 7 (contract #toolbar's zoom stepper, marked "(new)"): wraps MenuZoomIn/MenuZoomOut so the
+        //stepper's own buttons and BuildNativeMenu's View > Zoom In/Zoom Out items share one command
+        //instance each - the same shared-instance pattern Commands.SaveCommand etc. already use across the
+        //toolbar and the native menu (see Bind/MenuItem below).
+        public IRelayCommand ZoomInCommand { get; }
+        public IRelayCommand ZoomOutCommand { get; }
         public ContentControl GraphViewerHost { get; }
         public GraphCanvasControl GraphCanvas { get; }
         public Foreman.DataCaching.DataCache? DataCache { get; set; }
@@ -81,6 +88,8 @@ namespace Foreman.Mac {
             GraphViewerHost = this.FindControl<ContentControl>("GraphViewerHost")!;
             GraphCanvas = new GraphCanvasControl();
             GraphViewerHost.Content = GraphCanvas;
+            ZoomInCommand = new RelayCommand(MenuZoomIn);
+            ZoomOutCommand = new RelayCommand(MenuZoomOut);
             Commands = new ShellViewModel(
                 onNew: () => Async.Fire(NewGraphAsync(), nameof(NewGraphAsync)),
                 onLoad: () => Async.Fire(LoadGraphAsync(), nameof(LoadGraphAsync)),
@@ -93,12 +102,31 @@ namespace Foreman.Mac {
                 onAutoconnect: () => { GraphCanvas.FloatingPanelHost.Close(); GraphCanvas.Viewer.AutoconnectDisconnectedInputs(); GraphCanvas.RequestRedraw(); },
                 onAlignSelection: () => { GraphCanvas.FloatingPanelHost.Close(); GraphCanvas.Viewer.AlignSelected(); GraphCanvas.RequestRedraw(); },
                 onSettings: () => Async.Fire(OpenSettingsAsync(), nameof(OpenSettingsAsync)),
-                onGraphSummary: () => Async.Fire(OpenGraphSummaryAsync(), nameof(OpenGraphSummaryAsync)));
+                onGraphSummary: () => Async.Fire(OpenGraphSummaryAsync(), nameof(OpenGraphSummaryAsync)),
+                canExecuteAlignSelection: () => GraphCanvas.Viewer.SelectedNodes.Count > 0);
+            //Task 7: keeps AlignSelectionCommand's CanExecute in step with the canvas's live selection -
+            //GraphViewer.SelectionChanged is the aggregate signal every selection-mutating method raises.
+            GraphCanvas.Viewer.SelectionChanged += (_, _) => Commands.AlignSelectionCommand.NotifyCanExecuteChanged();
+
             ViewModel = new MainWindowViewModel();
             DataContext = ViewModel;
 
+            //Task 7 (contract #toolbar's Save .on dirty-tint state): the same five aggregate session events
+            //GraphViewer's own constructor already subscribes to for paint invalidation (reference this
+            //class's own comment there) - a UI hint only, never the close-confirmation gate.
+            GraphCanvas.Viewer.Session.NodeViewModelAdded += (_, _) => ViewModel.IsDirty = true;
+            GraphCanvas.Viewer.Session.NodeViewModelRemoved += (_, _) => ViewModel.IsDirty = true;
+            GraphCanvas.Viewer.Session.LinkViewModelAdded += (_, _) => ViewModel.IsDirty = true;
+            GraphCanvas.Viewer.Session.LinkViewModelRemoved += (_, _) => ViewModel.IsDirty = true;
+            GraphCanvas.Viewer.Session.NodeValuesUpdated += (_, _) => ViewModel.IsDirty = true;
+
             BindToolbarButtons();
             GraphCanvas.KeyDown += OnGraphCanvasKeyDown;
+            //Fix round 1: mouse-wheel zoom is the one ViewScale-changing path that bypasses every
+            //ResyncZoomLabel call site below (MenuZoomIn/Out/ActualSize/FitToGraph, ApplyLoadedGraphUiState),
+            //so the stepper's readout went stale until the next click. Same resync, wired through the
+            //control's own signal instead of a fifth call site inside those methods.
+            GraphCanvas.ViewScaleChanged += (_, _) => ResyncZoomLabel();
             NativeMenu.SetMenu(this, BuildNativeMenu());
             WindowScaler.Track(this);
         }
@@ -475,6 +503,8 @@ namespace Foreman.Mac {
         internal void ApplyLoadedGraphUiState(string path) {
             savefilePath = path;
             CaptureSaveBaseline();
+            ViewModel.IsDirty = false;
+            ResyncZoomLabel();
             ResyncRateOptionsDropDown();
 
             if (Settings is AppSettings settings) {
@@ -498,6 +528,7 @@ namespace Foreman.Mac {
             GraphCanvas.Viewer.Graph.ClearGraph();
             savefilePath = null;
             savefileBaselineJson = null;
+            ViewModel.IsDirty = false;
             UpdateTitleBar();
             GraphCanvas.RequestRedraw();
         }
@@ -597,6 +628,7 @@ namespace Foreman.Mac {
                 Utf8File.WriteAllText(path, json);
                 savefilePath = path;
                 savefileBaselineJson = json;
+                ViewModel.IsDirty = false;
                 UpdateTitleBar();
                 return true;
             } catch (Exception exception) {
@@ -965,6 +997,8 @@ namespace Foreman.Mac {
             Bind("SettingsButton", Commands.SettingsCommand);
             Bind("GraphSummaryButton", Commands.GraphSummaryCommand);
             Bind("AlignSelectionButton", Commands.AlignSelectionCommand);
+            Bind("ZoomOutButton", ZoomOutCommand);
+            Bind("ZoomInButton", ZoomInCommand);
         }
 
         //Ports GraphViewer_KeyDown's Space handler (reference §7): a separate subscription on the canvas
@@ -985,6 +1019,9 @@ namespace Foreman.Mac {
             var button = this.FindControl<Button>(buttonName)!;
             button.Command = command;
             button.IsEnabled = command.CanExecute(null);
+            //Task 7: Align Selected is the first of these ten with a CanExecute that actually changes at
+            //runtime (selection-driven) - Button.Command alone doesn't keep IsEnabled live, so this does.
+            command.CanExecuteChanged += (_, _) => button.IsEnabled = command.CanExecute(null);
         }
 
         //Test-only seam: counts genuine BeginMoveDrag requests raised by OnTitleBarPointerPressed below, so
@@ -1054,25 +1091,36 @@ namespace Foreman.Mac {
         private void MenuZoomIn() {
             var center = new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2);
             GraphCanvas.Viewport.ZoomAt(center, zoomIn: true, GraphCanvas.Viewer.Graph.Bounds);
+            ResyncZoomLabel();
             GraphCanvas.RequestRedraw();
         }
 
         private void MenuZoomOut() {
             var center = new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2);
             GraphCanvas.Viewport.ZoomAt(center, zoomIn: false, GraphCanvas.Viewer.Graph.Bounds);
+            ResyncZoomLabel();
             GraphCanvas.RequestRedraw();
         }
 
         private void MenuActualSize() {
             var center = new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2);
             GraphCanvas.Viewport.SetAbsoluteZoom(center, 1f, GraphCanvas.Viewer.Graph.Bounds);
+            ResyncZoomLabel();
             GraphCanvas.RequestRedraw();
         }
 
         private void MenuFitToGraph() {
             GraphCanvas.Viewport.FitToBounds(GraphCanvas.Viewer.Graph.Bounds, GraphCanvas.Viewer.Graph.Bounds);
+            ResyncZoomLabel();
             GraphCanvas.RequestRedraw();
         }
+
+        //Task 7: the stepper's percentage readout - Viewport.ViewScale isn't itself bindable, so this is an
+        //imperative resync called from every zoom action above (all four production zoom entry points),
+        //from ApplyLoadedGraphUiState (a load restores the save's own ViewScale), and from the constructor's
+        //GraphCanvas.ViewScaleChanged subscription for mouse-wheel zoom (fix round 1).
+        private void ResyncZoomLabel() =>
+            this.FindControl<TextBlock>("ZoomValueLabel")!.Text = $"{(int)Math.Round(GraphCanvas.Viewport.ViewScale * 100)}%";
 
         //Mirrors OnGraphCanvasKeyDown's own Space handler (reference §7): mutates Grid/Viewer/Settings and the
         //popover control's displayed value directly, rather than only flipping the control and trusting
@@ -1225,8 +1273,8 @@ namespace Foreman.Mac {
 
             var viewMenu = new NativeMenu {
                 Items = {
-                    ActionItem("Zoom In", MenuZoomIn, new KeyGesture(Key.OemPlus, PlatformModifiers.Primary)),
-                    ActionItem("Zoom Out", MenuZoomOut, new KeyGesture(Key.OemMinus, PlatformModifiers.Primary)),
+                    MenuItem("Zoom In", ZoomInCommand, new KeyGesture(Key.OemPlus, PlatformModifiers.Primary)),
+                    MenuItem("Zoom Out", ZoomOutCommand, new KeyGesture(Key.OemMinus, PlatformModifiers.Primary)),
                     ActionItem("Actual Size", MenuActualSize, new KeyGesture(Key.D0, PlatformModifiers.Primary)),
                     ActionItem("Fit to Graph", MenuFitToGraph, new KeyGesture(Key.D0, PlatformModifiers.Primary | KeyModifiers.Shift)),
                     new NativeMenuItemSeparator(),

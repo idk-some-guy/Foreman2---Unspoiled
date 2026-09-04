@@ -27,7 +27,8 @@
         <Button Name="LoadGraphButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Load" ToolTip.Tip="Load">
           <TextBlock Text="⤓" Classes="foreman-toolbar-glyph" />
         </Button>
-        <Button Name="SaveButton" Classes="foreman-toolbar-icon" AutomationProperties.Name="Save" ToolTip.Tip="Save">
+        <Button Name="SaveButton" Classes="foreman-toolbar-icon" Classes.on="{Binding IsDirty}"
+                AutomationProperties.Name="Save" ToolTip.Tip="Save">
           <TextBlock Text="⇩" Classes="foreman-toolbar-glyph" />
         </Button>
 
@@ -72,6 +73,23 @@
 
       <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
                   Spacing="{StaticResource Foreman.Space.Space2}" Margin="12">
+        <!-- Zoom stepper (contract #toolbar, marked "(new)"): −/percentage/+ over Viewport.ViewScale, bound
+             to the same ZoomInCommand/ZoomOutCommand the View menu's Zoom In/Zoom Out already use (task 5) -
+             one zoom path, two entry points. -->
+        <Border Classes="foreman-zoom-stepper">
+          <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button Name="ZoomOutButton" Classes="foreman-zoom-btn"
+                    AutomationProperties.Name="Zoom Out" ToolTip.Tip="Zoom Out">
+              <TextBlock Text="−" Classes="foreman-toolbar-glyph" />
+            </Button>
+            <TextBlock Name="ZoomValueLabel" Text="100%" Classes="foreman-zoom-value" />
+            <Button Name="ZoomInButton" Classes="foreman-zoom-btn"
+                    AutomationProperties.Name="Zoom In" ToolTip.Tip="Zoom In">
+              <TextBlock Text="+" Classes="foreman-toolbar-glyph" />
+            </Button>
+          </StackPanel>
+        </Border>
+
         <!-- Contract #toolbar retires this from the titlebar to the About panel/Settings footer - both are
              Task 5/6 surfaces this task doesn't touch, so it stays here (unobtrusive, caption-styled) rather
              than disappearing with nowhere to land. -->
