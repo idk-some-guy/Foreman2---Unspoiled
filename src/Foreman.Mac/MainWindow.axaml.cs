@@ -224,6 +224,10 @@ namespace Foreman.Mac {
 
             ApplyCanvasTheme();
 
+            //Phase 9 C2a Task 3: seeds the pin the same way UiScale/theme are seeded above - boot, preset
+            //reload, and every Settings Confirm all replay through this one seam.
+            ViewModel.Inspector.IsPinned = settings.InspectorPinned;
+
             //Ports the SmartNodeDirection/DefaultNodeDirection cold-start read (reference §8): wired here
             //rather than at construction since GraphCanvasControl has no settings reference of its own.
             GraphCanvas.SmartNodeDirection = settings.SmartNodeDirection;
@@ -1127,6 +1131,8 @@ namespace Foreman.Mac {
         private NativeMenuItem showGridlinesMenuItem = null!;
         private NativeMenuItem iconViewMenuItem = null!;
         private NativeMenuItem pauseCalculationsMenuItem = null!;
+        private NativeMenuItem showInspectorMenuItem = null!;
+        private NativeMenuItem pinInspectorMenuItem = null!;
         private NativeMenuItem[] minorGridlinesMenuItems = [];
         private NativeMenuItem[] majorGridlinesMenuItems = [];
         private NativeMenuItem[] rateUnitMenuItems = [];
@@ -1140,6 +1146,8 @@ namespace Foreman.Mac {
             showGridlinesMenuItem.IsChecked = this.FindControl<CheckBox>("GridlinesCheckbox")!.IsChecked == true;
             iconViewMenuItem.IsChecked = this.FindControl<CheckBox>("IconViewCheckBox")!.IsChecked == true;
             pauseCalculationsMenuItem.IsChecked = this.FindControl<CheckBox>("PauseUpdatesCheckbox")!.IsChecked == true;
+            showInspectorMenuItem.IsChecked = ViewModel.Inspector.ShowOverride;
+            pinInspectorMenuItem.IsChecked = ViewModel.Inspector.IsPinned;
             ResyncRadioChecks(minorGridlinesMenuItems, this.FindControl<ComboBox>("MinorGridlinesDropDown")!.SelectedIndex);
             ResyncRadioChecks(majorGridlinesMenuItems, this.FindControl<ComboBox>("MajorGridlinesDropDown")!.SelectedIndex);
             ResyncRadioChecks(rateUnitMenuItems, this.FindControl<ComboBox>("RateOptionsDropDown")!.SelectedIndex);
@@ -1228,6 +1236,25 @@ namespace Foreman.Mac {
             this.FindControl<CheckBox>("PauseUpdatesCheckbox")!.IsChecked = GraphCanvas.Viewer.Graph.PauseUpdates;
             ResyncNativeMenuCheckedStates();
             GraphCanvas.InvalidateVisual();
+        }
+
+        //Show Inspector overrides visibility for the current session only - it never touches the pin,
+        //so it reverts to whatever IsPinned/selection already implied the next time both are false.
+        private void MenuToggleShowInspector() {
+            ViewModel.Inspector.ShowOverride = !ViewModel.Inspector.ShowOverride;
+            ResyncNativeMenuCheckedStates();
+        }
+
+        //Pin Inspector persists through the same settings-save path Settings Confirm uses for UiScale
+        //(settingsService.Save below) - there's no dialog step for this one, so the toggle itself writes.
+        private void MenuTogglePinInspector() {
+            ViewModel.Inspector.IsPinned = !ViewModel.Inspector.IsPinned;
+            if (Settings is AppSettings settings) {
+                settings.InspectorPinned = ViewModel.Inspector.IsPinned;
+                if (SettingsService is Services.SettingsService settingsService)
+                    settingsService.Save(settings);
+            }
+            ResyncNativeMenuCheckedStates();
         }
 
         private void MenuSetMinorGridlines(int index) {
@@ -1351,6 +1378,18 @@ namespace Foreman.Mac {
                 Gesture = new KeyGesture(Key.OemPeriod, PlatformModifiers.Primary),
                 Command = new DeferredMenuCommand(new RelayCommand(MenuTogglePauseCalculations)),
             };
+            showInspectorMenuItem = new NativeMenuItem("Show Inspector") {
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = ViewModel.Inspector.ShowOverride,
+                Gesture = new KeyGesture(Key.I, PlatformModifiers.Primary | KeyModifiers.Alt),
+                Command = new DeferredMenuCommand(new RelayCommand(MenuToggleShowInspector)),
+            };
+            pinInspectorMenuItem = new NativeMenuItem("Pin Inspector") {
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = ViewModel.Inspector.IsPinned,
+                Gesture = new KeyGesture(Key.I, PlatformModifiers.Primary | KeyModifiers.Alt | KeyModifiers.Shift),
+                Command = new DeferredMenuCommand(new RelayCommand(MenuTogglePinInspector)),
+            };
 
             var viewMenu = new NativeMenu {
                 Items = {
@@ -1367,10 +1406,8 @@ namespace Foreman.Mac {
                     pauseCalculationsMenuItem,
                     new NativeMenuItem("Rate Unit") { Menu = SubmenuFrom(rateUnitMenuItems) },
                     new NativeMenuItemSeparator(),
-                    //Show/Pin Inspector (contract #menubar): the inspector panel itself is a later plan's
-                    //surface (C2/C3) - these stay disabled placeholders until that panel exists to toggle.
-                    DisabledItem("Show Inspector", new KeyGesture(Key.I, PlatformModifiers.Primary | KeyModifiers.Alt)),
-                    DisabledItem("Pin Inspector", new KeyGesture(Key.I, PlatformModifiers.Primary | KeyModifiers.Alt | KeyModifiers.Shift)),
+                    showInspectorMenuItem,
+                    pinInspectorMenuItem,
                     new NativeMenuItemSeparator(),
                     DisabledItem("Level of Detail"),
                 },

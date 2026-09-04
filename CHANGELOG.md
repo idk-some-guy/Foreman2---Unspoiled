@@ -14,8 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A full menu bar: canvas zoom (Zoom In/Out, Actual Size, Fit to Graph), a Window menu
   (Minimize/Zoom/Bring All to Front), and a real About panel. Gridlines, icon view, pause, minor/
   major gridline steps, and rate unit are now menu items too, alongside their existing toolbar/
-  popover controls. Undo/Redo and Show/Pin Inspector appear as disabled placeholders for work not
-  yet built.
+  popover controls. Undo/Redo appears as a disabled placeholder for work not yet built.
 - A zoom stepper on the toolbar, showing the canvas's current scale with quick in/out buttons next
   to the menu bar's own zoom commands.
 - The Save button tints when the graph has unsaved changes, and Align Selected disables itself when
@@ -26,6 +25,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The inspector sidebar itself: a 300pt column to the right of the canvas showing the selected
   node's icon, name, and a Recipe/Flow/Supplier/Consumer/Passthrough/Spoil/Plant subtitle. Hiding
   it hands the width straight back to the canvas.
+- View menu's Show Inspector and Pin Inspector are now live toggles (⌥⌘I and ⇧⌥⌘I). Pinning the
+  sidebar persists across restarts.
 
 ### Fixed
 

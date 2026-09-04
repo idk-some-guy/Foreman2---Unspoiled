@@ -107,7 +107,7 @@ namespace ForemanTest.Storage {
         }
 
         [TestMethod]
-        public void Open_V1Db_AddsUiScaleColumn_PreservesData_BumpsVersionToTwo() {
+        public void Open_V1Db_AddsUiScaleAndInspectorPinnedColumns_PreservesData_BumpsVersionToThree() {
             string dbPath = BuildV1Fixture();
 
             using ForemanDbContext context = ForemanDbContext.Open(dbPath);
@@ -116,7 +116,8 @@ namespace ForemanTest.Storage {
             Assert.AreEqual("pre-migration-preset", row.CurrentPresetName);
             Assert.AreEqual(99, row.IconsSize);
             Assert.AreEqual(1.0, row.UiScale);
-            Assert.AreEqual(2, context.SchemaVersions.Single().Version);
+            Assert.IsFalse(row.InspectorPinned);
+            Assert.AreEqual(3, context.SchemaVersions.Single().Version);
         }
 
         [TestMethod]
@@ -126,7 +127,7 @@ namespace ForemanTest.Storage {
             using (ForemanDbContext.Open(dbPath)) { }
 
             using ForemanDbContext reopened = ForemanDbContext.Open(dbPath);
-            Assert.AreEqual(2, reopened.SchemaVersions.Single().Version);
+            Assert.AreEqual(3, reopened.SchemaVersions.Single().Version);
             Assert.AreEqual("pre-migration-preset", reopened.Settings.Single().CurrentPresetName);
         }
 
@@ -151,7 +152,136 @@ namespace ForemanTest.Storage {
             Assert.AreEqual("pre-migration-preset", row.CurrentPresetName);
             Assert.AreEqual(99, row.IconsSize);
             Assert.AreEqual(1.0, row.UiScale);
-            Assert.AreEqual(2, context.SchemaVersions.Single().Version);
+            Assert.AreEqual(3, context.SchemaVersions.Single().Version);
+        }
+
+        //Phase 9 C2a Task 3: the v2->v3 additive migration (Settings.InspectorPinned). LegacyV2Context
+        //reproduces the post-Task-3(UiScale) pre-Task-3(InspectorPinned) schema the same way LegacyV1Context
+        //reproduces the schema before it.
+        private sealed class SettingsRowV2 {
+            public int Id { get; set; }
+            public string CurrentPresetName { get; set; } = "";
+            public int DefaultModuleOption { get; set; }
+            public int MinorGridlines { get; set; }
+            public int MajorGridlines { get; set; }
+            public bool AltGridlines { get; set; }
+            public bool ShowHidden { get; set; }
+            public bool IgnoreAssemblerStatus { get; set; }
+            public bool DynamicLineWidth { get; set; }
+            public bool RecipeNameOnlyFilter { get; set; }
+            public int LevelOfDetail { get; set; }
+            public int DefaultAssemblerOption { get; set; }
+            public int DefaultRateUnit { get; set; }
+            public string LastSaveFileLocation { get; set; } = "";
+            public bool ShowRecipeToolTip { get; set; }
+            public bool ShowUnavailable { get; set; }
+            public int NodeCountForSimpleView { get; set; }
+            public bool UseRecipeBWfilters { get; set; }
+            public bool ShowWarningArrows { get; set; }
+            public bool ShowErrorArrows { get; set; }
+            public bool AbbreviateSciPacks { get; set; }
+            public bool RoundAssemblerCount { get; set; }
+            public bool EnableExtraProductivityForNonMiners { get; set; }
+            public bool ShowDisconnectedArrows { get; set; }
+            public int DefaultNodeDirection { get; set; }
+            public bool FlagOUSuppliedNodes { get; set; }
+            public bool ShowOUSuppliedArrows { get; set; }
+            public bool IconsOnlyView { get; set; }
+            public int IconsSize { get; set; }
+            public bool SimplePassthroughNodes { get; set; }
+            public bool ArrowsOnLinks { get; set; }
+            public bool SmartNodeDirection { get; set; }
+            public int FlagDarkMode { get; set; }
+            public bool UpgradeRequired { get; set; }
+            public string AnnotTextFontFamily { get; set; } = "";
+            public string AnnotTextFontSize { get; set; } = "";
+            public int AnnotTextFontStyle { get; set; }
+            public int AnnotTextColorARGB { get; set; }
+            public int AnnotTextBackColorARGB { get; set; }
+            public int AnnotTextAlign { get; set; }
+            public int AnnotShapeType { get; set; }
+            public int AnnotShapeFillColorARGB { get; set; }
+            public int AnnotShapeBorderColorARGB { get; set; }
+            public int AnnotShapeBorderWidth { get; set; }
+            public int QualitySteps { get; set; }
+            public decimal LowPriorityPower { get; set; }
+            public bool PullConsumerNodes { get; set; }
+            public decimal PullConsumerNodesPower { get; set; }
+            public double UiScale { get; set; }
+        }
+
+        private sealed class LegacyV2Context(string dbPath) : DbContext {
+            public DbSet<SettingsRowV2> Settings => Set<SettingsRowV2>();
+            public DbSet<SchemaVersionRow> SchemaVersions => Set<SchemaVersionRow>();
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
+                optionsBuilder.UseSqlite($"Data Source={dbPath}");
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder) {
+                modelBuilder.Entity<SettingsRowV2>(entity => {
+                    entity.ToTable("Settings");
+                    entity.HasKey(row => row.Id);
+                    entity.Property(row => row.Id).ValueGeneratedNever();
+                    entity.Property(row => row.LowPriorityPower).HasPrecision(18, 6);
+                    entity.Property(row => row.PullConsumerNodesPower).HasPrecision(18, 6);
+                });
+                modelBuilder.Entity<SchemaVersionRow>(entity => entity.HasKey(row => row.Version));
+            }
+        }
+
+        private string BuildV2Fixture() {
+            string dbPath = StoragePaths.DbPath(tempRoot);
+            using var legacy = new LegacyV2Context(dbPath);
+            legacy.Database.EnsureCreated();
+            legacy.Settings.Add(new SettingsRowV2 { Id = 1, CurrentPresetName = "pre-migration-preset", IconsSize = 99, UiScale = 1.25 });
+            legacy.SchemaVersions.Add(new SchemaVersionRow { Version = 2 });
+            legacy.SaveChanges();
+            return dbPath;
+        }
+
+        [TestMethod]
+        public void Open_V2Db_AddsInspectorPinnedColumn_PreservesData_BumpsVersionToThree() {
+            string dbPath = BuildV2Fixture();
+
+            using ForemanDbContext context = ForemanDbContext.Open(dbPath);
+
+            SettingsRow row = context.Settings.Single();
+            Assert.AreEqual("pre-migration-preset", row.CurrentPresetName);
+            Assert.AreEqual(1.25, row.UiScale);
+            Assert.IsFalse(row.InspectorPinned);
+            Assert.AreEqual(3, context.SchemaVersions.Single().Version);
+        }
+
+        [TestMethod]
+        public void Open_V2Db_ReopenedTwice_IsIdempotent() {
+            string dbPath = BuildV2Fixture();
+
+            using (ForemanDbContext.Open(dbPath)) { }
+
+            using ForemanDbContext reopened = ForemanDbContext.Open(dbPath);
+            Assert.AreEqual(3, reopened.SchemaVersions.Single().Version);
+            Assert.AreEqual("pre-migration-preset", reopened.Settings.Single().CurrentPresetName);
+        }
+
+        //Reproduces a process death between the InspectorPinned ALTER TABLE and the SchemaVersion bump.
+        private string BuildCrashedV2MigrationFixture() {
+            string dbPath = BuildV2Fixture();
+            using (var legacy = new LegacyV2Context(dbPath)) {
+                legacy.Database.ExecuteSqlRaw("ALTER TABLE Settings ADD COLUMN InspectorPinned INTEGER NOT NULL DEFAULT 0");
+            }
+            return dbPath;
+        }
+
+        [TestMethod]
+        public void Open_HalfMigratedV2Db_HealsWithoutThrowing_PreservesData() {
+            string dbPath = BuildCrashedV2MigrationFixture();
+
+            using ForemanDbContext context = ForemanDbContext.Open(dbPath);
+
+            SettingsRow row = context.Settings.Single();
+            Assert.AreEqual("pre-migration-preset", row.CurrentPresetName);
+            Assert.AreEqual(1.25, row.UiScale);
+            Assert.AreEqual(3, context.SchemaVersions.Single().Version);
         }
     }
 }

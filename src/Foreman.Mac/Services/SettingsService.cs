@@ -171,6 +171,7 @@ namespace Foreman.Mac.Services {
             PullConsumerNodes = settings.PullConsumerNodes,
             PullConsumerNodesPower = settings.PullConsumerNodesPower,
             UiScale = settings.UiScale,
+            InspectorPinned = settings.InspectorPinned,
         };
 
         private static AppSettings ToAppSettings(SettingsRow row) => new() {
@@ -222,6 +223,7 @@ namespace Foreman.Mac.Services {
             PullConsumerNodes = row.PullConsumerNodes,
             PullConsumerNodesPower = row.PullConsumerNodesPower,
             UiScale = row.UiScale,
+            InspectorPinned = row.InspectorPinned,
         };
     }
 }

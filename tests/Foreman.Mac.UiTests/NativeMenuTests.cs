@@ -486,7 +486,7 @@ namespace Foreman.Mac.UiTests {
         [AvaloniaFact]
         public void ViewMenu_ChecksResyncAfterApplyLoadedSettings() {
             var window = new MainWindow();
-            window.Settings = new AppSettings { MinorGridlines = 4, MajorGridlines = 7, AltGridlines = true, DefaultRateUnit = ProductionGraph.RateUnit.Per1Hour };
+            window.Settings = new AppSettings { MinorGridlines = 4, MajorGridlines = 7, AltGridlines = true, DefaultRateUnit = ProductionGraph.RateUnit.Per1Hour, InspectorPinned = true };
 
             window.ApplyLoadedSettings();
 
@@ -498,25 +498,52 @@ namespace Foreman.Mac.UiTests {
             Assert.True(majorSixtyFour.IsChecked);
             NativeMenuItem hourRate = SubMenu(viewMenu, "Rate Unit").Items.OfType<NativeMenuItem>().Single(i => i.Header == "1 hour");
             Assert.True(hourRate.IsChecked);
+            Assert.True(ItemNamed(viewMenu, "Pin Inspector").IsChecked);
+            Assert.True(window.ViewModel.Inspector.IsPinned);
         }
 
-        //Show/Pin Inspector (contract #menubar, new-in-9): the inspector panel is a later plan's surface
-        //(C2/C3), so these stay disabled placeholders until that panel exists to toggle.
+        //Show/Pin Inspector (contract #menubar): the inspector panel itself landed in C2a Tasks 1-2, so
+        //these are live toggles now - Show flips ShowOverride only, Pin flips IsPinned and persists it.
         [AvaloniaFact]
-        public void ViewMenu_ShowAndPinInspector_AreDisabledPlaceholders() {
+        public void ViewMenu_ShowInspector_IsCheckboxToggleThatOverridesVisibility() {
             var window = new MainWindow();
-            NativeMenu viewMenu = SubMenu(TopMenu(window), "View");
+            window.Show();
+            NativeMenuItem showInspector = ItemNamed(SubMenu(TopMenu(window), "View"), "Show Inspector");
 
-            NativeMenuItem showInspector = ItemNamed(viewMenu, "Show Inspector");
-            NativeMenuItem pinInspector = ItemNamed(viewMenu, "Pin Inspector");
-
-            Assert.False(showInspector.IsEnabled);
+            Assert.True(showInspector.IsEnabled);
+            Assert.Equal(MenuItemToggleType.CheckBox, showInspector.ToggleType);
             Assert.Equal(Key.I, showInspector.Gesture!.Key);
             Assert.Equal(KeyModifiers.Meta | KeyModifiers.Alt, showInspector.Gesture.KeyModifiers);
 
-            Assert.False(pinInspector.IsEnabled);
+            showInspector.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(window.ViewModel.Inspector.ShowOverride);
+            Assert.True(showInspector.IsChecked);
+
+            showInspector.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(window.ViewModel.Inspector.ShowOverride);
+            Assert.False(showInspector.IsChecked);
+        }
+
+        [AvaloniaFact]
+        public void ViewMenu_PinInspector_TogglesPinAndPersists() {
+            var window = new MainWindow();
+            window.Show();
+            window.Settings = new AppSettings();
+            NativeMenuItem pinInspector = ItemNamed(SubMenu(TopMenu(window), "View"), "Pin Inspector");
+
+            Assert.True(pinInspector.IsEnabled);
+            Assert.Equal(MenuItemToggleType.CheckBox, pinInspector.ToggleType);
             Assert.Equal(Key.I, pinInspector.Gesture!.Key);
             Assert.Equal(KeyModifiers.Meta | KeyModifiers.Alt | KeyModifiers.Shift, pinInspector.Gesture.KeyModifiers);
+
+            pinInspector.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(window.ViewModel.Inspector.IsPinned);
+            Assert.True(window.Settings.InspectorPinned);
+            Assert.True(pinInspector.IsChecked);
         }
 
         //Level of Detail: out of phase-9 scope per the table, left disabled exactly as it was before Task 5.

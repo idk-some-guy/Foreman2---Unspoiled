@@ -27,10 +27,10 @@ namespace Foreman.DataCaching.Storage {
         //safe to run from two threads at once against the same not-yet-existing file.
         private static readonly object BootstrapLock = new();
 
-        //Bumped for the Settings.UiScale column (phase 9 Task 3). EnsureCreated only creates a db from
-        //scratch - it never alters an existing file's schema - so a db already on disk needs its own
-        //ALTER TABLE step to pick up a new column; see MigrateToCurrent below.
-        private const int CurrentSchemaVersion = 2;
+        //Bumped for the Settings.InspectorPinned column (phase 9 C2a Task 3). EnsureCreated only creates
+        //a db from scratch - it never alters an existing file's schema - so a db already on disk needs
+        //its own ALTER TABLE step to pick up a new column; see MigrateToCurrent below.
+        private const int CurrentSchemaVersion = 3;
 
         //Opens (creating if needed) the db at dbPath and seeds SchemaVersion=1 (or migrates a v1 db
         //forward to CurrentSchemaVersion) exactly once; idempotent across repeated calls on the same path.
@@ -46,7 +46,7 @@ namespace Foreman.DataCaching.Storage {
                 SchemaVersionRow? versionRow = context.SchemaVersions.SingleOrDefault();
                 if (versionRow is null) {
                     //Brand new file - EnsureCreated just built the full current-model schema (UiScale
-                    //column included), so there's nothing to migrate.
+                    //and InspectorPinned columns included), so there's nothing to migrate.
                     context.SchemaVersions.Add(new SchemaVersionRow { Version = CurrentSchemaVersion });
                     context.SaveChanges();
                 } else if (versionRow.Version < CurrentSchemaVersion) {
@@ -62,10 +62,15 @@ namespace Foreman.DataCaching.Storage {
         private static void MigrateToCurrent(ForemanDbContext context, SchemaVersionRow versionRow) {
             using IDbContextTransaction transaction = context.Database.BeginTransaction();
 
-            //A prior Open may have crashed after the ALTER but before the version bump below; the column
-            //would then already be there, and re-issuing the ALTER would throw "duplicate column name".
+            //A prior Open may have crashed after an ALTER but before the version bump below; the column
+            //would then already be there, and re-issuing the same ALTER would throw "duplicate column
+            //name" - each step below is independently guarded so a v1 db can jump straight to current
+            //in one Open call, picking up every column a v2 db would only need the second of.
             if (versionRow.Version == 1 && !ColumnExists(context, "Settings", "UiScale")) {
                 context.Database.ExecuteSqlRaw("ALTER TABLE Settings ADD COLUMN UiScale REAL NOT NULL DEFAULT 1.0");
+            }
+            if (versionRow.Version < 3 && !ColumnExists(context, "Settings", "InspectorPinned")) {
+                context.Database.ExecuteSqlRaw("ALTER TABLE Settings ADD COLUMN InspectorPinned INTEGER NOT NULL DEFAULT 0");
             }
 
             context.SchemaVersions.Remove(versionRow);

@@ -57,6 +57,9 @@ namespace Foreman.DataCaching.Storage {
 
         //Added schema version 2 (phase 9 Task 3) - see ForemanDbContext.Open's v1->v2 ALTER TABLE step.
         public double UiScale { get; set; }
+
+        //Added schema version 3 (phase 9 C2a Task 3) - see ForemanDbContext.Open's v2->v3 ALTER TABLE step.
+        public bool InspectorPinned { get; set; }
     }
 
     //A single imported preset, compressed with zstd; CustomOverlayJson holds the presetCustom
