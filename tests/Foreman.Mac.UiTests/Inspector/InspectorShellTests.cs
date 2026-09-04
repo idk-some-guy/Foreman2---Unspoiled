@@ -101,8 +101,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             }
         }
 
-        //Inspector lives inside MainWindow's own WindowScaler.Track wrapper (Grid.Row=1's parent Content),
-        //not a second registration - its on-screen width must scale right along with everything else.
         [AvaloniaFact]
         public async Task Scale1_5_InspectorTransformedWidthIs450() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -121,10 +119,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             return topRight.X - topLeft.X;
         }
 
-        //Fix round (coordinator review): LoadGraphJsonAsync replaces every node - a selection the Inspector
-        //held from before the load points at view models LoadDocument is about to dispose. Goes through the
-        //same LoadGraphJsonAsync seam FileIoEndToEndTests/MainWindowPresetResolutionTests use, with a
-        //matching CurrentPresetName so ResolveChosenPresetAsync's fast path needs no dialog stub.
         [AvaloniaFact]
         public async Task LoadingAGraphDocument_ClearsStaleInspectorSelection() {
             DataCache cache = await InspectorTestSupport.GetCacheAsync();

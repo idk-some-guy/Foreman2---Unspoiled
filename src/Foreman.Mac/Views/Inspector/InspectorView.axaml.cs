@@ -65,8 +65,6 @@ namespace Foreman.Mac.Views.Inspector {
             flowSegmentLabel.Classes.Set("active", !recipeActive);
         }
 
-        //Node identity: FriendlyName/Icon come straight off the same *QualityPair structs the canvas node
-        //elements already read (RecipeNodeElement.RecipeName/NodeIcon, SupplierNodeElement.ItemName, etc.).
         private static (string Name, string Subtitle, SKBitmap? Icon) Describe(INodeViewModel node) => node switch {
             IRecipeNodeViewModel recipe => (
                 recipe.BaseRecipe.FriendlyName ?? "",
@@ -80,8 +78,6 @@ namespace Foreman.Mac.Views.Inspector {
             _ => ("", "", null),
         };
 
-        //Same GPU-lease-avoidance bake SettingsWindow/SciencePacksWindow already use for icon cells outside
-        //GraphCanvasControl's own composited surface.
         private Bitmap GetOrBakeIcon(SKBitmap icon) {
             if (!bakedIconCache.TryGetValue(icon, out Bitmap? baked)) {
                 baked = BakeIcon(icon);

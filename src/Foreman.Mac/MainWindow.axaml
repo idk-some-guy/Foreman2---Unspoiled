@@ -257,11 +257,7 @@
       </LayoutTransformControl>
     </Popup>
 
-    <!-- Inspector sidebar (phase 9 C2a task 2): shares this row with the canvas host rather than getting
-         its own Track registration - both live inside the same WindowScaler-wrapped Content, so the
-         sidebar scales for free. Column 1 is Auto-sized to InspectorView's own fixed Border width, so
-         hiding it (MainWindow.axaml.cs code-behind, not a binding here - see InspectorView.axaml's own
-         comment) collapses the column and the canvas reclaims the width. -->
+    <!-- Inspector's IsVisible is set from MainWindow.axaml.cs, not bound here. -->
     <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
       <ContentControl Name="GraphViewerHost" Grid.Column="0" />
       <inspector:InspectorView Grid.Column="1" Name="Inspector" DataContext="{Binding Inspector}" />

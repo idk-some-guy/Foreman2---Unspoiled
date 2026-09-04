@@ -144,8 +144,7 @@ namespace Foreman.Mac {
             ViewModel = new MainWindowViewModel();
             DataContext = ViewModel;
 
-            //Inspector sidebar (phase 9 C2a task 2): rides the same aggregate selection signal Task 7 wired
-            //AlignSelectionCommand.CanExecute off above, rather than a second selection tracker.
+            //Same SelectionChanged signal AlignSelectionCommand.CanExecute uses above - not a second tracker.
             GraphCanvas.Viewer.SelectionChanged += (_, _) =>
                 ViewModel.Inspector.SetSelection([.. GraphCanvas.Viewer.SelectedNodes.Select(n => n.ViewModel)]);
             Inspector.IsVisible = ViewModel.IsInspectorVisible;
@@ -457,8 +456,7 @@ namespace Foreman.Mac {
                 cache = newCache;
             }
 
-            //LoadDocument clears the graph and hands back all-new node view models - anything the Inspector
-            //still holds from before this point is about to be disposed.
+            //LoadDocument is about to dispose every current node view model.
             ViewModel.Inspector.SetSelection([]);
             GraphLoadResult result = GraphCanvas.LoadDocument(cache, document);
             if (!result.Success)
@@ -641,9 +639,7 @@ namespace Foreman.Mac {
                 ProductionGraphSaveDocument document = GraphSaveCodec.ReadGraphPayload(json) ?? throw new InvalidOperationException(
                     "This save file is too old or corrupt. Try opening it in the previous Foreman release and saving it again, then open the new file here.");
                 System.Drawing.Point origin = GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2));
-                //ImportNodesFromDocument merges rather than clears, and already replaces the selection with
-                //the newly imported nodes (raising SelectionChanged, which resyncs the Inspector on its own)
-                //- this clear is belt-and-braces for the moment in between, matching Load/New's own pattern.
+                //Belt-and-braces: ImportNodesFromDocument below re-sets the selection itself right after this.
                 ViewModel.Inspector.SetSelection([]);
                 GraphCanvas.Viewer.ImportNodesFromDocument(cache, document, origin, applySolverSettings: true);
                 GraphCanvas.RequestRedraw();
@@ -797,11 +793,9 @@ namespace Foreman.Mac {
             //Toolbar/native-menu clicks never reach GraphCanvasControl.OnPointerPressed's own click-outside-
             //closes-panel guard (they're not canvas pointer events at all), so a panel left open under this
             //modal stayed stale once it closed. Closes first, matching NewGraphAsync/LoadDocument's own
-            //unconditional-close-on-major-UI-change precedent. A confirmed preset switch below reloads the
-            //graph too (ReloadForPresetAsync), which would otherwise leave the Inspector pointing at nodes
-            //LoadDocument just disposed - clear it here rather than gate on whether this particular Settings
-            //trip turns into a reload.
+            //unconditional-close-on-major-UI-change precedent.
             GraphCanvas.FloatingPanelHost.Close();
+            //A confirmed preset switch below can reload the graph (ReloadForPresetAsync).
             ViewModel.Inspector.SetSelection([]);
 
             if (DataCache is not Foreman.DataCaching.DataCache cache

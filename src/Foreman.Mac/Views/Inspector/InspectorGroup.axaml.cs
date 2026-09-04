@@ -4,8 +4,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Metadata;
 
 namespace Foreman.Mac.Views.Inspector {
-    //Collapsible section shell for the inspector's segment-specific content (task 4/5 recipe/flow panels);
-    //this task only ships the shell itself, unused until those tasks nest content inside SegmentHost.
+    //Unused until task 4/5 nest content inside SegmentHost.
     public partial class InspectorGroup : UserControl {
         public static readonly StyledProperty<string?> TitleProperty =
             AvaloniaProperty.Register<InspectorGroup, string?>(nameof(Title));

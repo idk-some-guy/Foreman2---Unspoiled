@@ -145,9 +145,7 @@
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
-  <!-- Inspector sidebar (phase 9 C2a task 2): identity row text and the Recipe/Flow segment strip.
-       No dedicated segmented-control idiom shipped in C1, so the strip reuses the zoom stepper's rounded-
-       border shape above; it's display-only until task 4/5 wire up switching. -->
+  <!-- Reuses the zoom stepper's rounded-border shape above - no dedicated segmented control exists yet. -->
   <Style Selector="TextBlock.foreman-inspector-title">
     <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.InspectorTitle.FontSize}" />
     <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.InspectorTitle.FontWeight}" />
