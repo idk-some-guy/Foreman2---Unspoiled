@@ -419,6 +419,14 @@ namespace Foreman.Mac.UiTests {
         //Save (the NativeMenu KeyGesture) instead of also panning the view underneath it. A node is required
         //so Graph.Bounds is non-empty - Viewport.UpdateGraphBounds forces ViewOffset back to (0,0) whenever
         //the graph is empty, regardless of any pan delta, so an empty graph can't observe panning at all.
+        //
+        //Dispatches via RaiseEvent(KeyDownEvent) on GraphCanvas rather than window.KeyPressQwerty: the
+        //latter routes through the process-wide IKeyboardDevice's ambient FocusedElement, which every other
+        //Avalonia.Headless test collection shares on the one Dispatcher.UIThread - a concurrent collection's
+        //own Focus() call can win that race and steal the key event before it ever reaches this canvas (see
+        //SKey_OnGraphCanvas_PansEvenWhenAmbientFocusIsStolen for a deterministic reproduction). Raising the
+        //event straight on GraphCanvas still runs the exact production handler (OnKeyDown), just without
+        //depending on which window last touched that shared singleton.
         [AvaloniaFact]
         public async Task SKey_OnGraphCanvas_PansOnlyWithoutMeta() {
             DataCache cache = await GetCacheAsync();
@@ -431,17 +439,43 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Focus();
             System.Drawing.Point before = window.GraphCanvas.Viewport.ViewOffset;
 
-            window.KeyPressQwerty(PhysicalKey.S, RawInputModifiers.Meta);
+            window.GraphCanvas.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.S, KeyModifiers = KeyModifiers.Meta });
 
             Assert.Equal(before, window.GraphCanvas.Viewport.ViewOffset);
 
-            window.KeyPressQwerty(PhysicalKey.S, RawInputModifiers.None);
+            window.GraphCanvas.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.S });
+
+            Assert.NotEqual(before, window.GraphCanvas.Viewport.ViewOffset);
+        }
+
+        //Regression for the flake above: a second window stealing the shared IKeyboardDevice's
+        //FocusedElement between our Focus() call and the key dispatch used to make the S press land
+        //nowhere (window.KeyPressQwerty routes through that ambient singleton). Dispatching straight at
+        //GraphCanvas is immune, since it never consults FocusedElement.
+        [AvaloniaFact]
+        public async Task SKey_OnGraphCanvas_PansEvenWhenAmbientFocusIsStolen() {
+            DataCache cache = await GetCacheAsync();
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.ApplyLoadedSettings();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            window.GraphCanvas.Viewer.Graph.CreateSupplierNode(pair, new System.Drawing.Point(2000, 2000));
+            window.GraphCanvas.Focus();
+            System.Drawing.Point before = window.GraphCanvas.Viewport.ViewOffset;
+
+            var thief = new Window { Content = new TextBox() };
+            thief.Show();
+            ((TextBox)thief.Content!).Focus();
+
+            window.GraphCanvas.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.S });
 
             Assert.NotEqual(before, window.GraphCanvas.Viewport.ViewOffset);
         }
 
         //Linux branch of the platform fork above (docs/upstream-divergences.md, phase 8 Task 2): Ctrl+S gates
         //the pan on Linux the same way Cmd+S does on macOS, via the UseIsMacOs seam.
+        //Dispatches via RaiseEvent rather than KeyPressQwerty for the same ambient-focus reason as the test above.
         [AvaloniaFact]
         public async Task SKey_OnGraphCanvas_OnLinux_PansOnlyWithoutCtrl() {
             using IDisposable platform = PlatformModifiers.UseIsMacOs(false);
@@ -455,11 +489,11 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Focus();
             System.Drawing.Point before = window.GraphCanvas.Viewport.ViewOffset;
 
-            window.KeyPressQwerty(PhysicalKey.S, RawInputModifiers.Control);
+            window.GraphCanvas.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.S, KeyModifiers = KeyModifiers.Control });
 
             Assert.Equal(before, window.GraphCanvas.Viewport.ViewOffset);
 
-            window.KeyPressQwerty(PhysicalKey.S, RawInputModifiers.None);
+            window.GraphCanvas.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.S });
 
             Assert.NotEqual(before, window.GraphCanvas.Viewport.ViewOffset);
         }
