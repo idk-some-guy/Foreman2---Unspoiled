@@ -417,21 +417,9 @@ namespace Foreman.Mac.Views {
                         selectedItem.IsChecked = item.IsChecked;
         }
 
-        private Bitmap GetOrBakeIcon(SKBitmap icon) {
-            if (!bakedIconCache.TryGetValue(icon, out Bitmap? baked)) {
-                baked = BakeIcon(icon);
-                bakedIconCache[icon] = baked;
-            }
-            return baked;
-        }
+        private const int EnabledObjectsIconSize = 24;
 
-        private static Bitmap BakeIcon(SKBitmap icon) {
-            const int size = 24;
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(size, size, SKColorType.Bgra8888, SKAlphaType.Premul));
-            using var paint = new SKPaint { IsAntialias = true };
-            surface.Canvas.DrawBitmap(icon, new SKRect(0, 0, size, size), paint);
-            return SnapshotToBitmap(surface);
-        }
+        private Bitmap GetOrBakeIcon(SKBitmap icon) => Inspector.IconBaker.GetOrBake(bakedIconCache, icon, EnabledObjectsIconSize);
 
         //Bakes RecipePainter's (already-ported, docs/panels-reference.md §7) single-recipe layout into a
         //static image for the row's ToolTip.Tip - the same GPU-lease-avoidance bake used for icons above,
@@ -442,13 +430,7 @@ namespace Foreman.Mac.Views {
             System.Drawing.Size size = RecipePainter.GetSize(recipes, abbreviateSciPacks: false);
             using SKSurface surface = SKSurface.Create(new SKImageInfo(Math.Max(1, size.Width), Math.Max(1, size.Height), SKColorType.Bgra8888, SKAlphaType.Premul));
             RecipePainter.Paint(recipes, surface.Canvas, new DrawingPoint(0, 0), abbreviateSciPacks: false);
-            return SnapshotToBitmap(surface);
-        }
-
-        private static Bitmap SnapshotToBitmap(SKSurface surface) {
-            using SKPixmap pixmap = surface.PeekPixels();
-            return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, pixmap.GetPixels(),
-                new PixelSize(pixmap.Info.Width, pixmap.Info.Height), new Vector(96, 96), pixmap.RowBytes);
+            return Inspector.IconBaker.SnapshotToBitmap(surface);
         }
 
         //Ports EnableAllButton_Click (reference SettingsForm.cs:559-580) verbatim.

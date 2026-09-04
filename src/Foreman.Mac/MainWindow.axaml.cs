@@ -203,6 +203,7 @@ namespace Foreman.Mac {
             TextAnnotationElement.LoadDefaultsFrom(settings);
             ShapeAnnotationElement.LoadDefaultsFrom(settings);
             GraphCanvas.AnnotationSettings = settings;
+            Inspector.Settings = settings;
 
             //DCache/DefaultAssemblerQuality previously stayed unset until the first Load (LoadDocument was the
             //only assigner) - a fresh/New graph had neither, so recipe-node creation (CreateRecipeNode throws

@@ -31,6 +31,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   simplify-throughput toggle for passthrough nodes, for every non-recipe node type. Selecting a
   supplier, consumer, passthrough, spoil, or plant node now edits it right there in the sidebar
   instead of opening a floating panel.
+- The inspector's Recipe segment (Rate/Assembler/Fuel groups): assembler count with an Auto/Fixed
+  toggle, low priority and key node fields, an assembler picker with live speed/productivity/
+  pollution stats, average neighbours and extra productivity, and a fuel picker for burner
+  assemblers. Built on a new reusable PickGrid control for icon pickers.
 
 ### Fixed
 

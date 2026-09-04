@@ -19,6 +19,12 @@
   <Color x:Key="Foreman.Color.Selection">#FF9F0A</Color>
   <Color x:Key="Foreman.Color.Error">#FF453A</Color>
 
+  <!-- PickGrid cells (Task 5: Recipe segment's Assembler/Fuel pickers) - PickCellSelected mirrors
+       AccentSoft's value rather than referencing it, so a cell keeps its own token independent of the
+       segment-strip's. -->
+  <Color x:Key="Foreman.Color.PickCellSelected">#290A84FF</Color>
+  <Color x:Key="Foreman.Color.PickCellBorder">#29FFFFFF</Color>
+
   <!-- Status tokens: existing availability/similarity row coloring (GraphSummary, Comparator,
        Enabled Objects), not part of the phase 9 visual-language contract - see task-2-report.md. -->
   <Color x:Key="Foreman.Color.StatusForeground">#F2F2F2</Color>
@@ -73,5 +79,6 @@
   <x:Double x:Key="Foreman.Type.InspectorSubtitle.FontSize">11.5</x:Double>
 
   <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
+  <x:Double x:Key="Foreman.Size.PickCell">36</x:Double>
 
 </ResourceDictionary>

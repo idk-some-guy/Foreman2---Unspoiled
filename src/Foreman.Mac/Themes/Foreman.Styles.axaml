@@ -203,4 +203,29 @@
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Accent}" />
   </Style>
 
+  <!-- PickGrid cell (Task 5): a plain Button carries this class per rendered item, with .selected/
+       .unavailable toggled from PickGridItem.IsSelected/IsAvailable. -->
+  <Style Selector="Button.foreman-pick-cell">
+    <Setter Property="Width" Value="{DynamicResource Foreman.Size.PickCell}" />
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.PickCell}" />
+    <Setter Property="Margin" Value="2" />
+    <Setter Property="Padding" Value="2" />
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.PickCellBorder}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Button.foreman-pick-cell.selected">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.PickCellSelected}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Accent}" />
+  </Style>
+
+  <Style Selector="Button.foreman-pick-cell.unavailable">
+    <Setter Property="Opacity" Value="0.4" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Error}" />
+  </Style>
+
 </Styles>

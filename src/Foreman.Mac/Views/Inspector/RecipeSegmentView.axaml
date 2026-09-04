@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             xmlns:insp="using:Foreman.Mac.Views.Inspector"
+             x:Class="Foreman.Mac.Views.Inspector.RecipeSegmentView"
+             x:DataType="vm:RecipeSegmentViewModel">
+  <StackPanel Spacing="{StaticResource Foreman.Space.Space4}" Margin="{StaticResource Foreman.Thickness.Space3}">
+    <insp:InspectorGroup Title="Rate">
+      <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
+        <Border Classes="foreman-segment-strip" HorizontalAlignment="Left">
+          <StackPanel Orientation="Horizontal" Spacing="2">
+            <RadioButton Name="RateAuto" GroupName="RecipeRateType" Content="Auto" Classes="foreman-segment-item" />
+            <RadioButton Name="RateFixed" GroupName="RecipeRateType" Content="Fixed" Classes="foreman-segment-item"
+                         IsChecked="{Binding IsFixedRate, Mode=TwoWay}" />
+          </StackPanel>
+        </Border>
+        <NumericUpDown Name="AssemblerCountValue" Minimum="0" FormatString="N2"
+                        IsEnabled="{Binding IsFixedRate}"
+                        Value="{Binding AssemblerCount, Mode=TwoWay}" />
+        <ToggleSwitch Name="LowPriority" Content="Low Priority Recipe" IsChecked="{Binding LowPriority, Mode=TwoWay}" />
+        <ToggleSwitch Name="KeyNode" Content="Key Node" IsChecked="{Binding IsKeyNode, Mode=TwoWay}" />
+        <TextBox Name="KeyNodeTitle" MaxLength="200" IsVisible="{Binding IsKeyNode}"
+                  Text="{Binding KeyNodeTitle, Mode=TwoWay}" />
+      </StackPanel>
+    </insp:InspectorGroup>
+
+    <insp:InspectorGroup Title="Assembler">
+      <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
+        <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space2}">
+          <Image Name="SelectedAssemblerIcon" Width="24" Height="24" Source="{Binding SelectedAssembler.Icon}" />
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Name="SelectedAssemblerName" Text="{Binding SelectedAssembler.Name}" Classes="foreman-body" />
+            <TextBlock Name="AssemblerStatsText" Text="{Binding AssemblerStats}" Classes="foreman-caption" />
+          </StackPanel>
+        </StackPanel>
+        <insp:PickGrid Name="AssemblerGrid" Items="{Binding AssemblerOptions}" />
+        <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space2}" IsVisible="{Binding ShowsNeighbours}">
+          <TextBlock Text="Avg neighbours" VerticalAlignment="Center" Classes="foreman-caption" />
+          <NumericUpDown Name="AvgNeighboursValue" Minimum="0" Maximum="100" Increment="0.05" FormatString="N2"
+                          IsVisible="{Binding ShowsNeighbours}"
+                          Value="{Binding AvgNeighbours, Mode=TwoWay}" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space2}" IsVisible="{Binding ShowsExtraProductivity}">
+          <TextBlock Text="Extra productivity %" VerticalAlignment="Center" Classes="foreman-caption" />
+          <NumericUpDown Name="ExtraProductivityValue" Minimum="0" Maximum="100000" Increment="10" FormatString="N2"
+                          IsVisible="{Binding ShowsExtraProductivity}"
+                          Value="{Binding ExtraProductivityPercent, Mode=TwoWay}" />
+        </StackPanel>
+      </StackPanel>
+    </insp:InspectorGroup>
+
+    <insp:InspectorGroup Title="Fuel" IsVisible="{Binding ShowsFuel}">
+      <insp:PickGrid Name="FuelGrid" Items="{Binding FuelOptions}" />
+    </insp:InspectorGroup>
+  </StackPanel>
+</UserControl>
