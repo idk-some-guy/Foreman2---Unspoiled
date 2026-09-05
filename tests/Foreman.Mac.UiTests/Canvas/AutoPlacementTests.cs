@@ -12,6 +12,8 @@ using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.UiTests.support;
+using Foreman.Mac.ViewModels;
+using Foreman.Mac.Views.QuickAdd;
 using Foreman.Models;
 using SkiaSharp;
 using System.Collections.Generic;
@@ -198,11 +200,11 @@ namespace Foreman.Mac.UiTests.Canvas {
         //---- disconnected creation (background menu / toolbar, reference §4a/§10): no origin -> the node
         //creation default (Graph.DefaultNodeDirection) applies with no explicit direction call needed ----
 
-        //Ports the two-stage AddItem->node-type flow (docs/panels-reference.md §2/§8/§10, task 3): picking
-        //"iron-plate" from the real ItemChooserPanel opens a RecipeChooserPanel with that item as KeyItem;
-        //clicking its "Source" footer button (Task 3's real ItemChooserPanel/RecipeChooserPanel subclasses)
-        //is what actually creates the disconnected Supplier node - the direction/selection assertions this
-        //test cares about are unchanged by that swap.
+        //C2b: picking "iron-plate" straight from the Quick Add palette Add Item opens (scope Items, no
+        //origin) creates the disconnected Supplier node directly - PlaceCandidate's role default for a
+        //Disconnected outer type is Supplier, matching the retired flow's "Source" footer button. The
+        //palette itself stays open after a pick (by design, so a second item can land right after), unlike
+        //the old chooser panels this test used to close through.
         [AvaloniaFact]
         public void AddItemAsync_ChoosesItemThenSource_CreatesSupplierNodeSelectedAtGraphPoint() {
             Fixture fx = NewFixture();
@@ -212,26 +214,15 @@ namespace Foreman.Mac.UiTests.Canvas {
             var graphPoint = new Point(120, -40);
 
             fx.Control.AddItemAsync(graphPoint);
-            var itemPanel = Assert.IsType<ItemChooserPanel>(fx.Control.FloatingPanelHost.Content);
-            IconButton itemCell = itemPanel.GetVisualDescendants().OfType<IconButton>().First(b => Equals(b.DataObject, ironPlate.Item));
-            Click(itemCell);
-            var recipePanel = Assert.IsType<RecipeChooserPanel>(fx.Control.FloatingPanelHost.Content);
-            Button sourceButton = recipePanel.GetVisualDescendants().OfType<Button>().First(b => b.Content is string s && s == "Source");
-            Click(sourceButton);
+            var palette = Assert.IsType<QuickAddPalette>(fx.Control.FloatingPanelHost.Content);
+            ((QuickAddViewModel)palette.DataContext!).Query = ironPlate.Item!.FriendlyName;
+            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
 
             BaseNodeElement created = Assert.Single(fx.Control.Viewer.NodeElements);
             Assert.IsType<SupplierNodeElement>(created);
             Assert.Equal(graphPoint, created.ViewModel.Location);
             Assert.Equal(NodeDirection.Down, created.ViewModel.NodeDirection);
             Assert.Same(created, Assert.Single(fx.Control.Viewer.SelectedNodes));
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
-        }
-
-        private static void Click(Control control) {
-            var pointer = new InputPointer(InputPointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
-            var properties = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased);
-            var args = new PointerReleasedEventArgs(control, pointer, control, default, 0, properties, KeyModifiers.None, MouseButton.Left);
-            control.RaiseEvent(args);
         }
 
         [AvaloniaFact]

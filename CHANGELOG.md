@@ -41,6 +41,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   node's assembler and updates its own label and the subtitle immediately.
 - Add chooser: shared search/ranking service behind the new palette and browser.
 - Quick Add palette: cursor-anchored search over items and recipes; Enter places and keeps it open.
+- Add Item/Add Recipe, the background context menu, and a double-click on empty canvas now open the
+  Quick Add palette instead of the old chooser panels.
 
 ### Fixed
 

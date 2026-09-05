@@ -12,7 +12,10 @@ using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.QuickAdd;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;
@@ -23,7 +26,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
-using InputPointer = Avalonia.Input.Pointer;
 
 namespace Foreman.Mac.UiTests {
     //Task 6's phase gate (docs/superpowers/plans/2026-09-02-phase5b-dialog-windows.md): the three dialog
@@ -93,29 +95,17 @@ namespace Foreman.Mac.UiTests {
         private static string SettingsJsonPath(string tempHome) =>
             Path.Combine(tempHome, "Library", "Application Support", "Foreman", "settings.json");
 
-        //---- shared chooser-flow helper (EditingEndToEndTests' own copy, adapted to a caller-supplied
-        //control rather than one it built itself) ----
-
-        private static void Click(Avalonia.Controls.Control control) {
-            var pointer = new InputPointer(InputPointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
-            var properties = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased);
-            var args = new PointerReleasedEventArgs(control, pointer, control, default, 0, properties, KeyModifiers.None, MouseButton.Left);
-            control.RaiseEvent(args);
-        }
-
+        //C2b: Add Recipe now opens the Quick Add palette scoped to recipes - searching the recipe's own
+        //friendly name and pressing Enter picks the top (and only) match. Closes the palette afterward (it
+        //stays open by design for a second pick) so callers get back a clean canvas.
         private static Task<RecipeNodeElement> AddRecipeViaChooser(GraphCanvasControl control, DataCache cache, string recipeName, Point location) {
             IRecipe recipe = cache.Recipes[recipeName];
             int before = control.NodeElements.Count;
             control.AddRecipeAsync(location);
-            var panel = Assert.IsType<RecipeChooserPanel>(control.FloatingPanelHost.Content);
-
-            IconButton? cell = panel.GetVisualDescendants().OfType<IconButton>().FirstOrDefault(b => Equals(b.DataObject, recipe));
-            if (cell is null && recipe.MySubgroup.MyGroup is IGroup targetGroup) {
-                IconButton groupButton = panel.GetVisualDescendants().OfType<IconButton>().First(b => Equals(b.DataObject, targetGroup));
-                Click(groupButton);
-                cell = panel.GetVisualDescendants().OfType<IconButton>().First(b => Equals(b.DataObject, recipe));
-            }
-            Click(cell!);
+            var palette = Assert.IsType<QuickAddPalette>(control.FloatingPanelHost.Content);
+            ((QuickAddViewModel)palette.DataContext!).Query = recipe.FriendlyName;
+            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
+            control.FloatingPanelHost.Close();
             Assert.Equal(before + 1, control.NodeElements.Count);
             return Task.FromResult((RecipeNodeElement)control.NodeElements[^1]);
         }

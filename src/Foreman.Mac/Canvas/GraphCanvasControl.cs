@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
@@ -12,7 +13,10 @@ using Foreman.Graph;
 using Foreman.Mac;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.Services;
+using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.QuickAdd;
 using Foreman.Models;
 using Foreman.Serialization;
 using SkiaSharp;
@@ -353,6 +357,14 @@ namespace Foreman.Mac.Canvas {
                 return;
             }
 
+            //C2b: double-clicking empty canvas opens the Quick Add palette scoped to everything - guarded on
+            //!inDrawShapeMode so a shape draw's own click-to-place sequence can't misfire this instead.
+            if (properties.IsLeftButtonPressed && e.ClickCount == 2 && clickedElement is null && !inDrawShapeMode) {
+                ShowQuickAdd(new AddRequest(graphPoint, AddScope.All));
+                e.Handled = true;
+                return;
+            }
+
             if (clickedElement is DraggedLinkElement dragGhost) {
                 dragGhost.MouseDown(graphPoint, ButtonFrom(properties));
             } else if (properties.IsLeftButtonPressed && clickedElement is AnnotationElement clickedAnnotation) {
@@ -672,8 +684,8 @@ namespace Foreman.Mac.Canvas {
             RequestRedraw();
         }
 
-        //Ports Annotation_AppendContextMenuItems (reference §4a), now including Add Item/Add Recipe through
-        //the real IRChooserPanel family (reference §2/§8/§10).
+        //Ports Annotation_AppendContextMenuItems (reference §4a): Add Item/Add Recipe now open the Quick Add
+        //palette (C2b) instead of the retired ItemChooserPanel/RecipeChooserPanel pair.
         private List<MenuEntry> BuildBackgroundMenu(DrawingPoint graphPoint) => [
             MenuEntry.Item("Add Item", () => AddItemAsync(graphPoint)),
             MenuEntry.Item("Add Recipe", () => AddRecipeAsync(graphPoint)),
@@ -682,26 +694,62 @@ namespace Foreman.Mac.Canvas {
             MenuEntry.Item("Add Shape", () => BeginDrawShape(graphPoint)),
         ];
 
-        //Ports AddItem (reference §4a/§10): opens the real ItemChooserPanel over every available item.
-        //Picking one starts the two-stage AddNewNode(Disconnected) flow below (RecipeChooserPanel with that
-        //item as KeyItem) exactly as upstream's own Add Item entry point does - it never creates a node
-        //itself, only ever leads to AddNewNode.
-        internal void AddItemAsync(DrawingPoint graphPoint) {
+        //C2b: MainWindow's toolbar and BuildBackgroundMenu's "Add Item"/"Add Recipe" both just open a
+        //scoped Quick Add palette now - ShowQuickAdd/PlaceCandidate below do the rest.
+        internal void AddItemAsync(DrawingPoint graphPoint) => ShowQuickAdd(new AddRequest(graphPoint, AddScope.Items));
+        internal void AddRecipeAsync(DrawingPoint graphPoint) => ShowQuickAdd(new AddRequest(graphPoint, AddScope.Recipes));
+
+        internal event EventHandler<AddRequest>? BrowseRequested;
+        internal AddRequest? ActiveAddRequest { get; private set; }
+        internal QuickAddPalette? OpenPalette => FloatingPanelHost.Content as QuickAddPalette;
+        private readonly Dictionary<SKBitmap, Bitmap> addIconCache = [];
+
+        internal void ShowQuickAdd(AddRequest request) {
             if (Viewer.Context.DCache is not DataCache cache)
                 return;
 
-            var panel = new ItemChooserPanel(cache, ChooserSettings);
-            panel.Initialize();
-            panel.ItemRequested += (_, e) => AddNewNode(graphPoint, e.Item, graphPoint, NewNodeType.Disconnected, null, Viewer.Graph.DefaultNodeDirection, new FRange(0, 0, true));
-            FloatingPanelHost.Show(panel, graphPoint);
+            ActiveAddRequest = request;
+            var vm = new QuickAddViewModel(new AddCatalog(cache, ChooserSettings), request, Viewer.Graph.DefaultAssemblerQuality, bmp => IconBaker.GetOrBake(addIconCache, bmp, 22));
+            var palette = new QuickAddPalette(vm);
+            palette.PickCommitted += (_, c) => PlaceCandidate(c, ActiveAddRequest!);
+            palette.BrowseRequested += (_, q) => {
+                var browseRequest = ActiveAddRequest! with { SeedText = q };
+                FloatingPanelHost.Close();
+                BrowseRequested?.Invoke(this, browseRequest);
+            };
+            palette.CloseRequested += (_, _) => FloatingPanelHost.Close();
+            FloatingPanelHost.Show(palette, request.Location);
         }
 
-        //Ports the background menu's "Add Recipe" entry (reference §4a/§10, upstream ProductionGraphViewer_
-        //MouseUp lines 909-916): unlike Add Item, this skips the item chooser and opens RecipeChooserPanel
-        //directly with an empty KeyItem, so every recipe in the cache is offered with no footer alt-node
-        //buttons (a KeyItem-less RecipeChooserPanel hides them, per its ctor's else branch).
-        internal void AddRecipeAsync(DrawingPoint graphPoint) =>
-            AddNewNode(graphPoint, default, graphPoint, NewNodeType.Disconnected, null, Viewer.Graph.DefaultNodeDirection, new FRange(0, 0, true));
+        //Places one candidate through the normal ProcessNodeRequest path (never around it, so
+        //ApplyAssemblerFuelAutoSelection still runs for a Recipe pick) and advances ActiveAddRequest so a
+        //palette left open for a second pick lands its next node below (or, for a link-drag request, beside)
+        //the one just placed.
+        internal void PlaceCandidate(AddCandidate candidate, AddRequest request, NodeType? roleOverride = null, IQuality? quality = null) {
+            if (Viewer.Context.DCache is not DataCache cache)
+                return;
+
+            IQuality q = quality ?? Viewer.Graph.DefaultAssemblerQuality ?? cache.DefaultQuality!;
+            NodeDirection direction = request.Link?.Direction ?? Viewer.Graph.DefaultNodeDirection;
+            NewNodeType outer = request.Link?.NodeType ?? NewNodeType.Disconnected;
+
+            if (candidate.Kind == AddKind.Recipe) {
+                var baseItem = request.Link?.Item ?? default;
+                var ctx = new NewNodeContext(baseItem, request.Location, outer, request.Link?.OriginElement, direction, request.Link is not null);
+                ProcessNodeRequest(ctx, NodeType.Recipe, new RecipeQualityPair(candidate.Recipe!, q), direction);
+            } else {
+                var item = new ItemQualityPair(candidate.Item!, q);
+                var ctx = new NewNodeContext(item, request.Location, outer, request.Link?.OriginElement, direction, request.Link is not null);
+                NodeType role = roleOverride ?? (outer == NewNodeType.Consumer ? NodeType.Consumer : NodeType.Supplier);
+                ProcessNodeRequest(ctx, role, default, direction);
+            }
+
+            ActiveAddRequest = request with {
+                Location = request.Link is null
+                    ? new DrawingPoint(request.Location.X, request.Location.Y + 120)
+                    : new DrawingPoint(request.Location.X + 120, request.Location.Y)
+            };
+        }
 
         private Services.AppSettings? fallbackChooserSettings;
         private Services.AppSettings ChooserSettings => AnnotationSettings ?? (fallbackChooserSettings ??= new Services.AppSettings());

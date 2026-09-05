@@ -15,6 +15,7 @@ using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
+using Foreman.Mac.Views.QuickAdd;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using Foreman.Serialization;
@@ -29,7 +30,6 @@ using System.Threading.Tasks;
 using Xunit;
 using AvaloniaPoint = Avalonia.Point;
 using AvaloniaWindow = Avalonia.Controls.Window;
-using InputPointer = Avalonia.Input.Pointer;
 
 namespace Foreman.Mac.UiTests.Canvas {
     //Task 7's phase gate: builds a small factory purely through synthesized interactions - the chooser path,
@@ -68,33 +68,19 @@ namespace Foreman.Mac.UiTests.Canvas {
             return control;
         }
 
-        //Drives the real RecipeChooserPanel (task 3, docs/panels-reference.md §2/§8) rather than the deleted
-        //placeholder's stub: Add Recipe opens the panel directly with an empty KeyItem, so a plain click on
-        //the named recipe's icon is the whole flow (no footer buttons, no item-choosing stage first). Unlike
-        //the placeholder's flat list, the real panel only shows the currently selected group's recipes -
-        //switches to the target recipe's own group first when it isn't already showing.
+        //C2b: Add Recipe now opens the Quick Add palette scoped to recipes - searching the recipe's own
+        //friendly name and pressing Enter picks the top (and only) match. Closes the palette afterward (it
+        //stays open by design for a second pick) so callers get back a clean canvas.
         private static Task<RecipeNodeElement> AddRecipeViaChooser(GraphCanvasControl control, DataCache cache, string recipeName, Point location) {
             IRecipe recipe = cache.Recipes[recipeName];
             int before = control.NodeElements.Count;
             control.AddRecipeAsync(location);
-            var panel = Assert.IsType<RecipeChooserPanel>(control.FloatingPanelHost.Content);
-
-            IconButton? cell = panel.GetVisualDescendants().OfType<IconButton>().FirstOrDefault(b => Equals(b.DataObject, recipe));
-            if (cell is null && recipe.MySubgroup.MyGroup is IGroup targetGroup) {
-                IconButton groupButton = panel.GetVisualDescendants().OfType<IconButton>().First(b => Equals(b.DataObject, targetGroup));
-                Click(groupButton);
-                cell = panel.GetVisualDescendants().OfType<IconButton>().First(b => Equals(b.DataObject, recipe));
-            }
-            Click(cell!);
+            var palette = Assert.IsType<QuickAddPalette>(control.FloatingPanelHost.Content);
+            ((QuickAddViewModel)palette.DataContext!).Query = recipe.FriendlyName;
+            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
+            control.FloatingPanelHost.Close();
             Assert.Equal(before + 1, control.NodeElements.Count);
             return Task.FromResult((RecipeNodeElement)control.NodeElements[^1]);
-        }
-
-        private static void Click(Avalonia.Controls.Control control) {
-            var pointer = new InputPointer(InputPointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
-            var properties = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased);
-            var args = new PointerReleasedEventArgs(control, pointer, control, default, 0, properties, KeyModifiers.None, MouseButton.Left);
-            control.RaiseEvent(args);
         }
 
         private static void DragLinkBetween(GraphCanvasControl control, RecipeNodeElement producer, RecipeNodeElement consumer, ItemQualityPair item) {
