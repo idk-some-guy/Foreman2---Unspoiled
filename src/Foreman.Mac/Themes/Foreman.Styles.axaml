@@ -374,7 +374,10 @@
     <Setter Property="Padding" Value="0" />
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Name="SwitchKnobBounds" Width="30" Height="18" CornerRadius="10"
+        <!-- Named PillTrack, not FluentTheme's own "SwitchKnobBounds" - that name still carries FluentTheme's
+             built-in ^:unchecked/^:checked Opacity 0/1 toggling (its ControlTheme applies regardless of our
+             Template override), which hid this track whenever the switch was off. -->
+        <Border Name="PillTrack" Width="30" Height="18" CornerRadius="10"
                 Background="{DynamicResource Foreman.Color.BorderStrong}">
           <!-- ToggleSwitch requires a part named PART_MovingKnobs (AVLN2205) - this pill's own thumb
                fills that role, restyled well past its Fluent-default look. The panel just satisfies the
@@ -388,7 +391,7 @@
     </Setter>
   </Style>
 
-  <Style Selector="ToggleSwitch.foreman-mini-switch:checked /template/ Border#SwitchKnobBounds">
+  <Style Selector="ToggleSwitch.foreman-mini-switch:checked /template/ Border#PillTrack">
     <Setter Property="Background" Value="{DynamicResource Foreman.Color.Accent}" />
   </Style>
 
