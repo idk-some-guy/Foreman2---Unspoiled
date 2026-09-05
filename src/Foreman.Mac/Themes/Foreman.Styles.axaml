@@ -205,11 +205,12 @@
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
-  <Style Selector="TextBlock.foreman-mini-select-chevron">
-    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Chevron.FontSize}" />
-    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
+  <!-- Shared by the mini-select dropdown, InspectorGroup headers, and CompactStepper's arrows. -->
+  <Style Selector="Path.foreman-chevron">
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="Fill" Value="{DynamicResource Foreman.Color.TextTertiary}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
     <Setter Property="VerticalAlignment" Value="Center" />
-    <Setter Property="Margin" Value="6,0,0,0" />
   </Style>
 
   <!-- Recipe card (Task 9, contract §03 CSS 708-718): folds the old hover tooltip into the identity

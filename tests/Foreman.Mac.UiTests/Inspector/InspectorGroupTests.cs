@@ -1,10 +1,12 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Shapes;
 using Avalonia.Data;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.Mac.Views.Inspector;
@@ -66,14 +68,14 @@ namespace Foreman.Mac.UiTests.Inspector {
         [AvaloniaFact]
         public void TitleClick_TogglesDisclosureGlyph() {
             (_, InspectorGroup group) = NewGroup(isExpanded: true);
-            TextBlock glyph = HeaderOf(group).GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "DisclosureGlyph");
-            string expandedGlyph = glyph.Text!;
+            Path glyph = HeaderOf(group).GetVisualDescendants().OfType<Path>().Single(p => p.Name == "DisclosureGlyph");
+            double expandedAngle = ((RotateTransform)glyph.RenderTransform!).Angle;
 
             group.IsExpanded = false;
-            Assert.NotEqual(expandedGlyph, glyph.Text);
+            Assert.NotEqual(expandedAngle, ((RotateTransform)glyph.RenderTransform!).Angle);
 
             group.IsExpanded = true;
-            Assert.Equal(expandedGlyph, glyph.Text);
+            Assert.Equal(expandedAngle, ((RotateTransform)glyph.RenderTransform!).Angle);
         }
 
         [AvaloniaFact]

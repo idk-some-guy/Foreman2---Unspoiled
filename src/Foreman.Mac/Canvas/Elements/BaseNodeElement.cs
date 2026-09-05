@@ -299,6 +299,10 @@ namespace Foreman.Mac.Canvas.Elements {
                 linkedNode.UpdateTabOrder();
         }
 
+        //Whether a tab or the error notice claims this point ahead of the node's own body.
+        public bool HasSubElementAt(Point graphPoint) =>
+            SubElements.OfType<ItemTabElement>().Any(tab => tab.ContainsPoint(graphPoint)) || ErrorNotice.ContainsPoint(graphPoint);
+
         //Ports the non-drag half of MouseUp's subelement-first routing (reference §4, upstream lines
         //258-269): a tab or the error notice claims the point before falling back to this node's own
         //action - a plain left click on the node body opens its edit panel (upstream's MouseUpAction,

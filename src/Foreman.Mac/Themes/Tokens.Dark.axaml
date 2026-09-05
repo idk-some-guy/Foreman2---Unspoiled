@@ -80,9 +80,8 @@
   <x:Double x:Key="Foreman.Type.InspectorSubtitle.FontSize">11</x:Double>
 
   <!-- Task 9 (inspector fidelity pass): the mock's 12px "small body" text (mini-select label, recipe
-       card flow row) and 10px disclosure chevron on the quality mini-select. -->
+       card flow row). -->
   <x:Double x:Key="Foreman.Type.SmallBody.FontSize">12</x:Double>
-  <x:Double x:Key="Foreman.Type.Chevron.FontSize">10</x:Double>
 
   <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
   <x:Double x:Key="Foreman.Size.PickCell">26</x:Double>

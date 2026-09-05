@@ -1,9 +1,11 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
@@ -219,6 +221,102 @@ namespace Foreman.Mac.UiTests.Inspector {
             view.ViewModel!.IsFixedRate = false;
             Dispatcher.UIThread.RunJobs();
             Assert.False(rateRow.IsVisible);
+        }
+
+        //Normal's icon is a plain grey dot (no saturated pixels), so only Legendary's label tints.
+        [AvaloniaFact]
+        public async Task QualityMiniSelect_ShowsIconLeftOfLabel_AndTintsOnlyNonNormalQualities() {
+            DataCache cache = await InspectorTestSupport.GetSpaceAgeCacheAsync();
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.ApplyLoadedSettings();
+            window.GraphCanvas.Viewer.Context.DCache = cache;
+            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
+            var pair = new RecipeQualityPair(cache.Recipes["iron-plate"], cache.DefaultQuality!);
+            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(pair, new System.Drawing.Point(0, 0));
+            Dispatcher.UIThread.RunJobs();
+
+            var node = (IRecipeNodeViewModel)window.GraphCanvas.Viewer.Session.View.Nodes.Single();
+            InspectorTestSupport.Select(window, node);
+
+            Image icon = window.Inspector.FindControl<Image>("QualityMiniSelectIcon")!;
+            Assert.NotNull(icon.Source);
+            Assert.Equal(16, icon.Width);
+            Assert.Equal(16, icon.Height);
+
+            TextBlock label = window.Inspector.FindControl<TextBlock>("QualityMiniSelectLabel")!;
+            Assert.True(Application.Current!.TryGetResource("Foreman.Color.Text", ThemeVariant.Light, out object? textResource));
+            var normalTextColor = (Color)textResource!;
+            Assert.Equal(normalTextColor, ((ISolidColorBrush)label.Foreground!).Color);
+
+            Button qualityMiniSelect = window.Inspector.FindControl<Button>("QualityMiniSelect")!;
+            IQuality legendary = cache.AvailableQualities.OrderByDescending(q => q.Level).First();
+            Assert.NotEqual(cache.DefaultQuality, legendary);
+
+            qualityMiniSelect.Flyout!.ShowAt(qualityMiniSelect);
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+            PickGrid qualityGrid = window.Inspector.FindControl<PickGrid>("QualityGrid")!;
+            Button legendaryCell = qualityGrid.GetVisualDescendants().OfType<Button>()
+                .Single(b => Equals((b.DataContext as PickGridItem)?.Key, legendary));
+            Point center = new(legendaryCell.Bounds.Width / 2, legendaryCell.Bounds.Height / 2);
+            Point screen = legendaryCell.TranslatePoint(center, window) ?? center;
+            window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.NotEqual(normalTextColor, ((ISolidColorBrush)label.Foreground!).Color);
+        }
+
+        //Pins the Path-based chevron's vertical centering everywhere it replaced a text glyph.
+        [AvaloniaFact]
+        public async Task MiniSelectChevron_IsVerticallyCenteredInItsRow() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+
+            Button miniSelect = window.Inspector.FindControl<Button>("QualityMiniSelect")!;
+            Path chevron = miniSelect.GetVisualDescendants().OfType<Path>().Single(p => p.Classes.Contains("foreman-chevron"));
+
+            AssertVerticallyCentered(window, chevron, miniSelect);
+        }
+
+        [AvaloniaFact]
+        public async Task GroupHeaderChevrons_AreVerticallyCenteredInTheirHeader() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+
+            var collapsibleGroups = window.Inspector.GetVisualDescendants().OfType<InspectorGroup>().Where(g => g.IsCollapsible).ToList();
+            Assert.NotEmpty(collapsibleGroups);
+            foreach (InspectorGroup group in collapsibleGroups) {
+                Button header = group.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "GroupHeader");
+                Path chevron = header.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "DisclosureGlyph");
+                AssertVerticallyCentered(window, chevron, header);
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task CompactStepperArrowChevrons_AreVerticallyCenteredInTheirButtons() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+
+            CompactStepper stepper = window.Inspector.GetVisualDescendants().OfType<CompactStepper>().First();
+            Button increment = stepper.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "IncrementButton");
+            Button decrement = stepper.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "DecrementButton");
+
+            AssertVerticallyCentered(window, increment.GetVisualDescendants().OfType<Path>().Single(), increment);
+            AssertVerticallyCentered(window, decrement.GetVisualDescendants().OfType<Path>().Single(), decrement);
+        }
+
+        private static void AssertVerticallyCentered(AvaloniaWindow window, Control chevron, Control container) {
+            double chevronCenterY = chevron.TranslatePoint(new Point(chevron.Bounds.Width / 2, chevron.Bounds.Height / 2), window)!.Value.Y;
+            double containerCenterY = container.TranslatePoint(new Point(container.Bounds.Width / 2, container.Bounds.Height / 2), window)!.Value.Y;
+            Assert.True(Math.Abs(chevronCenterY - containerCenterY) <= 1,
+                $"chevron centre-Y ({chevronCenterY}) is not within 1px of its container's centre-Y ({containerCenterY}).");
         }
 
         [AvaloniaFact]

@@ -25,10 +25,12 @@
             <TextBlock Name="IdentitySubtitle" Classes="foreman-inspector-subtitle" />
             <Button Name="QualityMiniSelect" Classes="foreman-mini-select" IsVisible="False"
                     HorizontalAlignment="Left" Margin="0,4,0,0">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Name="QualityMiniSelectLabel" Classes="foreman-mini-select-text"
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <Image Grid.Column="0" Name="QualityMiniSelectIcon" Width="16" Height="16" Margin="0,0,6,0" />
+                <TextBlock Grid.Column="1" Name="QualityMiniSelectLabel" Classes="foreman-mini-select-text"
                            TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Column="1" Text="⌄" Classes="foreman-mini-select-chevron" />
+                <Path Grid.Column="2" Classes="foreman-chevron" Data="{StaticResource Foreman.Icon.Chevron}"
+                      Width="8" Height="5" Margin="6,0,0,0" />
               </Grid>
               <Button.Flyout>
                 <Flyout Placement="Bottom">

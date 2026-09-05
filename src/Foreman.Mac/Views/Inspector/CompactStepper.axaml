@@ -6,8 +6,16 @@
       <TextBox Grid.Column="0" Name="ValueBox" Classes="foreman-stepper-value" />
       <Border Grid.Column="1" Classes="foreman-stepper-arrows">
         <StackPanel Orientation="Vertical">
-          <Button Name="IncrementButton" Content="▲" Classes="foreman-stepper-arrow foreman-stepper-arrow-top" />
-          <Button Name="DecrementButton" Content="▼" Classes="foreman-stepper-arrow" />
+          <Button Name="IncrementButton" Classes="foreman-stepper-arrow foreman-stepper-arrow-top">
+            <Path Classes="foreman-chevron" Data="{StaticResource Foreman.Icon.Chevron}" Width="7" Height="4">
+              <Path.RenderTransform>
+                <RotateTransform Angle="180" />
+              </Path.RenderTransform>
+            </Path>
+          </Button>
+          <Button Name="DecrementButton" Classes="foreman-stepper-arrow">
+            <Path Classes="foreman-chevron" Data="{StaticResource Foreman.Icon.Chevron}" Width="7" Height="4" />
+          </Button>
         </StackPanel>
       </Border>
     </Grid>

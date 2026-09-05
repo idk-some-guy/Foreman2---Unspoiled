@@ -18,8 +18,10 @@ namespace Foreman.Mac.UiTests.Inspector {
     //file doesn't reach into that class's private members.
     internal static class InspectorTestSupport {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
+        private const string SpaceAgePresetName = "Factorio 2.0 Space Age";
         private static readonly SemaphoreSlim CacheGate = new(1, 1);
         private static DataCache? sharedCache;
+        private static DataCache? sharedSpaceAgeCache;
 
         internal static async Task<DataCache> GetCacheAsync() {
             if (sharedCache is not null)
@@ -35,6 +37,23 @@ namespace Foreman.Mac.UiTests.Inspector {
                 CacheGate.Release();
             }
             return sharedCache;
+        }
+
+        //Vanilla ships no qualities at all; the icon+tint test needs the DLC preset instead.
+        internal static async Task<DataCache> GetSpaceAgeCacheAsync() {
+            if (sharedSpaceAgeCache is not null)
+                return sharedSpaceAgeCache;
+            await CacheGate.WaitAsync();
+            try {
+                if (sharedSpaceAgeCache is null) {
+                    var cache = new DataCache(filterRecipes: true);
+                    await cache.LoadAllData(new Preset(SpaceAgePresetName, true, true), new Progress<KeyValuePair<int, string>>());
+                    sharedSpaceAgeCache = cache;
+                }
+            } finally {
+                CacheGate.Release();
+            }
+            return sharedSpaceAgeCache;
         }
 
         //One recipe node on an otherwise-empty graph, so tests can select it and assert on the sidebar's

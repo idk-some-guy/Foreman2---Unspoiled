@@ -70,6 +70,7 @@ namespace Foreman.Mac.ViewModels {
         public bool ShowsQuality { get; private set; }
         public IReadOnlyList<PickGridItem> QualityOptions { get; private set; } = [];
         public string CurrentQualityName { get; private set; } = "";
+        public SKBitmap? CurrentQualityIcon { get; private set; }
 
         //Recipe card fold (Task 9): the identity header's own card, built once per assembler/recipe change
         //from the same recipe data RecipePainter used - null for a recipe with no base recipe resolved.
@@ -315,6 +316,8 @@ namespace Foreman.Mac.ViewModels {
             OnPropertyChanged(nameof(QualityOptions));
             CurrentQualityName = node.SelectedAssembler.Quality.FriendlyName ?? "";
             OnPropertyChanged(nameof(CurrentQualityName));
+            CurrentQualityIcon = node.SelectedAssembler.Quality.Icon;
+            OnPropertyChanged(nameof(CurrentQualityIcon));
         }
 
         //Re-qualities the node's current assembler in place and writes straight through, rather than only

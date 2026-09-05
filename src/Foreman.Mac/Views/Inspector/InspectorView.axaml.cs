@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Foreman.DataCaching;
@@ -16,10 +17,12 @@ using System.ComponentModel;
 namespace Foreman.Mac.Views.Inspector {
     public partial class InspectorView : UserControl {
         private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
+        private readonly Dictionary<SKBitmap, Bitmap> qualityIconCache = [];
         private readonly Image identityIcon;
         private readonly TextBlock identityName;
         private readonly TextBlock identitySubtitle;
         private readonly Button qualityMiniSelect;
+        private readonly Image qualityMiniSelectIcon;
         private readonly TextBlock qualityMiniSelectLabel;
         private readonly PickGrid qualityGrid;
         private readonly ContentControl segmentHost;
@@ -41,6 +44,7 @@ namespace Foreman.Mac.Views.Inspector {
             identityName = this.FindControl<TextBlock>("IdentityName")!;
             identitySubtitle = this.FindControl<TextBlock>("IdentitySubtitle")!;
             qualityMiniSelect = this.FindControl<Button>("QualityMiniSelect")!;
+            qualityMiniSelectIcon = this.FindControl<Image>("QualityMiniSelectIcon")!;
             qualityMiniSelectLabel = this.FindControl<TextBlock>("QualityMiniSelectLabel")!;
             qualityGrid = this.FindControl<PickGrid>("QualityGrid")!;
             segmentHost = this.FindControl<ContentControl>("SegmentHost")!;
@@ -57,6 +61,7 @@ namespace Foreman.Mac.Views.Inspector {
             scope.Register("IdentityName", identityName);
             scope.Register("IdentitySubtitle", identitySubtitle);
             scope.Register("QualityMiniSelect", qualityMiniSelect);
+            scope.Register("QualityMiniSelectIcon", qualityMiniSelectIcon);
             scope.Register("QualityMiniSelectLabel", qualityMiniSelectLabel);
             scope.Register("QualityGrid", qualityGrid);
             scope.Register("SegmentHost", segmentHost);
@@ -76,6 +81,9 @@ namespace Foreman.Mac.Views.Inspector {
             foreach (Bitmap bitmap in bakedIconCache.Values)
                 bitmap.Dispose();
             bakedIconCache.Clear();
+            foreach (Bitmap bitmap in qualityIconCache.Values)
+                bitmap.Dispose();
+            qualityIconCache.Clear();
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -133,6 +141,12 @@ namespace Foreman.Mac.Views.Inspector {
             qualityMiniSelect.IsVisible = recipeViewModel?.ShowsQuality ?? false;
             qualityMiniSelectLabel.Text = recipeViewModel?.CurrentQualityName ?? "";
             qualityGrid.Items = recipeViewModel?.QualityOptions ?? [];
+
+            SKBitmap? icon = recipeViewModel?.CurrentQualityIcon;
+            qualityMiniSelectIcon.Source = icon is null ? null : IconBaker.GetOrBake(qualityIconCache, icon, QualityIconSize);
+            qualityMiniSelectLabel.ClearValue(TextBlock.ForegroundProperty);
+            if (icon is not null && IconTint.DominantSaturatedColor(icon) is Color tint)
+                qualityMiniSelectLabel.Foreground = new SolidColorBrush(tint);
         }
 
         //Picking a quality re-quals the node's assembler directly (RecipeSegmentViewModel.PickQuality), so
@@ -167,6 +181,7 @@ namespace Foreman.Mac.Views.Inspector {
         };
 
         private const int IdentityIconSize = 18;
+        private const int QualityIconSize = 16;
 
         private Bitmap GetOrBakeIcon(SKBitmap icon) => IconBaker.GetOrBake(bakedIconCache, icon, IdentityIconSize);
     }

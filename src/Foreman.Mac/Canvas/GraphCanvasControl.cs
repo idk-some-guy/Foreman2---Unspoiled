@@ -374,7 +374,11 @@ namespace Foreman.Mac.Canvas {
                 if (ModifierFor(e.KeyModifiers) == SelectionModifier.Replace) {
                     bool keepGroupSelection = clickedElement is BaseNodeElement clickedNode && Viewer.SelectedNodes.Contains(clickedNode);
                     if (!keepGroupSelection) {
-                        Viewer.ClearSelection();
+                        //select-and-drop in one call so SelectionChanged never sees an empty set in between
+                        if (clickedElement is BaseNodeElement nodeToSelect && !nodeToSelect.HasSubElementAt(graphPoint))
+                            Viewer.SetSelection([nodeToSelect]);
+                        else
+                            Viewer.ClearSelection();
                         InvalidateVisual();
                     }
                 }

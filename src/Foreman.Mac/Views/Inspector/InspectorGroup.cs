@@ -1,8 +1,11 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Metadata;
+using Avalonia.Styling;
 
 namespace Foreman.Mac.Views.Inspector {
     //Built entirely in code, not loaded from an .axaml body: GroupContent's [Content] attribute makes any
@@ -29,8 +32,10 @@ namespace Foreman.Mac.Views.Inspector {
         public static readonly StyledProperty<bool> IsLastGroupProperty =
             AvaloniaProperty.Register<InspectorGroup, bool>(nameof(IsLastGroup), defaultValue: false);
 
+        private static readonly Geometry ChevronGeometry = ResolveChevronGeometry();
+
         private readonly TextBlock titleText;
-        private readonly TextBlock disclosureGlyph;
+        private readonly Path disclosureGlyph;
         private readonly Button headerButton;
         private readonly ContentPresenter contentHost;
         private readonly Border container;
@@ -68,8 +73,10 @@ namespace Foreman.Mac.Views.Inspector {
         public InspectorGroup() {
             titleText = new TextBlock();
             titleText.Classes.Add("foreman-section-header");
-            disclosureGlyph = new TextBlock { Name = "DisclosureGlyph", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.5 };
-            disclosureGlyph.Classes.Add("foreman-caption");
+            disclosureGlyph = new Path {
+                Name = "DisclosureGlyph", Data = ChevronGeometry, Width = 10, Height = 6, Opacity = 0.5,
+            };
+            disclosureGlyph.Classes.Add("foreman-chevron");
             var headerRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
             Grid.SetColumn(titleText, 0);
             Grid.SetColumn(disclosureGlyph, 1);
@@ -114,11 +121,17 @@ namespace Foreman.Mac.Views.Inspector {
                 SetCurrentValue(IsExpandedProperty, true);
         }
 
-        private void UpdateDisclosureGlyph() => disclosureGlyph.Text = IsExpanded ? "⌄" : "⌃";
+        private void UpdateDisclosureGlyph() =>
+            disclosureGlyph.RenderTransform = new RotateTransform(IsExpanded ? 0 : 180);
 
         private void SyncGroupContentDataContext() {
             if (GroupContent is Control content)
                 content.DataContext = DataContext;
+        }
+
+        private static Geometry ResolveChevronGeometry() {
+            Application.Current!.TryGetResource("Foreman.Icon.Chevron", ThemeVariant.Light, out object? resource);
+            return (Geometry)resource!;
         }
     }
 }

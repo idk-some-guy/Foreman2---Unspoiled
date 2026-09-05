@@ -255,14 +255,16 @@ namespace Foreman.Mac.Canvas {
 
         internal void RaiseSelectionChanged() => SelectionChanged?.Invoke(this, EventArgs.Empty);
 
-        //Ports SetSelection: replaces the full selection outright, syncing every node's Highlighted flag
-        //with membership.
         public void SetSelection(IEnumerable<BaseNodeElement> newSelection) {
+            HashSet<BaseNodeElement> updated = newSelection as HashSet<BaseNodeElement> ?? [.. newSelection];
+            if (SelectedNodes.SetEquals(updated))
+                return;
+
             foreach (BaseNodeElement element in SelectedNodes)
                 element.Highlighted = false;
 
             SelectedNodes.Clear();
-            SelectedNodes.UnionWith(newSelection);
+            SelectedNodes.UnionWith(updated);
 
             foreach (BaseNodeElement element in SelectedNodes)
                 element.Highlighted = true;

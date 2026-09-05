@@ -10,6 +10,7 @@ using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
+using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
@@ -118,6 +119,88 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
             Assert.True(window.Inspector.IsVisible);
             Assert.IsType<RecipeSegmentView>(window.Inspector.FindControl<ContentControl>("SegmentHost")!.Content);
+        }
+
+        //Clicking straight from one node to another used to flash the sidebar shut and back open for a frame.
+        [AvaloniaFact]
+        public async Task SwitchingSelectionBetweenNodes_InspectorStaysVisible_NoFalseTransition() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            DataCache cache = window.DataCache!;
+            var secondPair = new RecipeQualityPair(cache.Recipes["copper-plate"], cache.DefaultQuality!);
+            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(secondPair, new System.Drawing.Point(400, 0));
+            Dispatcher.UIThread.RunJobs();
+
+            List<BaseNodeElement> elements = [.. window.GraphCanvas.Viewer.NodeElements];
+            foreach (BaseNodeElement element in elements) {
+                element.RequestStateUpdate();
+                element.PrePaint();
+            }
+            Dispatcher.UIThread.RunJobs();
+
+            Avalonia.Point ScreenPointOf(BaseNodeElement element) {
+                Avalonia.Point canvasPoint = window.GraphCanvas.Viewport.GraphToScreen(element.Location);
+                return Avalonia.VisualExtensions.TranslatePoint(window.GraphCanvas, canvasPoint, window) ?? canvasPoint;
+            }
+
+            var visibilityTransitions = new List<bool>();
+            window.Inspector.PropertyChanged += (_, e) => {
+                if (e.Property == Visual.IsVisibleProperty)
+                    visibilityTransitions.Add((bool)e.NewValue!);
+            };
+
+            Avalonia.Point screenA = ScreenPointOf(elements[0]);
+            window.MouseDown(screenA, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(screenA, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+            object? segmentAfterFirst = window.Inspector.FindControl<ContentControl>("SegmentHost")!.Content;
+
+            Avalonia.Point screenB = ScreenPointOf(elements[1]);
+            window.MouseDown(screenB, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(screenB, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(window.Inspector.IsVisible);
+            Assert.Same(segmentAfterFirst, window.Inspector.FindControl<ContentControl>("SegmentHost")!.Content);
+            Assert.Single(visibilityTransitions);
+            Assert.True(visibilityTransitions[0]);
+        }
+
+        //Gate fix 3: MouseDown's own SetSelection and MouseUp's EditNode->SetSelection both fired for a
+        //plain click, doubling every Refresh (segment rebind + tint recompute) behind it.
+        [AvaloniaFact]
+        public async Task ClickingBetweenNodes_RaisesSelectionChangedExactlyOncePerClick() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            DataCache cache = window.DataCache!;
+            var secondPair = new RecipeQualityPair(cache.Recipes["copper-plate"], cache.DefaultQuality!);
+            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(secondPair, new System.Drawing.Point(400, 0));
+            Dispatcher.UIThread.RunJobs();
+
+            List<BaseNodeElement> elements = [.. window.GraphCanvas.Viewer.NodeElements];
+            foreach (BaseNodeElement element in elements) {
+                element.RequestStateUpdate();
+                element.PrePaint();
+            }
+            Dispatcher.UIThread.RunJobs();
+
+            Avalonia.Point ScreenPointOf(BaseNodeElement element) {
+                Avalonia.Point canvasPoint = window.GraphCanvas.Viewport.GraphToScreen(element.Location);
+                return Avalonia.VisualExtensions.TranslatePoint(window.GraphCanvas, canvasPoint, window) ?? canvasPoint;
+            }
+
+            int raiseCount = 0;
+            window.GraphCanvas.Viewer.SelectionChanged += (_, _) => raiseCount++;
+
+            Avalonia.Point screenA = ScreenPointOf(elements[0]);
+            window.MouseDown(screenA, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(screenA, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, raiseCount);
+
+            Avalonia.Point screenB = ScreenPointOf(elements[1]);
+            window.MouseDown(screenB, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(screenB, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, raiseCount);
         }
 
         //Fix round: picking the already-selected assembler/quality cell used to dirty the document even
@@ -253,7 +336,7 @@ namespace Foreman.Mac.UiTests.Inspector {
                     "Foreman.Type.InspectorTitle.FontSize", "Foreman.Type.InspectorTitle.FontWeight",
                     "Foreman.Type.InspectorSubtitle.FontSize",
                     "Foreman.Color.SidebarBackground", "Foreman.Color.WellBackground",
-                    "Foreman.Type.SmallBody.FontSize", "Foreman.Type.Chevron.FontSize",
+                    "Foreman.Type.SmallBody.FontSize",
                     "Foreman.Shadow.Sidebar", "Foreman.Shadow.PickSelectedRing",
                 })
                     Assert.True(Application.Current.TryGetResource(key, variant, out _), key);
