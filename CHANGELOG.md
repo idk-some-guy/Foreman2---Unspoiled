@@ -47,6 +47,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   of the old chooser; Escape cancels a link drag in progress.
 - Add to Graph browser window: categories, labelled grid, live Show Unavailable/Hidden/Ignore
   Assembler toggles, quality select.
+- Browser footer roles, Spoil/Plant origins flow and the Compatible-with chip for link drags.
 
 ### Fixed
 

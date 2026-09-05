@@ -181,9 +181,7 @@ namespace Foreman.Mac {
             NativeMenu.SetMenu(this, BuildNativeMenu());
             Opened += (_, _) => MostRecentlyOpened = this;
             WindowScaler.Track(this);
-            //I-3 (final fix wave): the View Options card carries its own LayoutTransformControl (MainWindow.
-            //axaml) since it renders inside ViewOptionsPopover's own popup root, outside the wrapper Track
-            //just built above.
+            //View Options card renders in ViewOptionsPopover's own popup root, outside the Track above.
             WindowScaler.TrackPopupContent(this, this.FindControl<LayoutTransformControl>("ViewOptionsCardScaler")!);
 
             LiveThemeService = (Application.Current as App)?.Theme;
@@ -192,13 +190,23 @@ namespace Foreman.Mac {
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        //lazy: DataCache/Settings are not ready at construction; the window hides on close and is reused
+        //lazy: DataCache/Settings are not ready at construction; PlaceRequested is wired once here
         internal void OpenBrowser(AddRequest request) {
             if (DataCache is not Foreman.DataCaching.DataCache cache || Settings is not AppSettings settings)
                 return;
 
-            browser ??= new AddBrowserWindow(new AddBrowserViewModel(new AddCatalog(cache, settings), cache, settings,
-                (bmp, size) => IconBaker.GetOrBake(browserIconCache, bmp, size)));
+            if (browser is null) {
+                var vm = new AddBrowserViewModel(new AddCatalog(cache, settings), cache, settings,
+                    (bmp, size) => IconBaker.GetOrBake(browserIconCache, bmp, size));
+                browser = new AddBrowserWindow(vm);
+                vm.PlaceRequested += (_, pick) => {
+                    if (BrowserRequest is not AddRequest activeRequest)
+                        return;
+                    //Re-read the vm's link fresh: ClearChip can change it between placements.
+                    AddRequest requestForPlacement = activeRequest with { Link = vm.Link };
+                    BrowserRequest = GraphCanvas.PlaceCandidate(pick.Candidate, requestForPlacement, pick.Role, pick.Quality, pick.SpoilPlantDirection, pick.ExplicitOrigin);
+                };
+            }
             ((AddBrowserViewModel)browser.DataContext!).Seed(request);
             BrowserRequest = request;
             if (!browser.IsVisible)

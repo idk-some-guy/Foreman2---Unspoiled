@@ -718,4 +718,40 @@
     <Setter Property="Padding" Value="12,8" />
   </Style>
 
+  <!-- Footer role buttons (Task 6, contract #chooser .cf-btn): Source/Pass-Through/Output and
+       UnSpoil/UnPlant/Spoil/Plant, IsVisible-bound per item so an inapplicable role just isn't there. -->
+  <Style Selector="Button.foreman-browser-role">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.WellBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Browser.Row.FontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+  </Style>
+
+  <Style Selector="Button.foreman-browser-role:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+  </Style>
+
+  <!-- Filter chip (Task 6, contract #chooser .filter-chip): "Compatible with {item}"/"Origins of {item}". -->
+  <Style Selector="Border.foreman-filter-chip">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Padding" Value="10,5" />
+  </Style>
+
+  <Style Selector="TextBlock.foreman-filter-chip-text">
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Browser.Row.FontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Accent}" />
+  </Style>
+
+  <Style Selector="Button.foreman-filter-chip-x">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Browser.Row.FontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Accent}" />
+  </Style>
+
 </Styles>

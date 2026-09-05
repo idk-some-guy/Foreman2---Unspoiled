@@ -29,6 +29,9 @@ namespace Foreman.Mac.Views {
             recipesSegment.IsCheckedChanged += (_, _) => { if (recipesSegment.IsChecked == true) Vm.Segment = BrowserSegment.Recipes; };
 
             AddHandler(Button.ClickEvent, OnCellOrGroupClicked);
+            //handledEventsToo: Button's own OnKeyDown consumes Enter to raise its Click before this ever sees it.
+            AddHandler(KeyDownEvent, OnCellKeyDown, RoutingStrategies.Bubble, handledEventsToo: true);
+            DoubleTapped += OnCellDoubleTapped;
             vm.PropertyChanged += OnVmPropertyChanged;
 
             WindowScaler.Track(this);
@@ -79,6 +82,34 @@ namespace Foreman.Mac.Views {
                 Vm.Quality = quality;
                 qualityButton.Flyout?.Hide();
             }
+        }
+
+        private void OnSourceClick(object? sender, RoutedEventArgs e) => Vm.Place(NodeType.Supplier);
+        private void OnPassthroughClick(object? sender, RoutedEventArgs e) => Vm.Place(NodeType.Passthrough);
+        private void OnOutputClick(object? sender, RoutedEventArgs e) => Vm.Place(NodeType.Consumer);
+        private void OnSpoilClick(object? sender, RoutedEventArgs e) => Vm.Place(NodeType.Spoil, NodeDirection.Up);
+        private void OnUnspoilClick(object? sender, RoutedEventArgs e) => Vm.Place(NodeType.Spoil, NodeDirection.Down);
+        private void OnPlantClick(object? sender, RoutedEventArgs e) => Vm.Place(NodeType.Plant, NodeDirection.Up);
+        private void OnUnplantClick(object? sender, RoutedEventArgs e) => Vm.Place(NodeType.Plant, NodeDirection.Down);
+
+        private void OnClearChipClick(object? sender, RoutedEventArgs e) => Vm.ClearChip();
+
+        //Places a cell directly on double-click/Enter; Vm.PlaceDefault() picks the action.
+        private void OnCellDoubleTapped(object? sender, TappedEventArgs e) {
+            if (e.Source is Button { DataContext: BrowserCell cell })
+                PlaceFromCell(cell);
+        }
+
+        private void OnCellKeyDown(object? sender, KeyEventArgs e) {
+            if (e.Key != Key.Enter || e.Source is not Button { DataContext: BrowserCell cell })
+                return;
+            e.Handled = true;
+            PlaceFromCell(cell);
+        }
+
+        private void PlaceFromCell(BrowserCell cell) {
+            Vm.SelectCell(cell);
+            Vm.PlaceDefault();
         }
 
         //⌘W/Esc both hide rather than close - MainWindow owns one instance for the app's lifetime.

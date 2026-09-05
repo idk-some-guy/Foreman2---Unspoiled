@@ -26,11 +26,14 @@ namespace Foreman.Mac.UiTests.Inspector {
         internal static async Task<DataCache> GetCacheAsync() {
             if (sharedCache is not null)
                 return sharedCache;
-            await CacheGate.WaitAsync();
+            //ConfigureAwait(false) on both awaits: a sync caller blocking on this via GetAwaiter().GetResult()
+            //(ShellFixture.Open()) would otherwise deadlock on a cold cache, since the continuation after
+            //either await would try to resume on that blocked thread's own SynchronizationContext.
+            await CacheGate.WaitAsync().ConfigureAwait(false);
             try {
                 if (sharedCache is null) {
                     var cache = new DataCache(filterRecipes: true);
-                    await cache.LoadAllData(new Preset(VanillaPresetName, true, true), new Progress<KeyValuePair<int, string>>());
+                    await cache.LoadAllData(new Preset(VanillaPresetName, true, true), new Progress<KeyValuePair<int, string>>()).ConfigureAwait(false);
                     sharedCache = cache;
                 }
             } finally {
@@ -43,11 +46,11 @@ namespace Foreman.Mac.UiTests.Inspector {
         internal static async Task<DataCache> GetSpaceAgeCacheAsync() {
             if (sharedSpaceAgeCache is not null)
                 return sharedSpaceAgeCache;
-            await CacheGate.WaitAsync();
+            await CacheGate.WaitAsync().ConfigureAwait(false);
             try {
                 if (sharedSpaceAgeCache is null) {
                     var cache = new DataCache(filterRecipes: true);
-                    await cache.LoadAllData(new Preset(SpaceAgePresetName, true, true), new Progress<KeyValuePair<int, string>>());
+                    await cache.LoadAllData(new Preset(SpaceAgePresetName, true, true), new Progress<KeyValuePair<int, string>>()).ConfigureAwait(false);
                     sharedSpaceAgeCache = cache;
                 }
             } finally {

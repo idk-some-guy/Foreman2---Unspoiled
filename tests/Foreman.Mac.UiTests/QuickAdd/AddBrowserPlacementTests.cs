@@ -1,0 +1,205 @@
+using Avalonia.Controls;
+using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using Foreman;
+using Foreman.DataCaching;
+using Foreman.DataCaching.DataTypes;
+using Foreman.Mac.Canvas;
+using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.ViewModels;
+using Foreman.Mac.Views;
+using Foreman.Models.Nodes;
+using System.Collections.Generic;
+using System.Linq;
+using Xunit;
+using DrawingPoint = System.Drawing.Point;
+
+namespace Foreman.Mac.UiTests.QuickAdd {
+    //Task 6: the browser's footer role buttons, recipe double-click/Enter placement, and the two filter
+    //chips (link-drag "Compatible with", UnSpoil/UnPlant "Origins of"), all routed through
+    //GraphCanvasControl.PlaceCandidate/ProcessNodeRequest exactly like the palette. Supersedes
+    //ItemRecipeChooserFlowTests's RecipeChooserPanel-driven footer/origin-picker coverage for this
+    //surface - that file's own remaining tests (QualityPicker population, temperature filtering, the
+    //link-drag tab-offset, the placeholder-window assertion, and the offscreen PNG render) are
+    //RecipeChooserPanel/link-drag specific and don't map onto the browser, so nothing there needed porting.
+    public sealed class AddBrowserPlacementTests {
+        [AvaloniaFact]
+        public void SourcePassthroughOutputPlaceTheMatchingNodeKinds_AndKeepTheWindowOpen() {
+            using ShellFixture shell = ShellFixture.Open();
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(100, 100), AddScope.Items, SeedText: "iron plate"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            vm.SelectCell(vm.Sections[0].Cells[0]);
+
+            vm.Place(NodeType.Supplier);
+            vm.Place(NodeType.Passthrough);
+            vm.Place(NodeType.Consumer);
+
+            Assert.Equal(3, shell.Graph.Nodes.Count());
+            Assert.Single(shell.Graph.Nodes.OfType<SupplierNode>());
+            Assert.Single(shell.Graph.Nodes.OfType<PassthroughNode>());
+            Assert.Single(shell.Graph.Nodes.OfType<ConsumerNode>());
+            Assert.Equal([100, 220, 340], shell.Graph.Nodes.Select(n => n.Location.Y).OrderBy(y => y));
+            Assert.True(shell.Window.BrowserWindow!.IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void RecipeDoubleClickPlacesARecipeNodeWithTheSelectedQuality() {
+            using ShellFixture shell = ShellFixture.OpenWithSpaceAge();
+            DataCache cache = shell.Window.DataCache!;
+            IQuality legendary = cache.Qualities["legendary"];
+
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Recipes, SeedText: "wooden chest"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            vm.Quality = legendary;
+            BrowserCell cell = vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Kind == AddKind.Recipe);
+            vm.SelectCell(cell);
+
+            vm.PlaceSelectedRecipe();
+
+            RecipeNode node = Assert.Single(shell.Graph.Nodes.OfType<RecipeNode>());
+            Assert.Equal("legendary", node.BaseRecipe.Quality!.Name);
+        }
+
+        [AvaloniaFact]
+        public void RoleButtonsFollowTheSelectedItem() {
+            using ShellFixture shell = ShellFixture.OpenWithSpaceAge();
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Items, SeedText: "wood"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+
+            vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Entry.Name == "wood"));
+            Assert.False(vm.CanSpoil);
+
+            vm.SearchText = "raw fish";
+            vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Entry.Name == "raw-fish"));
+            Assert.True(vm.CanSpoil);
+
+            vm.SearchText = "spoilage";
+            vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Entry.Name == "spoilage"));
+            Assert.True(vm.CanUnspoil);
+
+            vm.Segment = BrowserSegment.Recipes;
+            Assert.False(vm.RolesVisible);
+        }
+
+        [AvaloniaFact]
+        public void UnspoilWithSeveralOriginsShowsTheOriginsChip_ThenPlacesTheChosenOrigin() {
+            using ShellFixture shell = ShellFixture.OpenWithSpaceAge();
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Items, SeedText: "spoilage"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Entry.Name == "spoilage"));
+
+            vm.Place(NodeType.Spoil, NodeDirection.Down);
+
+            Assert.Equal("Origins of Spoilage", vm.ChipText);
+            List<string> origins = [.. vm.Sections.SelectMany(s => s.Cells).Select(c => c.Candidate.Entry.Name)];
+            Assert.Contains("raw-fish", origins);
+            Assert.DoesNotContain("spoilage", origins);
+
+            vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Entry.Name == "raw-fish"));
+            vm.Place(NodeType.Spoil, NodeDirection.Down);
+
+            SpoilNode node = Assert.Single(shell.Graph.Nodes.OfType<SpoilNode>());
+            Assert.Equal("raw-fish", node.InputItem.Item!.Name);
+            Assert.Equal("spoilage", node.OutputItem.Item!.Name);
+
+            vm.ClearChip();
+            Assert.Null(vm.ChipText);
+            Assert.Contains(vm.Sections.SelectMany(s => s.Cells), c => c.Candidate.Entry.Name == "spoilage");
+        }
+
+        [AvaloniaFact]
+        public void RoleButtonsRespectTheLinkDirection() {
+            using ShellFixture shell = ShellFixture.OpenWithVanillaAndOneSupplier(out AddLinkContext consumerLink);
+
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(300, 0), AddScope.All, consumerLink));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First());
+            Assert.False(vm.CanSource);
+            Assert.True(vm.CanPassthrough);
+            Assert.True(vm.CanOutput);
+
+            AddLinkContext supplierLink = consumerLink with { NodeType = NewNodeType.Supplier };
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(300, 0), AddScope.All, supplierLink));
+            vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First());
+            Assert.True(vm.CanSource);
+            Assert.True(vm.CanPassthrough);
+            Assert.False(vm.CanOutput);
+        }
+
+        [AvaloniaFact]
+        public void EnterOnAnOriginCellCompletesTheOriginPick_AndClearsTheChip() {
+            using ShellFixture shell = ShellFixture.OpenWithSpaceAge();
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Items, SeedText: "spoilage"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Entry.Name == "spoilage"));
+            vm.Place(NodeType.Spoil, NodeDirection.Down);
+            Assert.Equal("Origins of Spoilage", vm.ChipText);
+
+            BrowserCell originCell = vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Entry.Name == "raw-fish");
+            vm.SelectCell(originCell);
+            Dispatcher.UIThread.RunJobs();
+
+            AddBrowserWindow window = shell.Window.BrowserWindow!;
+            Button cellButton = window.GetVisualDescendants().OfType<Button>()
+                .First(b => b.DataContext is BrowserCell bc && bc.Candidate.Equals(originCell.Candidate));
+            CanvasKeys.KeyDownOn(cellButton, Key.Enter);
+
+            SpoilNode node = Assert.Single(shell.Graph.Nodes.OfType<SpoilNode>());
+            Assert.Equal("raw-fish", node.InputItem.Item!.Name);
+            Assert.Empty(shell.Graph.Nodes.OfType<SupplierNode>());
+            Assert.Null(vm.ChipText);
+        }
+
+        [AvaloniaFact]
+        public void LinkContextShowsTheCompatibleChip_FiltersBothSegments_AndPlacesLinkedNodes() {
+            using ShellFixture shell = ShellFixture.OpenWithVanillaAndOneSupplier(out AddLinkContext link);
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(300, 0), AddScope.All, link));
+            AddBrowserViewModel vm = shell.BrowserVm;
+
+            Assert.Equal("Compatible with Iron plate", vm.ChipText);
+            Assert.Equal(["Iron plate"], vm.Sections.SelectMany(s => s.Cells).Select(c => c.Label));
+
+            vm.Segment = BrowserSegment.Recipes;
+            Assert.NotEmpty(vm.Sections.SelectMany(s => s.Cells));
+            Assert.All(vm.Sections.SelectMany(s => s.Cells), c => Assert.Contains(link.Item.Item!, c.Candidate.Recipe!.IngredientSet.Keys));
+
+            vm.SelectCell(vm.Sections[0].Cells[0]);
+            vm.PlaceSelectedRecipe();
+            Assert.Single(shell.Graph.NodeLinks);
+
+            vm.ClearChip();
+            Assert.Null(vm.ChipText);
+
+            vm.Segment = BrowserSegment.Items;
+            vm.SearchText = "iron plate";
+            vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Kind == AddKind.Item));
+            vm.Place(NodeType.Supplier);
+            Assert.Single(shell.Graph.NodeLinks);
+        }
+
+        [AvaloniaFact]
+        public void EnterOnASelectedCellPlaces_EscapeHidesTheWindow() {
+            using ShellFixture shell = ShellFixture.Open();
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Items, SeedText: "iron plate"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            BrowserCell cell = vm.Sections[0].Cells[0];
+            vm.SelectCell(cell);
+            Dispatcher.UIThread.RunJobs();
+
+            AddBrowserWindow window = shell.Window.BrowserWindow!;
+            Button cellButton = window.GetVisualDescendants().OfType<Button>()
+                .First(b => b.DataContext is BrowserCell bc && bc.Candidate.Equals(cell.Candidate));
+            CanvasKeys.KeyDownOn(cellButton, Key.Enter);
+
+            Assert.Single(shell.Graph.Nodes);
+            Assert.True(window.IsVisible);
+
+            CanvasKeys.KeyDownOn(window, Key.Escape);
+            Assert.False(window.IsVisible);
+            Assert.Same(window, shell.Window.BrowserWindow);
+        }
+    }
+}

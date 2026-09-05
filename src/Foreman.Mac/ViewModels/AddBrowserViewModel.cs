@@ -18,6 +18,7 @@ namespace Foreman.Mac.ViewModels {
         public string Heading => Title.ToUpperInvariant();
     }
     public sealed record BrowserGroup(IGroup Group, string Name, IImage? Icon, bool IsSelected);
+    public sealed record BrowserPick(AddCandidate Candidate, NodeType Role, NodeDirection? SpoilPlantDirection, IQuality Quality, IItem? ExplicitOrigin = null);
 
     //Group sorting/visibility counting ports RecipeChooserPanel.GetSortedGroups/ItemChooserPanel (Task 7 retires both).
     public sealed partial class AddBrowserViewModel : ObservableObject {
@@ -35,6 +36,14 @@ namespace Foreman.Mac.ViewModels {
         //Each segment remembers its own last-picked group.
         private IGroup? selectedItemsGroup;
         private IGroup? selectedRecipesGroup;
+
+        private AddRequest? request;
+        private PendingOrigin? pendingOrigin;
+
+        //Remembers the UnSpoil/UnPlant target while its multi-origin chip is up: Origins comes straight
+        //from IItem.SpoilOrigins/PlantOrigins, Target is that item's own candidate (so the follow-up pick
+        //can still report the right base item once an origin cell is chosen).
+        private sealed record PendingOrigin(AddCandidate Target, NodeType Role, IReadOnlyCollection<IItem> Origins);
 
         public AddBrowserViewModel(AddCatalog catalog, DataCache cache, AppSettings settings, Func<SKBitmap, int, IImage?> bake) {
             this.catalog = catalog;
@@ -60,6 +69,8 @@ namespace Foreman.Mac.ViewModels {
         [ObservableProperty]
         private BrowserCell? selectedCell;
 
+        public event EventHandler<BrowserPick>? PlaceRequested;
+
         public IReadOnlyList<IQuality> Qualities { get; }
         public string QualityLabel => $"Quality: {Quality?.FriendlyName}";
         public bool ShowsQuality => catalog.ShowsQuality;
@@ -68,6 +79,31 @@ namespace Foreman.Mac.ViewModels {
         public ReadOnlyObservableCollection<BrowserSection> Sections { get; }
 
         public string SearchPlaceholder => Segment == BrowserSegment.Recipes ? "Search recipes…" : "Search items…";
+
+        //Origins-of-{item} (UnSpoil/UnPlant, 2+ origins) wins over Compatible-with-{item} (a link-drag
+        //request) - the two never overlap in practice since role buttons only show for the Items segment.
+        public string? ChipText => pendingOrigin is { } pending ? $"Origins of {pending.Target.Name}"
+            : request?.Link is { Item.Item: IItem linkItem } ? $"Compatible with {linkItem.FriendlyName}"
+            : null;
+        public bool HasChip => ChipText is not null;
+
+        //MainWindow's own AddRequest only tracks the advancing placement Location; the link itself lives
+        //here so ClearChip() (and any future re-seed) is the one place that can change it.
+        internal AddLinkContext? Link => request?.Link;
+
+        private IItem? SelectedItem => SelectedCell?.Candidate.Item;
+
+        //Mirrors RecipeChooserPanel's asIngredient/asProduct gating (Panels/RecipeChooserPanel.cs:43-44,71-72):
+        //a link needing a Consumer hides Source, a link needing a Supplier hides Output; Pass-Through is
+        //offered either way.
+        public bool CanSource => SelectedItem is not null && Link?.NodeType != NewNodeType.Consumer;
+        public bool CanPassthrough => SelectedItem is not null;
+        public bool CanOutput => SelectedItem is not null && Link?.NodeType != NewNodeType.Supplier;
+        public bool CanSpoil => SelectedItem?.SpoilResult is not null;
+        public bool CanUnspoil => SelectedItem is not null && SelectedItem.SpoilOrigins.Count > 0;
+        public bool CanPlant => SelectedItem?.PlantResult is not null;
+        public bool CanUnplant => SelectedItem is not null && SelectedItem.PlantOrigins.Count > 0;
+        public bool RolesVisible => Segment == BrowserSegment.Items && SelectedItem is not null;
 
         public bool ShowUnavailable {
             get => settings.ShowUnavailable;
@@ -107,13 +143,99 @@ namespace Foreman.Mac.ViewModels {
         public void SelectCell(BrowserCell? cell) => SelectedCell = cell;
 
         public void Seed(AddRequest request) {
+            this.request = request;
+            pendingOrigin = null;
             Segment = request.Scope == AddScope.Recipes ? BrowserSegment.Recipes : BrowserSegment.Items;
             SearchText = request.SeedText;
+            Refresh();
+            RaiseChipChanged();
         }
 
-        partial void OnSegmentChanged(BrowserSegment value) => Refresh();
+        //R9: the x clears both the link and any origins filter, and later picks land disconnected.
+        public void ClearChip() {
+            pendingOrigin = null;
+            if (request is not null)
+                request = request with { Link = null };
+            Refresh();
+            RaiseChipChanged();
+        }
+
+        //Source/Pass-Through/Output/Spoil(Up)/Plant(Up) place straight away; UnSpoil/UnPlant(Down) with
+        //2+ origins swaps the grid to an origin picker instead (RecipeChooserPanel's RequiresItemSelection
+        //flow, ported) - the second Place() call, once an origin cell is selected, reports pendingOrigin's
+        //remembered target alongside the chosen origin.
+        public void Place(NodeType role, NodeDirection? spoilPlantDirection = null) {
+            if (SelectedCell is null)
+                return;
+            IQuality resolvedQuality = Quality ?? cache.DefaultQuality!;
+
+            if (pendingOrigin is { } pending && spoilPlantDirection == NodeDirection.Down && role == pending.Role) {
+                if (SelectedCell.Candidate.Item is IItem chosenOrigin) {
+                    pendingOrigin = null;
+                    PlaceRequested?.Invoke(this, new BrowserPick(pending.Target, role, spoilPlantDirection, resolvedQuality, chosenOrigin));
+                    RefreshSections();
+                    RaiseChipChanged();
+                }
+                return;
+            }
+
+            if (spoilPlantDirection == NodeDirection.Down && role is NodeType.Spoil or NodeType.Plant && SelectedCell.Candidate.Item is IItem item) {
+                IReadOnlyCollection<IItem> origins = role == NodeType.Spoil ? item.SpoilOrigins : item.PlantOrigins;
+                if (origins.Count >= 2) {
+                    pendingOrigin = new PendingOrigin(SelectedCell.Candidate, role, origins);
+                    RefreshSections();
+                    RaiseChipChanged();
+                    return;
+                }
+            }
+
+            PlaceRequested?.Invoke(this, new BrowserPick(SelectedCell.Candidate, role, spoilPlantDirection, resolvedQuality));
+        }
+
+        public void PlaceSelectedRecipe() {
+            if (SelectedCell?.Candidate.Kind != AddKind.Recipe)
+                return;
+            IQuality resolvedQuality = Quality ?? cache.DefaultQuality!;
+            PlaceRequested?.Invoke(this, new BrowserPick(SelectedCell.Candidate, NodeType.Recipe, null, resolvedQuality));
+        }
+
+        //Double-click/Enter on a cell: an active origins chip completes that pick, otherwise the
+        //segment decides (a recipe in Recipes, a Source node in Items).
+        public void PlaceDefault() {
+            if (pendingOrigin is { } pending) {
+                Place(pending.Role, NodeDirection.Down);
+                return;
+            }
+            if (Segment == BrowserSegment.Recipes)
+                PlaceSelectedRecipe();
+            else
+                Place(NodeType.Supplier);
+        }
+
+        private void RaiseChipChanged() {
+            OnPropertyChanged(nameof(ChipText));
+            OnPropertyChanged(nameof(HasChip));
+        }
+
+        private void NotifyRoleProperties() {
+            OnPropertyChanged(nameof(CanSource));
+            OnPropertyChanged(nameof(CanPassthrough));
+            OnPropertyChanged(nameof(CanOutput));
+            OnPropertyChanged(nameof(CanSpoil));
+            OnPropertyChanged(nameof(CanUnspoil));
+            OnPropertyChanged(nameof(CanPlant));
+            OnPropertyChanged(nameof(CanUnplant));
+            OnPropertyChanged(nameof(RolesVisible));
+        }
+
+        partial void OnSegmentChanged(BrowserSegment value) {
+            Refresh();
+            NotifyRoleProperties();
+        }
+
         partial void OnSearchTextChanged(string value) => RefreshSections();
         partial void OnQualityChanged(IQuality? value) => OnPropertyChanged(nameof(QualityLabel));
+        partial void OnSelectedCellChanged(BrowserCell? value) => NotifyRoleProperties();
 
         private IGroup? SelectedGroupForSegment(BrowserSegment forSegment) =>
             forSegment == BrowserSegment.Items ? selectedItemsGroup : selectedRecipesGroup;
@@ -158,11 +280,17 @@ namespace Foreman.Mac.ViewModels {
             AddCandidate? previouslySelected = SelectedCell?.Candidate;
 
             sections.Clear();
-            string text = SearchText.Trim();
-            if (text.Length == 0)
-                BuildGroupSections();
-            else
-                BuildSearchSection(text);
+            if (pendingOrigin is { } pending && Segment == BrowserSegment.Items) {
+                sections.Add(new BrowserSection("Origins", [.. pending.Origins.Select(o => BuildCell(CandidateFor(o)))]));
+            } else if (request?.Link is { } link) {
+                BuildLinkSections(link);
+            } else {
+                string text = SearchText.Trim();
+                if (text.Length == 0)
+                    BuildGroupSections();
+                else
+                    BuildSearchSection(text);
+            }
 
             SelectedCell = previouslySelected is null
                 ? null
@@ -205,6 +333,18 @@ namespace Foreman.Mac.ViewModels {
             }
 
             sections.Add(new BrowserSection("Results", [.. candidates.Select(BuildCell)]));
+        }
+
+        //Link-drag "Add..." (a dragged tab's Compatible-with-{item} chip): Items narrows to the dragged
+        //item itself, Recipes to every recipe AddCatalog.IsCompatible allows for that link's direction.
+        private void BuildLinkSections(AddLinkContext link) {
+            if (Segment == BrowserSegment.Items) {
+                if (link.Item.Item is IItem linkItem)
+                    sections.Add(new BrowserSection("Items", [BuildCell(CandidateFor(linkItem))]));
+            } else {
+                var candidates = cache.Recipes.Values.Where(r => catalog.IsVisible(r) && catalog.IsCompatible(r, link)).Select(CandidateFor);
+                sections.Add(new BrowserSection("Recipes", [.. candidates.Select(BuildCell)]));
+            }
         }
 
         private static AddCandidate CandidateFor(IDataObjectBase entry) => entry switch {

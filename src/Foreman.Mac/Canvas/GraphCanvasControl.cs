@@ -48,13 +48,10 @@ namespace Foreman.Mac.Canvas {
     //the ghost's MouseDownElement redirection, passthrough-bus creation) lives here too, alongside the rest
     //of the drag/mouse-routing state (MouseDownElement, CurrentDragOperation) rather than on GraphViewer.
     public sealed class GraphCanvasControl : Decorator {
-        //Ports ProductionGraphViewer's private DragOperation enum verbatim (reference §1). DrawShape enters
-        //the state machine here but its Move/Up behavior is Task 6's job - inDrawShapeMode stays false until
-        //then, so this control never actually reaches it yet.
+        //DrawShape never triggers yet: inDrawShapeMode stays false until that mode lands.
         internal enum DragOperation { None, Item, Selection, DrawShape }
 
-        //Reference §1: "dragDiff² > minDragDiff (30, squared screen pixels)" - minDragDiff already IS the
-        //squared threshold (a ~5.5px move), not 30 squared again.
+        //Already squared (a ~5.5px move), not 30 squared again.
         private const int MinDragDiffSquared = 30;
 
         public Viewport Viewport { get; }
@@ -155,9 +152,7 @@ namespace Foreman.Mac.Canvas {
             Viewer.SetSelection([node]);
         }
 
-        //IMPORTANT 4 (final fix wave, reference §7): loading a save over an open edit/chooser panel left it
-        //bound to a node the load just replaced or removed - closes it first, mirroring upstream
-        //ClearFloatingControls' own unconditional-close-on-major-state-change model.
+        //Closes any open panel first: a load can replace or remove the node it was bound to.
         internal GraphLoadResult LoadDocument(DataCache cache, string json, bool setEnablesFromJson = true) {
             FloatingPanelHost.Close();
             return Viewer.LoadDocument(cache, json, setEnablesFromJson);
@@ -759,16 +754,14 @@ namespace Foreman.Mac.Canvas {
             FloatingPanelHost.Show(palette, request.Location);
         }
 
-        //Places one candidate through the normal ProcessNodeRequest path (never around it, so
-        //ApplyAssemblerFuelAutoSelection still runs for a Recipe pick) and advances ActiveAddRequest so a
-        //palette left open for a second pick lands its next node below (or, for a link-drag request, beside)
-        //the one just placed.
-        internal void PlaceCandidate(AddCandidate candidate, AddRequest request, NodeType? roleOverride = null, IQuality? quality = null) {
+        //returns the advanced request so the browser can track placement like ActiveAddRequest
+        internal AddRequest PlaceCandidate(AddCandidate candidate, AddRequest request, NodeType? roleOverride = null, IQuality? quality = null,
+            NodeDirection? spoilPlantDirection = null, IItem? explicitOrigin = null) {
             if (Viewer.Context.DCache is not DataCache cache)
-                return;
+                return request;
 
             IQuality q = quality ?? Viewer.Graph.DefaultAssemblerQuality ?? cache.DefaultQuality!;
-            NodeDirection direction = request.Link?.Direction ?? Viewer.Graph.DefaultNodeDirection;
+            NodeDirection direction = spoilPlantDirection ?? request.Link?.Direction ?? Viewer.Graph.DefaultNodeDirection;
             NewNodeType outer = request.Link?.NodeType ?? NewNodeType.Disconnected;
 
             if (candidate.Kind == AddKind.Recipe) {
@@ -779,7 +772,7 @@ namespace Foreman.Mac.Canvas {
                 var item = new ItemQualityPair(candidate.Item!, q);
                 var ctx = new NewNodeContext(item, request.Location, outer, request.Link?.OriginElement, direction, request.Link is not null);
                 NodeType role = roleOverride ?? (outer == NewNodeType.Consumer ? NodeType.Consumer : NodeType.Supplier);
-                ProcessNodeRequest(ctx, role, default, direction);
+                ProcessNodeRequest(ctx, role, default, direction, explicitOrigin);
             }
 
             ActiveAddRequest = request with {
@@ -787,6 +780,7 @@ namespace Foreman.Mac.Canvas {
                     ? new DrawingPoint(request.Location.X, request.Location.Y + 120)
                     : new DrawingPoint(request.Location.X + 120, request.Location.Y)
             };
+            return ActiveAddRequest;
         }
 
         private Services.AppSettings? fallbackChooserSettings;
@@ -876,7 +870,7 @@ namespace Foreman.Mac.Canvas {
         //NodeType a RecipeChooserPanel can request except the Spoil/Plant-Down multi-origin cases, which
         //AddNewNode routes to the sub-pickers above before this ever runs. Assembler/fuel auto-selection for
         //a Recipe pick is ApplyAssemblerFuelAutoSelection's job, below.
-        private void ProcessNodeRequest(NewNodeContext ctx, NodeType nodeType, RecipeQualityPair recipe, NodeDirection direction) {
+        private void ProcessNodeRequest(NewNodeContext ctx, NodeType nodeType, RecipeQualityPair recipe, NodeDirection direction, IItem? explicitOrigin = null) {
             if (Viewer.Context.DCache is not DataCache cache)
                 return;
 
@@ -897,14 +891,13 @@ namespace Foreman.Mac.Canvas {
                 case NodeType.Spoil when direction == NodeDirection.Up && itemNN?.SpoilResult is IItem spoilOutput:
                     newNodeId = Viewer.Session.Editor.CreateSpoilNode(ctx.BaseItem, spoilOutput, ctx.NewLocation);
                     break;
-                case NodeType.Spoil when direction == NodeDirection.Down && itemNN is not null && qualityNN is not null && itemNN.SpoilOrigins.Count == 1:
-                    newNodeId = Viewer.Session.Editor.CreateSpoilNode(new ItemQualityPair(itemNN.SpoilOrigins.First(), qualityNN), itemNN, ctx.NewLocation);
+                case NodeType.Spoil when direction == NodeDirection.Down && itemNN is not null && qualityNN is not null && ResolveOrigin(explicitOrigin, itemNN.SpoilOrigins) is IItem spoilOrigin:
+                    newNodeId = Viewer.Session.Editor.CreateSpoilNode(new ItemQualityPair(spoilOrigin, qualityNN), itemNN, ctx.NewLocation);
                     break;
                 case NodeType.Plant when direction == NodeDirection.Up && itemNN?.PlantResult is IPlantProcess plantUp && qualityNN is not null:
                     newNodeId = Viewer.Session.Editor.CreatePlantNode(plantUp, qualityNN, ctx.NewLocation);
                     break;
-                case NodeType.Plant when direction == NodeDirection.Down && itemNN is not null && itemNN.PlantOrigins.Count == 1:
-                    IItem plantOrigin = itemNN.PlantOrigins.First();
+                case NodeType.Plant when direction == NodeDirection.Down && itemNN is not null && ResolveOrigin(explicitOrigin, itemNN.PlantOrigins) is IItem plantOrigin:
                     if (plantOrigin.PlantResult is IPlantProcess plantDown && cache.DefaultQuality is IQuality defaultPlantQuality)
                         newNodeId = Viewer.Session.Editor.CreatePlantNode(plantDown, defaultPlantQuality, ctx.NewLocation);
                     break;
@@ -916,6 +909,10 @@ namespace Foreman.Mac.Canvas {
 
             ProcessCreatedNode(ctx, newNodeId);
         }
+
+        //an explicit origin from the UnSpoil/UnPlant chip wins over the single-origin rule
+        private static IItem? ResolveOrigin(IItem? explicitOrigin, IReadOnlyCollection<IItem> origins) =>
+            explicitOrigin ?? (origins.Count == 1 ? origins.First() : null);
 
         //Ports ProcessNodeRequest's assembler/fuel auto-selection for a plain recipe pick (reference §8,
         //upstream lines 367-391): only runs when the picked recipe doesn't already use baseItem as an
