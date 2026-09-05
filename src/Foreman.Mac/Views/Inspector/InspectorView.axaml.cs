@@ -19,7 +19,8 @@ namespace Foreman.Mac.Views.Inspector {
         private readonly Image identityIcon;
         private readonly TextBlock identityName;
         private readonly TextBlock identitySubtitle;
-        private readonly Button qualityButton;
+        private readonly Button qualityMiniSelect;
+        private readonly TextBlock qualityMiniSelectLabel;
         private readonly PickGrid qualityGrid;
         private readonly TextBlock recipeSegmentLabel;
         private readonly TextBlock flowSegmentLabel;
@@ -41,7 +42,8 @@ namespace Foreman.Mac.Views.Inspector {
             identityIcon = this.FindControl<Image>("IdentityIcon")!;
             identityName = this.FindControl<TextBlock>("IdentityName")!;
             identitySubtitle = this.FindControl<TextBlock>("IdentitySubtitle")!;
-            qualityButton = this.FindControl<Button>("QualityButton")!;
+            qualityMiniSelect = this.FindControl<Button>("QualityMiniSelect")!;
+            qualityMiniSelectLabel = this.FindControl<TextBlock>("QualityMiniSelectLabel")!;
             qualityGrid = this.FindControl<PickGrid>("QualityGrid")!;
             recipeSegmentLabel = this.FindControl<TextBlock>("RecipeSegmentLabel")!;
             flowSegmentLabel = this.FindControl<TextBlock>("FlowSegmentLabel")!;
@@ -58,13 +60,15 @@ namespace Foreman.Mac.Views.Inspector {
             scope.Register("IdentityIcon", identityIcon);
             scope.Register("IdentityName", identityName);
             scope.Register("IdentitySubtitle", identitySubtitle);
-            scope.Register("QualityButton", qualityButton);
+            scope.Register("QualityMiniSelect", qualityMiniSelect);
+            scope.Register("QualityMiniSelectLabel", qualityMiniSelectLabel);
             scope.Register("QualityGrid", qualityGrid);
             scope.Register("RecipeSegmentLabel", recipeSegmentLabel);
             scope.Register("FlowSegmentLabel", flowSegmentLabel);
             scope.Register("SegmentHost", segmentHost);
             scope.Register("SegmentControl", this.FindControl<Control>("SegmentControl")!);
             scope.Register("EmptyState", this.FindControl<Control>("EmptyState")!);
+            scope.Register("InspectorScroller", this.FindControl<Control>("InspectorScroller")!);
             scope.Register("FlowSegment", flowSegmentView);
             scope.Register("RecipeSegment", recipeSegmentView);
             NameScope.SetNameScope(this, scope);
@@ -104,7 +108,7 @@ namespace Foreman.Mac.Views.Inspector {
                 identityName.Text = "";
                 identitySubtitle.Text = "";
                 segmentHost.Content = null;
-                SetQualityButton(null);
+                SetQualityMiniSelect(null);
                 return;
             }
 
@@ -119,23 +123,24 @@ namespace Foreman.Mac.Views.Inspector {
 
             if (Viewer is not GraphViewer viewer) {
                 segmentHost.Content = null;
-                SetQualityButton(null);
+                SetQualityMiniSelect(null);
             } else if (recipeActive && node is IRecipeNodeViewModel recipeNode && viewer.Context.DCache is DataCache cache) {
                 recipeSegmentView.Bind(recipeNode, viewer, cache, RequestRedraw);
                 segmentHost.Content = recipeSegmentView;
-                SetQualityButton(recipeSegmentView.ViewModel);
+                SetQualityMiniSelect(recipeSegmentView.ViewModel);
             } else if (!recipeActive) {
                 flowSegmentView.Bind(node, viewer, RequestRedraw);
                 segmentHost.Content = flowSegmentView;
-                SetQualityButton(null);
+                SetQualityMiniSelect(null);
             } else {
                 segmentHost.Content = null;
-                SetQualityButton(null);
+                SetQualityMiniSelect(null);
             }
         }
 
-        private void SetQualityButton(RecipeSegmentViewModel? recipeViewModel) {
-            qualityButton.IsVisible = recipeViewModel?.ShowsQuality ?? false;
+        private void SetQualityMiniSelect(RecipeSegmentViewModel? recipeViewModel) {
+            qualityMiniSelect.IsVisible = recipeViewModel?.ShowsQuality ?? false;
+            qualityMiniSelectLabel.Text = recipeViewModel?.CurrentQualityName ?? "";
             qualityGrid.Items = recipeViewModel?.QualityOptions ?? [];
         }
 
@@ -144,7 +149,7 @@ namespace Foreman.Mac.Views.Inspector {
         private void QualityGrid_ItemActivated(object? sender, PickGridItem item) {
             recipeSegmentView.ViewModel?.PickQuality(item);
             Refresh();
-            qualityButton.Flyout?.Hide();
+            qualityMiniSelect.Flyout?.Hide();
         }
 
         //Forwarded from MainWindow's two rate-unit change paths (MenuSetRateUnit, the View Options
@@ -170,7 +175,7 @@ namespace Foreman.Mac.Views.Inspector {
             _ => ("", "", null),
         };
 
-        private const int IdentityIconSize = 28;
+        private const int IdentityIconSize = 18;
 
         private Bitmap GetOrBakeIcon(SKBitmap icon) => IconBaker.GetOrBake(bakedIconCache, icon, IdentityIconSize);
     }

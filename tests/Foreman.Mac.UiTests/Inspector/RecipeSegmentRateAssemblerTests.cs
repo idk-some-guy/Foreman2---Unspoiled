@@ -247,7 +247,7 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             Assert.True(oracle.Resolved);
             Assert.Equal(RateType.Manual, node.RateType);
-            Assert.True(view.FindControl<NumericUpDown>("AssemblerCountValue")!.IsEnabled);
+            Assert.True(view.FindControl<CompactStepper>("AssemblerCountValue")!.IsEnabled);
         }
 
         [AvaloniaFact]
@@ -267,7 +267,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(27);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<NumericUpDown>("AssemblerCountValue")!.Value = 5m;
+            view.FindControl<CompactStepper>("AssemblerCountValue")!.Value = 5;
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(oracle.Resolved);
@@ -289,7 +289,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(31);
             Assert.False(oracle.Resolved);
 
-            NumericUpDown assemblerCount = view.FindControl<NumericUpDown>("AssemblerCountValue")!;
+            CompactStepper assemblerCount = view.FindControl<CompactStepper>("AssemblerCountValue")!;
             assemblerCount.Value = assemblerCount.Value;
             Dispatcher.UIThread.RunJobs();
 
@@ -454,13 +454,13 @@ namespace Foreman.Mac.UiTests.Inspector {
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
-            Assert.True(view.FindControl<NumericUpDown>("AvgNeighboursValue")!.IsVisible); //reactor selected -> field shown
+            Assert.True(view.FindControl<CompactStepper>("AvgNeighboursValue")!.IsVisible); //reactor selected -> field shown
 
             Oracle oracle = NewOracle(rf.Fx);
             oracle.GoStale(6);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<NumericUpDown>("AvgNeighboursValue")!.Value = 2m;
+            view.FindControl<CompactStepper>("AvgNeighboursValue")!.Value = 2;
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(oracle.Resolved);
@@ -481,7 +481,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
             Assert.True(view.ViewModel!.ShowsNeighbours);
-            Assert.True(view.FindControl<NumericUpDown>("AvgNeighboursValue")!.IsVisible);
+            Assert.True(view.FindControl<CompactStepper>("AvgNeighboursValue")!.IsVisible);
         }
 
         [AvaloniaFact]
@@ -494,7 +494,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
             Assert.False(view.ViewModel!.ShowsNeighbours);
-            Assert.False(view.FindControl<NumericUpDown>("AvgNeighboursValue")!.IsVisible);
+            Assert.False(view.FindControl<CompactStepper>("AvgNeighboursValue")!.IsVisible);
         }
 
         [AvaloniaFact]
@@ -507,7 +507,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
             Assert.False(view.ViewModel!.ShowsExtraProductivity);
-            Assert.False(view.FindControl<NumericUpDown>("ExtraProductivityValue")!.IsVisible);
+            Assert.False(view.FindControl<CompactStepper>("ExtraProductivityValue")!.IsVisible);
         }
 
         [AvaloniaFact]
@@ -521,7 +521,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
             Assert.True(view.ViewModel!.ShowsExtraProductivity);
-            Assert.True(view.FindControl<NumericUpDown>("ExtraProductivityValue")!.IsVisible);
+            Assert.True(view.FindControl<CompactStepper>("ExtraProductivityValue")!.IsVisible);
         }
 
         [AvaloniaFact]
@@ -535,7 +535,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
             Assert.True(view.ViewModel!.ShowsExtraProductivity);
-            Assert.True(view.FindControl<NumericUpDown>("ExtraProductivityValue")!.IsVisible);
+            Assert.True(view.FindControl<CompactStepper>("ExtraProductivityValue")!.IsVisible);
         }
 
         //Neither gate is a one-way latch: the inspector keeps the same view model across many assembler
@@ -550,7 +550,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
             (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
-            NumericUpDown neighboursValue = view.FindControl<NumericUpDown>("AvgNeighboursValue")!;
+            CompactStepper neighboursValue = view.FindControl<CompactStepper>("AvgNeighboursValue")!;
             PickGrid assemblerGrid = view.FindControl<PickGrid>("AssemblerGrid")!;
             Assert.False(neighboursValue.IsVisible);
 
@@ -571,7 +571,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
             (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
-            NumericUpDown extraProductivityValue = view.FindControl<NumericUpDown>("ExtraProductivityValue")!;
+            CompactStepper extraProductivityValue = view.FindControl<CompactStepper>("ExtraProductivityValue")!;
             PickGrid assemblerGrid = view.FindControl<PickGrid>("AssemblerGrid")!;
             Assert.False(extraProductivityValue.IsVisible);
 
@@ -595,7 +595,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(8);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<NumericUpDown>("ExtraProductivityValue")!.Value = 20m;
+            view.FindControl<CompactStepper>("ExtraProductivityValue")!.Value = 20;
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(oracle.Resolved);
@@ -694,7 +694,7 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             window.Inspector.RefreshSegment();
 
-            Assert.Equal(4, view.FindControl<NumericUpDown>("AssemblerCountValue")!.Value);
+            Assert.Equal(4, view.FindControl<CompactStepper>("AssemblerCountValue")!.Value);
         }
 
         [AvaloniaFact]

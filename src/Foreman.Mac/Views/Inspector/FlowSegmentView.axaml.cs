@@ -12,7 +12,7 @@ namespace Foreman.Mac.Views.Inspector {
     //so FlowSegmentViewModel.IsFixedRate, via its own TwoWay binding) whenever Auto gets picked instead.
     public partial class FlowSegmentView : UserControl {
         private readonly RadioButton rateAuto;
-        private readonly NumericUpDown rateValue;
+        private readonly CompactStepper rateValue;
         private GraphViewer? boundViewer;
 
         public FlowSegmentViewModel? ViewModel { get; private set; }
@@ -20,7 +20,7 @@ namespace Foreman.Mac.Views.Inspector {
         public FlowSegmentView() {
             InitializeComponent();
             rateAuto = this.FindControl<RadioButton>("RateAuto")!;
-            rateValue = this.FindControl<NumericUpDown>("RateValue")!;
+            rateValue = this.FindControl<CompactStepper>("RateValue")!;
             rateAuto.IsCheckedChanged += RateAuto_IsCheckedChanged;
             DetachedFromVisualTree += (_, _) => Detach();
         }
@@ -32,7 +32,7 @@ namespace Foreman.Mac.Views.Inspector {
             boundViewer = viewer;
             ViewModel = new FlowSegmentViewModel(node, viewer, requestRedraw);
             DataContext = ViewModel;
-            rateValue.Maximum = (decimal)(node.MaxDesiredSetValue * viewer.Graph.GetRateMultipler());
+            rateValue.Maximum = node.MaxDesiredSetValue * viewer.Graph.GetRateMultipler();
             rateAuto.IsChecked = !ViewModel.IsFixedRate;
             viewer.Session.NodeValuesUpdated += OnNodeValuesUpdated;
         }

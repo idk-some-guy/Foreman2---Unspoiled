@@ -253,19 +253,10 @@ namespace Foreman.Mac.Canvas.Elements {
             entries.Add(MenuEntry.Divider);
         }
 
+        //Task 9 (contract §03): the recipe hover card is retired - it folds into the inspector's own
+        //identity header (RecipeCardView) instead. Help tooltips stay.
         protected override List<TooltipInfo> GetMyToolTips(Point graphPoint, bool exclusive) {
             var tooltips = new List<TooltipInfo>();
-
-            if (Context.ShowRecipeToolTip && RecipeViewModel.BaseRecipe.Recipe is IRecipe recipe) {
-                IRecipe[] recipes = [recipe];
-                Size size = RecipePainter.GetSize(recipes, Context.AbbreviateSciPacks);
-                tooltips.Add(new TooltipInfo(
-                    Context.Viewport.GraphToScreen(LocalToGraph(new Point(Width / 2, 0))),
-                    Direction.Left,
-                    null,
-                    new Avalonia.Size(size.Width, size.Height),
-                    (canvas, offset) => RecipePainter.Paint(recipes, canvas, offset, Context.AbbreviateSciPacks)));
-            }
 
             string entityName = RecipeViewModel.SelectedAssembler.Assembler is IAssembler helpAssembler
                 ? helpAssembler.GetEntityTypeName(false).ToLowerInvariant()

@@ -26,6 +26,7 @@ namespace Foreman.Mac.ViewModels {
         private DataCache Cache { get; }
         private readonly Action? requestRedraw;
         private readonly Dictionary<SKBitmap, Bitmap> iconCache = [];
+        private readonly Dictionary<SKBitmap, Bitmap> cardIconCache = [];
         private bool suppressWrites;
 
         [ObservableProperty]
@@ -68,6 +69,12 @@ namespace Foreman.Mac.ViewModels {
 
         public bool ShowsQuality { get; private set; }
         public IReadOnlyList<PickGridItem> QualityOptions { get; private set; } = [];
+        public string CurrentQualityName { get; private set; } = "";
+
+        //Recipe card fold (Task 9): the identity header's own card, built once per assembler/recipe change
+        //from the same recipe data RecipePainter used - null for a recipe with no base recipe resolved.
+        public RecipeCardViewModel? Card { get; private set; }
+        public bool HasCard => Card is not null;
 
         [ObservableProperty]
         private double beaconCount;
@@ -136,6 +143,10 @@ namespace Foreman.Mac.ViewModels {
                 || node.SelectedAssembler.Assembler.EntityType == EntityType.Miner
                 || viewer.Graph.EnableExtraProductivityForNonMiners;
             OnPropertyChanged(nameof(ShowsExtraProductivity));
+
+            Card = node.BaseRecipe is { Recipe: IRecipe cardRecipe } ? RecipeCardViewModel.Build(cardRecipe, cardIconCache) : null;
+            OnPropertyChanged(nameof(Card));
+            OnPropertyChanged(nameof(HasCard));
 
             RefreshModules();
             RefreshBeacon();
@@ -302,6 +313,8 @@ namespace Foreman.Mac.ViewModels {
             QualityOptions = [.. qualities.Select(quality => BuildItem(quality, quality.Icon,
                 isSelected: quality == node.SelectedAssembler.Quality, isAvailable: quality.Available && !quality.IsMissing))];
             OnPropertyChanged(nameof(QualityOptions));
+            CurrentQualityName = node.SelectedAssembler.Quality.FriendlyName ?? "";
+            OnPropertyChanged(nameof(CurrentQualityName));
         }
 
         //Re-qualities the node's current assembler in place and writes straight through, rather than only

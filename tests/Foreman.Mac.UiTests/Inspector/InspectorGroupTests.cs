@@ -62,7 +62,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         [AvaloniaFact]
         public void TitleClick_TogglesDisclosureGlyph() {
             (_, InspectorGroup group) = NewGroup(isExpanded: true);
-            TextBlock glyph = HeaderOf(group).GetVisualDescendants().OfType<TextBlock>().First();
+            TextBlock glyph = HeaderOf(group).GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "DisclosureGlyph");
             string expandedGlyph = glyph.Text!;
 
             group.IsExpanded = false;

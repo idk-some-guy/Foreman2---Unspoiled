@@ -423,7 +423,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(11);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<NumericUpDown>("BeaconCountValue")!.Value = 3m;
+            view.FindControl<CompactStepper>("BeaconCountValue")!.Value = 3;
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(oracle.Resolved);
@@ -444,7 +444,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(11);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<NumericUpDown>("BeaconsPerAssemblerValue")!.Value = 2m;
+            view.FindControl<CompactStepper>("BeaconsPerAssemblerValue")!.Value = 2;
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(oracle.Resolved);
@@ -465,7 +465,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(11);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<NumericUpDown>("BeaconsTotalValue")!.Value = 4m;
+            view.FindControl<CompactStepper>("BeaconsTotalValue")!.Value = 4;
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(oracle.Resolved);
@@ -486,20 +486,20 @@ namespace Foreman.Mac.UiTests.Inspector {
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
-            NumericUpDown beaconCount = view.FindControl<NumericUpDown>("BeaconCountValue")!;
-            NumericUpDown beaconsPerAssembler = view.FindControl<NumericUpDown>("BeaconsPerAssemblerValue")!;
-            NumericUpDown beaconsTotal = view.FindControl<NumericUpDown>("BeaconsTotalValue")!;
+            CompactStepper beaconCount = view.FindControl<CompactStepper>("BeaconCountValue")!;
+            CompactStepper beaconsPerAssembler = view.FindControl<CompactStepper>("BeaconsPerAssemblerValue")!;
+            CompactStepper beaconsTotal = view.FindControl<CompactStepper>("BeaconsTotalValue")!;
 
-            beaconCount.Value = 1m;
+            beaconCount.Value = 1;
             Assert.Equal("1", beaconCount.Text);
 
-            beaconCount.Value = 1.5m;
+            beaconCount.Value = 1.5;
             Assert.Equal("1.5", beaconCount.Text);
 
-            beaconsPerAssembler.Value = 2m;
+            beaconsPerAssembler.Value = 2;
             Assert.Equal("2.00", beaconsPerAssembler.Text);
 
-            beaconsTotal.Value = 3m;
+            beaconsTotal.Value = 3;
             Assert.Equal("3.00", beaconsTotal.Text);
         }
     }

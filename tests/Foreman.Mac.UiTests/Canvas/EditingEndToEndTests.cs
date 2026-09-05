@@ -223,7 +223,7 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
             view.FindControl<RadioButton>("RateFixed")!.IsChecked = true;
-            view.FindControl<NumericUpDown>("RateValue")!.Value = 12.5m;
+            view.FindControl<CompactStepper>("RateValue")!.Value = 12.5;
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(RateType.Manual, supplier.ViewModel.RateType);

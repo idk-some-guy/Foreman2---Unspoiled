@@ -16,6 +16,12 @@ namespace Foreman.Mac.Views.Inspector {
         public static readonly StyledProperty<bool> IsExpandedProperty =
             AvaloniaProperty.Register<InspectorGroup, bool>(nameof(IsExpanded), defaultValue: true);
 
+        //Task 9 (contract §03): Rate/Fuel/Node are plain sections with no chevron and no toggle - only
+        //Assembler/Modules/Beacon collapse. Defaults true so every existing collapsible group (Beacon,
+        //InspectorGroupTests' own fixture) needs no XAML change.
+        public static readonly StyledProperty<bool> IsCollapsibleProperty =
+            AvaloniaProperty.Register<InspectorGroup, bool>(nameof(IsCollapsible), defaultValue: true);
+
         public static readonly StyledProperty<object?> GroupContentProperty =
             AvaloniaProperty.Register<InspectorGroup, object?>(nameof(GroupContent));
 
@@ -34,6 +40,11 @@ namespace Foreman.Mac.Views.Inspector {
             set => SetValue(IsExpandedProperty, value);
         }
 
+        public bool IsCollapsible {
+            get => GetValue(IsCollapsibleProperty);
+            set => SetValue(IsCollapsibleProperty, value);
+        }
+
         [Content]
         public object? GroupContent {
             get => GetValue(GroupContentProperty);
@@ -41,36 +52,55 @@ namespace Foreman.Mac.Views.Inspector {
         }
 
         //Title row is a real Button - pointer press/release and Enter/Space (when focused) both fire
-        //Click for free, toggling IsExpanded the same way.
+        //Click for free, toggling IsExpanded the same way. A non-collapsible group keeps the same Button
+        //(so every other part of the header stays identical) but with hit-testing and focus turned off,
+        //so it never shows a pointerover tint or takes a click.
         public InspectorGroup() {
             titleText = new TextBlock();
             titleText.Classes.Add("foreman-section-header");
-            disclosureGlyph = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+            disclosureGlyph = new TextBlock { Name = "DisclosureGlyph", VerticalAlignment = VerticalAlignment.Center, Opacity = 0.5 };
             disclosureGlyph.Classes.Add("foreman-caption");
-            var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Children = { disclosureGlyph, titleText } };
-            headerButton = new Button { Name = "GroupHeader", Content = headerRow, HorizontalAlignment = HorizontalAlignment.Left };
+            var headerRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            Grid.SetColumn(titleText, 0);
+            Grid.SetColumn(disclosureGlyph, 1);
+            headerRow.Children.Add(titleText);
+            headerRow.Children.Add(disclosureGlyph);
+            headerButton = new Button {
+                Name = "GroupHeader", Content = headerRow,
+                HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            };
             headerButton.Classes.Add("foreman-group-header");
             headerButton.Click += (_, _) => SetCurrentValue(IsExpandedProperty, !IsExpanded);
             contentHost = new ContentPresenter();
             Content = new StackPanel { Spacing = 4, Children = { headerButton, contentHost } };
             DataContextChanged += (_, _) => SyncGroupContentDataContext();
             UpdateDisclosureGlyph();
+            UpdateCollapsible();
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
             base.OnPropertyChanged(change);
             if (change.Property == TitleProperty)
-                titleText.Text = Title;
+                titleText.Text = Title?.ToUpperInvariant();
             else if (change.Property == IsExpandedProperty) {
                 contentHost.IsVisible = IsExpanded;
                 UpdateDisclosureGlyph();
             } else if (change.Property == GroupContentProperty) {
                 contentHost.Content = GroupContent;
                 SyncGroupContentDataContext();
-            }
+            } else if (change.Property == IsCollapsibleProperty)
+                UpdateCollapsible();
         }
 
-        private void UpdateDisclosureGlyph() => disclosureGlyph.Text = IsExpanded ? "▾" : "▸";
+        private void UpdateCollapsible() {
+            disclosureGlyph.IsVisible = IsCollapsible;
+            headerButton.IsHitTestVisible = IsCollapsible;
+            headerButton.Focusable = IsCollapsible;
+            if (!IsCollapsible)
+                SetCurrentValue(IsExpandedProperty, true);
+        }
+
+        private void UpdateDisclosureGlyph() => disclosureGlyph.Text = IsExpanded ? "⌄" : "⌃";
 
         private void SyncGroupContentDataContext() {
             if (GroupContent is Control content)

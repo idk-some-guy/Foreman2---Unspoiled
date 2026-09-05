@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             x:Class="Foreman.Mac.Views.Inspector.RecipeCardView"
+             x:DataType="vm:RecipeCardViewModel">
+  <Border Classes="foreman-recipe-card">
+    <StackPanel Spacing="8">
+      <ItemsControl Name="FlowItems" ItemsSource="{Binding Flow}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="vm:RecipeCardFlowItem">
+            <StackPanel Orientation="Horizontal" Spacing="4" Classes="foreman-recipe-card-flow-item">
+              <TextBlock Text="{Binding Text}" Classes="foreman-recipe-card-arrow" IsVisible="{Binding IsArrow}" />
+              <Border Classes="foreman-recipe-card-icon" IsVisible="{Binding !IsArrow}">
+                <Image Source="{Binding Icon}" Stretch="Uniform" />
+              </Border>
+              <TextBlock Text="{Binding Text}" Classes="foreman-recipe-card-flow-text" IsVisible="{Binding !IsArrow}" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0" Name="CraftingTimeText" Text="{Binding CraftingTimeText}" Classes="foreman-caption" />
+        <TextBlock Grid.Column="1" Name="BaseRateText" Text="{Binding BaseRateText}" Classes="foreman-caption" />
+      </Grid>
+    </StackPanel>
+  </Border>
+</UserControl>

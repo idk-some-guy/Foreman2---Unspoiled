@@ -278,11 +278,17 @@ namespace Foreman.Mac.UiTests.Canvas {
             return fx.Session.View.Nodes.OfType<IRecipeNodeViewModel>().Single();
         }
 
-        [AvaloniaFact]
-        public async Task GetToolTips_ShowRecipeToolTipEnabled_MatchesUpstreamTooltipStructure() {
+        //Task 9 (contract §03): the recipe hover card is retired - it folds into the inspector's identity
+        //header (RecipeCardView) instead, so hovering a recipe node never produces a tooltip element for
+        //it, regardless of AppSettings.ShowRecipeToolTip (which stays persisted but no longer gates
+        //anything here). Only the help tooltip remains.
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GetToolTips_HoverRecipeNode_NeverShowsRecipeCard_RegardlessOfShowRecipeToolTip(bool showRecipeToolTip) {
             RecipeFixture fx = NewRecipeFixture(await GetRecipeCacheAsync());
             IRecipeNodeViewModel viewModel = MakeIronGearWheelNode(fx);
-            fx.Context.ShowRecipeToolTip = true;
+            fx.Context.ShowRecipeToolTip = showRecipeToolTip;
             var element = new RecipeNodeElement(fx.Context, viewModel);
 
             //Far outside every subelement (tabs/assembler/beacon), so the cascade falls through to
@@ -290,36 +296,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             //text otherwise depends on which subelement happened to be under the probe point.
             List<TooltipInfo> tooltips = element.GetToolTips(new Point(5000, 5000));
 
-            Assert.Equal(2, tooltips.Count);
-
-            TooltipInfo recipeTooltip = tooltips[0];
-            Assert.Null(recipeTooltip.Text);
-            Assert.Equal(Direction.Left, recipeTooltip.Direction);
-            Assert.NotNull(recipeTooltip.CustomDraw);
-            IRecipe recipe = fx.Cache.Recipes["iron-gear-wheel"];
-            Size expectedSize = RecipePainter.GetSize([recipe], fx.Context.AbbreviateSciPacks);
-            Assert.Equal(expectedSize.Width, recipeTooltip.ScreenSize!.Value.Width);
-            Assert.Equal(expectedSize.Height, recipeTooltip.ScreenSize!.Value.Height);
-
+            TooltipInfo helpTooltip = Assert.Single(tooltips);
             string entityName = viewModel.SelectedAssembler.Assembler is IAssembler helpAssembler ? helpAssembler.GetEntityTypeName(false).ToLowerInvariant() : "assembler";
-            TooltipInfo helpTooltip = tooltips[1];
             Assert.Equal($"Left click on this node to edit its {entityName}, modules, beacon, etc.\nRight click for options.", helpTooltip.Text);
             Assert.Equal(Direction.None, helpTooltip.Direction);
             Assert.Null(helpTooltip.CustomDraw);
-        }
-
-        [AvaloniaFact]
-        public async Task GetToolTips_ShowRecipeToolTipDisabled_OmitsRecipeTooltip() {
-            RecipeFixture fx = NewRecipeFixture(await GetRecipeCacheAsync());
-            IRecipeNodeViewModel viewModel = MakeIronGearWheelNode(fx);
-            fx.Context.ShowRecipeToolTip = false;
-            var element = new RecipeNodeElement(fx.Context, viewModel);
-
-            List<TooltipInfo> tooltips = element.GetToolTips(new Point(5000, 5000));
-
-            TooltipInfo tooltip = Assert.Single(tooltips);
-            Assert.NotNull(tooltip.Text);
-            Assert.Null(tooltip.CustomDraw);
         }
 
         [Fact]
@@ -359,35 +340,6 @@ namespace Foreman.Mac.UiTests.Canvas {
                     if (!backgroundColors.Contains(pixmap.GetPixelColor(x, y)))
                         return true;
             return false;
-        }
-
-        //---- reference render: a real recipe node hovered, with its full recipe tooltip visible ----
-
-        [AvaloniaFact]
-        public async Task RenderRecipeNodeWithHoverTooltip_WritesReferencePngToSddWorkspace() {
-            const int width = 1100, height = 500;
-            RecipeFixture fx = NewRecipeFixture(await GetRecipeCacheAsync(), width, height);
-            fx.Context.ShowRecipeToolTip = true;
-            IRecipeNodeViewModel viewModel = MakeIronGearWheelNode(fx);
-            var element = new RecipeNodeElement(fx.Context, viewModel);
-            fx.Control.NodeElements.Add(element);
-
-            var window = new AvaloniaWindow { Content = fx.Control, Width = width, Height = height };
-            window.Show();
-            window.MouseMove(fx.Control.Viewport.GraphToScreen(Point.Empty));
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(width, height));
-            fx.Control.Render(surface.Canvas);
-
-            string workspaceDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".superpowers", "sdd", "2026-09-01-phase3-canvas-readonly");
-            Directory.CreateDirectory(workspaceDir);
-            string pngPath = Path.Combine(workspaceDir, "task-6-recipe-node-hover-tooltip.png");
-            using SKImage image = surface.Snapshot();
-            using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
-            using (FileStream file = File.OpenWrite(pngPath))
-                data.SaveTo(file);
-
-            Assert.True(File.Exists(pngPath));
         }
     }
 }

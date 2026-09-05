@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Foreman.Mac.Views.Inspector.CompactStepper">
+  <Border Classes="foreman-stepper">
+    <Grid ColumnDefinitions="Auto,Auto">
+      <TextBox Grid.Column="0" Name="ValueBox" Classes="foreman-stepper-value" />
+      <Border Grid.Column="1" Classes="foreman-stepper-arrows">
+        <StackPanel Orientation="Vertical">
+          <Button Name="IncrementButton" Content="▲" Classes="foreman-stepper-arrow foreman-stepper-arrow-top" />
+          <Button Name="DecrementButton" Content="▼" Classes="foreman-stepper-arrow" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>

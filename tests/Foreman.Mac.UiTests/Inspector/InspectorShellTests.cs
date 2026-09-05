@@ -46,19 +46,35 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(recipe.BaseRecipe.FriendlyName, window.Inspector.FindControl<TextBlock>("IdentityName")!.Text);
         }
 
+        //Task 9 (contract §03, Jozef's live-gate ruling): the sidebar overlays the canvas instead of
+        //pushing it - showing or hiding it must never resize the canvas underneath.
         [AvaloniaFact]
-        public async Task ClearingSelection_HidesSidebar_CanvasReclaimsWidth() {
+        public async Task SelectingAndClearingSelection_CanvasWidthNeverChanges() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
             double fullWidth = window.GraphCanvas.Bounds.Width;
 
             window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(fullWidth - 300, window.GraphCanvas.Bounds.Width, 1);
+            Assert.True(window.Inspector.IsVisible);
+            Assert.Equal(fullWidth, window.GraphCanvas.Bounds.Width, 1);
 
             window.GraphCanvas.Viewer.SetSelection([]);
             Dispatcher.UIThread.RunJobs();
             Assert.False(window.Inspector.IsVisible);
             Assert.Equal(fullWidth, window.GraphCanvas.Bounds.Width, 1);
+        }
+
+        //The sidebar sits in the same cell as the canvas, right-aligned above it - its right edge lands
+        //exactly at the canvas's own right edge (both fill the same full-width row).
+        [AvaloniaFact]
+        public async Task SelectingOneNode_SidebarRightEdgeMatchesCanvasRightEdge() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(300, window.Inspector.Bounds.Width, 1);
+            Assert.Equal(window.GraphCanvas.Bounds.Right, window.Inspector.Bounds.Right, 1);
         }
 
         [AvaloniaFact]
@@ -134,10 +150,11 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(window.ViewModel.IsDirty);
         }
 
-        //The identity row's own quality button: a pick writes straight through to the node's current
-        //assembler (RecipeSegmentViewModel.PickQuality), so the subtitle updates immediately.
+        //The identity row's own quality mini-select: a pick writes straight through to the node's current
+        //assembler (RecipeSegmentViewModel.PickQuality), so the subtitle and the mini-select's own label
+        //both update immediately.
         [AvaloniaFact]
-        public void QualityButton_ListsQualitiesAndPickQuality_WritesThroughAndUpdatesSubtitle() {
+        public void QualityMiniSelect_ListsQualitiesAndPickQuality_WritesThroughAndUpdatesSubtitleAndLabel() {
             DataCache cache = new(filterRecipes: true);
             var normal = new QualityPrototype(cache, "normal", "Normal", "a");
             var legendary = new QualityPrototype(cache, "legendary", "Legendary", "b") { Level = 1 };
@@ -186,12 +203,13 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             InspectorTestSupport.Select(window, node);
 
-            Button qualityButton = window.Inspector.FindControl<Button>("QualityButton")!;
-            Assert.True(qualityButton.IsVisible);
+            Button qualityMiniSelect = window.Inspector.FindControl<Button>("QualityMiniSelect")!;
+            Assert.True(qualityMiniSelect.IsVisible);
+            Assert.Equal(normal.FriendlyName, window.Inspector.FindControl<TextBlock>("QualityMiniSelectLabel")!.Text);
             PickGrid qualityGrid = window.Inspector.FindControl<PickGrid>("QualityGrid")!;
             Assert.Equal(2, qualityGrid.Items.Count);
 
-            qualityButton.Flyout!.ShowAt(qualityButton);
+            qualityMiniSelect.Flyout!.ShowAt(qualityMiniSelect);
             Dispatcher.UIThread.RunJobs();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
 
@@ -205,6 +223,7 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             Assert.Equal(legendary, node.SelectedAssembler.Quality);
             Assert.Equal($"{electric.FriendlyName} · {legendary.FriendlyName}", window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text);
+            Assert.Equal(legendary.FriendlyName, window.Inspector.FindControl<TextBlock>("QualityMiniSelectLabel")!.Text);
         }
 
         [AvaloniaFact]
@@ -233,6 +252,9 @@ namespace Foreman.Mac.UiTests.Inspector {
                     "Foreman.Size.InspectorWidth", "Foreman.Color.InspectorBackground",
                     "Foreman.Type.InspectorTitle.FontSize", "Foreman.Type.InspectorTitle.FontWeight",
                     "Foreman.Type.InspectorSubtitle.FontSize",
+                    "Foreman.Color.SidebarBackground", "Foreman.Color.WellBackground",
+                    "Foreman.Type.SmallBody.FontSize", "Foreman.Type.Chevron.FontSize",
+                    "Foreman.Shadow.Sidebar", "Foreman.Shadow.PickSelectedRing",
                 })
                     Assert.True(Application.Current.TryGetResource(key, variant, out _), key);
             }

@@ -76,9 +76,19 @@
   <x:Double x:Key="Foreman.Type.AboutTagline.FontSize">10.5</x:Double>
   <x:Double x:Key="Foreman.Type.InspectorTitle.FontSize">13</x:Double>
   <FontWeight x:Key="Foreman.Type.InspectorTitle.FontWeight">600</FontWeight>
-  <x:Double x:Key="Foreman.Type.InspectorSubtitle.FontSize">11.5</x:Double>
+  <x:Double x:Key="Foreman.Type.InspectorSubtitle.FontSize">11</x:Double>
+
+  <!-- Task 9 (inspector fidelity pass): the mock's 12px "small body" text (mini-select label, recipe
+       card flow row) and 10px disclosure chevron on the quality mini-select. -->
+  <x:Double x:Key="Foreman.Type.SmallBody.FontSize">12</x:Double>
+  <x:Double x:Key="Foreman.Type.Chevron.FontSize">10</x:Double>
 
   <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
   <x:Double x:Key="Foreman.Size.PickCell">36</x:Double>
+
+  <!-- Task 9: overlay sidebar's soft left shadow (contract §03's overlay ruling) and a pick cell's
+       selected-ring, both BoxShadows so light/dark can each carry their own opacity. -->
+  <BoxShadows x:Key="Foreman.Shadow.Sidebar">-2 0 10 0 #40000000</BoxShadows>
+  <BoxShadows x:Key="Foreman.Shadow.PickSelectedRing">0 0 0 1 #0A84FF</BoxShadows>
 
 </ResourceDictionary>

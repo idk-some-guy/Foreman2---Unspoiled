@@ -22,9 +22,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - An inspector view model tracking the canvas selection: it shows the Recipe or Flow segment for a
   single node, a "N nodes selected" count for multiple, and stays visible when pinned or opened
   from the menu even with nothing selected.
-- The inspector sidebar itself: a 300pt column to the right of the canvas showing the selected
-  node's icon, name, and a Recipe/Flow/Supplier/Consumer/Passthrough/Spoil/Plant subtitle. Hiding
-  it hands the width straight back to the canvas.
+- The inspector sidebar itself: a 300pt overlay on the right edge of the canvas showing the
+  selected node's icon, name, and a Recipe/Flow/Supplier/Consumer/Passthrough/Spoil/Plant
+  subtitle. Showing or hiding it never resizes the canvas underneath.
 - View menu's Show Inspector and Pin Inspector are now live toggles (⌥⌘I and ⇧⌥⌘I). Pinning the
   sidebar persists across restarts.
 - The inspector's Flow segment: rate (Auto/Fixed with a live value), key node title, and a
@@ -37,11 +37,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   assemblers. Built on a new reusable PickGrid control for icon pickers.
 - The inspector's Recipe segment now covers Modules and Beacon too: an equipped-module grid you tap
   to remove, an options grid to add, a beacon picker with its own module grid and the three beacon
-  steppers, and a quality button on the identity row that re-quals the node's assembler and updates
-  its subtitle immediately.
+  steppers, and a quality mini-select under the identity row's name/subtitle that re-quals the
+  node's assembler and updates its own label and the subtitle immediately.
 
 ### Fixed
 
+- The inspector sidebar now overlays the canvas instead of pushing it. Its identity header, quality
+  mini-select, recipe card (folded in from the canvas's retired hover tooltip), groups, steppers,
+  and toggles are restyled to match the design mock: proper padding, a titled group per section
+  with a disclosure chevron only where it actually collapses, label-left rows, and pill-style
+  switches without "On"/"Off" text.
 - Low-priority recipes now work: the default priority weight overflowed the solver and failed any
   graph using one. Existing settings carrying the broken value are healed automatically.
 - The toolbar now uses real vector icons matching the design mock instead of placeholder glyphs,

@@ -257,10 +257,14 @@
       </LayoutTransformControl>
     </Popup>
 
-    <!-- Inspector's IsVisible is set from MainWindow.axaml.cs, not bound here. -->
-    <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
-      <ContentControl Name="GraphViewerHost" Grid.Column="0" />
-      <inspector:InspectorView Grid.Column="1" Name="Inspector" DataContext="{Binding Inspector}" />
+    <!-- Inspector's IsVisible is set from MainWindow.axaml.cs, not bound here. Overlay, not a column
+         (contract §03, Jozef's live-gate ruling over the mock's own sidebar-as-column reading): the canvas
+         fills the whole row, and the sidebar sits in the same cell, right-aligned and above it in z-order -
+         showing or hiding it never resizes the canvas underneath. -->
+    <Grid Grid.Row="1">
+      <ContentControl Name="GraphViewerHost" />
+      <inspector:InspectorView Name="Inspector" DataContext="{Binding Inspector}"
+                                HorizontalAlignment="Right" ZIndex="1" />
     </Grid>
   </Grid>
 </Window>
