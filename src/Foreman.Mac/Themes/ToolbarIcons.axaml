@@ -27,4 +27,7 @@
 
   <!-- Down-pointing chevron ribbon; every inspector disclosure/dropdown/stepper arrow rotates this one shape. -->
   <StreamGeometry x:Key="Foreman.Icon.Chevron">M1,1 L6,6 L11,1 L11,3.4 L6,8.4 L1,3.4 Z</StreamGeometry>
+
+  <!-- Magnifying glass (Quick Add palette / browser search field), stroked like foreman-toolbar-glyph. -->
+  <StreamGeometry x:Key="Foreman.Icon.Search">M3,8.2 A5.2,5.2 0 1,1 13.4,8.2 A5.2,5.2 0 1,1 3,8.2 Z M15,15 L11.7,11.7</StreamGeometry>
 </ResourceDictionary>

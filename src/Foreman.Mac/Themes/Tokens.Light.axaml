@@ -91,4 +91,13 @@
   <BoxShadows x:Key="Foreman.Shadow.Sidebar">-2 0 10 0 #26000000</BoxShadows>
   <BoxShadows x:Key="Foreman.Shadow.PickSelectedRing">0 0 0 1 #0068DA</BoxShadows>
 
+  <x:Double x:Key="Foreman.Size.PaletteWidth">272</x:Double>
+  <x:Double x:Key="Foreman.Size.PaletteRowIcon">22</x:Double>
+  <BoxShadows x:Key="Foreman.Shadow.Popover">0 26 50 -14 #3D000000</BoxShadows>
+
+  <x:Double x:Key="Foreman.Type.Palette.Row.FontSize">12.5</x:Double>
+  <x:Double x:Key="Foreman.Type.Palette.Sub.FontSize">10.5</x:Double>
+  <x:Double x:Key="Foreman.Type.Palette.Hint.FontSize">10</x:Double>
+  <x:Double x:Key="Foreman.Type.Kbd.FontSize">9.5</x:Double>
+
 </ResourceDictionary>

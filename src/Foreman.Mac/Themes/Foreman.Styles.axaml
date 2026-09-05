@@ -494,4 +494,101 @@
     <Setter Property="BorderThickness" Value="0" />
   </Style>
 
+  <Style Selector="Border.foreman-qa-panel">
+    <Setter Property="Width" Value="{DynamicResource Foreman.Size.PaletteWidth}" />
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.InspectorBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Window}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource Foreman.Shadow.Popover}" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+
+  <Style Selector="Border.foreman-qa-search-row">
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Border}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="Padding" Value="12,10" />
+  </Style>
+
+  <Style Selector="TextBox.foreman-qa-search">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Body.FontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Border.foreman-qa-row-icon">
+    <Setter Property="Width" Value="{DynamicResource Foreman.Size.PaletteRowIcon}" />
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.PaletteRowIcon}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.PickCell}" />
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Button.foreman-qa-row">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+  </Style>
+
+  <Style Selector="Button.foreman-qa-row.top">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
+  </Style>
+
+  <Style Selector="Button.foreman-qa-row:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+  </Style>
+
+  <Style Selector="TextBlock.foreman-qa-row-name">
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Palette.Row.FontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+
+  <Style Selector="TextBlock.foreman-qa-row-sub">
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Palette.Sub.FontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+  </Style>
+
+  <Style Selector="Border.foreman-qa-hint-row">
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Border}" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
+    <Setter Property="Padding" Value="12,7" />
+  </Style>
+
+  <Style Selector="TextBlock.foreman-qa-hint-text">
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Palette.Hint.FontSize}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Border.foreman-kbd">
+    <Setter Property="MinWidth" Value="16" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="Padding" Value="4,0" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.Border}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="TextBlock.foreman-kbd-text">
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Kbd.FontSize}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
 </Styles>

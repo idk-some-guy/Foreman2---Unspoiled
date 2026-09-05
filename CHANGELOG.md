@@ -40,6 +40,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   steppers, and a quality mini-select under the identity row's name/subtitle that re-quals the
   node's assembler and updates its own label and the subtitle immediately.
 - Add chooser: shared search/ranking service behind the new palette and browser.
+- Quick Add palette: cursor-anchored search over items and recipes; Enter places and keeps it open.
 
 ### Fixed
 
