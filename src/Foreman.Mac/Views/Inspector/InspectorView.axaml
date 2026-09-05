@@ -14,18 +14,8 @@
           Background="{DynamicResource Foreman.Color.InspectorBackground}"
           BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1,0,0,0"
           BoxShadow="{DynamicResource Foreman.Shadow.Sidebar}">
-    <Grid RowDefinitions="Auto,Auto,*">
-      <!-- Recipe/Flow segment display, pinned at the top - not interactive yet (task 4/5 wire switching);
-           Refresh() in the code-behind toggles which label carries .active off InspectorViewModel.Segment. -->
-      <Border Grid.Row="0" Name="SegmentControl" Classes="foreman-segment-strip" HorizontalAlignment="Left"
-              Margin="{StaticResource Foreman.Thickness.Space3}" IsVisible="{Binding HasNode}">
-        <StackPanel Orientation="Horizontal" Spacing="2">
-          <TextBlock Name="RecipeSegmentLabel" Text="Recipe" Classes="foreman-segment-item" />
-          <TextBlock Name="FlowSegmentLabel" Text="Flow" Classes="foreman-segment-item" />
-        </StackPanel>
-      </Border>
-
-      <Border Grid.Row="1" Classes="foreman-identity-row" IsVisible="{Binding HasNode}">
+    <Grid RowDefinitions="Auto,*">
+      <Border Grid.Row="0" Classes="foreman-identity-row" IsVisible="{Binding HasNode}">
         <Grid ColumnDefinitions="Auto,*">
           <Border Grid.Column="0" Classes="foreman-identity-icon">
             <Image Name="IdentityIcon" Width="18" Height="18" />
@@ -50,12 +40,12 @@
         </Grid>
       </Border>
 
-      <!-- Only the body scrolls - the segmented control and identity header above stay pinned. Named so
-           tests can find this specific ScrollViewer, not one buried in a TextBox's own template part. -->
-      <ScrollViewer Grid.Row="2" Name="InspectorScroller">
+      <!-- Only the body scrolls - the identity header above stays pinned. Named so tests can find this
+           specific ScrollViewer, not one buried in a TextBox's own template part. -->
+      <ScrollViewer Grid.Row="1" Name="InspectorScroller">
         <ContentControl Name="SegmentHost" IsVisible="{Binding HasNode}" />
       </ScrollViewer>
-      <TextBlock Grid.Row="2" Name="EmptyState" Text="{Binding EmptyStateText}" IsVisible="{Binding !HasNode}"
+      <TextBlock Grid.Row="1" Name="EmptyState" Text="{Binding EmptyStateText}" IsVisible="{Binding !HasNode}"
                  HorizontalAlignment="Center" VerticalAlignment="Center"
                  Foreground="{DynamicResource Foreman.Color.TextTertiary}" />
     </Grid>

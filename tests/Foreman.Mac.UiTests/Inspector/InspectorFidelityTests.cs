@@ -13,16 +13,14 @@ namespace Foreman.Mac.UiTests.Inspector {
     //Assembler/Modules/Beacon collapse, and toggle rows carry no "On"/"Off" text.
     public class InspectorFidelityTests {
         [AvaloniaFact]
-        public async Task IdentityHeaderAndSegmentedControl_AreNotInsideTheScrollViewer() {
+        public async Task IdentityHeader_IsNotInsideTheScrollViewer() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
             window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
             Dispatcher.UIThread.RunJobs();
 
             ScrollViewer scroller = window.Inspector.FindControl<ScrollViewer>("InspectorScroller")!;
-            Control segmentControl = window.Inspector.FindControl<Control>("SegmentControl")!;
             Border identityRow = window.Inspector.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("foreman-identity-row"));
 
-            Assert.DoesNotContain(segmentControl, scroller.GetVisualDescendants());
             Assert.DoesNotContain(identityRow, scroller.GetVisualDescendants());
             ContentControl segmentHost = window.Inspector.FindControl<ContentControl>("SegmentHost")!;
             Assert.Contains(segmentHost, scroller.GetVisualDescendants());

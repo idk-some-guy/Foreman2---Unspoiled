@@ -25,11 +25,7 @@ namespace Foreman.Mac.Views.Inspector {
         public static readonly StyledProperty<object?> GroupContentProperty =
             AvaloniaProperty.Register<InspectorGroup, object?>(nameof(GroupContent));
 
-        //Fix round 1 (reviewer finding, Critical 1): the group padding and per-group bottom border the
-        //brief called for never actually landed on this control - every group rendered flush against its
-        //neighbours. IsLastGroup lets the host StackPanel mark whichever group is visually last (Beacon in
-        //RecipeSegmentView, Node in FlowSegmentView) so it skips the border, matching the mock's own
-        //`border-bottom:none` on the final group.
+        //Set by the host StackPanel on whichever group is visually last, to skip its bottom border.
         public static readonly StyledProperty<bool> IsLastGroupProperty =
             AvaloniaProperty.Register<InspectorGroup, bool>(nameof(IsLastGroup), defaultValue: false);
 

@@ -88,9 +88,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(group.IsExpanded);
         }
 
-        //Fix round 1 (reviewer finding, Critical 1): the group carried no padding and no per-group bottom
-        //border at all - groups rendered flush against each other, exactly the "crammed" complaint this
-        //task was chartered to fix.
         [AvaloniaFact]
         public void Container_HasMockPadding_AndBottomBorder() {
             (_, InspectorGroup group) = NewGroup();

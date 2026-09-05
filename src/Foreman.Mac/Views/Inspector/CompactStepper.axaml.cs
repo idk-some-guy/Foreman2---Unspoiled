@@ -98,9 +98,7 @@ namespace Foreman.Mac.Views.Inspector {
             e.Handled = true;
         }
 
-        //Fix round 1 (reviewer finding, Important 4): NumberStyles.Float can't parse the thousands
-        //separator N2/N4 themselves render for values >= 1000 (e.g. "1,234.00"), so committing an
-        //untouched large field used to silently fail to parse and revert to the last valid value.
+        //NumberStyles.Any, not Float - N2/N4 render a thousands separator that Float can't parse back.
         private void CommitText() {
             if (double.TryParse(valueBox.Text, NumberStyles.Any, DisplayCulture.Format, out double parsed))
                 Value = parsed;

@@ -32,11 +32,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //Fix round 1 (reviewer finding, Critical 2): cells were still the pre-mock 36px/radius-6 shape
-        //with no gap between them - the mock's own pick-cell is 26px/radius-5 with a 5px gap, achieved
-        //the same way every other PickGrid gap already was, via a per-cell margin (checked directly here
-        //rather than via WrapPanel's own arranged positions, which even two cells that render correctly
-        //on screen don't reliably expose through Bounds in the headless runner).
+        //Checks the margin directly - WrapPanel's arranged Bounds aren't reliable in the headless runner.
         [AvaloniaFact]
         public void Cell_Is26x26_WithRadius5_AndA5PixelMarginGap() {
             PickGridItem[] items = [new PickGridItem("a", "Alpha", "", null, false, true)];

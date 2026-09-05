@@ -19,9 +19,7 @@
   <Color x:Key="Foreman.Color.Selection">#FF9F0A</Color>
   <Color x:Key="Foreman.Color.Error">#FF453A</Color>
 
-  <!-- PickGrid cells (Task 5: Recipe segment's Assembler/Fuel pickers) - PickCellSelected mirrors
-       AccentSoft's value rather than referencing it, so a cell keeps its own token independent of the
-       segment-strip's. -->
+  <!-- PickCellSelected mirrors AccentSoft's value rather than referencing it, kept independent on purpose. -->
   <Color x:Key="Foreman.Color.PickCellSelected">#290A84FF</Color>
   <Color x:Key="Foreman.Color.PickCellBorder">#29FFFFFF</Color>
 
@@ -55,9 +53,7 @@
   <CornerRadius x:Key="Foreman.Radius.Card">9</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Window">11</CornerRadius>
 
-  <!-- Fix round 1 (reviewer finding, Critical 2): PickGrid cells were still the pre-mock 36px/radius-6
-       shape with no gap - the mock's own pick-cell is 26px/radius-5 with a 5px gap (achieved the same way
-       every other PickGrid gap already was, via a per-cell margin). -->
+  <!-- The 5px gap is a per-cell margin (half of it, 2.5, on each side), not a panel Spacing. -->
   <CornerRadius x:Key="Foreman.Radius.PickCell">5</CornerRadius>
   <Thickness x:Key="Foreman.Thickness.PickCellGap">2.5</Thickness>
 

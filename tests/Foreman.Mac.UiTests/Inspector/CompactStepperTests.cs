@@ -117,9 +117,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal("2.00", valueBox.Text);
         }
 
-        //Fix round 1 (reviewer finding, Important 4): N2/N4 render a thousands separator for values >=
-        //1000 (e.g. "1,500.00") that NumberStyles.Float can't parse back - committing the field unchanged
-        //used to silently revert instead of round-tripping.
+        //Covers the thousands-separator round trip (e.g. "1,500.00") CommitText's NumberStyles.Any handles.
         [AvaloniaFact]
         public void ValueAtOrAboveOneThousand_RoundTripsThroughItsOwnDisplayedThousandsSeparator() {
             (_, CompactStepper stepper) = NewStepper();

@@ -22,8 +22,6 @@ namespace Foreman.Mac.Views.Inspector {
         private readonly Button qualityMiniSelect;
         private readonly TextBlock qualityMiniSelectLabel;
         private readonly PickGrid qualityGrid;
-        private readonly TextBlock recipeSegmentLabel;
-        private readonly TextBlock flowSegmentLabel;
         private readonly ContentControl segmentHost;
         private readonly FlowSegmentView flowSegmentView;
         private readonly RecipeSegmentView recipeSegmentView;
@@ -45,8 +43,6 @@ namespace Foreman.Mac.Views.Inspector {
             qualityMiniSelect = this.FindControl<Button>("QualityMiniSelect")!;
             qualityMiniSelectLabel = this.FindControl<TextBlock>("QualityMiniSelectLabel")!;
             qualityGrid = this.FindControl<PickGrid>("QualityGrid")!;
-            recipeSegmentLabel = this.FindControl<TextBlock>("RecipeSegmentLabel")!;
-            flowSegmentLabel = this.FindControl<TextBlock>("FlowSegmentLabel")!;
             segmentHost = this.FindControl<ContentControl>("SegmentHost")!;
 
             //The compiled XAML name scope is sealed right after InitializeComponent runs (Avalonia calls
@@ -63,10 +59,7 @@ namespace Foreman.Mac.Views.Inspector {
             scope.Register("QualityMiniSelect", qualityMiniSelect);
             scope.Register("QualityMiniSelectLabel", qualityMiniSelectLabel);
             scope.Register("QualityGrid", qualityGrid);
-            scope.Register("RecipeSegmentLabel", recipeSegmentLabel);
-            scope.Register("FlowSegmentLabel", flowSegmentLabel);
             scope.Register("SegmentHost", segmentHost);
-            scope.Register("SegmentControl", this.FindControl<Control>("SegmentControl")!);
             scope.Register("EmptyState", this.FindControl<Control>("EmptyState")!);
             scope.Register("InspectorScroller", this.FindControl<Control>("InspectorScroller")!);
             scope.Register("FlowSegment", flowSegmentView);
@@ -118,8 +111,6 @@ namespace Foreman.Mac.Views.Inspector {
             identityIcon.Source = icon is null ? null : GetOrBakeIcon(icon);
 
             bool recipeActive = boundViewModel!.Segment == InspectorSegment.Recipe;
-            recipeSegmentLabel.Classes.Set("active", recipeActive);
-            flowSegmentLabel.Classes.Set("active", !recipeActive);
 
             if (Viewer is not GraphViewer viewer) {
                 segmentHost.Content = null;
