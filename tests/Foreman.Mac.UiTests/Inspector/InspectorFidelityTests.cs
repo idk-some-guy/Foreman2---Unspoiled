@@ -3,11 +3,22 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Foreman;
+using Foreman.DataCaching;
+using Foreman.DataCaching.DataTypes;
+using Foreman.DataCaching.Loading;
 using Foreman.Graph;
+using Foreman.Mac.Canvas;
+using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
+using Foreman.Models;
+using Foreman.Models.Nodes;
+using System;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
@@ -127,6 +138,154 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             Assert.Equal(!wasChecked, toggle.IsChecked);
             Assert.Equal(1, track.Opacity);
+        }
+
+        [AvaloniaFact]
+        public async Task ToggleRows_ConsecutivePillsAreSpacedApart_AndCenteredOnTheirLabels() {
+            (MainWindow flowWindow, INodeViewModel node) = await InspectorTestSupport.OpenWithPassthroughAsync();
+            InspectorTestSupport.Select(flowWindow, node);
+            var flowView = flowWindow.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
+            AssertToggleRowSpacing(flowWindow, flowView, "KeyNode", "Simplify");
+
+            MainWindow recipeWindow = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            recipeWindow.GraphCanvas.Viewer.SetSelection([recipeWindow.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+            var recipeView = recipeWindow.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
+            AssertToggleRowSpacing(recipeWindow, recipeView, "LowPriority", "KeyNode");
+        }
+
+        private static void AssertToggleRowSpacing(AvaloniaWindow window, Control segment, string firstName, string secondName) {
+            ToggleSwitch first = segment.GetVisualDescendants().OfType<ToggleSwitch>().Single(t => t.Name == firstName);
+            ToggleSwitch second = segment.GetVisualDescendants().OfType<ToggleSwitch>().Single(t => t.Name == secondName);
+
+            double firstTop = first.TranslatePoint(new Point(0, 0), window)!.Value.Y;
+            double secondTop = second.TranslatePoint(new Point(0, 0), window)!.Value.Y;
+            Assert.True(Math.Abs(secondTop - firstTop - 28) <= 1,
+                $"{firstName}->{secondName} pill top-edge gap was {secondTop - firstTop}, expected 28 +/- 1.");
+
+            AssertPillCenteredOnLabel(first);
+            AssertPillCenteredOnLabel(second);
+        }
+
+        private static void AssertPillCenteredOnLabel(ToggleSwitch toggle) {
+            Grid row = (Grid)toggle.Parent!;
+            TextBlock label = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Classes.Contains("foreman-row-label"));
+            double pillCenter = toggle.Bounds.Y + toggle.Bounds.Height / 2;
+            double labelCenter = label.Bounds.Y + label.Bounds.Height / 2;
+            Assert.True(Math.Abs(pillCenter - labelCenter) <= 1,
+                $"{toggle.Name} pill centre ({pillCenter}) is not within 1px of its label centre ({labelCenter}).");
+        }
+
+        [AvaloniaFact]
+        public async Task BeaconGroup_StepperRows_AreSpacedApart() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+            var view = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
+            RecipeSegmentViewModel vm = view.ViewModel!;
+            Assert.NotEmpty(vm.BeaconOptions);
+
+            vm.PickBeacon(vm.BeaconOptions[0]);
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+
+            CompactStepper beaconCount = view.FindControl<CompactStepper>("BeaconCountValue")!;
+            CompactStepper perAssembler = view.FindControl<CompactStepper>("BeaconsPerAssemblerValue")!;
+            CompactStepper additional = view.FindControl<CompactStepper>("BeaconsTotalValue")!;
+
+            double beaconCountTop = beaconCount.TranslatePoint(new Point(0, 0), window)!.Value.Y;
+            double perAssemblerTop = perAssembler.TranslatePoint(new Point(0, 0), window)!.Value.Y;
+            double additionalTop = additional.TranslatePoint(new Point(0, 0), window)!.Value.Y;
+
+            Assert.True(Math.Abs(perAssemblerTop - beaconCountTop - 30) <= 1, $"# Beacons -> / Assembler gap was {perAssemblerTop - beaconCountTop}, expected 30 +/- 1.");
+            Assert.True(Math.Abs(additionalTop - perAssemblerTop - 30) <= 1, $"/ Assembler -> Additional gap was {additionalTop - perAssemblerTop}, expected 30 +/- 1.");
+        }
+
+        [AvaloniaFact]
+        public async Task FlowRateRow_IsVisibleOnlyWhenFixed() {
+            (MainWindow window, INodeViewModel node) = await InspectorTestSupport.OpenWithPassthroughAsync();
+            InspectorTestSupport.Select(window, node);
+            var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
+            CompactStepper rateValue = view.FindControl<CompactStepper>("RateValue")!;
+            Grid rateRow = (Grid)rateValue.Parent!;
+
+            Assert.False(rateRow.IsVisible);
+
+            view.ViewModel!.IsFixedRate = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(rateRow.IsVisible);
+
+            view.ViewModel!.IsFixedRate = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(rateRow.IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void GeneratorCaption_Wraps() {
+            RecipeSegmentView view = BuildGeneratorSegmentView();
+            TextBlock caption = view.FindControl<TextBlock>("AssemblerStatsText")!;
+
+            Assert.Equal(TextWrapping.Wrap, caption.TextWrapping);
+            Assert.Contains("Effectivity", caption.Text);
+        }
+
+        private static DataCacheStore Store(DataCache cache) {
+            FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            return (DataCacheStore)field.GetValue(cache)!;
+        }
+
+        private static RecipeSegmentView BuildGeneratorSegmentView() {
+            var cache = new DataCache(filterRecipes: true);
+            var normal = new QualityPrototype(cache, "normal", "Normal", "a");
+            DataCacheStore store = Store(cache);
+            store.Qualities[normal.Name] = normal;
+            store.DefaultQuality = normal;
+
+            var group = new GroupPrototype(cache, "production", "Production", "a");
+            store.Groups[group.Name] = group;
+            var subgroup = new SubgroupPrototype(cache, "production-sub", "a");
+            subgroup.MyGroupInternal = group;
+            group.SubgroupsInternal.Add(subgroup);
+            store.Subgroups[subgroup.Name] = subgroup;
+
+            var steam = new FluidPrototype(cache, "steam", "Steam", subgroup, "a") { Available = true, IsTemperatureDependent = true, DefaultTemperature = 15 };
+            store.Items[steam.Name] = steam;
+
+            var generatorRecipe = new RecipePrototype(cache, "generate-power", "Generate Power", subgroup, "a") { Available = true };
+            generatorRecipe.InternalOneWayAddIngredient(steam, 1, 100, 500);
+            steam.ConsumptionRecipesInternal.Add(generatorRecipe);
+            store.Recipes[generatorRecipe.Name] = generatorRecipe;
+
+            var generator = new AssemblerPrototype(cache, "generator", "Generator", EntityType.Generator, EnergySource.Electric) { Available = true, Enabled = true };
+            generator.OperationTemperature = 500;
+            generator.EnergyProductionInternal[normal] = 1_000_000.0;
+            generatorRecipe.AssemblersInternal.Add(generator);
+            generator.RecipesInternal.Add(generatorRecipe);
+
+            var control = new GraphCanvasControl();
+            control.Viewport.SetSize(900, 900);
+            control.Viewer.Context.DCache = cache;
+            control.Viewer.Graph.DefaultAssemblerQuality = normal;
+            var canvasHost = new AvaloniaWindow { Content = control, Width = 900, Height = 900 };
+            canvasHost.Show();
+
+            NodeId id = control.Viewer.Session.Editor.CreateRecipeNode(new RecipeQualityPair(generatorRecipe, normal), new System.Drawing.Point(0, 0));
+            Assert.True(control.Viewer.Session.View.TryGetNode(id, out INodeViewModel? nodeViewModel));
+            var node = (IRecipeNodeViewModel)nodeViewModel!;
+            if (control.Viewer.Session.Editor.RequestNodeController(id) is not RecipeNodeController controller)
+                throw new Xunit.Sdk.XunitException("Recipe node has no controller.");
+            controller.SetAssembler(new AssemblerQualityPair(generator, normal));
+            control.Viewer.Graph.UpdateNodeValues();
+
+            var view = new RecipeSegmentView();
+            var host = new AvaloniaWindow { Content = view, Width = 220, Height = 600 };
+            host.Show();
+            view.Bind(node, control.Viewer, cache);
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            return view;
         }
     }
 }

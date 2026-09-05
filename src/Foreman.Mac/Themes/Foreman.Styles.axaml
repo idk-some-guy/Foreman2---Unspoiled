@@ -257,6 +257,7 @@
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
     <Setter Property="Padding" Value="2" />
+    <Setter Property="Margin" Value="0,0,0,8" />
   </Style>
 
   <Style Selector="RadioButton.foreman-seg-mini-item">
@@ -315,6 +316,15 @@
     <Setter Property="FontSize" Value="12.5" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
     <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Row spacing (Task 9 gate-fix 2, mock CSS 400/452): each row grid carries its own vertical margin. -->
+  <Style Selector="Grid.foreman-toggle-row">
+    <Setter Property="Margin" Value="0,5" />
+  </Style>
+
+  <Style Selector="Grid.foreman-insp-row">
+    <Setter Property="Margin" Value="0,4" />
   </Style>
 
   <!-- Compact stepper (Task 9, contract §03 CSS 439-450): NumericUpDown's own Fluent chrome can't reach

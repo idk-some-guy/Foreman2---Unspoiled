@@ -192,13 +192,14 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorTestSupport.Select(window, supplier);
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
             CompactStepper rateValue = view.FindControl<CompactStepper>("RateValue")!;
-            Assert.False(rateValue.IsEnabled);
+            Grid rateRow = (Grid)rateValue.Parent!;
+            Assert.False(rateRow.IsVisible);
 
             view.FindControl<RadioButton>("RateFixed")!.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(RateType.Manual, supplier.RateType);
-            Assert.True(rateValue.IsEnabled);
+            Assert.True(rateRow.IsVisible);
         }
 
         [AvaloniaFact]
@@ -222,7 +223,8 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(RateType.Auto, supplier!.RateType);
-            Assert.False(view.FindControl<CompactStepper>("RateValue")!.IsEnabled);
+            CompactStepper rateValue = view.FindControl<CompactStepper>("RateValue")!;
+            Assert.False(((Grid)rateValue.Parent!).IsVisible);
         }
 
         [AvaloniaFact]

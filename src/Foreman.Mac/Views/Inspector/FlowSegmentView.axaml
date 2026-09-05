@@ -6,7 +6,7 @@
              x:DataType="vm:FlowSegmentViewModel">
   <StackPanel Spacing="0">
     <insp:InspectorGroup Title="Rate" IsCollapsible="False">
-      <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
+      <StackPanel Spacing="0">
         <Border Classes="foreman-seg-mini" HorizontalAlignment="Left">
           <StackPanel Orientation="Horizontal" Spacing="2">
             <RadioButton Name="RateAuto" GroupName="FlowRateType" Content="Auto" Classes="foreman-seg-mini-item" />
@@ -14,24 +14,24 @@
                          IsChecked="{Binding IsFixedRate, Mode=TwoWay}" />
           </StackPanel>
         </Border>
-        <Grid ColumnDefinitions="*,Auto">
+        <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto" IsVisible="{Binding IsFixedRate}">
           <TextBlock Grid.Column="0" Text="Rate" Classes="foreman-row-label" />
           <insp:CompactStepper Grid.Column="1" Name="RateValue" Minimum="0" FormatString="N4"
-                                IsEnabled="{Binding IsFixedRate}" Value="{Binding FixedRate, Mode=TwoWay}" />
+                                Value="{Binding FixedRate, Mode=TwoWay}" />
         </Grid>
       </StackPanel>
     </insp:InspectorGroup>
 
     <insp:InspectorGroup Title="Node" IsCollapsible="False" IsLastGroup="True">
-      <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
-        <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="0">
+        <Grid Classes="foreman-toggle-row" ColumnDefinitions="*,Auto">
           <TextBlock Grid.Column="0" Text="Key Node" Classes="foreman-row-label" />
           <ToggleSwitch Grid.Column="1" Name="KeyNode" Classes="foreman-mini-switch" OnContent="{x:Null}" OffContent="{x:Null}"
                         IsChecked="{Binding IsKeyNode, Mode=TwoWay}" />
         </Grid>
         <TextBox Name="KeyNodeTitle" MaxLength="200" IsVisible="{Binding IsKeyNode}"
                   Text="{Binding KeyNodeTitle, Mode=TwoWay}" />
-        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowsSimplify}">
+        <Grid Classes="foreman-toggle-row" ColumnDefinitions="*,Auto" IsVisible="{Binding ShowsSimplify}">
           <TextBlock Grid.Column="0" Text="Simplify throughput node" Classes="foreman-row-label" />
           <ToggleSwitch Grid.Column="1" Name="Simplify" Classes="foreman-mini-switch" OnContent="{x:Null}" OffContent="{x:Null}"
                         IsVisible="{Binding ShowsSimplify}" IsChecked="{Binding SimplifyThroughput, Mode=TwoWay}" />

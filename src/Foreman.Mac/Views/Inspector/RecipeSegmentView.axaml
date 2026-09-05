@@ -10,7 +10,7 @@
     </ContentControl>
 
     <insp:InspectorGroup Title="Rate" IsCollapsible="False">
-      <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
+      <StackPanel Spacing="0">
         <Border Classes="foreman-seg-mini" HorizontalAlignment="Left">
           <StackPanel Orientation="Horizontal" Spacing="2">
             <RadioButton Name="RateAuto" GroupName="RecipeRateType" Content="Auto" Classes="foreman-seg-mini-item" />
@@ -18,17 +18,17 @@
                          IsChecked="{Binding IsFixedRate, Mode=TwoWay}" />
           </StackPanel>
         </Border>
-        <Grid ColumnDefinitions="*,Auto">
+        <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto">
           <TextBlock Grid.Column="0" Text="# Assemblers" Classes="foreman-row-label" />
           <insp:CompactStepper Grid.Column="1" Name="AssemblerCountValue" Minimum="0" FormatString="N2"
                                 IsEnabled="{Binding IsFixedRate}" Value="{Binding AssemblerCount, Mode=TwoWay}" />
         </Grid>
-        <Grid ColumnDefinitions="*,Auto">
+        <Grid Classes="foreman-toggle-row" ColumnDefinitions="*,Auto">
           <TextBlock Grid.Column="0" Text="Low Priority Recipe" Classes="foreman-row-label" />
           <ToggleSwitch Grid.Column="1" Name="LowPriority" Classes="foreman-mini-switch" OnContent="{x:Null}" OffContent="{x:Null}"
                         IsChecked="{Binding LowPriority, Mode=TwoWay}" />
         </Grid>
-        <Grid ColumnDefinitions="*,Auto">
+        <Grid Classes="foreman-toggle-row" ColumnDefinitions="*,Auto">
           <TextBlock Grid.Column="0" Text="Key Node" Classes="foreman-row-label" />
           <ToggleSwitch Grid.Column="1" Name="KeyNode" Classes="foreman-mini-switch" OnContent="{x:Null}" OffContent="{x:Null}"
                         IsChecked="{Binding IsKeyNode, Mode=TwoWay}" />
@@ -39,23 +39,23 @@
     </insp:InspectorGroup>
 
     <insp:InspectorGroup Title="Assembler">
-      <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
+      <StackPanel Spacing="0">
         <StackPanel Orientation="Horizontal" Classes="foreman-picker-row">
           <Border Classes="foreman-picker-icon">
             <Image Name="SelectedAssemblerIcon" Source="{Binding SelectedAssembler.Icon}" Stretch="Uniform" />
           </Border>
           <StackPanel VerticalAlignment="Center">
             <TextBlock Name="SelectedAssemblerName" Text="{Binding SelectedAssembler.Name}" Classes="foreman-picker-name" />
-            <TextBlock Name="AssemblerStatsText" Text="{Binding AssemblerStats}" Classes="foreman-caption" />
+            <TextBlock Name="AssemblerStatsText" Text="{Binding AssemblerStats}" Classes="foreman-caption" TextWrapping="Wrap" />
           </StackPanel>
         </StackPanel>
-        <insp:PickGrid Name="AssemblerGrid" Items="{Binding AssemblerOptions}" />
-        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowsNeighbours}">
+        <insp:PickGrid Name="AssemblerGrid" Items="{Binding AssemblerOptions}" Margin="0,0,0,4" />
+        <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto" IsVisible="{Binding ShowsNeighbours}">
           <TextBlock Grid.Column="0" Text="Avg. neighbours" Classes="foreman-row-label" />
           <insp:CompactStepper Grid.Column="1" Name="AvgNeighboursValue" Minimum="0" Maximum="100" Increment="0.05" FormatString="N2"
                                 IsVisible="{Binding ShowsNeighbours}" Value="{Binding AvgNeighbours, Mode=TwoWay}" />
         </Grid>
-        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowsExtraProductivity}">
+        <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto" IsVisible="{Binding ShowsExtraProductivity}">
           <TextBlock Grid.Column="0" Text="Extra productivity %" Classes="foreman-row-label" />
           <insp:CompactStepper Grid.Column="1" Name="ExtraProductivityValue" Minimum="0" Maximum="100000" Increment="10" FormatString="N2"
                                 IsVisible="{Binding ShowsExtraProductivity}" Value="{Binding ExtraProductivityPercent, Mode=TwoWay}" />
@@ -77,7 +77,7 @@
     </insp:InspectorGroup>
 
     <insp:InspectorGroup Name="BeaconGroup" Title="Beacon" IsLastGroup="True">
-      <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
+      <StackPanel Spacing="0">
         <StackPanel Orientation="Horizontal" Classes="foreman-picker-row">
           <Border Classes="foreman-picker-icon">
             <Image Name="SelectedBeaconIcon" Source="{Binding SelectedBeacon.Icon}" Stretch="Uniform" />
@@ -88,22 +88,22 @@
           </StackPanel>
           <Button Name="ClearBeaconButton" Content="Clear" IsVisible="{Binding HasBeacon}" />
         </StackPanel>
-        <insp:PickGrid Name="BeaconOptions" Items="{Binding BeaconOptions}" />
+        <insp:PickGrid Name="BeaconOptions" Items="{Binding BeaconOptions}" Margin="0,0,0,4" />
 
-        <StackPanel Name="BeaconDetail" Spacing="{StaticResource Foreman.Space.Space2}" IsVisible="{Binding HasBeacon}">
-          <insp:PickGrid Name="EquippedBeaconGrid" Items="{Binding EquippedBeaconModules}" />
-          <insp:PickGrid Name="BeaconModuleOptionsGrid" Items="{Binding BeaconModuleOptions}" />
-          <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Name="BeaconDetail" Spacing="0" IsVisible="{Binding HasBeacon}">
+          <insp:PickGrid Name="EquippedBeaconGrid" Items="{Binding EquippedBeaconModules}" Margin="0,0,0,4" />
+          <insp:PickGrid Name="BeaconModuleOptionsGrid" Items="{Binding BeaconModuleOptions}" Margin="0,0,0,4" />
+          <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto">
             <TextBlock Grid.Column="0" Text="# Beacons" Classes="foreman-row-label" />
             <insp:CompactStepper Grid.Column="1" Name="BeaconCountValue" Minimum="0" Maximum="1000" FormatString="0.##"
                                   Value="{Binding BeaconCount, Mode=TwoWay}" />
           </Grid>
-          <Grid ColumnDefinitions="*,Auto">
+          <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto">
             <TextBlock Grid.Column="0" Text="/ Assembler" Classes="foreman-row-label" />
             <insp:CompactStepper Grid.Column="1" Name="BeaconsPerAssemblerValue" Minimum="0" Maximum="1000" FormatString="N2"
                                   Value="{Binding BeaconsPerAssembler, Mode=TwoWay}" />
           </Grid>
-          <Grid ColumnDefinitions="*,Auto">
+          <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto">
             <TextBlock Grid.Column="0" Text="Additional" Classes="foreman-row-label" />
             <insp:CompactStepper Grid.Column="1" Name="BeaconsTotalValue" Minimum="0" Maximum="1000" FormatString="N2"
                                   Value="{Binding BeaconsTotal, Mode=TwoWay}" />
