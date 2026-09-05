@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -18,6 +19,7 @@ using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Serialization;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -43,6 +45,12 @@ namespace Foreman.Mac {
         public AppSettings? Settings { get; set; }
         public PresetResolver? PresetResolver { get; set; }
         public SettingsService? SettingsService { get; set; }
+
+        //One "Add to Graph" browser for the window's lifetime; BrowseRequested reopens/reseeds it.
+        private AddBrowserWindow? browser;
+        internal AddBrowserWindow? BrowserWindow => browser;
+        internal AddRequest? BrowserRequest { get; private set; }
+        private readonly Dictionary<SKBitmap, Bitmap> browserIconCache = [];
 
         //Test-only seam: lets a test supply the Settings dialog's outcome without a real modal ShowDialog
         //(mirrors GraphCanvasControl's TextPropertiesDialogStub/ShapePropertiesDialogStub).
@@ -143,6 +151,8 @@ namespace Foreman.Mac {
             //GraphViewer.SelectionChanged is the aggregate signal every selection-mutating method raises.
             GraphCanvas.Viewer.SelectionChanged += (_, _) => Commands.AlignSelectionCommand.NotifyCanExecuteChanged();
 
+            GraphCanvas.BrowseRequested += (_, request) => OpenBrowser(request);
+
             ViewModel = new MainWindowViewModel();
             DataContext = ViewModel;
 
@@ -181,6 +191,20 @@ namespace Foreman.Mac {
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+        //lazy: DataCache/Settings are not ready at construction; the window hides on close and is reused
+        internal void OpenBrowser(AddRequest request) {
+            if (DataCache is not Foreman.DataCaching.DataCache cache || Settings is not AppSettings settings)
+                return;
+
+            browser ??= new AddBrowserWindow(new AddBrowserViewModel(new AddCatalog(cache, settings), cache, settings,
+                (bmp, size) => IconBaker.GetOrBake(browserIconCache, bmp, size)));
+            ((AddBrowserViewModel)browser.DataContext!).Seed(request);
+            BrowserRequest = request;
+            if (!browser.IsVisible)
+                browser.Show(this);
+            browser.Activate();
+        }
 
         //Ports MainForm_Load's settings-application block (reference: upstream MainForm.cs:70-135) - preset/
         //fuel-priority defaults stay untouched since neither has a settings-dialog widget yet; the knobs

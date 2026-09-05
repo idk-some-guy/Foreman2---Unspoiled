@@ -106,12 +106,73 @@ namespace Foreman.Mac.UiTests.support {
             store.Qualities.Clear();
             QualityPrototype? first = null;
             foreach (string name in qualityNames) {
-                var quality = new QualityPrototype(fx.Cache, name, name, "a");
+                var quality = new QualityPrototype(fx.Cache, name, Capitalize(name), "a");
                 store.Qualities[name] = quality;
                 first ??= quality;
             }
             store.DefaultQuality = first;
             return fx;
+        }
+
+        private static string Capitalize(string name) => name.Length == 0 ? name : char.ToUpperInvariant(name[0]) + name[1..];
+
+        //Two groups, each with at least one recipe so both segments sort something into Groups[1].
+        public static CatalogFixture WithGroups() {
+            var cache = new DataCache(filterRecipes: true);
+            DataCacheStore store = Store(cache);
+            var quality = new QualityPrototype(cache, "normal", "Normal", "a");
+            store.Qualities[quality.Name] = quality;
+            store.DefaultQuality = quality;
+
+            var assembler = new AssemblerPrototype(cache, "assembler", "Assembler", EntityType.Assembler, EnergySource.Electric) { Available = true };
+
+            var logistics = new GroupPrototype(cache, "logistics", "Logistics", "a");
+            store.Groups[logistics.Name] = logistics;
+            var storage = new SubgroupPrototype(cache, "Storage", "a");
+            storage.MyGroupInternal = logistics;
+            logistics.SubgroupsInternal.Add(storage);
+            store.Subgroups[storage.Name] = storage;
+            var belt = new SubgroupPrototype(cache, "Belt", "b");
+            belt.MyGroupInternal = logistics;
+            logistics.SubgroupsInternal.Add(belt);
+            store.Subgroups[belt.Name] = belt;
+
+            var woodenChest = new ItemPrototype(cache, "wooden-chest", "Wooden Chest", storage, "a") { Available = true };
+            var ironChest = new ItemPrototype(cache, "iron-chest", "Iron Chest", storage, "b") { Available = true };
+            var steelChest = new ItemPrototype(cache, "steel-chest", "Steel Chest", storage, "c") { Available = false };
+            store.Items[woodenChest.Name] = woodenChest;
+            store.Items[ironChest.Name] = ironChest;
+            store.Items[steelChest.Name] = steelChest;
+
+            var transportBelt = new ItemPrototype(cache, "transport-belt", "Transport Belt", belt, "a") { Available = true };
+            store.Items[transportBelt.Name] = transportBelt;
+
+            var beltRecipe = new RecipePrototype(cache, "transport-belt", "Transport Belt", belt, "a") { Available = true };
+            beltRecipe.AssemblersInternal.Add(assembler);
+            beltRecipe.InternalOneWayAddProduct(transportBelt, 1, 0);
+            store.Recipes[beltRecipe.Name] = beltRecipe;
+
+            var production = new GroupPrototype(cache, "production", "Production", "b");
+            store.Groups[production.Name] = production;
+            var assemblers = new SubgroupPrototype(cache, "Assemblers", "a");
+            assemblers.MyGroupInternal = production;
+            production.SubgroupsInternal.Add(assemblers);
+            store.Subgroups[assemblers.Name] = assemblers;
+
+            var assemblingMachine1 = new ItemPrototype(cache, "assembling-machine-1", "Assembling Machine 1", assemblers, "a") { Available = true };
+            store.Items[assemblingMachine1.Name] = assemblingMachine1;
+
+            var assemblerRecipe = new RecipePrototype(cache, "assembling-machine-1", "Assembling Machine 1", assemblers, "a") { Available = true };
+            assemblerRecipe.AssemblersInternal.Add(assembler);
+            assemblerRecipe.InternalOneWayAddProduct(assemblingMachine1, 1, 0);
+            store.Recipes[assemblerRecipe.Name] = assemblerRecipe;
+
+            var hiddenRecipe = new RecipePrototype(cache, "assembling-machine-2", "Assembling Machine 2", assemblers, "b") { Available = true, Enabled = false };
+            hiddenRecipe.AssemblersInternal.Add(assembler);
+            hiddenRecipe.InternalOneWayAddProduct(assemblingMachine1, 1, 0);
+            store.Recipes[hiddenRecipe.Name] = hiddenRecipe;
+
+            return new CatalogFixture { Cache = cache, Subgroup = storage, Assembler = assembler };
         }
 
         public AddLinkContext LinkContextFor(string itemName, NewNodeType nodeType) {
