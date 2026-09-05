@@ -39,6 +39,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   to remove, an options grid to add, a beacon picker with its own module grid and the three beacon
   steppers, and a quality mini-select under the identity row's name/subtitle that re-quals the
   node's assembler and updates its own label and the subtitle immediately.
+- Add chooser: shared search/ranking service behind the new palette and browser.
 
 ### Fixed
 
