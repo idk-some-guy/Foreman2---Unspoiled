@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.Mac.Views.Inspector;
+using System.Globalization;
 using System.Linq;
 using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
@@ -83,6 +84,55 @@ namespace Foreman.Mac.UiTests.Inspector {
             stepper.Value = 4;
 
             Assert.Equal(4, observed);
+        }
+
+        //Fix round 1 (reviewer finding, Important 3): typed-text commit (Enter -> CommitText) had no
+        //coverage - this exercises the real path a user typing into the field takes.
+        [AvaloniaFact]
+        public void TypingIntoValueBox_ThenEnter_CommitsTheTypedValue() {
+            (_, CompactStepper stepper) = NewStepper();
+            stepper.Value = 2;
+            TextBox valueBox = stepper.GetVisualDescendants().OfType<TextBox>().Single();
+            valueBox.Focus();
+
+            valueBox.Text = "7.5";
+            valueBox.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(7.5, stepper.Value);
+        }
+
+        [AvaloniaFact]
+        public void TypingIntoValueBox_UnparsableText_RevertsToTheLastValidValue() {
+            (_, CompactStepper stepper) = NewStepper();
+            stepper.Value = 2;
+            TextBox valueBox = stepper.GetVisualDescendants().OfType<TextBox>().Single();
+            valueBox.Focus();
+
+            valueBox.Text = "not a number";
+            valueBox.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(2, stepper.Value);
+            Assert.Equal("2.00", valueBox.Text);
+        }
+
+        //Fix round 1 (reviewer finding, Important 4): N2/N4 render a thousands separator for values >=
+        //1000 (e.g. "1,500.00") that NumberStyles.Float can't parse back - committing the field unchanged
+        //used to silently revert instead of round-tripping.
+        [AvaloniaFact]
+        public void ValueAtOrAboveOneThousand_RoundTripsThroughItsOwnDisplayedThousandsSeparator() {
+            (_, CompactStepper stepper) = NewStepper();
+            stepper.Maximum = 10000;
+            stepper.Value = 1500;
+            TextBox valueBox = stepper.GetVisualDescendants().OfType<TextBox>().Single();
+            Assert.Equal(1500.0.ToString("N2", CultureInfo.CurrentCulture), valueBox.Text);
+            valueBox.Focus();
+
+            valueBox.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(1500, stepper.Value);
         }
     }
 }

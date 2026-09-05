@@ -41,7 +41,6 @@
   <x:Double x:Key="Foreman.Space.RadiusControl">6</x:Double>
   <x:Double x:Key="Foreman.Space.RadiusCard">9</x:Double>
   <x:Double x:Key="Foreman.Space.RadiusWindow">11</x:Double>
-  <x:Double x:Key="Foreman.Space.PickerCell">26</x:Double>
 
   <!-- Typed companions of the Space/Radius doubles above, same numbers: CornerRadius and
        Thickness (Margin/Padding) properties reject a boxed x:Double resource at style-application
@@ -55,6 +54,12 @@
   <CornerRadius x:Key="Foreman.Radius.Control">6</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Card">9</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Window">11</CornerRadius>
+
+  <!-- Fix round 1 (reviewer finding, Critical 2): PickGrid cells were still the pre-mock 36px/radius-6
+       shape with no gap - the mock's own pick-cell is 26px/radius-5 with a 5px gap (achieved the same way
+       every other PickGrid gap already was, via a per-cell margin). -->
+  <CornerRadius x:Key="Foreman.Radius.PickCell">5</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.PickCellGap">2.5</Thickness>
 
   <x:Double x:Key="Foreman.Type.LargeTitle.FontSize">20</x:Double>
   <FontWeight x:Key="Foreman.Type.LargeTitle.FontWeight">700</FontWeight>
@@ -84,7 +89,7 @@
   <x:Double x:Key="Foreman.Type.Chevron.FontSize">10</x:Double>
 
   <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
-  <x:Double x:Key="Foreman.Size.PickCell">36</x:Double>
+  <x:Double x:Key="Foreman.Size.PickCell">26</x:Double>
 
   <!-- Task 9: overlay sidebar's soft left shadow (contract §03's overlay ruling) and a pick cell's
        selected-ring, both BoxShadows so light/dark can each carry their own opacity. -->

@@ -76,7 +76,7 @@
       </StackPanel>
     </insp:InspectorGroup>
 
-    <insp:InspectorGroup Name="BeaconGroup" Title="Beacon">
+    <insp:InspectorGroup Name="BeaconGroup" Title="Beacon" IsLastGroup="True">
       <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
         <StackPanel Orientation="Horizontal" Classes="foreman-picker-row">
           <Border Classes="foreman-picker-icon">

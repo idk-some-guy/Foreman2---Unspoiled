@@ -25,10 +25,19 @@ namespace Foreman.Mac.Views.Inspector {
         public static readonly StyledProperty<object?> GroupContentProperty =
             AvaloniaProperty.Register<InspectorGroup, object?>(nameof(GroupContent));
 
+        //Fix round 1 (reviewer finding, Critical 1): the group padding and per-group bottom border the
+        //brief called for never actually landed on this control - every group rendered flush against its
+        //neighbours. IsLastGroup lets the host StackPanel mark whichever group is visually last (Beacon in
+        //RecipeSegmentView, Node in FlowSegmentView) so it skips the border, matching the mock's own
+        //`border-bottom:none` on the final group.
+        public static readonly StyledProperty<bool> IsLastGroupProperty =
+            AvaloniaProperty.Register<InspectorGroup, bool>(nameof(IsLastGroup), defaultValue: false);
+
         private readonly TextBlock titleText;
         private readonly TextBlock disclosureGlyph;
         private readonly Button headerButton;
         private readonly ContentPresenter contentHost;
+        private readonly Border container;
 
         public string? Title {
             get => GetValue(TitleProperty);
@@ -43,6 +52,11 @@ namespace Foreman.Mac.Views.Inspector {
         public bool IsCollapsible {
             get => GetValue(IsCollapsibleProperty);
             set => SetValue(IsCollapsibleProperty, value);
+        }
+
+        public bool IsLastGroup {
+            get => GetValue(IsLastGroupProperty);
+            set => SetValue(IsLastGroupProperty, value);
         }
 
         [Content]
@@ -72,7 +86,9 @@ namespace Foreman.Mac.Views.Inspector {
             headerButton.Classes.Add("foreman-group-header");
             headerButton.Click += (_, _) => SetCurrentValue(IsExpandedProperty, !IsExpanded);
             contentHost = new ContentPresenter();
-            Content = new StackPanel { Spacing = 4, Children = { headerButton, contentHost } };
+            container = new Border { Child = new StackPanel { Spacing = 4, Children = { headerButton, contentHost } } };
+            container.Classes.Add("foreman-inspector-group");
+            Content = container;
             DataContextChanged += (_, _) => SyncGroupContentDataContext();
             UpdateDisclosureGlyph();
             UpdateCollapsible();
@@ -90,6 +106,8 @@ namespace Foreman.Mac.Views.Inspector {
                 SyncGroupContentDataContext();
             } else if (change.Property == IsCollapsibleProperty)
                 UpdateCollapsible();
+            else if (change.Property == IsLastGroupProperty)
+                container.Classes.Set("last", IsLastGroup);
         }
 
         private void UpdateCollapsible() {

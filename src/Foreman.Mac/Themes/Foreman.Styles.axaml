@@ -445,12 +445,12 @@
   <Style Selector="Button.foreman-pick-cell">
     <Setter Property="Width" Value="{DynamicResource Foreman.Size.PickCell}" />
     <Setter Property="Height" Value="{DynamicResource Foreman.Size.PickCell}" />
-    <Setter Property="Margin" Value="2" />
+    <Setter Property="Margin" Value="{DynamicResource Foreman.Thickness.PickCellGap}" />
     <Setter Property="Padding" Value="2" />
     <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackground}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.PickCellBorder}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.PickCell}" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
   </Style>
@@ -489,5 +489,17 @@
     <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
   </Style>
 
+  <!-- InspectorGroup's own outer container (fix round 1, contract §03 CSS 383-386): padding 10/12/14 and
+       a 1px bottom border between groups - "last" (set on whichever group is visually last in its host
+       StackPanel) drops the border, matching the mock's own border-bottom:none on the final group. -->
+  <Style Selector="Border.foreman-inspector-group">
+    <Setter Property="Padding" Value="12,10,12,14" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Border}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+
+  <Style Selector="Border.foreman-inspector-group.last">
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
 
 </Styles>

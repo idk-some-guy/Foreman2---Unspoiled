@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Data;
@@ -30,6 +31,9 @@ namespace Foreman.Mac.UiTests.Inspector {
 
         private static ContentPresenter BodyOf(InspectorGroup group) =>
             group.GetVisualDescendants().OfType<ContentPresenter>().Single(p => Equals(p.Content, group.GroupContent));
+
+        private static Border ContainerOf(InspectorGroup group) =>
+            group.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("foreman-inspector-group"));
 
         private static void Click(AvaloniaWindow window, Button button) {
             Avalonia.Point center = new(button.Bounds.Width / 2, button.Bounds.Height / 2);
@@ -82,6 +86,33 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(group.IsExpanded);
+        }
+
+        //Fix round 1 (reviewer finding, Critical 1): the group carried no padding and no per-group bottom
+        //border at all - groups rendered flush against each other, exactly the "crammed" complaint this
+        //task was chartered to fix.
+        [AvaloniaFact]
+        public void Container_HasMockPadding_AndBottomBorder() {
+            (_, InspectorGroup group) = NewGroup();
+            Border container = ContainerOf(group);
+
+            Assert.Equal(new Thickness(12, 10, 12, 14), container.Padding);
+            Assert.Equal(new Thickness(0, 0, 0, 1), container.BorderThickness);
+        }
+
+        [AvaloniaFact]
+        public void IsLastGroup_DropsTheBottomBorder() {
+            var group = new InspectorGroup { Title = "Beacon", GroupContent = new TextBlock { Text = "content" } };
+            var host = new AvaloniaWindow { Content = group, Width = 300, Height = 300 };
+            host.Show();
+            Dispatcher.UIThread.RunJobs();
+            Border container = ContainerOf(group);
+            Assert.Equal(new Thickness(0, 0, 0, 1), container.BorderThickness);
+
+            group.IsLastGroup = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(new Thickness(0), container.BorderThickness);
         }
 
         private sealed class BoolSource : INotifyPropertyChanged {

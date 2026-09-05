@@ -22,7 +22,7 @@
       </StackPanel>
     </insp:InspectorGroup>
 
-    <insp:InspectorGroup Title="Node" IsCollapsible="False">
+    <insp:InspectorGroup Title="Node" IsCollapsible="False" IsLastGroup="True">
       <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
         <Grid ColumnDefinitions="*,Auto">
           <TextBlock Grid.Column="0" Text="Key Node" Classes="foreman-row-label" />
