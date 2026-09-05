@@ -591,4 +591,44 @@
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
+  <!-- Radial menu (C2b link-drag chooser, reference §11): ".hover" is toggled from code, not :pointerover. -->
+  <Style Selector="Path.foreman-radial-slice">
+    <Setter Property="Fill" Value="Transparent" />
+    <Setter Property="Stroke" Value="Transparent" />
+    <Setter Property="StrokeThickness" Value="1" />
+  </Style>
+  <Style Selector="Path.foreman-radial-slice.hover">
+    <Setter Property="Fill" Value="{DynamicResource Foreman.Color.AccentSoft}" />
+    <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.Accent}" />
+  </Style>
+
+  <Style Selector="Ellipse.foreman-radial-hub">
+    <Setter Property="Fill" Value="{DynamicResource Foreman.Color.WellBackground}" />
+    <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.BorderStrong}" />
+    <Setter Property="StrokeThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Ellipse.foreman-radial-cursor">
+    <Setter Property="Fill" Value="{DynamicResource Foreman.Color.Accent}" />
+  </Style>
+
+  <Style Selector="Path.foreman-radial-icon">
+    <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    <Setter Property="StrokeThickness" Value="1.5" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+  </Style>
+  <Style Selector="Path.foreman-radial-icon.hover">
+    <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.AccentText}" />
+  </Style>
+
+  <Style Selector="TextBlock.foreman-radial-label">
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+  </Style>
+  <Style Selector="TextBlock.foreman-radial-label.hover">
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.AccentText}" />
+  </Style>
+
 </Styles>

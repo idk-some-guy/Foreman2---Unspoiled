@@ -8,6 +8,7 @@ using Foreman.Mac.Canvas.Elements;
 using Foreman.Models;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using AvaloniaPoint = Avalonia.Point;
 using AvaloniaWindow = Avalonia.Controls.Window;
 using DrawingPoint = System.Drawing.Point;
@@ -43,6 +44,36 @@ namespace Foreman.Mac.UiTests.support {
             return fx;
         }
 
+        public static CanvasFixture WithVanillaAndOneSupplier(out AvaloniaPoint outputTabScreenPoint) {
+            CanvasFixture fx = WithVanilla();
+            var pair = new ItemQualityPair(fx.Cache.Items["iron-plate"], fx.Cache.DefaultQuality!);
+            NodeId nodeId = fx.Control.Viewer.Session.Editor.CreateSupplierNode(pair, new DrawingPoint(0, 0));
+            BaseNodeElement element = fx.Control.Viewer.NodeElementDictionary[nodeId];
+            element.RequestStateUpdate();
+            element.PrePaint();
+            ItemTabElement tab = element.SubElements.OfType<ItemTabElement>().First(t => t.LinkType == LinkType.Output);
+            outputTabScreenPoint = fx.Control.Viewport.GraphToScreen(element.LocalToGraph(tab.Location));
+            return fx;
+        }
+
+        //two small moves are needed to cross the drag threshold
+        public LinkDrag DragFrom(AvaloniaPoint tabScreenPoint) {
+            AvaloniaPoint armed = tabScreenPoint + new AvaloniaPoint(40, 0);
+            Window.MouseDown(tabScreenPoint, MouseButton.Left, RawInputModifiers.None);
+            Window.MouseMove(armed, RawInputModifiers.LeftMouseButton);
+            Window.MouseMove(armed, RawInputModifiers.LeftMouseButton);
+            return new LinkDrag(this, armed);
+        }
+
+        public void MoveTo(AvaloniaPoint screenPoint) => Window.MouseMove(screenPoint, RawInputModifiers.None);
+
+        public void ClickAt(AvaloniaPoint screenPoint) {
+            Window.MouseDown(screenPoint, MouseButton.Left, RawInputModifiers.None);
+            Window.MouseUp(screenPoint, MouseButton.Left, RawInputModifiers.None);
+        }
+
+        public void ReleaseAt(AvaloniaPoint screenPoint) => Window.MouseUp(screenPoint, MouseButton.Left, RawInputModifiers.None);
+
         public void DoubleClick(AvaloniaPoint screenPoint) {
             Window.MouseDown(screenPoint, MouseButton.Left, RawInputModifiers.None);
             Window.MouseUp(screenPoint, MouseButton.Left, RawInputModifiers.None);
@@ -70,6 +101,33 @@ namespace Foreman.Mac.UiTests.support {
             var cache = new DataCache(filterRecipes: true);
             cache.LoadAllData(new Preset(VanillaPresetName, true, true), new Progress<KeyValuePair<int, string>>()).GetAwaiter().GetResult();
             return cache;
+        }
+    }
+
+    internal sealed class LinkDrag {
+        private readonly CanvasFixture fx;
+        private AvaloniaPoint current;
+
+        internal LinkDrag(CanvasFixture fx, AvaloniaPoint start) {
+            this.fx = fx;
+            current = start;
+        }
+
+        public LinkDrag To(AvaloniaPoint screenPoint) {
+            fx.Window.MouseMove(screenPoint, RawInputModifiers.LeftMouseButton);
+            current = screenPoint;
+            return this;
+        }
+
+        public void Release(KeyModifiers modifiers = KeyModifiers.None) => fx.Window.MouseUp(current, MouseButton.Left, ToRaw(modifiers));
+
+        private static RawInputModifiers ToRaw(KeyModifiers modifiers) {
+            RawInputModifiers raw = RawInputModifiers.None;
+            if (modifiers.HasFlag(KeyModifiers.Meta)) raw |= RawInputModifiers.Meta;
+            if (modifiers.HasFlag(KeyModifiers.Control)) raw |= RawInputModifiers.Control;
+            if (modifiers.HasFlag(KeyModifiers.Shift)) raw |= RawInputModifiers.Shift;
+            if (modifiers.HasFlag(KeyModifiers.Alt)) raw |= RawInputModifiers.Alt;
+            return raw;
         }
     }
 }

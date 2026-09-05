@@ -25,6 +25,7 @@ namespace Foreman.Mac.Canvas.Panels {
         private AvaloniaControl? _content;
         private DrawingPoint _anchorGraphPoint;
         private Direction? _anchorDirection;
+        private bool _centerOnAnchor;
 
         public FloatingPanelHost(AvaloniaCanvas host, Viewport viewport, AvaloniaControl owner) {
             _host = host;
@@ -43,15 +44,12 @@ namespace Foreman.Mac.Canvas.Panels {
                 (int)AvaloniaCanvas.GetLeft(control), (int)AvaloniaCanvas.GetTop(control),
                 (int)control.Width, (int)control.Height);
 
-        //anchorDirection is the arrow direction upstream's getTooltipScreenBounds would draw (reference §7):
-        //omitted for the choosers, which anchor their top-left directly at the click point; edit panels
-        //pass Direction.Right, matching upstream's EditNode leftAnchor placement - the panel body sits to
-        //the left of that anchor rather than starting at it.
-        public void Show(AvaloniaControl content, DrawingPoint anchorGraphPoint, Direction? anchorDirection = null) {
+        public void Show(AvaloniaControl content, DrawingPoint anchorGraphPoint, Direction? anchorDirection = null, bool centerOnAnchor = false) {
             Close();
             _content = content;
             _anchorGraphPoint = anchorGraphPoint;
             _anchorDirection = anchorDirection;
+            _centerOnAnchor = centerOnAnchor;
             _host.Children.Add(content);
             Reposition();
             FocusPrimary(content);
@@ -81,10 +79,24 @@ namespace Foreman.Mac.Canvas.Panels {
 
             int viewerWidth = (int)_viewport.Width;
             int viewerHeight = (int)_viewport.Height;
-            DrawingRectangle rect = MeasureReflowableRect(_content, _anchorGraphPoint, _anchorDirection, viewerWidth, viewerHeight);
+            DrawingRectangle rect = _centerOnAnchor
+                ? CenteredRect(_content, _anchorGraphPoint)
+                : MeasureReflowableRect(_content, _anchorGraphPoint, _anchorDirection, viewerWidth, viewerHeight);
             DrawingRectangle clamped = EditPanelScreenLayout.ClampRectToViewer(rect, viewerWidth, viewerHeight);
             AvaloniaCanvas.SetLeft(_content, clamped.X);
             AvaloniaCanvas.SetTop(_content, clamped.Y);
+        }
+
+        //Centers fixed-size content on the anchor instead of the reflow-then-anchor-at-top-left math every other panel uses.
+        private DrawingRectangle CenteredRect(AvaloniaControl content, DrawingPoint anchorGraphPoint) {
+            content.Measure(new AvaloniaSize(double.PositiveInfinity, double.PositiveInfinity));
+            AvaloniaSize desired = content.DesiredSize;
+            AvaloniaPoint anchorScreen = _viewport.GraphToScreen(anchorGraphPoint);
+            return new DrawingRectangle(
+                (int)Math.Round(anchorScreen.X - (desired.Width / 2)),
+                (int)Math.Round(anchorScreen.Y - (desired.Height / 2)),
+                (int)Math.Ceiling(desired.Width),
+                (int)Math.Ceiling(desired.Height));
         }
 
         //Gives content (e.g. IRChooserPanel) a chance to actually reflow to the available space before

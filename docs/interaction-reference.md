@@ -432,7 +432,7 @@ menu.
 | ← → ↑ ↓ | (+ Shift = large step) | any state (`ProcessCmdKey`) | Move selected nodes + annotations by grid unit (or major-grid/4x with Shift) |
 | W A S D | (+ Shift = 5x speed) | `!SubwindowOpen` (`ProcessCmdKey`) | Pan the view |
 | Shift | held | any state | Live-toggles `Grid.LockDragToAxis`, re-anchoring `DragOrigin` at the node's current position on every toggle (§2) |
-| Escape | | `inDrawShapeMode` only | Cancels the pending shape draw; no other Escape handling exists anywhere (no cancel-link-drag Escape — that's right-click only; no deselect-all Escape) |
+| Escape | | `inDrawShapeMode`, an in-flight link drag, or an open floating panel | Cancels the pending shape draw; cancels a link drag in progress (Mac-convention addition, not a strict port - upstream's own cancel is right-click only); closes an open panel, including the link-drag radial menu (C2b), whose own Cancel slice does the same thing |
 | Space | | `MainForm.GraphViewer_KeyDown`, not the canvas control | Toggles `Grid.ShowGrid` and syncs the toolbar checkbox |
 | S | Ctrl | `MainForm_KeyDown`, not the canvas control | Save (or Save As if untitled) |
 

@@ -30,4 +30,9 @@
 
   <!-- Magnifying glass (Quick Add palette / browser search field), stroked like foreman-toolbar-glyph. -->
   <StreamGeometry x:Key="Foreman.Icon.Search">M3,8.2 A5.2,5.2 0 1,1 13.4,8.2 A5.2,5.2 0 1,1 3,8.2 Z M15,15 L11.7,11.7</StreamGeometry>
+
+  <!-- Radial menu slice icons (C2b's link-drag chooser, reference §11). -->
+  <StreamGeometry x:Key="Foreman.Icon.RadialAdd">M9.5,3 v13 M3,9.5 h13</StreamGeometry>
+  <StreamGeometry x:Key="Foreman.Icon.RadialPassthrough">M2,9.5 H6.5 M12.5,9.5 H17 M6.5,9.5 A3,3 0 1,0 12.5,9.5 A3,3 0 1,0 6.5,9.5 Z</StreamGeometry>
+  <StreamGeometry x:Key="Foreman.Icon.RadialCancel">M4,4 L15,15 M15,4 L4,15</StreamGeometry>
 </ResourceDictionary>

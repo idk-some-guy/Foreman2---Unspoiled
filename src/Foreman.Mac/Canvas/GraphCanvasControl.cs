@@ -208,9 +208,40 @@ namespace Foreman.Mac.Canvas {
 
         internal void RequestNewNodeFromLinkDrag(NewNodeLinkDragRequest request) {
             LastNewNodeLinkDragRequest = request;
-            NewNodeRequested?.Invoke(request);
+            ShowRadialMenu(request);
             DisposeLinkDrag();
             RequestRedraw();
+        }
+
+        internal RadialMenu? OpenRadial => FloatingPanelHost.Content as RadialMenu;
+
+        internal void ShowRadialMenu(NewNodeLinkDragRequest request) {
+            var radial = new RadialMenu();
+            radial.Chosen += (_, choice) => {
+                FloatingPanelHost.Close();
+                switch (choice) {
+                    case RadialChoice.Add:
+                        ShowQuickAdd(new AddRequest(request.EndpointLocation, AddScope.All, LinkContextFor(request)));
+                        break;
+                    case RadialChoice.Passthrough:
+                        CreatePassthroughFromLinkDrag(request);
+                        break;
+                    default:
+                        DisposeLinkDrag();
+                        break;
+                }
+            };
+            FloatingPanelHost.Show(radial, Viewport.ScreenToGraph(request.ScreenPoint), centerOnAnchor: true);
+        }
+
+        private AddLinkContext LinkContextFor(NewNodeLinkDragRequest request) =>
+            new(request.Item, request.NodeType, TemperatureRangeFor(request), request.OriginElement, request.Direction);
+
+        private FRange TemperatureRangeFor(NewNodeLinkDragRequest request) {
+            if (request.Item.Item is not IFluid fluid || !fluid.IsTemperatureDependent)
+                return new FRange(0, 0, true);
+            LinkType direction = request.NodeType == NewNodeType.Consumer ? LinkType.Output : LinkType.Input;
+            return LinkChecker.GetTemperatureRange(fluid, request.OriginElement.ViewModel, direction, true, Viewer.Session);
         }
 
         //Ports ProcessNodeRequest's Passthrough case plus FinalizeNodePosition's link-creation tail (reference
@@ -327,6 +358,13 @@ namespace Foreman.Mac.Canvas {
             if (FloatingPanelHost.IsOpen) {
                 var pressedPoint = new DrawingPoint((int)screenPoint.X, (int)screenPoint.Y);
                 if (FloatingPanelHost.Bounds.Contains(pressedPoint)) {
+                    e.Handled = true;
+                    return;
+                }
+                //C2b: unlike every other panel, an outside click on the radial cancels the drag instead of falling through to canvas selection.
+                if (OpenRadial is not null) {
+                    DisposeLinkDrag();
+                    FloatingPanelHost.Close();
                     e.Handled = true;
                     return;
                 }
@@ -975,15 +1013,10 @@ namespace Foreman.Mac.Canvas {
         //Core helper LinkChecker.IsPossibleConnection already uses for live link validity), replacing task 7's
         //producers/consumers approximation with upstream's exact RecipeMatchesKeyItem predicate.
         private void HandleNewNodeRequestedAsync(NewNodeLinkDragRequest request) {
-            if (Viewer.Context.DCache is not DataCache cache || request.Item.Item is not IItem item)
+            if (Viewer.Context.DCache is not DataCache || request.Item.Item is not IItem)
                 return;
 
-            var tempRange = new FRange(0, 0, true);
-            if (item is IFluid fluid && fluid.IsTemperatureDependent) {
-                LinkType direction = request.NodeType == NewNodeType.Consumer ? LinkType.Output : LinkType.Input;
-                tempRange = LinkChecker.GetTemperatureRange(fluid, request.OriginElement.ViewModel, direction, true, Viewer.Session);
-            }
-
+            FRange tempRange = TemperatureRangeFor(request);
             DrawingPoint drawOrigin = Viewport.ScreenToGraph(request.ScreenPoint);
             AddNewNode(drawOrigin, request.Item, request.EndpointLocation, request.NodeType, request.OriginElement, request.Direction, tempRange, offsetLocationToItemTabLevel: true);
         }
