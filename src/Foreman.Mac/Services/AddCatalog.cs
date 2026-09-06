@@ -78,6 +78,14 @@ namespace Foreman.Mac.Services {
             return false;
         }
 
+        //AddBrowserViewModel builds cells straight from a group/subgroup's IDataObjectBase entries, outside
+        //of a Search call - this dispatching overload is that path's own entry point into the same pair.
+        public static AddCandidate Candidate(IDataObjectBase entry) => entry switch {
+            IItem item => Candidate(item),
+            IRecipe recipe => Candidate(recipe),
+            _ => throw new ArgumentOutOfRangeException(nameof(entry)),
+        };
+
         private static AddCandidate Candidate(IItem item) => new(AddKind.Item, item, item, null, item.FriendlyName, "item");
         private static AddCandidate Candidate(IRecipe recipe) => new(AddKind.Recipe, recipe, null, recipe, recipe.FriendlyName, "recipe");
     }

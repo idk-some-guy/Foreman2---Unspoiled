@@ -4,12 +4,14 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Foreman.DataCaching;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using System.Linq;
+using System.Reflection;
 using Xunit;
 using DrawingPoint = System.Drawing.Point;
 
@@ -107,6 +109,11 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             vm.SelectCell((BrowserCell)cellButtons[0].DataContext!);
             Assert.Contains("selected", cellButtons[0].Classes);
+
+            //R12: a long label wraps to at most 2 lines, ellipsizing rather than growing the cell.
+            var label = cellButtons[0].GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("foreman-browser-cell-label"));
+            Assert.Equal(2, label.MaxLines);
+            Assert.Equal(TextTrimming.CharacterEllipsis, label.TextTrimming);
         }
 
         [AvaloniaFact]
@@ -174,6 +181,34 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Items));
             Assert.Same(first, shell.Window.BrowserWindow);
             Assert.True(first.IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void BrowserOpensOnTheGraphsDefaultAssemblerQuality() {
+            using ShellFixture shell = ShellFixture.OpenWithSpaceAge();
+            DataCache cache = shell.Window.DataCache!;
+            shell.Window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.Qualities["legendary"];
+
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Items));
+
+            Assert.Equal("legendary", shell.BrowserVm.Quality!.Name);
+        }
+
+        [AvaloniaFact]
+        public void OwnerClosingOrAppShutdownIsNotCancelled() {
+            var (win, _) = Open();
+            var onClosing = typeof(AddBrowserWindow).GetMethod("OnClosing", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            //WindowClosingEventArgs's own constructor is internal to Avalonia.Controls - reflection is the
+            //only way to build one from here to drive OnClosing directly with a specific CloseReason.
+            var ctor = typeof(WindowClosingEventArgs).GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, [typeof(WindowCloseReason), typeof(bool)])!;
+
+            var ownerClosing = (WindowClosingEventArgs)ctor.Invoke([WindowCloseReason.OwnerWindowClosing, true]);
+            onClosing.Invoke(win, [ownerClosing]);
+            Assert.False(ownerClosing.Cancel);
+
+            var appShutdown = (WindowClosingEventArgs)ctor.Invoke([WindowCloseReason.ApplicationShutdown, true]);
+            onClosing.Invoke(win, [appShutdown]);
+            Assert.False(appShutdown.Cancel);
         }
     }
 }

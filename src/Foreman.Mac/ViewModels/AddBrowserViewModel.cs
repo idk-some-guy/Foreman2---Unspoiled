@@ -40,12 +40,12 @@ namespace Foreman.Mac.ViewModels {
         private AddRequest? request;
         private PendingOrigin? pendingOrigin;
 
-        //Remembers the UnSpoil/UnPlant target while its multi-origin chip is up: Origins comes straight
-        //from IItem.SpoilOrigins/PlantOrigins, Target is that item's own candidate (so the follow-up pick
-        //can still report the right base item once an origin cell is chosen).
+        //The UnSpoil/UnPlant multi-origin chip's remembered target and its origin choices.
         private sealed record PendingOrigin(AddCandidate Target, NodeType Role, IReadOnlyCollection<IItem> Origins);
 
-        public AddBrowserViewModel(AddCatalog catalog, DataCache cache, AppSettings settings, Func<SKBitmap, int, IImage?> bake) {
+        //R5: defaults to the graph's own DefaultAssemblerQuality when the caller has one (MainWindow reads
+        //GraphCanvas.Viewer.Graph), falling back to the cache default only when it doesn't.
+        public AddBrowserViewModel(AddCatalog catalog, DataCache cache, AppSettings settings, Func<SKBitmap, int, IImage?> bake, IQuality? defaultAssemblerQuality = null) {
             this.catalog = catalog;
             this.cache = cache;
             this.settings = settings;
@@ -53,7 +53,7 @@ namespace Foreman.Mac.ViewModels {
             Groups = new ReadOnlyObservableCollection<BrowserGroup>(groups);
             Sections = new ReadOnlyObservableCollection<BrowserSection>(sections);
             Qualities = [.. cache.AvailableQualities.Where(q => q.Enabled)];
-            quality = cache.DefaultQuality;
+            quality = defaultAssemblerQuality ?? cache.DefaultQuality;
             Refresh();
         }
 
@@ -159,9 +159,7 @@ namespace Foreman.Mac.ViewModels {
             RaiseChipChanged();
         }
 
-        //Source/Pass-Through/Output/Spoil(Up)/Plant(Up) place straight away; UnSpoil/UnPlant(Down) with
-        //2+ origins swaps the grid to an origin picker instead - the second Place() call, once an origin
-        //cell is selected, reports pendingOrigin's remembered target alongside the chosen origin.
+        //UnSpoil/UnPlant with 2+ origins swaps the grid to an origin picker instead of placing directly.
         public void Place(NodeType role, NodeDirection? spoilPlantDirection = null) {
             if (SelectedCell is null)
                 return;
@@ -279,7 +277,7 @@ namespace Foreman.Mac.ViewModels {
 
             sections.Clear();
             if (pendingOrigin is { } pending && Segment == BrowserSegment.Items) {
-                sections.Add(new BrowserSection("Origins", [.. pending.Origins.Select(o => BuildCell(CandidateFor(o)))]));
+                sections.Add(new BrowserSection("Origins", [.. pending.Origins.Select(o => BuildCell(AddCatalog.Candidate(o)))]));
             } else if (request?.Link is { } link) {
                 BuildLinkSections(link);
             } else {
@@ -302,8 +300,8 @@ namespace Foreman.Mac.ViewModels {
 
             foreach (ISubgroup subgroup in selected.Subgroups) {
                 IEnumerable<AddCandidate> candidates = Segment == BrowserSegment.Items
-                    ? subgroup.Items.Where(catalog.IsVisible).Select(CandidateFor)
-                    : subgroup.Recipes.Where(catalog.IsVisible).Select(CandidateFor);
+                    ? subgroup.Items.Where(catalog.IsVisible).Select(AddCatalog.Candidate)
+                    : subgroup.Recipes.Where(catalog.IsVisible).Select(AddCatalog.Candidate);
                 var cells = candidates.Select(BuildCell).ToList();
                 if (cells.Count > 0)
                     sections.Add(new BrowserSection(subgroup.FriendlyName, cells));
@@ -325,7 +323,7 @@ namespace Foreman.Mac.ViewModels {
                         recipe.ProductList.Any(i => i.FriendlyName.Contains(text, StringComparison.CurrentCultureIgnoreCase));
                     if (!matchesIngredientOrProduct)
                         continue;
-                    candidates.Add(CandidateFor(recipe));
+                    candidates.Add(AddCatalog.Candidate(recipe));
                     seen.Add(recipe);
                 }
             }
@@ -334,22 +332,21 @@ namespace Foreman.Mac.ViewModels {
         }
 
         //Link-drag "Add..." (a dragged tab's Compatible-with-{item} chip): Items narrows to the dragged
-        //item itself, Recipes to every recipe AddCatalog.IsCompatible allows for that link's direction.
+        //item itself, Recipes to every recipe AddCatalog.IsCompatible allows for that link's direction -
+        //SearchText (the ⌘↵-seeded query) still narrows either list further.
         private void BuildLinkSections(AddLinkContext link) {
+            string text = SearchText.Trim();
             if (Segment == BrowserSegment.Items) {
-                if (link.Item.Item is IItem linkItem)
-                    sections.Add(new BrowserSection("Items", [BuildCell(CandidateFor(linkItem))]));
+                if (link.Item.Item is IItem linkItem && Matches(linkItem.FriendlyName, text))
+                    sections.Add(new BrowserSection("Items", [BuildCell(AddCatalog.Candidate(linkItem))]));
             } else {
-                var candidates = cache.Recipes.Values.Where(r => catalog.IsVisible(r) && catalog.IsCompatible(r, link)).Select(CandidateFor);
+                var candidates = cache.Recipes.Values.Where(r => catalog.IsVisible(r) && catalog.IsCompatible(r, link) && Matches(r.FriendlyName, text)).Select(AddCatalog.Candidate);
                 sections.Add(new BrowserSection("Recipes", [.. candidates.Select(BuildCell)]));
             }
         }
 
-        private static AddCandidate CandidateFor(IDataObjectBase entry) => entry switch {
-            IItem item => new AddCandidate(AddKind.Item, item, item, null, item.FriendlyName, "item"),
-            IRecipe recipe => new AddCandidate(AddKind.Recipe, recipe, null, recipe, recipe.FriendlyName, "recipe"),
-            _ => throw new ArgumentOutOfRangeException(nameof(entry)),
-        };
+        private static bool Matches(string name, string searchText) =>
+            searchText.Length == 0 || name.Contains(searchText, StringComparison.CurrentCultureIgnoreCase);
 
         private BrowserCell BuildCell(AddCandidate candidate) => new(
             candidate,

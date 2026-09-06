@@ -86,6 +86,37 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         }
 
         [AvaloniaFact]
+        public void MovingHighlightPastTheVisibleRowsScrollsItIntoView() {
+            var rowNames = Enumerable.Range(1, 12).Select(i => $"Row {i:00}").ToList();
+            CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: rowNames, recipes: []);
+            var canvas = new GraphCanvasControl();
+            canvas.Viewport.SetSize(900, 700);
+            canvas.Viewer.Context.DCache = fx.Cache;
+            var window = new AvaloniaWindow { Content = canvas, Width = 900, Height = 700 };
+            window.Show();
+
+            canvas.ShowQuickAdd(new AddRequest(new DrawingPoint(0, 0), AddScope.All, SeedText: "row"));
+            QuickAddPalette palette = canvas.OpenPalette!;
+            var vm = (QuickAddViewModel)palette.DataContext!;
+
+            var box = palette.FindControl<TextBox>("SearchBox")!;
+            for (int i = 0; i < 10; i++)
+                CanvasKeys.KeyDownOn(box, Key.Down);
+            Assert.Equal(10, vm.HighlightedIndex);
+
+            var results = palette.FindControl<ItemsControl>("Results")!;
+            //Not palette.GetVisualDescendants().OfType<ScrollViewer>().First() - the SearchBox's own
+            //template has its own internal ScrollViewer, ahead of the results one in document order.
+            var scrollViewer = results.GetVisualAncestors().OfType<ScrollViewer>().First();
+            Control container = results.ContainerFromIndex(vm.HighlightedIndex)!;
+            Point topLeft = container.TranslatePoint(new Point(0, 0), scrollViewer) ?? new Point(double.NaN, double.NaN);
+
+            Assert.True(topLeft.Y >= -0.5, $"highlighted row's top ({topLeft.Y}) is above the viewport");
+            Assert.True(topLeft.Y + container.Bounds.Height <= scrollViewer.Viewport.Height + 0.5,
+                $"highlighted row's bottom ({topLeft.Y + container.Bounds.Height}) is below the viewport ({scrollViewer.Viewport.Height})");
+        }
+
+        [AvaloniaFact]
         public void PaletteIsMockSized_AndShowsTheThreeHints() {
             (QuickAddPalette palette, _, _) = Open("iron");
             Assert.Equal(272, palette.Bounds.Width, 0.5);

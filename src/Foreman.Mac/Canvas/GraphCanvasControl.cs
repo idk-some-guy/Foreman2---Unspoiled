@@ -737,12 +737,19 @@ namespace Foreman.Mac.Canvas {
             if (Viewer.Context.DCache is not DataCache cache)
                 return;
 
-            ActiveAddRequest = request;
+            //Own local per palette instance: the browser can place at any time while this stays open (it's
+            //a separate real window, not hosted in FloatingPanelHost), and its own PlaceCandidate calls
+            //must not bleed into this palette's next pick.
+            AddRequest current = request;
+            ActiveAddRequest = current;
             var vm = new QuickAddViewModel(new AddCatalog(cache, ChooserSettings), request, Viewer.Graph.DefaultAssemblerQuality, bmp => IconBaker.GetOrBake(addIconCache, bmp, 22));
             var palette = new QuickAddPalette(vm);
-            palette.PickCommitted += (_, c) => PlaceCandidate(c, ActiveAddRequest!);
+            palette.PickCommitted += (_, c) => {
+                current = PlaceCandidate(c, current);
+                ActiveAddRequest = current;
+            };
             palette.BrowseRequested += (_, q) => {
-                var browseRequest = ActiveAddRequest! with { SeedText = q };
+                var browseRequest = current with { SeedText = q };
                 FloatingPanelHost.Close();
                 BrowseRequested?.Invoke(this, browseRequest);
             };
@@ -750,7 +757,9 @@ namespace Foreman.Mac.Canvas {
             FloatingPanelHost.Show(palette, request.Location);
         }
 
-        //returns the advanced request so the browser can track placement like ActiveAddRequest
+        //Pure: returns the advanced request so a caller (the palette above, the browser in
+        //MainWindow.axaml.cs) can track its own placement state across picks - never writes
+        //ActiveAddRequest itself, which exists only as the palette's own tracker/test seam.
         internal AddRequest PlaceCandidate(AddCandidate candidate, AddRequest request, NodeType? roleOverride = null, IQuality? quality = null,
             NodeDirection? spoilPlantDirection = null, IItem? explicitOrigin = null) {
             if (Viewer.Context.DCache is not DataCache cache)
@@ -771,12 +780,11 @@ namespace Foreman.Mac.Canvas {
                 ProcessNodeRequest(ctx, role, default, direction, explicitOrigin);
             }
 
-            ActiveAddRequest = request with {
+            return request with {
                 Location = request.Link is null
                     ? new DrawingPoint(request.Location.X, request.Location.Y + 120)
                     : new DrawingPoint(request.Location.X + 120, request.Location.Y)
             };
-            return ActiveAddRequest;
         }
 
         private Services.AppSettings? fallbackChooserSettings;
@@ -887,7 +895,12 @@ namespace Foreman.Mac.Canvas {
             if (!newNodeId.IsValid)
                 return;
 
-            if (ctx.OriginElement is not null)
+            //The origin can be deleted from the canvas while its request is still pending (link-drag ->
+            //Add... -> delete the origin -> pick a cell) - CreateLink throws on a node id the registry no
+            //longer holds, so a stale origin just places the node disconnected instead.
+            bool originStillExists = ctx.OriginElement is not null && Viewer.NodeElementDictionary.ContainsKey(ctx.OriginElement.ViewModel.Id);
+
+            if (originStillExists)
                 Viewer.Session.Editor.SetDirection(newNodeId, ctx.NewNodeDirection);
 
             if (ctx.OffsetLocationToItemTabLevel && Viewer.NodeElementDictionary.TryGetValue(newNodeId, out BaseNodeElement? tabAlignElement)) {
@@ -899,10 +912,10 @@ namespace Foreman.Mac.Canvas {
                     Viewer.Session.Editor.SetLocation(newNodeId, new DrawingPoint(ctx.NewLocation.X, ctx.NewLocation.Y + yoffset));
             }
 
-            if (ctx.OuterNodeType == NewNodeType.Consumer && ctx.OriginElement is not null)
-                Viewer.Session.Editor.CreateLink(ctx.OriginElement.ViewModel.Id, newNodeId, ctx.BaseItem);
-            else if (ctx.OuterNodeType == NewNodeType.Supplier && ctx.OriginElement is not null)
-                Viewer.Session.Editor.CreateLink(newNodeId, ctx.OriginElement.ViewModel.Id, ctx.BaseItem);
+            if (ctx.OuterNodeType == NewNodeType.Consumer && originStillExists)
+                Viewer.Session.Editor.CreateLink(ctx.OriginElement!.ViewModel.Id, newNodeId, ctx.BaseItem);
+            else if (ctx.OuterNodeType == NewNodeType.Supplier && originStillExists)
+                Viewer.Session.Editor.CreateLink(newNodeId, ctx.OriginElement!.ViewModel.Id, ctx.BaseItem);
 
             Viewer.Graph.UpdateNodeValues();
             Viewer.Graph.UpdateNodeStates(false);

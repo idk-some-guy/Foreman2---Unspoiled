@@ -14,7 +14,7 @@ namespace Foreman.Mac.Views.QuickAdd {
     public enum RadialChoice { Add, Passthrough, Cancel }
 
     //Ports the link-drag release chooser (reference §11 "#radial"): three fixed wedges around a hub.
-    public sealed class RadialMenu : AvaloniaCanvas, IPanelInitialFocus, IViewportFittable {
+    public sealed class RadialMenu : AvaloniaCanvas, IPanelInitialFocus {
         private const double CenterCoord = 100;
         private const double HubRadius = 36;
         private const double OuterRadius = 92;
@@ -166,7 +166,5 @@ namespace Foreman.Mac.Views.QuickAdd {
         }
 
         public void FocusInitialControl() => Focus();
-
-        public void FitToViewport(double maxWidth, double maxHeight) { }
     }
 }

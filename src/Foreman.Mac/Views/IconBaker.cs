@@ -27,6 +27,17 @@ namespace Foreman.Mac.Views {
             return baked;
         }
 
+        //Keyed on (bitmap, size): a caller that bakes the same source bitmap at more than one size
+        //(the Add Browser's 16px group icons and 40px cells) needs both to survive in the same cache.
+        public static Bitmap GetOrBake(Dictionary<(SKBitmap, int), Bitmap> cache, SKBitmap icon, int size) {
+            var key = (icon, size);
+            if (!cache.TryGetValue(key, out Bitmap? baked)) {
+                baked = Bake(icon, size);
+                cache[key] = baked;
+            }
+            return baked;
+        }
+
         public static Bitmap SnapshotToBitmap(SKSurface surface) {
             using SKPixmap pixmap = surface.PeekPixels();
             return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, pixmap.GetPixels(),

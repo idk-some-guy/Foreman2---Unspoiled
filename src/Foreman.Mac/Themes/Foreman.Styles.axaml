@@ -709,6 +709,8 @@
     <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Browser.Label.FontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
     <Setter Property="MaxWidth" Value="{DynamicResource Foreman.Size.BrowserCellPitch}" />
+    <Setter Property="MaxLines" Value="2" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
   </Style>
 
   <Style Selector="Border.foreman-browser-footer">

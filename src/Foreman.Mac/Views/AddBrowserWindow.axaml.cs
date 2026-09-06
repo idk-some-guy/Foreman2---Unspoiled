@@ -122,9 +122,13 @@ namespace Foreman.Mac.Views {
             base.OnKeyDown(e);
         }
 
+        //Owner-close and app shutdown cascade a Closing here first - only a direct close of this window
+        //(the red button, Cmd+W's own Hide() already short-circuits before this) should cancel-and-hide.
         protected override void OnClosing(WindowClosingEventArgs e) {
-            e.Cancel = true;
-            Hide();
+            if (e.CloseReason == WindowCloseReason.WindowClosing) {
+                e.Cancel = true;
+                Hide();
+            }
             base.OnClosing(e);
         }
 

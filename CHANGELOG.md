@@ -39,15 +39,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   to remove, an options grid to add, a beacon picker with its own module grid and the three beacon
   steppers, and a quality mini-select under the identity row's name/subtitle that re-quals the
   node's assembler and updates its own label and the subtitle immediately.
-- Add chooser: shared search/ranking service behind the new palette and browser.
-- Quick Add palette: cursor-anchored search over items and recipes; Enter places and keeps it open.
-- Add Item/Add Recipe, the background context menu, and a double-click on empty canvas now open the
-  Quick Add palette instead of the old chooser panels.
-- Releasing a link drag over empty space now opens a radial menu (Add…, Passthrough, Cancel) instead
-  of the old chooser; Escape cancels a link drag in progress.
-- Add to Graph browser window: categories, labelled grid, live Show Unavailable/Hidden/Ignore
-  Assembler toggles, quality select.
-- Browser footer roles, Spoil/Plant origins flow and the Compatible-with chip for link drags.
+- Quick Add palette: cursor-anchored search over items and recipes, backed by a shared search/
+  ranking service; Enter places and keeps it open.
+- Add to Graph browser window: categories, a labelled grid, live Show Unavailable/Hidden/Ignore
+  Assembler toggles, a quality select, footer role buttons (Source/Pass-Through/Output/Spoil/Plant),
+  a Spoil/Plant origins flow, and a Compatible-with chip for link drags.
+- A radial menu (Add…, Passthrough, Cancel) for releasing a link drag over empty space.
 
 ### Fixed
 
@@ -84,6 +81,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Add Item/Add Recipe, the background context menu, and a double-click on empty canvas now open the
+  Quick Add palette instead of the old chooser panels; Escape now cancels a link drag in progress.
 - Clicking a recipe node now edits it in the inspector sidebar instead of opening a floating panel
   pair; the paired recipe editor and its standalone recipe card are retired.
 - The toolbar and window titlebar are unified into one row, macOS-style, with icon-and-label

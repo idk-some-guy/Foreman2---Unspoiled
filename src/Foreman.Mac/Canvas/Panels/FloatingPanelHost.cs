@@ -1,4 +1,3 @@
-using Foreman.Mac.Canvas.Elements;
 using System;
 using DrawingPoint = System.Drawing.Point;
 using DrawingRectangle = System.Drawing.Rectangle;
@@ -24,7 +23,6 @@ namespace Foreman.Mac.Canvas.Panels {
         private readonly AvaloniaControl _owner;
         private AvaloniaControl? _content;
         private DrawingPoint _anchorGraphPoint;
-        private Direction? _anchorDirection;
         private bool _centerOnAnchor;
 
         public FloatingPanelHost(AvaloniaCanvas host, Viewport viewport, AvaloniaControl owner) {
@@ -44,11 +42,10 @@ namespace Foreman.Mac.Canvas.Panels {
                 (int)AvaloniaCanvas.GetLeft(control), (int)AvaloniaCanvas.GetTop(control),
                 (int)control.Width, (int)control.Height);
 
-        public void Show(AvaloniaControl content, DrawingPoint anchorGraphPoint, Direction? anchorDirection = null, bool centerOnAnchor = false) {
+        public void Show(AvaloniaControl content, DrawingPoint anchorGraphPoint, bool centerOnAnchor = false) {
             Close();
             _content = content;
             _anchorGraphPoint = anchorGraphPoint;
-            _anchorDirection = anchorDirection;
             _centerOnAnchor = centerOnAnchor;
             _host.Children.Add(content);
             Reposition();
@@ -81,7 +78,7 @@ namespace Foreman.Mac.Canvas.Panels {
             int viewerHeight = (int)_viewport.Height;
             DrawingRectangle rect = _centerOnAnchor
                 ? CenteredRect(_content, _anchorGraphPoint)
-                : MeasureReflowableRect(_content, _anchorGraphPoint, _anchorDirection, viewerWidth, viewerHeight);
+                : MeasureReflowableRect(_content, _anchorGraphPoint, viewerWidth, viewerHeight);
             DrawingRectangle clamped = EditPanelScreenLayout.ClampRectToViewer(rect, viewerWidth, viewerHeight);
             AvaloniaCanvas.SetLeft(_content, clamped.X);
             AvaloniaCanvas.SetTop(_content, clamped.Y);
@@ -102,23 +99,16 @@ namespace Foreman.Mac.Canvas.Panels {
         //Gives content (e.g. QuickAddPalette) a chance to actually reflow to the available space before
         //EditPanelViewportLayout.Apply measures+clamps it - otherwise Apply can only shrink the outer
         //Width/Height property, which clips fixed-size content instead of making it smaller.
-        private DrawingRectangle MeasureReflowableRect(AvaloniaControl content, DrawingPoint anchorGraphPoint, Direction? anchorDirection, int viewerWidth, int viewerHeight) {
-            if (content is IViewportFittable fittable) {
-                const int margin = EditPanelScreenLayout.DefaultMargin;
-                fittable.FitToViewport(Math.Max(1, viewerWidth - margin * 2), Math.Max(1, viewerHeight - margin * 2));
-            }
-
+        private DrawingRectangle MeasureReflowableRect(AvaloniaControl content, DrawingPoint anchorGraphPoint, int viewerWidth, int viewerHeight) {
             AvaloniaSize size = EditPanelViewportLayout.Apply(content, viewerWidth, viewerHeight);
-            return AnchoredRect(anchorGraphPoint, anchorDirection, size);
+            return AnchoredRect(anchorGraphPoint, size);
         }
 
-        private DrawingRectangle AnchoredRect(DrawingPoint anchorGraphPoint, Direction? anchorDirection, AvaloniaSize size) {
+        private DrawingRectangle AnchoredRect(DrawingPoint anchorGraphPoint, AvaloniaSize size) {
             AvaloniaPoint anchorScreen = _viewport.GraphToScreen(anchorGraphPoint);
             var anchorScreenPoint = new DrawingPoint((int)anchorScreen.X, (int)anchorScreen.Y);
             var anchorSize = new DrawingSize((int)Math.Ceiling(size.Width), (int)Math.Ceiling(size.Height));
-            return anchorDirection is Direction direction
-                ? FloatingTooltipRenderer.GetTooltipScreenBounds(anchorScreenPoint, anchorSize, direction)
-                : new DrawingRectangle(anchorScreenPoint.X, anchorScreenPoint.Y, anchorSize.Width, anchorSize.Height);
+            return new DrawingRectangle(anchorScreenPoint.X, anchorScreenPoint.Y, anchorSize.Width, anchorSize.Height);
         }
     }
 }

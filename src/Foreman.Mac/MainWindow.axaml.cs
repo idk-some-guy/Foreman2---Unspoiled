@@ -50,7 +50,9 @@ namespace Foreman.Mac {
         private AddBrowserWindow? browser;
         internal AddBrowserWindow? BrowserWindow => browser;
         internal AddRequest? BrowserRequest { get; private set; }
-        private readonly Dictionary<SKBitmap, Bitmap> browserIconCache = [];
+        //Keyed on (bitmap, size): OpenBrowser bakes the same source icons at 16px (group sidebar) and
+        //40px (cell grid), and DataCache.UnknownIcon is one shared SKBitmap instance across every entry.
+        private readonly Dictionary<(SKBitmap, int), Bitmap> browserIconCache = [];
 
         //Test-only seam: lets a test supply the Settings dialog's outcome without a real modal ShowDialog
         //(mirrors GraphCanvasControl's TextPropertiesDialogStub/ShapePropertiesDialogStub).
@@ -185,7 +187,12 @@ namespace Foreman.Mac {
             WindowScaler.TrackPopupContent(this, this.FindControl<LayoutTransformControl>("ViewOptionsCardScaler")!);
 
             LiveThemeService = (Application.Current as App)?.Theme;
-            Closed += (_, _) => LiveThemeService = null;
+            Closed += (_, _) => {
+                LiveThemeService = null;
+                foreach (Bitmap bitmap in browserIconCache.Values)
+                    bitmap.Dispose();
+                browserIconCache.Clear();
+            };
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -197,7 +204,8 @@ namespace Foreman.Mac {
 
             if (browser is null) {
                 var vm = new AddBrowserViewModel(new AddCatalog(cache, settings), cache, settings,
-                    (bmp, size) => IconBaker.GetOrBake(browserIconCache, bmp, size));
+                    (bmp, size) => IconBaker.GetOrBake(browserIconCache, bmp, size),
+                    GraphCanvas.Viewer.Graph.DefaultAssemblerQuality);
                 browser = new AddBrowserWindow(vm);
                 vm.PlaceRequested += (_, pick) => {
                     if (BrowserRequest is not AddRequest activeRequest)

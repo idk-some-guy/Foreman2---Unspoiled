@@ -11,7 +11,9 @@ using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.QuickAdd;
 using Foreman.Models.Nodes;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
@@ -177,6 +179,64 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Kind == AddKind.Item));
             vm.Place(NodeType.Supplier);
             Assert.Single(shell.Graph.NodeLinks);
+        }
+
+        [AvaloniaFact]
+        public void PlacingAfterTheOriginNodeWasDeletedStillPlaces_Disconnected_NoException() {
+            using ShellFixture shell = ShellFixture.OpenWithVanillaAndOneSupplier(out AddLinkContext link);
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(300, 0), AddScope.All, link));
+            AddBrowserViewModel vm = shell.BrowserVm;
+
+            shell.Window.GraphCanvas.Viewer.Session.Editor.DeleteNode(link.OriginElement.ViewModel.Id);
+
+            vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First());
+            vm.Place(NodeType.Consumer);
+
+            Assert.Single(shell.Graph.Nodes);
+            Assert.Empty(shell.Graph.NodeLinks);
+        }
+
+        [AvaloniaFact]
+        public void PaletteKeepsItsOwnAnchorAndLink_EvenWhenTheBrowserPlacesInBetween() {
+            using ShellFixture shell = ShellFixture.OpenWithVanillaAndOneSupplier(out AddLinkContext link);
+            var before = shell.Graph.Nodes.ToList();
+
+            var toolbarAnchor = new DrawingPoint(500, 500);
+            shell.Window.GraphCanvas.AddItemAsync(toolbarAnchor);
+            QuickAddPalette palette = shell.Window.GraphCanvas.OpenPalette!;
+
+            //The browser places a Consumer node linked to the origin supplier - its own request/link,
+            //independent from the palette's still-pending one.
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.All, link));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First());
+            vm.Place(NodeType.Consumer);
+
+            ((QuickAddViewModel)palette.DataContext!).Query = "iron plate";
+            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
+
+            //The palette's own pick must land as a disconnected Supplier at its own anchor, not the
+            //browser's Consumer/link/location.
+            SupplierNode paletteNode = Assert.Single(shell.Graph.Nodes.Except(before).OfType<SupplierNode>());
+            Assert.Equal(toolbarAnchor.X, paletteNode.Location.X);
+            Assert.Equal(toolbarAnchor.Y, paletteNode.Location.Y);
+            Assert.Single(shell.Graph.NodeLinks);
+        }
+
+        [AvaloniaFact]
+        public void LinkContextWithSearchText_OnlyShowsMatchingCompatibleRecipes() {
+            using ShellFixture shell = ShellFixture.OpenWithVanillaAndOneSupplier(out AddLinkContext link);
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(300, 0), AddScope.All, link));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            vm.Segment = BrowserSegment.Recipes;
+            int unfiltered = vm.Sections.SelectMany(s => s.Cells).Count();
+
+            vm.SearchText = "gear";
+
+            List<string> labels = [.. vm.Sections.SelectMany(s => s.Cells).Select(c => c.Label)];
+            Assert.NotEmpty(labels);
+            Assert.True(labels.Count < unfiltered);
+            Assert.All(labels, l => Assert.Contains("gear", l, StringComparison.CurrentCultureIgnoreCase));
         }
 
         [AvaloniaFact]
