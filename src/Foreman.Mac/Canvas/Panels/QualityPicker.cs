@@ -6,10 +6,11 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.Canvas.Panels {
-    //Shared "Quality:" label + selector (docs/panels-reference.md §9 cross-cutting note): IRChooserPanel's
-    //QualitySelector population dance (foreach enabled IQuality, add FriendlyName, disable the combo when
-    //only one quality exists) pulled out once here instead of duplicated per panel.
+    //Shared "Quality:" label + selector: populates from enabled qualities, disabling the combo when only
+    //one exists.
     public sealed class QualityPicker : StackPanel {
+        private const int QualityComboWidth = 146;
+
         private readonly ComboBox selector;
         private readonly List<IQuality> qualities = [];
 
@@ -17,7 +18,7 @@ namespace Foreman.Mac.Canvas.Panels {
             Orientation = Orientation.Horizontal;
             Spacing = 6;
             var label = new TextBlock { Text = "Quality:", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center };
-            selector = new ComboBox { Width = ChooserLayout.QualityComboWidth };
+            selector = new ComboBox { Width = QualityComboWidth };
             Children.Add(label);
             Children.Add(selector);
         }

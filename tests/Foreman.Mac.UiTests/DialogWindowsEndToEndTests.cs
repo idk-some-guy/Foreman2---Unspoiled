@@ -95,9 +95,7 @@ namespace Foreman.Mac.UiTests {
         private static string SettingsJsonPath(string tempHome) =>
             Path.Combine(tempHome, "Library", "Application Support", "Foreman", "settings.json");
 
-        //C2b: Add Recipe now opens the Quick Add palette scoped to recipes - searching the recipe's own
-        //friendly name and pressing Enter picks the top (and only) match. Closes the palette afterward (it
-        //stays open by design for a second pick) so callers get back a clean canvas.
+        //Searches the recipe's own friendly name in the Quick Add palette and closes it after the pick.
         private static Task<RecipeNodeElement> AddRecipeViaChooser(GraphCanvasControl control, DataCache cache, string recipeName, Point location) {
             IRecipe recipe = cache.Recipes[recipeName];
             int before = control.NodeElements.Count;

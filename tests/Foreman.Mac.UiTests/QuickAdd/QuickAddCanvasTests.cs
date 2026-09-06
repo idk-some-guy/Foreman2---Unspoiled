@@ -2,7 +2,9 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Foreman;
+using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.QuickAdd;
@@ -10,13 +12,12 @@ using Foreman.Models.Nodes;
 using System.Linq;
 using Xunit;
 using AvaloniaPoint = Avalonia.Point;
+using AvaloniaVector = Avalonia.Vector;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.QuickAdd {
-    //Task 3: the Quick Add palette's canvas entry points (Add Item/Add Recipe toolbar buttons, the
-    //background context menu, double-click on empty canvas) and PlaceCandidate's node-placement wiring.
-    //Builds on CanvasFixture, the shared real-vanilla-preset fixture ItemRecipeChooserFlowTests used before
-    //Task 7 retires that file.
+    //The Quick Add palette's canvas entry points (Add Item/Add Recipe toolbar buttons, the background
+    //context menu, double-click on empty canvas) and PlaceCandidate's node-placement wiring.
     public sealed class QuickAddCanvasTests {
         [AvaloniaFact]
         public void AddItem_OpensAnItemScopedPaletteAtTheGraphPoint() {
@@ -83,6 +84,84 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             CanvasKeys.KeyDownOn(box, Key.Enter, KeyModifiers.Meta);
             Assert.Equal("gear", browse!.SeedText); Assert.Equal(AddScope.Items, browse.Scope);
             Assert.False(fx.Control.FloatingPanelHost.IsOpen);
+        }
+
+        //Ports ItemRecipeChooserFlowTests' retired TwoStageFlow_PlainRecipeClick_ItemOnlyValidAsFuel_
+        //AutoSelectsBurnerAssemblerAndFuel through the real palette path: coal isn't an ingredient of the
+        //vanilla smelting recipe, only a valid fuel for its burner assemblers.
+        [AvaloniaFact]
+        public void LinkDragFromAFuelOnlyItem_PickingACompatibleRecipe_AutoSelectsTheBurnerAssemblerAndFuel() {
+            using var fx = CanvasFixture.WithVanillaAndOneSupplierOf("coal", out AvaloniaPoint outputTab);
+            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
+            fx.ClickAt(fx.Control.OpenRadial!.Bounds.Center + new AvaloniaVector(0, -64)); //top slice: Add
+
+            var palette = fx.Control.OpenPalette!;
+            ((QuickAddViewModel)palette.DataContext!).Query = "iron plate";
+            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
+
+            var node = Assert.Single(fx.Viewer.Graph.Nodes.OfType<RecipeNode>());
+            IItem coal = fx.Cache.Items["coal"];
+            Assert.Same(coal, node.Fuel);
+            Assert.Contains(coal, node.SelectedAssembler.Assembler.Fuels);
+        }
+
+        //Ports the retired TwoStageFlow_PlainRecipeClick_ItemAlreadyInRecipe_LeavesElectricAssemblerAndNoFuel:
+        //iron-plate is the picked recipe's own product, so auto-selection has nothing to do.
+        [AvaloniaFact]
+        public void LinkDragFromAnItemAlreadyInTheRecipe_PickingItsProducer_LeavesTheDefaultAssemblerAndNoFuel() {
+            using var fx = CanvasFixture.WithVanillaAndOneConsumerOf("iron-plate", out AvaloniaPoint inputTab);
+            fx.DragFrom(inputTab).To(new AvaloniaPoint(400, 300)).Release();
+            fx.ClickAt(fx.Control.OpenRadial!.Bounds.Center + new AvaloniaVector(0, -64)); //top slice: Add
+
+            var palette = fx.Control.OpenPalette!;
+            ((QuickAddViewModel)palette.DataContext!).Query = "iron plate";
+            TextBox box = palette.FindControl<TextBox>("SearchBox")!;
+            CanvasKeys.KeyDownOn(box, Key.Down); //row 0 is the linked item itself; the recipe is row 1
+            CanvasKeys.KeyDownOn(box, Key.Enter);
+
+            var node = Assert.Single(fx.Viewer.Graph.Nodes.OfType<RecipeNode>());
+            Assert.Null(node.Fuel);
+            Assert.Equal("electric-furnace", node.SelectedAssembler.Assembler.Name);
+        }
+
+        //Ports the retired HandleNewNodeRequestedAsync_ConsumerUp_OffsetsNodeLocationToTabLevel: a Consumer
+        //link's new node centers half its height ABOVE the drop point, so its top-edge input tab lands there.
+        [AvaloniaFact]
+        public void LinkDragFromAnOutputTab_PlacingAPick_CentersTheNodeAboveTheDropPoint() {
+            using var fx = CanvasFixture.WithVanillaAndOneSupplierOf("iron-plate", out AvaloniaPoint outputTab);
+            var before = fx.Viewer.NodeElements.ToList();
+            var dropScreenPoint = new AvaloniaPoint(400, 300);
+            fx.DragFrom(outputTab).To(dropScreenPoint).Release();
+            fx.ClickAt(fx.Control.OpenRadial!.Bounds.Center + new AvaloniaVector(0, -64));
+
+            var palette = fx.Control.OpenPalette!;
+            ((QuickAddViewModel)palette.DataContext!).Query = "iron gear wheel"; //consumes iron-plate
+            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
+
+            BaseNodeElement created = fx.Viewer.NodeElements.Except(before).Single();
+            DrawingPoint dropGraphPoint = fx.Control.Viewport.ScreenToGraph(dropScreenPoint);
+            Assert.Equal(dropGraphPoint.Y - (created.Height / 2), created.ViewModel.Location.Y);
+        }
+
+        //Ports HandleNewNodeRequestedAsync_SupplierUp_OffsetsNodeLocationToTabLevel_OppositeSign: a Supplier
+        //link's new node centers half its height BELOW the drop point instead.
+        [AvaloniaFact]
+        public void LinkDragFromAnInputTab_PlacingAPick_CentersTheNodeBelowTheDropPoint() {
+            using var fx = CanvasFixture.WithVanillaAndOneConsumerOf("iron-plate", out AvaloniaPoint inputTab);
+            var before = fx.Viewer.NodeElements.ToList();
+            var dropScreenPoint = new AvaloniaPoint(400, 300);
+            fx.DragFrom(inputTab).To(dropScreenPoint).Release();
+            fx.ClickAt(fx.Control.OpenRadial!.Bounds.Center + new AvaloniaVector(0, -64));
+
+            var palette = fx.Control.OpenPalette!;
+            ((QuickAddViewModel)palette.DataContext!).Query = "iron plate"; //produces iron-plate
+            TextBox box = palette.FindControl<TextBox>("SearchBox")!;
+            CanvasKeys.KeyDownOn(box, Key.Down); //row 0 is the linked item itself; the recipe is row 1
+            CanvasKeys.KeyDownOn(box, Key.Enter);
+
+            BaseNodeElement created = fx.Viewer.NodeElements.Except(before).Single();
+            DrawingPoint dropGraphPoint = fx.Control.Viewport.ScreenToGraph(dropScreenPoint);
+            Assert.Equal(dropGraphPoint.Y + (created.Height / 2), created.ViewModel.Location.Y);
         }
     }
 }

@@ -110,8 +110,8 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         //Rider 6 (final fix wave): every ChooserSettings access with no AnnotationSettings assigned used to
-        //build a fresh AppSettings, so IRChooserPanel.PersistSettings had nowhere to write - the very next
-        //chooser open discarded whatever the user just toggled (Show Hidden, Ignore Assembler, ...).
+        //build a fresh AppSettings, so a toggle (Show Hidden, Ignore Assembler, ...) had nowhere to persist -
+        //the very next Quick Add open discarded whatever the user just changed.
         [AvaloniaFact]
         public void ChooserSettings_NoAnnotationSettings_ReturnsSameInstanceAcrossAccesses() {
             var control = new GraphCanvasControl();

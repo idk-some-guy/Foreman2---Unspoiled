@@ -12,9 +12,9 @@ using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Task 5's reusable icon-cell grid: an ItemsControl over plain Button cells rather than the Skia-painted
-    //IconButton (Canvas/Panels), so pointer clicks and keyboard Enter/Space both come from Button's own
-    //Click plumbing - AddHandler(Button.ClickEvent, ...) on the PickGrid root catches every cell.
+    //Task 5's reusable icon-cell grid: an ItemsControl over plain Button cells, so pointer clicks and
+    //keyboard Enter/Space both come from Button's own Click plumbing - AddHandler(Button.ClickEvent, ...)
+    //on the PickGrid root catches every cell.
     public class PickGridTests {
         private static (AvaloniaWindow Window, PickGrid Grid) NewGrid(params PickGridItem[] items) {
             var grid = new PickGrid { Items = items };

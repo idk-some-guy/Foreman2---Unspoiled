@@ -10,7 +10,6 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
-using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using SkiaSharp;
@@ -29,15 +28,6 @@ namespace Foreman.Mac.UiTests.Canvas {
     //fan-out (upstream Ctrl, mapped to Cmd per this task's plan).
     public class LinkDragTests {
         private const int Half = 300;
-
-        //IRChooserPanel.startingGroup is process-wide static (docs/panels-reference.md §2, same reset
-        //ItemRecipeChooserFlowTests carries) - the multi-origin sub-picker test below is this file's first use
-        //of a real group-backed chooser grid, and a stale group reference left over from another test class's
-        //DataCache would otherwise select nothing.
-        public LinkDragTests() {
-            System.Reflection.FieldInfo field = typeof(IRChooserPanel).GetField("startingGroup", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
-            field.SetValue(null, null);
-        }
 
         private sealed class Fixture {
             public required DataCache Cache { get; init; }
@@ -390,9 +380,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new SKColor(210, 90, 30), pixel); //the bezier's free endpoint is always exactly on-path
         }
 
-        //---- C2b: the drag-release chooser is the radial now, not RecipeChooserPanel ----
+        //---- C2b: a link-drag release opens the radial menu ----
 
-        //These four used to drive RecipeChooserPanel's footer buttons off a link-drag release; that release now opens RadialMenu instead.
+        //These four used to drive the retired on-canvas chooser's footer buttons off a link-drag release; that release now opens RadialMenu instead.
         [AvaloniaFact]
         public void ReleaseOverEmptySpace_OpensTheRadialInsteadOfTheChooser() {
             Fixture fx = NewFixture();

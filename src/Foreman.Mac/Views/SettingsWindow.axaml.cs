@@ -423,8 +423,7 @@ namespace Foreman.Mac.Views {
 
         //Bakes RecipePainter's (already-ported, docs/panels-reference.md §7) single-recipe layout into a
         //static image for the row's ToolTip.Tip - the same GPU-lease-avoidance bake used for icons above,
-        //since this window isn't GraphCanvasControl's own top-level composited surface (see IconButton's
-        //comment on nested Skia leases corrupting the frame on macOS).
+        //since this window isn't GraphCanvasControl's own top-level composited surface.
         private static Bitmap BakeRecipeTooltip(IRecipe recipe) {
             IRecipe[] recipes = [recipe];
             System.Drawing.Size size = RecipePainter.GetSize(recipes, abbreviateSciPacks: false);

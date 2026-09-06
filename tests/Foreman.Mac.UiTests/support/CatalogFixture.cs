@@ -6,6 +6,7 @@ using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Models;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using AvaloniaWindow = Avalonia.Controls.Window;
 using DrawingPoint = System.Drawing.Point;
@@ -100,13 +101,13 @@ namespace Foreman.Mac.UiTests.support {
             return fx;
         }
 
-        public static CatalogFixture WithQualities(IReadOnlyList<string> qualityNames) {
+        public static CatalogFixture WithQualities(IReadOnlyList<string> qualityNames, IReadOnlyList<string>? disabled = null) {
             CatalogFixture fx = NewBase();
             DataCacheStore store = Store(fx.Cache);
             store.Qualities.Clear();
             QualityPrototype? first = null;
             foreach (string name in qualityNames) {
-                var quality = new QualityPrototype(fx.Cache, name, Capitalize(name), "a");
+                var quality = new QualityPrototype(fx.Cache, name, Capitalize(name), "a") { Enabled = !(disabled?.Contains(name) ?? false) };
                 store.Qualities[name] = quality;
                 first ??= quality;
             }
@@ -175,7 +176,7 @@ namespace Foreman.Mac.UiTests.support {
             return new CatalogFixture { Cache = cache, Subgroup = storage, Assembler = assembler };
         }
 
-        public AddLinkContext LinkContextFor(string itemName, NewNodeType nodeType) {
+        public AddLinkContext LinkContextFor(string itemName, NewNodeType nodeType, FRange? tempRange = null) {
             ItemPrototype item = itemsByName[itemName];
             var pair = new ItemQualityPair(item, Store(Cache).DefaultQuality!);
 
@@ -183,7 +184,20 @@ namespace Foreman.Mac.UiTests.support {
             NodeId nodeId = control.Viewer.Session.Editor.CreateSupplierNode(pair, new DrawingPoint(0, 0));
             BaseNodeElement originElement = Prime(control.Viewer.NodeElementDictionary[nodeId]);
 
-            return new AddLinkContext(pair, nodeType, new FRange(0, 0, true), originElement, NodeDirection.Up);
+            return new AddLinkContext(pair, nodeType, tempRange ?? new FRange(0, 0, true), originElement, NodeDirection.Up);
+        }
+
+        public FluidPrototype AddFluid(string name, double defaultTemperature) {
+            var fluid = new FluidPrototype(Cache, name, name, Subgroup, "a") { Available = true, IsTemperatureDependent = true, DefaultTemperature = defaultTemperature };
+            Store(Cache).Items[name] = fluid;
+            itemsByName[name] = fluid;
+            return fluid;
+        }
+
+        public RecipePrototype AddIngredientRecipe(string name, ItemPrototype ingredient, double minTemp, double maxTemp) {
+            RecipePrototype recipe = AddRecipe(name);
+            recipe.InternalOneWayAddIngredient(ingredient, 1, minTemp, maxTemp);
+            return recipe;
         }
 
         private static GraphCanvasControl NewControl() {

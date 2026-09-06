@@ -86,6 +86,15 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal("Quality: Legendary", vm.QualityLabel);
         }
 
+        //Mirrors the retired on-canvas chooser's quality picker (ported from its own population test).
+        [AvaloniaFact]
+        public void QualitySelectExcludesDisabledQualities() {
+            var fx = CatalogFixture.WithQualities(["normal", "epic", "legendary"], disabled: ["legendary"]);
+            var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, new AppSettings()), fx.Cache, new AppSettings(), (_, _) => null);
+
+            Assert.Equal(["Normal", "Epic"], vm.Qualities.Select(q => q.FriendlyName));
+        }
+
         [AvaloniaFact]
         public void CellsAreMockSized_UnavailableDimmed_SelectedRinged() {
             var (win, vm) = Open(new AppSettings { ShowUnavailable = true });

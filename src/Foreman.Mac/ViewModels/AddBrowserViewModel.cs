@@ -20,7 +20,7 @@ namespace Foreman.Mac.ViewModels {
     public sealed record BrowserGroup(IGroup Group, string Name, IImage? Icon, bool IsSelected);
     public sealed record BrowserPick(AddCandidate Candidate, NodeType Role, NodeDirection? SpoilPlantDirection, IQuality Quality, IItem? ExplicitOrigin = null);
 
-    //Group sorting/visibility counting ports RecipeChooserPanel.GetSortedGroups/ItemChooserPanel (Task 7 retires both).
+    //Group sorting/visibility counting ports the retired on-canvas chooser panels' own logic.
     public sealed partial class AddBrowserViewModel : ObservableObject {
         private const int GroupIconSize = 16;
         private const int CellIconSize = 40;
@@ -52,7 +52,7 @@ namespace Foreman.Mac.ViewModels {
             this.bake = bake;
             Groups = new ReadOnlyObservableCollection<BrowserGroup>(groups);
             Sections = new ReadOnlyObservableCollection<BrowserSection>(sections);
-            Qualities = [.. cache.AvailableQualities];
+            Qualities = [.. cache.AvailableQualities.Where(q => q.Enabled)];
             quality = cache.DefaultQuality;
             Refresh();
         }
@@ -93,8 +93,7 @@ namespace Foreman.Mac.ViewModels {
 
         private IItem? SelectedItem => SelectedCell?.Candidate.Item;
 
-        //Mirrors RecipeChooserPanel's asIngredient/asProduct gating (Panels/RecipeChooserPanel.cs:43-44,71-72):
-        //a link needing a Consumer hides Source, a link needing a Supplier hides Output; Pass-Through is
+        //A link needing a Consumer hides Source, a link needing a Supplier hides Output; Pass-Through is
         //offered either way.
         public bool CanSource => SelectedItem is not null && Link?.NodeType != NewNodeType.Consumer;
         public bool CanPassthrough => SelectedItem is not null;
@@ -161,9 +160,8 @@ namespace Foreman.Mac.ViewModels {
         }
 
         //Source/Pass-Through/Output/Spoil(Up)/Plant(Up) place straight away; UnSpoil/UnPlant(Down) with
-        //2+ origins swaps the grid to an origin picker instead (RecipeChooserPanel's RequiresItemSelection
-        //flow, ported) - the second Place() call, once an origin cell is selected, reports pendingOrigin's
-        //remembered target alongside the chosen origin.
+        //2+ origins swaps the grid to an origin picker instead - the second Place() call, once an origin
+        //cell is selected, reports pendingOrigin's remembered target alongside the chosen origin.
         public void Place(NodeType role, NodeDirection? spoilPlantDirection = null) {
             if (SelectedCell is null)
                 return;

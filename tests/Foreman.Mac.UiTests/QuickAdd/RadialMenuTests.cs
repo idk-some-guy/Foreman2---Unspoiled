@@ -13,9 +13,8 @@ using AvaloniaPoint = Avalonia.Point;
 using AvaloniaVector = Avalonia.Vector;
 
 namespace Foreman.Mac.UiTests.QuickAdd {
-    //Task 4: the link-drag release chooser is a three-slice radial (Add/Passthrough/Cancel) instead of
-    //always opening RecipeChooserPanel - builds on CanvasFixture's drag helpers (DragFrom/MoveTo/ClickAt/
-    //ReleaseAt), themselves new for this task.
+    //Task 4: the link-drag release chooser is a three-slice radial (Add/Passthrough/Cancel) - builds on
+    //CanvasFixture's drag helpers (DragFrom/MoveTo/ClickAt/ReleaseAt), themselves new for this task.
     public sealed class RadialMenuTests {
         [AvaloniaFact]
         public void ReleasingALinkDragOnEmptyCanvasOpensTheRadialCentredOnTheReleasePoint() {

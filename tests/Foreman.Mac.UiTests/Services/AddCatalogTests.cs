@@ -1,4 +1,5 @@
 using Avalonia.Headless.XUnit;
+using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
@@ -42,6 +43,23 @@ namespace Foreman.Mac.UiTests.Services {
             Assert.Equal(["Iron Gear"], consumers.Skip(1).Select(r => r.Name));
         }
 
+        //Ports the retired on-canvas chooser's temperature-filter test: a temperature-dependent fluid link
+        //only matches recipes whose accepted ingredient range covers it.
+        [AvaloniaFact]
+        public void LinkContext_TemperatureRange_ExcludesOutOfRangeIngredientRecipes() {
+            CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: [], recipes: []);
+            var steam = fx.AddFluid("steam", defaultTemperature: 165);
+            fx.AddIngredientRecipe("Turbine Compatible", steam, minTemp: 100, maxTemp: 200);
+            fx.AddIngredientRecipe("Turbine Incompatible", steam, minTemp: 500, maxTemp: 1000);
+            AddLinkContext link = fx.LinkContextFor("steam", NewNodeType.Consumer, new FRange(165, 165, false));
+
+            var catalog = new AddCatalog(fx.Cache, new AppSettings());
+            var names = catalog.Search("turbine", AddScope.Recipes, link).Select(r => r.Name).ToList();
+
+            Assert.Contains("Turbine Compatible", names);
+            Assert.DoesNotContain("Turbine Incompatible", names);
+        }
+
         [Fact]
         public void HiddenAndUnavailableFollowSettingsLive() {
             CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: ["Iron Plate"], recipes: ["Iron Plate"], hidden: ["Iron Plate"]);
@@ -50,6 +68,19 @@ namespace Foreman.Mac.UiTests.Services {
             Assert.Empty(catalog.Search("iron", AddScope.All, null));
             settings.ShowHidden = true;
             Assert.NotEmpty(catalog.Search("iron", AddScope.All, null));
+        }
+
+        //Ports the retired on-canvas chooser's Ignore Assembler toggle test.
+        [Fact]
+        public void IgnoreAssemblerStatus_IncludesRecipesWithNoEnabledAssembler() {
+            CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: [], recipes: ["Iron Plate"]);
+            fx.Assembler.Enabled = false;
+            var settings = new AppSettings { IgnoreAssemblerStatus = false };
+            var catalog = new AddCatalog(fx.Cache, settings);
+            Assert.Empty(catalog.Search("iron", AddScope.Recipes, null));
+
+            settings.IgnoreAssemblerStatus = true;
+            Assert.NotEmpty(catalog.Search("iron", AddScope.Recipes, null));
         }
 
         [Fact]

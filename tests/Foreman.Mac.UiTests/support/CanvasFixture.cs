@@ -15,8 +15,7 @@ using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.support {
     //Shared real-vanilla-preset canvas fixture for tests driving a GraphCanvasControl end to end (real
-    //pointer events, real DataCache) - the shape ItemRecipeChooserFlowTests.Fixture used before Task 7
-    //retires that file, plus the double/right-click helpers QuickAddCanvasTests needs.
+    //pointer events, real DataCache), plus drag/click helpers for the palette/radial flows.
     internal sealed class CanvasFixture : IDisposable {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private static readonly Lazy<DataCache> VanillaCache = new(LoadVanilla);
@@ -44,15 +43,30 @@ namespace Foreman.Mac.UiTests.support {
             return fx;
         }
 
-        public static CanvasFixture WithVanillaAndOneSupplier(out AvaloniaPoint outputTabScreenPoint) {
+        public static CanvasFixture WithVanillaAndOneSupplier(out AvaloniaPoint outputTabScreenPoint) =>
+            WithVanillaAndOneSupplierOf("iron-plate", out outputTabScreenPoint);
+
+        public static CanvasFixture WithVanillaAndOneSupplierOf(string itemName, out AvaloniaPoint outputTabScreenPoint) {
             CanvasFixture fx = WithVanilla();
-            var pair = new ItemQualityPair(fx.Cache.Items["iron-plate"], fx.Cache.DefaultQuality!);
+            var pair = new ItemQualityPair(fx.Cache.Items[itemName], fx.Cache.DefaultQuality!);
             NodeId nodeId = fx.Control.Viewer.Session.Editor.CreateSupplierNode(pair, new DrawingPoint(0, 0));
             BaseNodeElement element = fx.Control.Viewer.NodeElementDictionary[nodeId];
             element.RequestStateUpdate();
             element.PrePaint();
             ItemTabElement tab = element.SubElements.OfType<ItemTabElement>().First(t => t.LinkType == LinkType.Output);
             outputTabScreenPoint = fx.Control.Viewport.GraphToScreen(element.LocalToGraph(tab.Location));
+            return fx;
+        }
+
+        public static CanvasFixture WithVanillaAndOneConsumerOf(string itemName, out AvaloniaPoint inputTabScreenPoint) {
+            CanvasFixture fx = WithVanilla();
+            var pair = new ItemQualityPair(fx.Cache.Items[itemName], fx.Cache.DefaultQuality!);
+            NodeId nodeId = fx.Control.Viewer.Session.Editor.CreateConsumerNode(pair, new DrawingPoint(0, 0));
+            BaseNodeElement element = fx.Control.Viewer.NodeElementDictionary[nodeId];
+            element.RequestStateUpdate();
+            element.PrePaint();
+            ItemTabElement tab = element.SubElements.OfType<ItemTabElement>().First(t => t.LinkType == LinkType.Input);
+            inputTabScreenPoint = fx.Control.Viewport.GraphToScreen(element.LocalToGraph(tab.Location));
             return fx;
         }
 

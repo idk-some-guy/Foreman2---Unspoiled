@@ -20,11 +20,10 @@ using DrawingPoint = System.Drawing.Point;
 namespace Foreman.Mac.UiTests.QuickAdd {
     //Task 6: the browser's footer role buttons, recipe double-click/Enter placement, and the two filter
     //chips (link-drag "Compatible with", UnSpoil/UnPlant "Origins of"), all routed through
-    //GraphCanvasControl.PlaceCandidate/ProcessNodeRequest exactly like the palette. Supersedes
-    //ItemRecipeChooserFlowTests's RecipeChooserPanel-driven footer/origin-picker coverage for this
-    //surface - that file's own remaining tests (QualityPicker population, temperature filtering, the
-    //link-drag tab-offset, the placeholder-window assertion, and the offscreen PNG render) are
-    //RecipeChooserPanel/link-drag specific and don't map onto the browser, so nothing there needed porting.
+    //GraphCanvasControl.PlaceCandidate/ProcessNodeRequest exactly like the palette. Supersedes the retired
+    //on-canvas chooser's footer/origin-picker coverage for this surface; its quality-picker population,
+    //temperature filtering, and link-drag tab-offset coverage were re-covered through the palette path
+    //instead (QuickAddCanvasTests.cs, AddBrowserWindowTests.cs, AddCatalogTests.cs - Task 7).
     public sealed class AddBrowserPlacementTests {
         [AvaloniaFact]
         public void SourcePassthroughOutputPlaceTheMatchingNodeKinds_AndKeepTheWindowOpen() {

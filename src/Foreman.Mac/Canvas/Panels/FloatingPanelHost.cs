@@ -99,7 +99,7 @@ namespace Foreman.Mac.Canvas.Panels {
                 (int)Math.Ceiling(desired.Height));
         }
 
-        //Gives content (e.g. IRChooserPanel) a chance to actually reflow to the available space before
+        //Gives content (e.g. QuickAddPalette) a chance to actually reflow to the available space before
         //EditPanelViewportLayout.Apply measures+clamps it - otherwise Apply can only shrink the outer
         //Width/Height property, which clips fixed-size content instead of making it smaller.
         private DrawingRectangle MeasureReflowableRect(AvaloniaControl content, DrawingPoint anchorGraphPoint, Direction? anchorDirection, int viewerWidth, int viewerHeight) {

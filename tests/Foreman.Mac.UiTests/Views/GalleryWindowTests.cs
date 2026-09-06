@@ -21,9 +21,8 @@ using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
     //Task: dev-only gallery smoke test (docs entry: "--gallery" mode). Builds a small fixture cache - a
-    //recipe with an electric assembler (modules + beacon) alongside a burner alternative (fuel) - so
-    //GalleryWindow's showcase-recipe search has real content to feed the chooser tiles, then proves every
-    //expected tile actually gets built.
+    //recipe with an electric assembler (modules + beacon) alongside a burner alternative (fuel) - feeding
+    //the theme/enabled-objects/comparator showcase tiles below, then proves every expected tile gets built.
     public class GalleryWindowTests {
         private static DataCacheStore Store(DataCache cache) {
             FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -104,16 +103,14 @@ namespace Foreman.Mac.UiTests.Views {
 
             string[] captions = [.. window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
 
-            Assert.Contains("ItemChooserPanel", captions);
-            Assert.Contains("RecipeChooserPanel", captions);
             Assert.Contains("QualityPicker", captions);
         }
 
-        //Every tile must show its panel the way it actually renders in the real app - floating in its own
+        //The QualityPicker tile must show the way it actually renders in the real app - floating in its own
         //dark chrome bubble over the graph canvas's white backdrop (GraphViewer.Paint's canvas.Clear(
         //SKColors.White)), not lost against an equally black window.
         [AvaloniaFact]
-        public void EveryTile_PanelHasNonTransparentChromeBackground() {
+        public void QualityPickerTile_HasNonTransparentChromeBackground() {
             DataCache cache = NewFixtureCache();
             var settings = new AppSettings();
 
@@ -122,18 +119,9 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Equal(Colors.White, Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color);
 
-            Control[] panels = [
-                window.GetVisualDescendants().OfType<ItemChooserPanel>().Single(),
-                window.GetVisualDescendants().OfType<RecipeChooserPanel>().Single(),
-                //IRChooserPanel embeds its own QualityPicker too; the standalone gallery tile is the one
-                //ChromeWrap made a direct Border child, not that one.
-                window.GetVisualDescendants().OfType<QualityPicker>().Single(p => p.Parent is Border),
-            ];
-
-            foreach (Control panel in panels) {
-                Border chrome = panel as Border ?? panel.GetVisualAncestors().OfType<Border>().First();
-                Assert.Equal(Colors.Black, Assert.IsAssignableFrom<ISolidColorBrush>(chrome.Background).Color);
-            }
+            QualityPicker picker = window.GetVisualDescendants().OfType<QualityPicker>().Single(p => p.Parent is Border);
+            Border chrome = picker.GetVisualAncestors().OfType<Border>().First();
+            Assert.Equal(Colors.Black, Assert.IsAssignableFrom<ISolidColorBrush>(chrome.Background).Color);
         }
 
         //Task 6: WindowScaler was disclosed-unscaled for the gallery (task-6-brief) - Track wraps

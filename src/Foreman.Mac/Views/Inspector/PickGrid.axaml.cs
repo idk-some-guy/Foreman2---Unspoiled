@@ -7,10 +7,9 @@ using System;
 using System.Collections.Generic;
 
 namespace Foreman.Mac.Views.Inspector {
-    //Reusable icon-cell grid backing the Recipe segment's Assembler/Fuel pickers (Task 5). A plain
-    //ItemsControl over Button cells rather than IconButton (Canvas/Panels' Skia-painted picker button):
-    //this one lives in the Avalonia visual tree proper, so keyboard focus/activation come from Button's own
-    //Enter/Space handling instead of a custom PointerReleased wire-up.
+    //Reusable icon-cell grid backing the Recipe segment's Assembler/Fuel pickers (Task 5): a plain
+    //ItemsControl over Button cells, so keyboard focus/activation come from Button's own Enter/Space
+    //handling instead of a custom PointerReleased wire-up.
     public sealed partial class PickGrid : UserControl {
         public static readonly StyledProperty<IReadOnlyList<PickGridItem>> ItemsProperty =
             AvaloniaProperty.Register<PickGrid, IReadOnlyList<PickGridItem>>(nameof(Items), defaultValue: []);

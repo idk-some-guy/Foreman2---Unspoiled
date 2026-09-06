@@ -133,10 +133,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //Task 7's phase gate: the real left-click-to-edit dispatch (docs/panels-reference.md §8) selects a
-        //recipe node, then the assembler is changed through the inspector's own Recipe segment (the paired
-        //floating editor this test used to open is retired), before proving the edit survives a save/reload
-        //round-trip.
+        //Left-click selects the recipe node, the assembler changes through the inspector's Recipe segment
+        //(not a direct controller call), then the edit must survive a save/reload round-trip.
         [AvaloniaFact]
         public async Task ClickToEdit_RecipeNode_ChangeAssembler_PersistsThroughSaveAndReload() {
             DataCache cache = await GetCacheAsync();
@@ -180,11 +178,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(alternateAssembler, reloadedRecipe.SelectedAssembler.Assembler);
         }
 
-        //Same phase gate for the other dispatch branch - a supplier node's fixed rate, set through the real
-        //click-then-sidebar path: a real click selects the node (GraphCanvasControl.EditNode), then the
-        //value is set through the inspector's own Flow segment controls (RateFixed/RateValue), not a direct
-        //controller call, so this still proves "edit through the real sidebar controls, save, reload" end
-        //to end.
+        //Same as above for a supplier node's fixed rate, set through the inspector's Flow segment controls.
         [AvaloniaFact]
         public async Task ClickToEdit_SupplierNode_SetFixedRate_PersistsThroughSaveAndReload() {
             DataCache cache = await GetCacheAsync();

@@ -35,9 +35,8 @@ namespace Foreman.Mac.Canvas {
     public enum NewNodeType { Disconnected, Supplier, Consumer }
 
     //Ports the chooser-dependent tail of DraggedLinkElement.EndDrag (reference §3's "exactly one end bound,
-    //dropped on empty space" outcome, upstream AddNewNode): the real RecipeChooserPanel/ItemChooserPanel is
-    //P5 scope (reference §10). GraphCanvasControl.RequestNewNodeFromLinkDrag just records this and disposes
-    //the drag; Task 7 wires NewNodeRequested to the real placeholder chooser.
+    //dropped on empty space" outcome): an unresolved drag lands here for RequestNewNodeFromLinkDrag to open
+    //the radial menu against.
     public readonly record struct NewNodeLinkDragRequest(NewNodeType NodeType, ItemQualityPair Item, AvaloniaPoint ScreenPoint, DrawingPoint EndpointLocation, BaseNodeElement OriginElement, NodeDirection Direction);
 
     //Ports ProductionGraphViewer's OnPaint transform setup, MouseWheel zoom, middle/right-drag pan,
@@ -86,7 +85,6 @@ namespace Foreman.Mac.Canvas {
         internal bool IsPassthroughBusModifierHeld { get; private set; }
 
         internal NewNodeLinkDragRequest? LastNewNodeLinkDragRequest { get; private set; }
-        internal Action<NewNodeLinkDragRequest>? NewNodeRequested { get; set; }
 
         //Ports inDrawShapeMode (reference §1/§6): armed by BeginDrawShape (the background right-click menu's
         //"Add Shape" entry, since there's no toolbar button or keyboard shortcut per reference §6), cleared by
@@ -115,7 +113,6 @@ namespace Foreman.Mac.Canvas {
             Viewer.Context.StartLinkDrag = StartLinkDrag;
             Viewer.Context.EditNode = EditNode;
             Viewer.ShowAnnotationPropertiesDialog = ShowAnnotationProperties;
-            NewNodeRequested = HandleNewNodeRequestedAsync;
             ClipToBounds = true;
             Focusable = true;
         }
@@ -239,10 +236,7 @@ namespace Foreman.Mac.Canvas {
             return LinkChecker.GetTemperatureRange(fluid, request.OriginElement.ViewModel, direction, true, Viewer.Session);
         }
 
-        //Ports ProcessNodeRequest's Passthrough case plus FinalizeNodePosition's link-creation tail (reference
-        //§3/§10), for DraggedLinkElement's Cmd-held release path: no chooser involved, so this builds the node
-        //and its link straight from the request the chooser flow would otherwise have carried to
-        //HandleNewNodeRequestedAsync.
+        //Cmd-held release: skips the radial and builds the passthrough node/link straight from the request.
         internal void CreatePassthroughFromLinkDrag(NewNodeLinkDragRequest request) {
             NodeId newNodeId = Viewer.Session.Editor.CreatePassthroughNode(request.Item, request.EndpointLocation);
             Viewer.Session.Editor.SetDirection(newNodeId, request.Direction);
@@ -284,7 +278,7 @@ namespace Foreman.Mac.Canvas {
 
         //Internal rather than private: DraggedLinkElement (a different class) also needs to request a
         //repaint at the same state-changing points upstream calls Invalidate() from (reference §3's EndDrag/
-        //AddPassthroughNodesFromSelection/AddNewNode tails).
+        //AddPassthroughNodesFromSelection tails).
         internal void RequestRedraw() {
             RedrawRequestCount++;
             InvalidateVisual();
@@ -316,6 +310,9 @@ namespace Foreman.Mac.Canvas {
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
             Viewer.Dispose();
+            foreach (Bitmap bitmap in addIconCache.Values)
+                bitmap.Dispose();
+            addIconCache.Clear();
         }
 
         //Ports ProductionGraphViewer_MouseWheel's own focus guard (reference §7, upstream lines 1065-1067
@@ -717,8 +714,7 @@ namespace Foreman.Mac.Canvas {
             RequestRedraw();
         }
 
-        //Ports Annotation_AppendContextMenuItems (reference §4a): Add Item/Add Recipe now open the Quick Add
-        //palette (C2b) instead of the retired ItemChooserPanel/RecipeChooserPanel pair.
+        //Ports Annotation_AppendContextMenuItems (reference §4a): Add Item/Add Recipe open the Quick Add palette.
         private List<MenuEntry> BuildBackgroundMenu(DrawingPoint graphPoint) => [
             MenuEntry.Item("Add Item", () => AddItemAsync(graphPoint)),
             MenuEntry.Item("Add Recipe", () => AddRecipeAsync(graphPoint)),
@@ -786,90 +782,12 @@ namespace Foreman.Mac.Canvas {
         private Services.AppSettings? fallbackChooserSettings;
         private Services.AppSettings ChooserSettings => AnnotationSettings ?? (fallbackChooserSettings ??= new Services.AppSettings());
 
-        //Bundles AddNewNode's closure-captured locals (reference §3/§10) so ProcessNodeRequest/FinalizeNode/
-        //the spoil-plant sub-pickers below can share them without upstream's nested-local-function shape.
-        //OffsetLocationToItemTabLevel ports upstream's own AddNewNode parameter of the same name (reference
-        //§3, ProductionGraphViewer.cs:206/413-414): upstream passes true from both DraggedLinkElement call
-        //sites only (HandleNewNodeRequestedAsync here) and leaves it false everywhere else (Add Item/Add
-        //Recipe), so a link-drag-created node's tab lands at the drop point instead of its center.
+        //Shared by every ProcessNodeRequest caller (PlaceCandidate for the palette/browser path) so the
+        //node-creation switch and its offset/fuel follow-ups don't need each call site's own locals.
         private readonly record struct NewNodeContext(ItemQualityPair BaseItem, DrawingPoint NewLocation, NewNodeType OuterNodeType, BaseNodeElement? OriginElement, NodeDirection NewNodeDirection, bool OffsetLocationToItemTabLevel);
 
-        //Ports AddNewNode's RecipeChooserPanel half (reference §3/§10) for every call site that reaches it:
-        //Add Item's two-stage follow-up, Add Recipe, and the link-drag EndDrag outcome (HandleNewNodeRequestedAsync,
-        //below). originElement/newNodeDirection are unused by FinalizeNode for the two disconnected entry
-        //points above, matching upstream's own "no origin" guard. The Spoil/Plant-Down multi-origin branches
-        //need to swap in a follow-up ItemChooserPanel without running this panel's own close cleanup early
-        //(reference §2's RequiresItemSelection close reason) - suppressNextClose exists solely for that: it's
-        //set true immediately before the replacement panel opens (synchronously, before FloatingPanelHost.Show
-        //returns), and read+cleared by the very next PanelClosed this panel raises.
-        private void AddNewNode(DrawingPoint drawOrigin, ItemQualityPair baseItem, DrawingPoint newLocation, NewNodeType nNodeType, BaseNodeElement? originElement, NodeDirection newNodeDirection, FRange tempRange, bool offsetLocationToItemTabLevel = false) {
-            if (Viewer.Context.DCache is not DataCache cache)
-                return;
-
-            var panel = new RecipeChooserPanel(cache, ChooserSettings, baseItem, tempRange, nNodeType);
-            panel.Initialize();
-            var ctx = new NewNodeContext(baseItem, newLocation, nNodeType, originElement, newNodeDirection, offsetLocationToItemTabLevel);
-            bool suppressNextClose = false;
-
-            panel.RecipeRequested += (_, e) => {
-                if (e.NodeType == NodeType.Spoil && e.Direction == NodeDirection.Down && baseItem.Item is IItem spoilItem && spoilItem.SpoilOrigins.Count > 1) {
-                    suppressNextClose = true;
-                    OpenSpoilOriginPicker(drawOrigin, spoilItem, ctx);
-                } else if (e.NodeType == NodeType.Plant && e.Direction == NodeDirection.Down && baseItem.Item is IItem plantItem && plantItem.PlantOrigins.Count > 1) {
-                    suppressNextClose = true;
-                    OpenPlantOriginPicker(drawOrigin, plantItem, ctx);
-                } else {
-                    ProcessNodeRequest(ctx, e.NodeType, e.Recipe, e.Direction);
-                }
-            };
-            panel.PanelClosed += (_, e) => {
-                if (suppressNextClose) {
-                    suppressNextClose = false;
-                    return;
-                }
-                if (e.Reason != IRChooserPanel.ChooserPanelCloseReason.RequiresItemSelection)
-                    FinishChooserFlow();
-            };
-
-            FloatingPanelHost.Show(panel, drawOrigin);
-        }
-
-        //Spoil/Plant footer buttons hand back NodeType.Recipe==false requests carrying no item of their own
-        //(reference §2) - GraphCanvasControl.baseItem, captured in NewNodeContext, is upstream's real source
-        //for what gets spoiled/planted, matching AddNewNode's own closure-captured baseItem.
-        private void OpenSpoilOriginPicker(DrawingPoint drawOrigin, IItem spoilItem, NewNodeContext ctx) {
-            if (Viewer.Context.DCache is not DataCache cache)
-                return;
-            var subPicker = new ItemChooserPanel(cache, ChooserSettings, spoilItem.SpoilOrigins);
-            subPicker.Initialize();
-            subPicker.ItemRequested += (_, e) => {
-                if (e.Item.Item is IItem originItem && e.Item.Quality is IQuality originQuality)
-                    ProcessCreatedNode(ctx, Viewer.Session.Editor.CreateSpoilNode(new ItemQualityPair(originItem, originQuality), spoilItem, ctx.NewLocation));
-            };
-            subPicker.PanelClosed += (_, _) => FinishChooserFlow();
-            FloatingPanelHost.Show(subPicker, drawOrigin);
-        }
-
-        //Ports the Plant sub-picker's own quality rule (reference §2/§10, upstream lines 345-351): the newly
-        //planted node always resolves at the cache's DefaultQuality, ignoring whatever quality the origin item
-        //was picked at - not a port bug, upstream does the same.
-        private void OpenPlantOriginPicker(DrawingPoint drawOrigin, IItem plantItem, NewNodeContext ctx) {
-            if (Viewer.Context.DCache is not DataCache cache)
-                return;
-            var subPicker = new ItemChooserPanel(cache, ChooserSettings, plantItem.PlantOrigins);
-            subPicker.Initialize();
-            subPicker.ItemRequested += (_, e) => {
-                if (e.Item.Item?.PlantResult is IPlantProcess plantProcess && cache.DefaultQuality is IQuality defaultQuality)
-                    ProcessCreatedNode(ctx, Viewer.Session.Editor.CreatePlantNode(plantProcess, defaultQuality, ctx.NewLocation));
-            };
-            subPicker.PanelClosed += (_, _) => FinishChooserFlow();
-            FloatingPanelHost.Show(subPicker, drawOrigin);
-        }
-
-        //Ports ProcessNodeRequest's node-creation switch (reference §3/§10, upstream lines 265-393): every
-        //NodeType a RecipeChooserPanel can request except the Spoil/Plant-Down multi-origin cases, which
-        //AddNewNode routes to the sub-pickers above before this ever runs. Assembler/fuel auto-selection for
-        //a Recipe pick is ApplyAssemblerFuelAutoSelection's job, below.
+        //Ports ProcessNodeRequest's node-creation switch (reference §3/§10, upstream lines 265-393). Assembler/
+        //fuel auto-selection for a Recipe pick is ApplyAssemblerFuelAutoSelection's job, below.
         private void ProcessNodeRequest(NewNodeContext ctx, NodeType nodeType, RecipeQualityPair recipe, NodeDirection direction, IItem? explicitOrigin = null) {
             if (Viewer.Context.DCache is not DataCache cache)
                 return;
@@ -991,31 +909,6 @@ namespace Foreman.Mac.Canvas {
             if (Viewer.NodeElementDictionary.TryGetValue(newNodeId, out BaseNodeElement? element))
                 Viewer.SetSelection([element]);
             RequestRedraw();
-        }
-
-        //Ports the PanelClosed cleanup shared by AddNewNode and both spoil/plant sub-pickers (reference §3's
-        //DisposeLinkDrag/Graph.UpdateNodeStates/Invalidate tail): a no-op DraggedLink dispose for the two
-        //disconnected entry points (nothing to dispose), the real link-drag ghost teardown for
-        //HandleNewNodeRequestedAsync's flow.
-        private void FinishChooserFlow() {
-            FloatingPanelHost.Close();
-            DraggedLink?.Dispose();
-            DraggedLink = null;
-            Viewer.Graph.UpdateNodeStates(false);
-            RequestRedraw();
-        }
-
-        //Ports AddNewNode's RecipeChooserPanel construction for the link-drag EndDrag outcome (reference §3/
-        //§10, upstream lines 234-243): the dragged item's real temperature range via LinkChecker (the same
-        //Core helper LinkChecker.IsPossibleConnection already uses for live link validity), replacing task 7's
-        //producers/consumers approximation with upstream's exact RecipeMatchesKeyItem predicate.
-        private void HandleNewNodeRequestedAsync(NewNodeLinkDragRequest request) {
-            if (Viewer.Context.DCache is not DataCache || request.Item.Item is not IItem)
-                return;
-
-            FRange tempRange = TemperatureRangeFor(request);
-            DrawingPoint drawOrigin = Viewport.ScreenToGraph(request.ScreenPoint);
-            AddNewNode(drawOrigin, request.Item, request.EndpointLocation, request.NodeType, request.OriginElement, request.Direction, tempRange, offsetLocationToItemTabLevel: true);
         }
 
         //Test-only seams (reference §6's "double-click opens dialog (headless-testable hook)"): stub these to

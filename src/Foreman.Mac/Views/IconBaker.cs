@@ -6,11 +6,11 @@ using System.Collections.Generic;
 
 namespace Foreman.Mac.Views {
     //Shared by InspectorView/SettingsWindow/PickGrid/GraphSummary/PresetComparator/SciencePacksWindow: draws
-    //an SKBitmap onto a fresh Skia surface at a fixed size and snapshots it into an Avalonia Bitmap, off the
-    //GPU lease every other frame-live control
-    //takes (see IconButton's comment on nested Skia leases corrupting the frame on macOS). Each caller keeps
-    //its own cache dictionary - bake size varies per call site, so a shared cache keyed only on the source
-    //SKBitmap would collide.
+    //an SKBitmap onto a fresh Skia surface at a fixed size and snapshots it into an Avalonia Bitmap, so
+    //every caller composites an ordinary image instead of taking its own GPU lease (a nested lease under a
+    //composited control corrupts the frame on macOS's Metal-backed renderer). Each caller keeps its own
+    //cache dictionary - bake size varies per call site, so a shared cache keyed only on the source SKBitmap
+    //would collide.
     internal static class IconBaker {
         public static Bitmap Bake(SKBitmap icon, int size) {
             using SKSurface surface = SKSurface.Create(new SKImageInfo(size, size, SKColorType.Bgra8888, SKAlphaType.Premul));

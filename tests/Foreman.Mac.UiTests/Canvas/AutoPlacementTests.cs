@@ -10,7 +10,6 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
-using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.QuickAdd;
@@ -50,10 +49,7 @@ namespace Foreman.Mac.UiTests.Canvas {
                 return new ItemQualityPair(item, Quality);
             }
 
-            //ItemChooserPanel (task 3) only shows an item with a production/consumption recipe behind an
-            //enabled assembler (docs/panels-reference.md §2's "visible"/"validAssembler" gates) - this
-            //fixture's items had no recipes at all before this task's real chooser existed, so tests that
-            //drive Add Item through the panel need at least a trivial one.
+            //Gives an item a trivial production recipe so palette-driven placement tests have something to pick.
             public void WireProduction(string itemName) {
                 ItemPrototype item = (ItemPrototype)Pair(itemName).Item!;
                 var assembler = new AssemblerPrototype(Cache, "§§test:asm-" + itemName, "Assembler", EntityType.Assembler, EnergySource.Electric) { Available = true };
@@ -90,14 +86,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         private static DataCacheStore Store(DataCache cache) {
             FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
             return (DataCacheStore)field.GetValue(cache)!;
-        }
-
-        //IRChooserPanel.startingGroup is process-wide static (docs/panels-reference.md §2) - reset per test so
-        //the real ItemChooserPanel/RecipeChooserPanel this fixture now drives (task 3) doesn't inherit a
-        //leftover selection from another test class.
-        public AutoPlacementTests() {
-            FieldInfo field = typeof(IRChooserPanel).GetField("startingGroup", BindingFlags.Static | BindingFlags.NonPublic)!;
-            field.SetValue(null, null);
         }
 
         private static Fixture NewFixture() {

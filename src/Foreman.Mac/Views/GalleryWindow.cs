@@ -27,20 +27,11 @@ namespace Foreman.Mac.Views {
             Title = "Foreman Gallery";
             Width = 1600;
             Height = 1000;
-            //Matches GraphViewer.Paint's canvas.Clear(SKColors.White): every floating panel here is a Border
-            //that already paints its own Brushes.Black chrome (IRChooserPanel), so the backdrop has to be
-            //the graph canvas's real white, not another black, or that chrome disappears into the window
-            //instead of standing out the way it does over the actual canvas.
+            //Matches GraphViewer.Paint's canvas.Clear(SKColors.White), so ChromeWrap's black backdrop below
+            //stands out the way it does over the actual canvas instead of disappearing into the window.
             Background = Brushes.White;
 
-            IQuality quality = cache.DefaultQuality ?? cache.AvailableQualities.First();
-
-            RecipeShowcase? showcase = FindShowcaseRecipe(cache);
-            ItemQualityPair keyItem = FindKeyItem(cache, showcase, quality);
-
             var tiles = new WrapPanel { Orientation = Orientation.Horizontal, Width = TileColumnWidth };
-            tiles.Children.Add(Tile("ItemChooserPanel", BuildItemChooserPanel(cache, settings)));
-            tiles.Children.Add(Tile("RecipeChooserPanel", BuildRecipeChooserPanel(cache, settings, keyItem)));
             tiles.Children.Add(Tile("QualityPicker", ChromeWrap(BuildQualityPicker(cache))));
 
             //Task 6 (Plan C1 gate tool): the retokened toolbar/popover/row surfaces, live-toggleable between
@@ -276,65 +267,13 @@ namespace Foreman.Mac.Views {
             return stack;
         }
 
-        //QualityPicker never floats on its own in the real app - it's always embedded inside a panel that
-        //already paints Border.Background = Brushes.Black on itself (IRChooserPanel). Reusing that same
-        //brush here shows it the way it actually renders once hosted.
+        //QualityPicker never floats on its own in the real app - approximates its former black-chrome host.
         private static Border ChromeWrap(Control content) => new() { Background = Brushes.Black, Padding = new Thickness(8), Child = content };
-
-        private static ItemChooserPanel BuildItemChooserPanel(DataCache cache, AppSettings settings) {
-            var panel = new ItemChooserPanel(cache, settings);
-            panel.Initialize();
-            return panel;
-        }
-
-        private static RecipeChooserPanel BuildRecipeChooserPanel(DataCache cache, AppSettings settings, ItemQualityPair keyItem) {
-            var panel = new RecipeChooserPanel(cache, settings, keyItem, new FRange(0, 0, true), NewNodeType.Disconnected);
-            panel.Initialize();
-            return panel;
-        }
 
         private static QualityPicker BuildQualityPicker(DataCache cache) {
             var picker = new QualityPicker();
             picker.SetQualities(cache.AvailableQualities.Where(q => q.Enabled));
             return picker;
         }
-
-        //The richest assembler this cache's data can actually back: prefers one with modules and a beacon
-        //over one that merely has fuel, since no vanilla entity carries both at once (a burner assembler
-        //never has module slots) - fuel only wins a tie-break when nothing offers modules or a beacon at all.
-        private readonly record struct RecipeShowcase(IRecipe Recipe, IAssembler Assembler, IReadOnlyList<IModule> Modules, IBeacon? Beacon, IItem? Fuel);
-
-        private static RecipeShowcase? FindShowcaseRecipe(DataCache cache) {
-            RecipeShowcase? best = null;
-            int bestScore = -1;
-
-            foreach (IRecipe recipe in cache.Recipes.Values.Where(r => r.Available && r.Enabled)) {
-                foreach (IAssembler assembler in recipe.Assemblers.Where(a => a.Enabled && a.Available)) {
-                    List<IModule> modules = assembler.AllowModules && assembler.ModuleSlots > 0
-                        ? [.. recipe.AssemblerModules.Intersect(assembler.Modules).Where(m => m.Enabled && m.Available).Take(2)]
-                        : [];
-                    IBeacon? beacon = assembler.AllowBeacons
-                        ? cache.Beacons.Values.FirstOrDefault(b => b.Enabled && b.Available && recipe.BeaconModules.Any(m => b.Modules.Contains(m)))
-                        : null;
-                    IItem? fuel = assembler.IsBurner ? assembler.Fuels.FirstOrDefault(f => f.Available) : null;
-
-                    int score = (modules.Count > 0 ? 2 : 0) + (beacon is not null ? 2 : 0) + (fuel is not null ? 1 : 0);
-                    if (score <= bestScore)
-                        continue;
-                    bestScore = score;
-                    best = new RecipeShowcase(recipe, assembler, modules, beacon, fuel);
-                }
-            }
-            return best;
-        }
-
-        private static ItemQualityPair FindKeyItem(DataCache cache, RecipeShowcase? showcase, IQuality quality) {
-            IItem item = FirstOrNull(showcase?.Recipe.IngredientList)
-                ?? FirstOrNull(showcase?.Recipe.ProductList)
-                ?? cache.AvailableItems.First();
-            return new ItemQualityPair(item, quality);
-        }
-
-        private static IItem? FirstOrNull(IReadOnlyList<IItem>? items) => items is { Count: > 0 } ? items[0] : null;
     }
 }

@@ -174,8 +174,8 @@ selections (`ClearAnnotationSelection`).
   `Session.Editor.CreateLink(...)` and disposes the drag; no full bind but
   slave sub-links exist (multi-passthrough, below) →
   `graphViewer.AddPassthroughNodesFromSelection(...)`; exactly one end
-  bound, dropped on empty space → `graphViewer.AddNewNode(...)`, opening
-  the P5-panel chooser (§10) pre-wired to the bound node.
+  bound, dropped on empty space → the three-slice radial menu (§10), pre-
+  wired to the bound node.
 - **Cancel**: `MouseDown(Right)` on the ghost calls
   `graphViewer.DisposeLinkDrag()` — no node created, no confirmation.
 - **Ctrl+drag multi-passthrough bus** (`UpdateSlaveLinks`, every `PrePaint`
@@ -511,7 +511,9 @@ beyond parity.
 Every one of these is a floating WinForms-hosted panel out of scope for
 both P3 and P4 per `canvas-reference.md`'s tagging, but P4 needs a
 placeholder at each exact call site so the interaction it's attached to is
-demoable rather than a dead end:
+demoable rather than a dead end. (Phase 9 C2b has since replaced the add-a-
+node panels below with the Quick Add palette/"Add to Graph" browser/radial
+menu described in §7's keyboard map.)
 
 - **`BaseNodeElement.MouseUpAction`** (left click, non-dragged) →
   `graphViewer.EditNode(this)` → `EditFlowPanel` for simple nodes, or
@@ -519,14 +521,16 @@ demoable rather than a dead end:
   stacked depending on `LockedRecipeEditPanelPosition`) for recipe nodes.
   **Stub point**: left-click-to-select must still work; the panel-open call
   needs a no-op or placeholder until P5.
-- **`ProductionGraphViewer.AddItem`/`AddNewNode`** → `ItemChooserPanel` /
-  `RecipeChooserPanel`. Reached from: background right-click Add
-  Item/Add Recipe (§4a), `DraggedLinkElement.EndDrag`'s new-node outcome
-  (§3), `MainForm`'s toolbar Add Item/Add Recipe buttons, and the
-  Spoil/Plant multi-origin item-selection sub-flows nested inside
-  `AddNewNode`. **Stub point**: every one of these needs at least a minimal
-  synchronous picker, or the "drag a tab into empty space" and "right-click
-  add" flows have nothing to attach to.
+- **`ProductionGraphViewer.AddItem`/`AddNewNode`**: reached from
+  background right-click Add Item/Add Recipe (§4a), `DraggedLinkElement.
+  EndDrag`'s new-node outcome (§3), `MainWindow`'s toolbar Add Item/Add
+  Recipe buttons, and double-click on empty canvas. All of these now open
+  the Quick Add palette (search-as-you-type, Enter to place and stay open,
+  ⌘Enter to open the full "Add to Graph" browser); a link-drag dropped on
+  empty space opens the radial menu instead, whose Add slice opens the
+  palette scoped to that link. The Spoil/Plant multi-origin picks that used
+  to nest inside `AddNewNode` are now an "Origins of…" chip inside the
+  browser itself.
 - **Annotation properties dialogs** (`ShapePropertiesForm`/
   `TextPropertiesForm`, §6) are plain modal `Form`s, not
   `FloatingTooltipControl`-hosted, but still need a genuine Avalonia window
