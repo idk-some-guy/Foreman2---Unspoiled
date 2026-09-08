@@ -42,10 +42,10 @@
       <StackPanel Spacing="0">
         <StackPanel Orientation="Horizontal" Classes="foreman-picker-row">
           <Border Classes="foreman-picker-icon">
-            <Image Name="SelectedAssemblerIcon" Source="{Binding SelectedAssembler.Icon}" Stretch="Uniform" />
+            <Image Name="SelectedAssemblerIcon" Source="{Binding SelectedAssemblerIcon}" Stretch="Uniform" />
           </Border>
           <StackPanel VerticalAlignment="Center">
-            <TextBlock Name="SelectedAssemblerName" Text="{Binding SelectedAssembler.Name}" Classes="foreman-picker-name" />
+            <TextBlock Name="SelectedAssemblerName" Text="{Binding SelectedAssemblerName}" Classes="foreman-picker-name" />
             <TextBlock Name="AssemblerStatsText" Text="{Binding AssemblerStats}" Classes="foreman-caption" TextWrapping="Wrap" />
           </StackPanel>
         </StackPanel>

@@ -1128,10 +1128,9 @@ namespace Foreman.Mac {
         //mirrors upstream attaching this as MainForm's own delegate rather than folding it into
         //ProductionGraphViewer_KeyDown itself, since it needs to reach the toolbar's gridlines checkbox.
         private void OnGraphCanvasKeyDown(object? sender, KeyEventArgs e) {
-            //GraphCanvasControl's own OnKeyDown override already bails out for every key but Escape while a
-            //panel is open, but it doesn't mark the event Handled - this separate subscription needs its
-            //own guard so Space doesn't toggle gridlines while a palette's search box has focus.
-            if (e.Key != Key.Space || GraphCanvas.FloatingPanelHost.IsOpen)
+            //GraphCanvasControl's own OnKeyDown override marks every non-Escape key Handled while a panel
+            //is open, so this subscription never sees Space until the palette closes - no guard needed here.
+            if (e.Key != Key.Space)
                 return;
 
             GraphCanvas.Grid.ShowGrid = !GraphCanvas.Grid.ShowGrid;

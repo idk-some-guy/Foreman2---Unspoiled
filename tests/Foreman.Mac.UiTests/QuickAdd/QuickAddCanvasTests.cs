@@ -262,6 +262,22 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(offsetBefore, window.GraphCanvas.Viewport.ViewOffset);
         }
 
+        //Gate fix 4, item 1: the canvas's own OnKeyDown now marks the event Handled for every non-Escape
+        //key while a panel is open, so MainWindow's separate GraphCanvas.KeyDown subscription (and any
+        //other subscriber wired the same way) never sees it - one guard instead of two.
+        [AvaloniaFact]
+        public void NonEscapeKeyDown_WhilePaletteIsOpen_NeverReachesAMainWindowLevelKeyDownSubscriber() {
+            MainWindow window = OpenWindow(out _);
+            bool sawIt = false;
+            window.GraphCanvas.KeyDown += (_, _) => sawIt = true;
+
+            window.GraphCanvas.AddItemAsync(new DrawingPoint(0, 0));
+            var box = window.GraphCanvas.OpenPalette!.FindControl<TextBox>("SearchBox")!;
+            CanvasKeys.KeyDownOn(box, Key.G);
+
+            Assert.False(sawIt);
+        }
+
         private static MainWindow OpenWindow(out DataCache cache) {
             CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: ["Iron Plate"], recipes: []);
             cache = fx.Cache;

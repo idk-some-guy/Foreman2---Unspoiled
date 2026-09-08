@@ -324,6 +324,27 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Contains("unavailable", burnerButton.Classes);
         }
 
+        //Gate fix 4, item 2: SelectedAssembler.Icon/.Name bind through a nullable two-hop path (same shape
+        //as SelectedBeaconIcon), flattened here the same way and re-checked after an assembler change.
+        [AvaloniaFact]
+        public void SelectedAssemblerIconAndName_MirrorSelectedAssembler_AndUpdateOnChange() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.Equal(view.ViewModel!.SelectedAssembler!.Icon, view.ViewModel!.SelectedAssemblerIcon);
+            Assert.Equal(view.ViewModel!.SelectedAssembler!.Name, view.ViewModel!.SelectedAssemblerName);
+
+            PickGrid assemblerGrid = view.FindControl<PickGrid>("AssemblerGrid")!;
+            Click(host, GridCellFor(host, assemblerGrid, rf.Burner));
+
+            Assert.Equal(view.ViewModel!.SelectedAssembler!.Icon, view.ViewModel!.SelectedAssemblerIcon);
+            Assert.Equal(view.ViewModel!.SelectedAssembler!.Name, view.ViewModel!.SelectedAssemblerName);
+        }
+
         //---- Assembler change: resolves ----
 
         [AvaloniaFact]

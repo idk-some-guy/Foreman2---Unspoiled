@@ -92,6 +92,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   past its ring, including inside its square hit area, instead of only outside the whole panel.
   AddBrowserWindow and QuickAddPalette build without a startup XAML-loader warning, and the beacon
   icon binding no longer logs a null-binding warning when no beacon is selected.
+- The canvas now marks every non-Escape key handled while a panel is open, so no other keyboard
+  shortcut underneath it (gridlines included) can fire while the Quick Add palette or another
+  floating panel has focus. The Recipe segment's assembler icon and name binding no longer logs a
+  null-binding warning either.
 
 ### Changed
 

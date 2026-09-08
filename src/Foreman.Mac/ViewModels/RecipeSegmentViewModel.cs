@@ -52,6 +52,8 @@ namespace Foreman.Mac.ViewModels {
         private double extraProductivityPercent;
 
         public PickGridItem? SelectedAssembler { get; private set; }
+        public IImage? SelectedAssemblerIcon { get; private set; }
+        public string SelectedAssemblerName { get; private set; } = "";
         public string AssemblerStats { get; private set; } = "";
         public IReadOnlyList<PickGridItem> AssemblerOptions { get; private set; } = [];
         public bool ShowsFuel { get; private set; }
@@ -128,6 +130,12 @@ namespace Foreman.Mac.ViewModels {
             SelectedAssembler = BuildItem(node.SelectedAssembler.Assembler, node.SelectedAssembler.Icon, isSelected: true,
                 isAvailable: node.SelectedAssembler.Assembler.Available && !node.SelectedAssembler.Assembler.IsMissing);
             OnPropertyChanged(nameof(SelectedAssembler));
+            //Flattened onto their own properties: {Binding SelectedAssembler.Icon}/.Name log a [Binding]
+            //warning on the nullable two-hop path (same fix as SelectedBeaconIcon below).
+            SelectedAssemblerIcon = SelectedAssembler?.Icon;
+            OnPropertyChanged(nameof(SelectedAssemblerIcon));
+            SelectedAssemblerName = SelectedAssembler?.Name ?? "";
+            OnPropertyChanged(nameof(SelectedAssemblerName));
             AssemblerStats = BuildStats();
             OnPropertyChanged(nameof(AssemblerStats));
             AssemblerOptions = BuildAssemblerOptions();

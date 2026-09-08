@@ -1074,10 +1074,9 @@ namespace Foreman.Mac.Canvas {
             //panel doesn't itself need to handle, so it closes the panel here same as upstream's own
             //Escape/inDrawShapeMode case just below.
             if (FloatingPanelHost.IsOpen) {
-                if (e.Key == Key.Escape) {
+                if (e.Key == Key.Escape)
                     FloatingPanelHost.Close();
-                    e.Handled = true;
-                }
+                e.Handled = true;
                 return;
             }
 
