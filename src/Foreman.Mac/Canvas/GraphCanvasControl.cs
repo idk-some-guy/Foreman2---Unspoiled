@@ -208,7 +208,7 @@ namespace Foreman.Mac.Canvas {
         internal RadialMenu? OpenRadial => FloatingPanelHost.Content as RadialMenu;
 
         internal void ShowRadialMenu(NewNodeLinkDragRequest request) {
-            var radial = new RadialMenu();
+            var radial = new RadialMenu(RadialSlicesFor(request));
             radial.Chosen += (_, choice) => {
                 FloatingPanelHost.Close();
                 switch (choice) {
@@ -218,12 +218,80 @@ namespace Foreman.Mac.Canvas {
                     case RadialChoice.Passthrough:
                         CreatePassthroughFromLinkDrag(request);
                         break;
+                    case RadialChoice.Source:
+                        PlaceLinkedRole(request, NodeType.Supplier);
+                        break;
+                    case RadialChoice.Output:
+                        PlaceLinkedRole(request, NodeType.Consumer);
+                        break;
+                    case RadialChoice.Spoil:
+                        PlaceSpoilPlant(request, NodeType.Spoil, NodeDirection.Up);
+                        break;
+                    case RadialChoice.Plant:
+                        PlaceSpoilPlant(request, NodeType.Plant, NodeDirection.Up);
+                        break;
+                    case RadialChoice.Unspoil:
+                        PlaceOrBrowseOrigins(request, NodeType.Spoil);
+                        break;
+                    case RadialChoice.Unplant:
+                        PlaceOrBrowseOrigins(request, NodeType.Plant);
+                        break;
                     default:
                         DisposeLinkDrag();
                         break;
                 }
             };
             FloatingPanelHost.Show(radial, Viewport.ScreenToGraph(request.ScreenPoint), centerOnAnchor: true);
+        }
+
+        //UnPlant alone carries the old footer's isDefaultQuality gate; Spoil/UnSpoil/Plant do not.
+        private List<RadialChoice> RadialSlicesFor(NewNodeLinkDragRequest request) {
+            IItem? item = request.Item.Item;
+            bool isDefaultQuality = Viewer.Context.DCache is not DataCache cache || request.Item.Quality == cache.DefaultQuality;
+            var choices = new List<RadialChoice> { RadialChoice.Add };
+            if (request.NodeType == NewNodeType.Supplier) {
+                choices.Add(RadialChoice.Source);
+                choices.Add(RadialChoice.Passthrough);
+                if (item is not null && item.SpoilOrigins.Count > 0)
+                    choices.Add(RadialChoice.Unspoil);
+                if (item is not null && isDefaultQuality && item.PlantOrigins.Count > 0)
+                    choices.Add(RadialChoice.Unplant);
+            } else {
+                choices.Add(RadialChoice.Output);
+                choices.Add(RadialChoice.Passthrough);
+                if (item?.SpoilResult is not null)
+                    choices.Add(RadialChoice.Spoil);
+                if (item?.PlantResult is not null)
+                    choices.Add(RadialChoice.Plant);
+            }
+            choices.Add(RadialChoice.Cancel);
+            return choices;
+        }
+
+        //Source/Output: the linked-node placement the browser's footer role buttons make, without the browser trip.
+        private void PlaceLinkedRole(NewNodeLinkDragRequest request, NodeType role) {
+            if (request.Item.Item is not IItem item)
+                return;
+            PlaceCandidate(AddCatalog.Candidate(item), new AddRequest(request.EndpointLocation, AddScope.Items, LinkContextFor(request)), role);
+        }
+
+        private void PlaceSpoilPlant(NewNodeLinkDragRequest request, NodeType role, NodeDirection direction) {
+            if (request.Item.Item is not IItem item)
+                return;
+            PlaceCandidate(AddCatalog.Candidate(item), new AddRequest(request.EndpointLocation, AddScope.Items, LinkContextFor(request)), role, spoilPlantDirection: direction);
+        }
+
+        //UnSpoil/UnPlant: one origin places directly; several hand off to the browser's Origins-of chip via OriginsRole.
+        private void PlaceOrBrowseOrigins(NewNodeLinkDragRequest request, NodeType role) {
+            if (request.Item.Item is not IItem item)
+                return;
+            IReadOnlyCollection<IItem> origins = role == NodeType.Spoil ? item.SpoilOrigins : item.PlantOrigins;
+            AddLinkContext link = LinkContextFor(request);
+            if (origins.Count <= 1) {
+                PlaceCandidate(AddCatalog.Candidate(item), new AddRequest(request.EndpointLocation, AddScope.Items, link), role, spoilPlantDirection: NodeDirection.Down);
+                return;
+            }
+            BrowseRequested?.Invoke(this, new AddRequest(request.EndpointLocation, AddScope.Items, link, OriginsRole: role));
         }
 
         private AddLinkContext LinkContextFor(NewNodeLinkDragRequest request) =>

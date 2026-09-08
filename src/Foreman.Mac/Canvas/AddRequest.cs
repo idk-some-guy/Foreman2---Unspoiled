@@ -8,5 +8,6 @@ namespace Foreman.Mac.Canvas {
 
     public sealed record AddLinkContext(ItemQualityPair Item, NewNodeType NodeType, FRange TempRange, BaseNodeElement OriginElement, NodeDirection Direction);
 
-    public sealed record AddRequest(DrawingPoint Location, AddScope Scope, AddLinkContext? Link = null, string SeedText = "");
+    //OriginsRole: pre-sets the browser's "Origins of…" chip for a multi-origin UnSpoil/UnPlant.
+    public sealed record AddRequest(DrawingPoint Location, AddScope Scope, AddLinkContext? Link = null, string SeedText = "", NodeType? OriginsRole = null);
 }

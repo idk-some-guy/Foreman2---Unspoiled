@@ -122,8 +122,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron plate";
             TextBox box = palette.FindControl<TextBox>("SearchBox")!;
-            CanvasKeys.KeyDownOn(box, Key.Down); //row 0 is the linked item itself; the recipe is row 1
-            CanvasKeys.KeyDownOn(box, Key.Enter);
+            CanvasKeys.KeyDownOn(box, Key.Enter); //row 0 is the recipe (the radial's Source/Output slices own the item row now)
 
             var node = Assert.Single(fx.Viewer.Graph.Nodes.OfType<RecipeNode>());
             Assert.Null(node.Fuel);
@@ -162,8 +161,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron plate"; //produces iron-plate
             TextBox box = palette.FindControl<TextBox>("SearchBox")!;
-            CanvasKeys.KeyDownOn(box, Key.Down); //row 0 is the linked item itself; the recipe is row 1
-            CanvasKeys.KeyDownOn(box, Key.Enter);
+            CanvasKeys.KeyDownOn(box, Key.Enter); //row 0 is the recipe (the radial's Source/Output slices own the item row now)
 
             BaseNodeElement created = fx.Viewer.NodeElements.Except(before).Single();
             DrawingPoint dropGraphPoint = fx.Control.Viewport.ScreenToGraph(dropScreenPoint);

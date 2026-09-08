@@ -35,4 +35,10 @@
   <StreamGeometry x:Key="Foreman.Icon.RadialAdd">M9.5,3 v13 M3,9.5 h13</StreamGeometry>
   <StreamGeometry x:Key="Foreman.Icon.RadialPassthrough">M2,9.5 H6.5 M12.5,9.5 H17 M6.5,9.5 A3,3 0 1,0 12.5,9.5 A3,3 0 1,0 6.5,9.5 Z</StreamGeometry>
   <StreamGeometry x:Key="Foreman.Icon.RadialCancel">M4,4 L15,15 M15,4 L4,15</StreamGeometry>
+  <StreamGeometry x:Key="Foreman.Icon.RadialSource">M15,3 V16 M2,9.5 H12 M8,5 L12,9.5 L8,14</StreamGeometry>
+  <StreamGeometry x:Key="Foreman.Icon.RadialOutput">M4,3 V16 M7,9.5 H17 M13,5 L17,9.5 L13,14</StreamGeometry>
+  <StreamGeometry x:Key="Foreman.Icon.RadialSpoil">M9.5,2 V11 M5,7 L9.5,11 L14,7 M4,14 Q7,12 9.5,14 Q12,16 15,14</StreamGeometry>
+  <StreamGeometry x:Key="Foreman.Icon.RadialUnspoil">M9.5,17 V8 M5,12 L9.5,8 L14,12 M4,5 Q7,7 9.5,5 Q12,3 15,5</StreamGeometry>
+  <StreamGeometry x:Key="Foreman.Icon.RadialPlant">M9.5,17 V8 M9.5,10 Q5,9 4,4 M9.5,10 Q14,9 15,4</StreamGeometry>
+  <StreamGeometry x:Key="Foreman.Icon.RadialUnplant">M9.5,2 V11 M9.5,9 Q5,10 4,15 M9.5,9 Q14,10 15,15</StreamGeometry>
 </ResourceDictionary>

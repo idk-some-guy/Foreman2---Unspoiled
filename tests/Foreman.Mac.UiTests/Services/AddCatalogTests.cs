@@ -31,16 +31,19 @@ namespace Foreman.Mac.UiTests.Services {
             Assert.Empty(new AddCatalog(fx.Cache, new AppSettings()).Search("", AddScope.All, null));
         }
 
+        //Gate fix 2: the radial's Source/Output/UnSpoil/UnPlant slices own the dragged item's own row now,
+        //so a link-scoped search lists only the recipes AddCatalog.IsCompatible allows - no item row.
         [AvaloniaFact]
-        public void LinkContext_ListsTheItemFirstThenOnlyCompatibleRecipes() {
+        public void LinkContext_ListsOnlyCompatibleRecipes() {
             CatalogFixture fx = CatalogFixture.WithProductionChain();
             var catalog = new AddCatalog(fx.Cache, new AppSettings());
-            AddLinkContext link = fx.LinkContextFor("Iron Plate", NewNodeType.Supplier);
-            var rows = catalog.Search("", AddScope.All, link);
-            Assert.Equal("Iron Plate|item", $"{rows[0].Name}|{rows[0].KindLabel}");
-            Assert.Equal(["Iron Plate"], rows.Skip(1).Select(r => r.Name));
+            AddLinkContext supplierLink = fx.LinkContextFor("Iron Plate", NewNodeType.Supplier);
+            var rows = catalog.Search("", AddScope.All, supplierLink);
+            Assert.Equal(["Iron Plate"], rows.Select(r => r.Name));
+            Assert.All(rows, r => Assert.Equal(AddKind.Recipe, r.Kind));
+
             var consumers = catalog.Search("", AddScope.All, fx.LinkContextFor("Iron Plate", NewNodeType.Consumer));
-            Assert.Equal(["Iron Gear"], consumers.Skip(1).Select(r => r.Name));
+            Assert.Equal(["Iron Gear"], consumers.Select(r => r.Name));
         }
 
         //Ports the retired on-canvas chooser's temperature-filter test: a temperature-dependent fluid link

@@ -18,6 +18,7 @@ using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using Foreman.Mac.Views.Inspector;
+using Foreman.Models;
 using Foreman.Serialization;
 using SkiaSharp;
 using System;
@@ -215,7 +216,10 @@ namespace Foreman.Mac {
                     BrowserRequest = GraphCanvas.PlaceCandidate(pick.Candidate, requestForPlacement, pick.Role, pick.Quality, pick.SpoilPlantDirection, pick.ExplicitOrigin);
                 };
             }
-            ((AddBrowserViewModel)browser.DataContext!).Seed(request);
+            var browserVm = (AddBrowserViewModel)browser.DataContext!;
+            browserVm.Seed(request);
+            if (request.OriginsRole is NodeType role)
+                browserVm.SeedOrigins(role);
             BrowserRequest = request;
             if (!browser.IsVisible)
                 browser.Show(this);

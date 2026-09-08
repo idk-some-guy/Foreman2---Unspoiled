@@ -44,7 +44,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Add to Graph browser window: categories, a labelled grid, live Show Unavailable/Hidden/Ignore
   Assembler toggles, a quality select, footer role buttons (Source/Pass-Through/Output/Spoil/Plant),
   a Spoil/Plant origins flow, and a Compatible-with chip for link drags.
-- A radial menu (Add…, Passthrough, Cancel) for releasing a link drag over empty space.
+- A radial menu for releasing a link drag over empty space, with its own slice set following drag
+  direction: Add…/Source/Passthrough/UnSpoil/UnPlant/Cancel from an input tab, Add…/Output/
+  Passthrough/Spoil/Plant/Cancel from an output tab, with the Spoil/UnSpoil/Plant/UnPlant slices
+  appearing only when the dragged item actually has that data. Source/Output/Spoil/Plant place the
+  linked node directly; UnSpoil/UnPlant do too with a single origin, otherwise they open the browser
+  on its Origins-of chip. The Quick Add palette no longer lists the linked item itself under a link
+  context, since the radial now owns that role.
 
 ### Fixed
 

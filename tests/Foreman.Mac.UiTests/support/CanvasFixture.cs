@@ -70,6 +70,33 @@ namespace Foreman.Mac.UiTests.support {
             return fx;
         }
 
+        //Same shape as the Vanilla-cache pair above, but against a caller-supplied cache - the radial's
+        //spoil/plant slice tests need custom item data (SpoilOrigins/SpoilResult) the shared vanilla preset
+        //doesn't carry.
+        public static CanvasFixture WithCacheAndOneSupplierOf(DataCache cache, ItemQualityPair pair, out AvaloniaPoint outputTabScreenPoint) {
+            (GraphCanvasControl control, AvaloniaWindow window) = NewControl(cache);
+            var fx = new CanvasFixture { Cache = cache, Control = control, Window = window };
+            NodeId nodeId = fx.Control.Viewer.Session.Editor.CreateSupplierNode(pair, new DrawingPoint(0, 0));
+            BaseNodeElement element = fx.Control.Viewer.NodeElementDictionary[nodeId];
+            element.RequestStateUpdate();
+            element.PrePaint();
+            ItemTabElement tab = element.SubElements.OfType<ItemTabElement>().First(t => t.LinkType == LinkType.Output);
+            outputTabScreenPoint = fx.Control.Viewport.GraphToScreen(element.LocalToGraph(tab.Location));
+            return fx;
+        }
+
+        public static CanvasFixture WithCacheAndOneConsumerOf(DataCache cache, ItemQualityPair pair, out AvaloniaPoint inputTabScreenPoint) {
+            (GraphCanvasControl control, AvaloniaWindow window) = NewControl(cache);
+            var fx = new CanvasFixture { Cache = cache, Control = control, Window = window };
+            NodeId nodeId = fx.Control.Viewer.Session.Editor.CreateConsumerNode(pair, new DrawingPoint(0, 0));
+            BaseNodeElement element = fx.Control.Viewer.NodeElementDictionary[nodeId];
+            element.RequestStateUpdate();
+            element.PrePaint();
+            ItemTabElement tab = element.SubElements.OfType<ItemTabElement>().First(t => t.LinkType == LinkType.Input);
+            inputTabScreenPoint = fx.Control.Viewport.GraphToScreen(element.LocalToGraph(tab.Location));
+            return fx;
+        }
+
         //two small moves are needed to cross the drag threshold
         public LinkDrag DragFrom(AvaloniaPoint tabScreenPoint) {
             AvaloniaPoint armed = tabScreenPoint + new AvaloniaPoint(40, 0);

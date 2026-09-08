@@ -174,8 +174,16 @@ selections (`ClearAnnotationSelection`).
   `Session.Editor.CreateLink(...)` and disposes the drag; no full bind but
   slave sub-links exist (multi-passthrough, below) →
   `graphViewer.AddPassthroughNodesFromSelection(...)`; exactly one end
-  bound, dropped on empty space → the three-slice radial menu (§10), pre-
-  wired to the bound node.
+  bound, dropped on empty space → the radial menu (§10), pre-wired to the
+  bound node. Its slice set now follows drag direction (gate fix 2, Jozef,
+  live 2026-09-06): a Supplier request (dragged from an input tab) offers
+  Add…/Source/Passthrough/UnSpoil/UnPlant/Cancel, a Consumer request
+  (dragged from an output tab) offers Add…/Output/Passthrough/Spoil/Plant/
+  Cancel, with UnSpoil/Spoil/UnPlant/Plant appearing only when the dragged
+  item actually has that spoil/plant data. Source/Output/Spoil/Plant place
+  the linked node directly; UnSpoil/UnPlant place directly too when the
+  item has exactly one origin, otherwise they open the "Add to Graph"
+  browser with its Origins-of chip already showing.
 - **Cancel**: `MouseDown(Right)` on the ghost calls
   `graphViewer.DisposeLinkDrag()` — no node created, no confirmation.
 - **Ctrl+drag multi-passthrough bus** (`UpdateSlaveLinks`, every `PrePaint`
@@ -528,9 +536,11 @@ menu described in §7's keyboard map.)
   the Quick Add palette (search-as-you-type, Enter to place and stay open,
   ⌘Enter to open the full "Add to Graph" browser); a link-drag dropped on
   empty space opens the radial menu instead, whose Add slice opens the
-  palette scoped to that link. The Spoil/Plant multi-origin picks that used
-  to nest inside `AddNewNode` are now an "Origins of…" chip inside the
-  browser itself.
+  palette scoped to that link and whose own Source/Output/Spoil/Plant/
+  UnSpoil/UnPlant slices (gate fix 2) place those roles straight from the
+  radial. The Spoil/Plant multi-origin picks that used to nest inside
+  `AddNewNode` are now an "Origins of…" chip inside the browser itself,
+  reached either from there or from a multi-origin UnSpoil/UnPlant slice.
 - **Annotation properties dialogs** (`ShapePropertiesForm`/
   `TextPropertiesForm`, §6) are plain modal `Form`s, not
   `FloatingTooltipControl`-hosted, but still need a genuine Avalonia window

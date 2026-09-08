@@ -28,9 +28,6 @@ namespace Foreman.Mac.Services {
 
             var rows = new List<(int tier, AddCandidate row)>();
 
-            if (link is not null && link.Item.Item is IItem linkItem && scope != AddScope.Recipes && Matches(linkItem, q, out _))
-                rows.Add((-1, Candidate(linkItem)));
-
             if (scope != AddScope.Recipes && link is null)
                 foreach (IItem item in cache.Items.Values)
                     if (IsVisible(item) && Matches(item, q, out int itemTier))

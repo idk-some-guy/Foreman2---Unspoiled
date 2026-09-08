@@ -11,27 +11,35 @@ using System.Collections.Generic;
 using AvaloniaCanvas = Avalonia.Controls.Canvas;
 
 namespace Foreman.Mac.Views.QuickAdd {
-    public enum RadialChoice { Add, Passthrough, Cancel }
+    public enum RadialChoice { Add, Source, Output, Passthrough, Spoil, Unspoil, Plant, Unplant, Cancel }
 
-    //Ports the link-drag release chooser (reference §11 "#radial"): three fixed wedges around a hub.
+    //Ports the link-drag release chooser (reference §11 "#radial"); caller-picked N slices, Add centred at top, Cancel last.
     public sealed class RadialMenu : AvaloniaCanvas, IPanelInitialFocus {
-        private const double CenterCoord = 100;
+        private const double CenterCoord = 130;
         private const double HubRadius = 36;
         private const double OuterRadius = 92;
-        private const double SliceSpanDeg = 120;
+        private const double LabelRadius = 66;
+        private const double LabelWidth = 72;
         private const int ArcPointsPerSlice = 24;
         private static readonly Point Center = new(CenterCoord, CenterCoord);
 
-        //Start/end angles (degrees, atan2 convention) match the mock's slice boundaries at (20.3,54)/(179.7,54)/(100,192).
-        private static readonly (RadialChoice Choice, double StartAngle, double EndAngle, string IconKey, string Label, Point Anchor)[] SliceDefinitions = [
-            (RadialChoice.Add, 210, 330, "Foreman.Icon.RadialAdd", "Add…", new Point(100, 36)),
-            (RadialChoice.Passthrough, 330, 450, "Foreman.Icon.RadialPassthrough", "Passthrough", new Point(155, 132)),
-            (RadialChoice.Cancel, 90, 210, "Foreman.Icon.RadialCancel", "Cancel", new Point(45, 132)),
-        ];
+        private static readonly Dictionary<RadialChoice, (string IconKey, string Label)> Meta = new() {
+            [RadialChoice.Add] = ("Foreman.Icon.RadialAdd", "Add…"),
+            [RadialChoice.Source] = ("Foreman.Icon.RadialSource", "Source"),
+            [RadialChoice.Output] = ("Foreman.Icon.RadialOutput", "Output"),
+            [RadialChoice.Passthrough] = ("Foreman.Icon.RadialPassthrough", "Passthrough"),
+            [RadialChoice.Spoil] = ("Foreman.Icon.RadialSpoil", "Spoil"),
+            [RadialChoice.Unspoil] = ("Foreman.Icon.RadialUnspoil", "UnSpoil"),
+            [RadialChoice.Plant] = ("Foreman.Icon.RadialPlant", "Plant"),
+            [RadialChoice.Unplant] = ("Foreman.Icon.RadialUnplant", "UnPlant"),
+            [RadialChoice.Cancel] = ("Foreman.Icon.RadialCancel", "Cancel"),
+        };
 
         public event EventHandler<RadialChoice>? Chosen;
 
-        private readonly Dictionary<RadialChoice, (Path Slice, Path Icon, TextBlock Label)> slices = [];
+        public IReadOnlyList<RadialChoice> Slices { get; }
+
+        private readonly Dictionary<RadialChoice, (Path Slice, Path Icon, TextBlock Label)> sliceControls = [];
         private RadialChoice? hoveredSlice;
 
         //Test seam, also drives the .hover visuals below.
@@ -48,13 +56,18 @@ namespace Foreman.Mac.Views.QuickAdd {
             }
         }
 
-        public RadialMenu() {
-            Width = 200;
-            Height = 200;
+        public RadialMenu(IReadOnlyList<RadialChoice> choices) {
+            Slices = choices;
+            Width = 260;
+            Height = 260;
             Focusable = true;
             Background = Brushes.Transparent; //slices are IsHitTestVisible=false (we resolve hits ourselves); this keeps the whole control hit-testable
 
-            foreach ((RadialChoice choice, double startAngle, double endAngle, string iconKey, string label, Point anchor) in SliceDefinitions) {
+            for (int i = 0; i < choices.Count; i++) {
+                RadialChoice choice = choices[i];
+                (double startAngle, double endAngle) = SliceAngles(i, choices.Count);
+                (string iconKey, string label) = Meta[choice];
+
                 var body = new Path { Data = BuildSliceGeometry(startAngle, endAngle), IsHitTestVisible = false, Classes = { "foreman-radial-slice" } };
                 Children.Add(body);
 
@@ -70,16 +83,21 @@ namespace Foreman.Mac.Views.QuickAdd {
                     Text = label,
                     Classes = { "foreman-radial-label" },
                     HorizontalAlignment = HorizontalAlignment.Center,
+                    TextAlignment = TextAlignment.Center,
+                    TextWrapping = TextWrapping.Wrap,
+                    MaxWidth = LabelWidth,
                     IsHitTestVisible = false,
                 };
-                var group = new StackPanel { Spacing = 2, IsHitTestVisible = false };
+                var group = new StackPanel { Spacing = 2, Width = LabelWidth, IsHitTestVisible = false };
                 group.Children.Add(icon);
                 group.Children.Add(text);
-                SetLeft(group, anchor.X - 20);
+
+                Point anchor = PointOnCircle(LabelRadius, (startAngle + endAngle) / 2);
+                SetLeft(group, anchor.X - (LabelWidth / 2));
                 SetTop(group, anchor.Y - 15);
                 Children.Add(group);
 
-                slices[choice] = (body, icon, text);
+                sliceControls[choice] = (body, icon, text);
             }
 
             var hub = new Ellipse { Width = HubRadius * 2, Height = HubRadius * 2, IsHitTestVisible = false, Classes = { "foreman-radial-hub" } };
@@ -91,6 +109,13 @@ namespace Foreman.Mac.Views.QuickAdd {
             SetLeft(cursorDot, CenterCoord - 4);
             SetTop(cursorDot, CenterCoord - 4);
             Children.Add(cursorDot);
+        }
+
+        //Index 0 (Add) centred at the top (270°); each following index continues clockwise by one span.
+        private static (double Start, double End) SliceAngles(int index, int count) {
+            double span = 360.0 / count;
+            double mid = 270 + (index * span);
+            return (mid - (span / 2), mid + (span / 2));
         }
 
         //Line segments only, no ArcSegment - Avalonia 12.1.2 renders/hit-tests arcs as flat chords.
@@ -121,14 +146,15 @@ namespace Foreman.Mac.Views.QuickAdd {
         }
 
         private void SetHovered(RadialChoice choice, bool hovered) {
-            (Path slice, Path icon, TextBlock label) = slices[choice];
+            (Path slice, Path icon, TextBlock label) = sliceControls[choice];
             slice.Classes.Set("hover", hovered);
             icon.Classes.Set("hover", hovered);
             label.Classes.Set("hover", hovered);
         }
 
-        //Polar maths, not FillContains/InputHitTest - both are unreliable for arc-based geometry here.
-        internal static RadialChoice? ResolveChoice(Point point) {
+        //Polar maths, not FillContains/InputHitTest - both are unreliable for arc-based geometry here. Pure
+        //function of the caller's own slice list, so a plain [Fact] can exercise it without an Application.
+        internal static RadialChoice? ResolveChoice(Point point, IReadOnlyList<RadialChoice> choices) {
             double dx = point.X - CenterCoord;
             double dy = point.Y - CenterCoord;
             double radius = Math.Sqrt((dx * dx) + (dy * dy));
@@ -136,22 +162,25 @@ namespace Foreman.Mac.Views.QuickAdd {
                 return null;
 
             double angle = ((Math.Atan2(dy, dx) * 180 / Math.PI) + 360) % 360;
-            foreach ((RadialChoice choice, double startAngle, double _, string _, string _, Point _) in SliceDefinitions) {
-                double span = (angle - startAngle + 360) % 360;
-                if (span < SliceSpanDeg)
-                    return choice;
+            double span = 360.0 / choices.Count;
+            for (int i = 0; i < choices.Count; i++) {
+                (double startAngle, _) = SliceAngles(i, choices.Count);
+                double normalizedStart = ((startAngle % 360) + 360) % 360;
+                double offset = (angle - normalizedStart + 360) % 360;
+                if (offset < span)
+                    return choices[i];
             }
             return null;
         }
 
         protected override void OnPointerMoved(PointerEventArgs e) {
             base.OnPointerMoved(e);
-            HoveredSlice = ResolveChoice(e.GetPosition(this));
+            HoveredSlice = ResolveChoice(e.GetPosition(this), Slices);
         }
 
         protected override void OnPointerReleased(PointerReleasedEventArgs e) {
             base.OnPointerReleased(e);
-            if (ResolveChoice(e.GetPosition(this)) is RadialChoice choice) {
+            if (ResolveChoice(e.GetPosition(this), Slices) is RadialChoice choice) {
                 e.Handled = true;
                 Chosen?.Invoke(this, choice);
             }

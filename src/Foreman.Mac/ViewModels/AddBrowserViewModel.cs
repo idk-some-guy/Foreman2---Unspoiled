@@ -150,6 +150,18 @@ namespace Foreman.Mac.ViewModels {
             RaiseChipChanged();
         }
 
+        //Builds the same PendingOrigin the footer's multi-origin Place() branch does, without a SelectCell/Place round-trip.
+        public void SeedOrigins(NodeType role) {
+            if (request?.Link?.Item.Item is not IItem item)
+                return;
+            IReadOnlyCollection<IItem> origins = role == NodeType.Spoil ? item.SpoilOrigins : item.PlantOrigins;
+            if (origins.Count == 0)
+                return;
+            pendingOrigin = new PendingOrigin(AddCatalog.Candidate(item), role, origins);
+            RefreshSections();
+            RaiseChipChanged();
+        }
+
         //R9: the x clears both the link and any origins filter, and later picks land disconnected.
         public void ClearChip() {
             pendingOrigin = null;
