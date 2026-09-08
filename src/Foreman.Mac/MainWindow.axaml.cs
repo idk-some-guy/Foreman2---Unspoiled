@@ -1128,8 +1128,11 @@ namespace Foreman.Mac {
         //mirrors upstream attaching this as MainForm's own delegate rather than folding it into
         //ProductionGraphViewer_KeyDown itself, since it needs to reach the toolbar's gridlines checkbox.
         private void OnGraphCanvasKeyDown(object? sender, KeyEventArgs e) {
-            //GraphCanvasControl's own OnKeyDown override marks every non-Escape key Handled while a panel
-            //is open, so this subscription never sees Space until the palette closes - no guard needed here.
+            //Gate fix 8: GraphCanvasControl's own OnKeyDown no longer marks a panel-bound key Handled (that
+            //was what broke live typing into the search box), so Space typed there now reaches this
+            //subscription too - this guard is what keeps it from toggling gridlines while the panel is open.
+            if (GraphCanvas.FloatingPanelHost.IsOpen)
+                return;
             if (e.Key != Key.Space)
                 return;
 

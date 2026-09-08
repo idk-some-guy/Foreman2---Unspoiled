@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Services;
@@ -25,6 +26,7 @@ namespace Foreman.Mac.Views.QuickAdd {
             searchBox.AddHandler(KeyDownEvent, OnSearchKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             AddHandler(Button.ClickEvent, OnRowClick);
             DataContextChanged += OnDataContextChanged;
+            results.ContainerPrepared += OnRowContainerPrepared;
         }
 
         public event EventHandler<AddCandidate>? PickCommitted;
@@ -94,6 +96,14 @@ namespace Foreman.Mac.Views.QuickAdd {
                 scrollViewer.Offset += new Vector(0, topLeft.Y);
             else if (bottom > viewportHeight)
                 scrollViewer.Offset += new Vector(0, bottom - viewportHeight);
+        }
+
+        //A row starts life carrying .entering (Opacity 0, translated up 4px per the style in
+        //Foreman.Styles.axaml) and sheds it a frame later, so the base style's own Transitions carry it
+        //into place instead of the row just appearing.
+        private void OnRowContainerPrepared(object? sender, ContainerPreparedEventArgs e) {
+            e.Container.Classes.Add("entering");
+            Dispatcher.UIThread.Post(() => e.Container.Classes.Remove("entering"), DispatcherPriority.Loaded);
         }
 
         private void OnRowClick(object? sender, RoutedEventArgs e) {

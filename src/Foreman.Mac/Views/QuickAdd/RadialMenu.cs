@@ -14,7 +14,7 @@ namespace Foreman.Mac.Views.QuickAdd {
     public enum RadialChoice { Add, Source, Output, Passthrough, Spoil, Unspoil, Plant, Unplant, Cancel }
 
     //Ports the link-drag release chooser (reference §11 "#radial"); caller-picked N slices, Add centred at top, Cancel last.
-    public sealed class RadialMenu : AvaloniaCanvas, IPanelInitialFocus {
+    public sealed class RadialMenu : AvaloniaCanvas, IPanelInitialFocus, IPanelClosingTransition {
         private const double CenterCoord = 130;
         private const double HubRadius = 36;
         private const double OuterRadius = 92;
@@ -62,6 +62,15 @@ namespace Foreman.Mac.Views.QuickAdd {
             Height = 260;
             Focusable = true;
             Background = Brushes.Transparent; //slices are IsHitTestVisible=false (we resolve hits ourselves); this keeps the whole control hit-testable
+
+            //Opens with a scale+fade in (qa|RadialMenu's own Transitions in Foreman.Styles.axaml carry it
+            //from here to Opacity 1/scale 1 once attached - see AttachedToVisualTree below).
+            Opacity = 0;
+            RenderTransform = new ScaleTransform(0.85, 0.85);
+            AttachedToVisualTree += (_, _) => {
+                Opacity = 1;
+                RenderTransform = new ScaleTransform(1, 1);
+            };
 
             for (int i = 0; i < choices.Count; i++) {
                 RadialChoice choice = choices[i];
@@ -205,5 +214,9 @@ namespace Foreman.Mac.Views.QuickAdd {
         }
 
         public void FocusInitialControl() => Focus();
+
+        public TimeSpan ClosingDuration => TimeSpan.FromMilliseconds(80);
+
+        public void BeginClosing() => Classes.Add("closing");
     }
 }

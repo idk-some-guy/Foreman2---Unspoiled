@@ -1,4 +1,5 @@
 using System;
+using Avalonia.Threading;
 using DrawingPoint = System.Drawing.Point;
 using DrawingRectangle = System.Drawing.Rectangle;
 using DrawingSize = System.Drawing.Size;
@@ -24,6 +25,8 @@ namespace Foreman.Mac.Canvas.Panels {
         private AvaloniaControl? _content;
         private DrawingPoint _anchorGraphPoint;
         private bool _centerOnAnchor;
+        private AvaloniaControl? _closingContent;
+        private DispatcherTimer? _closingTimer;
 
         public FloatingPanelHost(AvaloniaCanvas host, Viewport viewport, AvaloniaControl owner) {
             _host = host;
@@ -44,6 +47,7 @@ namespace Foreman.Mac.Canvas.Panels {
 
         public void Show(AvaloniaControl content, DrawingPoint anchorGraphPoint, bool centerOnAnchor = false) {
             Close();
+            CancelPendingClose();
             _content = content;
             _anchorGraphPoint = anchorGraphPoint;
             _centerOnAnchor = centerOnAnchor;
@@ -72,14 +76,50 @@ namespace Foreman.Mac.Canvas.Panels {
         //Restores focus to the owning canvas (reference §7): the click-outside-closes path already does
         //this itself right after calling Close(), but Escape and a chooser's own selection-close had no
         //equivalent, leaving canvas keyboard shortcuts dead until the next click.
+        //IsOpen/_content clear immediately either way, so callers see the panel as closed right away -
+        //content that opts into IPanelClosingTransition (RadialMenu) just lingers in the host, fading,
+        //for its own ClosingDuration before actually being detached.
         public void Close() {
             if (_content is null)
                 return;
             if (_content is IPanelContentResize resizable)
                 resizable.ContentResized -= OnContentResized;
+            AvaloniaControl closing = _content;
             _owner.Focus();
-            _host.Children.Remove(_content);
             _content = null;
+
+            if (closing is IPanelClosingTransition transition) {
+                CancelPendingClose();
+                _closingContent = closing;
+                transition.BeginClosing();
+                _closingTimer = new DispatcherTimer { Interval = transition.ClosingDuration };
+                _closingTimer.Tick += OnClosingTimerElapsed;
+                _closingTimer.Start();
+            } else {
+                _host.Children.Remove(closing);
+            }
+        }
+
+        private void OnClosingTimerElapsed(object? sender, EventArgs e) => CancelPendingClose();
+
+        //The owning canvas's own teardown (GraphCanvasControl.OnDetachedFromVisualTree) calls this: a
+        //DispatcherTimer left running past its window's own lifetime fires on a UI thread that a headless
+        //test runner may since have handed to a different, unrelated test - stopping it here instead avoids
+        //that cross-thread ownership exception during that other test's cleanup.
+        public void CancelPendingCloseTransition() => CancelPendingClose();
+
+        //Cancellable: a new Show() (or a second Close()) purges whatever's still mid-fade immediately
+        //instead of leaving two panels in the host or racing the timer to remove one already gone.
+        private void CancelPendingClose() {
+            if (_closingTimer is not null) {
+                _closingTimer.Stop();
+                _closingTimer.Tick -= OnClosingTimerElapsed;
+                _closingTimer = null;
+            }
+            if (_closingContent is not null) {
+                _host.Children.Remove(_closingContent);
+                _closingContent = null;
+            }
         }
 
         public void Reposition() {

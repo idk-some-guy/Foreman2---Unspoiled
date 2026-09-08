@@ -92,10 +92,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   past its ring, including inside its square hit area, instead of only outside the whole panel.
   AddBrowserWindow and QuickAddPalette build without a startup XAML-loader warning, and the beacon
   icon binding no longer logs a null-binding warning when no beacon is selected.
-- The canvas now marks every non-Escape key handled while a panel is open, so no other keyboard
-  shortcut underneath it (gridlines included) can fire while the Quick Add palette or another
-  floating panel has focus. The Recipe segment's assembler icon and name binding no longer logs a
-  null-binding warning either.
+- No canvas hotkey (gridlines included) fires while the Quick Add palette or another floating panel
+  has focus. The Recipe segment's assembler icon and name binding no longer logs a null-binding
+  warning either.
 - The "Add to Graph" browser's sidebar now sizes itself to its widest group name (up to 220pt,
   ellipsizing with a tooltip beyond that) instead of clipping long names in a fixed 168pt column.
   Its grid cells all share one fixed height regardless of a one- or two-line label, so rows no
@@ -111,6 +110,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   localised name shows a readable heading instead of its raw internal key. Opening the browser mid-
   press no longer leaves the canvas thinking a mouse button is still down, which used to drag a
   stray selection rectangle on the next plain mouse move.
+- Quick Add rows fade and slide into place as they appear, the browser's segment switch and
+  filtered-in cells cross-fade instead of jumping, and the link-drag radial menu opens with a brief
+  scale-and-fade and fades out before it's removed on close.
 
 ### Changed
 

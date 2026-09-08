@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -63,6 +65,23 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             vm.SearchText = "";
             Assert.Equal(["Storage", "Belt"], vm.Sections.Select(s => s.Title));
+        }
+
+        //Gate fix 8, item 1: the browser's search box lives in its own window, never a descendant of
+        //GraphCanvasControl, so the palette's KeyDown-swallowing regression never touched it - this pins
+        //that down with the same real-keyboard-path check the palette itself now gets.
+        [AvaloniaFact]
+        public void TypingChestThroughTheRealWindowKeyboardPath_FillsTheSearchBox() {
+            var (win, vm) = Open();
+            var searchField = win.FindControl<TextBox>("SearchBox")!;
+            searchField.Focus();
+
+            foreach (char letter in "chest") {
+                win.KeyPressQwerty(CanvasKeys.PhysicalKeyFor(letter), RawInputModifiers.None);
+                win.KeyTextInput(letter.ToString());
+            }
+
+            Assert.Equal("chest", vm.SearchText);
         }
 
         [AvaloniaFact]
@@ -161,6 +180,18 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Contains("EXTRACTION ITEMS", vm.Sections.Select(s => s.Heading));
         }
 
+        //Gate fix 8, item 3: a group whose FriendlyName is Factorio's own unresolved locale key surfaces in
+        //the sidebar title-cased, not merely sentence-cased the way Humanize alone would leave it - the
+        //sidebar shows group names as-is, so HumanizeGroupName title-cases on top of Humanize's own output.
+        [AvaloniaFact]
+        public void SidebarGroupNameIsTitleCased_ForAnUnresolvedLocalePlaceholder() {
+            var fx = CatalogFixture.WithGroupNamed("§§SG:EXTRACTION_ITEMS");
+            var settings = new AppSettings();
+            var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
+
+            Assert.Contains("Extraction Items", vm.Groups.Select(g => g.Name));
+        }
+
         [AvaloniaFact]
         public void MockFidelity_SidebarGroupSubheadAndSearchField() {
             var (win, _) = Open();
@@ -214,6 +245,23 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             double wellCenterY = Avalonia.VisualExtensions.TranslatePoint(searchField, new Point(0, searchField.Bounds.Height / 2), win)!.Value.Y;
             double presenterCenterY = Avalonia.VisualExtensions.TranslatePoint(textPresenter, new Point(0, textPresenter.Bounds.Height / 2), win)!.Value.Y;
             Assert.Equal(wellCenterY, presenterCenterY, 1);
+        }
+
+        //Gate fix 8, item 3: the mock's .filter-chip text carries font-weight 500 (Medium), not the
+        //default Normal weight left over from gate fix 7's own pill-shape pass.
+        [AvaloniaFact]
+        public void ChipText_IsMediumWeight() {
+            var fx = CatalogFixture.WithItemsAndRecipes(["Iron Plate"], []);
+            AddLinkContext link = fx.LinkContextFor("Iron Plate", NewNodeType.Consumer);
+            var settings = new AppSettings();
+            var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
+            var win = new AddBrowserWindow { DataContext = vm };
+            win.Show();
+            vm.Seed(new AddRequest(new DrawingPoint(0, 0), AddScope.All, link));
+            Dispatcher.UIThread.RunJobs();
+
+            var chipText = win.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("foreman-filter-chip-text"));
+            Assert.Equal(FontWeight.Medium, chipText.FontWeight);
         }
 
         //Gate fix 1: past the cap the label ellipsizes and carries a tooltip.

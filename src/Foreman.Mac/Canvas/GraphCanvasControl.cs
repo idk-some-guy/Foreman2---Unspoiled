@@ -7,6 +7,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
+using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
@@ -378,6 +379,7 @@ namespace Foreman.Mac.Canvas {
         //MainWindow's own close for as long as it's open, so the export path is never mid-paint when this runs.
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
+            FloatingPanelHost.CancelPendingCloseTransition();
             Viewer.Dispose();
             foreach (Bitmap bitmap in addIconCache.Values)
                 bitmap.Dispose();
@@ -1093,8 +1095,16 @@ namespace Foreman.Mac.Canvas {
             //panel doesn't itself need to handle, so it closes the panel here same as upstream's own
             //Escape/inDrawShapeMode case just below.
             if (FloatingPanelHost.IsOpen) {
-                if (e.Key == Key.Escape)
+                if (e.Key == Key.Escape) {
                     FloatingPanelHost.Close();
+                    e.Handled = true;
+                    return;
+                }
+                //Gate fix 8: a KeyDown marked Handled never reaches the native TextInput that follows it,
+                //so once the key actually originates inside the panel's own controls (its search box, most
+                //of all) the canvas has to leave it alone rather than eating it like every other hotkey.
+                if (FocusIsInsideFloatingPanel(e))
+                    return;
                 e.Handled = true;
                 return;
             }
@@ -1120,6 +1130,16 @@ namespace Foreman.Mac.Canvas {
                 e.Handled = true;
             ApplyAxisLockModifier(e.KeyModifiers);
             InvalidateVisual();
+        }
+
+        //e.Source is the key event's own focused element (KeyboardDevice.ProcessRawEvent sets it that way,
+        //and RaiseEvent does the same for a directly-raised one), so checking it rather than the ambient
+        //FocusManager keeps this correct even under a test's synthetic dispatch.
+        private bool FocusIsInsideFloatingPanel(KeyEventArgs e) {
+            if (e.Source is TextBox)
+                return true;
+            return e.Source is Visual sourceVisual && FloatingPanelHost.Content is Visual panelRoot &&
+                (ReferenceEquals(sourceVisual, panelRoot) || panelRoot.IsVisualAncestorOf(sourceVisual));
         }
 
         //Ports ProductionGraphViewer_KeyDown's Ctrl+C/X/V block (reference §5/§7): Cmd replaces Ctrl on macOS

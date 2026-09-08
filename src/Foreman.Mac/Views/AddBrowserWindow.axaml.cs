@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Services;
@@ -76,6 +77,21 @@ namespace Foreman.Mac.Views {
                 return;
             }
             e.Container.Loaded += OnGroupContainerLoaded;
+        }
+
+        //Gate fix 8, item 2c: each Cells ItemsControl is re-realized under SegmentHost's ContentTemplate
+        //(every segment switch) and its DataTemplate is re-realized per section (every filter), so this
+        //Loaded handler runs freshly each time rather than once in the constructor like groupsList's.
+        private void OnCellsListLoaded(object? sender, RoutedEventArgs e) {
+            if (sender is ItemsControl cellsList)
+                cellsList.ContainerPrepared += OnCellContainerPrepared;
+        }
+
+        //A cell starts life carrying .entering (Opacity 0 per the style in Foreman.Styles.axaml) and sheds
+        //it a frame later, so the base style's own Transitions fade it in instead of it just appearing.
+        private void OnCellContainerPrepared(object? sender, ContainerPreparedEventArgs e) {
+            e.Container.Classes.Add("entering");
+            Dispatcher.UIThread.Post(() => e.Container.Classes.Remove("entering"), DispatcherPriority.Loaded);
         }
 
         private void OnGroupContainerLoaded(object? sender, RoutedEventArgs e) {

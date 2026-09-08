@@ -302,6 +302,45 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(" ", ((QuickAddViewModel)window.GraphCanvas.OpenPalette!.DataContext!).Query);
         }
 
+        //Gate fix 8, item 1 (the live regression): the canvas used to mark every non-Escape KeyDown Handled
+        //while a panel was open, even one sourced from the search box's own TextBox. A handled KeyDown never
+        //reaches the native TextInput that follows it, so live typing died - "quick add now doesnt accept
+        //input at all". window.KeyPressQwerty drives the real window keyboard path (a RawKeyEventArgs through
+        //KeyboardDevice.ProcessRawEvent) rather than CanvasKeys' direct RaiseEvent, so it is what actually
+        //surfaces whether the canvas swallowed the key.
+        [AvaloniaFact]
+        public void LetterTypedIntoTheSearchBox_ThroughTheRealWindowKeyboardPath_IsNotMarkedHandled() {
+            MainWindow window = OpenWindow(out _);
+            window.GraphCanvas.AddItemAsync(new DrawingPoint(0, 0));
+            window.GraphCanvas.OpenPalette!.FindControl<TextBox>("SearchBox")!.Focus();
+
+            bool? handledAfterRouting = null;
+            window.AddHandler(InputElement.KeyDownEvent,
+                (object? _, KeyEventArgs e) => handledAfterRouting = e.Handled,
+                Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
+            window.KeyPressQwerty(PhysicalKey.I, RawInputModifiers.None);
+
+            Assert.False(handledAfterRouting);
+        }
+
+        //Avalonia routes a genuine typed character as a TextInput event, independent of KeyDown - a real
+        //keystroke raises both, so this drives both simulated the same way to prove the whole path works
+        //end to end, not just that KeyDown stops getting swallowed.
+        [AvaloniaFact]
+        public void TypingIronThroughTheRealWindowKeyboardPath_FillsTheQueryBox() {
+            MainWindow window = OpenWindow(out _);
+            window.GraphCanvas.AddItemAsync(new DrawingPoint(0, 0));
+            var palette = window.GraphCanvas.OpenPalette!;
+            palette.FindControl<TextBox>("SearchBox")!.Focus();
+
+            foreach (char letter in "iron") {
+                window.KeyPressQwerty(CanvasKeys.PhysicalKeyFor(letter), RawInputModifiers.None);
+                window.KeyTextInput(letter.ToString());
+            }
+
+            Assert.Equal("iron", ((QuickAddViewModel)palette.DataContext!).Query);
+        }
+
         [AvaloniaFact]
         public void LettersAndArrowsTypedIntoTheSearchBox_DoNotTriggerCanvasHotkeys() {
             MainWindow window = OpenWindow(out _);
@@ -317,20 +356,24 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(offsetBefore, window.GraphCanvas.Viewport.ViewOffset);
         }
 
-        //Gate fix 4, item 1: the canvas's own OnKeyDown now marks the event Handled for every non-Escape
-        //key while a panel is open, so MainWindow's separate GraphCanvas.KeyDown subscription (and any
-        //other subscriber wired the same way) never sees it - one guard instead of two.
+        //Gate fix 8: the canvas no longer marks a panel-bound KeyDown Handled (that was the typing
+        //regression), so a generic GraphCanvas.KeyDown subscriber does see the event now - it has to, or
+        //real characters would never reach the search box either. What still has to hold is that nothing
+        //downstream acts on it as a canvas hotkey; OnGraphCanvasKeyDown's own guard is what keeps Space
+        //from toggling gridlines here.
         [AvaloniaFact]
-        public void NonEscapeKeyDown_WhilePaletteIsOpen_NeverReachesAMainWindowLevelKeyDownSubscriber() {
+        public void NonEscapeKeyDown_WhilePaletteIsOpen_ReachesSubscribersButDoesNotActOnCanvasHotkeys() {
             MainWindow window = OpenWindow(out _);
             bool sawIt = false;
             window.GraphCanvas.KeyDown += (_, _) => sawIt = true;
+            bool gridlinesBefore = window.GraphCanvas.Grid.ShowGrid;
 
             window.GraphCanvas.AddItemAsync(new DrawingPoint(0, 0));
             var box = window.GraphCanvas.OpenPalette!.FindControl<TextBox>("SearchBox")!;
-            CanvasKeys.KeyDownOn(box, Key.G);
+            CanvasKeys.KeyDownOn(box, Key.Space);
 
-            Assert.False(sawIt);
+            Assert.True(sawIt);
+            Assert.Equal(gridlinesBefore, window.GraphCanvas.Grid.ShowGrid);
         }
 
         private static MainWindow OpenWindow(out DataCache cache) {

@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Foreman.Mac.Canvas;
+using System;
 
 namespace Foreman.Mac.UiTests.support {
     //Raises KeyDown/KeyUp straight on the canvas instead of routing through Avalonia.Headless's
@@ -28,5 +29,9 @@ namespace Foreman.Mac.UiTests.support {
             KeyDownOnCanvas(canvas, key, modifiers);
             KeyUpOnCanvas(canvas, key, modifiers);
         }
+
+        //Maps a lowercase letter to the PhysicalKey a real keystroke would report, for tests that drive
+        //typing through window.KeyPressQwerty rather than raising KeyEventArgs directly.
+        public static PhysicalKey PhysicalKeyFor(char letter) => Enum.Parse<PhysicalKey>(char.ToUpperInvariant(letter).ToString());
     }
 }

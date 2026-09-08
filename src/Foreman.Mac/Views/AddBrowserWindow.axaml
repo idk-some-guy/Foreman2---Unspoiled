@@ -82,39 +82,55 @@
         </ScrollViewer>
       </Border>
 
-      <ScrollViewer>
-        <ItemsControl Name="SectionsList" ItemsSource="{Binding Sections}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate DataType="vm:BrowserSection">
-              <StackPanel Spacing="0" Margin="12,10,12,0">
-                <TextBlock Text="{Binding Heading}" Classes="foreman-browser-subhead" />
-                <ItemsControl ItemsSource="{Binding Cells}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                      <WrapPanel ItemWidth="{DynamicResource Foreman.Size.BrowserCellPitch}"
-                                 ItemHeight="{DynamicResource Foreman.Size.BrowserCellRowHeight}" />
-                    </ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="vm:BrowserCell">
-                      <Button Classes="foreman-browser-cell" Classes.unavailable="{Binding !IsAvailable}" Classes.selected="{Binding IsSelected}">
-                        <StackPanel Spacing="6" HorizontalAlignment="Center">
-                          <Border Classes="foreman-browser-cell-icon"
-                                  Width="{DynamicResource Foreman.Size.BrowserCell}" Height="{DynamicResource Foreman.Size.BrowserCell}">
-                            <Image Source="{Binding Icon}" Stretch="Uniform" />
-                          </Border>
-                          <TextBlock Text="{Binding Label}" Classes="foreman-browser-cell-label"
-                                     TextWrapping="Wrap" TextAlignment="Center" />
-                        </StackPanel>
-                      </Button>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </StackPanel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
+      <!-- Gate fix 8, item 2b: the segment switch cross-fades instead of jumping. Content is bound to
+           Segment itself (not Sections) so only an Items<->Recipes switch retriggers it, never a filter
+           keystroke - those mutate Sections in place without the Segment value changing. ContentTemplate
+           rebinds DataContext to that Content value, so everything inside reaches back to the window's own
+           AddBrowserViewModel by ElementName instead - classic (non-compiled) bindings throughout. -->
+      <TransitioningContentControl Name="SegmentHost" Content="{Binding Segment}">
+        <TransitioningContentControl.PageTransition>
+          <CrossFade Duration="0:0:0.18" />
+        </TransitioningContentControl.PageTransition>
+        <TransitioningContentControl.ContentTemplate>
+          <DataTemplate x:CompileBindings="False">
+            <ScrollViewer>
+              <ItemsControl Name="SectionsList" ItemsSource="{Binding DataContext.Sections, ElementName=RootWindow}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="vm:BrowserSection">
+                    <StackPanel Spacing="0" Margin="12,10,12,0">
+                      <TextBlock Text="{Binding Heading}" Classes="foreman-browser-subhead" />
+                      <!-- Gate fix 8, item 2c: each cell fades in as its container is prepared (OnCellContainerPrepared) -
+                           Loaded fires per instance even though this DataTemplate is re-realized on every filter. -->
+                      <ItemsControl ItemsSource="{Binding Cells}" Loaded="OnCellsListLoaded">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <WrapPanel ItemWidth="{DynamicResource Foreman.Size.BrowserCellPitch}"
+                                       ItemHeight="{DynamicResource Foreman.Size.BrowserCellRowHeight}" />
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate DataType="vm:BrowserCell">
+                            <Button Classes="foreman-browser-cell" Classes.unavailable="{Binding !IsAvailable}" Classes.selected="{Binding IsSelected}">
+                              <StackPanel Spacing="6" HorizontalAlignment="Center">
+                                <Border Classes="foreman-browser-cell-icon"
+                                        Width="{DynamicResource Foreman.Size.BrowserCell}" Height="{DynamicResource Foreman.Size.BrowserCell}">
+                                  <Image Source="{Binding Icon}" Stretch="Uniform" />
+                                </Border>
+                                <TextBlock Text="{Binding Label}" Classes="foreman-browser-cell-label"
+                                           TextWrapping="Wrap" TextAlignment="Center" />
+                              </StackPanel>
+                            </Button>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </DataTemplate>
+        </TransitioningContentControl.ContentTemplate>
+      </TransitioningContentControl>
     </DockPanel>
 
     <Border Grid.Row="3" Classes="foreman-browser-footer">
