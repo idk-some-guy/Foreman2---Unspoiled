@@ -78,6 +78,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   unsaved changes.
 - Manually collapsing the Beacon group in the inspector's Recipe segment now sticks; it no longer
   snaps back open on the next unrelated solve.
+- The Quick Add palette now grows to fit its results as you type (up to six rows, then scrolls) and
+  shrinks back once the query empties, instead of staying pinned to its size at open. Its hint row
+  wraps instead of clipping its last entry, and Cmd+Enter now shows as one combined key cap.
 
 ### Changed
 

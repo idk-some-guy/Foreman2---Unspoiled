@@ -128,5 +128,32 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(22, iconWell.Bounds.Height, 0.5);
             Assert.Equal(new Thickness(1), iconWell.BorderThickness);
         }
+
+        //Gate fix 1, item 2: the hint row must stay inside the 272px palette (wrapping instead of
+        //clipping) and match the mock's cap/caption sizes exactly.
+        [AvaloniaFact]
+        public void HintCaptionsStayInsideThePalette_AndUseTheMockSizes() {
+            (QuickAddPalette palette, _, _) = Open("iron");
+            var hintTexts = palette.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("foreman-qa-hint-text")).ToList();
+            Assert.Equal(3, hintTexts.Count);
+            foreach (TextBlock hint in hintTexts) {
+                Point topRight = hint.TranslatePoint(new Point(hint.Bounds.Width, 0), palette) ?? new Point(double.NaN, double.NaN);
+                Assert.True(topRight.X <= 272 - 12 + 0.5, $"hint '{hint.Text}' right edge ({topRight.X}) overflows the palette");
+                Assert.Equal(10, hint.FontSize, 0.01);
+            }
+
+            var kbdCaps = palette.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("foreman-kbd")).ToList();
+            Assert.NotEmpty(kbdCaps);
+            foreach (Border cap in kbdCaps)
+                Assert.Equal(16, cap.Bounds.Height, 0.5);
+        }
+
+        [AvaloniaFact]
+        public void CommandEnterHint_RendersAsOneCombinedKeyCap() {
+            (QuickAddPalette palette, _, _) = Open("iron");
+            var kbdTexts = palette.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("foreman-kbd-text")).Select(t => t.Text).ToList();
+            Assert.Contains("⌘↵", kbdTexts);
+            Assert.DoesNotContain("⌘", kbdTexts);
+        }
     }
 }

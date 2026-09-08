@@ -48,8 +48,18 @@ namespace Foreman.Mac.Canvas.Panels {
             _anchorGraphPoint = anchorGraphPoint;
             _centerOnAnchor = centerOnAnchor;
             _host.Children.Add(content);
+            if (content is IPanelContentResize resizable)
+                resizable.ContentResized += OnContentResized;
             Reposition();
             FocusPrimary(content);
+        }
+
+        //Content that shrinks/grows (QuickAddPalette's row count) invalidates its own measure but doesn't
+        //arrange until the next layout pass - forcing that pass here means Reposition's Measure call below
+        //sees the real desired size instead of whatever was true before the row count changed.
+        private void OnContentResized(object? sender, EventArgs e) {
+            _content?.UpdateLayout();
+            Reposition();
         }
 
         private static void FocusPrimary(AvaloniaControl primary) {
@@ -65,6 +75,8 @@ namespace Foreman.Mac.Canvas.Panels {
         public void Close() {
             if (_content is null)
                 return;
+            if (_content is IPanelContentResize resizable)
+                resizable.ContentResized -= OnContentResized;
             _owner.Focus();
             _host.Children.Remove(_content);
             _content = null;

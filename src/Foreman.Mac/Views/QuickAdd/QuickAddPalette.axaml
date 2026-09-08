@@ -19,24 +19,23 @@
       </Border>
 
       <Border DockPanel.Dock="Bottom" Classes="foreman-qa-hint-row">
-        <StackPanel Orientation="Horizontal" Spacing="12">
-          <StackPanel Orientation="Horizontal" Spacing="5">
+        <WrapPanel>
+          <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,12,4">
             <Border Classes="foreman-kbd"><TextBlock Classes="foreman-kbd-text" Text="↵" /></Border>
             <TextBlock Classes="foreman-qa-hint-text" Text="Place, keep open" />
           </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="5">
-            <Border Classes="foreman-kbd"><TextBlock Classes="foreman-kbd-text" Text="⌘" /></Border>
-            <Border Classes="foreman-kbd"><TextBlock Classes="foreman-kbd-text" Text="↵" /></Border>
+          <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,12,4">
+            <Border Classes="foreman-kbd"><TextBlock Classes="foreman-kbd-text" Text="⌘↵" /></Border>
             <TextBlock Classes="foreman-qa-hint-text" Text="Browse…" />
           </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="5">
+          <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,0,4">
             <Border Classes="foreman-kbd"><TextBlock Classes="foreman-kbd-text" Text="Esc" /></Border>
             <TextBlock Classes="foreman-qa-hint-text" Text="Close" />
           </StackPanel>
-        </StackPanel>
+        </WrapPanel>
       </Border>
 
-      <ScrollViewer MaxHeight="256">
+      <ScrollViewer MaxHeight="196">
         <ItemsControl Name="Results" ItemsSource="{Binding Rows}" Padding="6,4">
           <ItemsControl.ItemTemplate>
             <DataTemplate DataType="vm:QuickAddRow">

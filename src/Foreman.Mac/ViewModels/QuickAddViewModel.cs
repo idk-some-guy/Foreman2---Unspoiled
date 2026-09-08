@@ -54,6 +54,10 @@ namespace Foreman.Mac.ViewModels {
         public ReadOnlyObservableCollection<QuickAddRow> Rows { get; }
         public bool HasRows => rows.Count > 0;
 
+        //FloatingPanelHost re-measures the palette on this (via QuickAddPalette's IPanelContentResize) -
+        //Refresh() below is the only place the row count actually changes.
+        public event EventHandler? RowsChanged;
+
         public string Watermark => request.Scope switch {
             AddScope.Items => "Search items…",
             AddScope.Recipes => "Search recipes…",
@@ -77,6 +81,7 @@ namespace Foreman.Mac.ViewModels {
             HighlightedIndex = rows.Count > 0 ? 0 : -1;
             SyncHighlight();
             OnPropertyChanged(nameof(HasRows));
+            RowsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         //Also called directly from Refresh() - a same-value HighlightedIndex skips the change notification, which would otherwise leave fresh rows unmarked.

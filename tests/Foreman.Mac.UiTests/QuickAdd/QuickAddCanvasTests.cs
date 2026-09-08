@@ -1,7 +1,11 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Foreman;
+using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
@@ -9,10 +13,12 @@ using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.QuickAdd;
 using Foreman.Models.Nodes;
+using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 using AvaloniaPoint = Avalonia.Point;
 using AvaloniaVector = Avalonia.Vector;
+using AvaloniaWindow = Avalonia.Controls.Window;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.QuickAdd {
@@ -162,6 +168,73 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             BaseNodeElement created = fx.Viewer.NodeElements.Except(before).Single();
             DrawingPoint dropGraphPoint = fx.Control.Viewport.ScreenToGraph(dropScreenPoint);
             Assert.Equal(dropGraphPoint.Y + (created.Height / 2), created.ViewModel.Location.Y);
+        }
+
+        //Gate fix 1, item 1: the palette opens with zero rows (SeedText is always empty), then must grow
+        //as Query fills in rows and shrink back once it empties - through the real FloatingPanelHost, not
+        //a bare Window, since that's what pinned the height in the first place.
+        [AvaloniaFact]
+        public void TypingAMatch_GrowsThePaletteToFitTheNewRows_AndShrinksBackWhenTheQueryEmpties() {
+            CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: ["Row One", "Row Two", "Row Three"], recipes: []);
+            (GraphCanvasControl canvas, _) = NewCanvas(fx.Cache);
+
+            canvas.ShowQuickAdd(new AddRequest(new DrawingPoint(0, 0), AddScope.All));
+            QuickAddPalette palette = canvas.OpenPalette!;
+            var vm = (QuickAddViewModel)palette.DataContext!;
+            double emptyHeight = canvas.FloatingPanelHost.Bounds.Height;
+
+            vm.Query = "row";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(3, vm.Rows.Count);
+            double grownHeight = canvas.FloatingPanelHost.Bounds.Height;
+            Assert.True(grownHeight > emptyHeight, $"grown height ({grownHeight}) did not exceed the empty height ({emptyHeight})");
+
+            var results = palette.FindControl<ItemsControl>("Results")!;
+            for (int i = 0; i < 3; i++) {
+                Control container = results.ContainerFromIndex(i)!;
+                Point bottomRight = container.TranslatePoint(new Point(container.Bounds.Width, container.Bounds.Height), palette) ?? new Point(double.NaN, double.NaN);
+                Assert.True(bottomRight.Y <= palette.Bounds.Height + 0.5, $"row {i} bottom ({bottomRight.Y}) is outside the palette ({palette.Bounds.Height})");
+            }
+
+            vm.Query = "";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(vm.Rows);
+            Assert.Equal(emptyHeight, canvas.FloatingPanelHost.Bounds.Height, 0.5);
+        }
+
+        [AvaloniaFact]
+        public void TypingATwelveRowMatch_ShowsExactlySixRows_AndScrolls() {
+            List<string> rowNames = [.. Enumerable.Range(1, 12).Select(i => $"Row {i:00}")];
+            CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: rowNames, recipes: []);
+            (GraphCanvasControl canvas, _) = NewCanvas(fx.Cache);
+
+            canvas.ShowQuickAdd(new AddRequest(new DrawingPoint(0, 0), AddScope.All));
+            QuickAddPalette palette = canvas.OpenPalette!;
+            var vm = (QuickAddViewModel)palette.DataContext!;
+            vm.Query = "row";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(12, vm.Rows.Count);
+
+            var results = palette.FindControl<ItemsControl>("Results")!;
+            var scrollViewer = results.GetVisualAncestors().OfType<ScrollViewer>().First();
+            Assert.True(scrollViewer.Extent.Height > scrollViewer.Viewport.Height, "the list did not scroll for a 12-row match");
+
+            Control sixthRow = results.ContainerFromIndex(5)!;
+            Point sixthBottom = sixthRow.TranslatePoint(new Point(0, sixthRow.Bounds.Height), scrollViewer) ?? new Point(double.NaN, double.NaN);
+            Assert.True(sixthBottom.Y <= scrollViewer.Viewport.Height + 0.5, $"the sixth row's bottom ({sixthBottom.Y}) is below the viewport ({scrollViewer.Viewport.Height})");
+
+            Control seventhRow = results.ContainerFromIndex(6)!;
+            Point seventhTop = seventhRow.TranslatePoint(new Point(0, 0), scrollViewer) ?? new Point(double.NaN, double.NaN);
+            Assert.True(seventhTop.Y >= scrollViewer.Viewport.Height - 0.5, $"the seventh row's top ({seventhTop.Y}) is above the viewport ({scrollViewer.Viewport.Height}) - more than six rows are visible");
+        }
+
+        private static (GraphCanvasControl, AvaloniaWindow) NewCanvas(DataCache cache) {
+            var canvas = new GraphCanvasControl();
+            canvas.Viewport.SetSize(900, 700);
+            canvas.Viewer.Context.DCache = cache;
+            var window = new AvaloniaWindow { Content = canvas, Width = 900, Height = 700 };
+            window.Show();
+            return (canvas, window);
         }
     }
 }

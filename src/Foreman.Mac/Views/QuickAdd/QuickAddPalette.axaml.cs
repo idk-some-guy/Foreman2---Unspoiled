@@ -11,7 +11,7 @@ using System;
 using System.Linq;
 
 namespace Foreman.Mac.Views.QuickAdd {
-    public sealed partial class QuickAddPalette : UserControl, IPanelInitialFocus {
+    public sealed partial class QuickAddPalette : UserControl, IPanelInitialFocus, IPanelContentResize {
         private readonly TextBox searchBox;
         private readonly ItemsControl results;
 
@@ -22,11 +22,13 @@ namespace Foreman.Mac.Views.QuickAdd {
             results = this.FindControl<ItemsControl>("Results")!;
             searchBox.AddHandler(KeyDownEvent, OnSearchKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             AddHandler(Button.ClickEvent, OnRowClick);
+            vm.RowsChanged += (_, _) => ContentResized?.Invoke(this, EventArgs.Empty);
         }
 
         public event EventHandler<AddCandidate>? PickCommitted;
         public event EventHandler<string>? BrowseRequested;
         public event EventHandler? CloseRequested;
+        public event EventHandler? ContentResized;
 
         private QuickAddViewModel Vm => (QuickAddViewModel)DataContext!;
 
