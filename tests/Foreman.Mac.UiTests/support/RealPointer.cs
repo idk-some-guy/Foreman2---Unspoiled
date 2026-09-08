@@ -5,14 +5,10 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System.Linq;
-using System.Threading;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.support {
     public static class RealClick {
-        //Past the platform's multi-click window, so the next press gets its own fresh ClickCount of 1.
-        private const int SeparateClickGapMs = 700;
-
         public static void On(Control target) {
             AvaloniaWindow window = target.GetVisualAncestors().OfType<AvaloniaWindow>().First();
             Point center = new(target.Bounds.Width / 2, target.Bounds.Height / 2);
@@ -28,11 +24,16 @@ namespace Foreman.Mac.UiTests.support {
             On(target);
         }
 
-        //Unlike DoubleClick above, far enough apart that each press gets its own ClickCount of 1.
+        //a press elsewhere resets MouseDevice's click count by position, no timing involved
         public static void TwoSeparateClicks(Control target) {
             On(target);
-            Thread.Sleep(SeparateClickGapMs);
+            On(NeutralSpotFarFrom(target));
             On(target);
+        }
+
+        private static Control NeutralSpotFarFrom(Control target) {
+            AvaloniaWindow window = target.GetVisualAncestors().OfType<AvaloniaWindow>().First();
+            return (Control?)window.FindControl<TextBox>("SearchBox") ?? window;
         }
     }
 }

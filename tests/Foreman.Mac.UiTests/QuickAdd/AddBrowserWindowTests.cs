@@ -224,6 +224,35 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(168, sidebar.Width);
         }
 
+        [AvaloniaFact]
+        public void SidebarTooltip_StaysCorrect_AfterSegmentSwitchAndShowUnavailableToggle() {
+            const string longName = "Intermediate products with a very long name";
+            var fx = CatalogFixture.WithGroupNamed(longName);
+            var settings = new AppSettings();
+            var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
+            var win = new AddBrowserWindow { DataContext = vm };
+            win.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            //Recipes has no cells in this fixture, so the switch empties Groups, then restoring Items
+            //repopulates it with fresh BrowserGroup instances.
+            vm.Segment = BrowserSegment.Recipes;
+            Dispatcher.UIThread.RunJobs();
+            vm.Segment = BrowserSegment.Items;
+            Dispatcher.UIThread.RunJobs();
+
+            var label = win.GetVisualDescendants().OfType<TextBlock>()
+                .First(t => t.DataContext is BrowserGroup g && g.Name == longName);
+            Assert.Equal(longName, ToolTip.GetTip(label));
+
+            vm.ShowUnavailable = true;
+            Dispatcher.UIThread.RunJobs();
+
+            label = win.GetVisualDescendants().OfType<TextBlock>()
+                .First(t => t.DataContext is BrowserGroup g && g.Name == longName);
+            Assert.Equal(longName, ToolTip.GetTip(label));
+        }
+
         //Gate fix 2: a fixed WrapPanel ItemHeight keeps a two-line label from drifting the next row.
         [AvaloniaFact]
         public void GridCellsShareAUniformHeight_RegardlessOfOneOrTwoLineLabels() {

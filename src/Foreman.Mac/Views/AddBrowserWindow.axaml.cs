@@ -26,6 +26,7 @@ namespace Foreman.Mac.Views {
         private readonly RadioButton recipesSegment;
         private readonly Button qualityButton;
         private readonly Border sidebar;
+        private readonly ItemsControl groupsList;
         private AddBrowserViewModel? subscribedVm;
         private int lastPointerClickCount = 1;
 
@@ -38,6 +39,7 @@ namespace Foreman.Mac.Views {
             recipesSegment = this.FindControl<RadioButton>("RecipesSegment")!;
             qualityButton = this.FindControl<Button>("QualityButton")!;
             sidebar = this.FindControl<Border>("Sidebar")!;
+            groupsList = this.FindControl<ItemsControl>("GroupsList")!;
 
             itemsSegment.IsCheckedChanged += (_, _) => { if (itemsSegment.IsChecked == true && Vm is AddBrowserViewModel vm) vm.Segment = BrowserSegment.Items; };
             recipesSegment.IsCheckedChanged += (_, _) => { if (recipesSegment.IsChecked == true && Vm is AddBrowserViewModel vm) vm.Segment = BrowserSegment.Recipes; };
@@ -48,8 +50,7 @@ namespace Foreman.Mac.Views {
             AddHandler(PointerPressedEvent, OnAnyPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
             DoubleTapped += OnCellDoubleTapped;
             DataContextChanged += OnDataContextChanged;
-            //rows realise after DataContext is set; recheck tooltips once layout catches up
-            LayoutUpdated += (_, _) => UpdateSidebarWidth();
+            groupsList.ContainerPrepared += OnGroupContainerPrepared;
 
             WindowScaler.Track(this);
         }
@@ -74,6 +75,20 @@ namespace Foreman.Mac.Views {
 
         private void OnGroupsChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateSidebarWidth();
 
+        //A prepared container's own content (the label inside) isn't realised until it's loaded.
+        private void OnGroupContainerPrepared(object? sender, ContainerPreparedEventArgs e) {
+            if (e.Container.IsLoaded) {
+                UpdateSidebarWidth();
+                return;
+            }
+            e.Container.Loaded += OnGroupContainerLoaded;
+        }
+
+        private void OnGroupContainerLoaded(object? sender, RoutedEventArgs e) {
+            ((Control)sender!).Loaded -= OnGroupContainerLoaded;
+            UpdateSidebarWidth();
+        }
+
         //Sidebar sizes to its widest group row, floored at BrowserSidebar and capped at BrowserSidebarMax.
         private void UpdateSidebarWidth() {
             if (Vm is not AddBrowserViewModel vm)
@@ -89,18 +104,23 @@ namespace Foreman.Mac.Views {
             foreach (BrowserGroup group in vm.Groups)
                 widest = Math.Max(widest, chrome + MeasureText(group.Name, typeface, rowFontSize).Width);
 
-            sidebar.Width = Math.Min(cap, Math.Max(floor, widest));
-            RefreshGroupTooltips(typeface, rowFontSize, chrome);
+            double width = Math.Min(cap, Math.Max(floor, widest));
+            if (sidebar.Width != width)
+                sidebar.Width = width;
+            RefreshGroupTooltips(typeface, rowFontSize, chrome, width);
         }
 
-        //Only a label that actually needs trimming gets a tooltip.
-        private void RefreshGroupTooltips(Typeface typeface, double rowFontSize, double chrome) {
-            double availableTextWidth = sidebar.Width - chrome;
+        //Only a label that actually needs trimming gets a tooltip; SetTip is skipped when the decision
+        //for that row hasn't changed, so a container-realisation pass over rows already tipped is a no-op.
+        private void RefreshGroupTooltips(Typeface typeface, double rowFontSize, double chrome, double sidebarWidth) {
+            double availableTextWidth = sidebarWidth - chrome;
             foreach (TextBlock label in this.GetVisualDescendants().OfType<TextBlock>()) {
                 if (label.DataContext is not BrowserGroup group)
                     continue;
                 bool trimmed = MeasureText(group.Name, typeface, rowFontSize).Width > availableTextWidth;
-                ToolTip.SetTip(label, trimmed ? group.Name : null);
+                string? desired = trimmed ? group.Name : null;
+                if (ToolTip.GetTip(label) as string != desired)
+                    ToolTip.SetTip(label, desired);
             }
         }
 
