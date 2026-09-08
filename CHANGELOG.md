@@ -51,6 +51,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   linked node directly; UnSpoil/UnPlant do too with a single origin, otherwise they open the browser
   on its Origins-of chip. The Quick Add palette no longer lists the linked item itself under a link
   context, since the radial now owns that role.
+- Dialogs attach to their window as sheets, dropping in flush under the titlebar over a scrim
+  instead of opening as separate windows.
 
 ### Fixed
 

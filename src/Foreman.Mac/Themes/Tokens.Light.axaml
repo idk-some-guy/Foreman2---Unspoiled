@@ -114,4 +114,9 @@
   <CornerRadius x:Key="Foreman.Radius.Pill">100</CornerRadius>
   <x:Double x:Key="Foreman.Type.SearchField.FontSize">12.5</x:Double>
 
+  <!-- Sheet overlay (C2c #modals): scrim alpha is identical in both themes, so it isn't a per-theme color. -->
+  <Color x:Key="Foreman.Color.SheetScrim">#80000000</Color>
+  <BoxShadows x:Key="Foreman.Shadow.Sheet">0 34 60 -12 #26000000</BoxShadows>
+  <CornerRadius x:Key="Foreman.Radius.SheetBottom">0,0,12,12</CornerRadius>
+
 </ResourceDictionary>

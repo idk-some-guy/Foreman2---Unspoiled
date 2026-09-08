@@ -13,6 +13,8 @@ namespace Foreman.Mac.Themes {
         public static readonly TimeSpan RadialOpenDuration = TimeSpan.FromMilliseconds(160);
         public static readonly TimeSpan RadialCloseDuration = TimeSpan.FromMilliseconds(120);
         public const double RadialOpenScale = 0.9;
+        public static readonly TimeSpan SheetOpenDuration = TimeSpan.FromMilliseconds(200);
+        public static readonly TimeSpan SheetCloseDuration = TimeSpan.FromMilliseconds(150);
 
         public static Easing CrossFadeEasing => new CubicEaseInOut();
         public static Easing EntranceEasing => new CubicEaseOut();

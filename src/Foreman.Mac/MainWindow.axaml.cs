@@ -183,6 +183,9 @@ namespace Foreman.Mac {
             GraphCanvas.ViewScaleChanged += (_, _) => ResyncZoomLabel();
             NativeMenu.SetMenu(this, BuildNativeMenu());
             Opened += (_, _) => MostRecentlyOpened = this;
+            //Before WindowScaler.Track below - Content is still the root Grid at this point, so SheetHost
+            //overlays it directly (spanning child) instead of wrapping WindowScaler's own LayoutTransformControl.
+            Views.Sheets.SheetHost.For(this);
             WindowScaler.Track(this);
             //View Options card renders in ViewOptionsPopover's own popup root, outside the Track above.
             WindowScaler.TrackPopupContent(this, this.FindControl<LayoutTransformControl>("ViewOptionsCardScaler")!);

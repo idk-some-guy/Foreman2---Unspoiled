@@ -842,4 +842,61 @@
     <Setter Property="HorizontalContentAlignment" Value="Center" />
   </Style>
 
+  <!-- Sheet overlay (C2c #modals): .entering is the pre-attach start state, .closing swaps in the close duration. -->
+  <Style Selector="Border.foreman-sheet-scrim">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.SheetScrim}" />
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.SheetOpenDuration}" Easing="{x:Static motion:Motion.EntranceEasing}" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <Style Selector="Border.foreman-sheet-scrim.entering">
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+
+  <Style Selector="Border.foreman-sheet-scrim.closing">
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.SheetCloseDuration}" Easing="CubicEaseIn" />
+      </Transitions>
+    </Setter>
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+
+  <Style Selector="Border.foreman-sheet-panel">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackground}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.SheetBottom}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource Foreman.Shadow.Sheet}" />
+    <Setter Property="Padding" Value="18,16,18,18" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="RenderTransform" Value="none" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.SheetOpenDuration}" Easing="{x:Static motion:Motion.EntranceEasing}" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="{x:Static motion:Motion.SheetOpenDuration}" Easing="{x:Static motion:Motion.EntranceEasing}" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <Style Selector="Border.foreman-sheet-panel.entering">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="RenderTransform" Value="translateY(-12px)" />
+  </Style>
+
+  <Style Selector="Border.foreman-sheet-panel.closing">
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.SheetCloseDuration}" Easing="CubicEaseIn" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="{x:Static motion:Motion.SheetCloseDuration}" Easing="CubicEaseIn" />
+      </Transitions>
+    </Setter>
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="RenderTransform" Value="translateY(-12px)" />
+  </Style>
+
 </Styles>
