@@ -96,6 +96,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   shortcut underneath it (gridlines included) can fire while the Quick Add palette or another
   floating panel has focus. The Recipe segment's assembler icon and name binding no longer logs a
   null-binding warning either.
+- The "Add to Graph" browser's sidebar now sizes itself to its widest group name (up to 220pt,
+  ellipsizing with a tooltip beyond that) instead of clipping long names in a fixed 168pt column.
+  Its grid cells all share one fixed height regardless of a one- or two-line label, so rows no
+  longer drift out of alignment. Clicking a recipe now places it immediately, since a recipe has no
+  options left to choose; a following double-click or Enter on that same cell no longer places a
+  second copy.
 
 ### Changed
 

@@ -176,6 +176,28 @@ namespace Foreman.Mac.UiTests.support {
             return new CatalogFixture { Cache = cache, Subgroup = storage, Assembler = assembler };
         }
 
+        //One group/subgroup pair under a caller-chosen friendly name, for sidebar-width tests.
+        public static CatalogFixture WithGroupNamed(string groupFriendlyName) {
+            var cache = new DataCache(filterRecipes: true);
+            var quality = new QualityPrototype(cache, "normal", "Normal", "a");
+            DataCacheStore store = Store(cache);
+            store.Qualities[quality.Name] = quality;
+            store.DefaultQuality = quality;
+
+            var group = new GroupPrototype(cache, "group", groupFriendlyName, "a");
+            store.Groups[group.Name] = group;
+            var subgroup = new SubgroupPrototype(cache, "subgroup", "a");
+            subgroup.MyGroupInternal = group;
+            group.SubgroupsInternal.Add(subgroup);
+            store.Subgroups[subgroup.Name] = subgroup;
+
+            var assembler = new AssemblerPrototype(cache, "assembler", "Assembler", EntityType.Assembler, EnergySource.Electric) { Available = true };
+
+            var fx = new CatalogFixture { Cache = cache, Subgroup = subgroup, Assembler = assembler };
+            fx.AddOrGetItem("item");
+            return fx;
+        }
+
         public AddLinkContext LinkContextFor(string itemName, NewNodeType nodeType, FRange? tempRange = null) {
             ItemPrototype item = itemsByName[itemName];
             var pair = new ItemQualityPair(item, Store(Cache).DefaultQuality!);

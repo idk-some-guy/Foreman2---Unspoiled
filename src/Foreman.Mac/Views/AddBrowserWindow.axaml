@@ -91,13 +91,14 @@
                 <ItemsControl ItemsSource="{Binding Cells}">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                      <WrapPanel ItemWidth="{DynamicResource Foreman.Size.BrowserCellPitch}" />
+                      <WrapPanel ItemWidth="{DynamicResource Foreman.Size.BrowserCellPitch}"
+                                 ItemHeight="{DynamicResource Foreman.Size.BrowserCellRowHeight}" />
                     </ItemsPanelTemplate>
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="vm:BrowserCell">
                       <Button Classes="foreman-browser-cell" Classes.unavailable="{Binding !IsAvailable}" Classes.selected="{Binding IsSelected}">
-                        <StackPanel Spacing="4" HorizontalAlignment="Center">
+                        <StackPanel Spacing="6" HorizontalAlignment="Center">
                           <Border Classes="foreman-browser-cell-icon"
                                   Width="{DynamicResource Foreman.Size.BrowserCell}" Height="{DynamicResource Foreman.Size.BrowserCell}">
                             <Image Source="{Binding Icon}" Stretch="Uniform" />

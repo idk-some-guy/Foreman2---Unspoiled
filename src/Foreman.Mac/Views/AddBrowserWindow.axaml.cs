@@ -1,22 +1,33 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using System;
+using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 
 namespace Foreman.Mac.Views {
     //MainWindow keeps one instance alive for the app's lifetime; closing here hides rather than destroys it.
     public sealed partial class AddBrowserWindow : Window {
+        //Row metrics mirroring the "foreman-browser-group" markup/style - kept in sync by hand.
+        private const double GroupRowIconWidth = 16;
+        private const double GroupRowIconGap = 8;
+        private const double GroupRowHorizontalPadding = 12;
+
         private readonly RadioButton itemsSegment;
         private readonly RadioButton recipesSegment;
         private readonly Button qualityButton;
+        private readonly Border sidebar;
         private AddBrowserViewModel? subscribedVm;
+        private int lastPointerClickCount = 1;
 
         //Parameterless so the XAML runtime loader can find it (AVLN3001) - the caller assigns DataContext
         //separately and OnDataContextChanged below picks it up.
@@ -26,6 +37,7 @@ namespace Foreman.Mac.Views {
             itemsSegment = this.FindControl<RadioButton>("ItemsSegment")!;
             recipesSegment = this.FindControl<RadioButton>("RecipesSegment")!;
             qualityButton = this.FindControl<Button>("QualityButton")!;
+            sidebar = this.FindControl<Border>("Sidebar")!;
 
             itemsSegment.IsCheckedChanged += (_, _) => { if (itemsSegment.IsChecked == true && Vm is AddBrowserViewModel vm) vm.Segment = BrowserSegment.Items; };
             recipesSegment.IsCheckedChanged += (_, _) => { if (recipesSegment.IsChecked == true && Vm is AddBrowserViewModel vm) vm.Segment = BrowserSegment.Recipes; };
@@ -33,8 +45,11 @@ namespace Foreman.Mac.Views {
             AddHandler(Button.ClickEvent, OnCellOrGroupClicked);
             //handledEventsToo: Button's own OnKeyDown consumes Enter to raise its Click before this ever sees it.
             AddHandler(KeyDownEvent, OnCellKeyDown, RoutingStrategies.Bubble, handledEventsToo: true);
+            AddHandler(PointerPressedEvent, OnAnyPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
             DoubleTapped += OnCellDoubleTapped;
             DataContextChanged += OnDataContextChanged;
+            //rows realise after DataContext is set; recheck tooltips once layout catches up
+            LayoutUpdated += (_, _) => UpdateSidebarWidth();
 
             WindowScaler.Track(this);
         }
@@ -44,13 +59,59 @@ namespace Foreman.Mac.Views {
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
         private void OnDataContextChanged(object? sender, EventArgs e) {
-            if (subscribedVm is not null)
+            if (subscribedVm is not null) {
                 subscribedVm.PropertyChanged -= OnVmPropertyChanged;
+                ((INotifyCollectionChanged)subscribedVm.Groups).CollectionChanged -= OnGroupsChanged;
+            }
             subscribedVm = Vm;
             if (subscribedVm is not null) {
                 SyncSegmentToggle(subscribedVm);
                 subscribedVm.PropertyChanged += OnVmPropertyChanged;
+                ((INotifyCollectionChanged)subscribedVm.Groups).CollectionChanged += OnGroupsChanged;
+                UpdateSidebarWidth();
             }
+        }
+
+        private void OnGroupsChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateSidebarWidth();
+
+        //Sidebar sizes to its widest group row, floored at BrowserSidebar and capped at BrowserSidebarMax.
+        private void UpdateSidebarWidth() {
+            if (Vm is not AddBrowserViewModel vm)
+                return;
+            double floor = Resource<double>("Foreman.Size.BrowserSidebar");
+            double cap = Resource<double>("Foreman.Size.BrowserSidebarMax");
+            double rowFontSize = Resource<double>("Foreman.Type.Browser.Row.FontSize");
+            var typeface = new Typeface(FontFamily.Default);
+            //Icon + gap + row padding + the Sidebar Border's own padding (the previous formula's bug).
+            double chrome = GroupRowIconWidth + GroupRowIconGap + GroupRowHorizontalPadding + sidebar.Padding.Left + sidebar.Padding.Right;
+
+            double widest = 0;
+            foreach (BrowserGroup group in vm.Groups)
+                widest = Math.Max(widest, chrome + MeasureText(group.Name, typeface, rowFontSize).Width);
+
+            sidebar.Width = Math.Min(cap, Math.Max(floor, widest));
+            RefreshGroupTooltips(typeface, rowFontSize, chrome);
+        }
+
+        //Only a label that actually needs trimming gets a tooltip.
+        private void RefreshGroupTooltips(Typeface typeface, double rowFontSize, double chrome) {
+            double availableTextWidth = sidebar.Width - chrome;
+            foreach (TextBlock label in this.GetVisualDescendants().OfType<TextBlock>()) {
+                if (label.DataContext is not BrowserGroup group)
+                    continue;
+                bool trimmed = MeasureText(group.Name, typeface, rowFontSize).Width > availableTextWidth;
+                ToolTip.SetTip(label, trimmed ? group.Name : null);
+            }
+        }
+
+        private static FormattedText MeasureText(string text, Typeface typeface, double fontSize) =>
+            new(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, fontSize, Brushes.Black);
+
+        private static T Resource<T>(string key) {
+            Application app = Application.Current!;
+            return app.TryGetResource(key, app.ActualThemeVariant, out object? value) && value is T typed
+                ? typed
+                : throw new InvalidOperationException($"AddBrowserWindow: resource '{key}' not found.");
         }
 
         private void SyncSegmentToggle(AddBrowserViewModel vm) {
@@ -79,11 +140,18 @@ namespace Foreman.Mac.Views {
                     button.Classes.Set("selected", selected is not null && cell.Candidate.Equals(selected));
         }
 
-        //Button.ClickEvent bubbles, so one handler here catches every cell and every group-sidebar button.
+        //Stashed for OnCellOrGroupClicked below - Button.ClickEvent itself carries no ClickCount.
+        private void OnAnyPointerPressed(object? sender, PointerPressedEventArgs e) => lastPointerClickCount = e.ClickCount;
+
         private void OnCellOrGroupClicked(object? sender, RoutedEventArgs e) {
             if (Vm is not AddBrowserViewModel vm)
                 return;
             switch (e.Source) {
+                case Button { DataContext: BrowserCell cell } when vm.Segment == BrowserSegment.Recipes && cell.Candidate.Kind == AddKind.Recipe:
+                    vm.SelectCell(cell);
+                    if (lastPointerClickCount == 1)
+                        vm.PlaceSelectedRecipe();
+                    break;
                 case Button { DataContext: BrowserCell cell }:
                     vm.SelectCell(cell);
                     break;
@@ -110,24 +178,26 @@ namespace Foreman.Mac.Views {
 
         private void OnClearChipClick(object? sender, RoutedEventArgs e) => Vm?.ClearChip();
 
-        //Places a cell directly on double-click/Enter; Vm.PlaceDefault() picks the action.
+        //A Recipes cell already placed on its first press - ignore the DoubleTapped that follows.
         private void OnCellDoubleTapped(object? sender, TappedEventArgs e) {
-            if (e.Source is Button { DataContext: BrowserCell cell })
-                PlaceFromCell(cell);
-        }
-
-        private void OnCellKeyDown(object? sender, KeyEventArgs e) {
-            if (e.Key != Key.Enter || e.Source is not Button { DataContext: BrowserCell cell })
+            if (Vm is not AddBrowserViewModel vm || e.Source is not Button { DataContext: BrowserCell cell })
                 return;
-            e.Handled = true;
-            PlaceFromCell(cell);
-        }
-
-        private void PlaceFromCell(BrowserCell cell) {
-            if (Vm is not AddBrowserViewModel vm)
+            if (vm.Segment == BrowserSegment.Recipes && cell.Candidate.Kind == AddKind.Recipe)
                 return;
             vm.SelectCell(cell);
             vm.PlaceDefault();
+        }
+
+        //Enter always places, regardless of any preceding click.
+        private void OnCellKeyDown(object? sender, KeyEventArgs e) {
+            if (Vm is not AddBrowserViewModel vm || e.Key != Key.Enter || e.Source is not Button { DataContext: BrowserCell cell })
+                return;
+            e.Handled = true;
+            vm.SelectCell(cell);
+            if (vm.Segment == BrowserSegment.Recipes && cell.Candidate.Kind == AddKind.Recipe)
+                vm.PlaceSelectedRecipe();
+            else
+                vm.PlaceDefault();
         }
 
         //⌘W/Esc both hide rather than close - MainWindow owns one instance for the app's lifetime.

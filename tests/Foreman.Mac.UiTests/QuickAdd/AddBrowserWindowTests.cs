@@ -10,6 +10,7 @@ using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
+using System;
 using System.Linq;
 using System.Reflection;
 using Xunit;
@@ -164,6 +165,93 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             var searchField = win.FindControl<TextBox>("SearchBox")!;
             Assert.Equal(new CornerRadius(7), searchField.CornerRadius);
             Assert.Equal(12.5, searchField.FontSize);
+        }
+
+        //Gate fix 1: past the cap the label ellipsizes and carries a tooltip.
+        [AvaloniaFact]
+        public void SidebarWidthFitsTheWidestGroupName_CappedWithATrimmedTooltippedLabel() {
+            const string longName = "Intermediate products with a very long name";
+            var fx = CatalogFixture.WithGroupNamed(longName);
+            var settings = new AppSettings();
+            var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
+            var win = new AddBrowserWindow { DataContext = vm };
+            win.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var sidebar = win.FindControl<Border>("Sidebar")!;
+            Assert.Equal(220, sidebar.Width);
+
+            var label = win.GetVisualDescendants().OfType<TextBlock>()
+                .First(t => t.DataContext is BrowserGroup g && g.Name == longName);
+            Assert.Equal(TextTrimming.CharacterEllipsis, label.TextTrimming);
+            Assert.Equal(longName, ToolTip.GetTip(label));
+        }
+
+        //Round 1: a name landing strictly between the floor and the cap must still fit uncrimped.
+        [AvaloniaFact]
+        public void SidebarWidthFitsAMidBandGroupName_NoClippingNoTooltip() {
+            const string midName = "Fluid power";
+            var fx = CatalogFixture.WithGroupNamed(midName);
+            var settings = new AppSettings();
+            var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
+            var win = new AddBrowserWindow { DataContext = vm };
+            win.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var sidebar = win.FindControl<Border>("Sidebar")!;
+            Assert.InRange(sidebar.Width, 168, 220);
+
+            var label = win.GetVisualDescendants().OfType<TextBlock>()
+                .First(t => t.DataContext is BrowserGroup g && g.Name == midName);
+            Assert.Null(ToolTip.GetTip(label));
+
+            //Window-relative, same as GridCellsShareAUniformHeight below - Bounds is parent-relative.
+            double labelRight = Avalonia.VisualExtensions.TranslatePoint(label, new Point(0, 0), win)!.Value.X + label.Bounds.Width;
+            double sidebarRight = Avalonia.VisualExtensions.TranslatePoint(sidebar, new Point(0, 0), win)!.Value.X + sidebar.Bounds.Width;
+            Assert.True(labelRight <= sidebarRight, $"label right edge ({labelRight}) overflows the sidebar ({sidebarRight})");
+        }
+
+        [AvaloniaFact]
+        public void SidebarWidthStaysAtTheFloor_WhenGroupNamesAreShort() {
+            var fx = CatalogFixture.WithGroupNamed("Ore");
+            var settings = new AppSettings();
+            var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
+            var win = new AddBrowserWindow { DataContext = vm };
+            win.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var sidebar = win.FindControl<Border>("Sidebar")!;
+            Assert.Equal(168, sidebar.Width);
+        }
+
+        //Gate fix 2: a fixed WrapPanel ItemHeight keeps a two-line label from drifting the next row.
+        [AvaloniaFact]
+        public void GridCellsShareAUniformHeight_RegardlessOfOneOrTwoLineLabels() {
+            string[] items = ["A", "B", "C", "D", "E", "F",
+                "A label long enough to wrap across two full lines", "G", "H",
+                "Another long label that also wraps across two lines"];
+            var fx = CatalogFixture.WithItemsAndRecipes(items, []);
+            var settings = new AppSettings();
+            var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
+            var win = new AddBrowserWindow { DataContext = vm };
+            win.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var cellButtons = win.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("foreman-browser-cell")).ToList();
+            Assert.Equal(items.Length, cellButtons.Count);
+
+            var heights = cellButtons.Select(b => Math.Round(b.Bounds.Height, 1)).Distinct().ToList();
+            Assert.Single(heights);
+
+            //A WrapPanel cell's own Bounds are always (0,0); window-relative position shows real rows.
+            var positions = cellButtons.Select(b => Avalonia.VisualExtensions.TranslatePoint(b, new Point(0, 0), win)!.Value).ToList();
+            var rowYs = positions.Select(p => Math.Round(p.Y, 1)).Distinct().OrderBy(y => y).ToList();
+            Assert.True(rowYs.Count >= 2, $"expected at least 2 rows, got Y values: {string.Join(", ", rowYs)}");
+
+            double secondRowY = rowYs[1];
+            var secondRowCells = positions.Where(p => Math.Round(p.Y, 1) == secondRowY).ToList();
+            Assert.NotEmpty(secondRowCells);
+            Assert.All(secondRowCells, p => Assert.Equal(secondRowY, Math.Round(p.Y, 1)));
         }
 
         [AvaloniaFact]

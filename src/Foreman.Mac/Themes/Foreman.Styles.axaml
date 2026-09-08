@@ -709,6 +709,7 @@
     <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Browser.Label.FontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
     <Setter Property="MaxWidth" Value="{DynamicResource Foreman.Size.BrowserCellPitch}" />
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.BrowserCellLabelHeight}" />
     <Setter Property="MaxLines" Value="2" />
     <Setter Property="TextTrimming" Value="CharacterEllipsis" />
   </Style>

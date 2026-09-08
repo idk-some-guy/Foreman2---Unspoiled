@@ -541,6 +541,13 @@ menu described in §7's keyboard map.)
   radial. The Spoil/Plant multi-origin picks that used to nest inside
   `AddNewNode` are now an "Origins of…" chip inside the browser itself,
   reached either from there or from a multi-origin UnSpoil/UnPlant slice.
+  Inside the browser, the two segments differ on what a click does: in
+  Items a click only selects, and the footer's role buttons (or Enter/
+  double-click, which default to Source) decide what gets placed; in
+  Recipes a click has nothing to pick, so it places the recipe node
+  immediately and keeps the window open, with a following double-click or
+  Enter on that same still-selected cell deduped rather than placing a
+  second node (gate fix 3).
 - **Annotation properties dialogs** (`ShapePropertiesForm`/
   `TextPropertiesForm`, §6) are plain modal `Form`s, not
   `FloatingTooltipControl`-hosted, but still need a genuine Avalonia window

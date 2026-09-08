@@ -239,6 +239,74 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.All(labels, l => Assert.Contains("gear", l, StringComparison.CurrentCultureIgnoreCase));
         }
 
+        //Gate fix 3: a recipe has no options to choose, so one click places it.
+        [AvaloniaFact]
+        public void RealPointerClickOnARecipeCellPlacesItImmediately() {
+            using ShellFixture shell = ShellFixture.Open();
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Recipes, SeedText: "iron plate"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            BrowserCell cell = vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Kind == AddKind.Recipe);
+            Dispatcher.UIThread.RunJobs();
+
+            AddBrowserWindow window = shell.Window.BrowserWindow!;
+            Button cellButton = window.GetVisualDescendants().OfType<Button>()
+                .First(b => b.DataContext is BrowserCell bc && bc.Candidate.Equals(cell.Candidate));
+            RealClick.On(cellButton);
+
+            Assert.Single(shell.Graph.Nodes.OfType<RecipeNode>());
+            Assert.True(window.IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void DoubleClickSequenceOnARecipeCellPlacesExactlyOnce() {
+            using ShellFixture shell = ShellFixture.Open();
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Recipes, SeedText: "iron plate"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            BrowserCell cell = vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Kind == AddKind.Recipe);
+            Dispatcher.UIThread.RunJobs();
+
+            AddBrowserWindow window = shell.Window.BrowserWindow!;
+            Button cellButton = window.GetVisualDescendants().OfType<Button>()
+                .First(b => b.DataContext is BrowserCell bc && bc.Candidate.Equals(cell.Candidate));
+            RealClick.DoubleClick(cellButton);
+
+            Assert.Single(shell.Graph.Nodes.OfType<RecipeNode>());
+        }
+
+        //Round 1: two genuinely separate clicks, unlike the double-click sequence above, must both place.
+        [AvaloniaFact]
+        public void TwoSeparateSingleClicksOnARecipeCellPlaceTwice() {
+            using ShellFixture shell = ShellFixture.Open();
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Recipes, SeedText: "iron plate"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            BrowserCell cell = vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Kind == AddKind.Recipe);
+            Dispatcher.UIThread.RunJobs();
+
+            AddBrowserWindow window = shell.Window.BrowserWindow!;
+            Button cellButton = window.GetVisualDescendants().OfType<Button>()
+                .First(b => b.DataContext is BrowserCell bc && bc.Candidate.Equals(cell.Candidate));
+            RealClick.TwoSeparateClicks(cellButton);
+
+            Assert.Equal(2, shell.Graph.Nodes.OfType<RecipeNode>().Count());
+        }
+
+        [AvaloniaFact]
+        public void RealPointerClickOnAnItemCellDoesNotPlace_SelectionOnly() {
+            using ShellFixture shell = ShellFixture.Open();
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Items, SeedText: "iron plate"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            BrowserCell cell = vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Kind == AddKind.Item);
+            Dispatcher.UIThread.RunJobs();
+
+            AddBrowserWindow window = shell.Window.BrowserWindow!;
+            Button cellButton = window.GetVisualDescendants().OfType<Button>()
+                .First(b => b.DataContext is BrowserCell bc && bc.Candidate.Equals(cell.Candidate));
+            RealClick.On(cellButton);
+
+            Assert.Empty(shell.Graph.Nodes);
+            Assert.Equal(cell.Candidate, vm.SelectedCell?.Candidate);
+        }
+
         [AvaloniaFact]
         public void EnterOnASelectedCellPlaces_EscapeHidesTheWindow() {
             using ShellFixture shell = ShellFixture.Open();
