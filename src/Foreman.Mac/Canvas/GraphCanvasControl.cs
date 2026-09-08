@@ -208,6 +208,7 @@ namespace Foreman.Mac.Canvas {
         internal RadialMenu? OpenRadial => FloatingPanelHost.Content as RadialMenu;
 
         internal void ShowRadialMenu(NewNodeLinkDragRequest request) {
+            ResetPointerDragState();
             var radial = new RadialMenu(RadialSlicesFor(request));
             radial.Chosen += (_, choice) => {
                 FloatingPanelHost.Close();
@@ -462,6 +463,7 @@ namespace Foreman.Mac.Canvas {
             //C2b: double-clicking empty canvas opens the Quick Add palette scoped to everything - guarded on
             //!inDrawShapeMode so a shape draw's own click-to-place sequence can't misfire this instead.
             if (properties.IsLeftButtonPressed && e.ClickCount == 2 && clickedElement is null && !inDrawShapeMode) {
+                ResetPointerDragState();
                 ShowQuickAdd(new AddRequest(graphPoint, AddScope.All));
                 e.Handled = true;
                 return;
@@ -736,6 +738,22 @@ namespace Foreman.Mac.Canvas {
             InvalidateVisual();
         }
 
+        //Gate fix 7, item 2: a click that opens a new top-level window mid-press (the browser, from a
+        //radial/palette Add...) can lose capture without this control ever seeing a matching
+        //OnPointerReleased - left alone, CurrentDragOperation stays armed and the next plain PointerMoved
+        //(no button down at all) drags a stray rubber-band across the canvas.
+        protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e) {
+            base.OnPointerCaptureLost(e);
+            ResetPointerDragState();
+        }
+
+        private void ResetPointerDragState() {
+            CurrentDragOperation = DragOperation.None;
+            MouseDownElement = null;
+            ViewBeingDragged = false;
+            Viewer.SelectionZone = null;
+        }
+
         //Ports Annotation_FinishDrawShape (reference §1/§6): commits the drawn rectangle (30-graph-unit
         //minimum per axis) or falls back to a default-sized shape centered at the click if the drag was too
         //small.
@@ -808,6 +826,7 @@ namespace Foreman.Mac.Canvas {
         internal void ShowQuickAdd(AddRequest request) {
             if (Viewer.Context.DCache is not DataCache cache)
                 return;
+            ResetPointerDragState();
 
             //Own local per palette instance: the browser can place at any time while this stays open (it's
             //a separate real window, not hosted in FloatingPanelHost), and its own PlaceCandidate calls

@@ -198,6 +198,28 @@ namespace Foreman.Mac.UiTests.support {
             return fx;
         }
 
+        //One group with a single subgroup carrying a caller-chosen internal name (SubgroupPrototype has no
+        //separate localised name of its own - FriendlyName always mirrors it), for the subhead-humanizing test.
+        public static CatalogFixture WithSubgroupNamed(string subgroupName) {
+            var cache = new DataCache(filterRecipes: true);
+            var quality = new QualityPrototype(cache, "normal", "Normal", "a");
+            DataCacheStore store = Store(cache);
+            store.Qualities[quality.Name] = quality;
+            store.DefaultQuality = quality;
+
+            var group = new GroupPrototype(cache, "group", "Group", "a");
+            store.Groups[group.Name] = group;
+            var subgroup = new SubgroupPrototype(cache, subgroupName, "a");
+            subgroup.MyGroupInternal = group;
+            group.SubgroupsInternal.Add(subgroup);
+            store.Subgroups[subgroup.Name] = subgroup;
+
+            var assembler = new AssemblerPrototype(cache, "assembler", "Assembler", EntityType.Assembler, EnergySource.Electric) { Available = true };
+            var fx = new CatalogFixture { Cache = cache, Subgroup = subgroup, Assembler = assembler };
+            fx.AddOrGetItem("item");
+            return fx;
+        }
+
         public AddLinkContext LinkContextFor(string itemName, NewNodeType nodeType, FRange? tempRange = null) {
             ItemPrototype item = itemsByName[itemName];
             var pair = new ItemQualityPair(item, Store(Cache).DefaultQuality!);

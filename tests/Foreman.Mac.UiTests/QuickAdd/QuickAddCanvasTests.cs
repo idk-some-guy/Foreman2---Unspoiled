@@ -72,6 +72,61 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.False(fx.Control.FloatingPanelHost.IsOpen);
         }
 
+        //Gate fix 7, item 2: opening the browser (a new top-level window, from a link-drag's radial Add.../
+        //the palette's Cmd+Enter) mid-press can steal the pointer before this control ever sees a matching
+        //PointerReleased - left alone, CurrentDragOperation/the rubber-band stay armed, so a later plain
+        //PointerMoved (no button down at all) keeps dragging a selection rectangle. Arms a real rubber-band
+        //drag, then loses capture instead of releasing (the shape a stolen pointer takes) - the same
+        //hand-built-PointerEventArgs seam LinkDragTests' chorded-button test uses.
+        [AvaloniaFact]
+        public void PointerCaptureLostMidSelectionDrag_ResetsState_SoALaterMoveArmsNoRectangle() {
+            using var fx = CanvasFixture.WithVanilla();
+            var start = new AvaloniaPoint(100, 100);
+            var armed = start + new AvaloniaPoint(40, 40);
+            fx.Window.MouseDown(start, MouseButton.Left, RawInputModifiers.None);
+            //Two moves: the first only crosses the threshold and arms Selection, the second is what actually
+            //computes a zone against the now-armed operation (mirrors CanvasFixture.DragFrom).
+            fx.Window.MouseMove(armed, RawInputModifiers.LeftMouseButton);
+            fx.Window.MouseMove(armed, RawInputModifiers.LeftMouseButton);
+            Assert.Equal(GraphCanvasControl.DragOperation.Selection, fx.Control.CurrentDragOperation);
+            Assert.NotNull(fx.Control.Viewer.SelectionZone);
+
+            var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+            fx.Control.RaiseEvent(new PointerCaptureLostEventArgs(fx.Control, pointer));
+
+            Assert.Equal(GraphCanvasControl.DragOperation.None, fx.Control.CurrentDragOperation);
+            Assert.Null(fx.Control.Viewer.SelectionZone);
+
+            var noButtons = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other);
+            var moveArgs = new PointerEventArgs(InputElement.PointerMovedEvent, fx.Control, pointer, fx.Control, new AvaloniaPoint(300, 300), 0, noButtons, KeyModifiers.None);
+            fx.Control.RaiseEvent(moveArgs);
+
+            Assert.Equal(GraphCanvasControl.DragOperation.None, fx.Control.CurrentDragOperation);
+            Assert.Null(fx.Control.Viewer.SelectionZone);
+        }
+
+        //The double-click-then-browse flow itself (context for the fix above): opening the palette and then
+        //the browser from it must not leave the canvas thinking a button is still down.
+        [AvaloniaFact]
+        public void DoubleClickThenBrowse_LeavesNoArmedDragOperation() {
+            MainWindow window = OpenWindow(out _);
+            Dispatcher.UIThread.RunJobs();
+            GraphCanvasControl canvas = window.GraphCanvas;
+            var clickPoint = new AvaloniaPoint(400, 300);
+
+            window.MouseDown(clickPoint, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(clickPoint, MouseButton.Left, RawInputModifiers.None);
+            window.MouseDown(clickPoint, MouseButton.Left, RawInputModifiers.None);
+            Assert.True(canvas.FloatingPanelHost.IsOpen);
+
+            var box = canvas.OpenPalette!.FindControl<TextBox>("SearchBox")!;
+            CanvasKeys.KeyDownOn(box, Key.Enter, KeyModifiers.Meta);
+            Assert.True(window.BrowserWindow!.IsVisible);
+
+            Assert.Equal(GraphCanvasControl.DragOperation.None, canvas.CurrentDragOperation);
+            Assert.Null(canvas.Viewer.SelectionZone);
+        }
+
         [AvaloniaFact]
         public void BackgroundContextMenuStillOffersAddItemAndAddRecipe_OpeningScopedPalettes() {
             using var fx = CanvasFixture.WithVanilla();

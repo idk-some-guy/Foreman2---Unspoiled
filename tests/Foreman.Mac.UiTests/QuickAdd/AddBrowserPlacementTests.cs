@@ -117,6 +117,9 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(300, 0), AddScope.All, consumerLink));
             AddBrowserViewModel vm = shell.BrowserVm;
+            //Gate fix 7, item 3: a link-drag "Add..." now opens on Recipes by default - role buttons are
+            //Items-only, so switch back for this role-direction check.
+            vm.Segment = BrowserSegment.Items;
             vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First());
             Assert.False(vm.CanSource);
             Assert.True(vm.CanPassthrough);
@@ -124,6 +127,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             AddLinkContext supplierLink = consumerLink with { NodeType = NewNodeType.Supplier };
             shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(300, 0), AddScope.All, supplierLink));
+            vm.Segment = BrowserSegment.Items;
             vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First());
             Assert.True(vm.CanSource);
             Assert.True(vm.CanPassthrough);
@@ -159,6 +163,9 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             using ShellFixture shell = ShellFixture.OpenWithVanillaAndOneSupplier(out AddLinkContext link);
             shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(300, 0), AddScope.All, link));
             AddBrowserViewModel vm = shell.BrowserVm;
+            //Gate fix 7, item 3: a link-drag "Add..." now opens on Recipes by default - this test's own
+            //subject is the chip/filtering behaviour on each segment, starting from Items as before.
+            vm.Segment = BrowserSegment.Items;
 
             Assert.Equal("Compatible with Iron plate", vm.ChipText);
             Assert.Equal(["Iron plate"], vm.Sections.SelectMany(s => s.Cells).Select(c => c.Label));

@@ -3,25 +3,19 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using Avalonia.Media;
 using Avalonia.VisualTree;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Globalization;
 using System.Linq;
 
 namespace Foreman.Mac.Views {
     //MainWindow keeps one instance alive for the app's lifetime; closing here hides rather than destroys it.
     public sealed partial class AddBrowserWindow : Window {
-        //Row metrics mirroring the "foreman-browser-group" markup/style - kept in sync by hand.
-        private const double GroupRowIconWidth = 16;
-        private const double GroupRowIconGap = 8;
-        private const double GroupRowHorizontalPadding = 12;
-
         private readonly RadioButton itemsSegment;
         private readonly RadioButton recipesSegment;
         private readonly Button qualityButton;
@@ -89,43 +83,50 @@ namespace Foreman.Mac.Views {
             UpdateSidebarWidth();
         }
 
-        //Sidebar sizes to its widest group row, floored at BrowserSidebar and capped at BrowserSidebarMax.
+        //Gate fix 7, item 5: measures the realised rows themselves (Measure(Size.Infinity), the same probe
+        //FloatingPanelHost uses to fit its own content) instead of a hand-rolled icon/gap/padding sum - that
+        //sum was wrong against the real font metrics and let a wide preset group name clip past the sidebar's
+        //right edge. Sizes to the widest row, floored at BrowserSidebar and capped at BrowserSidebarMax.
         private void UpdateSidebarWidth() {
-            if (Vm is not AddBrowserViewModel vm)
+            if (Vm is null)
                 return;
             double floor = Resource<double>("Foreman.Size.BrowserSidebar");
             double cap = Resource<double>("Foreman.Size.BrowserSidebarMax");
-            double rowFontSize = Resource<double>("Foreman.Type.Browser.Row.FontSize");
-            var typeface = new Typeface(FontFamily.Default);
-            //Icon + gap + row padding + the Sidebar Border's own padding (the previous formula's bug).
-            double chrome = GroupRowIconWidth + GroupRowIconGap + GroupRowHorizontalPadding + sidebar.Padding.Left + sidebar.Padding.Right;
 
-            double widest = 0;
-            foreach (BrowserGroup group in vm.Groups)
-                widest = Math.Max(widest, chrome + MeasureText(group.Name, typeface, rowFontSize).Width);
+            double widestRow = 0;
+            foreach (Button row in GroupRows())
+                widestRow = Math.Max(widestRow, MeasuredWidth(row));
 
-            double width = Math.Min(cap, Math.Max(floor, widest));
+            double width = Math.Min(cap, Math.Max(floor, widestRow + sidebar.Padding.Left + sidebar.Padding.Right));
             if (sidebar.Width != width)
                 sidebar.Width = width;
-            RefreshGroupTooltips(typeface, rowFontSize, chrome, width);
+            RefreshGroupTooltips(width);
         }
 
         //Only a label that actually needs trimming gets a tooltip; SetTip is skipped when the decision
         //for that row hasn't changed, so a container-realisation pass over rows already tipped is a no-op.
-        private void RefreshGroupTooltips(Typeface typeface, double rowFontSize, double chrome, double sidebarWidth) {
-            double availableTextWidth = sidebarWidth - chrome;
-            foreach (TextBlock label in this.GetVisualDescendants().OfType<TextBlock>()) {
-                if (label.DataContext is not BrowserGroup group)
+        private void RefreshGroupTooltips(double sidebarWidth) {
+            double availableRowWidth = sidebarWidth - sidebar.Padding.Left - sidebar.Padding.Right;
+            foreach (Button row in GroupRows()) {
+                if (row.DataContext is not BrowserGroup group)
                     continue;
-                bool trimmed = MeasureText(group.Name, typeface, rowFontSize).Width > availableTextWidth;
+                TextBlock? label = row.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault();
+                if (label is null)
+                    continue;
+                bool trimmed = MeasuredWidth(row) > availableRowWidth + 0.5;
                 string? desired = trimmed ? group.Name : null;
                 if (ToolTip.GetTip(label) as string != desired)
                     ToolTip.SetTip(label, desired);
             }
         }
 
-        private static FormattedText MeasureText(string text, Typeface typeface, double fontSize) =>
-            new(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, fontSize, Brushes.Black);
+        private IEnumerable<Button> GroupRows() =>
+            this.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("foreman-browser-group"));
+
+        private static double MeasuredWidth(Button row) {
+            row.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            return row.DesiredSize.Width;
+        }
 
         private static T Resource<T>(string key) {
             Application app = Application.Current!;

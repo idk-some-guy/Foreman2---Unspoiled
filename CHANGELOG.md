@@ -102,6 +102,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   longer drift out of alignment. Clicking a recipe now places it immediately, since a recipe has no
   options left to choose; a following double-click or Enter on that same cell no longer places a
   second copy.
+- The "Add to Graph" browser's toolbar chip is a small pill again instead of a block spanning the
+  toolbar height, and the search field's text now sits centred in its well. Grid cells hold a fixed
+  width instead of shrinking to their label, so columns line up; a selected cell rings its icon well
+  rather than filling the whole cell. The sidebar measures its widest realised row instead of a
+  hand-tuned constant, so a real preset's group name no longer clips past its right edge. A
+  link-drag's own "Add..." opens the browser on Recipes instead of Items, and a subgroup with no
+  localised name shows a readable heading instead of its raw internal key. Opening the browser mid-
+  press no longer leaves the canvas thinking a mouse button is still down, which used to drag a
+  stray selection rectangle on the next plain mouse move.
 
 ### Changed
 

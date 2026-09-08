@@ -644,17 +644,21 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Border}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.SearchField}" />
-    <Setter Property="Padding" Value="6,4" />
+    <Setter Property="Padding" Value="9,5" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.SearchField.FontSize}" />
   </Style>
 
+  <!-- Gate fix 7, item 5: Stretch (not Left) lets the row's Grid actually receive the row's full width, so
+       its label column can clip/ellipsize against real available space instead of always rendering at its
+       full natural (unclipped) text width. -->
   <Style Selector="Button.foreman-browser-group">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
     <Setter Property="Padding" Value="6,8" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
-    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Browser.Row.FontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
   </Style>
@@ -677,32 +681,37 @@
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
   </Style>
 
+  <!-- Gate fix 7, item 4: an explicit Width keeps the cell exactly on the WrapPanel's own pitch instead of
+       shrinking to the label's natural (pre-wrap) text width, which used to drift columns row to row. -->
   <Style Selector="Button.foreman-browser-cell">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Padding" Value="4" />
+    <Setter Property="Width" Value="{DynamicResource Foreman.Size.BrowserCellPitch}" />
     <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
-  </Style>
-
-  <Style Selector="Button.foreman-browser-cell:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
-  </Style>
-
-  <Style Selector="Button.foreman-browser-cell.selected">
-    <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
   </Style>
 
   <Style Selector="Button.foreman-browser-cell.unavailable">
     <Setter Property="Opacity" Value="0.45" />
   </Style>
 
+  <!-- The button itself stays transparent in every state; hover/selection show on the icon well only. -->
   <Style Selector="Border.foreman-browser-cell-icon">
     <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
     <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackground}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Padding" Value="4" />
+  </Style>
+
+  <Style Selector="Button.foreman-browser-cell:pointerover Border.foreman-browser-cell-icon">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+  </Style>
+
+  <Style Selector="Button.foreman-browser-cell.selected Border.foreman-browser-cell-icon">
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Accent}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource Foreman.Shadow.PickSelectedRing}" />
   </Style>
 
   <Style Selector="TextBlock.foreman-browser-cell-label">
@@ -737,24 +746,31 @@
     <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
   </Style>
 
-  <!-- Filter chip (Task 6, contract #chooser .filter-chip): "Compatible with {item}"/"Origins of {item}". -->
+  <!-- Filter chip (Task 6, contract #chooser .filter-chip): "Compatible with {item}"/"Origins of {item}" -
+       a small pill vertically centred beside the search field, not a block spanning the toolbar row. -->
   <Style Selector="Border.foreman-filter-chip">
     <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
-    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
-    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Pill}" />
+    <Setter Property="Padding" Value="10,3,9,3" />
+    <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
   <Style Selector="TextBlock.foreman-filter-chip-text">
-    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Browser.Row.FontSize}" />
+    <Setter Property="FontSize" Value="11" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Accent}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
   <Style Selector="Button.foreman-filter-chip-x">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Padding" Value="0" />
-    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Browser.Row.FontSize}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Opacity" Value="0.7" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Accent}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
   </Style>
 
 </Styles>

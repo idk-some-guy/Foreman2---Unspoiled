@@ -11,6 +11,7 @@ using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Xunit;
@@ -141,6 +142,25 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Null(vm.SelectedCell);
         }
 
+        //Gate fix 7, item 6: an unresolved Factorio locale placeholder becomes a readable phrase; a normal
+        //FriendlyName (distinct from the raw internal Name) is left alone.
+        [Fact]
+        public void HumanizeStripsAnUnresolvedLocalePlaceholder_AndLeavesARealFriendlyNameAlone() {
+            Assert.Equal("Extraction items", AddBrowserViewModel.Humanize("§§SG:EXTRACTION_ITEMS", "extraction-items"));
+            Assert.Equal("Storage", AddBrowserViewModel.Humanize("Storage", "storage"));
+        }
+
+        //A subgroup whose FriendlyName is Factorio's own unresolved locale key surfaces as a readable
+        //heading instead of the raw "§§SG:..." text.
+        [AvaloniaFact]
+        public void SubheadHumanizesAnUnresolvedLocalePlaceholder() {
+            var fx = CatalogFixture.WithSubgroupNamed("§§SG:EXTRACTION_ITEMS");
+            var settings = new AppSettings();
+            var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
+
+            Assert.Contains("EXTRACTION ITEMS", vm.Sections.Select(s => s.Heading));
+        }
+
         [AvaloniaFact]
         public void MockFidelity_SidebarGroupSubheadAndSearchField() {
             var (win, _) = Open();
@@ -165,6 +185,35 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             var searchField = win.FindControl<TextBox>("SearchBox")!;
             Assert.Equal(new CornerRadius(7), searchField.CornerRadius);
             Assert.Equal(12.5, searchField.FontSize);
+            Assert.Equal(new Thickness(9, 5), searchField.Padding);
+        }
+
+        //Gate fix 7, item 1: the chip must be a small pill vertically centred beside the search field, not
+        //a block spanning the toolbar row height; the search field's own text must sit centred in its well.
+        [AvaloniaFact]
+        public void MockFidelity_ChipIsASmallCenteredPill_AndSearchTextIsVerticallyCentered() {
+            var fx = CatalogFixture.WithItemsAndRecipes(["Iron Plate"], []);
+            AddLinkContext link = fx.LinkContextFor("Iron Plate", NewNodeType.Consumer);
+            var settings = new AppSettings();
+            var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
+            var win = new AddBrowserWindow { DataContext = vm };
+            win.Show();
+            vm.Seed(new AddRequest(new DrawingPoint(0, 0), AddScope.All, link));
+            Dispatcher.UIThread.RunJobs();
+
+            var chip = win.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("foreman-filter-chip"));
+            Assert.True(chip.Bounds.Height <= 24, $"chip height {chip.Bounds.Height} exceeds the pill height");
+            Assert.Equal(new CornerRadius(100), chip.CornerRadius);
+
+            var searchField = win.FindControl<TextBox>("SearchBox")!;
+            double chipCenterY = Avalonia.VisualExtensions.TranslatePoint(chip, new Point(0, chip.Bounds.Height / 2), win)!.Value.Y;
+            double searchCenterY = Avalonia.VisualExtensions.TranslatePoint(searchField, new Point(0, searchField.Bounds.Height / 2), win)!.Value.Y;
+            Assert.Equal(searchCenterY, chipCenterY, 1);
+
+            var textPresenter = searchField.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.TextPresenter>().First();
+            double wellCenterY = Avalonia.VisualExtensions.TranslatePoint(searchField, new Point(0, searchField.Bounds.Height / 2), win)!.Value.Y;
+            double presenterCenterY = Avalonia.VisualExtensions.TranslatePoint(textPresenter, new Point(0, textPresenter.Bounds.Height / 2), win)!.Value.Y;
+            Assert.Equal(wellCenterY, presenterCenterY, 1);
         }
 
         //Gate fix 1: past the cap the label ellipsizes and carries a tooltip.
@@ -283,6 +332,61 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.All(secondRowCells, p => Assert.Equal(secondRowY, Math.Round(p.Y, 1)));
         }
 
+        //Gate fix 7, item 4: every cell is exactly the fixed pitch wide regardless of its label's length, so
+        //columns line up across rows instead of drifting with the text.
+        [AvaloniaFact]
+        public void GridCellsShareAUniformWidth_ColumnsAlignAcrossThreeRows() {
+            string[] items = [.. Enumerable.Range(1, 24).Select(i => i % 5 == 0 ? $"A very long label number {i:00} that wraps" : $"I{i:00}")];
+            var fx = CatalogFixture.WithItemsAndRecipes(items, []);
+            var settings = new AppSettings();
+            var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
+            var win = new AddBrowserWindow { DataContext = vm };
+            win.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var cellButtons = win.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("foreman-browser-cell")).ToList();
+            Assert.Equal(items.Length, cellButtons.Count);
+            Assert.All(cellButtons, b => Assert.Equal(88, b.Bounds.Width, 0.5));
+
+            var positions = cellButtons.Select(b => Avalonia.VisualExtensions.TranslatePoint(b, new Point(0, 0), win)!.Value).ToList();
+            var rowYs = positions.Select(p => Math.Round(p.Y, 1)).Distinct().OrderBy(y => y).ToList();
+            Assert.True(rowYs.Count >= 3, $"expected at least 3 rows, got Y values: {string.Join(", ", rowYs)}");
+
+            var columnXsByRow = rowYs.Take(3)
+                .Select(y => positions.Where(p => Math.Round(p.Y, 1) == y).Select(p => Math.Round(p.X, 1)).OrderBy(x => x).ToList())
+                .ToList();
+            List<double> firstRowColumns = columnXsByRow[0];
+            foreach (List<double> rowColumns in columnXsByRow.Skip(1))
+                for (int col = 0; col < Math.Min(firstRowColumns.Count, rowColumns.Count); col++)
+                    Assert.Equal(firstRowColumns[col], rowColumns[col], 0.5);
+        }
+
+        //Gate fix 7, item 5: the real Space Age preset's own group names (measured against the widest
+        //realised row, not a hand-tuned chrome constant) must fit inside the sidebar with no right-edge clip.
+        [AvaloniaFact]
+        public void SidebarWidthFitsTheRealSpaceAgePresetGroupNames_NoRightEdgeClipping() {
+            using ShellFixture shell = ShellFixture.OpenWithSpaceAge();
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Items));
+            Dispatcher.UIThread.RunJobs();
+
+            AddBrowserWindow window = shell.Window.BrowserWindow!;
+            var sidebar = window.FindControl<Border>("Sidebar")!;
+            double sidebarLeft = Avalonia.VisualExtensions.TranslatePoint(sidebar, new Point(0, 0), window)!.Value.X;
+            double sidebarRight = sidebarLeft + sidebar.Bounds.Width;
+
+            var labels = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.DataContext is BrowserGroup).ToList();
+            Assert.NotEmpty(labels);
+            Assert.Contains(labels, l => ((BrowserGroup)l.DataContext!).Name == "Intermediate products");
+            foreach (TextBlock label in labels) {
+                double left = Avalonia.VisualExtensions.TranslatePoint(label, new Point(0, 0), window)!.Value.X;
+                double right = left + label.Bounds.Width;
+                Assert.True(left >= sidebarLeft + sidebar.Padding.Left - 0.5,
+                    $"'{((BrowserGroup)label.DataContext!).Name}' left edge ({left}) is left of the sidebar's padded edge ({sidebarLeft + sidebar.Padding.Left})");
+                Assert.True(right <= sidebarRight - sidebar.Padding.Right + 0.5,
+                    $"'{((BrowserGroup)label.DataContext!).Name}' right edge ({right}) overflows the sidebar's padded edge ({sidebarRight - sidebar.Padding.Right})");
+            }
+        }
+
         [AvaloniaFact]
         public void MainWindowOwnsOneBrowser_ReopensSeeded_AndCloseKeepsTheInstance() {
             using var shell = ShellFixture.Open();
@@ -298,6 +402,20 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Items));
             Assert.Same(first, shell.Window.BrowserWindow);
             Assert.True(first.IsVisible);
+        }
+
+        //Gate fix 7, item 3: a link-drag's own "Add..." (radial Add.../the palette's Cmd+Enter after it)
+        //always seeds a Link, so it must open on Recipes - a scope-less/link-less open (the toolbar,
+        //background menu, double-click) still defaults to Items.
+        [AvaloniaFact]
+        public void LinkDragAddOpensOnRecipes_ScopeAllWithoutALinkStillOpensOnItems() {
+            using ShellFixture shell = ShellFixture.OpenWithVanillaAndOneSupplier(out AddLinkContext link);
+
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.All, link));
+            Assert.Equal(BrowserSegment.Recipes, shell.BrowserVm.Segment);
+
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.All));
+            Assert.Equal(BrowserSegment.Items, shell.BrowserVm.Segment);
         }
 
         [AvaloniaFact]

@@ -111,6 +111,7 @@
   <x:Double x:Key="Foreman.Type.Browser.Label.FontSize">10</x:Double>
   <x:Double x:Key="Foreman.Type.Browser.Row.FontSize">12.5</x:Double>
   <CornerRadius x:Key="Foreman.Radius.SearchField">7</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.Pill">100</CornerRadius>
   <x:Double x:Key="Foreman.Type.SearchField.FontSize">12.5</x:Double>
 
 </ResourceDictionary>

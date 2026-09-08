@@ -141,10 +141,12 @@ namespace Foreman.Mac.ViewModels {
 
         public void SelectCell(BrowserCell? cell) => SelectedCell = cell;
 
+        //Gate fix 7, item 3: a link-drag's own "Add..." (Scope.All, Link set) always means a recipe search -
+        //only a scope-less/link-less open (the toolbar, background menu, double-click) still defaults to Items.
         public void Seed(AddRequest request) {
             this.request = request;
             pendingOrigin = null;
-            Segment = request.Scope == AddScope.Recipes ? BrowserSegment.Recipes : BrowserSegment.Items;
+            Segment = request.Link is not null || request.Scope == AddScope.Recipes ? BrowserSegment.Recipes : BrowserSegment.Items;
             SearchText = request.SeedText;
             Refresh();
             RaiseChipChanged();
@@ -281,7 +283,26 @@ namespace Foreman.Mac.ViewModels {
 
             groups.Clear();
             foreach (IGroup group in sorted)
-                groups.Add(new BrowserGroup(group, group.FriendlyName, bake(group.Icon, GroupIconSize), group.Equals(current)));
+                groups.Add(new BrowserGroup(group, HumanizeGroupName(group.FriendlyName, group.Name), bake(group.Icon, GroupIconSize), group.Equals(current)));
+        }
+
+        //Some groups/subgroups carry no localised name - FriendlyName then either mirrors the raw internal
+        //key outright or is left as Factorio's own unresolved locale placeholder ("§§SG:EXTRACTION_ITEMS").
+        //Strip the placeholder prefix and turn the remaining key into a readable phrase; a genuinely
+        //localised name (distinct from Name, no placeholder) passes through untouched.
+        internal static string Humanize(string friendlyName, string name) {
+            if (!friendlyName.StartsWith("§§", StringComparison.Ordinal) && friendlyName != name)
+                return friendlyName;
+            string key = friendlyName.StartsWith("§§SG:", StringComparison.Ordinal) ? friendlyName[5..] : friendlyName.TrimStart('§');
+            string words = key.Replace('_', ' ').Replace('-', ' ').Trim().ToLowerInvariant();
+            return words.Length == 0 ? words : char.ToUpperInvariant(words[0]) + words[1..];
+        }
+
+        //The sidebar shows group names as-is (no upper-casing heading transform), so a humanized one gets
+        //title-cased here; an already-localised name is left exactly as authored.
+        private static string HumanizeGroupName(string friendlyName, string name) {
+            string humanized = Humanize(friendlyName, name);
+            return humanized == friendlyName ? friendlyName : System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(humanized);
         }
 
         private void RefreshSections() {
@@ -316,7 +337,7 @@ namespace Foreman.Mac.ViewModels {
                     : subgroup.Recipes.Where(catalog.IsVisible).Select(AddCatalog.Candidate);
                 var cells = candidates.Select(BuildCell).ToList();
                 if (cells.Count > 0)
-                    sections.Add(new BrowserSection(subgroup.FriendlyName, cells));
+                    sections.Add(new BrowserSection(Humanize(subgroup.FriendlyName, subgroup.Name), cells));
             }
         }
 
