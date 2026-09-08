@@ -1,3 +1,4 @@
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Foreman;
@@ -63,6 +64,7 @@ namespace Foreman.Mac.ViewModels {
         public bool HasBeacon { get; private set; }
         public string BeaconName { get; private set; } = "-none-";
         public PickGridItem? SelectedBeacon { get; private set; }
+        public IImage? SelectedBeaconIcon { get; private set; }
         public IReadOnlyList<PickGridItem> BeaconOptions { get; private set; } = [];
         public IReadOnlyList<PickGridItem> EquippedBeaconModules { get; private set; } = [];
         public IReadOnlyList<PickGridItem> BeaconModuleOptions { get; private set; } = [];
@@ -209,6 +211,10 @@ namespace Foreman.Mac.ViewModels {
                 ? BuildItem(beacon, selected.Icon, isSelected: true, isAvailable: beacon.Available && !beacon.IsMissing)
                 : null;
             OnPropertyChanged(nameof(SelectedBeacon));
+            //Flattened onto its own property: {Binding SelectedBeacon.Icon} logs a [Binding] warning every
+            //time SelectedBeacon is null, which is the common no-beacon-selected state.
+            SelectedBeaconIcon = SelectedBeacon?.Icon;
+            OnPropertyChanged(nameof(SelectedBeaconIcon));
 
             BeaconOptions = BuildBeaconOptions();
             OnPropertyChanged(nameof(BeaconOptions));

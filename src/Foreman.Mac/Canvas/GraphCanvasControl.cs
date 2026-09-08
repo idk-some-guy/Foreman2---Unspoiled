@@ -416,15 +416,19 @@ namespace Foreman.Mac.Canvas {
             //us), so only an outside click can close it - and, matching upstream, that same click still
             //falls through to the canvas handling below instead of being swallowed.
             if (FloatingPanelHost.IsOpen) {
-                var pressedPoint = new DrawingPoint((int)screenPoint.X, (int)screenPoint.Y);
-                if (FloatingPanelHost.Bounds.Contains(pressedPoint)) {
+                //C2b: unlike every other panel, a press past the radial's ring cancels the drag instead of
+                //falling through to canvas selection - including inside the panel's own 260x260 square,
+                //which the plain Bounds.Contains check below would otherwise swallow silently.
+                if (OpenRadial is RadialMenu radial) {
+                    if (RadialMenu.IsOutsideOuterRadius(e.GetPosition(radial))) {
+                        DisposeLinkDrag();
+                        FloatingPanelHost.Close();
+                    }
                     e.Handled = true;
                     return;
                 }
-                //C2b: unlike every other panel, an outside click on the radial cancels the drag instead of falling through to canvas selection.
-                if (OpenRadial is not null) {
-                    DisposeLinkDrag();
-                    FloatingPanelHost.Close();
+                var pressedPoint = new DrawingPoint((int)screenPoint.X, (int)screenPoint.Y);
+                if (FloatingPanelHost.Bounds.Contains(pressedPoint)) {
                     e.Handled = true;
                     return;
                 }
@@ -811,7 +815,7 @@ namespace Foreman.Mac.Canvas {
             AddRequest current = request;
             ActiveAddRequest = current;
             var vm = new QuickAddViewModel(new AddCatalog(cache, ChooserSettings), request, Viewer.Graph.DefaultAssemblerQuality, bmp => IconBaker.GetOrBake(addIconCache, bmp, 22));
-            var palette = new QuickAddPalette(vm);
+            var palette = new QuickAddPalette { DataContext = vm };
             palette.PickCommitted += (_, c) => {
                 current = PlaceCandidate(c, current);
                 ActiveAddRequest = current;

@@ -14,15 +14,17 @@ namespace Foreman.Mac.Views.QuickAdd {
     public sealed partial class QuickAddPalette : UserControl, IPanelInitialFocus, IPanelContentResize {
         private readonly TextBox searchBox;
         private readonly ItemsControl results;
+        private QuickAddViewModel? subscribedVm;
 
-        public QuickAddPalette(QuickAddViewModel vm) {
+        //Parameterless so the XAML runtime loader can find it (AVLN3001) - the caller assigns DataContext
+        //separately and OnDataContextChanged below picks it up.
+        public QuickAddPalette() {
             InitializeComponent();
-            DataContext = vm;
             searchBox = this.FindControl<TextBox>("SearchBox")!;
             results = this.FindControl<ItemsControl>("Results")!;
             searchBox.AddHandler(KeyDownEvent, OnSearchKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             AddHandler(Button.ClickEvent, OnRowClick);
-            vm.RowsChanged += (_, _) => ContentResized?.Invoke(this, EventArgs.Empty);
+            DataContextChanged += OnDataContextChanged;
         }
 
         public event EventHandler<AddCandidate>? PickCommitted;
@@ -30,20 +32,32 @@ namespace Foreman.Mac.Views.QuickAdd {
         public event EventHandler? CloseRequested;
         public event EventHandler? ContentResized;
 
-        private QuickAddViewModel Vm => (QuickAddViewModel)DataContext!;
+        private QuickAddViewModel? Vm => DataContext as QuickAddViewModel;
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
+        private void OnDataContextChanged(object? sender, EventArgs e) {
+            if (subscribedVm is not null)
+                subscribedVm.RowsChanged -= OnVmRowsChanged;
+            subscribedVm = Vm;
+            if (subscribedVm is not null)
+                subscribedVm.RowsChanged += OnVmRowsChanged;
+        }
+
+        private void OnVmRowsChanged(object? sender, EventArgs e) => ContentResized?.Invoke(this, EventArgs.Empty);
+
         private void OnSearchKeyDown(object? sender, KeyEventArgs e) {
+            if (Vm is not QuickAddViewModel vm)
+                return;
             switch (e.Key) {
                 case Key.Down:
-                    Vm.MoveHighlight(+1);
-                    BringHighlightIntoView();
+                    vm.MoveHighlight(+1);
+                    BringHighlightIntoView(vm);
                     e.Handled = true;
                     break;
                 case Key.Up:
-                    Vm.MoveHighlight(-1);
-                    BringHighlightIntoView();
+                    vm.MoveHighlight(-1);
+                    BringHighlightIntoView(vm);
                     e.Handled = true;
                     break;
                 case Key.Escape:
@@ -51,11 +65,11 @@ namespace Foreman.Mac.Views.QuickAdd {
                     e.Handled = true;
                     break;
                 case Key.Enter when e.KeyModifiers.HasFlag(KeyModifiers.Meta):
-                    BrowseRequested?.Invoke(this, Vm.Query);
+                    BrowseRequested?.Invoke(this, vm.Query);
                     e.Handled = true;
                     break;
                 case Key.Enter:
-                    if (Vm.Commit() is { } candidate)
+                    if (vm.Commit() is { } candidate)
                         PickCommitted?.Invoke(this, candidate);
                     e.Handled = true;
                     break;
@@ -66,8 +80,8 @@ namespace Foreman.Mac.Views.QuickAdd {
         //highlight on-screen as arrow keys move it past what's currently visible. Adjusts Offset
         //directly rather than Control.BringIntoView() - that routed event is a no-op in some windowing
         //states this control doesn't control.
-        private void BringHighlightIntoView() {
-            if (Vm.HighlightedIndex < 0 || results.ContainerFromIndex(Vm.HighlightedIndex) is not Control container)
+        private void BringHighlightIntoView(QuickAddViewModel vm) {
+            if (vm.HighlightedIndex < 0 || results.ContainerFromIndex(vm.HighlightedIndex) is not Control container)
                 return;
             if (results.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault() is not ScrollViewer scrollViewer)
                 return;

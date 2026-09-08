@@ -21,7 +21,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             var fx = CatalogFixture.WithGroups();
             settings ??= new AppSettings();
             var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
-            var win = new AddBrowserWindow(vm);
+            var win = new AddBrowserWindow { DataContext = vm };
             win.Show();
             return (win, vm);
         }

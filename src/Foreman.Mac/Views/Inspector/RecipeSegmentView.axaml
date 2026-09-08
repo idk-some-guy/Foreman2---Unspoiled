@@ -80,7 +80,7 @@
       <StackPanel Spacing="0">
         <StackPanel Orientation="Horizontal" Classes="foreman-picker-row">
           <Border Classes="foreman-picker-icon">
-            <Image Name="SelectedBeaconIcon" Source="{Binding SelectedBeacon.Icon}" Stretch="Uniform" />
+            <Image Name="SelectedBeaconIcon" Source="{Binding SelectedBeaconIcon}" Stretch="Uniform" />
           </Border>
           <StackPanel VerticalAlignment="Center">
             <TextBlock Name="BeaconNameText" Text="{Binding BeaconName}" Classes="foreman-picker-name" />

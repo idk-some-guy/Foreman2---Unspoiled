@@ -19,7 +19,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: ["Iron Plate", "Iron Plating"], recipes: ["Iron Plate"]);
             var vm = new QuickAddViewModel(new AddCatalog(fx.Cache, new AppSettings()),
                 new AddRequest(new DrawingPoint(0, 0), AddScope.All, SeedText: seed), null, _ => null);
-            var palette = new QuickAddPalette(vm);
+            var palette = new QuickAddPalette { DataContext = vm };
             var window = new AvaloniaWindow { Content = palette, Width = 600, Height = 400 };
             window.Show();
             palette.FocusInitialControl();

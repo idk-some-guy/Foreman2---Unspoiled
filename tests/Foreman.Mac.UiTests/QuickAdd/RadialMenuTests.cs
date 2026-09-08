@@ -87,6 +87,33 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             }
         }
 
+        //Gate fix 3, item 4: a press inside the 260x260 square but past the outer ring (radius 92) used to
+        //land inside FloatingPanelHost.Bounds and get silently swallowed instead of cancelling.
+        [AvaloniaFact]
+        public void PressInsideTheSquareButOutsideTheRing_Cancels() {
+            using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
+            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
+            RadialMenu radial = fx.Control.OpenRadial!;
+
+            fx.ClickAt(radial.Bounds.Center + new AvaloniaVector(100, 100));
+
+            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.Single(fx.Viewer.Graph.Nodes);
+            Assert.Null(fx.Control.DraggedLink);
+        }
+
+        [AvaloniaFact]
+        public void PressOnTheHub_IsANoOp() {
+            using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
+            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
+            RadialMenu radial = fx.Control.OpenRadial!;
+
+            fx.ClickAt(radial.Bounds.Center);
+
+            Assert.True(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.Same(radial, fx.Control.OpenRadial);
+        }
+
         [AvaloniaFact]
         public void CmdHeldAtReleaseStillDropsAPassthroughWithoutTheRadial() {
             using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);

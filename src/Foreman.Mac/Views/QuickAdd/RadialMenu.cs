@@ -155,12 +155,12 @@ namespace Foreman.Mac.Views.QuickAdd {
         //Polar maths, not FillContains/InputHitTest - both are unreliable for arc-based geometry here. Pure
         //function of the caller's own slice list, so a plain [Fact] can exercise it without an Application.
         internal static RadialChoice? ResolveChoice(Point point, IReadOnlyList<RadialChoice> choices) {
-            double dx = point.X - CenterCoord;
-            double dy = point.Y - CenterCoord;
-            double radius = Math.Sqrt((dx * dx) + (dy * dy));
+            double radius = RadiusFromCenter(point);
             if (radius <= HubRadius || radius > OuterRadius)
                 return null;
 
+            double dx = point.X - CenterCoord;
+            double dy = point.Y - CenterCoord;
             double angle = ((Math.Atan2(dy, dx) * 180 / Math.PI) + 360) % 360;
             double span = 360.0 / choices.Count;
             for (int i = 0; i < choices.Count; i++) {
@@ -171,6 +171,16 @@ namespace Foreman.Mac.Views.QuickAdd {
                     return choices[i];
             }
             return null;
+        }
+
+        //A press anywhere past the ring - inside the 260x260 square or outside it - should cancel; only the
+        //hub (radius <= HubRadius) is a no-op.
+        internal static bool IsOutsideOuterRadius(Point point) => RadiusFromCenter(point) > OuterRadius;
+
+        private static double RadiusFromCenter(Point point) {
+            double dx = point.X - CenterCoord;
+            double dy = point.Y - CenterCoord;
+            return Math.Sqrt((dx * dx) + (dy * dy));
         }
 
         protected override void OnPointerMoved(PointerEventArgs e) {

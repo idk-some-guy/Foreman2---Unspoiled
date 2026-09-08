@@ -87,6 +87,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The Quick Add palette now grows to fit its results as you type (up to six rows, then scrolls) and
   shrinks back once the query empties, instead of staying pinned to its size at open. Its hint row
   wraps instead of clipping its last entry, and Cmd+Enter now shows as one combined key cap.
+- Typing in the Quick Add search box no longer triggers canvas hotkeys underneath it; Space inserts
+  a space instead of toggling gridlines. A click on the link-drag radial menu now cancels anywhere
+  past its ring, including inside its square hit area, instead of only outside the whole panel.
+  AddBrowserWindow and QuickAddPalette build without a startup XAML-loader warning, and the beacon
+  icon binding no longer logs a null-binding warning when no beacon is selected.
 
 ### Changed
 

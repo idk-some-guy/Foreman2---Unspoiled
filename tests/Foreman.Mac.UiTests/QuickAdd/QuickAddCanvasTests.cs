@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -9,6 +10,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.QuickAdd;
@@ -224,6 +226,51 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Control seventhRow = results.ContainerFromIndex(6)!;
             Point seventhTop = seventhRow.TranslatePoint(new Point(0, 0), scrollViewer) ?? new Point(double.NaN, double.NaN);
             Assert.True(seventhTop.Y >= scrollViewer.Viewport.Height - 0.5, $"the seventh row's top ({seventhTop.Y}) is above the viewport ({scrollViewer.Viewport.Height}) - more than six rows are visible");
+        }
+
+        //Gate fix 3, item 3: MainWindow's own Space-toggles-gridlines handler is a separate KeyDown
+        //subscription on GraphCanvas (not the control's own OnKeyDown override), so it used to fire even
+        //while the palette's search box had focus.
+        [AvaloniaFact]
+        public void SpaceTypedIntoTheSearchBox_InsertsASpace_AndLeavesGridlinesAlone() {
+            MainWindow window = OpenWindow(out _);
+            bool gridlinesBefore = window.GraphCanvas.Grid.ShowGrid;
+
+            window.GraphCanvas.AddItemAsync(new DrawingPoint(0, 0));
+            var box = window.GraphCanvas.OpenPalette!.FindControl<TextBox>("SearchBox")!;
+            //A real Space keypress raises both events - KeyDown (what the gridlines bug hooked) and
+            //TextInput (what actually inserts the character).
+            CanvasKeys.KeyDownOn(box, Key.Space);
+            window.KeyTextInput(" ");
+
+            Assert.Equal(gridlinesBefore, window.GraphCanvas.Grid.ShowGrid);
+            Assert.Equal(" ", ((QuickAddViewModel)window.GraphCanvas.OpenPalette!.DataContext!).Query);
+        }
+
+        [AvaloniaFact]
+        public void LettersAndArrowsTypedIntoTheSearchBox_DoNotTriggerCanvasHotkeys() {
+            MainWindow window = OpenWindow(out _);
+
+            window.GraphCanvas.AddItemAsync(new DrawingPoint(0, 0));
+            var box = window.GraphCanvas.OpenPalette!.FindControl<TextBox>("SearchBox")!;
+            DrawingPoint offsetBefore = window.GraphCanvas.Viewport.ViewOffset;
+
+            CanvasKeys.KeyDownOn(box, Key.G);
+            CanvasKeys.KeyDownOn(box, Key.S);
+            CanvasKeys.KeyDownOn(box, Key.Down);
+
+            Assert.Equal(offsetBefore, window.GraphCanvas.Viewport.ViewOffset);
+        }
+
+        private static MainWindow OpenWindow(out DataCache cache) {
+            CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: ["Iron Plate"], recipes: []);
+            cache = fx.Cache;
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = fx.Cache;
+            window.Settings = new AppSettings();
+            window.ApplyLoadedSettings();
+            return window;
         }
 
         private static (GraphCanvasControl, AvaloniaWindow) NewCanvas(DataCache cache) {
