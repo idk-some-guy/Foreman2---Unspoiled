@@ -187,6 +187,15 @@ namespace ForemanTest {
             Assert.AreEqual(0, normal.Level);
         }
 
+        //Gate fix 10: the extra group's FriendlyName used to join three category names with embedded
+        //newlines ("Resource Extraction\nPower Generation\nRocket Launches"), which the "Add to Graph"
+        //browser rendered raw. Fixed at the source with a single-line name.
+        [TestMethod]
+        public void ExtraGroup_FriendlyNameIsASingleLine() {
+            var cache = new DataCache(filterRecipes: true);
+            Assert.AreEqual("Extraction, Power & Rockets", cache.Groups["§§g:extra_group"].FriendlyName);
+        }
+
         [TestMethod]
         public void Clear_KeepsForemanHelperObjects() {
             var cache = new DataCache(filterRecipes: true);

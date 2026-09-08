@@ -113,6 +113,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Quick Add rows fade and slide into place as they appear, the browser's segment switch and
   filtered-in cells cross-fade instead of jumping, and the link-drag radial menu opens with a brief
   scale-and-fade and fades out before it's removed on close.
+- The extraction/power/rocket-launch group in the "Add to Graph" browser's Recipes segment used to
+  show as three lines stacked in its sidebar row ("Resource Extraction / Power Generation / Rocket
+  Launches"); it's now a single line, "Extraction, Power & Rockets". Any group or subgroup name
+  carrying stray whitespace, newlines included, also collapses to a single space as a defense in
+  the browser's own name display.
 
 ### Changed
 

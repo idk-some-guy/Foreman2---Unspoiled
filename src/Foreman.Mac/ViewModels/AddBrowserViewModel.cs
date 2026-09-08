@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Foreman.Mac.ViewModels {
     public enum BrowserSegment { Items, Recipes }
@@ -286,23 +287,29 @@ namespace Foreman.Mac.ViewModels {
                 groups.Add(new BrowserGroup(group, HumanizeGroupName(group.FriendlyName, group.Name), bake(group.Icon, GroupIconSize), group.Equals(current)));
         }
 
+        private static readonly Regex WhitespaceRun = new(@"\s+", RegexOptions.Compiled);
+
+        //A localised name can still carry a stray newline or run of whitespace (the Foreman-internal
+        //"extra" group joins three category names this way) - collapse any such run to one space.
+        private static string CollapseWhitespace(string value) => WhitespaceRun.Replace(value, " ").Trim();
+
         //Some groups/subgroups carry no localised name - FriendlyName then either mirrors the raw internal
         //key outright or is left as Factorio's own unresolved locale placeholder ("§§SG:EXTRACTION_ITEMS").
         //Strip the placeholder prefix and turn the remaining key into a readable phrase; a genuinely
-        //localised name (distinct from Name, no placeholder) passes through untouched.
+        //localised name (distinct from Name, no placeholder) passes through with its whitespace collapsed.
         internal static string Humanize(string friendlyName, string name) {
             if (!friendlyName.StartsWith("§§", StringComparison.Ordinal) && friendlyName != name)
-                return friendlyName;
+                return CollapseWhitespace(friendlyName);
             string key = friendlyName.StartsWith("§§SG:", StringComparison.Ordinal) ? friendlyName[5..] : friendlyName.TrimStart('§');
-            string words = key.Replace('_', ' ').Replace('-', ' ').Trim().ToLowerInvariant();
+            string words = CollapseWhitespace(key.Replace('_', ' ').Replace('-', ' ').ToLowerInvariant());
             return words.Length == 0 ? words : char.ToUpperInvariant(words[0]) + words[1..];
         }
 
         //The sidebar shows group names as-is (no upper-casing heading transform), so a humanized one gets
-        //title-cased here; an already-localised name is left exactly as authored.
+        //title-cased here; an already-localised name is left exactly as authored (whitespace collapsed).
         private static string HumanizeGroupName(string friendlyName, string name) {
             string humanized = Humanize(friendlyName, name);
-            return humanized == friendlyName ? friendlyName : System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(humanized);
+            return humanized == CollapseWhitespace(friendlyName) ? humanized : System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(humanized);
         }
 
         private void RefreshSections() {

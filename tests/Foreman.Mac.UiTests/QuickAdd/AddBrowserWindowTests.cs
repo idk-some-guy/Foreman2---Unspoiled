@@ -170,6 +170,13 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal("Storage", AddBrowserViewModel.Humanize("Storage", "storage"));
         }
 
+        //Gate fix 10: a localised FriendlyName can carry embedded newlines - Humanize collapses any
+        //whitespace run to one space regardless of the source.
+        [Fact]
+        public void HumanizeCollapsesEmbeddedWhitespaceRuns_IncludingNewlines() {
+            Assert.Equal("Foo Bar Baz", AddBrowserViewModel.Humanize("Foo\nBar\r\n  Baz", "foo-bar-baz"));
+        }
+
         //A subgroup whose FriendlyName is Factorio's own unresolved locale key surfaces as a readable
         //heading instead of the raw "§§SG:..." text.
         [AvaloniaFact]
@@ -477,6 +484,32 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             } finally {
                 WindowScaler.SetScale(1.0);
             }
+        }
+
+        //Gate fix 10: the Foreman-internal "extra" group's FriendlyName used to join three category
+        //names with embedded newlines; it's a single line now (DataCacheBootstrap), but this stays as a
+        //defense-in-depth check that no sidebar row or subgroup heading ever renders a raw newline.
+        [AvaloniaFact]
+        public void GroupNamesWithEmbeddedNewlinesRenderOnOneLine_InTheRealSpaceAgePreset() {
+            using ShellFixture shell = ShellFixture.OpenWithSpaceAge();
+            shell.Window.Settings!.ShowUnavailable = true;
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Recipes));
+            Dispatcher.UIThread.RunJobs();
+
+            AddBrowserWindow window = shell.Window.BrowserWindow!;
+            var groupLabels = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.DataContext is BrowserGroup).ToList();
+            var headings = window.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("foreman-browser-subhead")).ToList();
+            Assert.NotEmpty(groupLabels);
+
+            foreach (TextBlock label in groupLabels.Concat(headings)) {
+                string text = label.Text ?? "";
+                Assert.False(text.Contains('\n') || text.Contains('\r'), $"'{text}' contains a raw newline");
+            }
+
+            var groupButtons = window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("foreman-browser-group")).ToList();
+            Button extraGroupButton = groupButtons.Single(b => ((BrowserGroup)b.DataContext!).Group.Name == "§§g:extra_group");
+            double otherRowHeight = groupButtons.First(b => b != extraGroupButton).Bounds.Height;
+            Assert.Equal(otherRowHeight, extraGroupButton.Bounds.Height, 0.5);
         }
 
         [AvaloniaFact]

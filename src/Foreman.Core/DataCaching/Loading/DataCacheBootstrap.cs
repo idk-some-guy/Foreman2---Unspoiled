@@ -10,7 +10,7 @@ namespace Foreman.DataCaching.Loading {
                 Tier = 0
             };
 
-            store.ExtraFormanGroup = new GroupPrototype(owner, "§§g:extra_group", "Resource Extraction\nPower Generation\nRocket Launches", "~~~z1");
+            store.ExtraFormanGroup = new GroupPrototype(owner, "§§g:extra_group", "Extraction, Power & Rockets", "~~~z1");
             var icon = IconCache.GetIcon(Path.Combine("Graphics", "ExtraGroupIcon.png"), 64);
             try {
                 store.ExtraFormanGroup.SetIconAndColor(new IconColorPair(icon, Color.Gray));

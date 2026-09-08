@@ -22,7 +22,7 @@ namespace Foreman.Mac.UiTests.Canvas {
     //Space Age preset (not vanilla - a prior agent's vanilla-only check wrongly cleared it). The extraction
     //recipe (§§r:e:<item>) is present, Available, Enabled, and correctly linked to its mining-drill
     //Assemblers for every Space Age resource including the fluid-yielding ones (crude-oil, lava, water, ...).
-    //The real root cause lived one layer down: the "Resource Extraction" group's own icon rendered blank
+    //The real root cause lived one layer down: the extraction group's own icon rendered blank
     //(IconCache.GetIcon resolving its Graphics/*.png path against the wrong working directory - see
     //IconPipelineTests.cs and the upstream-divergences.md entry for the fix). These tests pin that the
     //extraction recipe and its group stay reachable through AddCatalog/AddBrowserViewModel, the retired
@@ -87,8 +87,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Contains(rows, r => r.Recipe?.Name == "§§r:e:iron-ore");
         }
 
-        //Ports the human's second-reported repro (the Add Item flow): the "Resource Extraction" group stays
-        //listed and its recipe section still surfaces the extraction recipe once selected.
+        //Ports the human's second-reported repro (the Add Item flow): the extraction group stays listed
+        //and its recipe section still surfaces the extraction recipe once selected.
         [AvaloniaFact]
         public async Task ResourceExtractionGroup_IsListedAndPopulated() {
             DataCache cache = await GetCacheAsync();
