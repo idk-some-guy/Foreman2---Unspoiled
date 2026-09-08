@@ -18,6 +18,7 @@ using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using Foreman.Mac.Views.Inspector;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using Foreman.Serialization;
 using SkiaSharp;
@@ -586,14 +587,11 @@ namespace Foreman.Mac {
         //Ports the ResolveChosenPresetAsync slow path's dialog launch (upstream ProductionGraphViewer.cs:
         //1477-1488): owner+50/+50, same Manual placement as Settings/Graph Summary/Image Export.
         private async Task<Preset?> RealShowPresetSelectionDialogAsync(List<PresetErrorPackage> presetErrors) {
-            var window = new PresetSelectionWindow(presetErrors) {
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Position = Position + new PixelPoint(50, 50),
-            };
-            bool? result = await window.ShowDialog<bool?>(this).ConfigureAwait(true);
+            var sheet = new PresetSelectionSheet(presetErrors);
+            bool? result = await SheetHost.For(this).ShowAsync(sheet).ConfigureAwait(true);
             if (!GraphCanvas.FloatingPanelHost.IsOpen)
                 GraphCanvas.Focus();
-            return result == true ? window.ChosenPreset : null;
+            return result == true ? sheet.ChosenPreset : null;
         }
 
         private Task ShowPresetSwitchInfoAsync(string message) =>
@@ -1052,11 +1050,7 @@ namespace Foreman.Mac {
         }
 
         private async Task RealShowImageExportAsync() {
-            var window = new ImageExportWindow(GraphCanvas.Viewer) {
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Position = Position + new PixelPoint(50, 50),
-            };
-            await window.ShowDialog(this).ConfigureAwait(true);
+            await SheetHost.For(this).ShowAsync(new ImageExportSheet(GraphCanvas.Viewer)).ConfigureAwait(true);
             if (!GraphCanvas.FloatingPanelHost.IsOpen)
                 GraphCanvas.Focus();
         }

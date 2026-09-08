@@ -13,15 +13,18 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Foreman.Mac.Views {
+namespace Foreman.Mac.Views.Sheets {
     //Ports PresetImportForm(+.designer.cs) (reference io-reference.md §4, upstream PresetImportForm.cs): the
     //Import-preset-from-Factorio dialog. Pre-flight validation lives here; the process pipeline itself
     //(PresetImporter, Foreman.Core) is UI-independent and tested against StubFactorioHarness separately.
     //FactorioLocationComboBox is a real (non-editable) ComboBox again, listing every detected candidate; the
     //editable TextBox next to it stays the authoritative free-text value, since Avalonia's ComboBox has no
     //editable-freetext mode without pulling in AutoCompleteBox. ModsLocationComboBox stays a plain TextBox -
-    //upstream never seeds it with any candidate at all (docs/upstream-divergences.md).
-    public partial class PresetImportWindow : Window, IDisposable {
+    //upstream never seeds it with any candidate at all (docs/upstream-divergences.md). C2c Task 2 moved this
+    //off PresetImportWindow onto SheetHost: DialogResultValue stays the caller's own read model (SettingsWindow
+    //reads NewPresetName/ImportStarted off it the same way it read them off the window), independent of the
+    //sheet's own Complete/Cancel result.
+    public partial class PresetImportSheet : SheetContent<bool?>, IDisposable {
         private readonly List<Preset> existingPresets;
         private readonly CancellationTokenSource cts = new();
         private bool disposed;
@@ -48,7 +51,7 @@ namespace Foreman.Mac.Views {
         //have (a real, standing Factorio install is entirely plausible on this project's own dev machine).
         internal string? HomeOverride { get; set; }
 
-        //Test-only seams (see ImageExportWindow's SaveFilePathStub for the established convention).
+        //Test-only seams (see ImageExportSheet's SaveFilePathStub for the established convention).
         internal Func<Task<string?>>? BrowseFactorioLocationStub { get; set; }
         internal Func<Task<string?>>? BrowseModsLocationStub { get; set; }
         internal Func<string, string, Task>? WarningDialogStub { get; set; }
@@ -58,19 +61,21 @@ namespace Foreman.Mac.Views {
         //against StubFactorioHarness, where that harness actually lives.
         internal Func<string, string, string, string, string, IProgress<KeyValuePair<int, string>>, Func<int, int, Task<bool>>, CancellationToken, Task<PresetImporter.Result>>? ProcessPresetStub { get; set; }
 
-        public PresetImportWindow() : this([]) {
+        public PresetImportSheet() : this([]) {
         }
 
-        public PresetImportWindow(List<Preset> existingPresets) : this(existingPresets, null) {
+        public PresetImportSheet(List<Preset> existingPresets) : this(existingPresets, null) {
         }
 
         //Test-only seam: lets a test seed the Factorio-location picker from a fixture list instead of the
         //real machine's FactorioPathsProcessor.GetFactorioInstallLocations() - needed here (unlike
         //HomeOverride below) because the picker has to be populated during construction, before a test gets
         //a chance to set any post-construction property.
-        internal PresetImportWindow(List<Preset> existingPresets, List<string>? installLocationsOverride) {
+        internal PresetImportSheet(List<Preset> existingPresets, List<string>? installLocationsOverride) {
             InitializeComponent();
             this.existingPresets = existingPresets;
+            SheetWidth = 460;
+            Title = "Import Preset";
 
             factorioLocationComboBox = this.FindControl<ComboBox>("FactorioLocationComboBox")!;
             factorioLocationTextBox = this.FindControl<TextBox>("FactorioLocationTextBox")!;
@@ -83,6 +88,7 @@ namespace Foreman.Mac.Views {
             progressPanel = this.FindControl<StackPanel>("ProgressPanel")!;
             progressBar = this.FindControl<ProgressBar>("ImportProgressBar")!;
             statusTextBlock = this.FindControl<TextBlock>("StatusTextBlock")!;
+            DefaultButton = okButton;
 
             List<string> installLocations = installLocationsOverride ?? FactorioPathsProcessor.GetFactorioInstallLocations();
             factorioLocationTextBox.Text = installLocations.FirstOrDefault() ?? "";
@@ -101,25 +107,19 @@ namespace Foreman.Mac.Views {
             //stays Moccasin - the XAML default - until the user actually types.
             presetNameTextBox.TextChanging += (_, _) => OnPresetNameChanging();
             okButton.Click += (_, _) => Async.Fire(RunImportAsync(), nameof(RunImportAsync));
-            cancelButton.Click += (_, _) => CancelImport();
-            WindowScaler.Track(this);
+            cancelButton.Click += (_, _) => Cancel();
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
         //Ports the upstream "using var form = new PresetImportForm()" disposal (reference §7's caller,
-        //SettingsForm.cs:485): cts is the only disposable field, released once the window actually closes.
+        //SettingsForm.cs:485): cts is the only disposable field, released once the sheet completes.
         public void Dispose() {
             if (disposed)
                 return;
             disposed = true;
             cts.Dispose();
             GC.SuppressFinalize(this);
-        }
-
-        protected override void OnClosed(EventArgs e) {
-            base.OnClosed(e);
-            Dispose();
         }
 
         //Ports PresetNameTextBox_TextChanged (reference §4 step 8) verbatim: filter to
@@ -182,7 +182,7 @@ namespace Foreman.Mac.Views {
         }
 
         private async Task<string?> RealPickFolderAsync() {
-            if (StorageProvider is not IStorageProvider storage)
+            if (TopLevel.GetTopLevel(this)?.StorageProvider is not IStorageProvider storage)
                 return null;
 
             IReadOnlyList<IStorageFolder> folders = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions {
@@ -191,12 +191,14 @@ namespace Foreman.Mac.Views {
             return folders.Count > 0 ? folders[0].Path.LocalPath : null;
         }
 
-        //Ports CancelButton_Click (reference §4) verbatim.
-        private void CancelImport() {
+        //Ports CancelButton_Click (reference §4) verbatim. Overrides SheetContent<T>.Cancel so the Cancel
+        //button and SheetHost's own Escape handling (which calls this same method) behave identically.
+        public override void Cancel() {
             cts.Cancel();
             DialogResultValue = false;
             NewPresetName = "";
-            Close();
+            base.Cancel();
+            Dispose();
         }
 
         //Ports OKButton_Click's pre-flight validation + pipeline kickoff (reference §4 steps 1-7). Skips
@@ -268,7 +270,8 @@ namespace Foreman.Mac.Views {
             if (result.Outcome == PresetImportOutcome.Ok) {
                 NewPresetName = result.NewPresetName;
                 DialogResultValue = true;
-                Close();
+                Complete(true);
+                Dispose();
             } else {
                 NewPresetName = "";
                 EnableProgressBar(false);
@@ -289,10 +292,10 @@ namespace Foreman.Mac.Views {
         }
 
         private Task ShowWarningAsync(string title, string message) =>
-            WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync(this, title, message);
+            WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync((Window)VisualRoot!, title, message);
 
         private Task<bool> ShowConfirmAsync(string title, string message) =>
-            ConfirmDialogStub?.Invoke(title, message) ?? Dialogs.ShowConfirmAsync(this, title, message);
+            ConfirmDialogStub?.Invoke(title, message) ?? Dialogs.ShowConfirmAsync((Window)VisualRoot!, title, message);
 
         //-------------------------------------------------------------------------------------------------Test-only seams
 
@@ -304,12 +307,13 @@ namespace Foreman.Mac.Views {
         internal Button CancelButtonControl => cancelButton;
         internal ProgressBar ProgressBarControl => progressBar;
         internal bool ProgressPanelVisible => progressPanel.IsVisible;
+        internal bool Disposed => disposed;
 
-        internal void SimulateCancelClick() => CancelImport();
+        internal void SimulateCancelClick() => Cancel();
 
         //Lets a SettingsWindow-level test drive the post-import wiring (add-to-list / RequireReload / switch
-        //prompt) without running this window's own pre-flight validation and pipeline, which are covered on
-        //their own in PresetImportWindowTests/PresetImporterTests.
+        //prompt) without running this sheet's own pre-flight validation and pipeline, which are covered on
+        //their own in PresetImportSheetTests/PresetImporterTests.
         internal void SimulateImportSuccess(string presetName) {
             NewPresetName = presetName;
             ImportStarted = true;

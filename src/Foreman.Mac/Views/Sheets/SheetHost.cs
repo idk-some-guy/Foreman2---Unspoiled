@@ -24,6 +24,7 @@ namespace Foreman.Mac.Views.Sheets {
         private Window? ownerWindow;
         private Control? siblingContent;
         private Control? currentContent;
+        private Control? dismissedContent;
         private Button? currentDefaultButton;
         private Action? cancelCurrent;
         private DispatcherTimer? closingTimer;
@@ -134,6 +135,7 @@ namespace Foreman.Mac.Views.Sheets {
 
         private void BeginDismiss() {
             IsOpen = false;
+            dismissedContent = currentContent;
             currentContent = null;
             if (siblingContent is not null)
                 siblingContent.IsHitTestVisible = true;
@@ -158,6 +160,11 @@ namespace Foreman.Mac.Views.Sheets {
             panelBorder.Child = null;
             currentDefaultButton = null;
             cancelCurrent = null;
+
+            //backstop: dispose here on every dismissal path even if the sheet forgot
+            if (dismissedContent is IDisposable disposable)
+                disposable.Dispose();
+            dismissedContent = null;
 
             busy = false;
             if (waitingTurns.Count > 0) {

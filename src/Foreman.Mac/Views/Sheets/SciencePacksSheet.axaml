@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Foreman.Mac.Views.Sheets.SciencePacksSheet">
+  <StackPanel Spacing="12">
+    <ScrollViewer Name="SciencePackGridScrollViewer" VerticalScrollBarVisibility="Auto">
+      <UniformGrid Name="SciencePackGrid" />
+    </ScrollViewer>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+      <Button Name="ConfirmationButton" Content="Confirm" />
+      <Button Name="CancellationButton" Content="Cancel" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

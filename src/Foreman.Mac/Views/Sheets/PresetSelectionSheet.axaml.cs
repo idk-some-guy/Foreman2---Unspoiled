@@ -2,17 +2,17 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Foreman;
 using Foreman.DataCaching;
-using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using System.Collections.Generic;
 
-namespace Foreman.Mac.Views {
+namespace Foreman.Mac.Views.Sheets {
     //Ports Forms/PresetSelectionForm.cs(+.Designer.cs) (reference docs/io-reference.md §8): the ranked
     //picker MainWindow.ResolveChosenPresetAsync shows when no installed preset matches the loaded save's
     //own preset exactly. Avalonia's ListBox has no WinForms ListView column support, so the 4-column layout
     //(Preset/Mods/Items/Recipes) is a shared Grid.ColumnDefinitions string reused by the header row and the
-    //per-item DataTemplate rather than real ColumnHeaders.
-    public partial class PresetSelectionWindow : Window {
+    //per-item DataTemplate rather than real ColumnHeaders. C2c Task 2 moved this off PresetSelectionWindow
+    //onto SheetHost, keeping the former window's fixed 460x360 size.
+    public partial class PresetSelectionSheet : SheetContent<bool?> {
         private readonly List<PresetRow> presetRows;
         private readonly ListBox presetListView;
         private readonly Button confirmationButton;
@@ -22,27 +22,30 @@ namespace Foreman.Mac.Views {
 
         public Preset? ChosenPreset { get; private set; }
 
-        public PresetSelectionWindow() : this([]) {
+        public PresetSelectionSheet() : this([]) {
         }
 
         //Ports the constructor's sort + per-package row build (PresetSelectionForm.cs:14-53): the sort and
         //row build now live on PresetSelectionViewModel.Load (Task 8), which calls List<T>.Sort itself, so
         //PresetErrorPackage.CompareTo still lands the closest-matching preset first.
-        public PresetSelectionWindow(List<PresetErrorPackage> presetErrors) {
+        public PresetSelectionSheet(List<PresetErrorPackage> presetErrors) {
             InitializeComponent();
             ViewModel.Load(presetErrors);
+            SheetWidth = 460;
+            SheetHeight = 360;
+            Title = "Please select Preset";
 
             presetListView = this.FindControl<ListBox>("PresetSelectionListView")!;
             confirmationButton = this.FindControl<Button>("ConfirmationButton")!;
             cancellingButton = this.FindControl<Button>("CancellingButton")!;
+            DefaultButton = confirmationButton;
 
             presetRows = [.. ViewModel.Presets];
             presetListView.ItemsSource = presetRows;
             presetListView.SelectionChanged += (_, _) => ViewModel.Selected = presetListView.SelectedItem as PresetRow;
             presetListView.DoubleTapped += (_, _) => Commit();
             confirmationButton.Click += (_, _) => Commit();
-            cancellingButton.Click += (_, _) => Close(false);
-            WindowScaler.Track(this);
+            cancellingButton.Click += (_, _) => Cancel();
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -53,7 +56,7 @@ namespace Foreman.Mac.Views {
             if (ViewModel.Selected is not PresetRow row)
                 return;
             ChosenPreset = row.Preset;
-            Close(true);
+            Complete(true);
         }
 
         //Ports the compatibility[]/ToolTipText block (PresetSelectionForm.cs:19-53) verbatim, including its
@@ -103,7 +106,7 @@ namespace Foreman.Mac.Views {
             SimulateSelectRow(preset);
             Commit();
         }
-        internal void SimulateCancelClick() => Close(false);
+        internal void SimulateCancelClick() => Cancel();
     }
 
     internal sealed class PresetRow(Preset preset, string modsText, string itemsText, string recipesText, string tooltip) {

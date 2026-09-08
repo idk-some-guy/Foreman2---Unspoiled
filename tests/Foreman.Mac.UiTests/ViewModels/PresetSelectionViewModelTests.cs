@@ -6,9 +6,9 @@ using System.Linq;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.ViewModels {
-    //Covers PresetSelectionViewModel's split off PresetSelectionWindow.axaml.cs (Task 8): Load reuses
-    //PresetSelectionWindow.BuildRows (existing tests call that directly, unchanged) and Selected is the
-    //VM's own bindable state, mirroring window control selection.
+    //Covers PresetSelectionViewModel's split off PresetSelectionSheet.axaml.cs (Task 8): Load reuses
+    //PresetSelectionSheet.BuildRows (existing tests call that directly, unchanged) and Selected is the
+    //VM's own bindable state, mirroring the sheet's own control selection.
     public class PresetSelectionViewModelTests {
         private static PresetErrorPackage NewPackage(Preset preset, int missingMods) {
             var errors = new PresetErrorPackage(preset);

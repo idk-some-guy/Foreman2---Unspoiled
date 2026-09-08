@@ -1,12 +1,12 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Foreman.DataCaching;
-using Foreman.Mac.Views;
+using Foreman.Mac.Views.Sheets;
 using System.Collections.Generic;
 
 namespace Foreman.Mac.ViewModels {
-    //Splits PresetSelectionWindow.axaml.cs's sort + row-assembly off into its own VM (Task 8):
-    //BuildRows stays on the window (existing tests call it there); Selected mirrors the ListBox's
-    //current selection, set by the window's SelectionChanged handler and read back by Commit.
+    //Splits PresetSelectionSheet.axaml.cs's sort + row-assembly off into its own VM (Task 8):
+    //BuildRows stays on the sheet (existing tests call it there); Selected mirrors the ListBox's
+    //current selection, set by the sheet's SelectionChanged handler and read back by Commit.
     internal sealed partial class PresetSelectionViewModel : ObservableObject {
         public IReadOnlyList<PresetRow> Presets { get; private set; } = [];
 
@@ -17,7 +17,7 @@ namespace Foreman.Mac.ViewModels {
         //PresetErrorPackage.CompareTo, so the closest-matching preset lands first.
         public void Load(List<PresetErrorPackage> presetErrors) {
             presetErrors.Sort();
-            Presets = PresetSelectionWindow.BuildRows(presetErrors);
+            Presets = PresetSelectionSheet.BuildRows(presetErrors);
         }
     }
 }

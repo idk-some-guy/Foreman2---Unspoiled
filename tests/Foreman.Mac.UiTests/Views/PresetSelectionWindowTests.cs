@@ -1,17 +1,24 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
-using Foreman.Mac.Views;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.Views.Sheets;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Covers PresetSelectionWindow (io-reference.md §8, upstream PresetSelectionForm.cs+.Designer.cs) against
-    //hand-built PresetErrorPackage fixtures - no real preset files needed, since every value under test here
-    //(sort order, percent formulas, tooltip text) is pure arithmetic/formatting over the package's own counts.
+    //Covers PresetSelectionSheet (io-reference.md §8, upstream PresetSelectionForm.cs+.Designer.cs, moved
+    //onto SheetHost by C2c Task 2) against hand-built PresetErrorPackage fixtures - no real preset files
+    //needed, since every value under test here (sort order, percent formulas, tooltip text) is pure
+    //arithmetic/formatting over the package's own counts. MainWindow.ResolveChosenPresetAsync is the only
+    //production call site and always has a real, already-shown owner window - the plain Window used to host
+    //the sheet below stands in for that owner in tests that construct the sheet on its own.
     public class PresetSelectionWindowTests {
         private static PresetErrorPackage NewPackage(Preset preset, int requiredMods, int missingMods, int addedMods, int wrongVersionMods,
                 int requiredItems, int missingItems, int requiredRecipes, int missingRecipes, int incorrectRecipes) {
@@ -41,19 +48,20 @@ namespace Foreman.Mac.UiTests.Views {
 
         [AvaloniaFact]
         public void Constructor_TitleAndCaptionsMatchUpstreamVerbatim() {
-            var window = new PresetSelectionWindow([]);
+            var sheet = new PresetSelectionSheet([]);
 
-            Assert.Equal("Please select Preset", window.Title);
-            Assert.Equal("Load with seleted preset", window.ConfirmationButtonControl.Content);
-            Assert.Equal("Dont Load", window.CancellingButtonControl.Content);
+            Assert.Equal("Please select Preset", sheet.Title);
+            Assert.Equal("Load with seleted preset", sheet.ConfirmationButtonControl.Content);
+            Assert.Equal("Dont Load", sheet.CancellingButtonControl.Content);
         }
 
         [AvaloniaFact]
         public void Constructor_BodyLabelsMatchUpstreamVerbatim() {
-            var window = new PresetSelectionWindow([]);
+            var sheet = new PresetSelectionSheet([]);
+            var window = new Window { Width = 800, Height = 600, Content = sheet };
             window.Show();
 
-            var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+            var texts = sheet.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
             Assert.Contains("No preset was found to match the saved graph exactly.", texts);
             Assert.Contains("Please select which preset you wish to use based on the given compatibility ratings.", texts);
         }
@@ -76,9 +84,9 @@ namespace Foreman.Mac.UiTests.Views {
                     requiredItems: 1, missingItems: 0, requiredRecipes: 1, missingRecipes: 0, incorrectRecipes: 0),
             };
 
-            var window = new PresetSelectionWindow(errors);
+            var sheet = new PresetSelectionSheet(errors);
 
-            var rowNames = ((List<PresetRow>)window.PresetSelectionListViewControl.ItemsSource!).Select(r => r.Name).ToList();
+            var rowNames = ((List<PresetRow>)sheet.PresetSelectionListViewControl.ItemsSource!).Select(r => r.Name).ToList();
             Assert.Equal(["Best", "Middle", "Worst"], rowNames);
         }
 
@@ -93,7 +101,7 @@ namespace Foreman.Mac.UiTests.Views {
             var errors = NewPackage(preset, requiredMods: 4, missingMods: 1, addedMods: 0, wrongVersionMods: 0,
                 requiredItems: 10, missingItems: 2, requiredRecipes: 5, missingRecipes: 1, incorrectRecipes: 1);
 
-            List<PresetRow> rows = PresetSelectionWindow.BuildRows([errors]);
+            List<PresetRow> rows = PresetSelectionSheet.BuildRows([errors]);
 
             PresetRow row = Assert.Single(rows);
             Assert.Equal("%75", row.ModsText);
@@ -109,7 +117,7 @@ namespace Foreman.Mac.UiTests.Views {
             var errors = NewPackage(preset, requiredMods: 4, missingMods: 1, addedMods: 1, wrongVersionMods: 1,
                 requiredItems: 3, missingItems: 1, requiredRecipes: 6, missingRecipes: 2, incorrectRecipes: 1);
 
-            List<PresetRow> rows = PresetSelectionWindow.BuildRows([errors]);
+            List<PresetRow> rows = PresetSelectionSheet.BuildRows([errors]);
 
             string expected =
                 "Mods:\n" +
@@ -133,34 +141,78 @@ namespace Foreman.Mac.UiTests.Views {
         public void SimulateConfirmClick_WithSelectedRow_SetsChosenPresetAndClosesOk() {
             var preset = new Preset("P", false, false);
             var errors = NewPackage(preset, 1, 0, 0, 0, 1, 0, 1, 0, 0);
-            var window = new PresetSelectionWindow([errors]);
+            var sheet = new PresetSelectionSheet([errors]);
 
-            window.SimulateSelectRow(preset);
-            window.SimulateConfirmClick();
+            sheet.SimulateSelectRow(preset);
+            sheet.SimulateConfirmClick();
 
-            Assert.Equal(preset, window.ChosenPreset);
+            Assert.Equal(preset, sheet.ChosenPreset);
         }
 
         [AvaloniaFact]
         public void SimulateDoubleClickRow_SetsChosenPresetAndClosesOk() {
             var preset = new Preset("P", false, false);
             var errors = NewPackage(preset, 1, 0, 0, 0, 1, 0, 1, 0, 0);
-            var window = new PresetSelectionWindow([errors]);
+            var sheet = new PresetSelectionSheet([errors]);
 
-            window.SimulateDoubleClickRow(preset);
+            sheet.SimulateDoubleClickRow(preset);
 
-            Assert.Equal(preset, window.ChosenPreset);
+            Assert.Equal(preset, sheet.ChosenPreset);
         }
 
         [AvaloniaFact]
         public void SimulateCancelClick_LeavesChosenPresetNull() {
             var preset = new Preset("P", false, false);
             var errors = NewPackage(preset, 1, 0, 0, 0, 1, 0, 1, 0, 0);
-            var window = new PresetSelectionWindow([errors]);
+            var sheet = new PresetSelectionSheet([errors]);
 
-            window.SimulateCancelClick();
+            sheet.SimulateCancelClick();
 
-            Assert.Null(window.ChosenPreset);
+            Assert.Null(sheet.ChosenPreset);
+        }
+
+        //---- SheetHost contract (C2c Task 2): fixed 460x360 size from the sheets table (the former window's
+        //own Width/Height), Enter/Esc map to the former Confirm/Cancel results ---------------------------
+
+        [AvaloniaFact]
+        public void SheetSize_Is460By360() {
+            var sheet = new PresetSelectionSheet([]);
+
+            Assert.Equal(460, sheet.SheetWidth);
+            Assert.Equal(360, sheet.SheetHeight);
+        }
+
+        //Fix round 1, item 4: restores the former window's own MinHeight, dropped in the first pass.
+        [AvaloniaFact]
+        public void MinHeight_Is300() {
+            var sheet = new PresetSelectionSheet([]);
+
+            Assert.Equal(300, sheet.MinHeight);
+        }
+
+        [AvaloniaFact]
+        public async Task Enter_TriggersConfirm_AndEscape_Cancels() {
+            var preset = new Preset("P", false, false);
+            var errors = NewPackage(preset, 1, 0, 0, 0, 1, 0, 1, 0, 0);
+            var window = new Window { Width = 800, Height = 600 };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+
+            var sheet1 = new PresetSelectionSheet([errors]);
+            sheet1.SimulateSelectRow(preset);
+            Task<bool?> task1 = host.ShowAsync(sheet1);
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(sheet1.PresetSelectionListViewControl, Key.Enter);
+            Assert.True(await task1);
+            Assert.Equal(preset, sheet1.ChosenPreset);
+            AnimationClock.Settle();
+
+            var sheet2 = new PresetSelectionSheet([errors]);
+            Task<bool?> task2 = host.ShowAsync(sheet2);
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(sheet2.PresetSelectionListViewControl, Key.Escape);
+            Assert.Null(await task2);
+            Assert.Null(sheet2.ChosenPreset);
         }
     }
 }

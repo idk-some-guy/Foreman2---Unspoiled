@@ -22,6 +22,8 @@ namespace Foreman.Mac.Views.Sheets {
         public Task<T?> Result => completion.Task;
 
         protected void Complete(T? value) => completion.TrySetResult(value);
-        public void Cancel() => completion.TrySetResult(default);
+
+        //virtual so Escape and the Cancel button share one override
+        public virtual void Cancel() => completion.TrySetResult(default);
     }
 }

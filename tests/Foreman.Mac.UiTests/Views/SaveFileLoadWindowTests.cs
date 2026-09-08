@@ -1,7 +1,11 @@
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Threading;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
-using Foreman.Mac.Views;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.Views.Sheets;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,13 +14,14 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Covers io-reference.md §5's SaveFileLoadForm contract (phase 6 Task 5) at the window/UI level: the
-    //file-picker cancel path, wiring SaveFileReader.Result onto Outcome/SaveFileInfo/dialogs, the
-    //mod-mismatch confirm gate and the §§-pseudo-recipe/save-driven/transitive-derive enabled-object
-    //pipeline (ProcessSaveData), and the Cancel button's honest non-preemptive behavior (docs/io-
-    //reference.md §4 caution). SaveFileReader's own process-pipeline correctness (exe discovery, crash/
-    //another-instance/missing-marker detection, P0 parse) is covered separately against StubFactorioHarness
-    //under ForemanTest (Foreman.Core), where that harness lives - LoadPipelineStub stands in for it here.
+    //Covers io-reference.md §5's SaveFileLoadForm contract (phase 6 Task 5, moved onto SheetHost by C2c
+    //Task 2) at the sheet level: the file-picker cancel path, wiring SaveFileReader.Result onto
+    //Outcome/SaveFileInfo/dialogs, the mod-mismatch confirm gate and the §§-pseudo-recipe/save-driven/
+    //transitive-derive enabled-object pipeline (ProcessSaveData), and the Cancel button's honest
+    //non-preemptive behavior (docs/io-reference.md §4 caution). SaveFileReader's own process-pipeline
+    //correctness (exe discovery, crash/another-instance/missing-marker detection, P0 parse) is covered
+    //separately against StubFactorioHarness under ForemanTest (Foreman.Core), where that harness lives -
+    //LoadPipelineStub stands in for it here.
     public class SaveFileLoadWindowTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private static readonly SemaphoreSlim CacheGate = new(1, 1);
@@ -44,40 +49,43 @@ namespace Foreman.Mac.UiTests.Views {
 
         [AvaloniaFact]
         public async Task RunAsync_PickerCancelled_ClosesWithCancelOutcomeAndShowsNoDialogs() {
-            var window = new SaveFileLoadWindow(NewEmptyCache(), []) {
+            var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
                 OpenSaveFilePathStub = () => Task.FromResult<string?>(null),
                 WarningDialogStub = (_, _) => throw new InvalidOperationException("should not warn"),
                 ConfirmDialogStub = (_, _) => throw new InvalidOperationException("should not confirm"),
                 LoadPipelineStub = (_, _) => throw new InvalidOperationException("should not run the pipeline"),
             };
 
-            await window.RunAsync();
+            await sheet.RunAsync();
 
-            Assert.Equal(SaveFileLoadOutcome.Cancel, window.Outcome);
-            Assert.Null(window.SaveFileInfo);
+            Assert.Equal(SaveFileLoadOutcome.Cancel, sheet.Outcome);
+            Assert.Null(sheet.SaveFileInfo);
         }
 
-        //---- Opened triggers RunAsync (reference §5: "runs immediately on show") -------------------------
+        //---- presenting the sheet triggers RunAsync (reference §5: "runs immediately on show") -----------
 
         //Every other test in this file drives RunAsync directly through LoadFromSaveDialogStub or a direct
-        //call - none of them exercise the constructor's own "Opened += (_, _) => _ = RunAsync();" line. A
-        //real Show() is the only way to prove that wiring still fires.
+        //call - none of them exercise the constructor's own "Loaded += (_, _) => _ = RunAsync();" line. A
+        //real SheetHost presentation is the only way to prove that wiring still fires.
         [AvaloniaFact]
-        public async Task Show_FiresOpenedWhichTriggersRunAsync_ReachesTheStubbedOutcome() {
+        public async Task Presenting_FiresLoadedWhichTriggersRunAsync_ReachesTheStubbedOutcome() {
             var saveInfo = new SaveFileInfo();
-            var window = new SaveFileLoadWindow(NewEmptyCache(), []) {
+            var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
                 OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip"),
                 LoadPipelineStub = (_, _) => new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Ok, SaveFileInfo = saveInfo },
             };
-            var closed = new TaskCompletionSource();
-            window.Closed += (_, _) => closed.TrySetResult();
-
+            var window = new Window { Width = 800, Height = 600 };
             window.Show();
-            await closed.Task;
+            SheetHost host = SheetHost.For(window);
 
-            Assert.Equal(SaveFileLoadOutcome.Ok, window.Outcome);
-            Assert.Same(saveInfo, window.SaveFileInfo);
-            Assert.Equal("/tmp/saves", window.ResolvedSaveFileLocation);
+            Task<SaveFileLoadOutcome?> task = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+            SaveFileLoadOutcome? outcome = await task;
+
+            Assert.Equal(SaveFileLoadOutcome.Ok, outcome);
+            Assert.Equal(SaveFileLoadOutcome.Ok, sheet.Outcome);
+            Assert.Same(saveInfo, sheet.SaveFileInfo);
+            Assert.Equal("/tmp/saves", sheet.ResolvedSaveFileLocation);
         }
 
         //---- wiring SaveFileReader.Result onto Outcome/SaveFileInfo/dialogs (reference §5 steps 3-6) ----
@@ -87,23 +95,23 @@ namespace Foreman.Mac.UiTests.Views {
             var saveInfo = new SaveFileInfo();
             saveInfo.Recipes["iron-plate"] = true;
             string savePath = "/tmp/saves/mysave.zip";
-            var window = new SaveFileLoadWindow(NewEmptyCache(), []) {
+            var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
                 OpenSaveFilePathStub = () => Task.FromResult<string?>(savePath),
                 LoadPipelineStub = (path, _) => new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Ok, SaveFileInfo = saveInfo },
                 WarningDialogStub = (_, _) => throw new InvalidOperationException("should not warn"),
             };
 
-            await window.RunAsync();
+            await sheet.RunAsync();
 
-            Assert.Equal(SaveFileLoadOutcome.Ok, window.Outcome);
-            Assert.Same(saveInfo, window.SaveFileInfo);
-            Assert.Equal("/tmp/saves", window.ResolvedSaveFileLocation);
+            Assert.Equal(SaveFileLoadOutcome.Ok, sheet.Outcome);
+            Assert.Same(saveInfo, sheet.SaveFileInfo);
+            Assert.Equal("/tmp/saves", sheet.ResolvedSaveFileLocation);
         }
 
         [AvaloniaFact]
         public async Task RunAsync_PipelineReturnsAbortWithAWarningMessage_ShowsItVerbatimAndDoesNotProcess() {
             string? capturedMessage = null;
-            var window = new SaveFileLoadWindow(NewEmptyCache(), []) {
+            var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
                 OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip"),
                 LoadPipelineStub = (_, _) => new SaveFileReader.Result {
                     Outcome = SaveFileLoadOutcome.Abort,
@@ -112,24 +120,24 @@ namespace Foreman.Mac.UiTests.Views {
                 WarningDialogStub = (_, message) => { capturedMessage = message; return Task.CompletedTask; },
             };
 
-            await window.RunAsync();
+            await sheet.RunAsync();
 
-            Assert.Equal(SaveFileLoadOutcome.Abort, window.Outcome);
+            Assert.Equal(SaveFileLoadOutcome.Abort, sheet.Outcome);
             Assert.Equal("Factorio crashed while reading the save file.", capturedMessage);
-            Assert.Null(window.ResolvedSaveFileLocation);
+            Assert.Null(sheet.ResolvedSaveFileLocation);
         }
 
         [AvaloniaFact]
         public async Task RunAsync_PipelineReturnsCancelWithNoMessage_ClosesWithoutAnyDialog() {
-            var window = new SaveFileLoadWindow(NewEmptyCache(), []) {
+            var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
                 OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip"),
                 LoadPipelineStub = (_, _) => new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Cancel },
                 WarningDialogStub = (_, _) => throw new InvalidOperationException("should not warn"),
             };
 
-            await window.RunAsync();
+            await sheet.RunAsync();
 
-            Assert.Equal(SaveFileLoadOutcome.Cancel, window.Outcome);
+            Assert.Equal(SaveFileLoadOutcome.Cancel, sheet.Outcome);
         }
 
         //---- Cancel button honesty (reference §4 caution: Run isn't preemptive) -------------------------
@@ -137,7 +145,7 @@ namespace Foreman.Mac.UiTests.Views {
         [AvaloniaFact]
         public async Task SimulateCancelClick_SetsCancelOutcomeImmediately_WithoutWaitingForTheInFlightRun() {
             var pipelineStarted = new SemaphoreSlim(0, 1);
-            var window = new SaveFileLoadWindow(NewEmptyCache(), []) {
+            var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
                 OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip"),
                 LoadPipelineStub = (_, token) => {
                     pipelineStarted.Release();
@@ -146,15 +154,50 @@ namespace Foreman.Mac.UiTests.Views {
                 },
             };
 
-            Task runTask = window.RunAsync();
+            Task runTask = sheet.RunAsync();
             await pipelineStarted.WaitAsync();
 
-            window.SimulateCancelClick();
+            sheet.SimulateCancelClick();
 
-            Assert.Equal(SaveFileLoadOutcome.Cancel, window.Outcome);
-            Assert.Null(window.SaveFileInfo);
+            Assert.Equal(SaveFileLoadOutcome.Cancel, sheet.Outcome);
+            Assert.Null(sheet.SaveFileInfo);
+            Assert.True(sheet.Disposed);
             await runTask; //let the still-running pipeline finish so nothing leaks past the test.
-            Assert.Equal(SaveFileLoadOutcome.Cancel, window.Outcome); //the late Ok result must not overwrite it.
+            Assert.Equal(SaveFileLoadOutcome.Cancel, sheet.Outcome); //the late Ok result must not overwrite it.
+        }
+
+        //Fix round 1, item 1: SheetHost's Escape handling calls the exact same (now virtual) Cancel()
+        //SimulateCancelClick/the Cancel button call, so driving it through a real Escape keypress on a
+        //presented sheet must cancel the in-flight pipeline's token too, not just resolve the Task.
+        [AvaloniaFact]
+        public async Task Escape_WhilePipelineInFlight_CancelsTheTokenAndDisposesTheSheet() {
+            var pipelineStarted = new SemaphoreSlim(0, 1);
+            var pipelineGate = new TaskCompletionSource();
+            CancellationToken capturedToken = default;
+            var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
+                OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip"),
+                LoadPipelineStub = (_, token) => {
+                    capturedToken = token;
+                    pipelineStarted.Release();
+                    pipelineGate.Task.Wait(CancellationToken.None);
+                    return new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Ok, SaveFileInfo = new SaveFileInfo() };
+                },
+            };
+            var window = new Window { Width = 800, Height = 600 };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+
+            Task<SaveFileLoadOutcome?> task = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+            await pipelineStarted.WaitAsync();
+
+            CanvasKeys.KeyDownOn(sheet.CancelButtonControl, Key.Escape);
+
+            Assert.Equal(SaveFileLoadOutcome.Cancel, await task);
+            Assert.True(capturedToken.IsCancellationRequested);
+            Assert.True(sheet.Disposed);
+
+            pipelineGate.TrySetResult(); //let the still-blocked background thread finish so nothing leaks past the test.
         }
 
         //---- ProcessSaveData: mod-mismatch gate + §§/save-recipe/transitive-derive pipeline (reference §5) -
@@ -163,14 +206,14 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task ProcessSaveDataAsync_ModsMismatchAndConfirmDeclined_LeavesEnabledObjectsEmpty() {
             DataCache cache = await GetVanillaCacheAsync();
             var enabledObjects = new HashSet<IDataObjectBase>();
-            var window = new SaveFileLoadWindow(cache, enabledObjects) {
+            var sheet = new SaveFileLoadSheet(cache, enabledObjects) {
                 SaveFileInfo = new SaveFileInfo(),
             };
             string? capturedTitle = null;
             string? capturedMessage = null;
-            window.ConfirmDialogStub = (title, message) => { capturedTitle = title; capturedMessage = message; return Task.FromResult(false); };
+            sheet.ConfirmDialogStub = (title, message) => { capturedTitle = title; capturedMessage = message; return Task.FromResult(false); };
 
-            await window.ProcessSaveDataAsync();
+            await sheet.ProcessSaveDataAsync();
 
             Assert.Equal("Save file mod inconsistencies found!", capturedTitle);
             Assert.Contains("selected save file mods do not match preset mods; out of {0} mods:", capturedMessage);
@@ -193,12 +236,12 @@ namespace Foreman.Mac.UiTests.Views {
             saveInfo.Recipes[unmentionedRecipe.Name] = false;
 
             var enabledObjects = new HashSet<IDataObjectBase>();
-            var window = new SaveFileLoadWindow(cache, enabledObjects) {
+            var sheet = new SaveFileLoadSheet(cache, enabledObjects) {
                 SaveFileInfo = saveInfo,
                 ConfirmDialogStub = (_, _) => throw new InvalidOperationException("mods match - no mismatch dialog expected"),
             };
 
-            await window.ProcessSaveDataAsync();
+            await sheet.ProcessSaveDataAsync();
 
             Assert.Contains(pseudoRecipe, enabledObjects);
             Assert.Contains(normalRecipe, enabledObjects);
@@ -208,13 +251,37 @@ namespace Foreman.Mac.UiTests.Views {
                 Assert.Contains(cache.PlayerAssembler, enabledObjects);
         }
 
-        //Upstream's Designer sets CancelButton to this button (there's no AcceptButton here - Cancel is the
-        //only user-facing action while the reader pipeline runs).
-        [AvaloniaFact]
-        public void CancelButton_IsCancel() {
-            var window = new SaveFileLoadWindow(NewEmptyCache(), []);
+        //---- SheetHost contract (C2c Task 2, fix round 1): width from the sheets table. There is no default
+        //button here (Cancel is the only user-facing action while the reader pipeline runs, same as before)
+        //so Enter has no counterpart to assert. Escape now routes through this sheet's own overridden
+        //Cancel() (fix round 1, item 1), the same method the Cancel button calls, so it carries the same
+        //cts.Cancel()/Outcome bookkeeping. -----------------------------------------------------------------
 
-            Assert.True(window.CancelButtonControl.IsCancel);
+        [AvaloniaFact]
+        public void SheetWidth_Is300() {
+            var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
+                OpenSaveFilePathStub = () => Task.FromResult<string?>(null),
+            };
+
+            Assert.Equal(300, sheet.SheetWidth);
+        }
+
+        [AvaloniaFact]
+        public async Task Escape_ResolvesTheSheetWithTheCancelOutcome() {
+            var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
+                OpenSaveFilePathStub = () => new TaskCompletionSource<string?>().Task, //never resolves - the picker stays open
+            };
+            var window = new Window { Width = 800, Height = 600 };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+
+            Task<SaveFileLoadOutcome?> task = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(sheet.CancelButtonControl, Key.Escape);
+
+            Assert.Equal(SaveFileLoadOutcome.Cancel, await task);
+            Assert.False(host.IsOpen);
+            Assert.True(sheet.Disposed);
         }
     }
 }

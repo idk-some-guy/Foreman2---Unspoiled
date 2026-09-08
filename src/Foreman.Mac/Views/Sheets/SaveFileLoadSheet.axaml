@@ -1,0 +1,8 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Foreman.Mac.Views.Sheets.SaveFileLoadSheet">
+  <StackPanel Orientation="Horizontal" Spacing="12">
+    <TextBlock Name="StatusLabel" Text="Please wait... Running Factorio" VerticalAlignment="Center" />
+    <Button Name="CancelButton" Content="Cancel" />
+  </StackPanel>
+</UserControl>

@@ -11,12 +11,12 @@ using System.Drawing;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace Foreman.Mac.Views {
-    //Ports ImageExportForm(+.Designer.cs) (reference io-reference.md §3, upstream ImageExportForm.cs): the
-    //PNG export dialog - scale selector, transparency/view-limit toggles, a live size label, and the
-    //Browse/Export pair. GraphExportBounds/AnnotationLoader.GetExportBounds already carry the bounds math;
-    //this window owns the SKSurface render and the StorageProvider picker seam.
-    public partial class ImageExportWindow : Window {
+namespace Foreman.Mac.Views.Sheets {
+    //Ports ImageExportForm(+.Designer.cs) (reference io-reference.md §3, upstream ImageExportForm.cs) - see
+    //that reference for the scale/size-label/export math this sheet still owns. C2c Task 2 moved this off
+    //ImageExportWindow onto SheetHost: Export completes true, Escape cancels false (default(bool)), there is
+    //no explicit Cancel button so the sheet's own DefaultButton is Export.
+    public partial class ImageExportSheet : SheetContent<bool> {
         private static readonly float[] Multipliers = [0.05f, 0.1f, 0.2f, 0.5f, 1f, 2f, 3f];
         private static readonly string[] MultiplierNames = ["1/20", "1/10", "1/5", "1/2", "1", "2", "3"];
         private const int DefaultScaleIndex = 4;
@@ -39,12 +39,14 @@ namespace Foreman.Mac.Views {
         //export) without a real modal MessageDialog (same convention as SettingsWindow's WarningDialogStub).
         internal Func<string, string, Task>? WarningDialogStub { get; set; }
 
-        public ImageExportWindow() : this(new GraphViewer(new Viewport(), new GridManager())) {
+        public ImageExportSheet() : this(new GraphViewer(new Viewport(), new GridManager())) {
         }
 
-        public ImageExportWindow(GraphViewer viewer) {
+        public ImageExportSheet(GraphViewer viewer) {
             InitializeComponent();
             this.viewer = viewer;
+            SheetWidth = 348;
+            Title = "Export an Image";
 
             fileTextBox = this.FindControl<TextBox>("FileTextBox")!;
             browseButton = this.FindControl<Button>("BrowseButton")!;
@@ -53,6 +55,7 @@ namespace Foreman.Mac.Views {
             viewLimitCheckBox = this.FindControl<CheckBox>("ViewLimitCheckBox")!;
             imageSizeLabel = this.FindControl<TextBlock>("ImageSizeLabel")!;
             exportButton = this.FindControl<Button>("ExportButton")!;
+            DefaultButton = exportButton;
 
             scaleSelectionBox.ItemsSource = MultiplierNames;
             scaleSelectionBox.SelectedIndex = DefaultScaleIndex;
@@ -62,7 +65,6 @@ namespace Foreman.Mac.Views {
             exportButton.Click += (_, _) => Async.Fire(ExportAsync(), nameof(ExportAsync));
             scaleSelectionBox.SelectionChanged += (_, _) => UpdateSizeLabel();
             viewLimitCheckBox.IsCheckedChanged += (_, _) => UpdateSizeLabel();
-            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -75,7 +77,7 @@ namespace Foreman.Mac.Views {
         }
 
         private async Task<string?> RealPickSaveImagePathAsync() {
-            if (StorageProvider is not IStorageProvider storage)
+            if (TopLevel.GetTopLevel(this)?.StorageProvider is not IStorageProvider storage)
                 return null;
 
             Directory.CreateDirectory(AppPaths.ExportedGraphsDirectory);
@@ -138,7 +140,7 @@ namespace Foreman.Mac.Views {
 
             try {
                 File.WriteAllBytes(path, LastPngBytes);
-                Close();
+                Complete(true);
             } catch (Exception exception) {
                 await ShowWarningAsync("", "Error saving image. See log for more details.").ConfigureAwait(true);
                 ErrorLogging.LogException(exception, "Error saving image");
@@ -146,7 +148,7 @@ namespace Foreman.Mac.Views {
         }
 
         private Task ShowWarningAsync(string title, string message) =>
-            WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync(this, title, message);
+            WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync((Window)VisualRoot!, title, message);
 
         //Ports ViewLimitedBounds (reference §3): graph-space extent of the current viewport, independent of
         //ViewOffset - only used to size the export image.

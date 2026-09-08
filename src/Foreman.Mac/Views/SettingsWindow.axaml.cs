@@ -16,6 +16,7 @@ using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using SkiaSharp;
 using System;
@@ -265,6 +266,9 @@ namespace Foreman.Mac.Views {
             UpdateModList();
             EnabledObjectsListItem.RefreshTheme();
             LoadUnfilteredLists();
+            //Before WindowScaler.Track below - see MainWindow's own matching comment (Content is still the
+            //root Grid at this point).
+            SheetHost.For(this);
             WindowScaler.Track(this);
         }
 
@@ -483,55 +487,49 @@ namespace Foreman.Mac.Views {
                 selected.Add(item);
         }
 
-        //Test-only seam: lets a test drive SaveFileLoadWindow's own OpenSaveFilePathStub/LoadPipelineStub
-        //seams directly (calling RunAsync itself) instead of a real modal ShowDialog, then still runs the
-        //real outcome-handling tail below - same "replace only the launch" convention as
+        //Test-only seam: lets a test drive SaveFileLoadSheet's own OpenSaveFilePathStub/LoadPipelineStub
+        //seams directly (calling RunAsync itself) instead of a real SheetHost presentation, then still runs
+        //the real outcome-handling tail below - same "replace only the launch" convention as
         //ComparePresetsDialogStub.
-        internal Func<SaveFileLoadWindow, Task>? LoadFromSaveDialogStub { get; set; }
+        internal Func<SaveFileLoadSheet, Task>? LoadFromSaveDialogStub { get; set; }
 
-        //Ports LoadEnabledFromSaveButton_Click (reference §5, SettingsForm.cs:535-545): opens
-        //SaveFileLoadWindow at owner+50/+50. OK refreshes the checked state from the now-updated
+        //Ports LoadEnabledFromSaveButton_Click (reference §5, SettingsForm.cs:535-545): shows SaveFileLoadSheet
+        //on the Settings window's own SheetHost. OK refreshes the checked state from the now-updated
         //Options.EnabledObjects; Abort shows the caller's own verbatim message (upstream keeps this string
         //on SettingsForm, not the dialog itself); Cancel does nothing.
         private async Task ShowLoadFromSaveAsync() {
             var settingsService = SettingsService ?? new SettingsService();
             AppSettings settings = settingsService.Load();
-            var window = new SaveFileLoadWindow(Options.DCache, Options.EnabledObjects, settings.LastSaveFileLocation) {
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Position = Position + new PixelPoint(50, 50),
-            };
+            var sheet = new SaveFileLoadSheet(Options.DCache, Options.EnabledObjects, settings.LastSaveFileLocation);
 
-            await (LoadFromSaveDialogStub?.Invoke(window) ?? window.ShowDialog(this)).ConfigureAwait(true);
+            await (LoadFromSaveDialogStub?.Invoke(sheet) ?? SheetHost.For(this).ShowAsync(sheet)).ConfigureAwait(true);
 
-            if (window.Outcome == SaveFileLoadOutcome.Ok) {
-                if (window.ResolvedSaveFileLocation is string resolvedLocation) {
+            if (sheet.Outcome == SaveFileLoadOutcome.Ok) {
+                if (sheet.ResolvedSaveFileLocation is string resolvedLocation) {
                     settings.LastSaveFileLocation = resolvedLocation;
                     settingsService.Save(settings);
                     Options.LastSaveFileLocation = resolvedLocation;
                 }
                 UpdateEnabledStatus();
-            } else if (window.Outcome == SaveFileLoadOutcome.Abort) {
+            } else if (sheet.Outcome == SaveFileLoadOutcome.Abort) {
                 await ShowWarningAsync("",
                     "Error while reading save file. Try running factorio, opening the save game, saving again, and retrying?").ConfigureAwait(true);
             }
         }
 
-        //Test-only seam: lets a test drive SciencePacksWindow's own seams directly instead of a real modal
-        //ShowDialog - same "replace only the launch" convention as LoadFromSaveDialogStub.
-        internal Func<SciencePacksWindow, Task>? AssignFromSciencePacksDialogStub { get; set; }
+        //Test-only seam: lets a test drive SciencePacksSheet's own seams directly instead of a real SheetHost
+        //presentation - same "replace only the launch" convention as LoadFromSaveDialogStub.
+        internal Func<SciencePacksSheet, Task>? AssignFromSciencePacksDialogStub { get; set; }
 
-        //Ports SetEnabledFromSciencePacksButton_Click (reference §6, SettingsForm.cs:547-557): opens
-        //SciencePacksWindow at owner+50/+50; OK refreshes the checked state from the now-updated
-        //Options.EnabledObjects, Cancel does nothing.
+        //Ports SetEnabledFromSciencePacksButton_Click (reference §6, SettingsForm.cs:547-557): shows
+        //SciencePacksSheet on the Settings window's own SheetHost; OK refreshes the checked state from the
+        //now-updated Options.EnabledObjects, Cancel does nothing.
         private async Task ShowAssignFromSciencePacksAsync() {
-            var window = new SciencePacksWindow(Options.DCache, Options.EnabledObjects) {
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Position = Position + new PixelPoint(50, 50),
-            };
+            var sheet = new SciencePacksSheet(Options.DCache, Options.EnabledObjects);
 
-            await (AssignFromSciencePacksDialogStub?.Invoke(window) ?? window.ShowDialog(this)).ConfigureAwait(true);
+            await (AssignFromSciencePacksDialogStub?.Invoke(sheet) ?? SheetHost.For(this).ShowAsync(sheet)).ConfigureAwait(true);
 
-            if (window.Accepted)
+            if (sheet.Accepted)
                 UpdateEnabledStatus();
         }
 
@@ -643,33 +641,28 @@ namespace Foreman.Mac.Views {
         private Task ShowWarningAsync(string title, string message) =>
             WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync(this, title, message);
 
-        //Test-only seam: lets a test drive PresetImportWindow's own seams directly instead of a real modal
-        //ShowDialog (see LoadFromSaveDialogStub for the established convention).
-        internal Func<PresetImportWindow, Task>? ImportPresetDialogStub { get; set; }
+        //Test-only seam: lets a test drive PresetImportSheet's own seams directly instead of a real SheetHost
+        //presentation (see LoadFromSaveDialogStub for the established convention).
+        internal Func<PresetImportSheet, Task>? ImportPresetDialogStub { get; set; }
 
-        //Ports ImportPresetButton_Click (reference §4/§7, SettingsForm.cs:484-513): opens PresetImportWindow
-        //at owner+250/+50 - upstream's own offset for this one dialog, wider than the +50/+50 every other
-        //Settings-launched window uses, since Import's own window is itself already positioned +50/+50 off
-        //MainForm and would otherwise land right on top of Settings. On success either the overwritten-active
-        //branch (RequireReload, closes Settings) or the switch-to-new-preset prompt (Yes closes Settings via
-        //the existing SelectPreset helper, No leaves Settings open with the new preset already in the list).
+        //Ports ImportPresetButton_Click (reference §4/§7, SettingsForm.cs:484-513): shows PresetImportSheet
+        //on the Settings window's own SheetHost. On success either the overwritten-active branch
+        //(RequireReload, closes Settings) or the switch-to-new-preset prompt (Yes closes Settings via the
+        //existing SelectPreset helper, No leaves Settings open with the new preset already in the list).
         private async Task ShowImportPresetAsync() {
-            var window = new PresetImportWindow(Options.Presets ?? []) {
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Position = Position + new PixelPoint(250, 50),
-            };
+            var sheet = new PresetImportSheet(Options.Presets ?? []);
 
-            await (ImportPresetDialogStub?.Invoke(window) ?? window.ShowDialog(this)).ConfigureAwait(true);
+            await (ImportPresetDialogStub?.Invoke(sheet) ?? SheetHost.For(this).ShowAsync(sheet)).ConfigureAwait(true);
 
-            if (window.ImportStarted)
+            if (sheet.ImportStarted)
                 GC.Collect(); //a preset export opens a lot of zip files and processes a lot of bitmaps - large mod packs can leave 2GB+ of memory stuck in garbage otherwise.
 
-            if (window.DialogResultValue != true || string.IsNullOrEmpty(window.NewPresetName))
+            if (sheet.DialogResultValue != true || string.IsNullOrEmpty(sheet.NewPresetName))
                 return;
 
-            Preset? newPreset = Options.Presets?.FirstOrDefault(p => string.Equals(p.Name, window.NewPresetName, StringComparison.OrdinalIgnoreCase));
+            Preset? newPreset = Options.Presets?.FirstOrDefault(p => string.Equals(p.Name, sheet.NewPresetName, StringComparison.OrdinalIgnoreCase));
             if (newPreset is null) {
-                newPreset = new Preset(window.NewPresetName, isCurrentlySelected: false, isDefaultPreset: false);
+                newPreset = new Preset(sheet.NewPresetName, isCurrentlySelected: false, isDefaultPreset: false);
                 Options.Presets?.Add(newPreset);
                 presetListBox.ItemsSource = (Options.Presets ?? []).Where(p => !p.IsCurrentlySelected).ToList();
             }

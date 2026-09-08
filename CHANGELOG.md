@@ -145,6 +145,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   first time it's needed and isn't written to again.
 - Icons decode on first use instead of all at once at preset load, cutting load time for the
   bundled Space Age preset roughly fourfold.
+- Image Export, Load from Save, Science Packs, Import Preset, and the cross-preset picker now open
+  as sheets sliding down from their owner window instead of separate windows.
 
 ### Removed
 

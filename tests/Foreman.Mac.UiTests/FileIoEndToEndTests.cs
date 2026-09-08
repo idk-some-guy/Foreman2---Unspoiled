@@ -7,6 +7,7 @@ using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using SkiaSharp;
 using System;
@@ -226,13 +227,13 @@ namespace Foreman.Mac.UiTests {
                 await window.LoadGraphJsonAsync(json, savePath);
                 Assert.Single(window.GraphCanvas.Viewer.NodeElements);
 
-                ImageExportWindow? exportWindow = null;
-                window.ImageExportDialogStub = viewer => exportWindow = new ImageExportWindow(viewer);
+                ImageExportSheet? exportSheet = null;
+                window.ImageExportDialogStub = viewer => exportSheet = new ImageExportSheet(viewer);
                 await window.OpenImageExportAsync();
-                exportWindow!.TransparencyCheckBoxControl.IsChecked = true;
-                exportWindow.FileTextBoxControl.Text = pngPath;
+                exportSheet!.TransparencyCheckBoxControl.IsChecked = true;
+                exportSheet.FileTextBoxControl.Text = pngPath;
 
-                await exportWindow.ExportAsync();
+                await exportSheet.ExportAsync();
 
                 Assert.True(File.Exists(pngPath));
                 Assert.True(new FileInfo(pngPath).Length > 0);

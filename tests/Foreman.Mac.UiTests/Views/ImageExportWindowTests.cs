@@ -1,7 +1,12 @@
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Threading;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.Sheets;
 using SkiaSharp;
 using System;
 using System.Drawing;
@@ -11,11 +16,11 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Covers io-reference.md §3's PNG export dialog contract (phase 6 Task 3): scale mapping, the live
-    //Image Size label (incl. its nothing-to-export text), the view-limited vs. full-graph transform
-    //branches, transparency, and the export guards. ShapeAnnotationElement stands in for a node here - its
-    //fixed graph-space rect and settable FillColor/BorderWidth make pixel sampling exact, and none of this
-    //dialog's math touches DataCache at all, so no preset needs loading.
+    //Covers io-reference.md §3's PNG export dialog contract (phase 6 Task 3, moved onto SheetHost by C2c
+    //Task 2): scale mapping, the live Image Size label (incl. its nothing-to-export text), the view-limited
+    //vs. full-graph transform branches, transparency, and the export guards. ShapeAnnotationElement stands
+    //in for a node here - its fixed graph-space rect and settable FillColor/BorderWidth make pixel sampling
+    //exact, and none of this dialog's math touches DataCache at all, so no preset needs loading.
     public class ImageExportWindowTests {
         private static GraphViewer NewViewer(double width, double height) =>
             new(new Viewport(width, height), new GridManager());
@@ -33,10 +38,10 @@ namespace Foreman.Mac.UiTests.Views {
 
         [AvaloniaFact]
         public void Constructor_PopulatesSevenScaleOptions_DefaultsToOneX() {
-            var window = new ImageExportWindow(NewViewer(400, 300));
+            var sheet = new ImageExportSheet(NewViewer(400, 300));
 
-            Assert.Equal(ExpectedScaleNames, window.ScaleSelectionBoxControl.ItemsSource);
-            Assert.Equal(4, window.ScaleSelectionBoxControl.SelectedIndex);
+            Assert.Equal(ExpectedScaleNames, sheet.ScaleSelectionBoxControl.ItemsSource);
+            Assert.Equal(4, sheet.ScaleSelectionBoxControl.SelectedIndex);
         }
 
         //---- size label math (reference §3 UpdateSizeLabel) --------------------------------------------
@@ -45,42 +50,42 @@ namespace Foreman.Mac.UiTests.Views {
         public void ImageSizeLabel_FullGraphAtDefaultScale_MatchesExportBoundsMath() {
             GraphViewer viewer = NewViewer(400, 300);
             AddSolidShape(viewer, new Point(0, 0), 40, SKColors.Red);
-            var window = new ImageExportWindow(viewer);
+            var sheet = new ImageExportSheet(viewer);
 
             Rectangle bounds = AnnotationLoader.GetExportBounds(viewer.Graph.Bounds, viewer.Annotations);
             int expectedX = GraphExportBounds.ScaledWidth(bounds, 1f);
             int expectedY = GraphExportBounds.ScaledHeight(bounds, 1f);
-            Assert.Equal($"Image Size: {expectedX:N0} x {expectedY:N0}", window.ImageSizeLabelControl.Text);
+            Assert.Equal($"Image Size: {expectedX:N0} x {expectedY:N0}", sheet.ImageSizeLabelControl.Text);
         }
 
         [AvaloniaFact]
         public void ImageSizeLabel_ScaleChangedToHalf_HalvesReportedDimensions() {
             GraphViewer viewer = NewViewer(400, 300);
             AddSolidShape(viewer, new Point(0, 0), 40, SKColors.Red);
-            var window = new ImageExportWindow(viewer);
+            var sheet = new ImageExportSheet(viewer);
 
-            window.ScaleSelectionBoxControl.SelectedIndex = 3; //"1/2" -> 0.5x
+            sheet.ScaleSelectionBoxControl.SelectedIndex = 3; //"1/2" -> 0.5x
 
             Rectangle bounds = AnnotationLoader.GetExportBounds(viewer.Graph.Bounds, viewer.Annotations);
             int expectedX = GraphExportBounds.ScaledWidth(bounds, 0.5f);
             int expectedY = GraphExportBounds.ScaledHeight(bounds, 0.5f);
-            Assert.Equal($"Image Size: {expectedX:N0} x {expectedY:N0}", window.ImageSizeLabelControl.Text);
+            Assert.Equal($"Image Size: {expectedX:N0} x {expectedY:N0}", sheet.ImageSizeLabelControl.Text);
         }
 
         [AvaloniaFact]
         public void ImageSizeLabel_ViewLimitChecked_SwitchesToViewportPixelDimensions() {
-            var window = new ImageExportWindow(NewViewer(400, 300));
+            var sheet = new ImageExportSheet(NewViewer(400, 300));
 
-            window.ViewLimitCheckBoxControl.IsChecked = true;
+            sheet.ViewLimitCheckBoxControl.IsChecked = true;
 
-            Assert.Equal("Image Size: 400 x 300", window.ImageSizeLabelControl.Text);
+            Assert.Equal("Image Size: 400 x 300", sheet.ImageSizeLabelControl.Text);
         }
 
         [AvaloniaFact]
         public void ImageSizeLabel_EmptyGraphFullGraphMode_ShowsNothingToExportText() {
-            var window = new ImageExportWindow(NewViewer(400, 300));
+            var sheet = new ImageExportSheet(NewViewer(400, 300));
 
-            Assert.Equal("Image Size: — (nothing to export)", window.ImageSizeLabelControl.Text);
+            Assert.Equal("Image Size: — (nothing to export)", sheet.ImageSizeLabelControl.Text);
         }
 
         //---- pixel-sampled export: view-limit off vs. on (reference §3 ExportBitmap) --------------------
@@ -93,12 +98,12 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task ExportAsync_NodeOutsideViewport_ViewLimitOff_IsPresentInExportedImage() {
             GraphViewer viewer = NewViewer(400, 300);
             AddSolidShape(viewer, new Point(2000, 0), 40, SKColors.Red);
-            var window = new ImageExportWindow(viewer);
-            window.FileTextBoxControl.Text = TempPngPath();
+            var sheet = new ImageExportSheet(viewer);
+            sheet.FileTextBoxControl.Text = TempPngPath();
 
-            await window.ExportAsync();
+            await sheet.ExportAsync();
 
-            using SKBitmap bitmap = SKBitmap.Decode(window.LastPngBytes)!;
+            using SKBitmap bitmap = SKBitmap.Decode(sheet.LastPngBytes)!;
             Assert.Equal(140, bitmap.Width);
             Assert.Equal(140, bitmap.Height);
             Assert.Equal(SKColors.Red, bitmap.GetPixel(70, 70));
@@ -108,13 +113,13 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task ExportAsync_NodeOutsideViewport_ViewLimitOn_IsAbsentFromExportedImage() {
             GraphViewer viewer = NewViewer(400, 300);
             AddSolidShape(viewer, new Point(2000, 0), 40, SKColors.Red);
-            var window = new ImageExportWindow(viewer);
-            window.ViewLimitCheckBoxControl.IsChecked = true;
-            window.FileTextBoxControl.Text = TempPngPath();
+            var sheet = new ImageExportSheet(viewer);
+            sheet.ViewLimitCheckBoxControl.IsChecked = true;
+            sheet.FileTextBoxControl.Text = TempPngPath();
 
-            await window.ExportAsync();
+            await sheet.ExportAsync();
 
-            using SKBitmap bitmap = SKBitmap.Decode(window.LastPngBytes)!;
+            using SKBitmap bitmap = SKBitmap.Decode(sheet.LastPngBytes)!;
             Assert.Equal(400, bitmap.Width);
             Assert.Equal(300, bitmap.Height);
             Assert.DoesNotContain(SKColors.Red, bitmap.Pixels);
@@ -126,13 +131,13 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task ExportAsync_TransparencyChecked_BackgroundPixelIsFullyTransparent() {
             GraphViewer viewer = NewViewer(400, 300);
             AddSolidShape(viewer, new Point(0, 0), 40, SKColors.Red);
-            var window = new ImageExportWindow(viewer);
-            window.TransparencyCheckBoxControl.IsChecked = true;
-            window.FileTextBoxControl.Text = TempPngPath();
+            var sheet = new ImageExportSheet(viewer);
+            sheet.TransparencyCheckBoxControl.IsChecked = true;
+            sheet.FileTextBoxControl.Text = TempPngPath();
 
-            await window.ExportAsync();
+            await sheet.ExportAsync();
 
-            using SKBitmap bitmap = SKBitmap.Decode(window.LastPngBytes)!;
+            using SKBitmap bitmap = SKBitmap.Decode(sheet.LastPngBytes)!;
             Assert.Equal(0, bitmap.GetPixel(5, 5).Alpha);
         }
 
@@ -140,12 +145,12 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task ExportAsync_TransparencyUnchecked_BackgroundPixelIsOpaque() {
             GraphViewer viewer = NewViewer(400, 300);
             AddSolidShape(viewer, new Point(0, 0), 40, SKColors.Red);
-            var window = new ImageExportWindow(viewer);
-            window.FileTextBoxControl.Text = TempPngPath();
+            var sheet = new ImageExportSheet(viewer);
+            sheet.FileTextBoxControl.Text = TempPngPath();
 
-            await window.ExportAsync();
+            await sheet.ExportAsync();
 
-            using SKBitmap bitmap = SKBitmap.Decode(window.LastPngBytes)!;
+            using SKBitmap bitmap = SKBitmap.Decode(sheet.LastPngBytes)!;
             Assert.Equal(255, bitmap.GetPixel(5, 5).Alpha);
         }
 
@@ -153,28 +158,28 @@ namespace Foreman.Mac.UiTests.Views {
 
         [AvaloniaFact]
         public async Task ExportAsync_EmptyGraphFullGraphMode_ShowsNothingToExportWarningAndWritesNoFile() {
-            var window = new ImageExportWindow(NewViewer(400, 300));
+            var sheet = new ImageExportSheet(NewViewer(400, 300));
             string? capturedMessage = null;
-            window.WarningDialogStub = (_, message) => { capturedMessage = message; return Task.CompletedTask; };
+            sheet.WarningDialogStub = (_, message) => { capturedMessage = message; return Task.CompletedTask; };
             string path = TempPngPath();
-            window.FileTextBoxControl.Text = path;
+            sheet.FileTextBoxControl.Text = path;
 
-            await window.ExportAsync();
+            await sheet.ExportAsync();
 
             Assert.Equal("There is nothing to export. Add nodes or annotations to the graph first.", capturedMessage);
             Assert.False(File.Exists(path));
-            Assert.Null(window.LastPngBytes);
+            Assert.Null(sheet.LastPngBytes);
         }
 
         [AvaloniaFact]
         public async Task ExportAsync_DirectoryDoesNotExist_ShowsVerbatimWarningAndWritesNoFile() {
-            var window = new ImageExportWindow(NewViewer(400, 300));
+            var sheet = new ImageExportSheet(NewViewer(400, 300));
             string? capturedMessage = null;
-            window.WarningDialogStub = (_, message) => { capturedMessage = message; return Task.CompletedTask; };
+            sheet.WarningDialogStub = (_, message) => { capturedMessage = message; return Task.CompletedTask; };
             string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "export.png");
-            window.FileTextBoxControl.Text = path;
+            sheet.FileTextBoxControl.Text = path;
 
-            await window.ExportAsync();
+            await sheet.ExportAsync();
 
             Assert.Equal("Directory doesn't exist!", capturedMessage);
             Assert.False(File.Exists(path));
@@ -183,21 +188,27 @@ namespace Foreman.Mac.UiTests.Views {
         //---- happy path -----------------------------------------------------------------------------
 
         [AvaloniaFact]
-        public async Task ExportAsync_ValidPath_WritesDecodablePngAndClosesWindow() {
+        public async Task ExportAsync_ValidPath_WritesDecodablePngAndClosesTheSheet() {
             GraphViewer viewer = NewViewer(400, 300);
             AddSolidShape(viewer, new Point(0, 0), 40, SKColors.Red);
-            var window = new ImageExportWindow(viewer);
+            var sheet = new ImageExportSheet(viewer);
+            var window = new Window { Width = 800, Height = 600 };
             window.Show();
+            SheetHost host = SheetHost.For(window);
+            Task<bool> task = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
             string path = TempPngPath();
-            window.FileTextBoxControl.Text = path;
+            sheet.FileTextBoxControl.Text = path;
 
             try {
-                await window.ExportAsync();
+                await sheet.ExportAsync();
 
                 Assert.True(File.Exists(path));
                 using SKBitmap bitmap = SKBitmap.Decode(path);
                 Assert.NotNull(bitmap);
-                Assert.False(window.IsVisible);
+                Assert.True(await task);
+                AnimationClock.Settle();
+                Assert.False(host.IsOpen);
             } finally {
                 File.Delete(path);
             }
@@ -207,13 +218,13 @@ namespace Foreman.Mac.UiTests.Views {
 
         [AvaloniaFact]
         public async Task BrowseAsync_StubReturnsPath_FillsTextBoxWithoutExporting() {
-            var window = new ImageExportWindow(NewViewer(400, 300));
+            var sheet = new ImageExportSheet(NewViewer(400, 300));
             string path = TempPngPath();
-            window.SaveFilePathStub = () => Task.FromResult<string?>(path);
+            sheet.SaveFilePathStub = () => Task.FromResult<string?>(path);
 
-            await window.BrowseAsync();
+            await sheet.BrowseAsync();
 
-            Assert.Equal(path, window.FileTextBoxControl.Text);
+            Assert.Equal(path, sheet.FileTextBoxControl.Text);
             Assert.False(File.Exists(path));
         }
 
@@ -230,6 +241,42 @@ namespace Foreman.Mac.UiTests.Views {
             _ = window.OpenImageExportAsync();
 
             Assert.Same(window.GraphCanvas.Viewer, captured);
+        }
+
+        //---- SheetHost contract (C2c Task 2): width from the sheets table, Enter/Esc map to the former
+        //Export/close results ---------------------------------------------------------------------------
+
+        [AvaloniaFact]
+        public void SheetWidth_Is348() {
+            var sheet = new ImageExportSheet(NewViewer(400, 300));
+
+            Assert.Equal(348, sheet.SheetWidth);
+        }
+
+        [AvaloniaFact]
+        public async Task Enter_TriggersExport_AndEscape_ClosesWithoutExporting() {
+            GraphViewer viewer = NewViewer(400, 300);
+            AddSolidShape(viewer, new Point(0, 0), 40, SKColors.Red);
+            var window = new Window { Width = 800, Height = 600 };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+
+            var sheet1 = new ImageExportSheet(viewer);
+            string path = TempPngPath();
+            sheet1.FileTextBoxControl.Text = path;
+            Task<bool> task1 = host.ShowAsync(sheet1);
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(sheet1.FileTextBoxControl, Key.Enter);
+            Assert.True(await task1);
+            File.Delete(path);
+            AnimationClock.Settle();
+
+            var sheet2 = new ImageExportSheet(viewer);
+            Task<bool> task2 = host.ShowAsync(sheet2);
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(sheet2.FileTextBoxControl, Key.Escape);
+            Assert.False(await task2);
+            Assert.False(host.IsOpen);
         }
     }
 }

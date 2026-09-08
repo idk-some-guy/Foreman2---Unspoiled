@@ -11,13 +11,15 @@ using SkiaSharp;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Foreman.Mac.Views {
+namespace Foreman.Mac.Views.Sheets {
     //Ports Forms/SciencePacksLoadForm.cs(+.Designer.cs) (reference io-reference.md §6): a 48px icon-button
     //grid (MaxColumns 14) built from DCache.SciencePacks, toggled DarkRed/DeepSkyBlue, with a prerequisite
     //cascade in both directions. Confirm re-derives EnabledObjects from the accepted packs, reusing
-    //EnabledObjectsDerivation (Foreman.Core, shared with SaveFileLoadWindow's ProcessSaveData - io-
+    //EnabledObjectsDerivation (Foreman.Core, shared with SaveFileLoadSheet's ProcessSaveData - io-
     //reference.md risk 5) for the assembler/beacon/module transitive-enable step rather than a second copy.
-    public partial class SciencePacksWindow : Window {
+    //C2c Task 2 moved this off SciencePacksWindow onto SheetHost: SheetWidth tracks the grid's own computed
+    //column count, matching the former SizeToContent="WidthAndHeight" window.
+    public partial class SciencePacksSheet : SheetContent<bool?> {
         private const int IconSize = 48;
         private const int MaxColumns = 14;
 
@@ -31,23 +33,24 @@ namespace Foreman.Mac.Views {
 
         internal bool Accepted { get; private set; }
 
-        public SciencePacksWindow() : this(new DataCache(false), []) {
+        public SciencePacksSheet() : this(new DataCache(false), []) {
         }
 
-        public SciencePacksWindow(DataCache cache, HashSet<IDataObjectBase> enabledObjects) {
+        public SciencePacksSheet(DataCache cache, HashSet<IDataObjectBase> enabledObjects) {
             InitializeComponent();
             dCache = cache;
             this.enabledObjects = enabledObjects;
+            Title = "Select researched science packs";
 
             sciencePackGrid = this.FindControl<UniformGrid>("SciencePackGrid")!;
             confirmationButton = this.FindControl<Button>("ConfirmationButton")!;
             cancellationButton = this.FindControl<Button>("CancellationButton")!;
+            DefaultButton = confirmationButton;
 
             confirmationButton.Click += (_, _) => Confirm();
             cancellationButton.Click += (_, _) => Cancel();
 
             PopulateSciencePackOptions();
-            WindowScaler.Track(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -64,6 +67,7 @@ namespace Foreman.Mac.Views {
             (int rows, int columns) = ComputeGridDimensions(dCache.SciencePacks.Count);
             sciencePackGrid.Rows = rows;
             sciencePackGrid.Columns = columns;
+            SheetWidth = columns * IconSize;
 
             foreach (IItem sciencePack in dCache.SciencePacks) {
                 var button = new Button {
@@ -122,12 +126,7 @@ namespace Foreman.Mac.Views {
             EnabledObjectsDerivation.DeriveAssemblersBeaconsModules(dCache, enabledObjects);
 
             Accepted = true;
-            Close(true);
-        }
-
-        private void Cancel() {
-            Accepted = false;
-            Close(false);
+            Complete(true);
         }
 
         private Bitmap GetOrBakeIcon(SKBitmap icon) => IconBaker.GetOrBake(bakedIconCache, icon, IconSize);

@@ -1,13 +1,7 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="Foreman.Mac.Views.ImageExportWindow"
-        Title="Export an Image"
-        Width="348"
-        SizeToContent="Height"
-        CanResize="False"
-        WindowStartupLocation="Manual"
-        Background="{DynamicResource SystemChromeMediumColor}">
-  <StackPanel Margin="12" Spacing="10">
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Foreman.Mac.Views.Sheets.ImageExportSheet">
+  <StackPanel Spacing="10">
     <Grid ColumnDefinitions="*,Auto">
       <TextBox Name="FileTextBox" Grid.Column="0" IsReadOnly="True" Margin="0,0,6,0" />
       <Button Name="BrowseButton" Grid.Column="1" Content="Browse..." />
@@ -25,4 +19,4 @@
     <CheckBox Name="ViewLimitCheckBox" Content="Limit to View" />
     <Button Name="ExportButton" Content="Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
   </StackPanel>
-</Window>
+</UserControl>

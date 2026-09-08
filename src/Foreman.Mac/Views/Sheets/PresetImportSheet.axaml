@@ -1,13 +1,7 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="Foreman.Mac.Views.PresetImportWindow"
-        Title="Import Preset"
-        Width="460"
-        SizeToContent="Height"
-        CanResize="False"
-        WindowStartupLocation="Manual"
-        Background="{DynamicResource SystemChromeMediumColor}">
-  <StackPanel Margin="12" Spacing="10">
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Foreman.Mac.Views.Sheets.PresetImportSheet">
+  <StackPanel Spacing="10">
     <StackPanel Spacing="2">
       <TextBlock Text="Factorio Location:" FontWeight="Bold" />
       <ComboBox Name="FactorioLocationComboBox" HorizontalAlignment="Stretch" IsVisible="False" />
@@ -33,12 +27,12 @@
       </Grid>
     </StackPanel>
     <Grid ColumnDefinitions="*,Auto">
-      <Button Name="OKButton" Grid.Column="0" Content="Import" Margin="0,0,6,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" IsDefault="True" />
-      <Button Name="CancelButton" Grid.Column="1" Content="Cancel" IsCancel="True" />
+      <Button Name="OKButton" Grid.Column="0" Content="Import" Margin="0,0,6,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+      <Button Name="CancelButton" Grid.Column="1" Content="Cancel" />
     </Grid>
     <StackPanel Name="ProgressPanel" Spacing="2" IsVisible="False">
       <TextBlock Name="StatusTextBlock" Text="" />
       <ProgressBar Name="ImportProgressBar" Minimum="0" Maximum="100" Value="0" />
     </StackPanel>
   </StackPanel>
-</Window>
+</UserControl>
