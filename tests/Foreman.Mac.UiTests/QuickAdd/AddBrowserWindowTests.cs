@@ -22,6 +22,7 @@ using DrawingPoint = System.Drawing.Point;
 namespace Foreman.Mac.UiTests.QuickAdd {
     public sealed class AddBrowserWindowTests {
         private static (AddBrowserWindow win, AddBrowserViewModel vm) Open(AppSettings? settings = null) {
+            WindowScaler.SetScale(1.0);
             var fx = CatalogFixture.WithGroups();
             settings ??= new AppSettings();
             var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
@@ -276,7 +277,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Dispatcher.UIThread.RunJobs();
 
             var sidebar = win.FindControl<Border>("Sidebar")!;
-            Assert.Equal(220, sidebar.Width);
+            Assert.Equal(320, sidebar.Width);
 
             var label = win.GetVisualDescendants().OfType<TextBlock>()
                 .First(t => t.DataContext is BrowserGroup g && g.Name == longName);
@@ -296,7 +297,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Dispatcher.UIThread.RunJobs();
 
             var sidebar = win.FindControl<Border>("Sidebar")!;
-            Assert.InRange(sidebar.Width, 168, 220);
+            Assert.InRange(sidebar.Width, 168, 320);
 
             var label = win.GetVisualDescendants().OfType<TextBlock>()
                 .First(t => t.DataContext is BrowserGroup g && g.Name == midName);
@@ -432,6 +433,49 @@ namespace Foreman.Mac.UiTests.QuickAdd {
                     $"'{((BrowserGroup)label.DataContext!).Name}' left edge ({left}) is left of the sidebar's padded edge ({sidebarLeft + sidebar.Padding.Left})");
                 Assert.True(right <= sidebarRight - sidebar.Padding.Right + 0.5,
                     $"'{((BrowserGroup)label.DataContext!).Name}' right edge ({right}) overflows the sidebar's padded edge ({sidebarRight - sidebar.Padding.Right})");
+            }
+
+            //Gate fix 9: bounds-fitting alone doesn't catch this - a trimmed label still stays inside the
+            //sidebar via ellipsis. "Intermediate products" must actually fit, not just get clipped to fit.
+            TextBlock intermediateProducts = labels.First(l => ((BrowserGroup)l.DataContext!).Name == "Intermediate products");
+            Assert.Null(ToolTip.GetTip(intermediateProducts));
+        }
+
+        //Gate fix 9: the widest bundled group name ("Intermediate products", Space Age) must render
+        //untrimmed at every supported UI scale - WindowScaler.SetScale only drives a LayoutTransform over
+        //already-arranged content, so it never changes a control's own logical DesiredSize, and the sidebar
+        //width this measures against must not either. Scale reset in finally so a failure here can't leak
+        //into another test sharing the process-wide WindowScaler.
+        [AvaloniaFact]
+        public void SidebarWidthFitsIntermediateProductsUntrimmed_AtEveryUiScale() {
+            WindowScaler.SetScale(1.0);
+            try {
+                var fx = CatalogFixture.WithGroupNamed("Intermediate products");
+                var settings = new AppSettings();
+                var vm = new AddBrowserViewModel(new AddCatalog(fx.Cache, settings), fx.Cache, settings, (_, _) => null);
+                var win = new AddBrowserWindow { DataContext = vm };
+                win.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                foreach (double scale in new[] { 1.0, 1.5, 2.0 }) {
+                    WindowScaler.SetScale(scale);
+                    Dispatcher.UIThread.RunJobs();
+
+                    var sidebar = win.FindControl<Border>("Sidebar")!;
+                    var label = win.GetVisualDescendants().OfType<TextBlock>()
+                        .First(t => t.DataContext is BrowserGroup g && g.Name == "Intermediate products");
+
+                    Assert.Null(ToolTip.GetTip(label));
+
+                    //Both corners go through TranslatePoint (not origin + local Bounds.Width) - at scale != 1
+                    //the ambient LayoutTransform means a translated origin and a local width live in different
+                    //units, so adding them crosses coordinate spaces.
+                    double labelRight = Avalonia.VisualExtensions.TranslatePoint(label, new Point(label.Bounds.Width, 0), win)!.Value.X;
+                    double sidebarRight = Avalonia.VisualExtensions.TranslatePoint(sidebar, new Point(sidebar.Bounds.Width, 0), win)!.Value.X;
+                    Assert.True(labelRight <= sidebarRight + 0.5, $"at scale {scale}, label right edge ({labelRight}) overflows the sidebar ({sidebarRight})");
+                }
+            } finally {
+                WindowScaler.SetScale(1.0);
             }
         }
 

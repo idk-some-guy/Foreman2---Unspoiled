@@ -24,6 +24,10 @@ namespace Foreman.Mac.UiTests.support {
         internal ProductionGraph Graph => Window.GraphCanvas.Viewer.Graph;
 
         public static ShellFixture Open() {
+            //Reset first, not just in Dispose - WindowScaler is process-wide, so a scale left non-default
+            //by a test that ran earlier (and never got as far as its own Dispose) would otherwise bake into
+            //this window's LayoutTransformControl at Track time.
+            WindowScaler.SetScale(1.0);
             //Pre-warms the shared vanilla cache off-thread first (see OpenWithSpaceAge's own comment) so
             //OpenEmptyWindowAsync's internal GetCacheAsync() always hits its already-loaded fast path -
             //a cold GetAwaiter().GetResult() here would otherwise risk the same deadlock.
@@ -40,6 +44,7 @@ namespace Foreman.Mac.UiTests.support {
         //pumped because this same thread is blocked waiting on it - Task.Run gives the load a thread with
         //no ambient context to deadlock on.
         public static ShellFixture OpenWithSpaceAge() {
+            WindowScaler.SetScale(1.0);
             DataCache cache = Task.Run(InspectorTestSupport.GetSpaceAgeCacheAsync).GetAwaiter().GetResult();
             var window = new MainWindow();
             window.Show();
