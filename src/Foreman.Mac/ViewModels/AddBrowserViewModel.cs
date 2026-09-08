@@ -14,7 +14,11 @@ using System.Text.RegularExpressions;
 namespace Foreman.Mac.ViewModels {
     public enum BrowserSegment { Items, Recipes }
 
-    public sealed record BrowserCell(AddCandidate Candidate, string Label, IImage? Icon, bool IsAvailable, bool IsSelected);
+    public sealed record BrowserCell(AddCandidate Candidate, string Label, IImage? Icon, bool IsAvailable, bool IsSelected) {
+        //Gate fix 11: every cell carries its full name and kind, so a label the grid ellipsizes down to a
+        //couple of words is never ambiguous against a neighbour that happens to start the same way.
+        public string TooltipText => $"{Candidate.Name} ({Candidate.KindLabel})";
+    }
     public sealed record BrowserSection(string Title, IReadOnlyList<BrowserCell> Cells) {
         public string Heading => Title.ToUpperInvariant();
     }
@@ -135,7 +139,11 @@ namespace Foreman.Mac.ViewModels {
             }
         }
 
+        //Gate fix 11: clicking the already-selected group is a no-op - it must not rebuild Groups/Sections
+        //(and so must not retrigger any entrance animation on cells that were already showing).
         public void SelectGroup(IGroup group) {
+            if (Equals(SelectedGroupForSegment(Segment), group))
+                return;
             SetSelectedGroupForSegment(Segment, group);
             Refresh();
         }
@@ -297,10 +305,14 @@ namespace Foreman.Mac.ViewModels {
         //key outright or is left as Factorio's own unresolved locale placeholder ("§§SG:EXTRACTION_ITEMS").
         //Strip the placeholder prefix and turn the remaining key into a readable phrase; a genuinely
         //localised name (distinct from Name, no placeholder) passes through with its whitespace collapsed.
+        //A placeholder's own kind marker (SG:, G:, any case) sits right between the "§§" and the real key -
+        //only that leading run is stripped, so a colon later in a real name is never touched.
+        private static readonly Regex LocalePlaceholderPrefix = new(@"^§§(?:[A-Za-z]+:)?", RegexOptions.Compiled);
+
         internal static string Humanize(string friendlyName, string name) {
             if (!friendlyName.StartsWith("§§", StringComparison.Ordinal) && friendlyName != name)
                 return CollapseWhitespace(friendlyName);
-            string key = friendlyName.StartsWith("§§SG:", StringComparison.Ordinal) ? friendlyName[5..] : friendlyName.TrimStart('§');
+            string key = LocalePlaceholderPrefix.Replace(friendlyName, "", 1);
             string words = CollapseWhitespace(key.Replace('_', ' ').Replace('-', ' ').ToLowerInvariant());
             return words.Length == 0 ? words : char.ToUpperInvariant(words[0]) + words[1..];
         }
@@ -312,28 +324,54 @@ namespace Foreman.Mac.ViewModels {
             return humanized == CollapseWhitespace(friendlyName) ? humanized : System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(humanized);
         }
 
+        //Gate fix 11: a rebuild that would produce the exact same content (compared by candidate, not
+        //reference) is skipped outright - Sections stays untouched so its containers survive and don't
+        //replay their entrance animation. Trailing whitespace in a re-typed search is the common case.
         private void RefreshSections() {
-            AddCandidate? previouslySelected = SelectedCell?.Candidate;
+            List<BrowserSection> candidate = BuildSections();
+            if (SectionsMatch(sections, candidate))
+                return;
 
+            AddCandidate? previouslySelected = SelectedCell?.Candidate;
             sections.Clear();
-            if (pendingOrigin is { } pending && Segment == BrowserSegment.Items) {
-                sections.Add(new BrowserSection("Origins", [.. pending.Origins.Select(o => BuildCell(AddCatalog.Candidate(o)))]));
-            } else if (request?.Link is { } link) {
-                BuildLinkSections(link);
-            } else {
-                string text = SearchText.Trim();
-                if (text.Length == 0)
-                    BuildGroupSections();
-                else
-                    BuildSearchSection(text);
-            }
+            foreach (BrowserSection section in candidate)
+                sections.Add(section);
 
             SelectedCell = previouslySelected is null
                 ? null
                 : sections.SelectMany(s => s.Cells).FirstOrDefault(c => c.Candidate.Equals(previouslySelected));
         }
 
-        private void BuildGroupSections() {
+        private List<BrowserSection> BuildSections() {
+            var target = new List<BrowserSection>();
+            if (pendingOrigin is { } pending && Segment == BrowserSegment.Items) {
+                target.Add(new BrowserSection("Origins", [.. pending.Origins.Select(o => BuildCell(AddCatalog.Candidate(o)))]));
+            } else if (request?.Link is { } link) {
+                BuildLinkSections(target, link);
+            } else {
+                string text = SearchText.Trim();
+                if (text.Length == 0)
+                    BuildGroupSections(target);
+                else
+                    BuildSearchSection(target, text);
+            }
+            return target;
+        }
+
+        private static bool SectionsMatch(ObservableCollection<BrowserSection> current, List<BrowserSection> candidate) {
+            if (current.Count != candidate.Count)
+                return false;
+            for (int i = 0; i < current.Count; i++) {
+                if (current[i].Title != candidate[i].Title || current[i].Cells.Count != candidate[i].Cells.Count)
+                    return false;
+                for (int j = 0; j < current[i].Cells.Count; j++)
+                    if (!current[i].Cells[j].Candidate.Equals(candidate[i].Cells[j].Candidate))
+                        return false;
+            }
+            return true;
+        }
+
+        private void BuildGroupSections(List<BrowserSection> target) {
             IGroup? selected = SelectedGroupForSegment(Segment);
             if (selected is null)
                 return;
@@ -344,12 +382,12 @@ namespace Foreman.Mac.ViewModels {
                     : subgroup.Recipes.Where(catalog.IsVisible).Select(AddCatalog.Candidate);
                 var cells = candidates.Select(BuildCell).ToList();
                 if (cells.Count > 0)
-                    sections.Add(new BrowserSection(Humanize(subgroup.FriendlyName, subgroup.Name), cells));
+                    target.Add(new BrowserSection(Humanize(subgroup.FriendlyName, subgroup.Name), cells));
             }
         }
 
         //R10: a recipe search also matches on ingredient/product name, not just the recipe's own name.
-        private void BuildSearchSection(string text) {
+        private void BuildSearchSection(List<BrowserSection> target, string text) {
             AddScope scope = Segment == BrowserSegment.Items ? AddScope.Items : AddScope.Recipes;
             var candidates = new List<AddCandidate>(catalog.Search(text, scope, link: null));
 
@@ -368,20 +406,58 @@ namespace Foreman.Mac.ViewModels {
                 }
             }
 
-            sections.Add(new BrowserSection("Results", [.. candidates.Select(BuildCell)]));
+            AppendGroupedSections(target, candidates);
         }
 
         //Link-drag "Add..." (a dragged tab's Compatible-with-{item} chip): Items narrows to the dragged
         //item itself, Recipes to every recipe AddCatalog.IsCompatible allows for that link's direction -
         //SearchText (the ⌘↵-seeded query) still narrows either list further.
-        private void BuildLinkSections(AddLinkContext link) {
+        private void BuildLinkSections(List<BrowserSection> target, AddLinkContext link) {
             string text = SearchText.Trim();
             if (Segment == BrowserSegment.Items) {
                 if (link.Item.Item is IItem linkItem && Matches(linkItem.FriendlyName, text))
-                    sections.Add(new BrowserSection("Items", [BuildCell(AddCatalog.Candidate(linkItem))]));
+                    AppendGroupedSections(target, [AddCatalog.Candidate(linkItem)]);
             } else {
                 var candidates = cache.Recipes.Values.Where(r => catalog.IsVisible(r) && catalog.IsCompatible(r, link) && Matches(r.FriendlyName, text)).Select(AddCatalog.Candidate);
-                sections.Add(new BrowserSection("Recipes", [.. candidates.Select(BuildCell)]));
+                AppendGroupedSections(target, candidates);
+            }
+        }
+
+        //Gate fix 11: search/link matches sit one section per subgroup (preset order), titled "Group ·
+        //Subgroup", instead of a single catch-all heading - two similarly named recipes from different
+        //subgroups no longer sit ambiguously side by side under one "Results" list.
+        private void AppendGroupedSections(List<BrowserSection> target, IEnumerable<AddCandidate> candidates) {
+            var bySubgroup = candidates
+                .Select(c => (Candidate: c, Subgroup: SubgroupOf(c)))
+                .GroupBy(x => x.Subgroup)
+                .OrderBy(g => g.Key, SubgroupOrderComparer.Instance);
+
+            foreach (var group in bySubgroup)
+                target.Add(new BrowserSection(SectionTitleFor(group.Key), [.. group.Select(x => BuildCell(x.Candidate))]));
+        }
+
+        private static ISubgroup? SubgroupOf(AddCandidate candidate) => candidate.Item?.MySubgroup ?? candidate.Recipe?.MySubgroup;
+
+        private static string SectionTitleFor(ISubgroup? subgroup) {
+            if (subgroup is null)
+                return "Results";
+            string subgroupName = Humanize(subgroup.FriendlyName, subgroup.Name);
+            return subgroup.MyGroup is { } group ? $"{Humanize(group.FriendlyName, group.Name)} · {subgroupName}" : subgroupName;
+        }
+
+        //Sorts by owning group first, then by the subgroup's own order within it - the same preset order
+        //the sidebar and BuildGroupSections already walk.
+        private sealed class SubgroupOrderComparer : IComparer<ISubgroup?> {
+            public static readonly SubgroupOrderComparer Instance = new();
+            public int Compare(ISubgroup? x, ISubgroup? y) {
+                if (ReferenceEquals(x, y))
+                    return 0;
+                if (x is null)
+                    return 1;
+                if (y is null)
+                    return -1;
+                int groupOrder = x.MyGroup is { } gx && y.MyGroup is { } gy ? gx.CompareTo(gy) : 0;
+                return groupOrder != 0 ? groupOrder : x.CompareTo(y);
             }
         }
 

@@ -1,11 +1,11 @@
 using Avalonia;
 using Avalonia.Animation;
-using Avalonia.Animation.Easings;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Foreman.Mac.Themes;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.QuickAdd;
 using System.Linq;
@@ -13,8 +13,8 @@ using Xunit;
 using AvaloniaPoint = Avalonia.Point;
 
 namespace Foreman.Mac.UiTests.QuickAdd {
-    //Gate fix 8, item 2d: the radial opens with a scale+fade in, slices ease their hover fill/stroke, and
-    //closing fades the menu out before FloatingPanelHost actually detaches it.
+    //Gate fix 8, item 2d / gate fix 11: the radial opens with a scale+fade in, slices ease their hover
+    //fill/stroke, and closing fades the menu out before FloatingPanelHost actually detaches it.
     public sealed class RadialAnimationTests {
         [AvaloniaFact]
         public void ANewRadialMenu_StartsScaledDownAndTransparent() {
@@ -22,8 +22,8 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             Assert.Equal(0, radial.Opacity);
             var scale = Assert.IsType<ScaleTransform>(radial.RenderTransform);
-            Assert.Equal(0.85, scale.ScaleX);
-            Assert.Equal(0.85, scale.ScaleY);
+            Assert.Equal(Motion.RadialOpenScale, scale.ScaleX);
+            Assert.Equal(Motion.RadialOpenScale, scale.ScaleY);
         }
 
         [AvaloniaFact]
@@ -46,25 +46,37 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             RadialMenu radial = fx.Control.OpenRadial!;
 
             var opacity = Assert.Single(radial.Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
-            Assert.Equal(120, opacity.Duration.TotalMilliseconds);
-            Assert.IsType<CubicEaseOut>(opacity.Easing);
+            Assert.Equal(Motion.RadialOpenDuration.TotalMilliseconds, opacity.Duration.TotalMilliseconds);
+            Assert.IsType(Motion.RadialOpenEasing.GetType(), opacity.Easing);
 
             var scale = Assert.Single(radial.Transitions!.OfType<TransformOperationsTransition>());
-            Assert.Equal(120, scale.Duration.TotalMilliseconds);
-            Assert.IsType<CubicEaseOut>(scale.Easing);
+            Assert.Equal(Motion.RadialOpenDuration.TotalMilliseconds, scale.Duration.TotalMilliseconds);
+            Assert.IsType(Motion.RadialOpenEasing.GetType(), scale.Easing);
         }
 
         [AvaloniaFact]
-        public void SliceStyle_DeclaresAnEightyMillisecondFillAndStrokeTransition() {
+        public void RadialMenuClosingStyle_FadesOutOverMotionsRadialCloseDuration() {
+            using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
+            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
+            RadialMenu radial = fx.Control.OpenRadial!;
+
+            fx.Control.FloatingPanelHost.Close();
+
+            var opacity = Assert.Single(radial.Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
+            Assert.Equal(Motion.RadialCloseDuration.TotalMilliseconds, opacity.Duration.TotalMilliseconds);
+        }
+
+        [AvaloniaFact]
+        public void SliceStyle_DeclaresAFillAndStrokeTransitionOverMotionsHoverDuration() {
             using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
             fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
             RadialMenu radial = fx.Control.OpenRadial!;
 
             Path slice = radial.GetVisualDescendants().OfType<Path>().First(p => p.Classes.Contains("foreman-radial-slice"));
             var fill = Assert.Single(slice.Transitions!.OfType<BrushTransition>(), t => t.Property == Path.FillProperty);
-            Assert.Equal(80, fill.Duration.TotalMilliseconds);
+            Assert.Equal(Motion.HoverDuration.TotalMilliseconds, fill.Duration.TotalMilliseconds);
             var stroke = Assert.Single(slice.Transitions!.OfType<BrushTransition>(), t => t.Property == Path.StrokeProperty);
-            Assert.Equal(80, stroke.Duration.TotalMilliseconds);
+            Assert.Equal(Motion.HoverDuration.TotalMilliseconds, stroke.Duration.TotalMilliseconds);
         }
 
         [AvaloniaFact]

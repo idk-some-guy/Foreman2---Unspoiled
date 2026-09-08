@@ -118,6 +118,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   Launches"); it's now a single line, "Extraction, Power & Rockets". Any group or subgroup name
   carrying stray whitespace, newlines included, also collapses to a single space as a defense in
   the browser's own name display.
+- Browser search results, and a link drag's compatible-recipe list, group under one heading per
+  subgroup instead of a flat list, and every cell's tooltip shows its full name and kind.
+- Animations run at a steadier pace and cascade top-down; selecting the group or segment that is
+  already active, or retyping an equivalent search, no longer rebuilds the list.
 
 ### Changed
 

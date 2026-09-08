@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -7,6 +8,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Services;
+using Foreman.Mac.Themes;
 using Foreman.Mac.ViewModels;
 using System;
 using System.Linq;
@@ -100,11 +102,19 @@ namespace Foreman.Mac.Views.QuickAdd {
 
         //A row starts life carrying .entering (Opacity 0, translated up 4px per the style in
         //Foreman.Styles.axaml) and sheds it a frame later, so the base style's own Transitions carry it
-        //into place instead of the row just appearing.
+        //into place instead of the row just appearing. Gate fix 11: the Transitions are overridden
+        //per-row here so a later row's entrance is delayed by its own stagger.
         private void OnRowContainerPrepared(object? sender, ContainerPreparedEventArgs e) {
             e.Container.Classes.Add("entering");
+            e.Container.Transitions = EntranceTransitions(Motion.StaggerDelay(e.Index));
             Dispatcher.UIThread.Post(() => e.Container.Classes.Remove("entering"), DispatcherPriority.Loaded);
         }
+
+        private static Transitions EntranceTransitions(TimeSpan delay) =>
+        [
+            new DoubleTransition { Property = Visual.OpacityProperty, Duration = Motion.EntranceDuration, Easing = Motion.EntranceEasing, Delay = delay },
+            new TransformOperationsTransition { Property = Visual.RenderTransformProperty, Duration = Motion.EntranceDuration, Easing = Motion.EntranceEasing, Delay = delay },
+        ];
 
         private void OnRowClick(object? sender, RoutedEventArgs e) {
             if (e.Source is Button { DataContext: QuickAddRow row })

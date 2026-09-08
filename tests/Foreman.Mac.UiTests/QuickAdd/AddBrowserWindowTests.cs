@@ -170,6 +170,15 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal("Storage", AddBrowserViewModel.Humanize("Storage", "storage"));
         }
 
+        //Gate fix 11: the placeholder's own kind marker ("SG:", "G:", any case) sits right after "§§" and
+        //must go too, not just the "§§" itself - a colon elsewhere in a real name is left alone.
+        [Fact]
+        public void HumanizeStripsTheKindMarkerAfterTheLocalePlaceholder_CaseInsensitively() {
+            Assert.Equal("Extraction items", AddBrowserViewModel.Humanize("§§sg:extraction_items", "extraction-items"));
+            Assert.Equal("Extra group", AddBrowserViewModel.Humanize("§§g:extra_group", "extra-group"));
+            Assert.Equal("Mod: Things", AddBrowserViewModel.Humanize("Mod: Things", "mod-things"));
+        }
+
         //Gate fix 10: a localised FriendlyName can carry embedded newlines - Humanize collapses any
         //whitespace run to one space regardless of the source.
         [Fact]

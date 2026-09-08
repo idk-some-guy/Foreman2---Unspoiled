@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.Themes;
 using System;
 using System.Collections.Generic;
 using AvaloniaCanvas = Avalonia.Controls.Canvas;
@@ -66,7 +67,7 @@ namespace Foreman.Mac.Views.QuickAdd {
             //Opens with a scale+fade in (qa|RadialMenu's own Transitions in Foreman.Styles.axaml carry it
             //from here to Opacity 1/scale 1 once attached - see AttachedToVisualTree below).
             Opacity = 0;
-            RenderTransform = new ScaleTransform(0.85, 0.85);
+            RenderTransform = new ScaleTransform(Motion.RadialOpenScale, Motion.RadialOpenScale);
             AttachedToVisualTree += (_, _) => {
                 Opacity = 1;
                 RenderTransform = new ScaleTransform(1, 1);

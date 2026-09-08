@@ -264,6 +264,10 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.True(window.IsVisible);
         }
 
+        //Gate fix 11: the cell now genuinely slides into place on entry, so its rendered position moves for
+        //the entrance's own duration - settle that first, or the two synthetic clicks below would land at
+        //two different points (RealClick recomputes screen position per click) and never count as a real
+        //double-click. A real double-click doesn't have this problem: the mouse doesn't move between clicks.
         [AvaloniaFact]
         public void DoubleClickSequenceOnARecipeCellPlacesExactlyOnce() {
             using ShellFixture shell = ShellFixture.Open();
@@ -271,6 +275,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             AddBrowserViewModel vm = shell.BrowserVm;
             BrowserCell cell = vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Kind == AddKind.Recipe);
             Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
 
             AddBrowserWindow window = shell.Window.BrowserWindow!;
             Button cellButton = window.GetVisualDescendants().OfType<Button>()

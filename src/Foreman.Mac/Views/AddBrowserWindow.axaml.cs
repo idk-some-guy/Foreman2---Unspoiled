@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -7,6 +8,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Services;
+using Foreman.Mac.Themes;
 using Foreman.Mac.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -79,20 +81,37 @@ namespace Foreman.Mac.Views {
             e.Container.Loaded += OnGroupContainerLoaded;
         }
 
-        //Gate fix 8, item 2c: each Cells ItemsControl is re-realized under SegmentHost's ContentTemplate
-        //(every segment switch) and its DataTemplate is re-realized per section (every filter), so this
-        //Loaded handler runs freshly each time rather than once in the constructor like groupsList's.
-        private void OnCellsListLoaded(object? sender, RoutedEventArgs e) {
-            if (sender is ItemsControl cellsList)
-                cellsList.ContainerPrepared += OnCellContainerPrepared;
+        //A cell starts life carrying .entering (Opacity 0 per the style in Foreman.Styles.axaml) and sheds
+        //it a frame later, with its own stagger Delay, so cells fade in top-down instead of all at once.
+        //Wired to the Button's own Loaded, not the parent ItemsControl's ContainerPrepared - the latter
+        //fires against a throwaway instance TransitioningContentControl discards before the real swap.
+        private void OnCellLoaded(object? sender, RoutedEventArgs e) {
+            if (sender is not Control cell || cell.DataContext is not BrowserCell data)
+                return;
+            int index = cell.FindAncestorOfType<ItemsControl>() is ItemsControl { ItemsSource: IEnumerable<BrowserCell> siblings }
+                ? IndexOf(siblings, data)
+                : 0;
+            cell.Classes.Add("entering");
+            cell.Transitions = EntranceTransitions(Motion.StaggerDelay(index));
+            Dispatcher.UIThread.Post(() => cell.Classes.Remove("entering"), DispatcherPriority.Loaded);
         }
 
-        //A cell starts life carrying .entering (Opacity 0 per the style in Foreman.Styles.axaml) and sheds
-        //it a frame later, so the base style's own Transitions fade it in instead of it just appearing.
-        private void OnCellContainerPrepared(object? sender, ContainerPreparedEventArgs e) {
-            e.Container.Classes.Add("entering");
-            Dispatcher.UIThread.Post(() => e.Container.Classes.Remove("entering"), DispatcherPriority.Loaded);
+        //Not IndexFromContainer - it isn't reliable here (see OnCellLoaded above).
+        private static int IndexOf(IEnumerable<BrowserCell> cells, BrowserCell target) {
+            int index = 0;
+            foreach (BrowserCell cell in cells) {
+                if (cell.Equals(target))
+                    return index;
+                index++;
+            }
+            return 0;
         }
+
+        private static Transitions EntranceTransitions(TimeSpan delay) =>
+        [
+            new DoubleTransition { Property = Visual.OpacityProperty, Duration = Motion.EntranceDuration, Easing = Motion.EntranceEasing, Delay = delay },
+            new TransformOperationsTransition { Property = Visual.RenderTransformProperty, Duration = Motion.EntranceDuration, Easing = Motion.EntranceEasing, Delay = delay },
+        ];
 
         private void OnGroupContainerLoaded(object? sender, RoutedEventArgs e) {
             ((Control)sender!).Loaded -= OnGroupContainerLoaded;

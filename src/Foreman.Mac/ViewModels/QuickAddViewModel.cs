@@ -5,7 +5,9 @@ using Foreman.Mac.Canvas;
 using Foreman.Mac.Services;
 using SkiaSharp;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace Foreman.Mac.ViewModels {
     public sealed partial class QuickAddRow : ObservableObject {
@@ -75,13 +77,38 @@ namespace Foreman.Mac.ViewModels {
         public AddCandidate? Commit() => HighlightedIndex >= 0 && HighlightedIndex < rows.Count ? rows[HighlightedIndex].Candidate : null;
 
         private void Refresh() {
-            rows.Clear();
-            foreach (AddCandidate c in catalog.Search(Query, request.Scope, request.Link, limit: 200))
-                rows.Add(new QuickAddRow(c, c.Name, c.KindLabel, c.Kind == AddKind.Recipe ? qualitySuffix : "", bakeIcon(c.Entry.Icon)));
+            var desired = catalog.Search(Query, request.Scope, request.Link, limit: 200)
+                .Select(c => new QuickAddRow(c, c.Name, c.KindLabel, c.Kind == AddKind.Recipe ? qualitySuffix : "", bakeIcon(c.Entry.Icon)))
+                .ToList();
+            SyncRows(desired);
             HighlightedIndex = rows.Count > 0 ? 0 : -1;
             SyncHighlight();
             OnPropertyChanged(nameof(HasRows));
             RowsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        //Gate fix 11: a row that survives the query change keeps its own instance (Move, not
+        //Remove+Add), so its container survives too and only genuinely new rows animate in.
+        private void SyncRows(List<QuickAddRow> desired) {
+            var desiredCandidates = new HashSet<AddCandidate>(desired.Select(r => r.Candidate));
+            for (int i = rows.Count - 1; i >= 0; i--)
+                if (!desiredCandidates.Contains(rows[i].Candidate))
+                    rows.RemoveAt(i);
+
+            for (int i = 0; i < desired.Count; i++) {
+                int currentIndex = IndexOfCandidate(desired[i].Candidate);
+                if (currentIndex == -1)
+                    rows.Insert(i, desired[i]);
+                else if (currentIndex != i)
+                    rows.Move(currentIndex, i);
+            }
+        }
+
+        private int IndexOfCandidate(AddCandidate candidate) {
+            for (int i = 0; i < rows.Count; i++)
+                if (rows[i].Candidate.Equals(candidate))
+                    return i;
+            return -1;
         }
 
         //Also called directly from Refresh() - a same-value HighlightedIndex skips the change notification, which would otherwise leave fresh rows unmarked.

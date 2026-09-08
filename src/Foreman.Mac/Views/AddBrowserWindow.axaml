@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Foreman.Mac.ViewModels"
         xmlns:conv="using:Foreman.Mac.Converters"
+        xmlns:motion="using:Foreman.Mac.Themes"
         x:Class="Foreman.Mac.Views.AddBrowserWindow"
         x:Name="RootWindow"
         x:DataType="vm:AddBrowserViewModel"
@@ -89,7 +90,9 @@
            AddBrowserViewModel by ElementName instead - classic (non-compiled) bindings throughout. -->
       <TransitioningContentControl Name="SegmentHost" Content="{Binding Segment}">
         <TransitioningContentControl.PageTransition>
-          <CrossFade Duration="0:0:0.18" />
+          <CrossFade Duration="{x:Static motion:Motion.CrossFadeDuration}"
+                     FadeInEasing="{x:Static motion:Motion.CrossFadeEasing}"
+                     FadeOutEasing="{x:Static motion:Motion.CrossFadeEasing}" />
         </TransitioningContentControl.PageTransition>
         <TransitioningContentControl.ContentTemplate>
           <DataTemplate x:CompileBindings="False">
@@ -99,9 +102,11 @@
                   <DataTemplate DataType="vm:BrowserSection">
                     <StackPanel Spacing="0" Margin="12,10,12,0">
                       <TextBlock Text="{Binding Heading}" Classes="foreman-browser-subhead" />
-                      <!-- Gate fix 8, item 2c: each cell fades in as its container is prepared (OnCellContainerPrepared) -
-                           Loaded fires per instance even though this DataTemplate is re-realized on every filter. -->
-                      <ItemsControl ItemsSource="{Binding Cells}" Loaded="OnCellsListLoaded">
+                      <!-- Gate fix 8/11, item 2c: each cell fades in once it's actually attached (OnCellLoaded) -
+                           TransitioningContentControl's cross-fade realizes this DataTemplate's content ahead of
+                           the visible swap, so an ItemsControl-level ContainerPrepared here fires against a
+                           throwaway instance; the Button's own Loaded always fires against the real one. -->
+                      <ItemsControl ItemsSource="{Binding Cells}">
                         <ItemsControl.ItemsPanel>
                           <ItemsPanelTemplate>
                             <WrapPanel ItemWidth="{DynamicResource Foreman.Size.BrowserCellPitch}"
@@ -110,7 +115,8 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                           <DataTemplate DataType="vm:BrowserCell">
-                            <Button Classes="foreman-browser-cell" Classes.unavailable="{Binding !IsAvailable}" Classes.selected="{Binding IsSelected}">
+                            <Button Classes="foreman-browser-cell" Classes.unavailable="{Binding !IsAvailable}" Classes.selected="{Binding IsSelected}"
+                                    ToolTip.Tip="{Binding TooltipText}" Loaded="OnCellLoaded">
                               <StackPanel Spacing="6" HorizontalAlignment="Center">
                                 <Border Classes="foreman-browser-cell-icon"
                                         Width="{DynamicResource Foreman.Size.BrowserCell}" Height="{DynamicResource Foreman.Size.BrowserCell}">

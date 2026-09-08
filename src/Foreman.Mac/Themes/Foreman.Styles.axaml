@@ -1,6 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:qa="using:Foreman.Mac.Views.QuickAdd">
+        xmlns:qa="using:Foreman.Mac.Views.QuickAdd"
+        xmlns:motion="using:Foreman.Mac.Themes">
 
   <Style Selector="TextBlock.foreman-large-title">
     <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.LargeTitle.FontSize}" />
@@ -543,14 +544,15 @@
     <Setter Property="RenderTransform" Value="none" />
     <Setter Property="Transitions">
       <Transitions>
-        <DoubleTransition Property="Opacity" Duration="0:0:0.15" Easing="CubicEaseOut" />
-        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut" />
+        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.EntranceDuration}" Easing="{x:Static motion:Motion.EntranceEasing}" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="{x:Static motion:Motion.EntranceDuration}" Easing="{x:Static motion:Motion.EntranceEasing}" />
       </Transitions>
     </Setter>
   </Style>
 
   <!-- Gate fix 8: a freshly prepared row carries this a frame before shedding it, so the base style's
-       Transitions above carry it from here into place instead of the row just appearing. -->
+       Transitions above carry it from here into place instead of the row just appearing. Gate fix 11:
+       QuickAddPalette overrides these Transitions per-row with a stagger Delay (see OnRowContainerPrepared). -->
   <Style Selector="Button.foreman-qa-row.entering">
     <Setter Property="Opacity" Value="0" />
     <Setter Property="RenderTransform" Value="translateY(4px)" />
@@ -617,15 +619,15 @@
     <Setter Property="RenderTransformOrigin" Value="50%,50%" />
     <Setter Property="Transitions">
       <Transitions>
-        <DoubleTransition Property="Opacity" Duration="0:0:0.12" Easing="CubicEaseOut" />
-        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
+        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.RadialOpenDuration}" Easing="{x:Static motion:Motion.RadialOpenEasing}" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="{x:Static motion:Motion.RadialOpenDuration}" Easing="{x:Static motion:Motion.RadialOpenEasing}" />
       </Transitions>
     </Setter>
   </Style>
   <Style Selector="qa|RadialMenu.closing">
     <Setter Property="Transitions">
       <Transitions>
-        <DoubleTransition Property="Opacity" Duration="0:0:0.08" Easing="CubicEaseIn" />
+        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.RadialCloseDuration}" Easing="CubicEaseIn" />
       </Transitions>
     </Setter>
     <Setter Property="Opacity" Value="0" />
@@ -637,8 +639,8 @@
     <Setter Property="StrokeThickness" Value="1" />
     <Setter Property="Transitions">
       <Transitions>
-        <BrushTransition Property="Fill" Duration="0:0:0.08" />
-        <BrushTransition Property="Stroke" Duration="0:0:0.08" />
+        <BrushTransition Property="Fill" Duration="{x:Static motion:Motion.HoverDuration}" />
+        <BrushTransition Property="Stroke" Duration="{x:Static motion:Motion.HoverDuration}" />
       </Transitions>
     </Setter>
   </Style>
@@ -708,7 +710,7 @@
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
     <Setter Property="Transitions">
       <Transitions>
-        <BrushTransition Property="Background" Duration="0:0:0.12" />
+        <BrushTransition Property="Background" Duration="{x:Static motion:Motion.HoverDuration}" />
       </Transitions>
     </Setter>
   </Style>
@@ -741,17 +743,21 @@
     <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="Opacity" Value="1" />
+    <Setter Property="RenderTransform" Value="none" />
     <Setter Property="Transitions">
       <Transitions>
-        <DoubleTransition Property="Opacity" Duration="0:0:0.12" Easing="CubicEaseOut" />
+        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.EntranceDuration}" Easing="{x:Static motion:Motion.EntranceEasing}" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="{x:Static motion:Motion.EntranceDuration}" Easing="{x:Static motion:Motion.EntranceEasing}" />
       </Transitions>
     </Setter>
   </Style>
 
-  <!-- Gate fix 8: a freshly prepared cell carries this a frame before shedding it - keeps the WrapPanel's
-       fixed pitch untouched (no slide, unlike the palette rows) so alignment never drifts. -->
+  <!-- Gate fix 8/11: a freshly prepared cell carries this a frame before shedding it - RenderTransform is a
+       post-layout offset, so the slide never disturbs the WrapPanel's fixed pitch. AddBrowserWindow
+       overrides these Transitions per-cell with a stagger Delay (see OnCellContainerPrepared). -->
   <Style Selector="Button.foreman-browser-cell.entering">
     <Setter Property="Opacity" Value="0" />
+    <Setter Property="RenderTransform" Value="translateY(4px)" />
   </Style>
 
   <Style Selector="Button.foreman-browser-cell.unavailable">
