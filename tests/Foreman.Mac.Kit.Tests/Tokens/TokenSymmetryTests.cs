@@ -28,7 +28,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Empty(onlyInLight);
             Assert.Empty(onlyInDark);
-            Assert.True(lightKeys.Count >= 100, $"expected a substantial token set, found {lightKeys.Count}");
+            Assert.True(lightKeys.Count >= 85, $"expected a substantial token set, found {lightKeys.Count}");
         }
 
         //K1 task 2: the semantic rebind adds these on top of the existing 25 colour keys, and renames

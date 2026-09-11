@@ -196,6 +196,7 @@ namespace Foreman.Mac.UiTests.Sheets {
             Assert.Equal(Motion.SheetOpenDuration.TotalMilliseconds, scrimOpenOpacity.Duration.TotalMilliseconds);
 
             Assert.Equal(new Thickness(18, 16, 18, 18), panel.Padding);
+            Assert.Equal(new CornerRadius(0, 0, 10, 10), panel.CornerRadius);
 
             Application.Current!.TryGetResource("Foreman.Shadow.Sheet", ThemeVariant.Dark, out object? darkResource);
             BoxShadow darkShadow = Assert.IsType<BoxShadows>(darkResource)[0];

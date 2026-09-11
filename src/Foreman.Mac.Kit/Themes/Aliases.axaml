@@ -8,12 +8,58 @@
         <ResourceInclude Source="avares://Foreman.Mac.Kit/Themes/Tokens.Light.axaml" />
       </ResourceDictionary.MergedDictionaries>
       <StaticResource x:Key="Foreman.Color.Selection" ResourceKey="Foreman.Color.NodeSelected" />
+      <StaticResource x:Key="Foreman.Type.WindowTitle.FontSize" ResourceKey="Foreman.Type.EmphasizedBody.FontSize" />
+      <StaticResource x:Key="Foreman.Type.WindowTitle.FontWeight" ResourceKey="Foreman.Type.EmphasizedBody.FontWeight" />
+      <StaticResource x:Key="Foreman.Type.InspectorTitle.FontSize" ResourceKey="Foreman.Type.EmphasizedBody.FontSize" />
+      <StaticResource x:Key="Foreman.Type.InspectorTitle.FontWeight" ResourceKey="Foreman.Type.EmphasizedBody.FontWeight" />
+      <StaticResource x:Key="Foreman.Type.InspectorSubtitle.FontSize" ResourceKey="Foreman.Type.Caption.FontSize" />
+      <StaticResource x:Key="Foreman.Type.Browser.Subhead.FontSize" ResourceKey="Foreman.Type.Caption.FontSize" />
+      <StaticResource x:Key="Foreman.Type.SmallBody.FontSize" ResourceKey="Foreman.Type.Callout.FontSize" />
+      <StaticResource x:Key="Foreman.Space.RadiusControl" ResourceKey="Foreman.Radius.Control" />
+      <StaticResource x:Key="Foreman.Space.RadiusCard" ResourceKey="Foreman.Radius.Card" />
+      <StaticResource x:Key="Foreman.Space.RadiusWindow" ResourceKey="Foreman.Radius.Window" />
+      <StaticResource x:Key="Foreman.Size.BrowserCellPitch" ResourceKey="Foreman.Size.ChooserCell" />
+      <x:Double x:Key="Foreman.Type.AboutName.FontSize">15</x:Double>
+      <x:Double x:Key="Foreman.Type.AboutTagline.FontSize">10.5</x:Double>
+      <x:Double x:Key="Foreman.Type.AboutVersion.FontSize">11.5</x:Double>
+      <x:Double x:Key="Foreman.Type.Browser.Label.FontSize">10</x:Double>
+      <x:Double x:Key="Foreman.Type.Browser.Row.FontSize">12.5</x:Double>
+      <x:Double x:Key="Foreman.Type.Kbd.FontSize">9.5</x:Double>
+      <x:Double x:Key="Foreman.Type.Palette.Hint.FontSize">10</x:Double>
+      <x:Double x:Key="Foreman.Type.Palette.Row.FontSize">12.5</x:Double>
+      <x:Double x:Key="Foreman.Type.Palette.Sub.FontSize">10.5</x:Double>
+      <x:Double x:Key="Foreman.Type.SearchField.FontSize">12.5</x:Double>
+      <x:Double x:Key="Foreman.Type.ToolbarLabel.FontSize">11.5</x:Double>
+      <FontWeight x:Key="Foreman.Type.ToolbarLabel.FontWeight">500</FontWeight>
     </ResourceDictionary>
     <ResourceDictionary x:Key="Dark">
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://Foreman.Mac.Kit/Themes/Tokens.Dark.axaml" />
       </ResourceDictionary.MergedDictionaries>
       <StaticResource x:Key="Foreman.Color.Selection" ResourceKey="Foreman.Color.NodeSelected" />
+      <StaticResource x:Key="Foreman.Type.WindowTitle.FontSize" ResourceKey="Foreman.Type.EmphasizedBody.FontSize" />
+      <StaticResource x:Key="Foreman.Type.WindowTitle.FontWeight" ResourceKey="Foreman.Type.EmphasizedBody.FontWeight" />
+      <StaticResource x:Key="Foreman.Type.InspectorTitle.FontSize" ResourceKey="Foreman.Type.EmphasizedBody.FontSize" />
+      <StaticResource x:Key="Foreman.Type.InspectorTitle.FontWeight" ResourceKey="Foreman.Type.EmphasizedBody.FontWeight" />
+      <StaticResource x:Key="Foreman.Type.InspectorSubtitle.FontSize" ResourceKey="Foreman.Type.Caption.FontSize" />
+      <StaticResource x:Key="Foreman.Type.Browser.Subhead.FontSize" ResourceKey="Foreman.Type.Caption.FontSize" />
+      <StaticResource x:Key="Foreman.Type.SmallBody.FontSize" ResourceKey="Foreman.Type.Callout.FontSize" />
+      <StaticResource x:Key="Foreman.Space.RadiusControl" ResourceKey="Foreman.Radius.Control" />
+      <StaticResource x:Key="Foreman.Space.RadiusCard" ResourceKey="Foreman.Radius.Card" />
+      <StaticResource x:Key="Foreman.Space.RadiusWindow" ResourceKey="Foreman.Radius.Window" />
+      <StaticResource x:Key="Foreman.Size.BrowserCellPitch" ResourceKey="Foreman.Size.ChooserCell" />
+      <x:Double x:Key="Foreman.Type.AboutName.FontSize">15</x:Double>
+      <x:Double x:Key="Foreman.Type.AboutTagline.FontSize">10.5</x:Double>
+      <x:Double x:Key="Foreman.Type.AboutVersion.FontSize">11.5</x:Double>
+      <x:Double x:Key="Foreman.Type.Browser.Label.FontSize">10</x:Double>
+      <x:Double x:Key="Foreman.Type.Browser.Row.FontSize">12.5</x:Double>
+      <x:Double x:Key="Foreman.Type.Kbd.FontSize">9.5</x:Double>
+      <x:Double x:Key="Foreman.Type.Palette.Hint.FontSize">10</x:Double>
+      <x:Double x:Key="Foreman.Type.Palette.Row.FontSize">12.5</x:Double>
+      <x:Double x:Key="Foreman.Type.Palette.Sub.FontSize">10.5</x:Double>
+      <x:Double x:Key="Foreman.Type.SearchField.FontSize">12.5</x:Double>
+      <x:Double x:Key="Foreman.Type.ToolbarLabel.FontSize">11.5</x:Double>
+      <FontWeight x:Key="Foreman.Type.ToolbarLabel.FontWeight">500</FontWeight>
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
 

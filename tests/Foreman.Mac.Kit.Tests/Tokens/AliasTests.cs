@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using Xunit;
@@ -95,13 +96,41 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             var window = new Window { Content = border };
             window.Show();
 
+            Application.Current!.TryGetResource("Foreman.Color.NodeSelected", ThemeVariant.Light, out object? lightNodeSelected);
             Application.Current!.RequestedThemeVariant = ThemeVariant.Light;
             Color lightRendered = Assert.IsAssignableFrom<ISolidColorBrush>(border.Background).Color;
-            Assert.Equal(Color.Parse("#D97A06"), lightRendered);
+            Assert.Equal(Assert.IsType<Color>(lightNodeSelected), lightRendered);
 
+            Application.Current!.TryGetResource("Foreman.Color.NodeSelected", ThemeVariant.Dark, out object? darkNodeSelected);
             Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
             Color darkRendered = Assert.IsAssignableFrom<ISolidColorBrush>(border.Background).Color;
-            Assert.Equal(Color.Parse("#FF9F0A"), darkRendered);
+            Assert.Equal(Assert.IsType<Color>(darkNodeSelected), darkRendered);
+        }
+
+        [AvaloniaFact]
+        public void EveryAliasedKey_ResolvesToTheSameValueAsItsNewKey_BothVariants() {
+            MergeKitIntoApplication();
+
+            foreach ((string oldKey, string newKey) in LoadCsv()) {
+                foreach (ThemeVariant variant in new[] { ThemeVariant.Light, ThemeVariant.Dark }) {
+                    bool resolved = Application.Current!.TryGetResource(oldKey, variant, out object? oldValue);
+                    Assert.True(resolved, oldKey);
+
+                    if (newKey.StartsWith("legacy:", StringComparison.Ordinal)) {
+                        double literal = double.Parse(newKey.AsSpan("legacy:".Length), CultureInfo.InvariantCulture);
+                        double actual = oldValue switch {
+                            double d => d,
+                            FontWeight w => (int)w,
+                            _ => throw new InvalidOperationException($"unhandled legacy value type {oldValue?.GetType()}"),
+                        };
+                        Assert.Equal(literal, actual);
+                        continue;
+                    }
+
+                    Application.Current!.TryGetResource(newKey, variant, out object? newValue);
+                    Assert.Equal(newValue, oldValue);
+                }
+            }
         }
 
         private static void MergeKitIntoApplication() {

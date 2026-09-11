@@ -51,13 +51,8 @@
   <x:Double x:Key="Foreman.Space.Space4">16</x:Double>
   <x:Double x:Key="Foreman.Space.Space5">24</x:Double>
   <x:Double x:Key="Foreman.Space.Space6">32</x:Double>
-  <x:Double x:Key="Foreman.Space.RadiusControl">6</x:Double>
-  <x:Double x:Key="Foreman.Space.RadiusCard">9</x:Double>
-  <x:Double x:Key="Foreman.Space.RadiusWindow">11</x:Double>
 
-  <!-- Typed companions of the Space/Radius doubles above, same numbers: CornerRadius and
-       Thickness (Margin/Padding) properties reject a boxed x:Double resource at style-application
-       time, so anything binding those properties needs its own typed resource instead. -->
+  <!-- Thickness twins of Space.Space1-6: CornerRadius and Thickness (Margin/Padding) reject a boxed x:Double resource at style-application time. -->
   <Thickness x:Key="Foreman.Thickness.Space1">4</Thickness>
   <Thickness x:Key="Foreman.Thickness.Space2">8</Thickness>
   <Thickness x:Key="Foreman.Thickness.Space3">12</Thickness>
@@ -74,31 +69,22 @@
 
   <x:Double x:Key="Foreman.Type.LargeTitle.FontSize">20</x:Double>
   <FontWeight x:Key="Foreman.Type.LargeTitle.FontWeight">700</FontWeight>
-  <x:Double x:Key="Foreman.Type.WindowTitle.FontSize">13</x:Double>
-  <FontWeight x:Key="Foreman.Type.WindowTitle.FontWeight">600</FontWeight>
   <x:Double x:Key="Foreman.Type.SectionHeader.FontSize">11</x:Double>
-  <FontWeight x:Key="Foreman.Type.SectionHeader.FontWeight">650</FontWeight>
+  <FontWeight x:Key="Foreman.Type.SectionHeader.FontWeight">600</FontWeight>
   <x:Double x:Key="Foreman.Type.SectionHeader.LetterSpacing">0.33</x:Double>
   <x:Double x:Key="Foreman.Type.Body.FontSize">13</x:Double>
   <FontWeight x:Key="Foreman.Type.Body.FontWeight">400</FontWeight>
   <x:Double x:Key="Foreman.Type.EmphasizedBody.FontSize">13</x:Double>
   <FontWeight x:Key="Foreman.Type.EmphasizedBody.FontWeight">600</FontWeight>
+  <x:Double x:Key="Foreman.Type.Callout.FontSize">12</x:Double>
+  <FontWeight x:Key="Foreman.Type.Callout.FontWeight">400</FontWeight>
   <x:Double x:Key="Foreman.Type.Caption.FontSize">11</x:Double>
   <FontWeight x:Key="Foreman.Type.Caption.FontWeight">400</FontWeight>
-  <x:Double x:Key="Foreman.Type.ToolbarLabel.FontSize">11.5</x:Double>
-  <FontWeight x:Key="Foreman.Type.ToolbarLabel.FontWeight">500</FontWeight>
-  <x:Double x:Key="Foreman.Type.AboutName.FontSize">15</x:Double>
-  <x:Double x:Key="Foreman.Type.AboutVersion.FontSize">11.5</x:Double>
-  <x:Double x:Key="Foreman.Type.AboutTagline.FontSize">10.5</x:Double>
-  <x:Double x:Key="Foreman.Type.InspectorTitle.FontSize">13</x:Double>
-  <FontWeight x:Key="Foreman.Type.InspectorTitle.FontWeight">600</FontWeight>
-  <x:Double x:Key="Foreman.Type.InspectorSubtitle.FontSize">11</x:Double>
-
-  <!-- Task 9 (inspector fidelity pass): the mock's 12px "small body" text (mini-select label, recipe
-       card flow row). -->
-  <x:Double x:Key="Foreman.Type.SmallBody.FontSize">12</x:Double>
-
   <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
+  <x:Double x:Key="Foreman.Size.InspectorWidthMin">260</x:Double>
+  <x:Double x:Key="Foreman.Size.InspectorWidthMax">380</x:Double>
+  <x:Double x:Key="Foreman.Size.ControlHeightRegular">22</x:Double>
+  <x:Double x:Key="Foreman.Size.ControlHeightLarge">24</x:Double>
   <x:Double x:Key="Foreman.Size.PickCell">26</x:Double>
 
   <!-- Task 9: overlay sidebar's soft left shadow (contract §03's overlay ruling) and a pick cell's
@@ -110,27 +96,25 @@
   <x:Double x:Key="Foreman.Size.PaletteRowIcon">22</x:Double>
   <BoxShadows x:Key="Foreman.Shadow.Popover">0 26 50 -14 #3D000000</BoxShadows>
 
-  <x:Double x:Key="Foreman.Type.Palette.Row.FontSize">12.5</x:Double>
-  <x:Double x:Key="Foreman.Type.Palette.Sub.FontSize">10.5</x:Double>
-  <x:Double x:Key="Foreman.Type.Palette.Hint.FontSize">10</x:Double>
-  <x:Double x:Key="Foreman.Type.Kbd.FontSize">9.5</x:Double>
-
   <x:Double x:Key="Foreman.Size.BrowserSidebar">168</x:Double>
   <x:Double x:Key="Foreman.Size.BrowserSidebarMax">320</x:Double>
   <x:Double x:Key="Foreman.Size.BrowserCell">40</x:Double>
-  <x:Double x:Key="Foreman.Size.BrowserCellPitch">88</x:Double>
+  <x:Double x:Key="Foreman.Size.ChooserCell">88</x:Double>
   <x:Double x:Key="Foreman.Size.BrowserCellRowHeight">78</x:Double>
   <x:Double x:Key="Foreman.Size.BrowserCellLabelHeight">24</x:Double>
-  <x:Double x:Key="Foreman.Type.Browser.Subhead.FontSize">11</x:Double>
-  <x:Double x:Key="Foreman.Type.Browser.Label.FontSize">10</x:Double>
-  <x:Double x:Key="Foreman.Type.Browser.Row.FontSize">12.5</x:Double>
   <CornerRadius x:Key="Foreman.Radius.SearchField">7</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Pill">100</CornerRadius>
-  <x:Double x:Key="Foreman.Type.SearchField.FontSize">12.5</x:Double>
 
   <!-- Sheet overlay (C2c #modals): scrim alpha is identical in both themes, so it isn't a per-theme color. -->
   <Color x:Key="Foreman.Color.SheetScrim">#80000000</Color>
   <BoxShadows x:Key="Foreman.Shadow.Sheet">0 34 60 -12 #26000000</BoxShadows>
-  <CornerRadius x:Key="Foreman.Radius.SheetBottom">0,0,12,12</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.SheetBottom">0,0,10,10</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.Node">10</CornerRadius>
+
+  <!-- Window chrome shadow; no consumer yet (K1), alpha borrowed from Popover pending a K-later ruling. -->
+  <BoxShadows x:Key="Foreman.Shadow.Window">0 30 60 -20 #3D000000</BoxShadows>
+
+  <!-- Canvas node card shadow; cards carry no shadow in dark, so Dark's alpha is zero. -->
+  <BoxShadows x:Key="Foreman.Shadow.Card">0 2 8 0 #12000000</BoxShadows>
 
 </ResourceDictionary>

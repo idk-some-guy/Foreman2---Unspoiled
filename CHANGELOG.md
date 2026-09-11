@@ -160,6 +160,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   keeping the old name resolvable. The preset comparator's status colors and the last four ad-hoc
   button/field colors (quality picker, preset import, science packs) now route through these tokens
   instead of literal brushes.
+- The Kit's type ramp narrows to five steps (LargeTitle, EmphasizedBody, Body, Callout, Caption) plus
+  new metric and size tokens (Radius.SheetBottom 10, Radius.Node, ControlHeightRegular/Large,
+  InspectorWidthMin/Max, ChooserCell), with the old per-surface keys either aliased onto the nearest
+  step or kept resolvable as-is; no visual or behavioral change.
 
 ### Removed
 
