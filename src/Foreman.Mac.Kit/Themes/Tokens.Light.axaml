@@ -25,6 +25,7 @@
   <Color x:Key="Foreman.Color.WarningSoft">#38B25000</Color>
   <Color x:Key="Foreman.Color.SuccessSoft">#7334C759</Color>
   <Color x:Key="Foreman.Color.FocusRing">#007AFF</Color>
+  <x:Double x:Key="Foreman.FocusRing.Width">3</x:Double>
   <Color x:Key="Foreman.Color.SelectionInactive">#17000000</Color>
   <Color x:Key="Foreman.Color.ControlBackgroundPressed">#E6E6E8</Color>
   <Color x:Key="Foreman.Color.TextOnAccent">#FFFFFF</Color>

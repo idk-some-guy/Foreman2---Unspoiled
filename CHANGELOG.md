@@ -164,6 +164,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   new metric and size tokens (Radius.SheetBottom 10, Radius.Node, ControlHeightRegular/Large,
   InspectorWidthMin/Max, ChooserCell), with the old per-surface keys either aliased onto the nearest
   step or kept resolvable as-is; no visual or behavioral change.
+- A new Kit appearance hub tracks the system accent color and the Increase Contrast, Reduce
+  Transparency, and Reduce Motion display preferences, widening the focus ring and promoting Border
+  to BorderStrong under Increase Contrast and falling materials back to their opaque value under
+  Reduce Transparency; no visual change under default macOS settings.
 
 ### Removed
 

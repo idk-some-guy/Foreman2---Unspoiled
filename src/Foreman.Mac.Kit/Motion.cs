@@ -16,6 +16,9 @@ namespace Foreman.Mac.Kit {
         public static readonly TimeSpan SheetOpenDuration = TimeSpan.FromMilliseconds(200);
         public static readonly TimeSpan SheetCloseDuration = TimeSpan.FromMilliseconds(150);
 
+        //Set by AppearanceHub from the platform's Reduce Motion flag (Task 6 consumes it).
+        public static bool ReduceMotion { get; set; }
+
         public static Easing CrossFadeEasing => new CubicEaseInOut();
         public static Easing EntranceEasing => new CubicEaseOut();
         public static Easing RadialOpenEasing => new CubicEaseOut();
