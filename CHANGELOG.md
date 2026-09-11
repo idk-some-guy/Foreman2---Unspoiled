@@ -154,6 +154,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   as sheets sliding down from their owner window instead of separate windows.
 - Theme tokens and shared motion timing move into a new Foreman.Mac.Kit library, the first piece of
   a shared UI kit; no visual or behavioral change.
+- Color tokens now bind to semantic roles (focus ring, pressed control, warning, success, popover
+  and titlebar materials) with the existing hex values as fallback, and the light accent corrects
+  to #007AFF. Canvas selection's token renames from Selection to NodeSelected, with an alias layer
+  keeping the old name resolvable. The preset comparator's status colors and the last four ad-hoc
+  button/field colors (quality picker, preset import, science packs) now route through these tokens
+  instead of literal brushes.
 
 ### Removed
 

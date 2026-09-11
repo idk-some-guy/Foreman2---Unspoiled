@@ -17,10 +17,11 @@ namespace Foreman.Mac.ViewModels {
     //brand-new filtered lists before each ItemsSource assignment (see its own comment).
     internal sealed partial class PresetComparatorViewModel : ObservableObject {
         //Resolved fresh at the top of every RebuildTab call (below) against the app's active theme variant.
-        private static IBrush AvailableForeground = new ImmutableSolidColorBrush(Color.FromRgb(0, 0, 0));
-        private static IBrush UnavailableForeground = new ImmutableSolidColorBrush(Color.FromRgb(139, 0, 0));
-        private static IBrush CloseEnoughBackground = new ImmutableSolidColorBrush(Color.FromRgb(240, 230, 140));
-        private static IBrush DifferentBackground = new ImmutableSolidColorBrush(Color.FromRgb(255, 192, 203));
+        //Foreground colors stay the vivid role (text); row-background fills use the Soft variant.
+        private static IBrush AvailableForeground = new ImmutableSolidColorBrush(Color.FromRgb(0x34, 0xC7, 0x59));
+        private static IBrush UnavailableForeground = new ImmutableSolidColorBrush(Color.FromRgb(0xD7, 0x00, 0x15));
+        private static IBrush CloseEnoughBackground = new ImmutableSolidColorBrush(Color.FromArgb(0x38, 0xB2, 0x50, 0x00));
+        private static IBrush DifferentBackground = new ImmutableSolidColorBrush(Color.FromArgb(0x3D, 0xD7, 0x00, 0x15));
 
         private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
 
@@ -39,10 +40,10 @@ namespace Foreman.Mac.ViewModels {
         //Ports UpdateUnfilteredRows (reference PresetComparatorWindow.axaml.cs, pre-Task 8): rebuilds all
         //4 row lists for the given tab, then colors the matched Left/Right pair.
         public void RebuildTab(int tabIndex, List<object>[] tabObjects) {
-            AvailableForeground = ThemeResources.ResolveBrush("Foreman.Color.StatusForeground", Color.FromRgb(0, 0, 0));
-            UnavailableForeground = ThemeResources.ResolveBrush("Foreman.Color.StatusWarningForeground", Color.FromRgb(139, 0, 0));
-            CloseEnoughBackground = ThemeResources.ResolveBrush("Foreman.Color.StatusCautionBackground", Color.FromRgb(240, 230, 140));
-            DifferentBackground = ThemeResources.ResolveBrush("Foreman.Color.StatusWarningBackground", Color.FromRgb(255, 192, 203));
+            AvailableForeground = ThemeResources.ResolveBrush("Foreman.Color.Success", Color.FromRgb(0x34, 0xC7, 0x59));
+            UnavailableForeground = ThemeResources.ResolveBrush("Foreman.Color.Error", Color.FromRgb(0xD7, 0x00, 0x15));
+            CloseEnoughBackground = ThemeResources.ResolveBrush("Foreman.Color.WarningSoft", Color.FromArgb(0x38, 0xB2, 0x50, 0x00));
+            DifferentBackground = ThemeResources.ResolveBrush("Foreman.Color.ErrorSoft", Color.FromArgb(0x3D, 0xD7, 0x00, 0x15));
             PresetComparatorWindow.EqualBackground = ThemeResources.ResolveBrush("Foreman.Color.ControlBackground", Color.FromRgb(255, 255, 255));
 
             List<ComparatorRow> left = BuildRows(tabIndex, tabObjects[PresetComparatorWindow.Left]);

@@ -6,4 +6,8 @@
     <ResourceInclude x:Key="Dark" Source="avares://Foreman.Mac.Kit/Themes/Tokens.Dark.axaml" />
   </ResourceDictionary.ThemeDictionaries>
 
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Themes/Aliases.axaml" />
+  </ResourceDictionary.MergedDictionaries>
+
 </ResourceDictionary>

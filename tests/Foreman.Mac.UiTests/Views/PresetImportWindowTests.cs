@@ -1,9 +1,11 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Sheets;
 using System;
@@ -44,31 +46,33 @@ namespace Foreman.Mac.UiTests.Views {
 
         //---- live name validation (reference §4 step 8) ---------------------------------------------------
 
+        private static Color BackgroundColorOf(TextBox textBox) => Assert.IsAssignableFrom<ISolidColorBrush>(textBox.Background).Color;
+
         [AvaloniaFact]
-        public void PresetNameTextBox_FewerThanFiveChars_IsMoccasin() {
+        public void PresetNameTextBox_FewerThanFiveChars_IsWarningSoft() {
             var sheet = new PresetImportSheet([]);
 
             sheet.PresetNameTextBoxControl.Text = "Ab1";
 
-            Assert.Equal(Avalonia.Media.Brushes.Moccasin, sheet.PresetNameTextBoxControl.Background);
+            Assert.Equal(ThemeResources.ResolveColor("Foreman.Color.WarningSoft", default), BackgroundColorOf(sheet.PresetNameTextBoxControl));
         }
 
         [AvaloniaFact]
-        public void PresetNameTextBox_UniqueValidName_IsLightGreen() {
+        public void PresetNameTextBox_UniqueValidName_IsSuccessSoft() {
             var sheet = new PresetImportSheet([]);
 
             sheet.PresetNameTextBoxControl.Text = "My New Preset";
 
-            Assert.Equal(Avalonia.Media.Brushes.LightGreen, sheet.PresetNameTextBoxControl.Background);
+            Assert.Equal(ThemeResources.ResolveColor("Foreman.Color.SuccessSoft", default), BackgroundColorOf(sheet.PresetNameTextBoxControl));
         }
 
         [AvaloniaFact]
-        public void PresetNameTextBox_CollidesWithExistingPreset_IsPink() {
+        public void PresetNameTextBox_CollidesWithExistingPreset_IsErrorSoft() {
             var sheet = new PresetImportSheet([new Preset("Taken Name", false, false)]);
 
             sheet.PresetNameTextBoxControl.Text = "taken name"; //case-insensitive collision
 
-            Assert.Equal(Avalonia.Media.Brushes.Pink, sheet.PresetNameTextBoxControl.Background);
+            Assert.Equal(ThemeResources.ResolveColor("Foreman.Color.ErrorSoft", default), BackgroundColorOf(sheet.PresetNameTextBoxControl));
         }
 
         [AvaloniaFact]

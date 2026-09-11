@@ -13,7 +13,7 @@ using System.Linq;
 
 namespace Foreman.Mac.Views.Sheets {
     //Ports Forms/SciencePacksLoadForm.cs(+.Designer.cs) (reference io-reference.md §6): a 48px icon-button
-    //grid (MaxColumns 14) built from DCache.SciencePacks, toggled DarkRed/DeepSkyBlue, with a prerequisite
+    //grid (MaxColumns 14) built from DCache.SciencePacks, toggled Error/Accent, with a prerequisite
     //cascade in both directions. Confirm re-derives EnabledObjects from the accepted packs, reusing
     //EnabledObjectsDerivation (Foreman.Core, shared with SaveFileLoadSheet's ProcessSaveData - io-
     //reference.md risk 5) for the assembler/beacon/module transitive-enable step rather than a second copy.
@@ -74,7 +74,7 @@ namespace Foreman.Mac.Views.Sheets {
                     Width = IconSize,
                     Height = IconSize,
                     Padding = default,
-                    Background = Brushes.DarkRed,
+                    Background = DeselectedBrush(),
                     Tag = sciencePack,
                     Content = new Image { Source = GetOrBakeIcon(sciencePack.Icon), Stretch = Stretch.Uniform },
                 };
@@ -96,19 +96,19 @@ namespace Foreman.Mac.Views.Sheets {
 
             bool enabled = !sciencePackButtons[clicked];
             sciencePackButtons[clicked] = enabled;
-            clicked.Background = enabled ? Brushes.DeepSkyBlue : Brushes.DarkRed;
+            clicked.Background = enabled ? SelectedBrush() : DeselectedBrush();
 
             foreach (Button button in sciencePackButtons.Keys.ToArray()) {
                 if (button.Tag is not IItem item)
                     continue;
                 if (enabled) {
                     if (dCache.SciencePackPrerequisites[sciPack].Contains(item)) {
-                        button.Background = Brushes.DeepSkyBlue;
+                        button.Background = SelectedBrush();
                         sciencePackButtons[button] = true;
                     }
                 } else {
                     if (dCache.SciencePackPrerequisites[item].Contains(sciPack)) {
-                        button.Background = Brushes.DarkRed;
+                        button.Background = DeselectedBrush();
                         sciencePackButtons[button] = false;
                     }
                 }
@@ -130,6 +130,11 @@ namespace Foreman.Mac.Views.Sheets {
         }
 
         private Bitmap GetOrBakeIcon(SKBitmap icon) => IconBaker.GetOrBake(bakedIconCache, icon, IconSize);
+
+        private static IBrush SelectedBrush() => ThemeResources.ResolveBrush("Foreman.Color.Accent", Color.FromRgb(0x00, 0x7A, 0xFF));
+
+        //was a solid DarkRed, not a pastel: vivid Error keeps the strength
+        private static IBrush DeselectedBrush() => ThemeResources.ResolveBrush("Foreman.Color.Error", Color.FromRgb(0xD7, 0x00, 0x15));
 
         //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
         internal UniformGrid SciencePackGridControl => sciencePackGrid;

@@ -17,15 +17,29 @@
   <Color x:Key="Foreman.Color.Accent">#0A84FF</Color>
   <Color x:Key="Foreman.Color.AccentSoft">#290A84FF</Color>
   <Color x:Key="Foreman.Color.AccentText">#6bb2ff</Color>
-  <Color x:Key="Foreman.Color.Selection">#FF9F0A</Color>
+  <Color x:Key="Foreman.Color.NodeSelected">#FF9F0A</Color>
   <Color x:Key="Foreman.Color.Error">#FF453A</Color>
+  <Color x:Key="Foreman.Color.Warning">#FF9F0A</Color>
+  <Color x:Key="Foreman.Color.Success">#30D158</Color>
+  <Color x:Key="Foreman.Color.ErrorSoft">#3DFF453A</Color>
+  <Color x:Key="Foreman.Color.WarningSoft">#38FF9F0A</Color>
+  <Color x:Key="Foreman.Color.SuccessSoft">#7330D158</Color>
+  <Color x:Key="Foreman.Color.FocusRing">#0A84FF</Color>
+  <Color x:Key="Foreman.Color.SelectionInactive">#21FFFFFF</Color>
+  <Color x:Key="Foreman.Color.ControlBackgroundPressed">#3F3F43</Color>
+  <Color x:Key="Foreman.Color.TextOnAccent">#FFFFFF</Color>
+
+  <!-- PopoverMaterial and TitlebarMaterialOpaque have no contract hex; they reuse ControlBackground / TitlebarBackground -->
+  <Color x:Key="Foreman.Color.PopoverMaterial">#3D3D40</Color>
+  <Color x:Key="Foreman.Color.TitlebarMaterialOpaque">#323234</Color>
+
+  <x:Double x:Key="Foreman.Opacity.Disabled">0.38</x:Double>
 
   <!-- PickCellSelected mirrors AccentSoft's value rather than referencing it, kept independent on purpose. -->
   <Color x:Key="Foreman.Color.PickCellSelected">#290A84FF</Color>
   <Color x:Key="Foreman.Color.PickCellBorder">#29FFFFFF</Color>
 
-  <!-- Status tokens: existing availability/similarity row coloring (GraphSummary, Comparator,
-       Enabled Objects), not part of the phase 9 visual-language contract - see task-2-report.md. -->
+  <!-- Status tokens: existing availability/similarity row coloring (GraphSummary, Enabled Objects), not part of the phase 9 visual-language contract. -->
   <Color x:Key="Foreman.Color.StatusForeground">#F2F2F2</Color>
   <Color x:Key="Foreman.Color.StatusWarningForeground">#FF8A80</Color>
   <Color x:Key="Foreman.Color.StatusWarningBackground">#4A2B30</Color>

@@ -119,7 +119,7 @@ namespace Foreman.Mac.UiTests {
 
         [AvaloniaTheory]
         [InlineData(ThemeMode.Dark, "#290A84FF")]
-        [InlineData(ThemeMode.Light, "#1F0068DA")]
+        [InlineData(ThemeMode.Light, "#1F007AFF")]
         public void SaveButton_Dirty_BackgroundUsesAccentSoftToken(ThemeMode mode, string expectedHex) {
             ((App)Application.Current!).ApplyTheme(mode);
             var window = new MainWindow();

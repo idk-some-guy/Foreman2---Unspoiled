@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Foreman.DataCaching.DataTypes;
+using Foreman.Mac.Services;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -17,7 +18,11 @@ namespace Foreman.Mac.Canvas.Panels {
         public QualityPicker() {
             Orientation = Orientation.Horizontal;
             Spacing = 6;
-            var label = new TextBlock { Text = "Quality:", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center };
+            var label = new TextBlock {
+                Text = "Quality:",
+                Foreground = ThemeResources.ResolveBrush("Foreman.Color.TextOnAccent", Colors.White),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
             selector = new ComboBox { Width = QualityComboWidth };
             Children.Add(label);
             Children.Add(selector);

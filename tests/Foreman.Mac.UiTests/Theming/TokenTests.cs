@@ -74,7 +74,7 @@ namespace Foreman.Mac.UiTests.Theming {
         public void LightTheme_Accent_MatchesContractHex() {
             Application.Current!.TryGetResource("Foreman.Color.Accent", ThemeVariant.Light, out var value);
 
-            Assert.Equal(Color.Parse("#0068DA"), Assert.IsType<Color>(value));
+            Assert.Equal(Color.Parse("#007AFF"), Assert.IsType<Color>(value));
         }
 
         [AvaloniaFact]
@@ -82,6 +82,147 @@ namespace Foreman.Mac.UiTests.Theming {
             Application.Current!.TryGetResource("Foreman.Color.Selection", ThemeVariant.Light, out var value);
 
             Assert.Equal(Color.Parse("#D97A06"), Assert.IsType<Color>(value));
+        }
+
+        //K1 task 2: NodeSelected replaces Selection (kept resolvable only through the alias layer above).
+        [AvaloniaFact]
+        public void DarkTheme_NodeSelected_MatchesContractHex() {
+            Application.Current!.TryGetResource("Foreman.Color.NodeSelected", ThemeVariant.Dark, out var value);
+
+            Assert.Equal(Color.Parse("#FF9F0A"), Assert.IsType<Color>(value));
+        }
+
+        [AvaloniaFact]
+        public void LightTheme_NodeSelected_MatchesContractHex() {
+            Application.Current!.TryGetResource("Foreman.Color.NodeSelected", ThemeVariant.Light, out var value);
+
+            Assert.Equal(Color.Parse("#D97A06"), Assert.IsType<Color>(value));
+        }
+
+        [AvaloniaFact]
+        public void DarkTheme_Warning_MatchesContractHex() {
+            Application.Current!.TryGetResource("Foreman.Color.Warning", ThemeVariant.Dark, out var value);
+
+            Assert.Equal(Color.Parse("#FF9F0A"), Assert.IsType<Color>(value));
+        }
+
+        [AvaloniaFact]
+        public void LightTheme_Warning_MatchesContractHex() {
+            Application.Current!.TryGetResource("Foreman.Color.Warning", ThemeVariant.Light, out var value);
+
+            Assert.Equal(Color.Parse("#B25000"), Assert.IsType<Color>(value));
+        }
+
+        [AvaloniaFact]
+        public void DarkTheme_FocusRing_MatchesAccent() {
+            Application.Current!.TryGetResource("Foreman.Color.FocusRing", ThemeVariant.Dark, out var focusRing);
+            Application.Current!.TryGetResource("Foreman.Color.Accent", ThemeVariant.Dark, out var accent);
+
+            Assert.Equal(accent, focusRing);
+        }
+
+        [AvaloniaFact]
+        public void LightTheme_FocusRing_MatchesAccent() {
+            Application.Current!.TryGetResource("Foreman.Color.FocusRing", ThemeVariant.Light, out var focusRing);
+            Application.Current!.TryGetResource("Foreman.Color.Accent", ThemeVariant.Light, out var accent);
+
+            Assert.Equal(accent, focusRing);
+        }
+
+        [AvaloniaFact]
+        public void DarkTheme_TextOnAccent_IsWhite() {
+            Application.Current!.TryGetResource("Foreman.Color.TextOnAccent", ThemeVariant.Dark, out var value);
+
+            Assert.Equal(Colors.White, Assert.IsType<Color>(value));
+        }
+
+        [AvaloniaFact]
+        public void LightTheme_TextOnAccent_IsWhite() {
+            Application.Current!.TryGetResource("Foreman.Color.TextOnAccent", ThemeVariant.Light, out var value);
+
+            Assert.Equal(Colors.White, Assert.IsType<Color>(value));
+        }
+
+        //the kit mock's 'pressed darker than hover' rule wins over the contract table's #525256
+        [AvaloniaFact]
+        public void DarkTheme_ControlBackgroundPressed_IsDarkerThanHoverPer12PercentRule() {
+            Application.Current!.TryGetResource("Foreman.Color.ControlBackgroundPressed", ThemeVariant.Dark, out var value);
+
+            Assert.Equal(Color.Parse("#3F3F43"), Assert.IsType<Color>(value));
+        }
+
+        [AvaloniaFact]
+        public void LightTheme_ControlBackgroundPressed_MatchesContractHex() {
+            Application.Current!.TryGetResource("Foreman.Color.ControlBackgroundPressed", ThemeVariant.Light, out var value);
+
+            Assert.Equal(Color.Parse("#E6E6E8"), Assert.IsType<Color>(value));
+        }
+
+        [AvaloniaFact]
+        public void DarkTheme_SelectionInactive_MatchesContractAlpha() {
+            Application.Current!.TryGetResource("Foreman.Color.SelectionInactive", ThemeVariant.Dark, out var value);
+
+            Assert.Equal(Color.Parse("#21FFFFFF"), Assert.IsType<Color>(value));
+        }
+
+        [AvaloniaFact]
+        public void LightTheme_SelectionInactive_MatchesContractAlpha() {
+            Application.Current!.TryGetResource("Foreman.Color.SelectionInactive", ThemeVariant.Light, out var value);
+
+            Assert.Equal(Color.Parse("#17000000"), Assert.IsType<Color>(value));
+        }
+
+        [AvaloniaFact]
+        public void Success_ExistsInBothVariants() {
+            Application.Current!.TryGetResource("Foreman.Color.Success", ThemeVariant.Dark, out var dark);
+            Application.Current!.TryGetResource("Foreman.Color.Success", ThemeVariant.Light, out var light);
+
+            Assert.IsType<Color>(dark);
+            Assert.IsType<Color>(light);
+        }
+
+        [AvaloniaFact]
+        public void DarkTheme_SoftRoleTokens_MatchAlphaOverRoleColor() {
+            Application.Current!.TryGetResource("Foreman.Color.ErrorSoft", ThemeVariant.Dark, out var errorSoft);
+            Application.Current!.TryGetResource("Foreman.Color.WarningSoft", ThemeVariant.Dark, out var warningSoft);
+            Application.Current!.TryGetResource("Foreman.Color.SuccessSoft", ThemeVariant.Dark, out var successSoft);
+
+            Assert.Equal(Color.Parse("#3DFF453A"), Assert.IsType<Color>(errorSoft));
+            Assert.Equal(Color.Parse("#38FF9F0A"), Assert.IsType<Color>(warningSoft));
+            Assert.Equal(Color.Parse("#7330D158"), Assert.IsType<Color>(successSoft));
+        }
+
+        [AvaloniaFact]
+        public void LightTheme_SoftRoleTokens_MatchAlphaOverRoleColor() {
+            Application.Current!.TryGetResource("Foreman.Color.ErrorSoft", ThemeVariant.Light, out var errorSoft);
+            Application.Current!.TryGetResource("Foreman.Color.WarningSoft", ThemeVariant.Light, out var warningSoft);
+            Application.Current!.TryGetResource("Foreman.Color.SuccessSoft", ThemeVariant.Light, out var successSoft);
+
+            Assert.Equal(Color.Parse("#3DD70015"), Assert.IsType<Color>(errorSoft));
+            Assert.Equal(Color.Parse("#38B25000"), Assert.IsType<Color>(warningSoft));
+            Assert.Equal(Color.Parse("#7334C759"), Assert.IsType<Color>(successSoft));
+        }
+
+        [AvaloniaFact]
+        public void PopoverMaterial_And_TitlebarMaterialOpaque_ExistInBothVariants() {
+            Application.Current!.TryGetResource("Foreman.Color.PopoverMaterial", ThemeVariant.Dark, out var popoverDark);
+            Application.Current!.TryGetResource("Foreman.Color.PopoverMaterial", ThemeVariant.Light, out var popoverLight);
+            Application.Current!.TryGetResource("Foreman.Color.TitlebarMaterialOpaque", ThemeVariant.Dark, out var titlebarDark);
+            Application.Current!.TryGetResource("Foreman.Color.TitlebarMaterialOpaque", ThemeVariant.Light, out var titlebarLight);
+
+            Assert.IsType<Color>(popoverDark);
+            Assert.IsType<Color>(popoverLight);
+            Assert.IsType<Color>(titlebarDark);
+            Assert.IsType<Color>(titlebarLight);
+        }
+
+        [AvaloniaFact]
+        public void OpacityDisabled_Is038_InBothVariants() {
+            Application.Current!.TryGetResource("Foreman.Opacity.Disabled", ThemeVariant.Dark, out var dark);
+            Application.Current!.TryGetResource("Foreman.Opacity.Disabled", ThemeVariant.Light, out var light);
+
+            Assert.Equal(0.38, Assert.IsType<double>(dark));
+            Assert.Equal(0.38, Assert.IsType<double>(light));
         }
     }
 }

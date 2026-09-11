@@ -123,8 +123,8 @@ namespace Foreman.Mac.Views.Sheets {
         }
 
         //Ports PresetNameTextBox_TextChanged (reference §4 step 8) verbatim: filter to
-        //letters/digits/"()-_. ", preserve caret position, then color Moccasin (<5 chars) / Pink (name
-        //collision) / LightGreen (OK).
+        //letters/digits/"()-_. ", preserve caret position, then color Warning (<5 chars) / Error (name
+        //collision) / Success (OK).
         private void OnPresetNameChanging() {
             int caret = presetNameTextBox.CaretIndex;
             string text = presetNameTextBox.Text ?? "";
@@ -136,10 +136,10 @@ namespace Foreman.Mac.Views.Sheets {
             }
 
             presetNameTextBox.Background = filtered.Length < 5
-                ? Brushes.Moccasin
+                ? ThemeResources.ResolveBrush("Foreman.Color.WarningSoft", Color.FromArgb(0x38, 0xB2, 0x50, 0x00))
                 : existingPresets.Any(p => string.Equals(p.Name, filtered, StringComparison.OrdinalIgnoreCase))
-                ? Brushes.Pink
-                : Brushes.LightGreen;
+                ? ThemeResources.ResolveBrush("Foreman.Color.ErrorSoft", Color.FromArgb(0x3D, 0xD7, 0x00, 0x15))
+                : ThemeResources.ResolveBrush("Foreman.Color.SuccessSoft", Color.FromArgb(0x73, 0x34, 0xC7, 0x59));
         }
 
         private void EnableProgressBar(bool enabled) {

@@ -14,18 +14,32 @@
   <Color x:Key="Foreman.Color.Text">#E0000000</Color>
   <Color x:Key="Foreman.Color.TextSecondary">#8C000000</Color>
   <Color x:Key="Foreman.Color.TextTertiary">#57000000</Color>
-  <Color x:Key="Foreman.Color.Accent">#0068DA</Color>
-  <Color x:Key="Foreman.Color.AccentSoft">#1F0068DA</Color>
+  <Color x:Key="Foreman.Color.Accent">#007AFF</Color>
+  <Color x:Key="Foreman.Color.AccentSoft">#1F007AFF</Color>
   <Color x:Key="Foreman.Color.AccentText">#0068DA</Color>
-  <Color x:Key="Foreman.Color.Selection">#D97A06</Color>
+  <Color x:Key="Foreman.Color.NodeSelected">#D97A06</Color>
   <Color x:Key="Foreman.Color.Error">#D70015</Color>
+  <Color x:Key="Foreman.Color.Warning">#B25000</Color>
+  <Color x:Key="Foreman.Color.Success">#34C759</Color>
+  <Color x:Key="Foreman.Color.ErrorSoft">#3DD70015</Color>
+  <Color x:Key="Foreman.Color.WarningSoft">#38B25000</Color>
+  <Color x:Key="Foreman.Color.SuccessSoft">#7334C759</Color>
+  <Color x:Key="Foreman.Color.FocusRing">#007AFF</Color>
+  <Color x:Key="Foreman.Color.SelectionInactive">#17000000</Color>
+  <Color x:Key="Foreman.Color.ControlBackgroundPressed">#E6E6E8</Color>
+  <Color x:Key="Foreman.Color.TextOnAccent">#FFFFFF</Color>
+
+  <!-- PopoverMaterial and TitlebarMaterialOpaque have no contract hex; they reuse ControlBackground / TitlebarBackground -->
+  <Color x:Key="Foreman.Color.PopoverMaterial">#FFFFFF</Color>
+  <Color x:Key="Foreman.Color.TitlebarMaterialOpaque">#E7E7EA</Color>
+
+  <x:Double x:Key="Foreman.Opacity.Disabled">0.38</x:Double>
 
   <!-- PickCellSelected mirrors AccentSoft's value rather than referencing it, kept independent on purpose. -->
   <Color x:Key="Foreman.Color.PickCellSelected">#1F0068DA</Color>
   <Color x:Key="Foreman.Color.PickCellBorder">#24000000</Color>
 
-  <!-- Status tokens: existing availability/similarity row coloring (GraphSummary, Comparator,
-       Enabled Objects), not part of the phase 9 visual-language contract - see task-2-report.md. -->
+  <!-- Status tokens: existing availability/similarity row coloring (GraphSummary, Enabled Objects), not part of the phase 9 visual-language contract. -->
   <Color x:Key="Foreman.Color.StatusForeground">#000000</Color>
   <Color x:Key="Foreman.Color.StatusWarningForeground">#8B0000</Color>
   <Color x:Key="Foreman.Color.StatusWarningBackground">#FFC0CB</Color>

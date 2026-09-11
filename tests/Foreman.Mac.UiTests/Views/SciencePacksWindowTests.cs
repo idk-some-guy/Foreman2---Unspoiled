@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Sheets;
 using System;
@@ -95,18 +96,20 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(expectedColumns, columns);
         }
 
-        //---- population (reference §6: DisabledPackBGColor = DarkRed, one button per DCache.SciencePacks) -
+        //---- population (reference §6: DisabledPackBGColor, now Foreman.Color.Error, one button per
+        //DCache.SciencePacks) ----------------------------------------------------------------------------
 
         [AvaloniaFact]
-        public async Task Constructor_PopulatesOneDarkRedButtonPerSciencePack_AllStartingDisabled() {
+        public async Task Constructor_PopulatesOneErrorColoredButtonPerSciencePack_AllStartingDisabled() {
             DataCache cache = await GetVanillaCacheAsync();
 
             var sheet = new SciencePacksSheet(cache, []);
+            Color deselectedColor = ThemeResources.ResolveColor("Foreman.Color.Error", default);
 
             Assert.Equal(cache.SciencePacks.Count, sheet.SciencePackButtonStates.Count);
             foreach (KeyValuePair<Button, bool> entry in sheet.SciencePackButtonStates) {
                 Assert.False(entry.Value);
-                Assert.Equal(Brushes.DarkRed, entry.Key.Background);
+                Assert.Equal(deselectedColor, Assert.IsAssignableFrom<ISolidColorBrush>(entry.Key.Background).Color);
                 Assert.Equal(48, entry.Key.Width);
                 Assert.Equal(48, entry.Key.Height);
             }
