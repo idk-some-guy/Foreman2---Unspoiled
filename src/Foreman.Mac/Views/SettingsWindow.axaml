@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Foreman.Mac.ViewModels"
-        xmlns:motion="using:Foreman.Mac.Themes"
+        xmlns:motion="using:Foreman.Mac.Kit"
         x:Class="Foreman.Mac.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
         Title="Settings"

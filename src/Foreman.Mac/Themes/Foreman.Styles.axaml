@@ -1,7 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:qa="using:Foreman.Mac.Views.QuickAdd"
-        xmlns:motion="using:Foreman.Mac.Themes">
+        xmlns:motion="using:Foreman.Mac.Kit">
 
   <Style Selector="TextBlock.foreman-large-title">
     <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.LargeTitle.FontSize}" />

@@ -6,7 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Foreman.Mac.Canvas.Panels;
-using Foreman.Mac.Themes;
+using Foreman.Mac.Kit;
 using System;
 using System.Collections.Generic;
 using AvaloniaCanvas = Avalonia.Controls.Canvas;

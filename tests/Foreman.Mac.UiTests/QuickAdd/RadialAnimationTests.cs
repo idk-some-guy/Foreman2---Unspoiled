@@ -5,7 +5,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Foreman.Mac.Themes;
+using Foreman.Mac.Kit;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.QuickAdd;
 using System.Linq;

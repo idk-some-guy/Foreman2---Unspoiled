@@ -4,7 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Foreman.Mac.Themes;
+using Foreman.Mac.Kit;
 using System;
 using System.Collections.Generic;
 using System.Linq;

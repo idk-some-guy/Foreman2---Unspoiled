@@ -152,6 +152,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   bundled Space Age preset roughly fourfold.
 - Image Export, Load from Save, Science Packs, Import Preset, and the cross-preset picker now open
   as sheets sliding down from their owner window instead of separate windows.
+- Theme tokens and shared motion timing move into a new Foreman.Mac.Kit library, the first piece of
+  a shared UI kit; no visual or behavioral change.
 
 ### Removed
 

@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Foreman.Mac.ViewModels"
         xmlns:conv="using:Foreman.Mac.Converters"
-        xmlns:motion="using:Foreman.Mac.Themes"
+        xmlns:motion="using:Foreman.Mac.Kit"
         x:Class="Foreman.Mac.Views.AddBrowserWindow"
         x:Name="RootWindow"
         x:DataType="vm:AddBrowserViewModel"

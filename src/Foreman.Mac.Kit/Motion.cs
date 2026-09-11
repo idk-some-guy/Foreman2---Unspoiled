@@ -1,7 +1,7 @@
 using Avalonia.Animation.Easings;
 using System;
 
-namespace Foreman.Mac.Themes {
+namespace Foreman.Mac.Kit {
     //Gate fix 11: every animated duration/easing the palette, the "Add to Graph" browser and the radial
     //menu use traces back here, so retuning one retunes all of them together.
     public static class Motion {

@@ -22,6 +22,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Foreman.Core/Foreman.Core.csproj" />
+    <ProjectReference Include="../Foreman.Mac.Kit/Foreman.Mac.Kit.csproj" />
     <Content Include="Presets/**" CopyToOutputDirectory="PreserveNewest" />
     <AvaloniaResource Include="Assets/**" />
   </ItemGroup>

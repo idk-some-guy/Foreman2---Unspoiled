@@ -9,7 +9,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Foreman.Mac.Themes;
+using Foreman.Mac.Kit;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Sheets;
 using System;

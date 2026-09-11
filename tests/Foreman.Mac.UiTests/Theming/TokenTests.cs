@@ -12,7 +12,10 @@ using Xunit;
 namespace Foreman.Mac.UiTests.Theming {
     public class TokenTests {
         private static IEnumerable<object> KeysFor(ThemeVariant variant) {
-            var provider = Application.Current!.Resources.ThemeDictionaries[variant];
+            var kit = new ResourceInclude(new Uri("avares://Foreman.Mac.Kit/")) {
+                Source = new Uri("avares://Foreman.Mac.Kit/Kit.axaml"),
+            };
+            var provider = (kit.Loaded as IResourceDictionary)!.ThemeDictionaries[variant];
             var dictionary = provider switch {
                 ResourceInclude include => include.Loaded,
                 IResourceDictionary loaded => loaded,
@@ -32,6 +35,11 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Empty(onlyInLight);
             Assert.Empty(onlyInDark);
             Assert.True(lightKeys.Count >= 30, $"expected a substantial token set, found {lightKeys.Count}");
+
+            foreach (var key in lightKeys) {
+                Assert.True(Application.Current!.TryGetResource(key, ThemeVariant.Light, out _), $"{key} did not resolve for Light in the running app");
+                Assert.True(Application.Current!.TryGetResource(key, ThemeVariant.Dark, out _), $"{key} did not resolve for Dark in the running app");
+            }
         }
 
         [AvaloniaFact]
