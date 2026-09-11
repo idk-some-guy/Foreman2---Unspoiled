@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using Foreman.Mac.Kit;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.QuickAdd;
+using System;
 using System.Linq;
 using Xunit;
 using AvaloniaPoint = Avalonia.Point;
@@ -15,7 +16,9 @@ using AvaloniaPoint = Avalonia.Point;
 namespace Foreman.Mac.UiTests.QuickAdd {
     //Gate fix 8, item 2d / gate fix 11: the radial opens with a scale+fade in, slices ease their hover
     //fill/stroke, and closing fades the menu out before FloatingPanelHost actually detaches it.
-    public sealed class RadialAnimationTests {
+    public sealed class RadialAnimationTests : IDisposable {
+        public void Dispose() => Motion.ReduceMotion = false;
+
         [AvaloniaFact]
         public void ANewRadialMenu_StartsScaledDownAndTransparent() {
             var radial = new RadialMenu([RadialChoice.Add, RadialChoice.Cancel]);
@@ -126,6 +129,35 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.Window.Content = null;
 
             Assert.DoesNotContain(radial, fx.Control.GetVisualDescendants().OfType<RadialMenu>());
+        }
+
+        //Fix round 1: RadialMenu sets its own Transitions from Motion.Transition, so ReduceMotion has to
+        //reach it at cold launch - before the control ever exists, not just on a later live toggle.
+        [AvaloniaFact]
+        public void WithReduceMotionSetBeforeConstruction_TheRadialsOpenTransitionsAreOpacityOnly() {
+            Motion.ReduceMotion = true;
+
+            var radial = new RadialMenu([RadialChoice.Add, RadialChoice.Cancel]);
+
+            var only = Assert.Single(radial.Transitions!);
+            var opacity = Assert.IsType<DoubleTransition>(only);
+            Assert.Equal(Visual.OpacityProperty, opacity.Property);
+            Assert.Equal(Motion.RadialOpenDuration, opacity.Duration);
+        }
+
+        [AvaloniaFact]
+        public void WithReduceMotionSetBeforeClosing_TheRadialsClosingTransitionsAreOpacityOnly() {
+            using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
+            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
+            RadialMenu radial = fx.Control.OpenRadial!;
+
+            Motion.ReduceMotion = true;
+            fx.Control.FloatingPanelHost.Close();
+
+            var only = Assert.Single(radial.Transitions!);
+            var opacity = Assert.IsType<DoubleTransition>(only);
+            Assert.Equal(Visual.OpacityProperty, opacity.Property);
+            Assert.Equal(Motion.RadialCloseDuration, opacity.Duration);
         }
     }
 }

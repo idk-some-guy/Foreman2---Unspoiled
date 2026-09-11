@@ -61,11 +61,27 @@ namespace Foreman.Mac.Views.Sheets {
 
             //Task 5: forwards to whatever sheet is actually showing rather than each sheet subscribing to
             //the hub itself - the host outlives any one sheet, so this is the one stable subscription.
+            //Also re-pushes each open layer's Transitions so a live Reduce Motion toggle reaches it.
             ThemeAware.Attach(this, () => {
+                if (IsOpen)
+                    SetOpenTransitions(scrim, panelBorder);
+                foreach (StackedLayer layer in stack)
+                    SetOpenTransitions(layer.Scrim, layer.Panel);
+
                 (currentContent as IThemeAware)?.RefreshTheme();
                 foreach (StackedLayer layer in stack)
                     (layer.Content as IThemeAware)?.RefreshTheme();
             });
+        }
+
+        private static void SetOpenTransitions(Border scrim, Border panel) {
+            scrim.Transitions = Motion.Transition(TransitionKind.Fade, Motion.SheetOpenDuration, Motion.EntranceEasing);
+            panel.Transitions = Motion.Transition(TransitionKind.SlideFade, Motion.SheetOpenDuration, Motion.EntranceEasing);
+        }
+
+        private static void SetCloseTransitions(Border scrim, Border panel) {
+            scrim.Transitions = Motion.Transition(TransitionKind.Fade, Motion.SheetCloseDuration, Motion.LeavingEasing);
+            panel.Transitions = Motion.Transition(TransitionKind.SlideFade, Motion.SheetCloseDuration, Motion.LeavingEasing);
         }
 
         //topAnchor (MainWindow's titlebar/toolbar row) keeps the panel flush under it instead of at y=0 -
@@ -149,6 +165,7 @@ namespace Foreman.Mac.Views.Sheets {
             currentDefaultButton = content.DefaultButton;
             cancelCurrent = content.Cancel;
 
+            SetOpenTransitions(scrim, panelBorder);
             panelBorder.Child = content;
             panelBorder.Width = content.SheetWidth;
             panelBorder.Height = content.SheetHeight ?? double.NaN;
@@ -182,6 +199,7 @@ namespace Foreman.Mac.Views.Sheets {
             };
             ActivePanel.Classes.Add("dimmed");
 
+            SetOpenTransitions(layerScrim, layerPanel);
             layerPanel.Child = content;
             layerPanel.Width = content.SheetWidth;
             layerPanel.Height = content.SheetHeight ?? double.NaN;
@@ -223,6 +241,7 @@ namespace Foreman.Mac.Views.Sheets {
             foreach (Control sibling in blockedSiblings)
                 sibling.IsHitTestVisible = true;
 
+            SetCloseTransitions(scrim, panelBorder);
             scrim.Classes.Add("closing");
             panelBorder.Classes.Add("closing");
 
@@ -258,6 +277,7 @@ namespace Foreman.Mac.Views.Sheets {
 
         private void BeginDismissLayer(StackedLayer layer) {
             stack.Remove(layer);
+            SetCloseTransitions(layer.Scrim, layer.Panel);
             layer.Scrim.Classes.Add("closing");
             layer.Panel.Classes.Add("closing");
 

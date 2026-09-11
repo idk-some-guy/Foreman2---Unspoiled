@@ -177,6 +177,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   change, not just at launch: Settings, the factory summary sheet, the preset comparator, the Add to
   Graph browser, the inspector, and the gallery all follow the appearance hub above. The dark-mode
   service that used to drive this on its own now feeds into the same hub.
+- The Kit gains its full v2 motion vocabulary (popover, radial sweep, switch knob, segmented
+  selection, inspector reflow, disclosure, align tween, tab-label cross-fade, and spinner timings)
+  and a `Motion.Transition` factory that the palette and browser entrance animations now build on;
+  under Reduce Motion every transition it returns collapses to a same-duration opacity cross-fade.
+  No visual or behavioral change with Reduce Motion off.
 
 ### Removed
 

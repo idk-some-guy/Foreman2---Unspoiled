@@ -111,10 +111,7 @@ namespace Foreman.Mac.Views.QuickAdd {
         }
 
         private static Transitions EntranceTransitions(TimeSpan delay) =>
-        [
-            new DoubleTransition { Property = Visual.OpacityProperty, Duration = Motion.EntranceDuration, Easing = Motion.EntranceEasing, Delay = delay },
-            new TransformOperationsTransition { Property = Visual.RenderTransformProperty, Duration = Motion.EntranceDuration, Easing = Motion.EntranceEasing, Delay = delay },
-        ];
+            Motion.Transition(TransitionKind.SlideFade, Motion.EntranceDuration, Motion.EntranceEasing, delay);
 
         private void OnRowClick(object? sender, RoutedEventArgs e) {
             if (e.Source is Button { DataContext: QuickAddRow row })

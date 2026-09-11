@@ -7,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Kit;
+using Foreman.Mac.Kit.Appearance;
 using System;
 using System.Collections.Generic;
 using AvaloniaCanvas = Avalonia.Controls.Canvas;
@@ -64,14 +65,16 @@ namespace Foreman.Mac.Views.QuickAdd {
             Focusable = true;
             Background = Brushes.Transparent; //slices are IsHitTestVisible=false (we resolve hits ourselves); this keeps the whole control hit-testable
 
-            //Opens with a scale+fade in (qa|RadialMenu's own Transitions in Foreman.Styles.axaml carry it
-            //from here to Opacity 1/scale 1 once attached - see AttachedToVisualTree below).
+            //Opens with a scale+fade in, carried by the Transitions set here to Opacity 1/scale 1 once
+            //attached - see AttachedToVisualTree below.
             Opacity = 0;
             RenderTransform = new ScaleTransform(Motion.RadialOpenScale, Motion.RadialOpenScale);
+            Transitions = Motion.Transition(TransitionKind.Scale, Motion.RadialOpenDuration, Motion.RadialOpenEasing);
             AttachedToVisualTree += (_, _) => {
                 Opacity = 1;
                 RenderTransform = new ScaleTransform(1, 1);
             };
+            ThemeAware.Attach(this, () => Transitions = Motion.Transition(TransitionKind.Scale, Motion.RadialOpenDuration, Motion.RadialOpenEasing));
 
             for (int i = 0; i < choices.Count; i++) {
                 RadialChoice choice = choices[i];
@@ -218,6 +221,9 @@ namespace Foreman.Mac.Views.QuickAdd {
 
         public TimeSpan ClosingDuration => TimeSpan.FromMilliseconds(80);
 
-        public void BeginClosing() => Classes.Add("closing");
+        public void BeginClosing() {
+            Transitions = Motion.Transition(TransitionKind.Fade, Motion.RadialCloseDuration, Motion.LeavingEasing);
+            Classes.Add("closing");
+        }
     }
 }

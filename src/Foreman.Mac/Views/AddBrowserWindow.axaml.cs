@@ -128,10 +128,7 @@ namespace Foreman.Mac.Views {
         }
 
         private static Transitions EntranceTransitions(TimeSpan delay) =>
-        [
-            new DoubleTransition { Property = Visual.OpacityProperty, Duration = Motion.EntranceDuration, Easing = Motion.EntranceEasing, Delay = delay },
-            new TransformOperationsTransition { Property = Visual.RenderTransformProperty, Duration = Motion.EntranceDuration, Easing = Motion.EntranceEasing, Delay = delay },
-        ];
+            Motion.Transition(TransitionKind.SlideFade, Motion.EntranceDuration, Motion.EntranceEasing, delay);
 
         private void OnGroupContainerLoaded(object? sender, RoutedEventArgs e) {
             ((Control)sender!).Loaded -= OnGroupContainerLoaded;

@@ -640,21 +640,12 @@
   <!-- Gate fix 8, item 2d: opens with a scale+fade in (RadialMenu sets the 0.85/Opacity-0 starting point
        itself, on construction) and, via .closing (RadialMenu.BeginClosing/FloatingPanelHost's own deferred
        removal), fades out before the host actually detaches it. -->
+  <!-- RadialMenu.cs sets Transitions itself, in code, from Motion.Transition (open on construction,
+       closing in BeginClosing) so a live Reduce Motion toggle reaches it. -->
   <Style Selector="qa|RadialMenu">
     <Setter Property="RenderTransformOrigin" Value="50%,50%" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.RadialOpenDuration}" Easing="{x:Static motion:Motion.RadialOpenEasing}" />
-        <TransformOperationsTransition Property="RenderTransform" Duration="{x:Static motion:Motion.RadialOpenDuration}" Easing="{x:Static motion:Motion.RadialOpenEasing}" />
-      </Transitions>
-    </Setter>
   </Style>
   <Style Selector="qa|RadialMenu.closing">
-    <Setter Property="Transitions">
-      <Transitions>
-        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.RadialCloseDuration}" Easing="CubicEaseIn" />
-      </Transitions>
-    </Setter>
     <Setter Property="Opacity" Value="0" />
   </Style>
 
@@ -867,15 +858,12 @@
     <Setter Property="HorizontalContentAlignment" Value="Center" />
   </Style>
 
-  <!-- Sheet overlay (C2c #modals): .entering is the pre-attach start state, .closing swaps in the close duration. -->
+  <!-- Sheet overlay (C2c #modals): .entering is the pre-attach start state. SheetHost.cs sets
+       Transitions itself, in code, from Motion.Transition (open on Present/PushLayer, closing in
+       BeginDismiss/BeginDismissLayer) so a live Reduce Motion toggle reaches it. -->
   <Style Selector="Border.foreman-sheet-scrim">
     <Setter Property="Background" Value="{DynamicResource Foreman.Color.SheetScrim}" />
     <Setter Property="Opacity" Value="1" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.SheetOpenDuration}" Easing="{x:Static motion:Motion.EntranceEasing}" />
-      </Transitions>
-    </Setter>
   </Style>
 
   <Style Selector="Border.foreman-sheet-scrim.entering">
@@ -883,11 +871,6 @@
   </Style>
 
   <Style Selector="Border.foreman-sheet-scrim.closing">
-    <Setter Property="Transitions">
-      <Transitions>
-        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.SheetCloseDuration}" Easing="CubicEaseIn" />
-      </Transitions>
-    </Setter>
     <Setter Property="Opacity" Value="0" />
   </Style>
 
@@ -900,12 +883,6 @@
     <Setter Property="VerticalAlignment" Value="Top" />
     <Setter Property="Opacity" Value="1" />
     <Setter Property="RenderTransform" Value="none" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.SheetOpenDuration}" Easing="{x:Static motion:Motion.EntranceEasing}" />
-        <TransformOperationsTransition Property="RenderTransform" Duration="{x:Static motion:Motion.SheetOpenDuration}" Easing="{x:Static motion:Motion.EntranceEasing}" />
-      </Transitions>
-    </Setter>
   </Style>
 
   <Style Selector="Border.foreman-sheet-panel.entering">
@@ -918,12 +895,6 @@
   </Style>
 
   <Style Selector="Border.foreman-sheet-panel.closing">
-    <Setter Property="Transitions">
-      <Transitions>
-        <DoubleTransition Property="Opacity" Duration="{x:Static motion:Motion.SheetCloseDuration}" Easing="CubicEaseIn" />
-        <TransformOperationsTransition Property="RenderTransform" Duration="{x:Static motion:Motion.SheetCloseDuration}" Easing="CubicEaseIn" />
-      </Transitions>
-    </Setter>
     <Setter Property="Opacity" Value="0" />
     <Setter Property="RenderTransform" Value="translateY(-12px)" />
   </Style>

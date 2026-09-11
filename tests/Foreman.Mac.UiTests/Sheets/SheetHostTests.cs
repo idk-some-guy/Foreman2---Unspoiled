@@ -6,10 +6,13 @@ using Avalonia.Input;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Foreman.Mac;
 using Foreman.Mac.Kit;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Sheets;
 using System;
@@ -20,6 +23,17 @@ using Xunit;
 
 namespace Foreman.Mac.UiTests.Sheets {
     public sealed class SheetHostTests {
+        private sealed class FakeAppearance : IPlatformAppearance {
+            private EventHandler? changed;
+
+            public Color? AccentColor { get; set; }
+            public ColorContrastPreference ContrastPreference { get; set; } = ColorContrastPreference.NoPreference;
+            public bool ReduceTransparency { get; set; }
+            public bool ReduceMotion { get; set; }
+            public PlatformThemeVariant ThemeVariant { get; set; } = PlatformThemeVariant.Light;
+
+            public event EventHandler? Changed { add => changed += value; remove => changed -= value; }
+        }
         private sealed class ProbeSheet : SheetContent<bool?> {
             public readonly Button Ok = new() { Content = "OK" };
             public readonly TextBox Field = new();
@@ -532,6 +546,78 @@ namespace Foreman.Mac.UiTests.Sheets {
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(titleBar.IsHitTestVisible);
+        }
+
+        //---- Fix round 1: SheetHost sets its own Transitions from Motion.Transition -------------------------
+
+        [AvaloniaFact]
+        public async Task WithReduceMotionSetBeforeShowing_TheSheetsOpenTransitionsAreOpacityOnly() {
+            Motion.ReduceMotion = true;
+            try {
+                var window = new Window { Width = 800, Height = 600, Content = new Button() };
+                window.Show();
+                SheetHost host = SheetHost.For(window);
+                var sheet = new ProbeSheet();
+
+                Task<bool?> task = host.ShowAsync(sheet);
+                Dispatcher.UIThread.RunJobs();
+
+                Border panel = PanelOf(host);
+                Border scrim = ScrimOf(host);
+
+                var panelOnly = Assert.Single(panel.Transitions!);
+                var panelOpacity = Assert.IsType<DoubleTransition>(panelOnly);
+                Assert.Equal(Visual.OpacityProperty, panelOpacity.Property);
+                Assert.Equal(Motion.SheetOpenDuration, panelOpacity.Duration);
+
+                Assert.IsType<DoubleTransition>(Assert.Single(scrim.Transitions!));
+
+                sheet.Ok.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                AnimationClock.Settle();
+                await task;
+            } finally {
+                Motion.ReduceMotion = false;
+            }
+        }
+
+        //A live toggle (AppearanceHub.Changed, e.g. flipping the macOS Reduce Motion switch mid-session)
+        //must reach an already-open sheet, not just the next one - SheetHost re-pushes Transitions from
+        //its existing ThemeAware subscription. A throwaway hub/appearance pair keeps this off the app-wide
+        //AppearanceHub.Current; the real one is restored and refreshed in the finally so no other test sees
+        //the fake's resource state.
+        [AvaloniaFact]
+        public async Task ALiveReduceMotionToggle_RePushesTransitionsOnTheOpenSheet() {
+            var app = (App)Application.Current!;
+            var fakeAppearance = new FakeAppearance();
+            var fakeHub = new AppearanceHub(app, fakeAppearance);
+            AppearanceHub? realHub = AppearanceHub.Current;
+            AppearanceHub.Current = fakeHub;
+            try {
+                var window = new Window { Width = 800, Height = 600, Content = new Button() };
+                window.Show();
+                SheetHost host = SheetHost.For(window);
+                Dispatcher.UIThread.RunJobs();
+
+                var sheet = new ProbeSheet();
+                Task<bool?> task = host.ShowAsync(sheet);
+                Dispatcher.UIThread.RunJobs();
+
+                Border panel = PanelOf(host);
+                Assert.Equal(2, panel.Transitions!.Count);
+
+                fakeAppearance.ReduceMotion = true;
+                fakeHub.Refresh();
+
+                Assert.IsType<DoubleTransition>(Assert.Single(panel.Transitions!));
+
+                sheet.Ok.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                AnimationClock.Settle();
+                await task;
+            } finally {
+                AppearanceHub.Current = realHub;
+                fakeHub.Dispose();
+                realHub?.Refresh();
+            }
         }
     }
 }
