@@ -45,6 +45,10 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.FormLabelColumn",
             "Foreman.Size.ToolbarItem",
             "Foreman.Size.NodePadding",
+            "Foreman.Size.Glyph16",
+            "Foreman.Size.Glyph17",
+            "Foreman.Size.Glyph18",
+            "Foreman.Size.Glyph20",
         ];
 
         //Remove-then-resolve (AppearanceHub.ApplyFocusRing's idiom) keeps repeated calls from compounding.

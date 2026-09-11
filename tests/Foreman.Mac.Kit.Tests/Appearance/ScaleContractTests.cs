@@ -81,6 +81,16 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         }
 
         [AvaloniaFact]
+        public void Apply_AtOneFifty_MultipliesTheGlyphSizeTokens() {
+            ScaleContract.Apply(1.5);
+
+            Assert.Equal(24.0, ResourceDouble("Foreman.Size.Glyph16"));
+            Assert.Equal(25.5, ResourceDouble("Foreman.Size.Glyph17"));
+            Assert.Equal(27.0, ResourceDouble("Foreman.Size.Glyph18"));
+            Assert.Equal(30.0, ResourceDouble("Foreman.Size.Glyph20"));
+        }
+
+        [AvaloniaFact]
         public void Apply_AtOneFifty_MultipliesAliasedTypeKeysToo() {
             ScaleContract.Apply(1.5);
 

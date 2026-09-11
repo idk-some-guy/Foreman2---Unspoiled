@@ -8,6 +8,7 @@
 
   <ResourceDictionary.MergedDictionaries>
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Themes/Aliases.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Themes/Glyphs.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

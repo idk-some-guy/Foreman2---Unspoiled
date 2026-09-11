@@ -184,6 +184,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   No visual or behavioral change with Reduce Motion off.
 - Interface scale no longer thickens borders, corner radii and the focus ring; text, controls,
   icons and the canvas scale as before.
+- The Kit gains its glyph catalogue: the 29-glyph set from the ratified glyph sheet (New through
+  Beacon, the chevron and search magnifier, the radial chooser's nine outcomes, and the six Settings
+  tabs), each at 16/17/18/20 pt, plus a shared stroke style for drawing them. The toolbar's own icons
+  are untouched; no visual change.
 
 ### Removed
 
