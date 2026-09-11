@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             x:Class="Foreman.Mac.Views.Settings.AnnotationsTab"
+             x:DataType="vm:SettingsViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="8" Spacing="10">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Guide-Arrows:" FontWeight="Bold" />
+        <CheckBox Name="ErrorArrowsCheckBox" Content="Display arrows pointing to any node errors" IsChecked="{Binding ErrorArrowsChecked, Mode=TwoWay}" />
+        <CheckBox Name="WarningArrowsCheckBox" Content="Display arrows pointing to any node warnings" IsChecked="{Binding WarningArrowsChecked, Mode=TwoWay}" />
+        <CheckBox Name="DisconnectedArrowsCheckBox" Content="Display arrows pointing to any node with missing links" IsChecked="{Binding DisconnectedArrowsChecked, Mode=TwoWay}" />
+        <CheckBox Name="OUSuppliedArrowsCheckBox" Content="Display arrows pointing to any under-supplied or over-producing node" IsChecked="{Binding OuSuppliedArrowsChecked, Mode=TwoWay}" />
+        <CheckBox Name="FlagOUSupplyNodesCheckBox" Content="Flag over or under supplied nodes" IsChecked="{Binding FlagOUSupplyNodesChecked, Mode=TwoWay}" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

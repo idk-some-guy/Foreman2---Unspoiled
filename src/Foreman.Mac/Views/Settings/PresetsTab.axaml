@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:p="using:Foreman"
+             x:Class="Foreman.Mac.Views.Settings.PresetsTab">
+  <DockPanel Margin="8">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,0,0,8">
+      <TextBlock Text="Current:" FontWeight="Bold" />
+      <TextBlock Name="CurrentPresetLabel" FontWeight="Bold" />
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
+      <Button Name="ImportPresetButton" Content="Import New Preset From Factorio" HorizontalAlignment="Stretch" />
+      <Button Name="ComparePresetsButton" Content="Compare Presets" HorizontalAlignment="Stretch" />
+    </StackPanel>
+    <Grid ColumnDefinitions="*,*">
+      <DockPanel Grid.Column="0" Margin="0,0,8,0">
+        <TextBlock DockPanel.Dock="Top" Text="Mods (read-only):" FontWeight="Bold" Margin="0,0,0,4" />
+        <ListBox Name="ModSelectionBox" />
+      </DockPanel>
+      <ListBox Name="PresetListBox" Grid.Column="1">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="p:Preset">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+        <ListBox.ContextMenu>
+          <ContextMenu>
+            <MenuItem Name="SelectPresetMenuItem" Header="Select Preset" />
+            <MenuItem Name="DeletePresetMenuItem" Header="Delete Preset" />
+          </ContextMenu>
+        </ListBox.ContextMenu>
+      </ListBox>
+    </Grid>
+  </DockPanel>
+</UserControl>

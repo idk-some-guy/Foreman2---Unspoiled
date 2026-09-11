@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
@@ -124,6 +126,7 @@ namespace Foreman.Mac.Views {
             leftPresetSelectionBox.SelectionChanged += (_, _) => UpdateProcessButtonCaption();
             rightPresetSelectionBox.SelectionChanged += (_, _) => UpdateProcessButtonCaption();
             closeButton.Click += (_, _) => Close();
+            AddHandler(KeyDownEvent, OnPresetComparatorKeyDown, RoutingStrategies.Tunnel);
             comparisonTabControl.SelectionChanged += (_, _) => {
                 unfilteredSelectedTabObjects = tabSet[comparisonTabControl.SelectedIndex];
                 UpdateUnfilteredRows();
@@ -417,6 +420,15 @@ namespace Foreman.Mac.Views {
         internal Border PresetSelectionGroupControl => presetSelectionGroup;
         internal Button ProcessPresetsButtonControl => processPresetsButton;
         internal Button CloseButtonControl => closeButton;
+
+        //R9: ⌘W closes alongside CloseButton's own IsCancel="True" (Escape) - this window is non-modal now
+        //(SettingsWindow.RealShowComparePresetsAsync opens it with Show, not ShowDialog).
+        private void OnPresetComparatorKeyDown(object? sender, KeyEventArgs e) {
+            if (e.Key == Key.W && e.KeyModifiers.HasFlag(KeyModifiers.Meta)) {
+                e.Handled = true;
+                Close();
+            }
+        }
         internal TabControl ComparisonTabControlControl => comparisonTabControl;
         internal TextBox FilterTextBoxControl => filterTextBox;
         internal CheckBox HideEqualObjectsCheckBoxControl => hideEqualObjectsCheckBox;

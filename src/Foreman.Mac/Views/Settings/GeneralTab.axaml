@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             x:Class="Foreman.Mac.Views.Settings.GeneralTab"
+             x:DataType="vm:SettingsViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="8" Spacing="10">
+      <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="Auto,Auto">
+          <TextBlock Grid.Column="0" Text="Maximum Quality Steps" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <NumericUpDown Name="QualityStepsInput" Grid.Column="1" Minimum="1" Maximum="20" Increment="1" FormatString="0" Width="110" Value="{Binding QualityStepsValue, Mode=TwoWay}" />
+        </Grid>
+        <CheckBox Name="ShowNodeRecipeCheckBox" Content="Show recipe tool tip" IsChecked="{Binding ShowNodeRecipeChecked, Mode=TwoWay}" />
+        <CheckBox Name="RoundAssemblerCountCheckBox" Content="Round building count" IsChecked="{Binding RoundAssemblerCountChecked, Mode=TwoWay}" />
+      </StackPanel>
+
+      <StackPanel Spacing="4">
+        <TextBlock Text="Defaults" FontWeight="Bold" />
+        <Grid ColumnDefinitions="Auto,Auto">
+          <TextBlock Grid.Column="0" Text="Assemblers:" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ComboBox Name="AssemblerSelectorStyleDropDown" Grid.Column="1" Width="200" SelectedIndex="{Binding AssemblerSelectorStyleIndex, Mode=TwoWay}" />
+        </Grid>
+        <Grid ColumnDefinitions="Auto,Auto">
+          <TextBlock Grid.Column="0" Text="Modules:" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ComboBox Name="ModuleSelectorStyleDropDown" Grid.Column="1" Width="200" SelectedIndex="{Binding ModuleSelectorStyleIndex, Mode=TwoWay}" />
+        </Grid>
+        <Grid ColumnDefinitions="Auto,Auto,Auto">
+          <TextBlock Grid.Column="0" Text="Node Direction:" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ComboBox Name="NodeDirectionDropDown" Grid.Column="1" Width="140" SelectedIndex="{Binding NodeDirectionIndex, Mode=TwoWay}">
+            <ComboBoxItem Content="Up (default)" />
+            <ComboBoxItem Content="Down" />
+          </ComboBox>
+          <CheckBox Name="SmartNodeDirectionCheckBox" Grid.Column="2" Content="Smart Direction" Margin="8,0,0,0" IsChecked="{Binding SmartNodeDirectionChecked, Mode=TwoWay}" />
+        </Grid>
+        <CheckBox Name="SimplePassthroughNodesCheckBox" Content="Use simple-draw passthrough nodes as default" IsChecked="{Binding SimplePassthroughNodesChecked, Mode=TwoWay}" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

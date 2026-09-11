@@ -1,245 +1,79 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:v="using:Foreman.Mac.Views"
         xmlns:vm="using:Foreman.Mac.ViewModels"
-        xmlns:p="using:Foreman"
+        xmlns:motion="using:Foreman.Mac.Themes"
         x:Class="Foreman.Mac.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
         Title="Settings"
         Width="680"
         Height="540"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource SystemChromeMediumColor}">
-  <Window.Styles>
-    <!-- Fluent's default ListBoxItem padding/min-height reads far sparser than upstream's dense WinForms
-         rows (24px icon, minimal chrome); this tightens it back down on the enabled-objects lists. -->
-    <Style Selector="ListBox.compact ListBoxItem">
-      <Setter Property="Padding" Value="2,1" />
-      <Setter Property="MinHeight" Value="26" />
-    </Style>
-  </Window.Styles>
-  <Window.Resources>
-    <DataTemplate x:Key="EnabledObjectRowTemplate" x:DataType="v:EnabledObjectsListItem">
-      <Border Background="{Binding RowBackground}" Padding="4,1" HorizontalAlignment="Stretch">
-        <StackPanel Orientation="Horizontal" Spacing="6" ToolTip.Tip="{Binding TooltipContent}">
-          <Viewbox Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center">
-            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Padding="4,0,0,0" />
-          </Viewbox>
-          <Image Source="{Binding Icon}" Width="24" Height="24" VerticalAlignment="Center" />
-          <TextBlock Text="{Binding Name}" Foreground="{Binding Foreground}" VerticalAlignment="Center" />
-        </StackPanel>
-      </Border>
-    </DataTemplate>
-  </Window.Resources>
-  <DockPanel Margin="12">
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
-      <Button Name="CancelSettingsButton" Content="Cancel" IsCancel="True" />
-      <Button Name="ConfirmButton" Content="Confirm" IsDefault="True" />
-    </StackPanel>
-    <TabControl Name="MainTabControl">
-      <TabItem Header="Presets">
-        <DockPanel Margin="8">
-          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="0,0,0,8">
-            <TextBlock Text="Current:" FontWeight="Bold" />
-            <TextBlock Name="CurrentPresetLabel" FontWeight="Bold" />
+        Background="{DynamicResource Foreman.Color.WindowBackground}">
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Background="{DynamicResource Foreman.Color.TitlebarBackground}"
+            BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,0,0,1">
+      <StackPanel Name="TabStrip" Orientation="Horizontal" Spacing="4" Margin="14,9">
+        <Button Name="PresetsTabButton" Classes="foreman-settings-tab" Click="OnPresetsTabClick">
+          <StackPanel Spacing="3">
+            <Viewbox Width="18" Height="18"><Canvas Width="20" Height="20">
+              <Path Data="{StaticResource Foreman.Icon.Settings.Presets}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+            </Canvas></Viewbox>
+            <TextBlock Text="Presets" Classes="foreman-settings-tab-label" />
           </StackPanel>
-          <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
-            <Button Name="ImportPresetButton" Content="Import New Preset From Factorio" HorizontalAlignment="Stretch" />
-            <Button Name="ComparePresetsButton" Content="Compare Presets" HorizontalAlignment="Stretch" />
+        </Button>
+        <Button Name="EnabledObjectsTabButton" Classes="foreman-settings-tab" Click="OnEnabledObjectsTabClick">
+          <StackPanel Spacing="3">
+            <Viewbox Width="18" Height="18"><Canvas Width="20" Height="20">
+              <Path Data="{StaticResource Foreman.Icon.Settings.EnabledObjects}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+            </Canvas></Viewbox>
+            <TextBlock Text="Enabled Objects" Classes="foreman-settings-tab-label" />
           </StackPanel>
-          <Grid ColumnDefinitions="*,*">
-            <DockPanel Grid.Column="0" Margin="0,0,8,0">
-              <TextBlock DockPanel.Dock="Top" Text="Mods (read-only):" FontWeight="Bold" Margin="0,0,0,4" />
-              <ListBox Name="ModSelectionBox" />
-            </DockPanel>
-            <ListBox Name="PresetListBox" Grid.Column="1">
-              <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="p:Preset">
-                  <TextBlock Text="{Binding Name}" />
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-              <ListBox.ContextMenu>
-                <ContextMenu>
-                  <MenuItem Name="SelectPresetMenuItem" Header="Select Preset" />
-                  <MenuItem Name="DeletePresetMenuItem" Header="Delete Preset" />
-                </ContextMenu>
-              </ListBox.ContextMenu>
-            </ListBox>
-          </Grid>
-        </DockPanel>
-      </TabItem>
-      <TabItem Header="Enabled Objects">
-        <DockPanel Margin="8">
-          <StackPanel DockPanel.Dock="Top" Spacing="4">
-            <Button Name="LoadEnabledFromSaveButton" Content="Load from save" HorizontalAlignment="Stretch" />
-            <Button Name="SetEnabledFromSciencePacksButton" Content="Assign based on science packs" HorizontalAlignment="Stretch" />
-            <Button Name="EnableAllButton" Content="Enable All" HorizontalAlignment="Stretch" />
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0">
-              <TextBlock Grid.Row="0" Grid.Column="0" Text="Filter:" VerticalAlignment="Center" Margin="0,0,4,0" />
-              <TextBox Name="FilterTextBox" Grid.Row="0" Grid.Column="1" Text="{Binding FilterText, Mode=TwoWay}" />
-              <CheckBox Name="ShowUnavailablesFilterCheckBox" Grid.Row="1" Grid.Column="1" Content="Show Unavailables" Margin="0,4,0,0" IsChecked="{Binding ShowUnavailablesFilterChecked, Mode=TwoWay}" />
-            </Grid>
+        </Button>
+        <Button Name="GeneralTabButton" Classes="foreman-settings-tab" Click="OnGeneralTabClick">
+          <StackPanel Spacing="3">
+            <Viewbox Width="18" Height="18"><Canvas Width="20" Height="20">
+              <Path Data="{StaticResource Foreman.Icon.Settings.General}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+            </Canvas></Viewbox>
+            <TextBlock Text="General" Classes="foreman-settings-tab-label" />
           </StackPanel>
-          <TabControl Name="EnabledObjectsTabControl" Margin="0,8,0,0">
-            <TabItem Header="Assemblers">
-              <ListBox Name="AssemblerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding AssemblerObjects}">
-                <ListBox.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                  </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-              </ListBox>
-            </TabItem>
-            <TabItem Header="Miners">
-              <ListBox Name="MinerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding MinerObjects}">
-                <ListBox.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                  </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-              </ListBox>
-            </TabItem>
-            <TabItem Header="Power">
-              <ListBox Name="PowerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding PowerObjects}">
-                <ListBox.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                  </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-              </ListBox>
-            </TabItem>
-            <TabItem Header="Beacons">
-              <ListBox Name="BeaconListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding BeaconObjects}">
-                <ListBox.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                  </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-              </ListBox>
-            </TabItem>
-            <TabItem Header="Modules">
-              <ListBox Name="ModuleListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding ModuleObjects}">
-                <ListBox.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                  </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-              </ListBox>
-            </TabItem>
-            <TabItem Header="Recipes">
-              <ListBox Name="RecipeListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding RecipeObjects}">
-                <ListBox.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                  </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-              </ListBox>
-            </TabItem>
-            <TabItem Header="Qualities">
-              <ListBox Name="QualityListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding QualityObjects}">
-                <ListBox.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                  </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-              </ListBox>
-            </TabItem>
-          </TabControl>
-        </DockPanel>
-      </TabItem>
-      <TabItem Header="Graph Options">
-        <ScrollViewer>
-          <StackPanel Margin="8" Spacing="10">
-            <StackPanel Spacing="4">
-              <TextBlock Text="Graph Options" FontWeight="Bold" />
-              <Grid ColumnDefinitions="Auto,Auto">
-                <TextBlock Grid.Column="0" Text="Maximum Quality Steps" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <NumericUpDown Name="QualityStepsInput" Grid.Column="1" Minimum="1" Maximum="20" Increment="1" FormatString="0" Width="110" Value="{Binding QualityStepsValue, Mode=TwoWay}" />
-              </Grid>
-            </StackPanel>
-
-            <StackPanel Spacing="4">
-              <TextBlock Text="Node Graphics:" FontWeight="Bold" />
-              <Grid ColumnDefinitions="Auto,Auto,Auto,Auto">
-                <TextBlock Grid.Column="0" Text="Level of detail:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <RadioButton Name="LowLodRadioButton" Grid.Column="1" GroupName="LevelOfDetail" Content="Low" IsChecked="{Binding LowLodChecked, Mode=TwoWay}" />
-                <RadioButton Name="MediumLodRadioButton" Grid.Column="2" GroupName="LevelOfDetail" Content="Med" IsChecked="{Binding MediumLodChecked, Mode=TwoWay}" />
-                <RadioButton Name="HighLodRadioButton" Grid.Column="3" GroupName="LevelOfDetail" Content="High" IsChecked="{Binding HighLodChecked, Mode=TwoWay}" />
-              </Grid>
-              <Grid ColumnDefinitions="Auto,Auto">
-                <TextBlock Grid.Column="0" Text="Maximum number of graphical objects:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <NumericUpDown Name="NodeCountForSimpleViewInput" Grid.Column="1" Minimum="0" Maximum="2000" Increment="25" FormatString="0" Width="130" Value="{Binding NodeCountForSimpleViewValue, Mode=TwoWay}" />
-              </Grid>
-              <Grid ColumnDefinitions="Auto,Auto">
-                <TextBlock Grid.Column="0" Text="Icon Size in icon view:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <NumericUpDown Name="IconsSizeInput" Grid.Column="1" Minimum="8" Maximum="256" Increment="1" FormatString="0" Width="110" Value="{Binding IconsSizeValue, Mode=TwoWay}" />
-              </Grid>
-              <CheckBox Name="ArrowsOnLinksCheckBox" Content="Draw arrows to show direction on link lines (non-dynamic link-width)" IsChecked="{Binding ArrowsOnLinksChecked, Mode=TwoWay}" />
-              <CheckBox Name="DynamicLWCheckBox" Content="Dynamic link-width" IsChecked="{Binding DynamicLWChecked, Mode=TwoWay}" />
-              <CheckBox Name="AbbreviateSciPackCheckBox" Content="Abbreviate science packs" IsChecked="{Binding AbbreviateSciPackChecked, Mode=TwoWay}" />
-              <CheckBox Name="ShowNodeRecipeCheckBox" Content="Show recipe tool tip" IsChecked="{Binding ShowNodeRecipeChecked, Mode=TwoWay}" />
-              <CheckBox Name="RoundAssemblerCountCheckBox" Content="Round building count" IsChecked="{Binding RoundAssemblerCountChecked, Mode=TwoWay}" />
-              <CheckBox Name="FlagOUSupplyNodesCheckBox" Content="Flag over or under supplied nodes" IsChecked="{Binding FlagOUSupplyNodesChecked, Mode=TwoWay}" />
-              <Grid ColumnDefinitions="Auto,Auto">
-                <TextBlock Grid.Column="0" Text="Appearance:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <ComboBox Name="FlagDarkModeDropDown" Grid.Column="1" Width="140" SelectedItem="{Binding FlagDarkMode, Mode=TwoWay}" />
-              </Grid>
-              <Grid ColumnDefinitions="Auto,Auto">
-                <TextBlock Grid.Column="0" Text="UI Scale:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <ComboBox Name="UiScaleDropDown" Grid.Column="1" Width="140" SelectedItem="{Binding UiScaleLabel, Mode=TwoWay}" />
-              </Grid>
-            </StackPanel>
-
-            <StackPanel Spacing="4">
-              <TextBlock Text="Guide-Arrows:" FontWeight="Bold" />
-              <CheckBox Name="ErrorArrowsCheckBox" Content="Display arrows pointing to any node errors" IsChecked="{Binding ErrorArrowsChecked, Mode=TwoWay}" />
-              <CheckBox Name="WarningArrowsCheckBox" Content="Display arrows pointing to any node warnings" IsChecked="{Binding WarningArrowsChecked, Mode=TwoWay}" />
-              <CheckBox Name="DisconnectedArrowsCheckBox" Content="Display arrows pointing to any node with missing links" IsChecked="{Binding DisconnectedArrowsChecked, Mode=TwoWay}" />
-              <CheckBox Name="OUSuppliedArrowsCheckBox" Content="Display arrows pointing to any under-supplied or over-producing node" IsChecked="{Binding OuSuppliedArrowsChecked, Mode=TwoWay}" />
-            </StackPanel>
-
-            <StackPanel Spacing="4">
-              <TextBlock Text="Defaults" FontWeight="Bold" />
-              <Grid ColumnDefinitions="Auto,Auto">
-                <TextBlock Grid.Column="0" Text="Assemblers:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <ComboBox Name="AssemblerSelectorStyleDropDown" Grid.Column="1" Width="200" SelectedIndex="{Binding AssemblerSelectorStyleIndex, Mode=TwoWay}" />
-              </Grid>
-              <Grid ColumnDefinitions="Auto,Auto">
-                <TextBlock Grid.Column="0" Text="Modules:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <ComboBox Name="ModuleSelectorStyleDropDown" Grid.Column="1" Width="200" SelectedIndex="{Binding ModuleSelectorStyleIndex, Mode=TwoWay}" />
-              </Grid>
-              <Grid ColumnDefinitions="Auto,Auto,Auto">
-                <TextBlock Grid.Column="0" Text="Node Direction:" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <ComboBox Name="NodeDirectionDropDown" Grid.Column="1" Width="140" SelectedIndex="{Binding NodeDirectionIndex, Mode=TwoWay}">
-                  <ComboBoxItem Content="Up (default)" />
-                  <ComboBoxItem Content="Down" />
-                </ComboBox>
-                <CheckBox Name="SmartNodeDirectionCheckBox" Grid.Column="2" Content="Smart Direction" Margin="8,0,0,0" IsChecked="{Binding SmartNodeDirectionChecked, Mode=TwoWay}" />
-              </Grid>
-              <CheckBox Name="SimplePassthroughNodesCheckBox" Content="Use simple-draw passthrough nodes as default" IsChecked="{Binding SimplePassthroughNodesChecked, Mode=TwoWay}" />
-            </StackPanel>
-
-            <StackPanel Spacing="4">
-              <TextBlock Text="Advanced" FontWeight="Bold" />
-              <CheckBox Name="ShowProductivityBonusOnAllCheckBox" Content="Enable extra productivity bonus for all entities (instead of only miners)" IsChecked="{Binding ShowProductivityBonusOnAllChecked, Mode=TwoWay}" />
-              <CheckBox Name="ShowUnavailablesCheckBox" Content="Show unavailable items (DEV)" IsChecked="{Binding ShowUnavailablesChecked, Mode=TwoWay}" />
-              <CheckBox Name="LoadBarrelingCheckBox" Content="Load barreling &amp; crating recipes (DEV)" IsChecked="{Binding LoadBarrelingChecked, Mode=TwoWay}" />
-            </StackPanel>
-
-            <StackPanel Spacing="4">
-              <TextBlock Text="Advanced (Solver options)" FontWeight="Bold" />
-              <Grid ColumnDefinitions="Auto,Auto">
-                <TextBlock Grid.Column="0" Text="Low priority multiplier   (10^n, 2 default):" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <NumericUpDown Name="LowPriorityPowerInput" Grid.Column="1" Minimum="1" Maximum="6" Increment="0.2" FormatString="0.0" Width="160" Value="{Binding LowPriorityPowerValue, Mode=TwoWay}" />
-              </Grid>
-              <Grid ColumnDefinitions="Auto,Auto">
-                <CheckBox Name="PullConsumerNodesCheckBox" Grid.Column="0" Content="Maximize output nodes:   Power (10^n):" IsChecked="{Binding PullConsumerNodesChecked, Mode=TwoWay}" />
-                <NumericUpDown Name="PullConsumerNodesPowerInput" Grid.Column="1" Minimum="0" Maximum="5" Increment="0.1" FormatString="0.0" Width="160" Value="{Binding PullConsumerNodesPowerValue, Mode=TwoWay}" />
-              </Grid>
-            </StackPanel>
+        </Button>
+        <Button Name="AdvancedTabButton" Classes="foreman-settings-tab" Click="OnAdvancedTabClick">
+          <StackPanel Spacing="3">
+            <Viewbox Width="18" Height="18"><Canvas Width="20" Height="20">
+              <Path Data="{StaticResource Foreman.Icon.Settings.Advanced}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+            </Canvas></Viewbox>
+            <TextBlock Text="Advanced" Classes="foreman-settings-tab-label" />
           </StackPanel>
-        </ScrollViewer>
-      </TabItem>
-    </TabControl>
+        </Button>
+        <Button Name="AnnotationsTabButton" Classes="foreman-settings-tab" Click="OnAnnotationsTabClick">
+          <StackPanel Spacing="3">
+            <Viewbox Width="18" Height="18"><Canvas Width="20" Height="20">
+              <Path Data="{StaticResource Foreman.Icon.Settings.Annotations}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+            </Canvas></Viewbox>
+            <TextBlock Text="Annotations" Classes="foreman-settings-tab-label" />
+          </StackPanel>
+        </Button>
+        <Button Name="AppearanceTabButton" Classes="foreman-settings-tab" Click="OnAppearanceTabClick">
+          <StackPanel Spacing="3">
+            <Viewbox Width="18" Height="18"><Canvas Width="20" Height="20">
+              <Path Data="{StaticResource Foreman.Icon.Settings.Appearance}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
+            </Canvas></Viewbox>
+            <TextBlock Text="Appearance" Classes="foreman-settings-tab-label" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </Border>
+
+    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,1,0,0" Padding="16,8">
+      <TextBlock Name="FooterText" FontSize="11" Foreground="{DynamicResource Foreman.Color.TextTertiary}" />
+    </Border>
+
+    <TransitioningContentControl Name="TabBody">
+      <TransitioningContentControl.PageTransition>
+        <CrossFade Duration="{x:Static motion:Motion.CrossFadeDuration}"
+                   FadeInEasing="{x:Static motion:Motion.CrossFadeEasing}"
+                   FadeOutEasing="{x:Static motion:Motion.CrossFadeEasing}" />
+      </TransitioningContentControl.PageTransition>
+    </TransitioningContentControl>
   </DockPanel>
 </Window>

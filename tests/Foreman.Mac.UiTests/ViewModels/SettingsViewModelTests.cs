@@ -264,6 +264,34 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.DoesNotContain(copperPlate, vm.RecipeObjects);
         }
 
+        //R5 live apply: SettingChanged is the seam SettingsSession reacts through - every AppSettings-backed
+        //property raises it by name.
+        [Fact]
+        public void SettingChanged_FiresWithThePropertyName_WhenAnAppSettingsBackedPropertyChanges() {
+            var vm = new SettingsViewModel();
+            var raised = new List<string>();
+            vm.SettingChanged += raised.Add;
+
+            vm.SmartNodeDirectionChecked = true;
+            vm.FlagDarkMode = ThemeMode.Dark;
+
+            Assert.Equal([nameof(vm.SmartNodeDirectionChecked), nameof(vm.FlagDarkMode)], raised);
+        }
+
+        //The Enabled Objects tab's own search/filter state has no AppSettings counterpart - raising
+        //SettingChanged for it would just spam SettingsSession with nothing to apply.
+        [Fact]
+        public void SettingChanged_DoesNotFire_ForFilterOrListProperties() {
+            var vm = new SettingsViewModel();
+            var raised = new List<string>();
+            vm.SettingChanged += raised.Add;
+
+            vm.FilterText = "iron";
+            vm.ShowUnavailablesFilterChecked = true;
+
+            Assert.Empty(raised);
+        }
+
         //Minimal IDataObjectBase stand-in - filtering only ever reads Available/FriendlyName, so every
         //other member is a stub.
         private sealed class FakeDataObject(string friendlyName, bool available) : IDataObjectBase {

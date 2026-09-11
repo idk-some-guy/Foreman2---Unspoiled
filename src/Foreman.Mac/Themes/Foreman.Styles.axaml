@@ -81,6 +81,31 @@
     <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
   </Style>
 
+  <!-- C2c Task 4: SettingsWindow's toolbar-tab strip (reference phase9-ui-proposal-RATIFIED.html §06.3
+       .settings-tab/.active) - icon above label, active tab tinted with the same accent-soft pairing
+       .foreman-toolbar-wide.on and .foreman-browser-group.selected already use. -->
+  <Style Selector="Button.foreman-settings-tab">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Padding" Value="13,6" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+  </Style>
+  <Style Selector="Button.foreman-settings-tab:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+  </Style>
+  <Style Selector="Button.foreman-settings-tab.active">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Accent}" />
+  </Style>
+  <Style Selector="Button.foreman-settings-tab.active Path.foreman-toolbar-glyph">
+    <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.Accent}" />
+  </Style>
+  <Style Selector="TextBlock.foreman-settings-tab-label">
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+  </Style>
+
   <!-- Task 8 (contract #toolbar mock's own <svg>): the toolbar glyphs are vector paths now, not font
        characters - the zoom stepper's −/+ stay TextBlock, so that selector is untouched below. -->
   <Style Selector="TextBlock.foreman-toolbar-glyph">

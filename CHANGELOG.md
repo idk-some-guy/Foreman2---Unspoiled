@@ -55,6 +55,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   instead of opening as separate windows.
 - The graph summary, text/shape annotation properties, and confirm/warning/save-before-continuing
   alerts now attach as sheets too.
+- Settings is a non-modal window with toolbar tabs; changes apply as you make them.
 
 ### Fixed
 

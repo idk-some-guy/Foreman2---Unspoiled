@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             x:Class="Foreman.Mac.Views.Settings.AdvancedTab"
+             x:DataType="vm:SettingsViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="8" Spacing="10">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Advanced" FontWeight="Bold" />
+        <CheckBox Name="ShowProductivityBonusOnAllCheckBox" Content="Enable extra productivity bonus for all entities (instead of only miners)" IsChecked="{Binding ShowProductivityBonusOnAllChecked, Mode=TwoWay}" />
+        <CheckBox Name="ShowUnavailablesCheckBox" Content="Show unavailable items (DEV)" IsChecked="{Binding ShowUnavailablesChecked, Mode=TwoWay}" />
+        <CheckBox Name="LoadBarrelingCheckBox" Content="Load barreling &amp; crating recipes (DEV)" IsChecked="{Binding LoadBarrelingChecked, Mode=TwoWay}" />
+      </StackPanel>
+
+      <StackPanel Spacing="4">
+        <TextBlock Text="Solver Options" FontWeight="Bold" />
+        <Grid ColumnDefinitions="Auto,Auto">
+          <TextBlock Grid.Column="0" Text="Low priority multiplier   (10^n, 2 default):" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <NumericUpDown Name="LowPriorityPowerInput" Grid.Column="1" Minimum="1" Maximum="6" Increment="0.2" FormatString="0.0" Width="160" Value="{Binding LowPriorityPowerValue, Mode=TwoWay}" />
+        </Grid>
+        <Grid ColumnDefinitions="Auto,Auto">
+          <CheckBox Name="PullConsumerNodesCheckBox" Grid.Column="0" Content="Maximize output nodes:   Power (10^n):" IsChecked="{Binding PullConsumerNodesChecked, Mode=TwoWay}" />
+          <NumericUpDown Name="PullConsumerNodesPowerInput" Grid.Column="1" Minimum="0" Maximum="5" Increment="0.1" FormatString="0.0" Width="160" Value="{Binding PullConsumerNodesPowerValue, Mode=TwoWay}" />
+        </Grid>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

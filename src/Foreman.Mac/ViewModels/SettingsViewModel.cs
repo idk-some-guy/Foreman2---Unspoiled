@@ -6,6 +6,7 @@ using Foreman.Mac.Views;
 using Foreman.Models;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 
 namespace Foreman.Mac.ViewModels {
@@ -13,6 +14,23 @@ namespace Foreman.Mac.ViewModels {
     //former LoadGraphOptionsTab/CommitGraphOptionsTab/UpdateFilteredLists (Task 6). Presets-tab
     //orchestration (window services: dialogs, preset-list rebuilds) stays in the code-behind.
     public sealed partial class SettingsViewModel : ObservableObject {
+        //R5 live apply: every AppSettings-backed property raises this on change so SettingsSession can
+        //react (theme/scale/resolve/save). The Enabled Objects tab's own search/filter state isn't
+        //AppSettings-backed, so it's excluded rather than spamming a session with nothing to apply.
+        private static readonly HashSet<string> ExcludedFromSettingChanged = [
+            nameof(FilterText), nameof(ShowUnavailablesFilterChecked),
+            nameof(AssemblerObjects), nameof(MinerObjects), nameof(PowerObjects), nameof(BeaconObjects),
+            nameof(ModuleObjects), nameof(RecipeObjects), nameof(QualityObjects),
+        ];
+
+        public event Action<string>? SettingChanged;
+
+        protected override void OnPropertyChanged(PropertyChangedEventArgs e) {
+            base.OnPropertyChanged(e);
+            if (e.PropertyName is string name && !ExcludedFromSettingChanged.Contains(name))
+                SettingChanged?.Invoke(name);
+        }
+
         [ObservableProperty]
         private decimal? qualityStepsValue;
 

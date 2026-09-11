@@ -21,6 +21,7 @@ using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -29,11 +30,12 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Task 6's phase gate (docs/superpowers/plans/2026-09-02-phase5b-dialog-windows.md): the three dialog
-    //windows (Settings/GraphSummary/PresetComparator, tasks 1-5) are each review-clean on their own; this
-    //covers the seams between them and the real MainWindow - the Confirm/Cancel cascade, a preset switch
-    //with a live graph, a summary reopened after an edit, Compare launched from Settings, and repeated
-    //open/close cycles - rather than re-testing any window in isolation.
+    //Task 6's phase gate (docs/superpowers/plans/2026-09-02-phase5b-dialog-windows.md), since extended by
+    //C2c Task 4's non-modal live-apply Settings rewrite: the dialog windows (Settings/GraphSummary/
+    //PresetComparator) are each review-clean on their own; this covers the seams between them and the real
+    //MainWindow - live-apply persisting and re-solving, a preset switch with a live graph, a summary
+    //reopened after an edit, Compare launched from Settings, and repeated open/close cycles - rather than
+    //re-testing any window in isolation.
     public class DialogWindowsEndToEndTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private const string SpaceAgePresetName = "Factorio 2.0 Space Age";
@@ -96,6 +98,15 @@ namespace Foreman.Mac.UiTests {
         private static string SettingsJsonPath(string tempHome) =>
             Path.Combine(tempHome, "Library", "Application Support", "Foreman", "settings.json");
 
+        //Bounded wait for a real async background operation (preset reload's own DataCache load) that has
+        //no deterministic test seam the way SettingsSession's debounce does (FlushAsync) - polls a
+        //condition instead of sleeping blind.
+        private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000) {
+            var stopwatch = Stopwatch.StartNew();
+            while (!condition() && stopwatch.ElapsedMilliseconds < timeoutMs)
+                await Task.Delay(10);
+        }
+
         //Searches the recipe's own friendly name in the Quick Add palette and closes it after the pick.
         private static Task<RecipeNodeElement> AddRecipeViaChooser(GraphCanvasControl control, DataCache cache, string recipeName, Point location) {
             IRecipe recipe = cache.Recipes[recipeName];
@@ -117,11 +128,11 @@ namespace Foreman.Mac.UiTests {
         }
 
         //================================================================================================
-        // Seam 1: settings cascade end-to-end (Confirm applies + persists; Cancel discards).
+        // Seam 1: settings live-apply end-to-end (a change applies and persists at once; nothing to cancel).
         //================================================================================================
 
         [AvaloniaFact]
-        public async Task SettingsCascade_ConfirmWithGraphOptionEditAndRecipeToggle_PersistsToDiskCacheAndSolvesOnce() {
+        public async Task SettingsLiveApply_GraphOptionEditsAndRecipeToggle_PersistToDiskAndSolveOnceAfterFlush() {
             DataCache cache = await LoadCacheAsync(VanillaPresetName); //dedicated cache: this test disables a recipe permanently
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
@@ -133,20 +144,20 @@ namespace Foreman.Mac.UiTests {
             IRecipe ironPlateRecipe = cache.Recipes["iron-plate"];
             Assert.True(ironPlateRecipe.Enabled); //sanity: starts enabled, so the toggle below is a real flip
 
-            window.SettingsDialogStub = options => {
-                var settingsWindow = new SettingsWindow(options);
-                settingsWindow.LowPriorityPowerInputControl.Value = 5.5m;
-                settingsWindow.QualityStepsInputControl.Value = 9m;
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-                var recipeItem = settingsWindow.RecipeListViewControl.ItemsSource!
-                    .Cast<EnabledObjectsListItem>().First(i => i.DataObject == ironPlateRecipe);
-                recipeItem.IsChecked = false;
+            settingsWindow!.AdvancedTabControl.LowPriorityPowerInputControl.Value = 5.5m;
+            settingsWindow.GeneralTabControl.QualityStepsInputControl.Value = 9m;
 
-                settingsWindow.SimulateConfirmClick();
-                return Task.FromResult<bool?>(settingsWindow.DialogResultValue);
-            };
+            var recipeItem = settingsWindow.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!
+                .Cast<EnabledObjectsListItem>().First(i => i.DataObject == ironPlateRecipe);
+            recipeItem.IsChecked = false;
 
-            await window.OpenSettingsAsync();
+            //LowPriorityPower/QualitySteps land on the live graph at once (ApplyLoadedSettings); only the
+            //recipe toggle is solver-affecting (R5's named list), so it's the one change owing a re-solve.
+            await window.CurrentSettingsSession!.FlushAsync();
 
             Assert.Equal(1, solveCount);
             Assert.Equal(5.5m, settings.LowPriorityPower);
@@ -160,8 +171,11 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(9, persisted.QualitySteps);
         }
 
+        //There's no Cancel/discard anymore - every change is live. This proves the honest converse: opening
+        //and closing Settings without touching anything leaves settings, the live cache, and the solve
+        //count untouched.
         [AvaloniaFact]
-        public async Task SettingsCascade_Cancel_LeavesSettingsCacheAndSolveCountUnchanged() {
+        public async Task SettingsWindow_OpenedAndClosedWithoutChanges_LeavesSettingsCacheAndSolveCountUnchanged() {
             DataCache cache = await GetSharedVanillaCacheAsync();
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName, LowPriorityPower = 4m };
@@ -172,18 +186,11 @@ namespace Foreman.Mac.UiTests {
             IRecipe ironPlateRecipe = cache.Recipes["iron-plate"];
             bool enabledBefore = ironPlateRecipe.Enabled;
 
-            window.SettingsDialogStub = options => {
-                var settingsWindow = new SettingsWindow(options);
-                settingsWindow.LowPriorityPowerInputControl.Value = 5.5m;
-                var recipeItem = settingsWindow.RecipeListViewControl.ItemsSource!
-                    .Cast<EnabledObjectsListItem>().First(i => i.DataObject == ironPlateRecipe);
-                recipeItem.IsChecked = !recipeItem.IsChecked;
-
-                settingsWindow.SimulateCancelClick();
-                return Task.FromResult<bool?>(settingsWindow.DialogResultValue);
-            };
-
-            await window.OpenSettingsAsync();
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
+            settingsWindow!.Close();
+            await Task.CompletedTask;
 
             Assert.Equal(0, solveCount);
             Assert.Equal(4m, settings.LowPriorityPower);
@@ -191,32 +198,30 @@ namespace Foreman.Mac.UiTests {
             Assert.False(File.Exists(SettingsJsonPath(tempHome)));
         }
 
-        //Regression (C1): "Load from save" writes LastSaveFileLocation onto AppSettings through its own
-        //SettingsService as soon as it succeeds, but OpenSettingsAsync's own tail then unconditionally saves
-        //ITS settings object over that - reverting the value on the very Confirm that's supposed to finish
-        //the feature. Options.LastSaveFileLocation is the seam that carries the value back to that tail.
+        //Regression (C1) reframed for live-apply: "Load from save" writes LastSaveFileLocation through its
+        //own SettingsService the instant it succeeds - this proves that write lands, without ever giving
+        //MainWindow's own SettingsSession a chance to run its (unrelated) debounced save over it first.
+        //If a later change also flushes the session in the same session, its own settings.LastSaveFileLocation
+        //was never told about this write and could still revert it (see fork report).
         [AvaloniaFact]
-        public async Task SettingsCascade_LoadFromSaveThenConfirm_PersistsLastSaveFileLocation() {
-            DataCache cache = await LoadCacheAsync(VanillaPresetName); //dedicated cache: the empty stub SaveFileInfo disables every non-pseudo recipe on Confirm
+        public async Task SettingsLiveApply_LoadFromSave_PersistsLastSaveFileLocationImmediately() {
+            DataCache cache = await LoadCacheAsync(VanillaPresetName); //dedicated cache: the empty stub SaveFileInfo disables every non-pseudo recipe
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(cache, settings, tempHome);
 
-            window.SettingsDialogStub = async options => {
-                var settingsWindow = new SettingsWindow(options) { SettingsService = new SettingsService(tempHome) };
-                settingsWindow.LoadFromSaveDialogStub = w => {
-                    w.OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip");
-                    w.LoadPipelineStub = (_, _) => new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Ok, SaveFileInfo = new SaveFileInfo() };
-                    w.ConfirmDialogStub = (_, _) => Task.FromResult(true); //mods mismatch is expected here - the stub result carries none.
-                    return w.RunAsync();
-                };
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-                await settingsWindow.SimulateLoadFromSaveClickAsync().ConfigureAwait(true);
-                settingsWindow.SimulateConfirmClick();
-                return settingsWindow.DialogResultValue;
+            settingsWindow!.LoadFromSaveDialogStub = w => {
+                w.OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip");
+                w.LoadPipelineStub = (_, _) => new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Ok, SaveFileInfo = new SaveFileInfo() };
+                w.ConfirmDialogStub = (_, _) => Task.FromResult(true); //mods mismatch is expected here - the stub result carries none.
+                return w.RunAsync();
             };
 
-            await window.OpenSettingsAsync();
+            await settingsWindow.SimulateLoadFromSaveClickAsync().ConfigureAwait(true);
 
             AppSettings persisted = new SettingsService(tempHome).Load();
             Assert.Equal(Path.GetDirectoryName("/tmp/saves/mysave.zip"), persisted.LastSaveFileLocation);
@@ -224,6 +229,9 @@ namespace Foreman.Mac.UiTests {
 
         //================================================================================================
         // Seam 2: preset-switch cascade with an existing graph (Task 1 remap x Task 2 pre-population).
+        // Picking a preset still closes and reopens Settings (R5: it swaps the whole live DataCache), fired
+        // through MainWindow's own event handler - WaitUntilAsync polls for the reload landing since there's
+        // no deterministic seam for a real DataCache load the way SettingsSession's debounce has FlushAsync.
         //================================================================================================
 
         [AvaloniaFact]
@@ -235,15 +243,15 @@ namespace Foreman.Mac.UiTests {
 
             RecipeNodeElement recipeNode = await AddRecipeViaChooser(window.GraphCanvas, vanilla, "iron-plate", new Point(0, 0));
             Assert.Single(window.GraphCanvas.Viewer.Session.View.Nodes);
-            NodeId originalId = recipeNode.ViewModel.Id;
 
-            window.SettingsDialogStub = options => {
-                Preset spaceAge = options.Presets!.First(p => p.Name == SpaceAgePresetName);
-                options.SelectedPreset = spaceAge;
-                return Task.FromResult<bool?>(true);
-            };
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w; //reassigned again once HandlePresetReloadAsync reopens below
+            window.ShowSettings();
 
-            await window.OpenSettingsAsync();
+            Preset spaceAge = settingsWindow!.Options.Presets!.First(p => p.Name == SpaceAgePresetName);
+            settingsWindow.SimulateSelectPresetMenuItemClick(spaceAge);
+
+            await WaitUntilAsync(() => !ReferenceEquals(window.DataCache, vanilla));
 
             Assert.Equal(SpaceAgePresetName, settings.CurrentPresetName);
             Assert.NotSame(vanilla, window.DataCache);
@@ -253,18 +261,16 @@ namespace Foreman.Mac.UiTests {
             AppSettings persisted = new SettingsService(tempHome).Load();
             Assert.Equal(SpaceAgePresetName, persisted.CurrentPresetName);
 
-            SettingsWindow.SettingsWindowOptions? reopenedOptions = null;
-            window.SettingsDialogStub = options => {
-                reopenedOptions = options;
-                return Task.FromResult<bool?>(false);
-            };
-            await window.OpenSettingsAsync();
-
             //DataObjectBasePrototype.Equals compares by (Type, Name), so a plain Contains can't tell the new
-            //cache's "iron-plate" recipe apart from the old one - only reference identity can.
+            //cache's "iron-plate" recipe apart from the old one - only reference identity can. The reopened
+            //window's own Enabled Objects tab is rebuilt straight off the new DCache (LoadUnfilteredList),
+            //which is what actually proves this rather than the (currently unseeded - see fork report)
+            //Options.EnabledObjects buffer.
             IRecipe ironPlateInNewCache = window.DataCache!.Recipes["iron-plate"];
-            Assert.Contains(reopenedOptions!.EnabledObjects, o => ReferenceEquals(o, ironPlateInNewCache));
-            Assert.DoesNotContain(reopenedOptions.EnabledObjects, o => ReferenceEquals(o, vanilla.Recipes["iron-plate"]));
+            var recipeDataObjects = settingsWindow.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!
+                .Cast<EnabledObjectsListItem>().Select(i => i.DataObject).ToList();
+            Assert.Contains(recipeDataObjects, o => ReferenceEquals(o, ironPlateInNewCache));
+            Assert.DoesNotContain(recipeDataObjects, o => ReferenceEquals(o, vanilla.Recipes["iron-plate"]));
         }
 
         //Phase 6 Task 8: ReloadForPresetAsync now serializes through GraphViewerSaveAssembler.BuildSaveDocument
@@ -286,13 +292,14 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Viewport.ViewOffset = new Point(20, 30);
             window.GraphCanvas.Viewport.ViewScale = 2.5f;
 
-            window.SettingsDialogStub = options => {
-                Preset spaceAge = options.Presets!.First(p => p.Name == SpaceAgePresetName);
-                options.SelectedPreset = spaceAge;
-                return Task.FromResult<bool?>(true);
-            };
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-            await window.OpenSettingsAsync();
+            Preset spaceAge = settingsWindow!.Options.Presets!.First(p => p.Name == SpaceAgePresetName);
+            settingsWindow.SimulateSelectPresetMenuItemClick(spaceAge);
+
+            await WaitUntilAsync(() => !ReferenceEquals(window.DataCache, vanilla));
 
             Assert.Equal(SpaceAgePresetName, settings.CurrentPresetName);
             TextAnnotationElement annotation = Assert.IsType<TextAnnotationElement>(Assert.Single(window.GraphCanvas.Viewer.Annotations));
@@ -320,13 +327,14 @@ namespace Foreman.Mac.UiTests {
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(vanilla, settings, tempHome, presetsOverride: null); //real Presets dir: need a genuine second preset to switch to
 
-            window.SettingsDialogStub = options => {
-                Preset spaceAgePreset = options.Presets!.First(p => p.Name == SpaceAgePresetName);
-                options.SelectedPreset = spaceAgePreset;
-                return Task.FromResult<bool?>(true);
-            };
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-            await window.OpenSettingsAsync();
+            Preset spaceAgePreset = settingsWindow!.Options.Presets!.First(p => p.Name == SpaceAgePresetName);
+            settingsWindow.SimulateSelectPresetMenuItemClick(spaceAgePreset);
+
+            await WaitUntilAsync(() => !ReferenceEquals(window.DataCache, vanilla));
 
             Assert.Equal(SpaceAgePresetName, settings.CurrentPresetName);
             Assert.True(window.DataCache!.Recipes[spaceAgeExclusiveEnabledRecipeName].Enabled);
@@ -336,6 +344,7 @@ namespace Foreman.Mac.UiTests {
         // Seam 3: summary over a live, edited graph - totals against hand-derived numbers, no stale cache
         // on reopen. Two independent manual-rate supplier nodes keep the hand-derived numbers trivial: each
         // item's Input total is exactly the fixed rate that node was set to, no solver/recipe math involved.
+        // (Unaffected by the Settings rewrite - GraphSummary has its own SheetHost-based flow already.)
         //================================================================================================
 
         [AvaloniaFact]
@@ -419,7 +428,7 @@ namespace Foreman.Mac.UiTests {
 
         //================================================================================================
         // Seam 4: comparator launched from Settings, over the real fixture presets; closing both restores
-        // canvas interactivity (the FloatingPanelHost focus-restore contract, extended to modal windows).
+        // canvas interactivity (the FloatingPanelHost focus-restore contract, extended to non-modal windows).
         //================================================================================================
 
         [AvaloniaFact]
@@ -443,27 +452,25 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Grid.ShowGrid = false;
             gridlinesCheckbox.IsChecked = false;
 
-            bool comparatorPopulated = false;
-            window.SettingsDialogStub = async options => {
-                var settingsWindow = new SettingsWindow(options);
-                settingsWindow.ComparePresetsDialogStub = async presets => {
-                    var comparator = new PresetComparatorWindow(presets) {
-                        LoadCacheStub = preset => Task.FromResult<DataCache?>(preset.Name == VanillaPresetName ? comparatorVanilla : preset.Name == SpaceAgePresetName ? comparatorSpaceAge : null),
-                    };
-                    await comparator.SimulateProcessPresetsClickAsync().ConfigureAwait(true);
-                    comparatorPopulated = comparator.LeftCache is not null && comparator.RightCache is not null;
-                    comparator.Close();
-                };
-                await settingsWindow.SimulateComparePresetsClickAsync().ConfigureAwait(true);
-                settingsWindow.SimulateCancelClick();
-                return settingsWindow.DialogResultValue;
-            };
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-            await window.OpenSettingsAsync();
+            bool comparatorPopulated = false;
+            settingsWindow!.ComparePresetsDialogStub = async presets => {
+                var comparator = new PresetComparatorWindow(presets) {
+                    LoadCacheStub = preset => Task.FromResult<DataCache?>(preset.Name == VanillaPresetName ? comparatorVanilla : preset.Name == SpaceAgePresetName ? comparatorSpaceAge : null),
+                };
+                await comparator.SimulateProcessPresetsClickAsync().ConfigureAwait(true);
+                comparatorPopulated = comparator.LeftCache is not null && comparator.RightCache is not null;
+                comparator.Close();
+            };
+            await settingsWindow.SimulateComparePresetsClickAsync().ConfigureAwait(true);
+            settingsWindow.Close();
 
             Assert.True(comparatorPopulated);
 
-            //No explicit re-focus here on purpose: a real user's next keystroke after closing both modals
+            //No explicit re-focus here on purpose: a real user's next keystroke after closing both windows
             //should already reach the canvas.
             window.KeyPressQwerty(PhysicalKey.Space, RawInputModifiers.None);
             Assert.True(window.GraphCanvas.Grid.ShowGrid);
@@ -472,7 +479,10 @@ namespace Foreman.Mac.UiTests {
 
         //================================================================================================
         // Seam 5: open/close cycles leak check - repeat each window 3x through the real commands, then
-        // confirm one real trigger still produces exactly one solve (Task 3's bind-once lesson).
+        // confirm one real trigger still produces exactly one solve (Task 3's bind-once lesson). Settings
+        // is non-modal now (one MainWindow-owned instance, freshly constructed and rewired every reopen -
+        // reference ShowSettings), so this proves the same "no duplicate subscriptions after repeated
+        // open/close" property the old Confirm/Cancel cascade did, just without a Confirm/Cancel click.
         //================================================================================================
 
         [AvaloniaFact]
@@ -483,12 +493,8 @@ namespace Foreman.Mac.UiTests {
             MainWindow window = NewReadyWindow(cache, settings, tempHome, presetsOverride: null); //real Presets dir: the comparator cycle below needs the real >=2-preset guard to pass
 
             for (int i = 0; i < 3; i++) {
-                window.SettingsDialogStub = options => {
-                    var settingsWindow = new SettingsWindow(options);
-                    settingsWindow.SimulateConfirmClick(); //Confirm (not Cancel): exercises MainWindow's rebind-guarded ApplyLoadedSettings path each cycle
-                    return Task.FromResult<bool?>(settingsWindow.DialogResultValue);
-                };
-                await window.OpenSettingsAsync();
+                window.SettingsDialogStub = w => w.Close();
+                window.ShowSettings();
             }
 
             for (int i = 0; i < 3; i++) {
@@ -497,20 +503,18 @@ namespace Foreman.Mac.UiTests {
             }
 
             for (int i = 0; i < 3; i++) {
-                window.SettingsDialogStub = async options => {
-                    var settingsWindow = new SettingsWindow(options);
-                    settingsWindow.ComparePresetsDialogStub = presets => {
+                window.SettingsDialogStub = w => {
+                    w.ComparePresetsDialogStub = presets => {
                         //Never started (SimulateProcessPresetsClickAsync isn't called), so PresetComparatorWindow's
                         //own Closed handler no-ops (comparing stays false) rather than clearing a cache this test
                         //never loaded.
                         new PresetComparatorWindow(presets).Close();
                         return Task.CompletedTask;
                     };
-                    await settingsWindow.SimulateComparePresetsClickAsync().ConfigureAwait(true);
-                    settingsWindow.SimulateCancelClick();
-                    return settingsWindow.DialogResultValue;
+                    Async.Fire(w.SimulateComparePresetsClickAsync(), "SimulateComparePresetsClickAsync"); //resolves synchronously (Task.CompletedTask above), safe to fire-and-forget here
+                    w.Close();
                 };
-                await window.OpenSettingsAsync();
+                window.ShowSettings();
             }
 
             int solveCount = 0;
@@ -527,15 +531,15 @@ namespace Foreman.Mac.UiTests {
         }
 
         //================================================================================================
-        // Seam 6: Imp#3 (final fix wave) - RealShowSettingsDialogAsync/RealShowGraphSummaryAsync's own
-        // GraphCanvas.Focus() calls, driven through the real child Window.ShowDialog / SheetHost.ShowAsync
-        // rather than the SettingsDialogStub/GraphSummaryDialogStub every other seam above uses (a stub
-        // never reaches either real method, so it can't exercise this focus-restore at all). Minor#5 rides
-        // along: the same two call sites must not steal focus from an already-open floating panel.
+        // Seam 6: Imp#3 (final fix wave) - ShowSettings/RealShowGraphSummaryAsync's own GraphCanvas.Focus()
+        // calls, driven through the real (unstubbed) child Window.Show / SheetHost.ShowAsync rather than the
+        // SettingsDialogStub/GraphSummaryDialogStub every other seam above uses (a stub never reaches either
+        // real method, so it can't exercise this focus-restore at all). Minor#5 rides along: the same two
+        // call sites must not steal focus from an already-open floating panel.
         //================================================================================================
 
         [AvaloniaFact]
-        public async Task RealShowSettingsDialogAsync_Closing_RestoresGraphCanvasFocus() {
+        public async Task RealShowSettings_Closing_RestoresGraphCanvasFocus() {
             DataCache cache = await GetSharedVanillaCacheAsync();
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
@@ -547,10 +551,9 @@ namespace Foreman.Mac.UiTests {
             newGraphButton.Focus();
             Assert.True(newGraphButton.IsFocused);
 
-            Task openTask = window.OpenSettingsAsync();
+            window.ShowSettings(); //unstubbed - real Show(this), same as a toolbar/menu click
             SettingsWindow settingsWindow = window.OwnedWindows.OfType<SettingsWindow>().Single();
-            settingsWindow.SimulateCancelClick();
-            await openTask;
+            settingsWindow.Close();
 
             Assert.True(window.GraphCanvas.IsFocused);
         }
@@ -576,14 +579,12 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.GraphCanvas.IsFocused);
         }
 
-        //Phase 7 deferred-minors sweep (toolbar-staleness fix, widened scope): OpenSettingsAsync now closes
-        //any open floating panel before it opens itself - a toolbar/menu click never reaches
+        //Phase 7 deferred-minors sweep (toolbar-staleness fix, widened scope): ShowSettings closes any open
+        //floating panel before it opens itself - a toolbar/menu click never reaches
         //GraphCanvasControl.OnPointerPressed's own click-outside-closes-panel guard, so a panel left open
-        //under Settings used to stay stale once the dialog closed. Supersedes this test's own prior
-        //assertion (the dialog's open-panel focus-restore guard skipping GraphCanvas.Focus() while a panel
-        //was still open) - the panel is gone by the time that guard runs now, so focus always restores.
+        //under Settings used to stay stale once the window closed.
         [AvaloniaFact]
-        public async Task RealShowSettingsDialogAsync_OpenedWhilePanelOpen_ClosesPanelAndRestoresCanvasFocusOnClose() {
+        public async Task RealShowSettings_OpenedWhilePanelOpen_ClosesPanelAndRestoresCanvasFocusOnClose() {
             DataCache cache = await GetSharedVanillaCacheAsync();
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
@@ -591,13 +592,12 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.AddRecipeAsync(new Point(0, 0));
             Assert.True(window.GraphCanvas.FloatingPanelHost.IsOpen);
 
-            Task openTask = window.OpenSettingsAsync();
+            window.ShowSettings();
 
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
 
             SettingsWindow settingsWindow = window.OwnedWindows.OfType<SettingsWindow>().Single();
-            settingsWindow.SimulateCancelClick();
-            await openTask;
+            settingsWindow.Close();
 
             Assert.True(window.GraphCanvas.IsFocused);
         }

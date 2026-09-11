@@ -56,9 +56,17 @@ namespace Foreman.Mac {
         //40px (cell grid), and DataCache.UnknownIcon is one shared SKBitmap instance across every entry.
         private readonly Dictionary<(SKBitmap, int), Bitmap> browserIconCache = [];
 
-        //Test-only seam: lets a test supply the Settings dialog's outcome without a real modal ShowDialog
-        //(mirrors GraphCanvasControl's TextPropertiesDialogStub/ShapePropertiesDialogStub).
-        internal Func<SettingsWindow.SettingsWindowOptions, Task<bool?>>? SettingsDialogStub { get; set; }
+        //Test-only seam: lets a test drive the Settings window headless instead of a real Show(this) - the
+        //window is fully constructed and wired (ViewModel, Session, ReloadRequested) either way.
+        internal Action<SettingsWindow>? SettingsDialogStub { get; set; }
+
+        //R5/R9: MainWindow owns one Settings instance and one comparator-adjacent session for the app's
+        //lifetime - ⌘, reuses/activates it rather than stacking a second window.
+        private SettingsWindow? settingsWindow;
+        private SettingsSession? settingsSession;
+
+        internal SettingsWindow? CurrentSettingsWindow => settingsWindow;
+        internal SettingsSession? CurrentSettingsSession => settingsSession;
 
         //Test-only seam: lets a test observe/short-circuit the Graph Summary dialog without a real modal
         //ShowDialog.
@@ -148,7 +156,7 @@ namespace Foreman.Mac {
                 onAddRecipe: () => GraphCanvas.AddRecipeAsync(GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2))),
                 onAutoconnect: () => { GraphCanvas.FloatingPanelHost.Close(); GraphCanvas.Viewer.AutoconnectDisconnectedInputs(); GraphCanvas.RequestRedraw(); },
                 onAlignSelection: () => { GraphCanvas.FloatingPanelHost.Close(); GraphCanvas.Viewer.AlignSelected(); GraphCanvas.RequestRedraw(); },
-                onSettings: () => Async.Fire(OpenSettingsAsync(), nameof(OpenSettingsAsync)),
+                onSettings: ShowSettings,
                 onGraphSummary: () => Async.Fire(OpenGraphSummaryAsync(), nameof(OpenGraphSummaryAsync)),
                 canExecuteAlignSelection: () => GraphCanvas.Viewer.SelectedNodes.Count > 0);
             //Task 7: keeps AlignSelectionCommand's CanExecute in step with the canvas's live selection -
@@ -839,14 +847,21 @@ namespace Foreman.Mac {
         //persisting settings.json - matching upstream's presetReloaded branch and its unconditional
         //Properties.Settings.Default.Save() at the end of ApplySettingsDialogChanges. Tasks 2/3 extend the
         //non-preset-reload branch as their tabs' widgets gain something to apply.
-        internal async Task OpenSettingsAsync() {
+        internal void ShowSettings() {
             //Toolbar/native-menu clicks never reach GraphCanvasControl.OnPointerPressed's own click-outside-
             //closes-panel guard (they're not canvas pointer events at all), so a panel left open under this
-            //modal stayed stale once it closed. Closes first, matching NewGraphAsync/LoadDocument's own
+            //window stayed stale once it closed. Closes first, matching NewGraphAsync/LoadDocument's own
             //unconditional-close-on-major-UI-change precedent.
             GraphCanvas.FloatingPanelHost.Close();
-            //A confirmed preset switch below can reload the graph (ReloadForPresetAsync).
             ViewModel.Inspector.SetSelection([]);
+
+            //R5/⌘, - one instance for the app's lifetime; a second invocation just brings it forward.
+            if (settingsWindow is { } existing) {
+                if (SettingsDialogStub is null)
+                    existing.Show(this);
+                existing.Activate();
+                return;
+            }
 
             if (DataCache is not Foreman.DataCaching.DataCache cache
                 || Settings is not AppSettings settings
@@ -859,156 +874,94 @@ namespace Foreman.Mac {
             };
             options.SelectedPreset = options.Presets.Count > 0 ? options.Presets[0] : null;
 
-            //Ports MainForm.cs:402-406: seeds EnabledObjects from the live cache's current membership before
-            //the dialog opens, so the else branch below has a faithful baseline to diff a plain Confirm against.
+            //Ports MainForm.cs:402-406: seeds the Enabled Objects tab's baseline from the live cache's
+            //current membership, since ShowLoadFromSaveAsync/ShowAssignFromSciencePacksAsync hand this set
+            //to their sheets as "currently enabled" (the tab's own checkboxes read dataObject.Enabled
+            //directly and don't need this, but those two sheets still diff against a starting set).
             options.EnabledObjects.UnionWith(cache.Recipes.Values.Where(r => r.Enabled));
             options.EnabledObjects.UnionWith(cache.Assemblers.Values.Where(r => r.Enabled));
             options.EnabledObjects.UnionWith(cache.Beacons.Values.Where(r => r.Enabled));
             options.EnabledObjects.UnionWith(cache.Modules.Values.Where(r => r.Enabled));
             options.EnabledObjects.UnionWith(cache.Qualities.Values.Where(r => r.Enabled));
 
-            //Ports MainForm.cs:366-400's Graph Options tab population from live GraphViewer/Graph state,
-            //falling back to the persisted AppSettings value for the couple of fields with no live control
-            //yet (ShowUnavailable/UseRecipeBWfilters - both DEV/session-only).
-            var viewer = GraphCanvas.Viewer;
-            options.QualitySteps = viewer.Graph.MaxQualitySteps;
-            options.LevelOfDetail = viewer.Context.LevelOfDetail;
-            options.NodeCountForSimpleView = viewer.NodeCountForSimpleView;
-            options.IconsOnlyIconSize = viewer.Context.IconsDrawSize;
-            options.ArrowsOnLinks = viewer.Context.ArrowsOnLinks;
-            options.SimplePassthroughNodes = viewer.Graph.DefaultToSimplePassthroughNodes;
-            options.DynamicLinkWidth = viewer.Context.DynamicLinkWidth;
-            options.ShowRecipeToolTip = viewer.Context.ShowRecipeToolTip;
-            options.FlagOUSuppliedNodes = viewer.Context.FlagOUSuppliedNodes;
-            options.FlagDarkMode = settings.FlagDarkMode;
-            options.UiScale = settings.UiScale;
-            options.DefaultAssemblerStyle = viewer.Graph.AssemblerSelector.DefaultSelectionStyle;
-            options.DefaultModuleStyle = viewer.Graph.ModuleSelector.DefaultSelectionStyle;
-            options.DefaultNodeDirection = viewer.Graph.DefaultNodeDirection;
-            options.SmartNodeDirection = GraphCanvas.SmartNodeDirection;
-            options.ShowErrorArrows = viewer.ArrowRenderer.ShowErrorArrows;
-            options.ShowWarningArrows = viewer.ArrowRenderer.ShowWarningArrows;
-            options.ShowDisconnectedArrows = viewer.ArrowRenderer.ShowDisconnectedArrows;
-            options.ShowOUSuppliedArrows = viewer.ArrowRenderer.ShowOUNodeArrows;
-            options.RoundAssemblerCount = viewer.Context.RoundAssemblerCount;
-            options.AbbreviateSciPacks = viewer.Context.AbbreviateSciPacks;
-            options.EnableExtraProductivityForNonMiners = viewer.Graph.EnableExtraProductivityForNonMiners;
-            options.DevShowUnavailableItems = settings.ShowUnavailable;
-            options.DevUseRecipeBWFilters = settings.UseRecipeBWfilters;
-            options.SolverLowPriorityPower = (decimal)viewer.Graph.LowPriorityPower;
-            options.SolverPullConsumerNodes = viewer.Graph.PullOutputNodes;
-            options.SolverPullConsumerNodesPower = (decimal)viewer.Graph.PullOutputNodesPower;
-
-            bool? result = await ShowSettingsDialogAsync(options).ConfigureAwait(true);
-            if (result != true)
-                return;
-
-            bool presetReloaded = options.RequireReload
-                || options.SelectedPreset != (options.Presets.Count > 0 ? options.Presets[0] : null)
-                || options.DevUseRecipeBWFilters != settings.UseRecipeBWfilters;
-            if (presetReloaded) {
-                settings.UseRecipeBWfilters = options.DevUseRecipeBWFilters;
-                if (options.SelectedPreset is Preset selectedPreset)
-                    await ReloadForPresetAsync(selectedPreset, settings).ConfigureAwait(true);
-            } else {
-                //Ports MainForm.cs:422-435's not-loading-a-new-preset branch: writes EnabledObjects membership
-                //straight onto the live cache instead of reloading it.
-                foreach (IRecipe recipe in cache.Recipes.Values)
-                    recipe.Enabled = options.EnabledObjects.Contains(recipe);
-                foreach (IAssembler assembler in cache.Assemblers.Values)
-                    assembler.Enabled = options.EnabledObjects.Contains(assembler);
-                foreach (IBeacon beacon in cache.Beacons.Values)
-                    beacon.Enabled = options.EnabledObjects.Contains(beacon);
-                foreach (IModule module in cache.Modules.Values)
-                    module.Enabled = options.EnabledObjects.Contains(module);
-                foreach (IQuality quality in cache.Qualities.Values)
-                    quality.Enabled = options.EnabledObjects.Contains(quality);
-                cache.DefaultQuality?.Enabled = true;
-                cache.RocketAssembler?.Enabled = cache.Assemblers.TryGetValue("rocket-silo", out IAssembler? silo) && silo?.Enabled == true;
-            }
-
-            //Ports ApplySettingsDialogChanges' Graph Options half (reference §5, upstream MainForm.cs
-            //441-497): rather than duplicating a push-to-GraphViewer/push-to-Properties.Settings.Default
-            //pair per field like upstream, we write the committed values onto AppSettings once and replay
-            //them through the same ApplyLoadedSettings seam cold start and preset reloads already use -
-            //a single settings-to-live-graph path instead of two.
-            settings.QualitySteps = (int)options.QualitySteps;
-            settings.LevelOfDetail = (int)options.LevelOfDetail;
-            settings.NodeCountForSimpleView = options.NodeCountForSimpleView;
-            settings.IconsSize = options.IconsOnlyIconSize;
-            settings.ArrowsOnLinks = options.ArrowsOnLinks;
-            settings.SimplePassthroughNodes = options.SimplePassthroughNodes;
-            settings.DynamicLineWidth = options.DynamicLinkWidth;
-            settings.ShowRecipeToolTip = options.ShowRecipeToolTip;
-            settings.FlagOUSuppliedNodes = options.FlagOUSuppliedNodes;
-            settings.FlagDarkMode = options.FlagDarkMode;
-            settings.UiScale = options.UiScale;
-            settings.DefaultAssemblerOption = options.DefaultAssemblerStyle;
-            settings.DefaultModuleOption = options.DefaultModuleStyle;
-            settings.DefaultNodeDirection = options.DefaultNodeDirection;
-            settings.SmartNodeDirection = options.SmartNodeDirection;
-            settings.ShowErrorArrows = options.ShowErrorArrows;
-            settings.ShowWarningArrows = options.ShowWarningArrows;
-            settings.ShowDisconnectedArrows = options.ShowDisconnectedArrows;
-            settings.ShowOUSuppliedArrows = options.ShowOUSuppliedArrows;
-            settings.RoundAssemblerCount = options.RoundAssemblerCount;
-            settings.AbbreviateSciPacks = options.AbbreviateSciPacks;
-            settings.EnableExtraProductivityForNonMiners = options.EnableExtraProductivityForNonMiners;
-            settings.ShowUnavailable = options.DevShowUnavailableItems;
-            settings.LowPriorityPower = options.SolverLowPriorityPower;
-            settings.PullConsumerNodes = options.SolverPullConsumerNodes;
-            settings.PullConsumerNodesPower = options.SolverPullConsumerNodesPower;
-            if (options.LastSaveFileLocation is string lastSaveFileLocation)
-                settings.LastSaveFileLocation = lastSaveFileLocation;
-
-            //I-1 (final fix wave): App.ApplyTheme has to run before ApplyLoadedSettings, not after -
-            //ApplyLoadedSettings' own isDark computation (via ApplyCanvasTheme) reads
-            //Application.Current.ActualThemeVariant for the System case, which is still the *pre*-Confirm
-            //variant until ApplyTheme below sets it, so the swapped order was reading a stale value on a
-            //System Confirm that also changed something else on the same click.
-            (Application.Current as App)?.ApplyTheme(settings.FlagDarkMode);
-            ApplyLoadedSettings();
-
-            //Ports MainForm.cs:501-503's apply-tail: a Confirm must actually re-solve against the settings
-            //just committed, not just write them onto AppSettings/the live graph properties.
-            GraphCanvas.Viewer.Graph.UpdateNodeMaxQualities();
-            GraphCanvas.Viewer.Graph.UpdateNodeStates(true);
-            GraphCanvas.Viewer.Graph.UpdateNodeValues();
-            GraphCanvas.InvalidateVisual();
-
-            settingsService.Save(settings);
-
-            //Ports MainForm.cs:505-506's reopen tail: a preset import that overwrote the currently active
-            //preset (RequireReload) reloads it above, then Settings reopens itself so the user sees a fresh
-            //dialog reflecting whatever that reload changed - retires the placeholder-import divergence note
-            //(docs/upstream-divergences.md).
-            if (options.RequireReload)
-                await OpenSettingsAsync().ConfigureAwait(true);
-        }
-
-        private Task<bool?> ShowSettingsDialogAsync(SettingsWindow.SettingsWindowOptions options) =>
-            SettingsDialogStub?.Invoke(options) ?? RealShowSettingsDialogAsync(options);
-
-        //Ports SettingsButton_Click's modal launch (reference upstream MainForm.cs:410-412): owner+50/+50,
-        //matching the summary and comparator windows' own Manual placement.
-        private async Task<bool?> RealShowSettingsDialogAsync(SettingsWindow.SettingsWindowOptions options) {
             var window = new SettingsWindow(options) {
                 WindowStartupLocation = WindowStartupLocation.Manual,
                 Position = Position + new PixelPoint(50, 50),
             };
-            bool? result = await window.ShowDialog<bool?>(this).ConfigureAwait(true);
-            //Extends FloatingPanelHost.Close's own focus-restore contract (reference §7) to a genuine modal
-            //window: Avalonia doesn't hand focus back to GraphCanvas on its own once the dialog closes,
-            //leaving canvas keyboard shortcuts (Space, Delete, ...) dead until the next click. FloatingPanelHost.
-            //IsOpen is always false here now - OpenSettingsAsync's own toolbar-staleness fix (phase 7) closes
-            //any open panel before this dialog ever opens - so the guard below always focuses the canvas; kept
-            //as a defensive belt-and-braces in case a future call site reaches this with a panel still open:
-            //pulling focus onto the canvas would then leave the panel's own content with none, and
-            //GraphCanvasControl.OnKeyDown itself early-returns while a panel is open, so its keyboard would
-            //go dead too until the next click.
-            if (!GraphCanvas.FloatingPanelHost.IsOpen)
-                GraphCanvas.Focus();
-            return result;
+            window.SettingsService = settingsService;
+            window.Settings = settings;
+            //Every General/Advanced/Annotations/Appearance field is AppSettings-backed already (unlike the
+            //old Options DTO, nothing here has a separate "live GraphViewer state" to seed from - settings
+            //itself stays authoritative since this window is the only thing that ever changes these fields).
+            window.ViewModel.LoadFrom(settings);
+
+            var session = new SettingsSession(settings, settingsService, (Application.Current as App)!,
+                resolve: ReSolveAfterSettingsChangeAsync,
+                applyTheme: mode => {
+                    (Application.Current as App)?.ApplyTheme(mode);
+                    return Task.CompletedTask;
+                },
+                applyScale: WindowScaler.SetScale);
+            window.Session = session;
+
+            window.ViewModel.SettingChanged += name => OnSettingsChanged(window, settings, name);
+            window.ReloadRequested += () => Async.Fire(HandlePresetReloadAsync(window, options), nameof(HandlePresetReloadAsync));
+            window.Closed += (_, _) => {
+                if (ReferenceEquals(settingsWindow, window)) {
+                    settingsWindow = null;
+                    settingsSession = null;
+                }
+                //See FloatingPanelHost's own focus-restore comment further down this file.
+                if (!GraphCanvas.FloatingPanelHost.IsOpen)
+                    GraphCanvas.Focus();
+            };
+
+            settingsWindow = window;
+            settingsSession = session;
+
+            if (SettingsDialogStub is { } stub)
+                stub(window);
+            else
+                window.Show(this);
+        }
+
+        //Session.Apply runs before ApplyLoadedSettings: it applies the theme that ApplyLoadedSettings reads
+        private void OnSettingsChanged(SettingsWindow window, AppSettings settings, string propertyName) {
+            window.ViewModel.ApplyTo(settings);
+
+            if (propertyName == nameof(ViewModels.SettingsViewModel.LoadBarrelingChecked)) {
+                window.RequestReload();
+                return;
+            }
+
+            settingsSession?.Apply(propertyName);
+            ApplyLoadedSettings();
+        }
+
+        //Ports MainForm.cs:501-503's apply-tail: a re-solve must actually run against the settings just
+        //committed, not just write them onto AppSettings/the live graph properties.
+        private Task ReSolveAfterSettingsChangeAsync() {
+            GraphCanvas.Viewer.Graph.UpdateNodeMaxQualities();
+            GraphCanvas.Viewer.Graph.UpdateNodeStates(true);
+            GraphCanvas.Viewer.Graph.UpdateNodeValues();
+            GraphCanvas.InvalidateVisual();
+            return Task.CompletedTask;
+        }
+
+        //Ports MainForm.cs:505-506's reopen tail: closes the one-off Settings instance a preset switch (or
+        //a barreling/crating filter change) needs, reloads, then reopens a fresh instance so the person sees
+        //a dialog reflecting whatever that reload changed.
+        private async Task HandlePresetReloadAsync(SettingsWindow window, SettingsWindow.SettingsWindowOptions options) {
+            window.Close();
+
+            if (Settings is not AppSettings settings)
+                return;
+
+            if (options.SelectedPreset is Preset selectedPreset)
+                await ReloadForPresetAsync(selectedPreset, settings).ConfigureAwait(true);
+
+            SettingsService?.Save(settings);
+            ShowSettings();
         }
 
         //Ports GraphSummaryButton_Click (reference upstream MainForm.cs:564-569): always the whole session,

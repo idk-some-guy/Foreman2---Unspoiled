@@ -312,13 +312,19 @@ namespace Foreman.Mac.UiTests {
 
             window.GraphCanvas.Viewer.Graph.CreateSupplierNode(new ItemQualityPair(vanilla.Items["iron-plate"], vanilla.DefaultQuality!), new Point(0, 0));
 
-            window.SettingsDialogStub = options => {
-                Preset spaceAge = options.Presets!.First(p => p.Name == SpaceAgePresetName);
-                options.SelectedPreset = spaceAge;
-                return Task.FromResult<bool?>(true);
-            };
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-            await window.OpenSettingsAsync();
+            Preset spaceAge = settingsWindow!.Options.Presets!.First(p => p.Name == SpaceAgePresetName);
+            settingsWindow.SimulateSelectPresetMenuItemClick(spaceAge);
+
+            //Picking a preset closes and reopens Settings (it swaps the whole live DataCache) - no
+            //deterministic seam for the real DataCache load underneath, so this polls for it landing (same
+            //pattern as DialogWindowsEndToEndTests' own PresetSwitchCascade tests).
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            while (ReferenceEquals(window.DataCache, vanilla) && stopwatch.ElapsedMilliseconds < 5000)
+                await Task.Delay(10);
 
             Assert.Equal(SpaceAgePresetName, settings.CurrentPresetName);
             Assert.NotSame(vanilla, window.DataCache);

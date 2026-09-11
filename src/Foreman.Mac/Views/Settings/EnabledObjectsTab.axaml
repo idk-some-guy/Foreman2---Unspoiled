@@ -1,0 +1,105 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:Foreman.Mac.Views"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             x:Class="Foreman.Mac.Views.Settings.EnabledObjectsTab"
+             x:DataType="vm:SettingsViewModel">
+  <UserControl.Styles>
+    <!-- Fluent's default ListBoxItem padding/min-height reads far sparser than upstream's dense WinForms
+         rows (24px icon, minimal chrome); this tightens it back down on the enabled-objects lists. -->
+    <Style Selector="ListBox.compact ListBoxItem">
+      <Setter Property="Padding" Value="2,1" />
+      <Setter Property="MinHeight" Value="26" />
+    </Style>
+  </UserControl.Styles>
+  <UserControl.Resources>
+    <DataTemplate x:Key="EnabledObjectRowTemplate" x:DataType="v:EnabledObjectsListItem">
+      <Border Background="{Binding RowBackground}" Padding="4,1" HorizontalAlignment="Stretch">
+        <StackPanel Orientation="Horizontal" Spacing="6" ToolTip.Tip="{Binding TooltipContent}">
+          <Viewbox Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center">
+            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" Padding="4,0,0,0" />
+          </Viewbox>
+          <Image Source="{Binding Icon}" Width="24" Height="24" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding Name}" Foreground="{Binding Foreground}" VerticalAlignment="Center" />
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
+  <DockPanel Margin="8">
+    <StackPanel DockPanel.Dock="Top" Spacing="4">
+      <Button Name="LoadEnabledFromSaveButton" Content="Load from save" HorizontalAlignment="Stretch" />
+      <Button Name="SetEnabledFromSciencePacksButton" Content="Assign based on science packs" HorizontalAlignment="Stretch" />
+      <Button Name="EnableAllButton" Content="Enable All" HorizontalAlignment="Stretch" />
+      <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0">
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="Filter:" VerticalAlignment="Center" Margin="0,0,4,0" />
+        <TextBox Name="FilterTextBox" Grid.Row="0" Grid.Column="1" Text="{Binding FilterText, Mode=TwoWay}" />
+        <CheckBox Name="ShowUnavailablesFilterCheckBox" Grid.Row="1" Grid.Column="1" Content="Show Unavailables" Margin="0,4,0,0" IsChecked="{Binding ShowUnavailablesFilterChecked, Mode=TwoWay}" />
+      </Grid>
+    </StackPanel>
+    <TabControl Name="EnabledObjectsTabControl" Margin="0,8,0,0">
+      <TabItem Header="Assemblers">
+        <ListBox Name="AssemblerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding AssemblerObjects}">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+        </ListBox>
+      </TabItem>
+      <TabItem Header="Miners">
+        <ListBox Name="MinerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding MinerObjects}">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+        </ListBox>
+      </TabItem>
+      <TabItem Header="Power">
+        <ListBox Name="PowerListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding PowerObjects}">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+        </ListBox>
+      </TabItem>
+      <TabItem Header="Beacons">
+        <ListBox Name="BeaconListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding BeaconObjects}">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+        </ListBox>
+      </TabItem>
+      <TabItem Header="Modules">
+        <ListBox Name="ModuleListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding ModuleObjects}">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+        </ListBox>
+      </TabItem>
+      <TabItem Header="Recipes">
+        <ListBox Name="RecipeListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding RecipeObjects}">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+        </ListBox>
+      </TabItem>
+      <TabItem Header="Qualities">
+        <ListBox Name="QualityListView" Classes="compact" SelectionMode="Multiple" Focusable="True" ItemTemplate="{StaticResource EnabledObjectRowTemplate}" ItemsSource="{Binding QualityObjects}">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+        </ListBox>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</UserControl>

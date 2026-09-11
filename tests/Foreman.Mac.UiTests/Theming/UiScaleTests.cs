@@ -69,19 +69,20 @@ namespace Foreman.Mac.UiTests.Theming {
         }
 
         //Acceptance criterion: a known control's on-screen bounds at scale 1.25 are exactly 1.25x its
-        //bounds at scale 1.0. QualityStepsInputControl carries an explicit XAML Width, so its LOCAL size
-        //never reflows with available space - only the ambient LayoutTransformControl changes.
+        //bounds at scale 1.0. QualityStepsInputControl (now on the General tab) carries an explicit XAML
+        //Width, so its LOCAL size never reflows with available space - only the ambient
+        //LayoutTransformControl changes.
         [AvaloniaFact]
         public async Task SetScale_KnownControlBounds_AreExactlyOnePointTwoFiveTimesDefault() {
             var window = new SettingsWindow(NewOptions(await GetCacheAsync()));
-            window.FindControl<TabControl>("MainTabControl")!.SelectedIndex = 2; //Graph Options tab - TabControl only realizes the selected tab's content
+            window.SimulateTabClick(2); //General tab - TransitioningContentControl only realizes the active tab's content
             window.Show();
             Dispatcher.UIThread.RunJobs();
-            double widthAtDefault = TransformedWidth(window.QualityStepsInputControl, window);
+            double widthAtDefault = TransformedWidth(window.GeneralTabControl.QualityStepsInputControl, window);
 
             WindowScaler.SetScale(1.25);
             Dispatcher.UIThread.RunJobs();
-            double widthAtOneQuarterUp = TransformedWidth(window.QualityStepsInputControl, window);
+            double widthAtOneQuarterUp = TransformedWidth(window.GeneralTabControl.QualityStepsInputControl, window);
 
             Assert.Equal(widthAtDefault * 1.25, widthAtOneQuarterUp, 2);
         }

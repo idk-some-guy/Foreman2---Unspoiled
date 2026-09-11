@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             x:Class="Foreman.Mac.Views.Settings.AppearanceTab"
+             x:DataType="vm:SettingsViewModel">
+  <!-- Task 5 fills this tab out properly (reference task-4-context.md) - for now it carries every
+       AppSettings field that reads as visual/rendering rather than behavioral, so nothing is lost in
+       the Graph Options split. -->
+  <ScrollViewer>
+    <StackPanel Margin="8" Spacing="10">
+      <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="Auto,Auto">
+          <TextBlock Grid.Column="0" Text="Appearance:" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ComboBox Name="FlagDarkModeDropDown" Grid.Column="1" Width="140" SelectedItem="{Binding FlagDarkMode, Mode=TwoWay}" />
+        </Grid>
+        <Grid ColumnDefinitions="Auto,Auto">
+          <TextBlock Grid.Column="0" Text="UI Scale:" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ComboBox Name="UiScaleDropDown" Grid.Column="1" Width="140" SelectedItem="{Binding UiScaleLabel, Mode=TwoWay}" />
+        </Grid>
+      </StackPanel>
+
+      <StackPanel Spacing="4">
+        <TextBlock Text="Node Graphics:" FontWeight="Bold" />
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto">
+          <TextBlock Grid.Column="0" Text="Level of detail:" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <RadioButton Name="LowLodRadioButton" Grid.Column="1" GroupName="LevelOfDetail" Content="Low" IsChecked="{Binding LowLodChecked, Mode=TwoWay}" />
+          <RadioButton Name="MediumLodRadioButton" Grid.Column="2" GroupName="LevelOfDetail" Content="Med" IsChecked="{Binding MediumLodChecked, Mode=TwoWay}" />
+          <RadioButton Name="HighLodRadioButton" Grid.Column="3" GroupName="LevelOfDetail" Content="High" IsChecked="{Binding HighLodChecked, Mode=TwoWay}" />
+        </Grid>
+        <Grid ColumnDefinitions="Auto,Auto">
+          <TextBlock Grid.Column="0" Text="Maximum number of graphical objects:" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <NumericUpDown Name="NodeCountForSimpleViewInput" Grid.Column="1" Minimum="0" Maximum="2000" Increment="25" FormatString="0" Width="130" Value="{Binding NodeCountForSimpleViewValue, Mode=TwoWay}" />
+        </Grid>
+        <Grid ColumnDefinitions="Auto,Auto">
+          <TextBlock Grid.Column="0" Text="Icon Size in icon view:" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <NumericUpDown Name="IconsSizeInput" Grid.Column="1" Minimum="8" Maximum="256" Increment="1" FormatString="0" Width="110" Value="{Binding IconsSizeValue, Mode=TwoWay}" />
+        </Grid>
+        <CheckBox Name="ArrowsOnLinksCheckBox" Content="Draw arrows to show direction on link lines (non-dynamic link-width)" IsChecked="{Binding ArrowsOnLinksChecked, Mode=TwoWay}" />
+        <CheckBox Name="DynamicLWCheckBox" Content="Dynamic link-width" IsChecked="{Binding DynamicLWChecked, Mode=TwoWay}" />
+        <CheckBox Name="AbbreviateSciPackCheckBox" Content="Abbreviate science packs" IsChecked="{Binding AbbreviateSciPackChecked, Mode=TwoWay}" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

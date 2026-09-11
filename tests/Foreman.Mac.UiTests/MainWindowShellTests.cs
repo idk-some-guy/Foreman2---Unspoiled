@@ -646,9 +646,13 @@ namespace Foreman.Mac.UiTests {
         //before App.ApplyTheme actually updated RequestedThemeVariant, so a System Confirm read the stale
         //pre-Confirm variant instead of the one it had just committed. With the app forced Dark going in
         //and nothing else overriding this headless harness's own Light platform default, a correctly
-        //ordered Confirm to System must land the canvas Light, not stay stuck on the pre-Confirm Dark.
+        //ordered live-apply to System must land the canvas Light, not stay stuck on the pre-change Dark.
+        //C2c Task 4: still asserting the pre-Task-4 contract, now driven through the non-modal
+        //ShowSettings/live-apply path instead of a Confirm click - see the fork report on this task for
+        //whether the ordering still holds under MainWindow.OnSettingsChanged (ApplyLoadedSettings runs
+        //before SettingsSession.Apply, which is what actually calls App.ApplyTheme for FlagDarkMode).
         [AvaloniaFact]
-        public async Task OpenSettingsAsync_ConfirmSystemWhileAppCurrentlyDark_CanvasResolvesLight() {
+        public async Task ShowSettings_LiveApplyFlagDarkModeSystemWhileAppCurrentlyDark_CanvasResolvesLight() {
             var app = (App)Application.Current!;
             app.ApplyTheme(ThemeMode.Dark);
 
@@ -660,12 +664,11 @@ namespace Foreman.Mac.UiTests {
             window.SettingsService = new SettingsService(NewTempDir());
             window.ApplyLoadedSettings();
 
-            window.SettingsDialogStub = options => {
-                options.FlagDarkMode = ThemeMode.System;
-                return Task.FromResult<bool?>(true);
-            };
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-            await window.OpenSettingsAsync();
+            settingsWindow!.AppearanceTabControl.FlagDarkModeDropDownControl.SelectedItem = ThemeMode.System;
 
             Assert.Equal(ThemeVariant.Light, Application.Current!.ActualThemeVariant);
             Assert.Equal(new SKColor(0xFA, 0xFA, 0xFA), window.GraphCanvas.Viewer.BackgroundColor);
@@ -753,9 +756,9 @@ namespace Foreman.Mac.UiTests {
 
         //Regression: BindViewOptionControls subscribed its six control event handlers with += on every call,
         //never unsubscribing first (unlike its own ResyncRateOptionsDropDown pattern above). It's called from
-        //boot, ReloadForPresetAsync, and now every OpenSettingsAsync Confirm, so a second ApplyLoadedSettings
-        //call left two PauseUpdatesCheckbox handlers stacked - one user toggle then fired UpdateNodeValues
-        //twice instead of once.
+        //boot, ReloadForPresetAsync, and every Settings live-apply change (OnSettingsChanged), so a second
+        //ApplyLoadedSettings call left two PauseUpdatesCheckbox handlers stacked - one user toggle then
+        //fired UpdateNodeValues twice instead of once.
         [AvaloniaFact]
         public void ApplyLoadedSettings_CalledTwice_TogglingPauseUpdatesStillResolvesExactlyOnce() {
             var window = new MainWindow();
@@ -1028,8 +1031,8 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.FloatingPanelHost.Show(new Border { Width = 50, Height = 50, Focusable = true }, new System.Drawing.Point(0, 0));
             Assert.True(window.GraphCanvas.FloatingPanelHost.IsOpen);
 
-            //No DataCache/Settings wired up: OpenSettingsAsync's own early-return guard fires right after the
-            //close, so this never risks opening a real (unstubbed, unclosable-in-headless) modal.
+            //No DataCache/Settings wired up: ShowSettings' own early-return guard fires right after the
+            //close, so this never risks opening a real (unstubbed) Settings window.
             RealClick(window, "Settings");
 
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);

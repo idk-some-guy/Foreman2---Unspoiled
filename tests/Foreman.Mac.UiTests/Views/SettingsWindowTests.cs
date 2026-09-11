@@ -4,6 +4,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
@@ -12,7 +13,10 @@ using Foreman.DataCaching.Storage;
 using Foreman.Mac;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.Settings;
 using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using SkiaSharp;
@@ -27,6 +31,12 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
+    //C2c Task 4: SettingsWindow is a non-modal, toolbar-tabbed shell now - Presets and Enabled Objects keep
+    //their old content and behavior (just reachable through their own tab UserControl), the old single
+    //Graph Options tab splits across General/Advanced/Annotations/Appearance, and there's no more Confirm/
+    //Cancel: every widget writes straight through SettingsViewModel. MainWindow-level live-apply (save/
+    //resolve debounce, preset-switch reload cascade) is MainWindowSettingsDialogTests.cs's job, not this
+    //file's - this file covers the window and its tabs in isolation.
     public class SettingsWindowTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private const string SpaceAgePresetName = "Factorio 2.0 Space Age";
@@ -60,16 +70,127 @@ namespace Foreman.Mac.UiTests.Views {
         private static SettingsWindow.SettingsWindowOptions NewOptions(DataCache cache, List<Preset> presets) =>
             new(cache) { Presets = presets, SelectedPreset = presets.FirstOrDefault(p => p.IsCurrentlySelected) };
 
-        //--- Tab shell ---------------------------------------------------------------------------------
+        //--- Tab shell -----------------------------------------------------------------------------------
 
         [AvaloniaFact]
-        public async Task MainTabControl_HasPresetsEnabledObjectsGraphOptionsInOrder() {
+        public async Task TabButtons_ArePresetsEnabledObjectsGeneralAdvancedAnnotationsAppearanceInOrder() {
+            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
+            window.Show(); //button templates (and so their Content's visual children) only realize once rooted
+
+            var labels = window.TabButtonControls
+                .Select(b => b.GetVisualDescendants().OfType<TextBlock>().First().Text)
+                .ToList();
+
+            Assert.Equal(["Presets", "Enabled Objects", "General", "Advanced", "Annotations", "Appearance"], labels);
+        }
+
+        [AvaloniaFact]
+        public async Task TabButtons_EachCarriesAPathIconBoundToItsOwnGlyph() {
+            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
+            window.Show();
+
+            foreach (Button button in window.TabButtonControls)
+                Assert.NotNull(button.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().FirstOrDefault()?.Data);
+        }
+
+        [AvaloniaFact]
+        public async Task SimulateTabClick_SetsActiveClassOnThatButtonOnlyAndSwapsTabBodyContent() {
             var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
 
-            var headers = window.FindControl<TabControl>("MainTabControl")!.Items
-                .OfType<TabItem>().Select(t => t.Header).ToList();
+            window.SimulateTabClick(2); //General
 
-            Assert.Equal(new object?[] { "Presets", "Enabled Objects", "Graph Options" }, headers);
+            for (int i = 0; i < window.TabButtonControls.Count; i++)
+                Assert.Equal(i == 2, window.TabButtonControls[i].Classes.Contains("active"));
+            Assert.Same(window.GeneralTabControl, window.TabBodyControl.Content);
+            Assert.Equal(2, window.ActiveTabIndex);
+        }
+
+        [AvaloniaFact]
+        public async Task FooterText_IsForemanTwoBulletVersionedDisplay() {
+            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
+
+            Assert.Equal("Foreman 2 · " + AppVersion.VersionedDisplay, window.FooterTextControl.Text);
+        }
+
+        //R9/contract #modals: SettingsWindow is non-modal - Show(owner) must never disable the owner the way
+        //ShowDialog would.
+        [AvaloniaFact]
+        public async Task Show_LeavesTheOwnerWindowEnabledAndVisible() {
+            var owner = new Window();
+            owner.Show();
+            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
+
+            window.Show(owner);
+
+            Assert.True(owner.IsEnabled);
+            Assert.True(window.IsVisible);
+        }
+
+        //R5: closing hides nothing behind it and needs no Confirm - Esc/⌘W both just close this instance
+        //(MainWindow.ShowSettings hands out a fresh one next time).
+        [AvaloniaFact]
+        public async Task EscapeKey_ClosesTheWindow() {
+            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
+            bool closed = false;
+            window.Closed += (_, _) => closed = true;
+            window.Show();
+
+            window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+
+            Assert.True(closed);
+        }
+
+        //Property-coverage regression (brief's "nothing lost in the split"): every AppSettings field the OLD
+        //Graph Options tab bound (git show HEAD:src/Foreman.Mac/Views/SettingsWindow.axaml) must still have a
+        //bound control on one of the four tabs that replaced it.
+        [AvaloniaFact]
+        public async Task EveryOldGraphOptionsAppSettingsField_HasABoundControlOnOneOfTheFourReplacementTabs() {
+            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
+            GeneralTab general = window.GeneralTabControl;
+            AdvancedTab advanced = window.AdvancedTabControl;
+            AnnotationsTab annotations = window.AnnotationsTabControl;
+            AppearanceTab appearance = window.AppearanceTabControl;
+
+            var controlByAppSettingsProperty = new Dictionary<string, object?> {
+                [nameof(AppSettings.QualitySteps)] = general.QualityStepsInputControl,
+                [nameof(AppSettings.ShowRecipeToolTip)] = general.ShowNodeRecipeCheckBoxControl,
+                [nameof(AppSettings.RoundAssemblerCount)] = general.RoundAssemblerCountCheckBoxControl,
+                [nameof(AppSettings.DefaultAssemblerOption)] = general.AssemblerSelectorStyleDropDownControl,
+                [nameof(AppSettings.DefaultModuleOption)] = general.ModuleSelectorStyleDropDownControl,
+                [nameof(AppSettings.DefaultNodeDirection)] = general.NodeDirectionDropDownControl,
+                [nameof(AppSettings.SmartNodeDirection)] = general.SmartNodeDirectionCheckBoxControl,
+                [nameof(AppSettings.SimplePassthroughNodes)] = general.SimplePassthroughNodesCheckBoxControl,
+
+                [nameof(AppSettings.EnableExtraProductivityForNonMiners)] = advanced.ShowProductivityBonusOnAllCheckBoxControl,
+                [nameof(AppSettings.ShowUnavailable)] = advanced.ShowUnavailablesCheckBoxControl,
+                [nameof(AppSettings.UseRecipeBWfilters)] = advanced.LoadBarrelingCheckBoxControl,
+                [nameof(AppSettings.LowPriorityPower)] = advanced.LowPriorityPowerInputControl,
+                [nameof(AppSettings.PullConsumerNodes)] = advanced.PullConsumerNodesCheckBoxControl,
+                [nameof(AppSettings.PullConsumerNodesPower)] = advanced.PullConsumerNodesPowerInputControl,
+
+                [nameof(AppSettings.ShowErrorArrows)] = annotations.ErrorArrowsCheckBoxControl,
+                [nameof(AppSettings.ShowWarningArrows)] = annotations.WarningArrowsCheckBoxControl,
+                [nameof(AppSettings.ShowDisconnectedArrows)] = annotations.DisconnectedArrowsCheckBoxControl,
+                [nameof(AppSettings.ShowOUSuppliedArrows)] = annotations.OUSuppliedArrowsCheckBoxControl,
+                [nameof(AppSettings.FlagOUSuppliedNodes)] = annotations.FlagOUSupplyNodesCheckBoxControl,
+
+                [nameof(AppSettings.LevelOfDetail)] = appearance.LowLodRadioButtonControl,
+                [nameof(AppSettings.NodeCountForSimpleView)] = appearance.NodeCountForSimpleViewInputControl,
+                [nameof(AppSettings.IconsSize)] = appearance.IconsSizeInputControl,
+                [nameof(AppSettings.ArrowsOnLinks)] = appearance.ArrowsOnLinksCheckBoxControl,
+                [nameof(AppSettings.DynamicLineWidth)] = appearance.DynamicLWCheckBoxControl,
+                [nameof(AppSettings.AbbreviateSciPacks)] = appearance.AbbreviateSciPackCheckBoxControl,
+                [nameof(AppSettings.FlagDarkMode)] = appearance.FlagDarkModeDropDownControl,
+                [nameof(AppSettings.UiScale)] = appearance.UiScaleDropDownControl,
+            };
+
+            //LevelOfDetail is one AppSettings field but three radio buttons - checked alongside its primary
+            //entry above rather than a second dictionary key.
+            Assert.NotNull(appearance.MediumLodRadioButtonControl);
+            Assert.NotNull(appearance.HighLodRadioButtonControl);
+
+            foreach ((string appSettingsProperty, object? control) in controlByAppSettingsProperty)
+                Assert.True(control is not null, $"{appSettingsProperty} has no bound control on any of General/Advanced/Annotations/Appearance.");
         }
 
         //--- Current preset label + preset list contents ------------------------------------------------
@@ -80,8 +201,8 @@ namespace Foreman.Mac.UiTests.Views {
             var other = new Preset(SpaceAgePresetName, false, false);
             var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [current, other]));
 
-            Assert.Equal(VanillaPresetName, window.CurrentPresetLabelControl.Text);
-            var listed = window.PresetListBoxControl.ItemsSource!.Cast<Preset>().ToList();
+            Assert.Equal(VanillaPresetName, window.PresetsTabControl.CurrentPresetLabelControl.Text);
+            var listed = window.PresetsTabControl.PresetListBoxControl.ItemsSource!.Cast<Preset>().ToList();
             Assert.DoesNotContain(current, listed);
             Assert.Contains(other, listed);
         }
@@ -91,11 +212,11 @@ namespace Foreman.Mac.UiTests.Views {
             var current = new Preset(VanillaPresetName, true, true);
             var other = new Preset(SpaceAgePresetName, false, false);
             var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [current, other]));
-            window.PresetListBoxControl.SelectedItem = other;
+            window.PresetsTabControl.PresetListBoxControl.SelectedItem = other;
 
             window.SimulateCurrentPresetLabelClick();
 
-            Assert.Null(window.PresetListBoxControl.SelectedItem);
+            Assert.Null(window.PresetsTabControl.PresetListBoxControl.SelectedItem);
         }
 
         //Minor#2 (final fix wave, upstream SettingsForm.cs:263-265): bold marks "this is the active preset",
@@ -105,13 +226,13 @@ namespace Foreman.Mac.UiTests.Views {
             var current = new Preset(VanillaPresetName, true, true);
             var other = new Preset(SpaceAgePresetName, false, false);
             var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [current, other]));
-            Assert.Equal(FontWeight.Bold, window.CurrentPresetLabelControl.FontWeight);
+            Assert.Equal(FontWeight.Bold, window.PresetsTabControl.CurrentPresetLabelControl.FontWeight);
 
-            window.PresetListBoxControl.SelectedItem = other;
-            Assert.Equal(FontWeight.Normal, window.CurrentPresetLabelControl.FontWeight);
+            window.PresetsTabControl.PresetListBoxControl.SelectedItem = other;
+            Assert.Equal(FontWeight.Normal, window.PresetsTabControl.CurrentPresetLabelControl.FontWeight);
 
-            window.PresetListBoxControl.SelectedItem = null;
-            Assert.Equal(FontWeight.Bold, window.CurrentPresetLabelControl.FontWeight);
+            window.PresetsTabControl.PresetListBoxControl.SelectedItem = null;
+            Assert.Equal(FontWeight.Bold, window.PresetsTabControl.CurrentPresetLabelControl.FontWeight);
         }
 
         [AvaloniaFact]
@@ -119,101 +240,43 @@ namespace Foreman.Mac.UiTests.Views {
             var current = new Preset(VanillaPresetName, true, true);
             var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [current]));
 
-            var mods = window.ModSelectionBoxControl.ItemsSource?.Cast<string>().ToList();
+            var mods = window.PresetsTabControl.ModSelectionBoxControl.ItemsSource?.Cast<string>().ToList();
 
             Assert.Equal(VanillaPresetModList, mods);
         }
 
-        //--- Confirm / Cancel ----------------------------------------------------------------------------
-
-        [AvaloniaFact]
-        public async Task ConfirmButton_Click_ClosesWithTrueAndLeavesSelectedPresetUnchanged() {
-            var current = new Preset(VanillaPresetName, true, true);
-            var options = NewOptions(await GetCacheAsync(), [current, new Preset(SpaceAgePresetName, false, false)]);
-            var window = new SettingsWindow(options);
-
-            window.SimulateConfirmClick();
-
-            Assert.True(window.DialogResultValue);
-            Assert.Same(current, options.SelectedPreset);
-        }
-
-        [AvaloniaFact]
-        public async Task CancelButton_Click_ClosesWithFalseAndDiscardsAnySelection() {
-            var current = new Preset(VanillaPresetName, true, true);
-            var options = NewOptions(await GetCacheAsync(), [current, new Preset(SpaceAgePresetName, false, false)]);
-            var window = new SettingsWindow(options);
-            window.PresetListBoxControl.SelectedItem = options.Presets![1];
-
-            window.SimulateCancelClick();
-
-            Assert.False(window.DialogResultValue);
-            Assert.Same(current, options.SelectedPreset);
-        }
-
-        //Imp#2 (final fix wave, upstream SettingsForm.Designer.cs:1687/1692): Confirm/Cancel are the
-        //window's AcceptButton/CancelButton, so Enter/Escape must reach them without a click.
-        [AvaloniaFact]
-        public async Task EnterKey_ConfirmsDialog() {
-            var current = new Preset(VanillaPresetName, true, true);
-            var options = NewOptions(await GetCacheAsync(), [current, new Preset(SpaceAgePresetName, false, false)]);
-            var window = new SettingsWindow(options);
-            window.Show();
-
-            window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
-
-            Assert.True(window.DialogResultValue);
-        }
-
-        [AvaloniaFact]
-        public async Task EscapeKey_CancelsDialog() {
-            var current = new Preset(VanillaPresetName, true, true);
-            var options = NewOptions(await GetCacheAsync(), [current, new Preset(SpaceAgePresetName, false, false)]);
-            var window = new SettingsWindow(options);
-            window.Show();
-
-            window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
-
-            Assert.False(window.DialogResultValue);
-        }
-
         //--- Preset switch via double-click / select menu item --------------------------------------------
+        //R5: picking a preset swaps the whole live DataCache, so it no longer closes with a bool result -
+        //it sets SelectedPreset and asks MainWindow (via ReloadRequested) to close/reload/reopen.
 
         [AvaloniaFact]
-        public async Task PresetListBox_DoubleClickPreset_SetsSelectedPresetAndClosesOk() {
+        public async Task PresetListBox_DoubleClickPreset_SetsSelectedPresetAndRequestsReload() {
             var current = new Preset(VanillaPresetName, true, true);
             var other = new Preset(SpaceAgePresetName, false, false);
             var options = NewOptions(await GetCacheAsync(), [current, other]);
             var window = new SettingsWindow(options);
+            int reloadRequests = 0;
+            window.ReloadRequested += () => reloadRequests++;
 
             window.SimulateDoubleClickPreset(other);
 
             Assert.Same(other, options.SelectedPreset);
-            Assert.True(window.DialogResultValue);
+            Assert.Equal(1, reloadRequests);
         }
 
         [AvaloniaFact]
-        public async Task SelectPresetMenuItem_Click_SetsSelectedPresetAndClosesOk() {
+        public async Task SelectPresetMenuItem_Click_SetsSelectedPresetAndRequestsReload() {
             var current = new Preset(VanillaPresetName, true, true);
             var other = new Preset(SpaceAgePresetName, false, false);
             var options = NewOptions(await GetCacheAsync(), [current, other]);
             var window = new SettingsWindow(options);
+            int reloadRequests = 0;
+            window.ReloadRequested += () => reloadRequests++;
 
             window.SimulateSelectPresetMenuItemClick(other);
 
             Assert.Same(other, options.SelectedPreset);
-            Assert.True(window.DialogResultValue);
-        }
-
-        [AvaloniaFact]
-        public async Task SelectPreset_CommitsPendingChangesBeforeClosing() {
-            var current = new Preset(VanillaPresetName, true, true);
-            var other = new Preset(SpaceAgePresetName, false, false);
-            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [current, other]));
-
-            window.SimulateDoubleClickPreset(other);
-
-            Assert.Equal(1, window.CommitPendingChangesCallCount);
+            Assert.Equal(1, reloadRequests);
         }
 
         //--- Dynamic right-click menu captions -------------------------------------------------------------
@@ -225,10 +288,10 @@ namespace Foreman.Mac.UiTests.Views {
 
             window.UpdatePresetMenuCaptionsFor(ordinary);
 
-            Assert.Equal("Use This Preset", window.SelectPresetMenuItemControl.Header);
-            Assert.True(window.SelectPresetMenuItemControl.IsEnabled);
-            Assert.Equal("Delete This Preset", window.DeletePresetMenuItemControl.Header);
-            Assert.True(window.DeletePresetMenuItemControl.IsEnabled);
+            Assert.Equal("Use This Preset", window.PresetsTabControl.SelectPresetMenuItemControl.Header);
+            Assert.True(window.PresetsTabControl.SelectPresetMenuItemControl.IsEnabled);
+            Assert.Equal("Delete This Preset", window.PresetsTabControl.DeletePresetMenuItemControl.Header);
+            Assert.True(window.PresetsTabControl.DeletePresetMenuItemControl.IsEnabled);
         }
 
         [AvaloniaFact]
@@ -238,9 +301,9 @@ namespace Foreman.Mac.UiTests.Views {
 
             window.UpdatePresetMenuCaptionsFor(defaultPreset);
 
-            Assert.Equal("Use This Preset", window.SelectPresetMenuItemControl.Header);
-            Assert.Equal("Default Preset", window.DeletePresetMenuItemControl.Header);
-            Assert.False(window.DeletePresetMenuItemControl.IsEnabled);
+            Assert.Equal("Use This Preset", window.PresetsTabControl.SelectPresetMenuItemControl.Header);
+            Assert.Equal("Default Preset", window.PresetsTabControl.DeletePresetMenuItemControl.Header);
+            Assert.False(window.PresetsTabControl.DeletePresetMenuItemControl.IsEnabled);
         }
 
         //Defensive branch: unreachable via the real UI (the active preset never appears in PresetListBox),
@@ -252,10 +315,10 @@ namespace Foreman.Mac.UiTests.Views {
 
             window.UpdatePresetMenuCaptionsFor(currentlySelected);
 
-            Assert.Equal("Current Preset", window.SelectPresetMenuItemControl.Header);
-            Assert.False(window.SelectPresetMenuItemControl.IsEnabled);
-            Assert.Equal("Delete This Preset", window.DeletePresetMenuItemControl.Header);
-            Assert.False(window.DeletePresetMenuItemControl.IsEnabled);
+            Assert.Equal("Current Preset", window.PresetsTabControl.SelectPresetMenuItemControl.Header);
+            Assert.False(window.PresetsTabControl.SelectPresetMenuItemControl.IsEnabled);
+            Assert.Equal("Delete This Preset", window.PresetsTabControl.DeletePresetMenuItemControl.Header);
+            Assert.False(window.PresetsTabControl.DeletePresetMenuItemControl.IsEnabled);
         }
 
         //--- Delete preset ---------------------------------------------------------------------------------
@@ -270,7 +333,7 @@ namespace Foreman.Mac.UiTests.Views {
             await window.SimulateDeletePresetMenuItemClickAsync(doomed);
 
             Assert.DoesNotContain(doomed, options.Presets!);
-            Assert.DoesNotContain(doomed, window.PresetListBoxControl.ItemsSource!.Cast<Preset>());
+            Assert.DoesNotContain(doomed, window.PresetsTabControl.PresetListBoxControl.ItemsSource!.Cast<Preset>());
         }
 
         [AvaloniaFact]
@@ -396,16 +459,18 @@ namespace Foreman.Mac.UiTests.Views {
         //--- Import (reference io-reference.md §4/§7) -----------------------------------------------------
 
         [AvaloniaFact]
-        public async Task ImportPresetButton_Click_OverwroteTheActivePreset_SetsRequireReloadAndCloses() {
+        public async Task ImportPresetButton_Click_OverwroteTheActivePreset_SetsSelectedPresetAndRequestsReload() {
             var current = new Preset(VanillaPresetName, true, true);
             var options = NewOptions(await GetCacheAsync(), [current]);
             var window = new SettingsWindow(options);
             window.ImportPresetDialogStub = w => { w.SimulateImportSuccess(VanillaPresetName); return Task.CompletedTask; };
+            int reloadRequests = 0;
+            window.ReloadRequested += () => reloadRequests++;
 
             await window.SimulateImportPresetClickAsync();
 
-            Assert.True(options.RequireReload);
-            Assert.Equal(true, window.DialogResultValue);
+            Assert.Equal(VanillaPresetName, options.SelectedPreset?.Name);
+            Assert.Equal(1, reloadRequests);
         }
 
         [AvaloniaFact]
@@ -414,26 +479,29 @@ namespace Foreman.Mac.UiTests.Views {
             var options = NewOptions(await GetCacheAsync(), [current]);
             var window = new SettingsWindow(options) { ImportSwitchConfirmationStub = () => Task.FromResult(false) };
             window.ImportPresetDialogStub = w => { w.SimulateImportSuccess("Brand New Preset"); return Task.CompletedTask; };
+            int reloadRequests = 0;
+            window.ReloadRequested += () => reloadRequests++;
 
             await window.SimulateImportPresetClickAsync();
 
             Assert.Contains(options.Presets!, p => p.Name == "Brand New Preset");
-            Assert.Contains(window.PresetListBoxControl.ItemsSource!.Cast<Preset>(), p => p.Name == "Brand New Preset");
-            Assert.False(options.RequireReload);
-            Assert.Null(window.DialogResultValue); //declined the switch - Settings stays open
+            Assert.Contains(window.PresetsTabControl.PresetListBoxControl.ItemsSource!.Cast<Preset>(), p => p.Name == "Brand New Preset");
+            Assert.Equal(0, reloadRequests); //declined the switch - Settings stays open, no reload
         }
 
         [AvaloniaFact]
-        public async Task ImportPresetButton_Click_NewPresetName_SwitchAccepted_SelectsItAndCloses() {
+        public async Task ImportPresetButton_Click_NewPresetName_SwitchAccepted_SelectsItAndRequestsReload() {
             var current = new Preset(VanillaPresetName, true, true);
             var options = NewOptions(await GetCacheAsync(), [current]);
             var window = new SettingsWindow(options) { ImportSwitchConfirmationStub = () => Task.FromResult(true) };
             window.ImportPresetDialogStub = w => { w.SimulateImportSuccess("Brand New Preset"); return Task.CompletedTask; };
+            int reloadRequests = 0;
+            window.ReloadRequested += () => reloadRequests++;
 
             await window.SimulateImportPresetClickAsync();
 
             Assert.Equal("Brand New Preset", options.SelectedPreset?.Name);
-            Assert.Equal(true, window.DialogResultValue);
+            Assert.Equal(1, reloadRequests);
         }
 
         [AvaloniaFact]
@@ -442,11 +510,13 @@ namespace Foreman.Mac.UiTests.Views {
             var options = NewOptions(await GetCacheAsync(), [current]);
             var window = new SettingsWindow(options);
             window.ImportPresetDialogStub = _ => Task.CompletedTask; //NewPresetName stays "" - nothing simulated
+            int reloadRequests = 0;
+            window.ReloadRequested += () => reloadRequests++;
 
             await window.SimulateImportPresetClickAsync();
 
             Assert.Single(options.Presets!);
-            Assert.Null(window.DialogResultValue);
+            Assert.Equal(0, reloadRequests);
         }
 
         [AvaloniaFact]
@@ -473,168 +543,33 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Same(presets, captured);
         }
 
-        //--- MainWindow post-close cascade -----------------------------------------------------------------
+        //--- Enabled Objects tab: sub-tab shell -------------------------------------------------------------
+        //R5: TransitioningContentControl only wires its Content into the logical tree (and so propagates
+        //DataContext to it) once the control tree is actually rooted - Show() first, matching what a real
+        //click always gets for free (the window is already on screen by the time anyone can click a tab).
+        //Enabled Objects also now writes straight onto DataObject.Enabled on toggle (R5 live apply) - the
+        //old Options.EnabledObjects buffer always started empty per test, so resetting every object back to
+        //disabled here reproduces that same starting condition and keeps these tests order-independent
+        //against each other and against whatever a prior test left enabled on the shared fixture cache.
+        private static SettingsWindow NewEnabledObjectsWindow(DataCache cache) {
+            foreach (IRecipe recipe in cache.Recipes.Values) recipe.Enabled = false;
+            foreach (IAssembler assembler in cache.Assemblers.Values) assembler.Enabled = false;
+            foreach (IBeacon beacon in cache.Beacons.Values) beacon.Enabled = false;
+            foreach (IModule module in cache.Modules.Values) module.Enabled = false;
+            foreach (IQuality quality in cache.Qualities.Values) quality.Enabled = false;
 
-        private static async Task<MainWindow> NewMainWindowAsync(string tempHome) {
-            var window = new MainWindow();
-            window.DataCache = await GetCacheAsync();
-            window.Settings = new AppSettings { CurrentPresetName = VanillaPresetName };
-            window.PresetResolver = new PresetResolver();
-            window.SettingsService = new SettingsService(tempHome);
+            var window = new SettingsWindow(NewOptions(cache, [new Preset(VanillaPresetName, true, true)]));
+            window.Show();
+            window.SimulateTabClick(1);
+            Dispatcher.UIThread.RunJobs(); //completes the virtualizing panel's pending realization before any test reads it
             return window;
         }
-
-        private static string SettingsFilePath(string home) =>
-            Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
-
-        //Settings now persist to foreman.db rather than settings.json (phase 9 Task 2).
-        private static string SettingsDbPath(string home) =>
-            Path.Combine(home, "Library", "Application Support", "Foreman", "foreman.db");
-
-        [AvaloniaFact]
-        public async Task OpenSettingsAsync_ConfirmWithoutPresetChange_PersistsSettingsAndDoesNotReload() {
-            string home = NewTempHome();
-            var window = await NewMainWindowAsync(home);
-            var originalCache = window.DataCache;
-            window.SettingsDialogStub = _ => Task.FromResult<bool?>(true);
-
-            await window.OpenSettingsAsync();
-
-            Assert.True(File.Exists(SettingsDbPath(home)));
-            Assert.Same(originalCache, window.DataCache);
-        }
-
-        [AvaloniaFact]
-        public async Task OpenSettingsAsync_PopulatesEnabledObjectsFromTheLiveCacheBeforeShowingTheDialog() {
-            string home = NewTempHome();
-            var window = await NewMainWindowAsync(home);
-            var cache = window.DataCache!;
-            HashSet<IDataObjectBase>? captured = null;
-            window.SettingsDialogStub = options => {
-                captured = [.. options.EnabledObjects];
-                return Task.FromResult<bool?>(true);
-            };
-
-            await window.OpenSettingsAsync();
-
-            var expected = new HashSet<IDataObjectBase>();
-            expected.UnionWith(cache.Recipes.Values.Where(r => r.Enabled));
-            expected.UnionWith(cache.Assemblers.Values.Where(r => r.Enabled));
-            expected.UnionWith(cache.Beacons.Values.Where(r => r.Enabled));
-            expected.UnionWith(cache.Modules.Values.Where(r => r.Enabled));
-            expected.UnionWith(cache.Qualities.Values.Where(r => r.Enabled));
-            Assert.True(captured!.SetEquals(expected));
-        }
-
-        [AvaloniaFact]
-        public async Task OpenSettingsAsync_ConfirmWithoutPresetChange_SyncsEnabledObjectsOntoLiveCache() {
-            string home = NewTempHome();
-            var window = await NewMainWindowAsync(home);
-            var cache = window.DataCache!;
-            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
-            IRecipe recipe = cache.Recipes.Values.First(r => r.Enabled && r.Available);
-            RecipeNode node = window.GraphCanvas.Viewer.Graph.CreateRecipeNode(new RecipeQualityPair(recipe, cache.DefaultQuality!), new Point(0, 0));
-            window.SettingsDialogStub = options => {
-                options.EnabledObjects.UnionWith(cache.Recipes.Values.Where(r => r.Enabled));
-                options.EnabledObjects.UnionWith(cache.Assemblers.Values.Where(r => r.Enabled));
-                options.EnabledObjects.UnionWith(cache.Beacons.Values.Where(r => r.Enabled));
-                options.EnabledObjects.UnionWith(cache.Modules.Values.Where(r => r.Enabled));
-                options.EnabledObjects.UnionWith(cache.Qualities.Values.Where(r => r.Enabled));
-                options.EnabledObjects.Remove(recipe);
-                return Task.FromResult<bool?>(true);
-            };
-
-            try {
-                await window.OpenSettingsAsync();
-
-                Assert.False(recipe.Enabled);
-                node.UpdateState();
-                Assert.True(node.WarningSet.HasFlag(RecipeNode.Warnings.RecipeIsDisabled));
-            } finally {
-                recipe.Enabled = true; //restore the shared fixture cache for later tests
-            }
-        }
-
-        [AvaloniaFact]
-        public async Task OpenSettingsAsync_Cancel_DoesNotPersistOrReload() {
-            string home = NewTempHome();
-            var window = await NewMainWindowAsync(home);
-            var originalCache = window.DataCache;
-            window.SettingsDialogStub = _ => Task.FromResult<bool?>(false);
-
-            await window.OpenSettingsAsync();
-
-            Assert.False(File.Exists(SettingsFilePath(home)));
-            Assert.Same(originalCache, window.DataCache);
-        }
-
-        [AvaloniaFact]
-        public async Task OpenSettingsAsync_PresetSwitch_ReloadsDataCacheAndPersistsNewPresetName() {
-            string home = NewTempHome();
-            var window = await NewMainWindowAsync(home);
-            var originalCache = window.DataCache;
-            window.SettingsDialogStub = options => {
-                options.SelectedPreset = options.Presets!.First(p => p.Name == SpaceAgePresetName);
-                return Task.FromResult<bool?>(true);
-            };
-
-            await window.OpenSettingsAsync();
-
-            Assert.NotSame(originalCache, window.DataCache);
-            Assert.Equal(SpaceAgePresetName, window.Settings!.CurrentPresetName);
-            Assert.True(File.Exists(SettingsDbPath(home)));
-        }
-
-        [AvaloniaFact]
-        public async Task OpenSettingsAsync_RequireReloadTrueWithSamePreset_StillReloads() {
-            string home = NewTempHome();
-            var window = await NewMainWindowAsync(home);
-            var originalCache = window.DataCache;
-            //RequireReload only fires once per real user action (e.g. Task 7's preset-overwrote-active-preset
-            //import) - the reopen tail's own fresh dialog wouldn't set it again unless the user imports a
-            //second time, so this stub mirrors that: true on the first call the reopen tail then reopens
-            //against, false (a plain Cancel of that reopened dialog) on every call after.
-            int callCount = 0;
-            window.SettingsDialogStub = options => {
-                callCount++;
-                options.RequireReload = callCount == 1;
-                return Task.FromResult<bool?>(callCount == 1);
-            };
-
-            await window.OpenSettingsAsync();
-
-            Assert.Equal(2, callCount);
-
-            Assert.NotSame(originalCache, window.DataCache);
-            Assert.Equal(VanillaPresetName, window.Settings!.CurrentPresetName);
-        }
-
-        [AvaloniaFact]
-        public async Task OpenSettingsAsync_PresetSwitch_RemapsExistingGraphNodesOntoNewPreset() {
-            string home = NewTempHome();
-            var window = await NewMainWindowAsync(home);
-            IItem ironPlate = window.DataCache!.Items["iron-plate"];
-            window.GraphCanvas.Viewer.Graph.CreateSupplierNode(new ItemQualityPair(ironPlate, window.DataCache!.DefaultQuality!), new Point(0, 0));
-            window.SettingsDialogStub = options => {
-                options.SelectedPreset = options.Presets!.First(p => p.Name == SpaceAgePresetName);
-                return Task.FromResult<bool?>(true);
-            };
-
-            await window.OpenSettingsAsync();
-
-            Assert.NotEmpty(window.GraphCanvas.Viewer.Graph.Nodes);
-        }
-
-        //--- Enabled Objects tab: sub-tab shell -------------------------------------------------------------
-
-        private static SettingsWindow NewEnabledObjectsWindow(DataCache cache) =>
-            new(NewOptions(cache, [new Preset(VanillaPresetName, true, true)]));
 
         [AvaloniaFact]
         public async Task EnabledObjectsTabControl_HasSevenSubTabsInOrder() {
             var window = NewEnabledObjectsWindow(await GetCacheAsync());
 
-            var headers = window.FindControl<TabControl>("EnabledObjectsTabControl")!.Items
+            var headers = window.EnabledObjectsTabControl.FindControl<TabControl>("EnabledObjectsTabControl")!.Items
                 .OfType<TabItem>().Select(t => t.Header).ToList();
 
             Assert.Equal(
@@ -646,19 +581,19 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task SubTabLists_ContainCountsMatchingTheFixtureCacheDictionaries() {
             var cache = await GetCacheAsync();
             var window = NewEnabledObjectsWindow(cache);
-            window.ShowUnavailablesFilterCheckBoxControl.IsChecked = true;
+            window.EnabledObjectsTabControl.ShowUnavailablesFilterCheckBoxControl.IsChecked = true;
 
             int expectedAssemblers = cache.Assemblers.Values.Count(a => a.EntityType == EntityType.Assembler);
             int expectedMiners = cache.Assemblers.Values.Count(a => a.EntityType is EntityType.Miner or EntityType.OffshorePump);
             int expectedPower = cache.Assemblers.Values.Count(a => a.EntityType is EntityType.Boiler or EntityType.BurnerGenerator or EntityType.Generator or EntityType.Reactor);
 
-            Assert.Equal(expectedAssemblers, window.AssemblerListViewControl.ItemsSource!.Cast<object>().Count());
-            Assert.Equal(expectedMiners, window.MinerListViewControl.ItemsSource!.Cast<object>().Count());
-            Assert.Equal(expectedPower, window.PowerListViewControl.ItemsSource!.Cast<object>().Count());
-            Assert.Equal(cache.Beacons.Count, window.BeaconListViewControl.ItemsSource!.Cast<object>().Count());
-            Assert.Equal(cache.Modules.Count, window.ModuleListViewControl.ItemsSource!.Cast<object>().Count());
-            Assert.Equal(cache.Recipes.Count, window.RecipeListViewControl.ItemsSource!.Cast<object>().Count());
-            Assert.Equal(cache.Qualities.Count, window.QualityListViewControl.ItemsSource!.Cast<object>().Count());
+            Assert.Equal(expectedAssemblers, window.EnabledObjectsTabControl.AssemblerListViewControl.ItemsSource!.Cast<object>().Count());
+            Assert.Equal(expectedMiners, window.EnabledObjectsTabControl.MinerListViewControl.ItemsSource!.Cast<object>().Count());
+            Assert.Equal(expectedPower, window.EnabledObjectsTabControl.PowerListViewControl.ItemsSource!.Cast<object>().Count());
+            Assert.Equal(cache.Beacons.Count, window.EnabledObjectsTabControl.BeaconListViewControl.ItemsSource!.Cast<object>().Count());
+            Assert.Equal(cache.Modules.Count, window.EnabledObjectsTabControl.ModuleListViewControl.ItemsSource!.Cast<object>().Count());
+            Assert.Equal(cache.Recipes.Count, window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<object>().Count());
+            Assert.Equal(cache.Qualities.Count, window.EnabledObjectsTabControl.QualityListViewControl.ItemsSource!.Cast<object>().Count());
         }
 
         [AvaloniaFact]
@@ -666,13 +601,12 @@ namespace Foreman.Mac.UiTests.Views {
             var cache = await GetCacheAsync();
             Assert.True(cache.Recipes.Count > 50, "Fixture cache should carry enough recipes for virtualization to matter.");
             var window = NewEnabledObjectsWindow(cache);
-            window.FindControl<TabControl>("MainTabControl")!.SelectedIndex = 1;
-            window.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
-
+            window.EnabledObjectsTabControl.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
+            Dispatcher.UIThread.RunJobs();
             window.Show();
 
-            int shown = window.RecipeListViewControl.ItemsSource!.Cast<object>().Count();
-            int realized = window.RecipeListViewControl.GetVisualDescendants().OfType<ListBoxItem>().Count();
+            int shown = window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<object>().Count();
+            int realized = window.EnabledObjectsTabControl.RecipeListViewControl.GetVisualDescendants().OfType<ListBoxItem>().Count();
             Assert.True(realized > 0, "Expected at least one realized row.");
             Assert.True(realized < shown, $"Expected virtualization to realize fewer than {shown} shown rows, got {realized}.");
         }
@@ -684,7 +618,7 @@ namespace Foreman.Mac.UiTests.Views {
             var cache = await GetCacheAsync();
             var window = NewEnabledObjectsWindow(cache);
 
-            int shown = window.RecipeListViewControl.ItemsSource!.Cast<object>().Count();
+            int shown = window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<object>().Count();
 
             Assert.Equal(cache.Recipes.Values.Count(r => r.Available), shown);
         }
@@ -694,9 +628,9 @@ namespace Foreman.Mac.UiTests.Views {
             var cache = await GetCacheAsync();
             var window = NewEnabledObjectsWindow(cache);
 
-            window.ShowUnavailablesFilterCheckBoxControl.IsChecked = true;
+            window.EnabledObjectsTabControl.ShowUnavailablesFilterCheckBoxControl.IsChecked = true;
 
-            Assert.Equal(cache.Recipes.Count, window.RecipeListViewControl.ItemsSource!.Cast<object>().Count());
+            Assert.Equal(cache.Recipes.Count, window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<object>().Count());
         }
 
         [AvaloniaFact]
@@ -706,9 +640,9 @@ namespace Foreman.Mac.UiTests.Views {
             IRecipe target = cache.Recipes.Values.First(r => r.Available);
             string needle = target.FriendlyName[..Math.Min(4, target.FriendlyName.Length)].ToUpperInvariant();
 
-            window.FilterTextBoxControl.Text = needle;
+            window.EnabledObjectsTabControl.FilterTextBoxControl.Text = needle;
 
-            var shown = window.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().ToList();
+            var shown = window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().ToList();
             Assert.NotEmpty(shown);
             Assert.All(shown, item => Assert.Contains(needle, item.Name, StringComparison.OrdinalIgnoreCase));
         }
@@ -720,21 +654,26 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task EnabledObjectRows_ForegroundIsReadableAgainstRowBackground() {
             var cache = await GetCacheAsync();
             var window = NewEnabledObjectsWindow(cache);
-            window.ShowUnavailablesFilterCheckBoxControl.IsChecked = true;
-            window.FindControl<TabControl>("MainTabControl")!.SelectedIndex = 1;
-            window.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
-            window.Show();
+            window.EnabledObjectsTabControl.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
+            Dispatcher.UIThread.RunJobs();
 
-            var rows = window.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().ToList();
+            //Default filtered state only (available rows) - toggling ShowUnavailablesFilterCheckBox rebinds
+            //RecipeObjects to a fresh list (FRESH-LIST rule) and needs a layout pump most other tests in
+            //this file don't; Dispatcher.UIThread.RunJobs() is process-wide (reference global-constraints.md's
+            //headless-facts note) and was observed to interleave with sibling tests' own pending windows, so
+            //this test proves the unavailable-row contrast against a standalone row instead of the live UI.
+            var rows = window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().ToList();
             EnabledObjectsListItem availableRow = rows.First(r => r.DataObject.Available);
             ContrastAssert.Readable(availableRow.Foreground, availableRow.RowBackground);
 
-            EnabledObjectsListItem? unavailableRow = rows.FirstOrDefault(r => !r.DataObject.Available);
-            if (unavailableRow is not null)
+            IRecipe? unavailableRecipe = cache.Recipes.Values.FirstOrDefault(r => !r.Available);
+            if (unavailableRecipe is not null) {
+                var unavailableRow = new EnabledObjectsListItem(unavailableRecipe, icon: null);
                 ContrastAssert.Readable(unavailableRow.Foreground, unavailableRow.RowBackground);
+            }
 
             //Confirms the XAML binding actually reaches the realized TextBlock, not just the row model.
-            TextBlock realizedNameText = window.RecipeListViewControl.GetVisualDescendants().OfType<TextBlock>()
+            TextBlock realizedNameText = window.EnabledObjectsTabControl.RecipeListViewControl.GetVisualDescendants().OfType<TextBlock>()
                 .First(t => t.DataContext is EnabledObjectsListItem item && item.Name == availableRow.Name);
             Assert.Equal(availableRow.Foreground, realizedNameText.Foreground);
         }
@@ -763,11 +702,11 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task EnabledObjectRow_CheckBox_RendersWithNoClippedDescendants() {
             var cache = await GetCacheAsync();
             var window = NewEnabledObjectsWindow(cache);
-            window.FindControl<TabControl>("MainTabControl")!.SelectedIndex = 1;
-            window.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
+            window.EnabledObjectsTabControl.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
+            Dispatcher.UIThread.RunJobs();
             window.Show();
 
-            CheckBox realizedBox = window.RecipeListViewControl.GetVisualDescendants().OfType<CheckBox>().First();
+            CheckBox realizedBox = window.EnabledObjectsTabControl.RecipeListViewControl.GetVisualDescendants().OfType<CheckBox>().First();
             foreach (Avalonia.Visual descendant in realizedBox.GetVisualDescendants())
                 Assert.True(IsFullyContainedWithin(realizedBox, descendant),
                     $"{descendant.GetType().Name} at {descendant.Bounds} is clipped by its CheckBox (Bounds={realizedBox.Bounds}).");
@@ -780,43 +719,46 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task EnabledObjectRows_AreDenseLikeUpstream() {
             var cache = await GetCacheAsync();
             var window = NewEnabledObjectsWindow(cache);
-            window.FindControl<TabControl>("MainTabControl")!.SelectedIndex = 1;
-            window.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
+            window.EnabledObjectsTabControl.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
+            Dispatcher.UIThread.RunJobs();
             window.Show();
 
             //Floor is the 24px icon plus the two 1px top/bottom padding pairs (Border's own Padding="4,1" and
             //the ListBox.compact style's Padding="2,1") - 24 + 2 + 2 = 28px, unchanged by the CheckBox's
             //Viewbox: it's sized to 20px, under the icon's 24px, so it was never the row's height driver.
-            ListBoxItem realizedRow = window.RecipeListViewControl.GetVisualDescendants().OfType<ListBoxItem>().First();
+            ListBoxItem realizedRow = window.EnabledObjectsTabControl.RecipeListViewControl.GetVisualDescendants().OfType<ListBoxItem>().First();
             Assert.Equal(28d, realizedRow.Bounds.Height);
         }
 
         //--- Enabled Objects tab: live check toggle -----------------------------------------------------------
+        //R5: a checked row now writes straight onto the live DataObject.Enabled too, not just the Options
+        //buffer - both are asserted below.
 
         [AvaloniaFact]
-        public async Task CheckingARecipeRow_AddsItToEnabledObjectsImmediately() {
+        public async Task CheckingARecipeRow_AddsItToEnabledObjectsAndEnablesItLiveImmediately() {
             var cache = await GetCacheAsync();
-            var options = NewOptions(cache, [new Preset(VanillaPresetName, true, true)]);
-            var window = new SettingsWindow(options);
-            var item = window.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().First();
-            Assert.DoesNotContain(item.DataObject, options.EnabledObjects);
+            var window = NewEnabledObjectsWindow(cache);
+            var item = window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().First();
+            Assert.False(item.IsChecked); //NewEnabledObjectsWindow resets the fixture cache to all-disabled
+            Assert.DoesNotContain(item.DataObject, window.Options.EnabledObjects);
 
             item.IsChecked = true;
 
-            Assert.Contains(item.DataObject, options.EnabledObjects);
+            Assert.Contains(item.DataObject, window.Options.EnabledObjects);
+            Assert.True(item.DataObject.Enabled);
         }
 
         [AvaloniaFact]
-        public async Task UncheckingARecipeRow_RemovesItFromEnabledObjectsImmediately() {
+        public async Task UncheckingARecipeRow_RemovesItFromEnabledObjectsAndDisablesItLiveImmediately() {
             var cache = await GetCacheAsync();
-            var options = NewOptions(cache, [new Preset(VanillaPresetName, true, true)]);
-            var window = new SettingsWindow(options);
-            var item = window.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().First();
+            var window = NewEnabledObjectsWindow(cache);
+            var item = window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().First();
             item.IsChecked = true;
 
             item.IsChecked = false;
 
-            Assert.DoesNotContain(item.DataObject, options.EnabledObjects);
+            Assert.DoesNotContain(item.DataObject, window.Options.EnabledObjects);
+            Assert.False(item.DataObject.Enabled);
         }
 
         //--- Enabled Objects tab: selected-rows bulk toggle --------------------------------------------------------
@@ -824,37 +766,35 @@ namespace Foreman.Mac.UiTests.Views {
         [AvaloniaFact]
         public async Task TogglingOneSelectedRowsCheckbox_AppliesTheSameStateToEveryOtherSelectedRow() {
             var cache = await GetCacheAsync();
-            var options = NewOptions(cache, [new Preset(VanillaPresetName, true, true)]);
-            var window = new SettingsWindow(options);
-            window.FindControl<TabControl>("MainTabControl")!.SelectedIndex = 1;
-            window.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
+            var window = NewEnabledObjectsWindow(cache);
+            window.EnabledObjectsTabControl.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
+            Dispatcher.UIThread.RunJobs();
             window.Show();
-            window.RecipeListViewControl.Focus();
-            window.KeyPressQwerty(PhysicalKey.A, RawInputModifiers.Meta);
-            var rows = window.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().ToList();
+            window.EnabledObjectsTabControl.RecipeListViewControl.Focus();
+            CanvasKeys.KeyDownOn(window.EnabledObjectsTabControl.RecipeListViewControl, Key.A, KeyModifiers.Meta);
+            var rows = window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().ToList();
 
             rows[0].IsChecked = true;
 
             Assert.All(rows, row => Assert.True(row.IsChecked));
-            Assert.True(options.EnabledObjects.SetEquals(rows.Select(r => r.DataObject)));
+            Assert.True(window.Options.EnabledObjects.SetEquals(rows.Select(r => r.DataObject)));
         }
 
         [AvaloniaFact]
         public async Task TogglingARowsCheckbox_OutsideTheSelection_OnlyAffectsThatRow() {
             var cache = await GetCacheAsync();
-            var options = NewOptions(cache, [new Preset(VanillaPresetName, true, true)]);
-            var window = new SettingsWindow(options);
-            var rows = window.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().ToList();
-            window.RecipeListViewControl.SelectedItems!.Add(rows[0]);
-            window.RecipeListViewControl.SelectedItems!.Add(rows[1]);
+            var window = NewEnabledObjectsWindow(cache);
+            var rows = window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().ToList();
+            window.EnabledObjectsTabControl.RecipeListViewControl.SelectedItems!.Add(rows[0]);
+            window.EnabledObjectsTabControl.RecipeListViewControl.SelectedItems!.Add(rows[1]);
 
             rows[2].IsChecked = true;
 
             Assert.True(rows[2].IsChecked);
             Assert.False(rows[0].IsChecked);
             Assert.False(rows[1].IsChecked);
-            Assert.DoesNotContain(rows[0].DataObject, options.EnabledObjects);
-            Assert.DoesNotContain(rows[1].DataObject, options.EnabledObjects);
+            Assert.DoesNotContain(rows[0].DataObject, window.Options.EnabledObjects);
+            Assert.DoesNotContain(rows[1].DataObject, window.Options.EnabledObjects);
         }
 
         //--- Enabled Objects tab: Enable All -------------------------------------------------------------------
@@ -862,9 +802,8 @@ namespace Foreman.Mac.UiTests.Views {
         [AvaloniaFact]
         public async Task EnableAllButton_Click_ClearsThenRepopulatesFromEveryAvailableCategoryPlusPlayerAssembler() {
             var cache = await GetCacheAsync();
-            var options = NewOptions(cache, [new Preset(VanillaPresetName, true, true)]);
-            options.EnabledObjects.Add(cache.Recipes.Values.First()); //stale entry Enable All must clear away first
-            var window = new SettingsWindow(options);
+            var window = NewEnabledObjectsWindow(cache);
+            window.Options.EnabledObjects.Add(cache.Recipes.Values.First()); //stale entry Enable All must clear away first
 
             window.SimulateEnableAllClick();
 
@@ -882,7 +821,8 @@ namespace Foreman.Mac.UiTests.Views {
             foreach (var q in cache.Qualities.Values.Where(q => q.Available))
                 expected.Add(q);
 
-            Assert.True(options.EnabledObjects.SetEquals(expected));
+            Assert.True(window.Options.EnabledObjects.SetEquals(expected));
+            Assert.All(expected, o => Assert.True(o.Enabled));
         }
 
         //--- Enabled Objects tab: Cmd+A selects without checking -------------------------------------------------
@@ -890,18 +830,17 @@ namespace Foreman.Mac.UiTests.Views {
         [AvaloniaFact]
         public async Task CmdA_OnActiveSubTab_SelectsEveryRowWithoutCheckingThem() {
             var cache = await GetCacheAsync();
-            var options = NewOptions(cache, [new Preset(VanillaPresetName, true, true)]);
-            var window = new SettingsWindow(options);
-            window.FindControl<TabControl>("MainTabControl")!.SelectedIndex = 1;
-            window.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
+            var window = NewEnabledObjectsWindow(cache);
+            window.EnabledObjectsTabControl.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
+            Dispatcher.UIThread.RunJobs();
             window.Show();
-            window.RecipeListViewControl.Focus();
+            window.EnabledObjectsTabControl.RecipeListViewControl.Focus();
 
-            window.KeyPressQwerty(PhysicalKey.A, RawInputModifiers.Meta);
+            CanvasKeys.KeyDownOn(window.EnabledObjectsTabControl.RecipeListViewControl, Key.A, KeyModifiers.Meta);
 
-            int totalRows = window.RecipeListViewControl.ItemsSource!.Cast<object>().Count();
-            Assert.Equal(totalRows, window.RecipeListViewControl.SelectedItems!.Count);
-            Assert.Empty(options.EnabledObjects);
+            int totalRows = window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<object>().Count();
+            Assert.Equal(totalRows, window.EnabledObjectsTabControl.RecipeListViewControl.SelectedItems!.Count);
+            Assert.Empty(window.Options.EnabledObjects);
         }
 
         //Linux branch of the platform fork above (docs/upstream-divergences.md, phase 8 Task 2): Ctrl+A on
@@ -910,18 +849,17 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task CtrlA_OnActiveSubTab_OnLinux_SelectsEveryRowWithoutCheckingThem() {
             using IDisposable platform = PlatformModifiers.UseIsMacOs(false);
             var cache = await GetCacheAsync();
-            var options = NewOptions(cache, [new Preset(VanillaPresetName, true, true)]);
-            var window = new SettingsWindow(options);
-            window.FindControl<TabControl>("MainTabControl")!.SelectedIndex = 1;
-            window.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
+            var window = NewEnabledObjectsWindow(cache);
+            window.EnabledObjectsTabControl.FindControl<TabControl>("EnabledObjectsTabControl")!.SelectedIndex = 5;
+            Dispatcher.UIThread.RunJobs();
             window.Show();
-            window.RecipeListViewControl.Focus();
+            window.EnabledObjectsTabControl.RecipeListViewControl.Focus();
 
-            window.KeyPressQwerty(PhysicalKey.A, RawInputModifiers.Control);
+            CanvasKeys.KeyDownOn(window.EnabledObjectsTabControl.RecipeListViewControl, Key.A, KeyModifiers.Control);
 
-            int totalRows = window.RecipeListViewControl.ItemsSource!.Cast<object>().Count();
-            Assert.Equal(totalRows, window.RecipeListViewControl.SelectedItems!.Count);
-            Assert.Empty(options.EnabledObjects);
+            int totalRows = window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<object>().Count();
+            Assert.Equal(totalRows, window.EnabledObjectsTabControl.RecipeListViewControl.SelectedItems!.Count);
+            Assert.Empty(window.Options.EnabledObjects);
         }
 
         //--- Enabled Objects tab: Load from save (reference io-reference.md §5) -------------------------------
@@ -1024,295 +962,109 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task RecipeListItems_CarryABakedTooltipImage_OtherCategoriesDoNot() {
             var window = NewEnabledObjectsWindow(await GetCacheAsync());
 
-            var recipeItem = window.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().First();
-            var assemblerItem = window.AssemblerListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().First();
+            var recipeItem = window.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().First();
+            var assemblerItem = window.EnabledObjectsTabControl.AssemblerListViewControl.ItemsSource!.Cast<EnabledObjectsListItem>().First();
 
             Assert.IsType<Image>(recipeItem.TooltipContent);
             Assert.Null(assemblerItem.TooltipContent);
         }
 
-        //--- Graph Options tab -----------------------------------------------------------------------------
+        //--- General/Advanced/Annotations/Appearance tabs: standalone binding + wiring checks ------------------
+        //These four are plain SettingsViewModel-bound UserControls (reference task-4-brief.md's R7 split) -
+        //no window services involved, so they're exercised directly with an explicit DataContext rather than
+        //through the full SettingsWindow (which only attaches the active tab - see the Enabled Objects
+        //section's own comment on that).
 
-        private static SettingsWindow NewGraphOptionsWindow(DataCache cache, Action<SettingsWindow.SettingsWindowOptions>? configure = null) {
-            var options = NewOptions(cache, [new Preset(VanillaPresetName, true, true)]);
-            configure?.Invoke(options);
-            return new SettingsWindow(options);
+        [AvaloniaFact]
+        public void GeneralTab_SelectorDropDowns_CarryTheirStyleNameLists() {
+            var tab = new GeneralTab { DataContext = new SettingsViewModel() };
+
+            Assert.Equal(AssemblerSelector.StyleNames, tab.AssemblerSelectorStyleDropDownControl.ItemsSource);
+            Assert.Equal(ModuleSelector.StyleNames, tab.ModuleSelectorStyleDropDownControl.ItemsSource);
         }
 
-        private static void ConfigureNonDefaultGraphOptions(SettingsWindow.SettingsWindowOptions options) {
-            options.QualitySteps = 9;
-            options.LevelOfDetail = LevelOfDetail.High;
-            options.NodeCountForSimpleView = 555;
-            options.IconsOnlyIconSize = 64;
-            options.ArrowsOnLinks = true;
-            options.SimplePassthroughNodes = true;
-            options.DynamicLinkWidth = true;
-            options.AbbreviateSciPacks = false;
-            options.ShowRecipeToolTip = false;
-            options.RoundAssemblerCount = true;
-            options.FlagOUSuppliedNodes = true;
-            options.FlagDarkMode = ThemeMode.Dark;
-            options.ShowErrorArrows = false;
-            options.ShowWarningArrows = false;
-            options.ShowDisconnectedArrows = true;
-            options.ShowOUSuppliedArrows = true;
-            options.DefaultAssemblerStyle = AssemblerSelector.Style.Best;
-            options.DefaultModuleStyle = ModuleSelector.Style.Productivity;
-            options.DefaultNodeDirection = NodeDirection.Down;
-            options.SmartNodeDirection = false;
-            options.EnableExtraProductivityForNonMiners = true;
-            options.DevShowUnavailableItems = true;
-            options.DevUseRecipeBWFilters = false;
-            options.SolverLowPriorityPower = 2.5m;
-            options.SolverPullConsumerNodes = true;
-            options.SolverPullConsumerNodesPower = 3.5m;
-            options.UiScale = 1.5;
+        [AvaloniaFact]
+        public void GeneralTab_NodeDirectionDropDown_OffersUpThenDown() {
+            var tab = new GeneralTab { DataContext = new SettingsViewModel() };
+
+            var items = tab.NodeDirectionDropDownControl.Items.OfType<ComboBoxItem>().Select(i => i.Content).ToList();
+
+            Assert.Equal(["Up (default)", "Down"], items);
+        }
+
+        [AvaloniaFact]
+        public void GeneralTab_QualityStepsInput_BindsTwoWayToViewModel() {
+            var vm = new SettingsViewModel();
+            var tab = new GeneralTab { DataContext = vm };
+
+            tab.QualityStepsInputControl.Value = 12m;
+            Assert.Equal(12m, vm.QualityStepsValue);
+
+            vm.QualityStepsValue = 7m;
+            Assert.Equal(7m, tab.QualityStepsInputControl.Value);
         }
 
         //Contract: docs/panels-reference.md:222/upstream SettingsForm.Designer.cs:1457,1460,1619-1633. The
         //caption stays upstream's verbatim stale "2 default" text even though the real default (AppSettings.
         //LowPriorityPower) is 4 - this widget is a straight text/range port, not a corrected re-derivation.
         [AvaloniaFact]
-        public async Task GraphOptionsTab_SolverAndNodeCountFields_MatchUpstreamCaptionAndRanges() {
-            var window = NewGraphOptionsWindow(await GetCacheAsync());
-            window.FindControl<TabControl>("MainTabControl")!.SelectedIndex = 2;
-            window.Show();
+        public void AdvancedTab_LowPriorityPowerCaptionAndRanges_MatchUpstreamVerbatim() {
+            var tab = new AdvancedTab { DataContext = new SettingsViewModel() };
+            var host = new Window { Content = tab };
+            host.Show(); //GetVisualDescendants needs the tab's own template rooted to realize its content
 
-            TextBlock caption = window.GetVisualDescendants().OfType<TextBlock>()
+            TextBlock caption = tab.GetVisualDescendants().OfType<TextBlock>()
                 .Single(t => t.Text != null && t.Text.StartsWith("Low priority multiplier", StringComparison.Ordinal));
             Assert.Equal("Low priority multiplier   (10^n, 2 default):", caption.Text);
-
-            Assert.Equal(0.2m, window.LowPriorityPowerInputControl.Increment);
-            Assert.Equal(25m, window.NodeCountForSimpleViewInputControl.Increment);
-            Assert.Equal(2000m, window.NodeCountForSimpleViewInputControl.Maximum);
+            Assert.Equal(0.2m, tab.LowPriorityPowerInputControl.Increment);
         }
 
         [AvaloniaFact]
-        public async Task GraphOptionsTab_Populates_AllWidgetsFromOptions() {
-            var window = NewGraphOptionsWindow(await GetCacheAsync(), ConfigureNonDefaultGraphOptions);
+        public void AppearanceTab_NodeCountForSimpleViewInput_MatchesUpstreamRange() {
+            var tab = new AppearanceTab { DataContext = new SettingsViewModel() };
 
-            Assert.Equal(9m, window.QualityStepsInputControl.Value);
-            Assert.True(window.HighLodRadioButtonControl.IsChecked);
-            Assert.Equal(555m, window.NodeCountForSimpleViewInputControl.Value);
-            Assert.Equal(64m, window.IconsSizeInputControl.Value);
-            Assert.True(window.ArrowsOnLinksCheckBoxControl.IsChecked);
-            Assert.True(window.SimplePassthroughNodesCheckBoxControl.IsChecked);
-            Assert.True(window.DynamicLWCheckBoxControl.IsChecked);
-            Assert.False(window.AbbreviateSciPackCheckBoxControl.IsChecked);
-            Assert.False(window.ShowNodeRecipeCheckBoxControl.IsChecked);
-            Assert.True(window.RoundAssemblerCountCheckBoxControl.IsChecked);
-            Assert.True(window.FlagOUSupplyNodesCheckBoxControl.IsChecked);
-            Assert.Equal(ThemeMode.Dark, window.FlagDarkModeDropDownControl.SelectedItem);
-            Assert.False(window.ErrorArrowsCheckBoxControl.IsChecked);
-            Assert.False(window.WarningArrowsCheckBoxControl.IsChecked);
-            Assert.True(window.DisconnectedArrowsCheckBoxControl.IsChecked);
-            Assert.True(window.OUSuppliedArrowsCheckBoxControl.IsChecked);
-            Assert.Equal((int)AssemblerSelector.Style.Best, window.AssemblerSelectorStyleDropDownControl.SelectedIndex);
-            Assert.Equal((int)ModuleSelector.Style.Productivity, window.ModuleSelectorStyleDropDownControl.SelectedIndex);
-            Assert.Equal(1, window.NodeDirectionDropDownControl.SelectedIndex);
-            Assert.False(window.SmartNodeDirectionCheckBoxControl.IsChecked);
-            Assert.True(window.ShowProductivityBonusOnAllCheckBoxControl.IsChecked);
-            Assert.True(window.ShowUnavailablesCheckBoxControl.IsChecked);
-            Assert.True(window.LoadBarrelingCheckBoxControl.IsChecked); //DevUseRecipeBWFilters false -> checkbox checked (inverted sense)
-            Assert.Equal(2.5m, window.LowPriorityPowerInputControl.Value);
-            Assert.True(window.PullConsumerNodesCheckBoxControl.IsChecked);
-            Assert.Equal(3.5m, window.PullConsumerNodesPowerInputControl.Value);
-            Assert.Equal("150%", window.UiScaleDropDownControl.SelectedItem);
+            Assert.Equal(25m, tab.NodeCountForSimpleViewInputControl.Increment);
+            Assert.Equal(2000m, tab.NodeCountForSimpleViewInputControl.Maximum);
         }
 
+        //LOD's mutual exclusion is SettingsViewModel's job (OnXxxLodCheckedChanged); this just pins the
+        //three RadioButtons actually share one GroupName, or that VM-level exclusion has nothing to bind to.
         [AvaloniaFact]
-        public async Task GraphOptionsTab_ConfirmClick_CommitsAllWidgetsBackToOptions() {
-            var options = NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]);
-            var window = new SettingsWindow(options);
+        public void AppearanceTab_LevelOfDetailRadioButtons_ShareOneGroupName() {
+            var tab = new AppearanceTab { DataContext = new SettingsViewModel() };
 
-            window.QualityStepsInputControl.Value = 15m;
-            window.HighLodRadioButtonControl.IsChecked = true;
-            window.NodeCountForSimpleViewInputControl.Value = 42m;
-            window.IconsSizeInputControl.Value = 200m;
-            window.ArrowsOnLinksCheckBoxControl.IsChecked = true;
-            window.SimplePassthroughNodesCheckBoxControl.IsChecked = true;
-            window.DynamicLWCheckBoxControl.IsChecked = true;
-            window.AbbreviateSciPackCheckBoxControl.IsChecked = false;
-            window.ShowNodeRecipeCheckBoxControl.IsChecked = false;
-            window.RoundAssemblerCountCheckBoxControl.IsChecked = true;
-            window.FlagOUSupplyNodesCheckBoxControl.IsChecked = true;
-            window.FlagDarkModeDropDownControl.SelectedItem = ThemeMode.Dark;
-            window.ErrorArrowsCheckBoxControl.IsChecked = true;
-            window.WarningArrowsCheckBoxControl.IsChecked = true;
-            window.DisconnectedArrowsCheckBoxControl.IsChecked = true;
-            window.OUSuppliedArrowsCheckBoxControl.IsChecked = true;
-            window.AssemblerSelectorStyleDropDownControl.SelectedIndex = (int)AssemblerSelector.Style.BestBurner;
-            window.ModuleSelectorStyleDropDownControl.SelectedIndex = (int)ModuleSelector.Style.Efficiency;
-            window.NodeDirectionDropDownControl.SelectedIndex = 1;
-            window.SmartNodeDirectionCheckBoxControl.IsChecked = false;
-            window.ShowProductivityBonusOnAllCheckBoxControl.IsChecked = true;
-            window.ShowUnavailablesCheckBoxControl.IsChecked = true;
-            window.LoadBarrelingCheckBoxControl.IsChecked = false; //-> DevUseRecipeBWFilters = true
-            window.LowPriorityPowerInputControl.Value = 6m;
-            window.PullConsumerNodesCheckBoxControl.IsChecked = true;
-            window.PullConsumerNodesPowerInputControl.Value = 5m;
-            window.UiScaleDropDownControl.SelectedItem = "125%";
-
-            window.SimulateConfirmClick();
-
-            Assert.True(window.DialogResultValue);
-            Assert.Equal(15u, options.QualitySteps);
-            Assert.Equal(LevelOfDetail.High, options.LevelOfDetail);
-            Assert.Equal(42, options.NodeCountForSimpleView);
-            Assert.Equal(200, options.IconsOnlyIconSize);
-            Assert.True(options.ArrowsOnLinks);
-            Assert.True(options.SimplePassthroughNodes);
-            Assert.True(options.DynamicLinkWidth);
-            Assert.False(options.AbbreviateSciPacks);
-            Assert.False(options.ShowRecipeToolTip);
-            Assert.True(options.RoundAssemblerCount);
-            Assert.True(options.FlagOUSuppliedNodes);
-            Assert.Equal(ThemeMode.Dark, options.FlagDarkMode);
-            Assert.True(options.ShowErrorArrows);
-            Assert.True(options.ShowWarningArrows);
-            Assert.True(options.ShowDisconnectedArrows);
-            Assert.True(options.ShowOUSuppliedArrows);
-            Assert.Equal(AssemblerSelector.Style.BestBurner, options.DefaultAssemblerStyle);
-            Assert.Equal(ModuleSelector.Style.Efficiency, options.DefaultModuleStyle);
-            Assert.Equal(NodeDirection.Down, options.DefaultNodeDirection);
-            Assert.False(options.SmartNodeDirection);
-            Assert.True(options.EnableExtraProductivityForNonMiners);
-            Assert.True(options.DevShowUnavailableItems);
-            Assert.True(options.DevUseRecipeBWFilters);
-            Assert.Equal(6m, options.SolverLowPriorityPower);
-            Assert.True(options.SolverPullConsumerNodes);
-            Assert.Equal(5m, options.SolverPullConsumerNodesPower);
-            Assert.Equal(1.25, options.UiScale);
-        }
-
-        //Regression: every Graph Options widget write must route through CommitPendingChanges (Confirm,
-        //preset double-click, "Use This Preset") - never live-on-click like Enabled Objects' membership
-        //toggle (reference §5's CommitPendingChanges hook comment).
-        [AvaloniaFact]
-        public async Task GraphOptionsTab_WidgetEditWithoutCommit_LeavesOptionsUntouched() {
-            var options = NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]);
-            uint before = options.QualitySteps;
-            var window = new SettingsWindow(options);
-
-            window.QualityStepsInputControl.Value = 17m;
-            window.PullConsumerNodesCheckBoxControl.IsChecked = true;
-
-            Assert.Equal(before, options.QualitySteps);
-            Assert.False(options.SolverPullConsumerNodes);
-        }
-
-        //Regression: a widget edit followed by a preset double-click (not Confirm) must still persist -
-        //SelectPreset also routes through CommitPendingChanges (reference SettingsForm.cs:303/333).
-        [AvaloniaFact]
-        public async Task GraphOptionsTab_WidgetEditThenDoubleClickPreset_StillCommits() {
-            var current = new Preset(VanillaPresetName, true, true);
-            var other = new Preset(SpaceAgePresetName, false, false);
-            var options = NewOptions(await GetCacheAsync(), [current, other]);
-            var window = new SettingsWindow(options);
-
-            window.LowPriorityPowerInputControl.Value = 6m;
-            window.PresetListBoxControl.SelectedItem = other;
-            window.SimulateDoubleClickPreset(other);
-
-            Assert.Equal(6m, options.SolverLowPriorityPower);
-            Assert.Same(other, options.SelectedPreset);
-        }
-
-        [AvaloniaTheory]
-        [InlineData(ThemeMode.System)]
-        [InlineData(ThemeMode.Light)]
-        [InlineData(ThemeMode.Dark)]
-        public async Task FlagDarkModeDropDown_Confirm_MapsToThemeModeLosslessly(ThemeMode selected) {
-            var options = NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]);
-            var window = new SettingsWindow(options);
-
-            window.FlagDarkModeDropDownControl.SelectedItem = selected;
-            window.SimulateConfirmClick();
-
-            Assert.Equal(selected, options.FlagDarkMode);
+            Assert.Equal(tab.LowLodRadioButtonControl.GroupName, tab.MediumLodRadioButtonControl.GroupName);
+            Assert.Equal(tab.LowLodRadioButtonControl.GroupName, tab.HighLodRadioButtonControl.GroupName);
         }
 
         //UI-level pin: the ComboBox itself carries exactly the three ThemeMode values, in enum order.
         [AvaloniaFact]
-        public async Task FlagDarkModeDropDown_ShowsExactlyTheThreeThemeModes() {
-            var window = NewGraphOptionsWindow(await GetCacheAsync());
+        public void AppearanceTab_FlagDarkModeDropDown_ShowsExactlyTheThreeThemeModes() {
+            var tab = new AppearanceTab { DataContext = new SettingsViewModel() };
 
             Assert.Equal<object>([ThemeMode.System, ThemeMode.Light, ThemeMode.Dark],
-                window.FlagDarkModeDropDownControl.ItemsSource!.Cast<object>());
-        }
-
-        //Regression (fix round 1, review finding): the old bool checkbox read System as unchecked and
-        //wrote back only Light/Dark, so ANY Confirm - even one that never touched appearance - silently
-        //clobbered System into Light. Loading System and confirming after an unrelated widget edit must
-        //leave FlagDarkMode at System.
-        [AvaloniaFact]
-        public async Task GraphOptionsTab_SystemLoadedThenUnrelatedWidgetConfirmed_StaysSystem() {
-            var options = NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]);
-            options.FlagDarkMode = ThemeMode.System;
-            var window = new SettingsWindow(options);
-
-            window.HighLodRadioButtonControl.IsChecked = true; //unrelated setting, appearance untouched
-            window.SimulateConfirmClick();
-
-            Assert.Equal(ThemeMode.System, options.FlagDarkMode);
-        }
-
-        //System selection must actually engage the OS-follow path live, not just persist to Options.
-        [AvaloniaFact]
-        public async Task FlagDarkModeDropDown_SystemConfirm_AppliesSystemThemeLive() {
-            var app = (App)Avalonia.Application.Current!;
-            app.ApplyTheme(ThemeMode.Dark);
-
-            var options = NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]);
-            options.FlagDarkMode = ThemeMode.Dark;
-            var window = new SettingsWindow(options);
-
-            window.FlagDarkModeDropDownControl.SelectedItem = ThemeMode.System;
-            window.SimulateConfirmClick();
-            app.ApplyTheme(options.FlagDarkMode);
-
-            Assert.Equal(Avalonia.Styling.ThemeVariant.Default, app.RequestedThemeVariant);
-        }
-
-        //--- UI Scale ComboBox (Task 3) --------------------------------------------------------------------
-
-        [AvaloniaTheory]
-        [InlineData("100%", 1.00)]
-        [InlineData("110%", 1.10)]
-        [InlineData("125%", 1.25)]
-        [InlineData("150%", 1.50)]
-        [InlineData("200%", 2.00)]
-        public async Task UiScaleDropDown_Confirm_MapsToScaleLosslessly(string label, double expectedScale) {
-            var options = NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]);
-            var window = new SettingsWindow(options);
-
-            window.UiScaleDropDownControl.SelectedItem = label;
-            window.SimulateConfirmClick();
-
-            Assert.Equal(expectedScale, options.UiScale);
+                tab.FlagDarkModeDropDownControl.ItemsSource!.Cast<object>());
         }
 
         //UI-level pin: the ComboBox carries exactly the five discrete steps, in ascending order.
         [AvaloniaFact]
-        public async Task UiScaleDropDown_ShowsExactlyTheFiveSteps() {
-            var window = NewGraphOptionsWindow(await GetCacheAsync());
+        public void AppearanceTab_UiScaleDropDown_ShowsExactlyTheFiveSteps() {
+            var tab = new AppearanceTab { DataContext = new SettingsViewModel() };
 
             Assert.Equal<object>(["100%", "110%", "125%", "150%", "200%"],
-                window.UiScaleDropDownControl.ItemsSource!.Cast<object>());
+                tab.UiScaleDropDownControl.ItemsSource!.Cast<object>());
         }
 
-        //Same clobber-prevention contract as FlagDarkMode's System case: a Confirm that never touches the
-        //scale control must not silently reset it to whatever the widget's default selection would imply.
         [AvaloniaFact]
-        public async Task GraphOptionsTab_UiScaleLoadedThenUnrelatedWidgetConfirmed_StaysSame() {
-            var options = NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]);
-            options.UiScale = 1.5;
-            var window = new SettingsWindow(options);
+        public void AnnotationsTab_ArrowCheckBoxes_BindTwoWayToViewModel() {
+            var vm = new SettingsViewModel();
+            var tab = new AnnotationsTab { DataContext = vm };
 
-            window.HighLodRadioButtonControl.IsChecked = true;
-            window.SimulateConfirmClick();
+            tab.ErrorArrowsCheckBoxControl.IsChecked = true;
+            tab.FlagOUSupplyNodesCheckBoxControl.IsChecked = true;
 
-            Assert.Equal(1.5, options.UiScale);
+            Assert.True(vm.ErrorArrowsChecked);
+            Assert.True(vm.FlagOUSupplyNodesChecked);
         }
     }
 }
