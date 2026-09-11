@@ -18,6 +18,7 @@ using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using Foreman.Mac.Views.QuickAdd;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using Foreman.Serialization;
 using SkiaSharp;
@@ -1037,17 +1038,15 @@ namespace Foreman.Mac.Canvas {
         private async Task<bool> ShowRealTextPropertiesDialogAsync(TextAnnotationElement element) {
             if (TopLevel.GetTopLevel(this) is not Window owner)
                 return false;
-            var dialog = new TextPropertiesWindow(element) { RequestRedraw = RequestRedraw, Settings = AnnotationSettings };
-            bool? result = await dialog.ShowDialog<bool?>(owner).ConfigureAwait(true);
-            return result == true;
+            var sheet = new TextPropertiesSheet(element) { RequestRedraw = RequestRedraw, Settings = AnnotationSettings };
+            return await SheetHost.For(owner).ShowAsync(sheet).ConfigureAwait(true);
         }
 
         private async Task<bool> ShowRealShapePropertiesDialogAsync(ShapeAnnotationElement element) {
             if (TopLevel.GetTopLevel(this) is not Window owner)
                 return false;
-            var dialog = new ShapePropertiesWindow(element) { RequestRedraw = RequestRedraw, Settings = AnnotationSettings };
-            bool? result = await dialog.ShowDialog<bool?>(owner).ConfigureAwait(true);
-            return result == true;
+            var sheet = new ShapePropertiesSheet(element) { RequestRedraw = RequestRedraw, Settings = AnnotationSettings };
+            return await SheetHost.For(owner).ShowAsync(sheet).ConfigureAwait(true);
         }
 
         //Ports Annotation_OnMouseDownDoubleClick's dialog-open half (reference §6), also the target of the

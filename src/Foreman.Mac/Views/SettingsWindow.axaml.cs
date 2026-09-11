@@ -716,7 +716,7 @@ namespace Foreman.Mac.Views {
             Close(result);
         }
 
-        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these) - see ShapePropertiesWindow's
+        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these) - see ShapePropertiesSheet's
         //equivalent comment for the established convention this follows.
         internal ListBox PresetListBoxControl => presetListBox;
         internal TextBlock CurrentPresetLabelControl => currentPresetLabel;

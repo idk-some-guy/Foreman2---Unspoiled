@@ -9,6 +9,7 @@ using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using Foreman.Serialization;
 using System;
@@ -441,44 +442,44 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Same(shape, invoked[0]);
         }
 
-        //---- ShapePropertiesWindow / TextPropertiesWindow: live preview, Cancel-revert, OK-persists ----
+        //---- ShapePropertiesSheet / TextPropertiesSheet: live preview, Cancel-revert, OK-persists ----
 
         [AvaloniaFact]
-        public void ShapePropertiesWindow_FieldChange_AppliesLivePreviewImmediately() {
+        public void ShapePropertiesSheet_FieldChange_AppliesLivePreviewImmediately() {
             var shape = new ShapeAnnotationElement(new Point(0, 0), 200, 150);
-            var window = new ShapePropertiesWindow(shape);
-            window.Show();
+            var sheet = new ShapePropertiesSheet(shape);
+            new AvaloniaWindow { Content = sheet }.Show();
 
-            window.BorderWidthInputControl.Value = 40;
+            sheet.BorderWidthInputControl.Value = 40;
 
             Assert.Equal(40, shape.BorderWidth);
         }
 
         [AvaloniaFact]
-        public void ShapePropertiesWindow_Cancel_RevertsEveryFieldToTheConstructionSnapshot() {
+        public void ShapePropertiesSheet_Cancel_RevertsEveryFieldToTheConstructionSnapshot() {
             var shape = new ShapeAnnotationElement(new Point(0, 0), 200, 150);
             int originalBorderWidth = shape.BorderWidth;
-            var window = new ShapePropertiesWindow(shape);
-            window.Show();
-            window.BorderWidthInputControl.Value = 40;
-            window.FillColorRedInputControl.Value = 250;
+            var sheet = new ShapePropertiesSheet(shape);
+            new AvaloniaWindow { Content = sheet }.Show();
+            sheet.BorderWidthInputControl.Value = 40;
+            sheet.FillColorRedInputControl.Value = 250;
 
-            window.ApplyCancel();
+            sheet.Cancel();
 
             Assert.Equal(originalBorderWidth, shape.BorderWidth);
             Assert.NotEqual((byte)250, shape.FillColor.Red);
         }
 
         [AvaloniaFact]
-        public void ShapePropertiesWindow_Ok_PersistsCurrentValuesToAppSettingsAndStatics() {
+        public void ShapePropertiesSheet_Ok_PersistsCurrentValuesToAppSettingsAndStatics() {
             var shape = new ShapeAnnotationElement(new Point(0, 0), 200, 150);
-            var window = new ShapePropertiesWindow(shape);
-            window.Show();
-            window.BorderWidthInputControl.Value = 17;
+            var sheet = new ShapePropertiesSheet(shape);
+            new AvaloniaWindow { Content = sheet }.Show();
+            sheet.BorderWidthInputControl.Value = 17;
             var settings = new Foreman.Mac.Services.AppSettings();
-            window.Settings = settings;
+            sheet.Settings = settings;
 
-            window.ApplyOk();
+            sheet.ApplyOk();
 
             Assert.Equal(17, settings.AnnotShapeBorderWidth);
             var freshShape = new ShapeAnnotationElement(new Point(500, 500));
@@ -486,43 +487,43 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [AvaloniaFact]
-        public void TextPropertiesWindow_FieldChange_AppliesLivePreviewImmediately() {
+        public void TextPropertiesSheet_FieldChange_AppliesLivePreviewImmediately() {
             var text = new TextAnnotationElement(new Point(0, 0));
-            var window = new TextPropertiesWindow(text);
-            window.Show();
+            var sheet = new TextPropertiesSheet(text);
+            new AvaloniaWindow { Content = sheet }.Show();
 
-            window.TextInputControl.Text = "Changed";
+            sheet.TextInputControl.Text = "Changed";
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
             Assert.Equal("Changed", text.Text);
         }
 
         [AvaloniaFact]
-        public void TextPropertiesWindow_Cancel_RevertsTextAndFontSizeToTheConstructionSnapshot() {
+        public void TextPropertiesSheet_Cancel_RevertsTextAndFontSizeToTheConstructionSnapshot() {
             var text = new TextAnnotationElement(new Point(0, 0)) { Text = "Original" };
-            var window = new TextPropertiesWindow(text);
-            window.Show();
-            window.TextInputControl.Text = "Edited";
+            var sheet = new TextPropertiesSheet(text);
+            new AvaloniaWindow { Content = sheet }.Show();
+            sheet.TextInputControl.Text = "Edited";
             Avalonia.Threading.Dispatcher.UIThread.RunJobs(); //TextChanged needs a pump in headless tests, see the live-preview test above
-            window.FontSizeInputControl.Value = 40;
+            sheet.FontSizeInputControl.Value = 40;
             Assert.Equal("Edited", text.Text); //guards the revert assertion below against a no-op mutation
 
-            window.ApplyCancel();
+            sheet.Cancel();
 
             Assert.Equal("Original", text.Text);
             Assert.NotEqual(40f, text.FontSize);
         }
 
         [AvaloniaFact]
-        public void TextPropertiesWindow_Ok_PersistsCurrentValuesToAppSettingsAndStatics() {
+        public void TextPropertiesSheet_Ok_PersistsCurrentValuesToAppSettingsAndStatics() {
             var text = new TextAnnotationElement(new Point(0, 0));
-            var window = new TextPropertiesWindow(text);
-            window.Show();
-            window.FontSizeInputControl.Value = 33;
+            var sheet = new TextPropertiesSheet(text);
+            new AvaloniaWindow { Content = sheet }.Show();
+            sheet.FontSizeInputControl.Value = 33;
             var settings = new Foreman.Mac.Services.AppSettings();
-            window.Settings = settings;
+            sheet.Settings = settings;
 
-            window.ApplyOk();
+            sheet.ApplyOk();
 
             Assert.Equal("33", settings.AnnotTextFontSize);
             var freshText = new TextAnnotationElement(new Point(500, 500));

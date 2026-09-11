@@ -16,6 +16,7 @@ using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using Foreman.Mac.Views.QuickAdd;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;
@@ -352,21 +353,20 @@ namespace Foreman.Mac.UiTests {
             SetManualRate(window.GraphCanvas, supplierId, 12.5); //hand-derived: Input = 12.5, the fixed rate, no other node feeds or drains it
             window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
 
-            GraphSummaryWindow? firstOpen = null;
-            window.GraphSummaryDialogStub = session => firstOpen = new GraphSummaryWindow(session, window.GraphCanvas.Viewer.Graph.GetRateName());
+            GraphSummarySheet? firstOpen = null;
+            window.GraphSummaryDialogStub = session => firstOpen = new GraphSummarySheet(session, window.GraphCanvas.Viewer.Graph.GetRateName());
             await window.OpenGraphSummaryAsync();
 
             Assert.Equal("#Buildings: 0", firstOpen!.BuildingCountLabelControl.Text); //no recipe/assembler nodes yet
             ItemRow ironRowFirst = Assert.Single(firstOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == ironPlate);
             Assert.Equal(12.5, ironRowFirst.InValue, 3);
-            firstOpen.Close();
 
             NodeId supplier2Id = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(new ItemQualityPair(copperPlate, quality), new Point(200, 0));
             SetManualRate(window.GraphCanvas, supplier2Id, 7); //hand-derived: Input = 7 for the newly added item
             window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
 
-            GraphSummaryWindow? secondOpen = null;
-            window.GraphSummaryDialogStub = session => secondOpen = new GraphSummaryWindow(session, window.GraphCanvas.Viewer.Graph.GetRateName());
+            GraphSummarySheet? secondOpen = null;
+            window.GraphSummaryDialogStub = session => secondOpen = new GraphSummarySheet(session, window.GraphCanvas.Viewer.Graph.GetRateName());
             await window.OpenGraphSummaryAsync();
 
             Assert.Equal(2, secondOpen!.UnfilteredItemsList.Count); //reopen picks up the edit rather than reusing a stale snapshot
@@ -374,12 +374,11 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(12.5, ironRowSecond.InValue, 3);
             ItemRow copperRow = Assert.Single(secondOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == copperPlate);
             Assert.Equal(7, copperRow.InValue, 3);
-            secondOpen.Close();
         }
 
         //Phase5b hands-on gate (Finding 3): the human reported a solved factory summing to 0 buildings.
         //Every prior summary test either has zero recipe nodes or pins the recipe node's own rate by hand -
-        //neither exercises what MainWindow hands GraphSummaryWindow for an auto-solved recipe node reached
+        //neither exercises what MainWindow hands GraphSummarySheet for an auto-solved recipe node reached
         //through the real chooser flow (AddRecipeViaChooser), which is what "a solved graph with real recipe
         //nodes" actually looks like in the live app (mirrors CoreEndToEndTests' iron-gear-wheel fixture: a
         //supplier/consumer pair pins the demand, the recipe node's own rate is left on Auto so the LP
@@ -409,14 +408,13 @@ namespace Foreman.Mac.UiTests {
             SetManualRate(window.GraphCanvas, consumerId, 10); //forces demand; the recipe node's own rate stays Auto so the LP solver derives ActualSetValue, same as CoreEndToEndTests
             window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
 
-            GraphSummaryWindow? summary = null;
-            window.GraphSummaryDialogStub = session => summary = new GraphSummaryWindow(session, window.GraphCanvas.Viewer.Graph.GetRateName());
+            GraphSummarySheet? summary = null;
+            window.GraphSummaryDialogStub = session => summary = new GraphSummarySheet(session, window.GraphCanvas.Viewer.Graph.GetRateName());
             await window.OpenGraphSummaryAsync();
 
             Assert.NotEqual("#Buildings: 0", summary!.BuildingCountLabelControl.Text);
             BuildingRow assemblerRow = Assert.Single(summary.UnfilteredAssemblerList);
             Assert.NotEqual("0", assemblerRow.CountText);
-            summary.Close();
         }
 
         //================================================================================================
@@ -494,7 +492,7 @@ namespace Foreman.Mac.UiTests {
             }
 
             for (int i = 0; i < 3; i++) {
-                window.GraphSummaryDialogStub = session => new GraphSummaryWindow(session, window.GraphCanvas.Viewer.Graph.GetRateName()).Close();
+                window.GraphSummaryDialogStub = session => _ = new GraphSummarySheet(session, window.GraphCanvas.Viewer.Graph.GetRateName());
                 await window.OpenGraphSummaryAsync();
             }
 
@@ -530,10 +528,10 @@ namespace Foreman.Mac.UiTests {
 
         //================================================================================================
         // Seam 6: Imp#3 (final fix wave) - RealShowSettingsDialogAsync/RealShowGraphSummaryAsync's own
-        // GraphCanvas.Focus() calls, driven through a genuine child Window.ShowDialog rather than the
-        // SettingsDialogStub/GraphSummaryDialogStub every other seam above uses (a stub never reaches
-        // either real method, so it can't exercise this focus-restore at all). Minor#5 rides along: the
-        // same two call sites must not steal focus from an already-open floating panel.
+        // GraphCanvas.Focus() calls, driven through the real child Window.ShowDialog / SheetHost.ShowAsync
+        // rather than the SettingsDialogStub/GraphSummaryDialogStub every other seam above uses (a stub
+        // never reaches either real method, so it can't exercise this focus-restore at all). Minor#5 rides
+        // along: the same two call sites must not steal focus from an already-open floating panel.
         //================================================================================================
 
         [AvaloniaFact]
@@ -571,8 +569,8 @@ namespace Foreman.Mac.UiTests {
             Assert.True(newGraphButton.IsFocused);
 
             Task openTask = window.OpenGraphSummaryAsync();
-            GraphSummaryWindow summaryWindow = window.OwnedWindows.OfType<GraphSummaryWindow>().Single();
-            summaryWindow.Close();
+            var summarySheet = Assert.IsType<GraphSummarySheet>(SheetHost.For(window).Content);
+            summarySheet.Cancel();
             await openTask;
 
             Assert.True(window.GraphCanvas.IsFocused);

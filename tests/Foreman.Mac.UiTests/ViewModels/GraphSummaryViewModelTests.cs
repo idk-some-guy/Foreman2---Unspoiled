@@ -4,7 +4,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.ViewModels;
-using Foreman.Mac.Views;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using System;
 using System.Collections.Generic;

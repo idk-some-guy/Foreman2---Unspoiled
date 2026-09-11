@@ -21,11 +21,12 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace Foreman.Mac.Views {
+namespace Foreman.Mac.Views.Sheets {
     //Ports Forms/GraphSummaryForm.cs(+.Designer.cs) (reference §6): a read-only report over the whole
     //current graph (both constructor overloads collapse to the node-list one below, matching upstream -
-    //MainForm always passes the whole session, never a subset).
-    public partial class GraphSummaryWindow : Window {
+    //MainForm always passes the whole session, never a subset). C2c Task 3 moved this off GraphSummaryWindow
+    //onto SheetHost: there's no OK/Cancel distinction, so Close and Escape both just dismiss the sheet.
+    public partial class GraphSummarySheet : SheetContent<bool> {
         //Resolved fresh in the constructor below against the app's active theme variant, ahead of
         //ViewModel.Refresh(nodes) - the row records' Foreground initializers read this field at construction.
         internal static IBrush RowForegroundBrush = new ImmutableSolidColorBrush(Color.FromRgb(0, 0, 0));
@@ -80,20 +81,25 @@ namespace Foreman.Mac.Views {
         private readonly ListBox keyNodesListView;
         private readonly Button keyNodesExportButton;
 
+        private readonly Button closeButton;
+
         //Test-only seam: lets a test supply the export target path (or null for "cancelled") without a real
         //modal SaveFileDialog (same convention as SettingsWindow's DeleteConfirmationStub).
         internal Func<Task<string?>>? SaveFilePathStub { get; set; }
         internal string? LastCsvWritten { get; private set; }
 
-        public GraphSummaryWindow() : this([], "second") {
+        public GraphSummarySheet() : this([], "second") {
         }
 
-        public GraphSummaryWindow(IProductionGraphSession session, string rateString) : this(session.View.Nodes, rateString) {
+        public GraphSummarySheet(IProductionGraphSession session, string rateString) : this(session.View.Nodes, rateString) {
         }
 
-        public GraphSummaryWindow(IEnumerable<INodeViewModel> nodes, string rateString) {
+        public GraphSummarySheet(IEnumerable<INodeViewModel> nodes, string rateString) {
             InitializeComponent();
             this.rateString = rateString;
+            SheetWidth = 780;
+            SheetHeight = 540;
+            Title = "Factory summary:";
 
             mainTabControl = this.FindControl<TabControl>("MainTabControl")!;
             itemsFluidsTabItem = this.FindControl<TabItem>("ItemsFluidsTabItem")!;
@@ -129,6 +135,10 @@ namespace Foreman.Mac.Views {
             recipeNodeFilterCheckBox = this.FindControl<CheckBox>("RecipeNodeFilterCheckBox")!;
             keyNodesListView = this.FindControl<ListBox>("KeyNodesListView")!;
             keyNodesExportButton = this.FindControl<Button>("KeyNodesExportButton")!;
+
+            closeButton = this.FindControl<Button>("CloseButton")!;
+            DefaultButton = closeButton;
+            closeButton.Click += (_, _) => Complete(true);
 
             lastSortOrder[assemblerListView] = 2;
             lastSortOrder[minerListView] = 2;
@@ -210,8 +220,6 @@ namespace Foreman.Mac.Views {
                 int c = column;
                 WireHeader("KeyNodesHeader" + c, () => SortKeyNodesColumn(c));
             }
-
-            WindowScaler.Track(this);
         }
 
         private void WireHeader(string name, Action sort) => this.FindControl<Button>(name)!.Click += (_, _) => sort();
@@ -462,7 +470,7 @@ namespace Foreman.Mac.Views {
         }
 
         private async Task<string?> RealPickSaveFilePathAsync() {
-            if (StorageProvider is not IStorageProvider storage)
+            if (TopLevel.GetTopLevel(this)?.StorageProvider is not IStorageProvider storage)
                 return null;
 
             IStorageFile? file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions {
@@ -507,6 +515,7 @@ namespace Foreman.Mac.Views {
         internal CheckBox PassthroughNodeFilterCheckBoxControl => passthroughNodeFilterCheckBox;
         internal CheckBox RecipeNodeFilterCheckBoxControl => recipeNodeFilterCheckBox;
         internal ListBox KeyNodesListViewControl => keyNodesListView;
+        internal Button CloseButtonControl => closeButton;
 
         internal List<BuildingRow> UnfilteredAssemblerList => unfilteredAssemblerList;
         internal List<BuildingRow> UnfilteredMinerList => unfilteredMinerList;
@@ -527,7 +536,7 @@ namespace Foreman.Mac.Views {
         public string RowKey { get; } = rowKey;
         public Bitmap? Icon { get; } = icon;
         public IBrush Background { get; } = background;
-        public IBrush Foreground { get; } = GraphSummaryWindow.RowForegroundBrush;
+        public IBrush Foreground { get; } = GraphSummarySheet.RowForegroundBrush;
         public string CountText { get; } = countText;
         public string Name { get; } = name;
         public string PowerText { get; } = powerText;
@@ -541,7 +550,7 @@ namespace Foreman.Mac.Views {
         public string RowKey { get; } = rowKey;
         public Bitmap? Icon { get; } = icon;
         public IBrush Background { get; } = background;
-        public IBrush Foreground { get; } = GraphSummaryWindow.RowForegroundBrush;
+        public IBrush Foreground { get; } = GraphSummarySheet.RowForegroundBrush;
         public string CountText { get; } = countText;
         public string Name { get; } = name;
         public string PowerBText { get; } = powerBText;
@@ -555,7 +564,7 @@ namespace Foreman.Mac.Views {
         public string RowKey { get; } = rowKey;
         public Bitmap? Icon { get; } = icon;
         public IBrush Background { get; } = background;
-        public IBrush Foreground { get; } = GraphSummaryWindow.RowForegroundBrush;
+        public IBrush Foreground { get; } = GraphSummarySheet.RowForegroundBrush;
         public string Name { get; } = name;
         public string InText { get; } = inText;
         public double InValue { get; } = inValue;

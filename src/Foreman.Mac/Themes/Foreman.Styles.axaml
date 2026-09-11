@@ -888,6 +888,10 @@
     <Setter Property="RenderTransform" Value="translateY(-12px)" />
   </Style>
 
+  <Style Selector="Border.foreman-sheet-panel.dimmed">
+    <Setter Property="Opacity" Value="0.55" />
+  </Style>
+
   <Style Selector="Border.foreman-sheet-panel.closing">
     <Setter Property="Transitions">
       <Transitions>

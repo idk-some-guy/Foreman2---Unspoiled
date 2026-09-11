@@ -1,13 +1,7 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="Foreman.Mac.Views.ShapePropertiesWindow"
-        Title="Shape Properties"
-        Width="340"
-        SizeToContent="Height"
-        CanResize="False"
-        WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource SystemChromeMediumColor}">
-  <StackPanel Margin="16" Spacing="10">
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Foreman.Mac.Views.Sheets.ShapePropertiesSheet">
+  <StackPanel Spacing="10">
     <ComboBox Name="ShapeTypeCombo" HorizontalAlignment="Stretch" />
 
     <CheckBox Name="NoFillCheckBox" Content="No fill" />
@@ -41,4 +35,4 @@
       <Button Name="OKButton" Content="OK" />
     </StackPanel>
   </StackPanel>
-</Window>
+</UserControl>

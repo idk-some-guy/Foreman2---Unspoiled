@@ -1,7 +1,9 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.UiTests.support;
@@ -249,6 +251,38 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains(matchingAssembler, enabledObjects);
             if (cache.PlayerAssembler is not null)
                 Assert.Contains(cache.PlayerAssembler, enabledObjects);
+        }
+
+        //---- fix round 1 (item 3c): the mod-mismatch confirm stacks on top of the still-open sheet instead
+        //---- of queuing behind its own dismissal - a real end-to-end proof there's no deadlock. -----------
+
+        [AvaloniaFact]
+        public async Task ProcessSaveDataAsync_ModsMismatch_RealConfirmStacksOnTheOpenSheet_AndResolvesWithoutDeadlock() {
+            DataCache cache = await GetVanillaCacheAsync();
+            var enabledObjects = new HashSet<IDataObjectBase>();
+            var sheet = new SaveFileLoadSheet(cache, enabledObjects) {
+                SaveFileInfo = new SaveFileInfo(),
+                OpenSaveFilePathStub = () => new TaskCompletionSource<string?>().Task, //never resolves - keeps RunAsync from racing ProcessSaveDataAsync below
+            };
+            var window = new Window { Width = 800, Height = 600 };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+
+            Task<SaveFileLoadOutcome?> outerTask = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(host.IsOpen);
+
+            Task processTask = sheet.ProcessSaveDataAsync();
+            Dispatcher.UIThread.RunJobs();
+            if (processTask.IsFaulted)
+                throw processTask.Exception!;
+
+            AlertSheet confirm = host.GetVisualDescendants().OfType<AlertSheet>().Single();
+            confirm.YesButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            await processTask; //no deadlock: the stacked confirm resolves and ProcessSaveDataAsync completes on its own
+            Assert.NotEmpty(enabledObjects);
+            Assert.False(outerTask.IsCompleted); //the outer sheet is still open - its own RunAsync never got a save path
         }
 
         //---- SheetHost contract (C2c Task 2, fix round 1): width from the sheets table. There is no default

@@ -359,6 +359,40 @@ namespace Foreman.Mac.UiTests.Views {
             pipelineGate.TrySetResult(); //let the still-awaiting background pipeline finish so nothing leaks past the test.
         }
 
+        //Carry-over from C2c Task 2 review: a pipeline result landing after Cancel already disposed the
+        //sheet used to overwrite NewPresetName/DialogResultValue with the late outcome anyway (mirrors the
+        //completed-guard SaveFileLoadSheet.RunAsync already has).
+        [AvaloniaFact]
+        public async Task RunImportAsync_LateResultAfterCancel_DoesNotOverwriteCancelledState() {
+            var pipelineStarted = new SemaphoreSlim(0, 1);
+            var pipelineGate = new TaskCompletionSource();
+            var sheet = new PresetImportSheet([]);
+            sheet.FactorioLocationTextBoxControl.Text = NewValidatingFactorioInstall();
+            sheet.ModsLocationTextBoxControl.Text = WriteModsFolder();
+            sheet.PresetNameTextBoxControl.Text = "Valid Name Here";
+            sheet.ProcessPresetStub = async (_, _, _, name, _, _, _, _) => {
+                pipelineStarted.Release();
+                await pipelineGate.Task;
+                return new PresetImporter.Result { Outcome = PresetImportOutcome.Ok, NewPresetName = name };
+            };
+            var window = new Window { Width = 900, Height = 700 };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+
+            Task<bool?> task = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(sheet.PresetNameTextBoxControl, Key.Enter);
+            await pipelineStarted.WaitAsync();
+            CanvasKeys.KeyDownOn(sheet.PresetNameTextBoxControl, Key.Escape);
+            Assert.Null(await task);
+
+            pipelineGate.TrySetResult(); //the pipeline resolves Ok only after the sheet already cancelled+disposed
+            await Task.Delay(50); //give RunImportAsync's continuation a chance to run (and, pre-fix, corrupt state)
+
+            Assert.Equal("", sheet.NewPresetName);
+            Assert.Equal(false, sheet.DialogResultValue);
+        }
+
         //---- key-gesture buttons (upstream Designer sets AcceptButton/CancelButton to these two) -----------
 
         [AvaloniaFact]

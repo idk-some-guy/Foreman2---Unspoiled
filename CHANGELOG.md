@@ -53,9 +53,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   context, since the radial now owns that role.
 - Dialogs attach to their window as sheets, dropping in flush under the titlebar over a scrim
   instead of opening as separate windows.
+- The graph summary, text/shape annotation properties, and confirm/warning/save-before-continuing
+  alerts now attach as sheets too.
 
 ### Fixed
 
+- An alert raised from inside an open sheet (a mod-mismatch or overwrite confirm, a warning)
+  stacks on top of it as a second sheet.
 - The inspector sidebar now overlays the canvas instead of pushing it. Its identity header, quality
   mini-select, recipe card (folded in from the canvas's retired hover tooltip), groups, steppers,
   and toggles are restyled to match the design mock: proper padding, a titled group per section

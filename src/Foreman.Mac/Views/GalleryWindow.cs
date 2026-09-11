@@ -11,6 +11,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Services;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using System;
 using System.Collections.Generic;
@@ -148,11 +149,11 @@ namespace Foreman.Mac.Views {
             };
         }
 
-        //Two GraphSummaryWindow.BuildingRow/ItemRow instances (available + unavailable) - the same row DTOs
-        //and the same static RowForegroundBrush seed GraphSummaryWindow's own constructor uses, just fed
+        //Two GraphSummarySheet.BuildingRow/ItemRow instances (available + unavailable) - the same row DTOs
+        //and the same static RowForegroundBrush seed GraphSummarySheet's own constructor uses, just fed
         //synthetic display text instead of a live graph (a gate tool, not a simulation).
         private static StackPanel BuildSummaryRowsShowcaseTile() {
-            GraphSummaryWindow.RowForegroundBrush = ThemeResources.ResolveBrush("Foreman.Color.StatusForeground", Colors.Black);
+            GraphSummarySheet.RowForegroundBrush = ThemeResources.ResolveBrush("Foreman.Color.StatusForeground", Colors.Black);
             IBrush available = ThemeResources.ResolveBrush("Foreman.Color.ControlBackground", Colors.White);
             IBrush unavailable = ThemeResources.ResolveBrush("Foreman.Color.StatusWarningBackground", Color.FromRgb(255, 192, 203));
 

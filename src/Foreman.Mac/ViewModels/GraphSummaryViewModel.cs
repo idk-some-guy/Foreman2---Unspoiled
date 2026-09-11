@@ -8,6 +8,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using SkiaSharp;
 using System;

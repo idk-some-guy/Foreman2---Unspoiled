@@ -266,6 +266,8 @@ namespace Foreman.Mac.Views.Sheets {
             PresetImporter.Result result = await Task.Run(() => process(
                 installPath, modsPath, AppPaths.ScratchDirectory, NewPresetName, AppPaths.UserPresetsDirectory,
                 progress, ConfirmContinueWithMissingIconsAsync, cts.Token)).ConfigureAwait(true);
+            if (disposed) //Cancel already disposed the sheet while the pipeline was in flight - discard the late result.
+                return;
 
             if (result.Outcome == PresetImportOutcome.Ok) {
                 NewPresetName = result.NewPresetName;
@@ -292,10 +294,10 @@ namespace Foreman.Mac.Views.Sheets {
         }
 
         private Task ShowWarningAsync(string title, string message) =>
-            WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync((Window)VisualRoot!, title, message);
+            WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync((Window)TopLevel.GetTopLevel(this)!, title, message);
 
         private Task<bool> ShowConfirmAsync(string title, string message) =>
-            ConfirmDialogStub?.Invoke(title, message) ?? Dialogs.ShowConfirmAsync((Window)VisualRoot!, title, message);
+            ConfirmDialogStub?.Invoke(title, message) ?? Dialogs.ShowConfirmAsync((Window)TopLevel.GetTopLevel(this)!, title, message);
 
         //-------------------------------------------------------------------------------------------------Test-only seams
 

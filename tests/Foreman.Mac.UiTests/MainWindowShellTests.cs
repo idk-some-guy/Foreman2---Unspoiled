@@ -24,6 +24,7 @@ using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.Sheets;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -1255,26 +1256,27 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.ViewModel.IsDirty);
         }
 
-        //Fix round 1: every field on these two windows applies live onto the domain element as the user
-        //types - OK persists it, Cancel reverts it, but closing via the red button (or Cmd+W, or the
-        //window manager) used to skip both and leave the element mutated with no revert and no dirty
-        //signal. Drives the real window (not TextPropertiesDialogStub) so OnClosing's revert actually runs.
+        //Fix round 1 (C2c Task 3 carry-over): every field on these two sheets applies live onto the domain
+        //element as the user types - OK persists it, Cancel reverts it. A sheet has no window chrome to
+        //close from, so Escape (SheetHost's own handling, which calls the sheet's Cancel()) is now the only
+        //non-OK dismissal path and the one this guards. Drives the real sheet (not TextPropertiesDialogStub)
+        //so the override's revert actually runs.
         [AvaloniaFact]
-        public void TextPropertiesWindow_CloseWithoutOkOrCancel_RevertsAndStaysClean() {
+        public void TextPropertiesSheet_EscapeReverts_AndStaysClean() {
             var window = new MainWindow();
             window.Show();
             var text = new TextAnnotationElement(new System.Drawing.Point(0, 0));
             window.GraphCanvas.Viewer.AddAnnotationElement(text);
             string originalText = text.Text;
-            window.ViewModel.IsDirty = false; //the add above already dirtied it - reset to isolate the close
+            window.ViewModel.IsDirty = false; //the add above already dirtied it - reset to isolate the escape
 
             window.GraphCanvas.Viewer.ShowAnnotationPropertiesDialog?.Invoke(text);
-            TextPropertiesWindow dialog = window.OwnedWindows.OfType<TextPropertiesWindow>().Single();
-            dialog.TextInputControl.Text = originalText + " edited live";
+            var sheet = Assert.IsType<TextPropertiesSheet>(SheetHost.For(window).Content);
+            sheet.TextInputControl.Text = originalText + " edited live";
             Dispatcher.UIThread.RunJobs();
-            Assert.NotEqual(originalText, text.Text); //confirms the live-apply actually landed before close
+            Assert.NotEqual(originalText, text.Text); //confirms the live-apply actually landed before escape
 
-            dialog.Close();
+            CanvasKeys.KeyDownOn(sheet.TextInputControl, Key.Escape);
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(originalText, text.Text);
@@ -1282,21 +1284,21 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public void ShapePropertiesWindow_CloseWithoutOkOrCancel_RevertsAndStaysClean() {
+        public void ShapePropertiesSheet_EscapeReverts_AndStaysClean() {
             var window = new MainWindow();
             window.Show();
             var shape = new ShapeAnnotationElement(new System.Drawing.Point(0, 0), 200, 150);
             window.GraphCanvas.Viewer.AddAnnotationElement(shape);
             int originalBorderWidth = shape.BorderWidth;
-            window.ViewModel.IsDirty = false; //the add above already dirtied it - reset to isolate the close
+            window.ViewModel.IsDirty = false; //the add above already dirtied it - reset to isolate the escape
 
             window.GraphCanvas.Viewer.ShowAnnotationPropertiesDialog?.Invoke(shape);
-            ShapePropertiesWindow dialog = window.OwnedWindows.OfType<ShapePropertiesWindow>().Single();
-            dialog.BorderWidthInputControl.Value = originalBorderWidth + 23;
+            var sheet = Assert.IsType<ShapePropertiesSheet>(SheetHost.For(window).Content);
+            sheet.BorderWidthInputControl.Value = originalBorderWidth + 23;
             Dispatcher.UIThread.RunJobs();
             Assert.NotEqual(originalBorderWidth, shape.BorderWidth); //confirms the live-apply actually landed
 
-            dialog.Close();
+            CanvasKeys.KeyDownOn(sheet.BorderWidthInputControl, Key.Escape);
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(originalBorderWidth, shape.BorderWidth);

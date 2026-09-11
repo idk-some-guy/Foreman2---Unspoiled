@@ -186,7 +186,8 @@ namespace Foreman.Mac {
             Opened += (_, _) => MostRecentlyOpened = this;
             //Before WindowScaler.Track below - Content is still the root Grid at this point, so SheetHost
             //overlays it directly (spanning child) instead of wrapping WindowScaler's own LayoutTransformControl.
-            Views.Sheets.SheetHost.For(this);
+            //TitleBarRow as the anchor keeps sheets flush under the toolbar instead of covering it.
+            Views.Sheets.SheetHost.For(this, this.FindControl<Grid>("TitleBarRow"));
             WindowScaler.Track(this);
             //View Options card renders in ViewOptionsPopover's own popup root, outside the Track above.
             WindowScaler.TrackPopupContent(this, this.FindControl<LayoutTransformControl>("ViewOptionsCardScaler")!);
@@ -1010,10 +1011,9 @@ namespace Foreman.Mac {
             return result;
         }
 
-        //Ports GraphSummaryButton_Click (reference upstream MainForm.cs:564-569): a true modal blocking
-        //dialog positioned at owner+50/+50, not the Designer's CenterParent default - always the whole
-        //session, matching MainForm's own call (the node-subset constructor overload has no live caller
-        //upstream either).
+        //Ports GraphSummaryButton_Click (reference upstream MainForm.cs:564-569): always the whole session,
+        //matching MainForm's own call (the node-subset constructor overload has no live caller upstream
+        //either). C2c Task 3 moved this off GraphSummaryWindow onto SheetHost.
         internal Task OpenGraphSummaryAsync() {
             //See OpenSettingsAsync's own close-first comment: same toolbar-bypasses-canvas-pointer-events gap.
             GraphCanvas.FloatingPanelHost.Close();
@@ -1026,11 +1026,8 @@ namespace Foreman.Mac {
         }
 
         private async Task RealShowGraphSummaryAsync() {
-            var window = new GraphSummaryWindow(GraphCanvas.Viewer.Session, GraphCanvas.Viewer.Graph.GetRateName()) {
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Position = Position + new PixelPoint(50, 50),
-            };
-            await window.ShowDialog(this).ConfigureAwait(true);
+            var sheet = new GraphSummarySheet(GraphCanvas.Viewer.Session, GraphCanvas.Viewer.Graph.GetRateName());
+            await SheetHost.For(this).ShowAsync(sheet).ConfigureAwait(true);
             //See RealShowSettingsDialogAsync's own focus-restore comment, including the open-panel guard.
             if (!GraphCanvas.FloatingPanelHost.IsOpen)
                 GraphCanvas.Focus();

@@ -56,7 +56,7 @@ namespace Foreman.Mac.Views {
                 buddy.SelectedIndex = source.SelectedIndex;
         }
 
-        //Test-only seams (see ShapePropertiesWindow's equivalent comment for the convention).
+        //Test-only seams (see ShapePropertiesSheet's equivalent comment for the convention).
         internal ScrollViewer? LeftScrollViewer => leftScroll;
         internal ScrollViewer? RightScrollViewer => rightScroll;
     }

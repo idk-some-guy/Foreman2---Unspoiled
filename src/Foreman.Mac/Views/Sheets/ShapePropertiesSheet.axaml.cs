@@ -5,14 +5,9 @@ using Foreman.Mac.Services;
 using SkiaSharp;
 using System;
 
-namespace Foreman.Mac.Views {
-    //Ports Forms/ShapePropertiesForm.cs as a real Avalonia window (reference §6/§10): every field applies
-    //live, Cancel reverts from a construction-time snapshot, OK calls ShapeAnnotationElement.SaveDefaults.
-    //Divergence: WinForms' ColorDialog has no Avalonia equivalent in this port's dependency set, so fill/
-    //border color are inline RGB controls instead of a modal picker; border color has no separate alpha field
-    //(ColorDialog itself has none either) while fill alpha stays its own track, matching the reference's field
-    //inventory.
-    public partial class ShapePropertiesWindow : Window {
+namespace Foreman.Mac.Views.Sheets {
+    //cancel reverts from a construction-time snapshot; OK calls SaveDefaults
+    public partial class ShapePropertiesSheet : SheetContent<bool> {
         private readonly ShapeAnnotationElement element;
         private readonly Snapshot original;
 
@@ -35,8 +30,6 @@ namespace Foreman.Mac.Views {
         public Action? RequestRedraw { get; set; }
         public AppSettings? Settings { get; set; }
 
-        private bool resultSet;
-
         private readonly record struct Snapshot(
             ShapeAnnotationElement.ShapeType ShapeType, SKColor FillColor, SKColor BorderColor, int BorderWidth) {
             public static Snapshot Capture(ShapeAnnotationElement e) => new(e.CurrentShapeType, e.FillColor, e.BorderColor, e.BorderWidth);
@@ -49,13 +42,15 @@ namespace Foreman.Mac.Views {
             }
         }
 
-        public ShapePropertiesWindow() : this(new ShapeAnnotationElement(new System.Drawing.Point(0, 0))) {
+        public ShapePropertiesSheet() : this(new ShapeAnnotationElement(new System.Drawing.Point(0, 0))) {
         }
 
-        public ShapePropertiesWindow(ShapeAnnotationElement element) {
+        public ShapePropertiesSheet(ShapeAnnotationElement element) {
             InitializeComponent();
             this.element = element;
             original = Snapshot.Capture(element);
+            SheetWidth = 340;
+            Title = "Shape Properties";
 
             shapeTypeCombo = this.FindControl<ComboBox>("ShapeTypeCombo")!;
             noFillCheckBox = this.FindControl<CheckBox>("NoFillCheckBox")!;
@@ -72,13 +67,13 @@ namespace Foreman.Mac.Views {
             borderWidthInput = this.FindControl<NumericUpDown>("BorderWidthInput")!;
             okButton = this.FindControl<Button>("OKButton")!;
             cancelButton = this.FindControl<Button>("CancelButton")!;
+            DefaultButton = okButton;
 
             PopulateFromElement();
             WireLiveUpdateHandlers();
 
             okButton.Click += (_, _) => ApplyOk();
-            cancelButton.Click += (_, _) => ApplyCancel();
-            WindowScaler.Track(this);
+            cancelButton.Click += (_, _) => Cancel();
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -161,29 +156,20 @@ namespace Foreman.Mac.Views {
         internal Slider FillAlphaTrackControl => fillAlphaTrack;
         internal NumericUpDown BorderColorRedInputControl => borderColorRedInput;
         internal NumericUpDown BorderWidthInputControl => borderWidthInput;
+        internal Button OKButtonControl => okButton;
+        internal Button CancelButtonControl => cancelButton;
 
         internal void ApplyOk() {
-            resultSet = true;
             ShapeAnnotationElement.SaveDefaults(element, Settings);
-            Close(true);
+            Complete(true);
         }
 
-        internal void ApplyCancel() {
-            resultSet = true;
+        //Overrides SheetContent<T>.Cancel so the Cancel button and SheetHost's own Escape handling (which
+        //calls this same method) both revert the live-previewed edits before completing false.
+        public override void Cancel() {
             original.RevertOnto(element);
             RequestRedraw?.Invoke();
-            Close(false);
-        }
-
-        //Fix round 1 (mirrors TextPropertiesWindow): every field applies live onto the domain element, so a
-        //red-button close - neither OK nor Cancel - must still revert. resultSet marks the two closes that
-        //already handled it.
-        protected override void OnClosing(WindowClosingEventArgs e) {
-            if (!resultSet) {
-                original.RevertOnto(element);
-                RequestRedraw?.Invoke();
-            }
-            base.OnClosing(e);
+            Complete(false);
         }
     }
 }

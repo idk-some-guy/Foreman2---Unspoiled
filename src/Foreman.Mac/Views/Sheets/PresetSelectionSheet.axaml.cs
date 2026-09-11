@@ -92,7 +92,7 @@ namespace Foreman.Mac.Views.Sheets {
             return rows;
         }
 
-        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these) - see ShapePropertiesWindow's
+        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these) - see ShapePropertiesSheet's
         //equivalent comment for the established convention this follows.
         internal ListBox PresetSelectionListViewControl => presetListView;
         internal Button ConfirmationButtonControl => confirmationButton;

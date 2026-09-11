@@ -66,6 +66,10 @@ namespace Foreman.Mac.UiTests.Sheets {
         private static Border PanelOf(SheetHost host) =>
             host.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("foreman-sheet-panel"));
 
+        private static Border PanelOf(SheetHost host, Control content) =>
+            host.GetVisualDescendants().OfType<Border>()
+                .First(b => b.Classes.Contains("foreman-sheet-panel") && ReferenceEquals(b.Child, content));
+
         [AvaloniaFact]
         public async Task ShowAsync_OverlaysScrimAndPanelUnderTheTitlebar_AndBlocksTheContentBeneath() {
             var beneath = new Button { Name = "Beneath" };
@@ -308,6 +312,225 @@ namespace Foreman.Mac.UiTests.Sheets {
 
             Assert.True(host.IsOpen);
             Assert.Same(sheet, host.Content);
+        }
+
+        //---- ShowStackedAsync: layers above an open sheet instead of queuing behind it -------------------
+
+        [AvaloniaFact]
+        public async Task ShowStackedAsync_WithNoSheetOpen_BehavesLikeShowAsync() {
+            var window = new Window { Width = 800, Height = 600, Content = new Button() };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+            var sheet = new ProbeSheet();
+
+            Task<bool?> task = host.ShowStackedAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(host.IsOpen);
+            Assert.Same(sheet, host.Content);
+
+            sheet.Ok.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.True(await task);
+            Assert.False(host.IsOpen);
+        }
+
+        [AvaloniaFact]
+        public async Task ShowStackedAsync_WithASheetAlreadyOpen_PresentsAboveItAndTrapsFocusOnTop() {
+            var window = new Window { Width = 800, Height = 600, Content = new Button() };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+
+            var underlying = new ProbeSheet();
+            Task<bool?> underlyingTask = host.ShowAsync(underlying);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(underlying.Field.IsFocused);
+
+            var alert = new ProbeSheet();
+            Task<bool?> alertTask = host.ShowStackedAsync(alert);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(host.IsOpen);
+            Assert.Same(underlying, host.Content); //the underlying sheet is still the host's own Content - alertTask is layered above it
+
+            Border underlyingPanel = PanelOf(host, underlying);
+            Border alertPanel = PanelOf(host, alert);
+            Assert.True(host.Children.IndexOf(alertPanel) > host.Children.IndexOf(underlyingPanel));
+            Assert.Contains("dimmed", underlyingPanel.Classes);
+            Assert.True(alert.Field.IsFocused);
+
+            CanvasKeys.KeyDownOn(alert.Field, Key.Escape);
+
+            Assert.Null(await alertTask);
+            Assert.False(underlyingTask.IsCompleted);
+        }
+
+        [AvaloniaFact]
+        public async Task ShowStackedAsync_OnDismiss_RestoresFocusAndUndimsTheUnderlyingSheet() {
+            var window = new Window { Width = 800, Height = 600, Content = new Button() };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+
+            var underlying = new ProbeSheet();
+            Task<bool?> underlyingTask = host.ShowAsync(underlying);
+            Dispatcher.UIThread.RunJobs();
+
+            var alert = new ProbeSheet();
+            Task<bool?> alertTask = host.ShowStackedAsync(alert);
+            Dispatcher.UIThread.RunJobs();
+            Border underlyingPanel = PanelOf(host, underlying);
+
+            CanvasKeys.KeyDownOn(alert.Field, Key.Escape);
+            await alertTask;
+            AnimationClock.Settle();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.DoesNotContain("dimmed", underlyingPanel.Classes);
+            Assert.True(underlying.Field.IsFocused);
+            Assert.True(host.IsOpen);
+            Assert.False(underlyingTask.IsCompleted);
+
+            underlying.Ok.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.True(await underlyingTask);
+        }
+
+        [AvaloniaFact]
+        public async Task ShowStackedAsync_TwoLevelsDeep_EachLayerAboveTheLastAndUnwindsInOrder() {
+            var window = new Window { Width = 800, Height = 600, Content = new Button() };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+
+            var baseSheet = new ProbeSheet();
+            Task<bool?> baseTask = host.ShowAsync(baseSheet);
+            Dispatcher.UIThread.RunJobs();
+
+            var layer1 = new ProbeSheet();
+            Task<bool?> layer1Task = host.ShowStackedAsync(layer1);
+            Dispatcher.UIThread.RunJobs();
+
+            var layer2 = new ProbeSheet();
+            Task<bool?> layer2Task = host.ShowStackedAsync(layer2);
+            Dispatcher.UIThread.RunJobs();
+
+            Border basePanel = PanelOf(host, baseSheet);
+            Border layer1Panel = PanelOf(host, layer1);
+            Border layer2Panel = PanelOf(host, layer2);
+            Assert.True(host.Children.IndexOf(layer1Panel) > host.Children.IndexOf(basePanel));
+            Assert.True(host.Children.IndexOf(layer2Panel) > host.Children.IndexOf(layer1Panel));
+            Assert.Contains("dimmed", basePanel.Classes);
+            Assert.Contains("dimmed", layer1Panel.Classes);
+            Assert.DoesNotContain("dimmed", layer2Panel.Classes);
+            Assert.True(layer2.Field.IsFocused);
+
+            CanvasKeys.KeyDownOn(layer2.Field, Key.Escape);
+            Assert.Null(await layer2Task);
+            AnimationClock.Settle();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.DoesNotContain("dimmed", layer1Panel.Classes);
+            Assert.Contains("dimmed", basePanel.Classes);
+            Assert.True(layer1.Field.IsFocused);
+            Assert.False(layer1Task.IsCompleted);
+            Assert.False(baseTask.IsCompleted);
+
+            CanvasKeys.KeyDownOn(layer1.Field, Key.Escape);
+            Assert.Null(await layer1Task);
+            AnimationClock.Settle();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.DoesNotContain("dimmed", basePanel.Classes);
+            Assert.True(baseSheet.Field.IsFocused);
+            Assert.False(baseTask.IsCompleted);
+
+            baseSheet.Ok.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.True(await baseTask);
+        }
+
+        [AvaloniaFact]
+        public void Enter_WithAStackedLayerOpen_TriggersTheTopLayersDefaultButton_NotTheUnderlyingOnes() {
+            var window = new Window { Width = 800, Height = 600, Content = new Button() };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+
+            var underlying = new ProbeSheet();
+            _ = host.ShowAsync(underlying);
+            Dispatcher.UIThread.RunJobs();
+
+            var alert = new ProbeSheet();
+            _ = host.ShowStackedAsync(alert);
+            Dispatcher.UIThread.RunJobs();
+
+            CanvasKeys.KeyDownOn(alert.Field, Key.Enter);
+
+            Assert.True(alert.Result.IsCompleted);
+            Assert.False(underlying.Result.IsCompleted);
+        }
+
+        //---- Fix round 1 (live-app regressions): a Grid root whose host lands as a spanning CHILD of that
+        //---- same grid must not have its own content's hit-testing disabled through the grid as a whole -
+        //---- that also swallowed the host's own subtree. MainWindow additionally needs the panel to sit
+        //---- below its own titlebar/toolbar row and to paint above it regardless of ZIndex.
+
+        [AvaloniaFact]
+        public async Task For_OnAGridRootWindow_RealClickReachesTheSheetsOwnButton() {
+            var grid = new Grid { RowDefinitions = RowDefinitions.Parse("Auto,*") };
+            var top = new Border { Height = 40 };
+            var bottom = new Border();
+            Grid.SetRow(top, 0);
+            Grid.SetRow(bottom, 1);
+            grid.Children.Add(top);
+            grid.Children.Add(bottom);
+            var window = new Window { Width = 800, Height = 600, Content = grid };
+            window.Show();
+
+            SheetHost host = SheetHost.For(window);
+            var sheet = new ProbeSheet();
+            Task<bool?> task = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+
+            RealClick.On(sheet.Ok);
+
+            Assert.True(await task);
+        }
+
+        [AvaloniaFact]
+        public async Task For_OnAMainWindow_RealClickReachesTheSheetsOwnButton_AndTypingReachesItsTextBox() {
+            using ShellFixture fixture = ShellFixture.Open();
+            SheetHost host = SheetHost.For(fixture.Window);
+            var sheet = new ProbeSheet();
+
+            Task<bool?> task = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(sheet.Field.IsFocused);
+
+            fixture.Window.KeyTextInput("x");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("x", sheet.Field.Text);
+
+            RealClick.On(sheet.Ok);
+
+            Assert.True(await task);
+        }
+
+        [AvaloniaFact]
+        public void For_OnAMainWindow_PanelSitsFlushBelowTheToolbar_PaintsAboveIt_AndBlocksItWhileOpen() {
+            using ShellFixture fixture = ShellFixture.Open();
+            Dispatcher.UIThread.RunJobs();
+            var titleBar = fixture.Window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "TitleBarRow");
+
+            SheetHost host = SheetHost.For(fixture.Window);
+            var sheet = new ProbeSheet();
+            _ = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+
+            Border panel = PanelOf(host);
+            Assert.Equal(titleBar.Bounds.Bottom, panel.Bounds.Top, 0.5);
+            Assert.True(host.ZIndex > titleBar.ZIndex);
+            Assert.False(titleBar.IsHitTestVisible);
+
+            sheet.Ok.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(titleBar.IsHitTestVisible);
         }
     }
 }

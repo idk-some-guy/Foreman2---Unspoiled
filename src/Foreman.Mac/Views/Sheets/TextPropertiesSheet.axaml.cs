@@ -1,19 +1,13 @@
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
 using SkiaSharp;
 using System;
 
-namespace Foreman.Mac.Views {
-    //Ports Forms/TextPropertiesForm.cs as a real Avalonia window (reference §6/§10): every field applies live
-    //(RebuildGdiObjects/FitBoxToTextAtCenter + RequestRedraw), Cancel reverts from a snapshot taken at
-    //construction, OK calls TextAnnotationElement.SaveDefaults. Divergence: WinForms' FontDialog/ColorDialog
-    //have no Avalonia equivalent in this port's dependency set, so font family/size/style and RGB color are
-    //inline controls instead of modal pickers - alpha is fixed at fully opaque for both colors (matching
-    //ColorDialog's own no-alpha default) except BackColor, whose alpha is the TransparentCheckBox's job.
-    public partial class TextPropertiesWindow : Window {
+namespace Foreman.Mac.Views.Sheets {
+    //cancel reverts from a construction-time snapshot; OK calls SaveDefaults
+    public partial class TextPropertiesSheet : SheetContent<bool> {
         private static readonly string[] CuratedFontFamilies = ["Segoe UI", "Helvetica Neue", "Arial", "Times New Roman", "Courier New"];
 
         private readonly TextAnnotationElement element;
@@ -41,7 +35,6 @@ namespace Foreman.Mac.Views {
         private readonly Button cancelButton;
 
         private bool suppressLiveUpdates = true;
-        private bool resultSet;
 
         public Action? RequestRedraw { get; set; }
         public AppSettings? Settings { get; set; }
@@ -64,13 +57,15 @@ namespace Foreman.Mac.Views {
             }
         }
 
-        public TextPropertiesWindow() : this(new TextAnnotationElement(new System.Drawing.Point(0, 0))) {
+        public TextPropertiesSheet() : this(new TextAnnotationElement(new System.Drawing.Point(0, 0))) {
         }
 
-        public TextPropertiesWindow(TextAnnotationElement element) {
+        public TextPropertiesSheet(TextAnnotationElement element) {
             InitializeComponent();
             this.element = element;
             original = Snapshot.Capture(element);
+            SheetWidth = 360;
+            Title = "Text Properties";
 
             textInput = this.FindControl<TextBox>("TextInput")!;
             fontPreviewLabel = this.FindControl<TextBlock>("FontPreviewLabel")!;
@@ -92,15 +87,15 @@ namespace Foreman.Mac.Views {
             backColorSwatch = this.FindControl<Border>("BackColorSwatch")!;
             okButton = this.FindControl<Button>("OKButton")!;
             cancelButton = this.FindControl<Button>("CancelButton")!;
+            DefaultButton = okButton;
 
             PopulateFromElement();
             WireLiveUpdateHandlers();
             suppressLiveUpdates = false;
 
             okButton.Click += (_, _) => ApplyOk();
-            cancelButton.Click += (_, _) => ApplyCancel();
-            Opened += (_, _) => { textInput.Focus(); textInput.SelectAll(); };
-            WindowScaler.Track(this);
+            cancelButton.Click += (_, _) => Cancel();
+            Loaded += (_, _) => { textInput.Focus(); textInput.SelectAll(); };
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -210,41 +205,30 @@ namespace Foreman.Mac.Views {
             fontPreviewLabel.FontStyle = (element.FontStyleFlags & 2) != 0 ? Avalonia.Media.FontStyle.Italic : Avalonia.Media.FontStyle.Normal;
         }
 
-        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these) - see ShapePropertiesWindow's
+        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these) - see ShapePropertiesSheet's
         //equivalent block for why these exist instead of external FindControl calls.
         internal TextBox TextInputControl => textInput;
         internal NumericUpDown FontSizeInputControl => fontSizeInput;
         internal RadioButton AlignRightRadioControl => alignRightRadio;
         internal NumericUpDown TextColorRedInputControl => textColorRedInput;
         internal CheckBox TransparentCheckBoxControl => transparentCheckBox;
+        internal Button OKButtonControl => okButton;
+        internal Button CancelButtonControl => cancelButton;
 
         //Ports the OK path (reference §6): SaveDefaults persists the current values as the session/AppSettings
-        //defaults, then closes with a true result.
+        //defaults, then completes the sheet true.
         internal void ApplyOk() {
-            resultSet = true;
             TextAnnotationElement.SaveDefaults(element, Settings);
-            Close(true);
+            Complete(true);
         }
 
-        //Ports the Cancel path (reference §6): reverts every field from the construction-time snapshot before
-        //closing, so the live-previewed edits never stick.
-        internal void ApplyCancel() {
-            resultSet = true;
+        //Ports the Cancel path (reference §6): reverts every field from the construction-time snapshot -
+        //overrides SheetContent<T>.Cancel so the Cancel button and SheetHost's own Escape handling (which
+        //calls this same method) both revert the live-previewed edits before completing false.
+        public override void Cancel() {
             original.RevertOnto(element);
             RequestRedraw?.Invoke();
-            Close(false);
-        }
-
-        //Fix round 1: every field applies live as the user types, straight onto the domain element - OK and
-        //Cancel both already resolve that (persist vs. revert), but a red-button close skips both, leaving
-        //the element mutated with no revert and no dirty signal. resultSet distinguishes an OK/Cancel close
-        //(already handled) from any other one (title bar close, Cmd+W, window manager).
-        protected override void OnClosing(WindowClosingEventArgs e) {
-            if (!resultSet) {
-                original.RevertOnto(element);
-                RequestRedraw?.Invoke();
-            }
-            base.OnClosing(e);
+            Complete(false);
         }
     }
 }

@@ -10,6 +10,7 @@ using Foreman.Mac;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.Views;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using SkiaSharp;
 using System;
@@ -165,10 +166,10 @@ namespace Foreman.Mac.UiTests.Theming {
             return new Fixture { Cache = cache, Graph = graph, Session = session };
         }
 
-        private static GraphSummaryWindow NewSummaryWindowWithSupplierRow(Fixture fx, IItem item) {
+        private static GraphSummarySheet NewSummaryWindowWithSupplierRow(Fixture fx, IItem item) {
             fx.Graph.CreateSupplierNode(new ItemQualityPair(item, fx.Cache.DefaultQuality!), System.Drawing.Point.Empty);
             fx.Graph.UpdateNodeValues();
-            return new GraphSummaryWindow(fx.Session, "second");
+            return new GraphSummarySheet(fx.Session, "second");
         }
 
         [AvaloniaFact]

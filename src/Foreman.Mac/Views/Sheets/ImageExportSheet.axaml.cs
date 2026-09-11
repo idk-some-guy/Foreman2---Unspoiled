@@ -148,7 +148,7 @@ namespace Foreman.Mac.Views.Sheets {
         }
 
         private Task ShowWarningAsync(string title, string message) =>
-            WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync((Window)VisualRoot!, title, message);
+            WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync((Window)TopLevel.GetTopLevel(this)!, title, message);
 
         //Ports ViewLimitedBounds (reference §3): graph-space extent of the current viewport, independent of
         //ViewOffset - only used to size the export image.

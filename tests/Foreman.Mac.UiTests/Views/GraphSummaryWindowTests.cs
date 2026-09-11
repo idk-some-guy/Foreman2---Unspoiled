@@ -1,12 +1,13 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
-using Foreman.Mac.Views;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;
@@ -116,7 +117,7 @@ namespace Foreman.Mac.UiTests.Views {
             fx.Graph.CreateLink(s!, c!, item);
         }
 
-        private static GraphSummaryWindow NewWindow(Fixture fx, string rateString = "second") => new(fx.Session, rateString);
+        private static GraphSummarySheet NewWindow(Fixture fx, string rateString = "second") => new(fx.Session, rateString);
 
         //--- Tab shell ---------------------------------------------------------------------------------
 
@@ -173,10 +174,11 @@ namespace Foreman.Mac.UiTests.Views {
             IRecipeNodeViewModel assemblerNode = CreateRecipeNode(fx, AssemblerRecipeName);
             PinFactories(fx, assemblerNode, 1);
             fx.Graph.UpdateNodeValues();
-            var window = NewWindow(fx);
-            window.Show();
+            var sheet = NewWindow(fx);
+            var host = new Window { Content = sheet, Width = 900, Height = 700 };
+            host.Show();
 
-            ListBoxItem realizedRow = window.AssemblerListViewControl.GetVisualDescendants().OfType<ListBoxItem>().First();
+            ListBoxItem realizedRow = sheet.AssemblerListViewControl.GetVisualDescendants().OfType<ListBoxItem>().First();
             Assert.True(realizedRow.Bounds.Height <= 28, $"Expected a dense row (<=28px), got {realizedRow.Bounds.Height}px.");
         }
 
@@ -509,6 +511,35 @@ namespace Foreman.Mac.UiTests.Views {
             File.Delete(tempPath);
             Assert.Contains(window.UnfilteredAssemblerList[0].Name.Replace(" ", ""), csv.Replace(" ", ""));
             Assert.DoesNotContain(window.UnfilteredMinerList[0].Name.Replace(" ", ""), csv.Replace(" ", ""));
+        }
+
+        //---- SheetHost contract (C2c Task 3): declared size, clamped to a small owner -------------------
+
+        [AvaloniaFact]
+        public async Task SheetWidth_Is780_AndSheetHeight_Is540() {
+            var fx = NewFixture(await GetCacheAsync());
+            var sheet = NewWindow(fx);
+
+            Assert.Equal(780, sheet.SheetWidth);
+            Assert.Equal(540, sheet.SheetHeight);
+        }
+
+        //R2 (global-constraints): the host clamps a sheet larger than its owner down to the owner's client
+        //size minus its own margins - a 780x540 sheet in a 400x300 owner has to shrink to fit.
+        [AvaloniaFact]
+        public async Task PresentedInASmallOwner_PanelClampsToTheOwner() {
+            var fx = NewFixture(await GetCacheAsync());
+            var sheet = NewWindow(fx);
+            var owner = new Window { Width = 400, Height = 300 };
+            owner.Show();
+            SheetHost host = SheetHost.For(owner);
+
+            _ = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+
+            Border panel = host.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("foreman-sheet-panel"));
+            Assert.True(panel.Bounds.Width <= 376.5, $"expected width <= 376.5, was {panel.Bounds.Width}");
+            Assert.True(panel.Bounds.Height <= 276.5, $"expected height <= 276.5, was {panel.Bounds.Height}");
         }
     }
 

@@ -184,10 +184,10 @@ namespace Foreman.Mac.Views.Sheets {
         }
 
         private Task ShowWarningAsync(string title, string message) =>
-            WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync((Window)VisualRoot!, title, message);
+            WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync((Window)TopLevel.GetTopLevel(this)!, title, message);
 
         private Task<bool> ShowConfirmAsync(string title, string message) =>
-            ConfirmDialogStub?.Invoke(title, message) ?? Dialogs.ShowConfirmAsync((Window)VisualRoot!, title, message);
+            ConfirmDialogStub?.Invoke(title, message) ?? Dialogs.ShowConfirmAsync((Window)TopLevel.GetTopLevel(this)!, title, message);
 
         //-------------------------------------------------------------------------------------------------Test-only seams
 

@@ -1,13 +1,7 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="Foreman.Mac.Views.TextPropertiesWindow"
-        Title="Text Properties"
-        Width="360"
-        SizeToContent="Height"
-        CanResize="False"
-        WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource SystemChromeMediumColor}">
-  <StackPanel Margin="16" Spacing="10">
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Foreman.Mac.Views.Sheets.TextPropertiesSheet">
+  <StackPanel Spacing="10">
     <TextBox Name="TextInput" AcceptsReturn="True" Height="70" TextWrapping="Wrap" />
 
     <TextBlock Name="FontPreviewLabel" Text="AaBbYyZz" FontSize="18" HorizontalAlignment="Center" Margin="0,4" />
@@ -47,4 +41,4 @@
       <Button Name="OKButton" Content="OK" />
     </StackPanel>
   </StackPanel>
-</Window>
+</UserControl>
