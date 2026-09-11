@@ -40,7 +40,7 @@
        tinted on hover/press instead of drawing FluentTheme's default bordered chrome. -->
   <Style Selector="Button.foreman-toolbar-icon">
     <Setter Property="Width" Value="28" />
-    <Setter Property="Height" Value="26" />
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ToolbarItem}" />
     <Setter Property="Padding" Value="0" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
@@ -50,7 +50,7 @@
   </Style>
 
   <Style Selector="Button.foreman-toolbar-wide">
-    <Setter Property="Height" Value="26" />
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ToolbarItem}" />
     <Setter Property="Padding" Value="10,0" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />

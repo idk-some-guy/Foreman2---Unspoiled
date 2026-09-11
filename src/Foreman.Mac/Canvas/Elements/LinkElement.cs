@@ -1,4 +1,5 @@
 using Foreman.Graph;
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Models;
 using System;
 using System.Drawing;
@@ -29,7 +30,7 @@ namespace Foreman.Mac.Canvas.Elements {
             SupplierTab = supplierTab;
             ConsumerTab = consumerTab;
 
-            LinkWidth = 3f;
+            LinkWidth = TokenBridge.Scaled(3f);
             UpdateCurve();
         }
 

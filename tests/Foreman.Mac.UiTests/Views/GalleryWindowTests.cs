@@ -124,16 +124,14 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(Colors.Black, Assert.IsAssignableFrom<ISolidColorBrush>(chrome.Background).Color);
         }
 
-        //Task 6: WindowScaler was disclosed-unscaled for the gallery (task-6-brief) - Track wraps
-        //window.Content in a LayoutTransformControl, the same seam every other window (MainWindow,
-        //SettingsWindow, GraphSummaryWindow, PresetComparatorWindow) already goes through.
+        //Task 6: the gallery goes through WindowScaler.Track like every other window.
         [AvaloniaFact]
         public void Construction_TracksWindowScaler() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
             window.Show();
 
-            Assert.IsType<LayoutTransformControl>(window.Content);
+            Assert.False(window.Content is LayoutTransformControl);
         }
 
         private static Button FindByName(Window window, string name) =>

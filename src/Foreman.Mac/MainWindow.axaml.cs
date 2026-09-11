@@ -174,13 +174,10 @@ namespace Foreman.Mac {
             GraphCanvas.ViewScaleChanged += (_, _) => ResyncZoomLabel();
             NativeMenu.SetMenu(this, BuildNativeMenu());
             Opened += (_, _) => MostRecentlyOpened = this;
-            //Before WindowScaler.Track below - Content is still the root Grid at this point, so SheetHost
-            //overlays it directly (spanning child) instead of wrapping WindowScaler's own LayoutTransformControl.
-            //TitleBarRow as the anchor keeps sheets flush under the toolbar instead of covering it.
+            //SheetHost overlays Content directly (spanning child); TitleBarRow as the anchor keeps sheets
+            //flush under the toolbar instead of covering it.
             Views.Sheets.SheetHost.For(this, this.FindControl<Grid>("TitleBarRow"));
-            WindowScaler.Track(this);
-            //View Options card renders in ViewOptionsPopover's own popup root, outside the Track above.
-            WindowScaler.TrackPopupContent(this, this.FindControl<LayoutTransformControl>("ViewOptionsCardScaler")!);
+            WindowScaler.Track(this, (1150, 720));
 
             AppearanceHub.Current?.Subscribe(this);
             Closed += (_, _) => {

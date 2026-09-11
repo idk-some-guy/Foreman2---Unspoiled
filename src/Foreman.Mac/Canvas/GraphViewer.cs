@@ -32,8 +32,8 @@ namespace Foreman.Mac.Canvas {
     //hover-tooltip overlay (already built in Task 6); this class owns everything upstream's viewer keeps in
     //graph/session/element-collection state.
     public sealed partial class GraphViewer : IDisposable {
-        private const float MinLinkWidth = 3f;
-        private const float MaxLinkWidth = 35f;
+        private static float MinLinkWidth => KitSkia.TokenBridge.Scaled(3f);
+        private static float MaxLinkWidth => KitSkia.TokenBridge.Scaled(35f);
         //stands in for upstream's Control.DeviceDpi (reference: AnnotationLoader's header comment); internal
         //so GraphViewerSaveAssembler (same assembly, Canvas/ folder) can read it back out on save.
         internal const int AnnotationDeviceDpi = 96;
@@ -114,6 +114,14 @@ namespace Foreman.Mac.Canvas {
             Session.NodeValuesUpdated += (_, _) => UpdateNodeVisuals();
             Session.GraphCleared += OnGraphCleared;
             Session.Attach();
+
+            KitSkia.TokenBridge.Changed += OnTokenBridgeChanged;
+        }
+
+        //Flag every live node dirty so the next PrePaint re-derives Width/Height before Draw/ContainsPoint.
+        private void OnTokenBridgeChanged(object? sender, EventArgs e) {
+            foreach (BaseNodeElement node in NodeElementDictionary.Values)
+                node.RequestStateUpdate();
         }
 
         private float GetLinkWidth(LinkId id) =>
@@ -505,6 +513,7 @@ namespace Foreman.Mac.Canvas {
             if (IsDisposed)
                 return;
             IsDisposed = true;
+            KitSkia.TokenBridge.Changed -= OnTokenBridgeChanged;
             _selectionZonePaint.Dispose();
             Grid.Dispose();
         }

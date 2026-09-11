@@ -6,6 +6,7 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
@@ -34,7 +35,10 @@ namespace Foreman.Mac {
 
             if (rescaledHandler is not null)
                 WindowScaler.Rescaled -= rescaledHandler;
-            rescaledHandler = (_, _) => Hub.Refresh();
+            rescaledHandler = (_, _) => {
+                Hub.Refresh();
+                TokenBridge.Refresh();
+            };
             WindowScaler.Rescaled += rescaledHandler;
         }
 

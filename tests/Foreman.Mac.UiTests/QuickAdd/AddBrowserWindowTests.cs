@@ -457,11 +457,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Null(ToolTip.GetTip(intermediateProducts));
         }
 
-        //Gate fix 9: the widest bundled group name ("Intermediate products", Space Age) must render
-        //untrimmed at every supported UI scale - WindowScaler.SetScale only drives a LayoutTransform over
-        //already-arranged content, so it never changes a control's own logical DesiredSize, and the sidebar
-        //width this measures against must not either. Scale reset in finally so a failure here can't leak
-        //into another test sharing the process-wide WindowScaler.
+        //Gate fix 9: the widest bundled group name must render untrimmed at every UI scale.
         [AvaloniaFact]
         public void SidebarWidthFitsIntermediateProductsUntrimmed_AtEveryUiScale() {
             WindowScaler.SetScale(1.0);

@@ -2,6 +2,7 @@ using Foreman;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Models;
 using Foreman.Serialization;
 using SkiaSharp;
@@ -52,18 +53,19 @@ namespace Foreman.Mac.Canvas.Elements {
         protected static readonly SKColor TextColor = SKColors.Black;
         protected static readonly SKTypeface RegularTypeface = SKTypeface.Default;
         protected static readonly SKTypeface BoldTypeface = SKTypeface.FromFamilyName(null, SKFontStyle.Bold);
-        protected const float BaseFontSize = 10f;
-        protected const float CounterBaseFontSize = 14f;
-        protected const float TitleFontSize = 9.2f;
+        //Scaled read-time (not baked into Width/Height), so every Draw call picks up the current UiScale.
+        internal static float BaseFontSize => TokenBridge.Scaled(10f);
+        internal static float CounterBaseFontSize => TokenBridge.Scaled(14f);
+        internal static float TitleFontSize => TokenBridge.Scaled(9.2f);
+        internal static int TabPadding => TokenBridge.ScaledInt(7);
+        internal static int BorderSpacing => TokenBridge.ScaledInt(1);
 
         //most values are attempted to fit the grid (6 * 2^n) - ex: 72 = 6 * (4+8)
-        protected const int BaseSimpleHeight = 96;
-        protected const int BaseRecipeHeight = 144;
-        protected const int TabPadding = 7;
-        protected const int WidthD = 24;
-        protected const int PassthroughNodeWidth = WidthD * 3;
-        protected const int MinWidth = WidthD * 6;
-        protected const int BorderSpacing = 1;
+        protected static int BaseSimpleHeight => TokenBridge.ScaledInt(96);
+        protected static int BaseRecipeHeight => TokenBridge.ScaledInt(144);
+        protected static int WidthD => TokenBridge.ScaledInt(24);
+        protected static int PassthroughNodeWidth => WidthD * 3;
+        protected static int MinWidth => WidthD * 6;
 
         protected List<ItemTabElement> InputTabs { get; set; }
         protected List<ItemTabElement> OutputTabs { get; set; }
@@ -108,6 +110,7 @@ namespace Foreman.Mac.Canvas.Elements {
 
         protected virtual void UpdateState() {
             UpdateStateCallCount++;
+            ErrorNotice.UpdateSize();
             ErrorNotice.SetVisibility(ViewModel.State == NodeState.Error || ViewModel.State == NodeState.Warning);
             ErrorNotice.X = -Width / 2;
             ErrorNotice.Y = -Height / 2;
@@ -216,16 +219,19 @@ namespace Foreman.Mac.Canvas.Elements {
 
             GraphicsStuff.FillRoundRect(canvas, trans.X - (Width / 2) + BorderSpacing, trans.Y - (Height / 2) + BorderSpacing, Width - (2 * BorderSpacing), Height - (2 * BorderSpacing), 10, borderPaint);
 
-            int yoffset = ViewModel.KeyNode && this is not ConsumerNodeElement ? 15 : 0;
-            int heightOffset = ViewModel.KeyNode ? (this is ConsumerNodeElement or SupplierNodeElement ? 15 : 30) : 0;
-            GraphicsStuff.FillRoundRect(canvas, trans.X - (Width / 2) + BorderSpacing + 3, trans.Y - (Height / 2) + BorderSpacing + 3 + yoffset, Width - (2 * BorderSpacing) - 6, Height - (2 * BorderSpacing) - 6 - heightOffset, 7, bgPaint);
+            //Corner radii (10/7/8 below) stay fixed at every scale step, as ScaleContract leaves Foreman.Radius.*.
+            int fillInset = TokenBridge.ScaledInt(3);
+            int fillInsetDouble = TokenBridge.ScaledInt(6);
+            int yoffset = ViewModel.KeyNode && this is not ConsumerNodeElement ? TokenBridge.ScaledInt(15) : 0;
+            int heightOffset = ViewModel.KeyNode ? (this is ConsumerNodeElement or SupplierNodeElement ? TokenBridge.ScaledInt(15) : TokenBridge.ScaledInt(30)) : 0;
+            GraphicsStuff.FillRoundRect(canvas, trans.X - (Width / 2) + BorderSpacing + fillInset, trans.Y - (Height / 2) + BorderSpacing + fillInset + yoffset, Width - (2 * BorderSpacing) - fillInsetDouble, Height - (2 * BorderSpacing) - fillInsetDouble - heightOffset, 7, bgPaint);
             if (ViewModel.RateType == RateType.Manual)
-                GraphicsStuff.FillRoundRect(canvas, trans.X - (Width / 2) + 3, trans.Y - (Height / 2) + 3, Width - 6, Height - 6, 7, ManualRateFilterPaint);
+                GraphicsStuff.FillRoundRect(canvas, trans.X - (Width / 2) + fillInset, trans.Y - (Height / 2) + fillInset, Width - fillInsetDouble, Height - fillInsetDouble, 7, ManualRateFilterPaint);
 
             if (Context.FlagOUSuppliedNodes && borderPaint != EqualFlowBorderPaint)
-                GraphicsStuff.FillRoundRectTLFlag(canvas, trans.X - (Width / 2) + 3, trans.Y - (Height / 2) + 3, (Width / 2) - 6, (Height / 2) - 6, 7, borderPaint);
+                GraphicsStuff.FillRoundRectTLFlag(canvas, trans.X - (Width / 2) + fillInset, trans.Y - (Height / 2) + fillInset, (Width / 2) - fillInsetDouble, (Height / 2) - fillInsetDouble, 7, borderPaint);
             if (ViewModel.State == NodeState.Warning)
-                GraphicsStuff.FillRoundRectTLFlag(canvas, trans.X - (Width / 2) + 3, trans.Y - (Height / 2) + 3, (Width / 2) - 6, (Height / 2) - 6, 7, ErrorBgPaint);
+                GraphicsStuff.FillRoundRectTLFlag(canvas, trans.X - (Width / 2) + fillInset, trans.Y - (Height / 2) + fillInset, (Width / 2) - fillInsetDouble, (Height / 2) - fillInsetDouble, 7, ErrorBgPaint);
 
             if (style == NodeDrawingStyle.Regular || style == NodeDrawingStyle.PrintStyle)
                 DetailsDraw(canvas, trans);

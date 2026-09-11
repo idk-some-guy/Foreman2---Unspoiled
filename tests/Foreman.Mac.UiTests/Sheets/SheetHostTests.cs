@@ -315,10 +315,8 @@ namespace Foreman.Mac.UiTests.Sheets {
             SheetHost host = SheetHost.For(fixture.Window);
             Assert.Same(host, SheetHost.For(fixture.Window));
 
-            //MainWindow calls SheetHost.For on itself before WindowScaler.Track wraps Content, so the host
-            //lands as a spanning child of the real root Grid rather than the wrap-in-a-Panel fallback.
-            var scaler = Assert.IsType<LayoutTransformControl>(fixture.Window.Content);
-            var grid = Assert.IsType<Grid>(scaler.Child);
+            //SheetHost.For runs while Content is still the real root Grid, so it lands as a spanning child.
+            var grid = Assert.IsType<Grid>(fixture.Window.Content);
             Assert.Contains(host, grid.Children);
 
             var sheet = new ProbeSheet();

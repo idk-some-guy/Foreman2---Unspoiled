@@ -1,3 +1,4 @@
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Models;
 using SkiaSharp;
 using System;
@@ -47,7 +48,7 @@ namespace Foreman.Mac.Canvas.Elements {
         //chains onto its master (reference §3's UpdateSlaveLinks) so Dispose/SubElements cascade together.
         protected BaseLinkElement(NodeElementContext context, GraphElement? parent = null) : base(parent) {
             Context = context;
-            LinkWidth = 3f;
+            LinkWidth = TokenBridge.Scaled(3f);
         }
 
         public override void UpdateVisibility(Rectangle graphZone, int xborder = 0, int yborder = 0) {

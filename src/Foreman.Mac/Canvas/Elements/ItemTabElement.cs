@@ -2,6 +2,7 @@ using Foreman;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Models;
 using SkiaSharp;
 using System.Collections.Generic;
@@ -22,21 +23,31 @@ namespace Foreman.Mac.Canvas.Elements {
 
         public bool HideItemTab { get; set; }
 
-        private const int IconSize = 32;
-        private const int Border = 3;
+        //Scaled read-time, like BaseNodeElement's own font/padding constants.
+        internal static int IconSize => TokenBridge.ScaledInt(32);
+        internal static int Border => TokenBridge.ScaledInt(3);
 
         //Matches upstream's DrawString anchor point, which reduces algebraically to Bounds.Top + 2 (output)
         //or Bounds.Bottom - 2 (input) regardless of text height - see the Draw() comment below.
-        private const int TextEdgeInset = 2;
+        private static int TextEdgeInset => TokenBridge.ScaledInt(2);
 
         private static readonly SKTypeface TextTypeface = SKTypeface.Default;
-        private const float TextFontSize = 6f;
+        private static float TextFontSize => TokenBridge.Scaled(6f);
 
         private static readonly SKPaint DirectionPaint = new() { Color = new SKColor(0, 0, 0, 40), Style = SKPaintStyle.Fill, IsAntialias = true };
         private static readonly SKPaint RegularBorderPaint = StrokePaint(new SKColor(105, 105, 105));
         private static readonly SKPaint OverproducedBorderPaint = StrokePaint(new SKColor(184, 134, 11));
         private static readonly SKPaint DisconnectedBorderPaint = StrokePaint(new SKColor(139, 0, 0));
         private static readonly SKPaint FillPaint = new() { Color = SKColors.White, Style = SKPaintStyle.Fill, IsAntialias = true };
+
+        //The three paints above bake Border's StrokeWidth once at type-init; keep it live too.
+        static ItemTabElement() {
+            TokenBridge.Changed += (_, _) => {
+                RegularBorderPaint.StrokeWidth = Border;
+                OverproducedBorderPaint.StrokeWidth = Border;
+                DisconnectedBorderPaint.StrokeWidth = Border;
+            };
+        }
 
         private static SKPaint StrokePaint(SKColor color) => new() { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = Border, IsAntialias = true };
 
@@ -77,6 +88,7 @@ namespace Foreman.Mac.Canvas.Elements {
             } else if (!Links.Any())
                 borderPaint = DisconnectedBorderPaint;
 
+            Width = TabWidth;
             Height = IconSize + textHeight + Border + 3;
         }
 

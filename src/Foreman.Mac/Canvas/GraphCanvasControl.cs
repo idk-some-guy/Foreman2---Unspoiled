@@ -117,7 +117,10 @@ namespace Foreman.Mac.Canvas {
             Viewer.ShowAnnotationPropertiesDialog = ShowAnnotationProperties;
             ClipToBounds = true;
             Focusable = true;
+            KitSkia.TokenBridge.Changed += OnCanvasTokensChanged;
         }
+
+        private void OnCanvasTokensChanged(object? sender, EventArgs e) => InvalidateVisual();
 
         //Ports StartLinkDrag/DisposeLinkDrag (reference §3): disposes any prior in-flight drag, constructs
         //the new ghost, and redirects MouseDownElement to it - every further mouse event routes through the
@@ -380,6 +383,7 @@ namespace Foreman.Mac.Canvas {
         //MainWindow's own close for as long as it's open, so the export path is never mid-paint when this runs.
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
+            KitSkia.TokenBridge.Changed -= OnCanvasTokensChanged;
             FloatingPanelHost.CancelPendingCloseTransition();
             Viewer.Dispose();
             foreach (Bitmap bitmap in addIconCache.Values)

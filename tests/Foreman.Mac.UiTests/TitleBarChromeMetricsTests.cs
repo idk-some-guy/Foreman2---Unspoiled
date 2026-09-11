@@ -55,9 +55,7 @@ namespace Foreman.Mac.UiTests {
             }
         }
 
-        //Diagnosis test-strategy item 3: after WindowScaler.Track re-parents Content into a
-        //LayoutTransformControl, mutating the proxy afterward must still reach the leading group's Margin -
-        //locks in the behaviour the probe measured so a future scaler change can't silently sever the binding.
+        //Diagnosis test-strategy item 3: mutating the proxy after Show() must still reach the leading group's Margin.
         [AvaloniaFact]
         public void DecorationMarginProxy_MutatedAfterShow_StillReachesLeadingGroup() {
             var window = new SimulatedChromeWindow();

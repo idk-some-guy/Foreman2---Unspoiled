@@ -1,5 +1,6 @@
 using Foreman;
 using Foreman.Graph;
+using Foreman.Mac.Canvas.KitSkia;
 using SkiaSharp;
 using System.Collections.Generic;
 using System.Drawing;
@@ -18,12 +19,21 @@ namespace Foreman.Mac.Canvas.Elements {
             Height = BaseSimpleHeight;
         }
 
+        //No tab-driven width here (unlike RecipeNodeElement), just the fixed-size re-derive a scale change needs.
+        protected override void UpdateState() {
+            Width = MinWidth;
+            Height = BaseSimpleHeight;
+            base.UpdateState();
+        }
+
         protected override SKBitmap? NodeIcon() => SupplierViewModel.SuppliedItem.Icon;
 
         protected override void DetailsDraw(SKCanvas canvas, Point trans) {
-            int yoffset = SupplierViewModel.NodeDirection == NodeDirection.Up ? 32 : 5;
-            var titleSlot = new Rectangle(trans.X - (Width / 2) + 5, trans.Y - (Height / 2) + yoffset, Width - 10, 20);
-            var textSlot = new Rectangle(titleSlot.X, titleSlot.Y + 20, titleSlot.Width, (Height / 2) - 5);
+            int edgeInset = TokenBridge.ScaledInt(5);
+            int titleHeight = TokenBridge.ScaledInt(20);
+            int yoffset = SupplierViewModel.NodeDirection == NodeDirection.Up ? TokenBridge.ScaledInt(32) : edgeInset;
+            var titleSlot = new Rectangle(trans.X - (Width / 2) + edgeInset, trans.Y - (Height / 2) + yoffset, Width - (edgeInset * 2), titleHeight);
+            var textSlot = new Rectangle(titleSlot.X, titleSlot.Y + titleHeight, titleSlot.Width, (Height / 2) - edgeInset);
 
             GraphicsStuff.DrawText(canvas, TextColor, BoldTypeface, TitleFontSize, titleSlot, SupplierViewModel.RateType == RateType.Auto ? "Infinite Source:" : "Exact Input:", TextHorizontalAlign.Center, TextVerticalAlign.Near);
             GraphicsStuff.DrawText(canvas, TextColor, RegularTypeface, BaseFontSize, textSlot, ItemName, TextHorizontalAlign.Center, TextVerticalAlign.Near);

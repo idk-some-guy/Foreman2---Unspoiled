@@ -1,5 +1,6 @@
 using Foreman.DataCaching;
 using Foreman.Graph;
+using Foreman.Mac.Canvas.KitSkia;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -31,6 +32,9 @@ namespace Foreman.Mac.Canvas.Elements {
                 OutputTabs.Add(new ItemTabElement(SpoilViewModel.OutputItem, LinkType.Output, Context, this));
             }
 
+            Width = MinWidth;
+            Height = BaseSimpleHeight;
+
             base.UpdateState();
         }
 
@@ -38,15 +42,18 @@ namespace Foreman.Mac.Canvas.Elements {
 
         protected override void DetailsDraw(SKCanvas canvas, Point trans) {
             bool overproducing = SpoilViewModel.IsOverproducing();
-            var textSlot = new Rectangle(trans.X - (Width / 2) + 40, trans.Y - (Height / 2) + (overproducing ? 32 : 27), Width - 10 - 40, Height - (overproducing ? 64 : 54));
+            int textLeftInset = TokenBridge.ScaledInt(40);
+            int textRightInset = TokenBridge.ScaledInt(10);
+            var textSlot = new Rectangle(trans.X - (Width / 2) + textLeftInset, trans.Y - (Height / 2) + TokenBridge.ScaledInt(overproducing ? 32 : 27), Width - textRightInset - textLeftInset, Height - TokenBridge.ScaledInt(overproducing ? 64 : 54));
 
             int textLength = Context.LevelOfDetail == LevelOfDetail.Low
                 ? GraphicsStuff.DrawText(canvas, TextColor, RegularTypeface, BaseFontSize, textSlot, InputName + " Spoilage", TextHorizontalAlign.Center, TextVerticalAlign.Center)
                 : GraphicsStuff.DrawText(canvas, TextColor, RegularTypeface, CounterBaseFontSize, textSlot, GraphicsStuff.BuildingQuantityToText(SpoilViewModel.ActualSetValue, Context.RoundAssemblerCount) + " stacks", TextHorizontalAlign.Center, TextVerticalAlign.Center);
 
+            int iconSize = TokenBridge.ScaledInt(32);
             SKBitmap icon = IconCache.SpoilageIcon ?? IconCache.UnknownIcon;
-            int iconX = trans.X - Math.Min((Width / 2) - 10, (textLength / 2) + 32);
-            canvas.DrawBitmap(icon, SKRect.Create(iconX, trans.Y - 16, 32, 32));
+            int iconX = trans.X - Math.Min((Width / 2) - textRightInset, (textLength / 2) + iconSize);
+            canvas.DrawBitmap(icon, SKRect.Create(iconX, trans.Y - TokenBridge.ScaledInt(16), iconSize, iconSize));
         }
 
         protected override List<TooltipInfo> GetMyToolTips(Point graphPoint, bool exclusive) =>

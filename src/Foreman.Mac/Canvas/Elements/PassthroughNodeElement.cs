@@ -1,6 +1,7 @@
 using Foreman;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
+using Foreman.Mac.Canvas.KitSkia;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -23,6 +24,13 @@ namespace Foreman.Mac.Canvas.Elements {
         public PassthroughNodeElement(NodeElementContext context, IPassthroughNodeViewModel viewModel) : base(context, viewModel) {
             Width = PassthroughNodeWidth;
             Height = BaseSimpleHeight;
+        }
+
+        //No tab-driven width here (unlike RecipeNodeElement), just the fixed-size re-derive a scale change needs.
+        protected override void UpdateState() {
+            Width = PassthroughNodeWidth;
+            Height = BaseSimpleHeight;
+            base.UpdateState();
         }
 
         protected override SKBitmap? NodeIcon() => null;
@@ -63,9 +71,11 @@ namespace Foreman.Mac.Canvas.Elements {
             SKPaint capFillPaint = GraphicsStuff.RentFillPaint(lineColor);
             float capY1 = Math.Min(outputPoint.Y, inputPoint.Y) + (ItemTabElement.TabWidth / 2f);
             float capY2 = Math.Max(outputPoint.Y, inputPoint.Y) - (ItemTabElement.TabWidth / 2f);
-            canvas.DrawCircle(inputPoint.X, capY1, 6, capFillPaint);
-            canvas.DrawCircle(inputPoint.X, capY2, 6, capFillPaint);
+            int capRadius = TokenBridge.ScaledInt(6);
+            canvas.DrawCircle(inputPoint.X, capY1, capRadius, capFillPaint);
+            canvas.DrawCircle(inputPoint.X, capY2, capRadius, capFillPaint);
 
+            //maxLineWidth follows Context.GetLinkWidth, not UiScale, so its highlight padding stays unscaled.
             if (Highlighted) {
                 SKPaint highlightStrokePaint = GraphicsStuff.RentStrokePaint(SelectionOverlayColor, Math.Max(30, maxLineWidth + 10), SKStrokeCap.Round);
                 canvas.DrawLine(inputPoint.X, inputPoint.Y, outputPoint.X, outputPoint.Y, highlightStrokePaint);
@@ -78,9 +88,12 @@ namespace Foreman.Mac.Canvas.Elements {
             if (PassthroughViewModel.RateType != RateType.Manual)
                 return;
 
-            int yoffset = PassthroughViewModel.NodeDirection == NodeDirection.Up ? 28 : 32;
-            var titleSlot = new Rectangle(trans.X - (Width / 2) + 5, trans.Y - (Height / 2) + yoffset, Width - 10, 18);
-            var textSlot = new Rectangle(titleSlot.X, titleSlot.Y + 18, titleSlot.Width, 20);
+            int edgeInset = TokenBridge.ScaledInt(5);
+            int titleHeight = TokenBridge.ScaledInt(18);
+            int textHeight = TokenBridge.ScaledInt(20);
+            int yoffset = PassthroughViewModel.NodeDirection == NodeDirection.Up ? TokenBridge.ScaledInt(28) : TokenBridge.ScaledInt(32);
+            var titleSlot = new Rectangle(trans.X - (Width / 2) + edgeInset, trans.Y - (Height / 2) + yoffset, Width - (edgeInset * 2), titleHeight);
+            var textSlot = new Rectangle(titleSlot.X, titleSlot.Y + titleHeight, titleSlot.Width, textHeight);
 
             GraphicsStuff.DrawText(canvas, TextColor, BoldTypeface, TitleFontSize, titleSlot, "-Limit-", TextHorizontalAlign.Center, TextVerticalAlign.Near);
             GraphicsStuff.DrawText(canvas, TextColor, RegularTypeface, BaseFontSize, textSlot, GraphicsStuff.DoubleToString(PassthroughViewModel.DesiredRate), TextHorizontalAlign.Center, TextVerticalAlign.Near);

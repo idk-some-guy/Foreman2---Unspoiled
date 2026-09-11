@@ -3,6 +3,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Serialization;
 using SkiaSharp;
 using System;
@@ -22,7 +23,16 @@ namespace Foreman.Mac.Canvas.Elements {
         private static readonly SKPaint ProductivityPlusPaint = StrokePaint(new SKColor(139, 0, 0), 2);
         private static readonly SKPaint ExtraProductivityPaint = StrokePaint(new SKColor(220, 20, 60), 6);
 
-        private static SKPaint StrokePaint(SKColor color, float width) => new() { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = width, IsAntialias = true };
+        //The three paints above bake their StrokeWidth in at type-init; keep it live.
+        static RecipeNodeElement() {
+            TokenBridge.Changed += (_, _) => {
+                ProductivityPaint.StrokeWidth = TokenBridge.Scaled(6f);
+                ProductivityPlusPaint.StrokeWidth = TokenBridge.Scaled(2f);
+                ExtraProductivityPaint.StrokeWidth = TokenBridge.Scaled(6f);
+            };
+        }
+
+        private static SKPaint StrokePaint(SKColor color, float width) => new() { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = TokenBridge.Scaled(width), IsAntialias = true };
 
         //Exposed (rather than upstream's private fields) purely so tests can inspect the module density-tier
         //boundary (ModuleDisplayTier) directly instead of only through pixels; nothing outside
@@ -72,17 +82,20 @@ namespace Foreman.Mac.Canvas.Elements {
                 if (!OutputTabs.Any(tab => tab.Item == item))
                     OutputTabs.Add(new ItemTabElement(item, LinkType.Output, Context, this));
 
-            int yOffset = (RecipeViewModel.NodeDirection == NodeDirection.Up && InputTabs.Count == 0 && OutputTabs.Count != 0) || (RecipeViewModel.NodeDirection == NodeDirection.Down && OutputTabs.Count == 0 && InputTabs.Count != 0) ? 10 :
-                          (RecipeViewModel.NodeDirection == NodeDirection.Down && InputTabs.Count == 0 && OutputTabs.Count != 0) || (RecipeViewModel.NodeDirection == NodeDirection.Up && OutputTabs.Count == 0 && InputTabs.Count != 0) ? -10 : 0;
-            yOffset += RecipeViewModel.NodeDirection == NodeDirection.Up ? 4 : 0;
+            int yOffsetStep = TokenBridge.ScaledInt(10);
+            int yOffset = (RecipeViewModel.NodeDirection == NodeDirection.Up && InputTabs.Count == 0 && OutputTabs.Count != 0) || (RecipeViewModel.NodeDirection == NodeDirection.Down && OutputTabs.Count == 0 && InputTabs.Count != 0) ? yOffsetStep :
+                          (RecipeViewModel.NodeDirection == NodeDirection.Down && InputTabs.Count == 0 && OutputTabs.Count != 0) || (RecipeViewModel.NodeDirection == NodeDirection.Up && OutputTabs.Count == 0 && InputTabs.Count != 0) ? -yOffsetStep : 0;
+            yOffset += RecipeViewModel.NodeDirection == NodeDirection.Up ? TokenBridge.ScaledInt(4) : 0;
 
-            AssemblerElement.Location = new Point(-26, -14 + yOffset);
-            BeaconElement.Location = new Point(-30, 27 + yOffset);
+            AssemblerElement.UpdateSize();
+            BeaconElement.UpdateSize();
+            AssemblerElement.Location = new Point(-TokenBridge.ScaledInt(26), -TokenBridge.ScaledInt(14) + yOffset);
+            BeaconElement.Location = new Point(-TokenBridge.ScaledInt(30), TokenBridge.ScaledInt(27) + yOffset);
 
             AssemblerElement.SetVisibility(Context.LevelOfDetail != LevelOfDetail.Low);
             BeaconElement.SetVisibility(Context.LevelOfDetail != LevelOfDetail.Low);
 
-            Width = Math.Max(MinWidth, Math.Max(GetIconWidths(InputTabs), GetIconWidths(OutputTabs)) + 10);
+            Width = Math.Max(MinWidth, Math.Max(GetIconWidths(InputTabs), GetIconWidths(OutputTabs)) + TokenBridge.ScaledInt(10));
             if (Width % WidthD != 0) {
                 Width += WidthD;
                 Width -= Width % WidthD;
@@ -95,13 +108,18 @@ namespace Foreman.Mac.Canvas.Elements {
         protected override SKBitmap? NodeIcon() => RecipeViewModel.BaseRecipe.Icon;
 
         protected override void DetailsDraw(SKCanvas canvas, Point trans) {
+            int ovalSize = TokenBridge.ScaledInt(6);
+            int ovalX = TokenBridge.ScaledInt(1);
             if (Context.LevelOfDetail == LevelOfDetail.Low) {
                 bool overproducing = RecipeViewModel.IsOverproducing();
-                var textSlot = new Rectangle(trans.X - (Width / 2) + 40, trans.Y - (Height / 2) + (overproducing ? 32 : 27), Width - 10 - 40, Height - (overproducing ? 64 : 54));
+                int textLeftInset = TokenBridge.ScaledInt(40);
+                int textRightInset = TokenBridge.ScaledInt(10);
+                var textSlot = new Rectangle(trans.X - (Width / 2) + textLeftInset, trans.Y - (Height / 2) + TokenBridge.ScaledInt(overproducing ? 32 : 27), Width - textRightInset - textLeftInset, Height - TokenBridge.ScaledInt(overproducing ? 64 : 54));
                 int textLength = GraphicsStuff.DrawText(canvas, TextColor, RegularTypeface, BaseFontSize, textSlot, RecipeName, TextHorizontalAlign.Center, TextVerticalAlign.Center);
 
+                int iconSize = TokenBridge.ScaledInt(32);
                 SKBitmap assemblerIcon = RecipeViewModel.SelectedAssembler ? (RecipeViewModel.SelectedAssembler.Icon ?? IconCache.UnknownIcon) : IconCache.UnknownIcon;
-                canvas.DrawBitmap(assemblerIcon, SKRect.Create(trans.X - Math.Min((Width / 2) - 10, (textLength / 2) + 32), trans.Y - 16, 32, 32));
+                canvas.DrawBitmap(assemblerIcon, SKRect.Create(trans.X - Math.Min((Width / 2) - textRightInset, (textLength / 2) + iconSize), trans.Y - TokenBridge.ScaledInt(16), iconSize, iconSize));
 
                 int pModules = RecipeViewModel.AssemblerModules.Count(m => m.Module.GetProductivityBonus() > 0);
                 pModules += (int)(RecipeViewModel.BeaconModules.Count(m => m.Module.GetProductivityBonus() > 0) * RecipeViewModel.BeaconCount);
@@ -109,14 +127,21 @@ namespace Foreman.Mac.Canvas.Elements {
                 bool extraProductivity = RecipeViewModel.ExtraProductivity > 0 && (RecipeViewModel.SelectedAssembler.Assembler.EntityType == EntityType.Miner || Context.EnableExtraProductivityForNonMiners);
                 pModules += extraProductivity ? 1 : 0;
 
+                int ovalYStart = TokenBridge.ScaledInt(10);
+                int ovalPitch = TokenBridge.ScaledInt(12);
                 for (int i = 0; i < pModules && i < 6; i++)
-                    canvas.DrawOval(SKRect.Create(trans.X - (Width / 2) - 1, trans.Y - (Height / 2) + 10 + i * 12, 6, 6), (extraProductivity && i == 0) ? ExtraProductivityPaint : ProductivityPaint);
+                    canvas.DrawOval(SKRect.Create(trans.X - (Width / 2) - ovalX, trans.Y - (Height / 2) + ovalYStart + (i * ovalPitch), ovalSize, ovalSize), (extraProductivity && i == 0) ? ExtraProductivityPaint : ProductivityPaint);
                 if (pModules > 6) {
-                    canvas.DrawLine(trans.X - (Width / 2) - 4, trans.Y - (Height / 2) + 84, trans.X - (Width / 2) + 8, trans.Y - (Height / 2) + 84, ProductivityPlusPaint);
-                    canvas.DrawLine(trans.X - (Width / 2) + 2, trans.Y - (Height / 2) + 84 - 6, trans.X - (Width / 2) + 2, trans.Y - (Height / 2) + 84 + 6, ProductivityPlusPaint);
+                    int plusY = TokenBridge.ScaledInt(84);
+                    int plusHalfWidth = TokenBridge.ScaledInt(4);
+                    int plusRight = TokenBridge.ScaledInt(8);
+                    int plusMidX = TokenBridge.ScaledInt(2);
+                    int plusHalfHeight = TokenBridge.ScaledInt(6);
+                    canvas.DrawLine(trans.X - (Width / 2) - plusHalfWidth, trans.Y - (Height / 2) + plusY, trans.X - (Width / 2) + plusRight, trans.Y - (Height / 2) + plusY, ProductivityPlusPaint);
+                    canvas.DrawLine(trans.X - (Width / 2) + plusMidX, trans.Y - (Height / 2) + plusY - plusHalfHeight, trans.X - (Width / 2) + plusMidX, trans.Y - (Height / 2) + plusY + plusHalfHeight, ProductivityPlusPaint);
                 }
             } else if (RecipeViewModel.ExtraProductivity > 0 && (RecipeViewModel.SelectedAssembler.Assembler.EntityType == EntityType.Miner || Context.EnableExtraProductivityForNonMiners)) {
-                canvas.DrawOval(SKRect.Create(trans.X - (Width / 2) - 1, trans.Y - (Height / 2) + 10, 6, 6), ExtraProductivityPaint);
+                canvas.DrawOval(SKRect.Create(trans.X - (Width / 2) - ovalX, trans.Y - (Height / 2) + TokenBridge.ScaledInt(10), ovalSize, ovalSize), ExtraProductivityPaint);
             }
         }
 

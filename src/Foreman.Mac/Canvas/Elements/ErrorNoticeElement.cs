@@ -2,6 +2,7 @@ using Foreman;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Canvas.KitSkia;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -13,7 +14,7 @@ namespace Foreman.Mac.Canvas.Elements {
     //Ports ProductionGraphView/Elements/ErrorNoticeElement.cs: draw/tooltip path plus left-click autoresolve
     //and the right-click resolution menu (reference §4e).
     public sealed class ErrorNoticeElement : GraphElement {
-        private const int ErrorIconSize = 24;
+        private static int ErrorIconSize => TokenBridge.ScaledInt(24);
         private static readonly SKBitmap ErrorIcon = IconCache.GetIcon(Path.Combine("Graphics", "ErrorIcon.png"), 64);
 
         private readonly NodeElementContext context;
@@ -22,6 +23,11 @@ namespace Foreman.Mac.Canvas.Elements {
         public ErrorNoticeElement(NodeElementContext context, BaseNodeElement parent) : base(parent) {
             this.context = context;
             nodeViewModel = parent.ViewModel;
+            UpdateSize();
+        }
+
+        //Called from BaseNodeElement.UpdateState so a scale change lands before the next ContainsPoint/Draw.
+        internal void UpdateSize() {
             Width = ErrorIconSize;
             Height = ErrorIconSize;
         }

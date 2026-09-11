@@ -1,57 +1,19 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
-using Avalonia.Media;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
-using Foreman.DataCaching;
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Services;
-using Foreman.Mac.Views;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Theming {
-    //Phase 9 Task 3: user-adjustable UI scale. WindowScaler wraps each top-level window's content in a
-    //LayoutTransformControl, mirroring ThemeService's one-call-site shape for FlagDarkMode. These tests
-    //measure real Avalonia layout (TranslatePoint through the live visual tree) rather than asserting on
-    //WindowScaler's own bookkeeping, since the whole point of the mechanism is what it does to on-screen
-    //bounds.
+    //Phase 9 Task 7: the scale contract - asserts against ScaleContract's token values and live bindings.
     public class UiScaleTests : IDisposable {
-        private const string VanillaPresetName = "Factorio 2.0 Vanilla";
-
-        private static readonly SemaphoreSlim CacheGate = new(1, 1);
-        private static DataCache? sharedCache;
-
-        private static async Task<DataCache> GetCacheAsync() {
-            if (sharedCache is not null)
-                return sharedCache;
-            await CacheGate.WaitAsync();
-            try {
-                if (sharedCache is null) {
-                    var cache = new DataCache(filterRecipes: true);
-                    await cache.LoadAllData(new Preset(VanillaPresetName, true, true), new Progress<KeyValuePair<int, string>>());
-                    sharedCache = cache;
-                }
-            } finally {
-                CacheGate.Release();
-            }
-            return sharedCache;
-        }
-
-        //WindowScaler carries static, process-wide state (mirrors ThemeService's Application.Current
-        //singleton, already reset explicitly per-test by DarkModeTests) - reset before every test here so
-        //a leftover scale from a previous test can't leak in. The constructor alone only protected the
-        //NEXT UiScaleTests instance; under real parallel collections, every other concurrently-running
-        //test's window shares this same static (WindowScaler.Track bakes whatever scale is current into
-        //any window built anywhere in the process), so a test that left the scale non-default after its
-        //last assert kept contaminating unrelated windows until the next UiScaleTests instance happened to
-        //run. Dispose closes that gap the same way TitleBarChromeMetricsTests' own try/finally already does
-        //for its one scale-mutating test.
         public UiScaleTests() => WindowScaler.SetScale(1.0);
 
         public void Dispose() {
@@ -59,92 +21,107 @@ namespace Foreman.Mac.UiTests.Theming {
             GC.SuppressFinalize(this);
         }
 
-        private static SettingsWindow.SettingsWindowOptions NewOptions(DataCache cache) =>
-            new(cache) { Presets = [new Preset(VanillaPresetName, true, true)] };
-
-        private static double TransformedWidth(Control control, Window window) {
-            Point topLeft = control.TranslatePoint(new Point(0, 0), window)!.Value;
-            Point topRight = control.TranslatePoint(new Point(control.Bounds.Width, 0), window)!.Value;
-            return topRight.X - topLeft.X;
+        private static double ResourceDouble(string key) {
+            Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? value);
+            return Assert.IsType<double>(value);
         }
 
-        //Acceptance criterion: a known control's on-screen bounds at scale 1.25 are exactly 1.25x its
-        //bounds at scale 1.0. QualityStepsInputControl (now on the General tab) carries an explicit XAML
-        //Width, so its LOCAL size never reflows with available space - only the ambient
-        //LayoutTransformControl changes.
         [AvaloniaFact]
-        public async Task SetScale_KnownControlBounds_AreExactlyOnePointTwoFiveTimesDefault() {
-            var window = new SettingsWindow(NewOptions(await GetCacheAsync()));
-            window.SimulateTabClick(2); //General tab - TransitioningContentControl only realizes the active tab's content
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-            double widthAtDefault = TransformedWidth(window.GeneralTabControl.QualityStepsInputControl, window);
-
-            WindowScaler.SetScale(1.25);
-            Dispatcher.UIThread.RunJobs();
-            double widthAtOneQuarterUp = TransformedWidth(window.GeneralTabControl.QualityStepsInputControl, window);
-
-            Assert.Equal(widthAtDefault * 1.25, widthAtOneQuarterUp, 2);
-        }
-
-        //A window opened while a non-default scale is already active must pick it up immediately, not
-        //just on the next Settings Confirm.
-        [AvaloniaFact]
-        public async Task Track_WindowOpenedAfterScaleChange_StartsAtCurrentScale() {
+        public void SetScale_AtOneFifty_MultipliesTheTypeRampAndControlHeights() {
             WindowScaler.SetScale(1.5);
 
-            var window = new SettingsWindow(NewOptions(await GetCacheAsync()));
+            Assert.Equal(19.5, ResourceDouble("Foreman.Type.Body.FontSize"));
+            Assert.Equal(33.0, ResourceDouble("Foreman.Size.ControlHeightRegular"));
+        }
+
+        [AvaloniaFact]
+        public void SetScale_AtOneFifty_LeavesBordersRadiiFocusRingAndScrimFixed() {
+            WindowScaler.SetScale(1.5);
+
+            Assert.Equal(3.0, ResourceDouble("Foreman.FocusRing.Width"));
+
+            Application.Current!.TryGetResource("Foreman.Radius.Control", Application.Current.ActualThemeVariant, out object? radius);
+            Assert.Equal(new CornerRadius(6), radius);
+
+            Application.Current!.TryGetResource("Foreman.Color.SheetScrim", Application.Current.ActualThemeVariant, out object? scrim);
+            Assert.Equal(Avalonia.Media.Color.Parse("#80000000"), scrim);
+        }
+
+        //A window opened after a scale change picks up the multiplied resources immediately, since they
+        //live on Application.Resources rather than a per-window wrapper - the whole point of the re-push.
+        [AvaloniaFact]
+        public void Window_OpenedAfterScaleChange_ShowsMultipliedValuesThroughLiveBinding() {
+            WindowScaler.SetScale(1.5);
+
+            var probe = new Border();
+            probe.Bind(Border.WidthProperty, new DynamicResourceExtension("Foreman.Size.ControlHeightRegular"));
+            var window = new Window { Content = probe };
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            var wrapper = Assert.IsType<LayoutTransformControl>(window.Content);
-            var transform = Assert.IsType<ScaleTransform>(wrapper.LayoutTransform);
-            Assert.Equal(1.5, transform.ScaleX);
-            Assert.Equal(1.5, transform.ScaleY);
+            Assert.Equal(33.0, probe.Width);
         }
 
-        //C-1 (final fix wave): a persisted UiScale used to only take effect once the user opened Settings
-        //and confirmed - ApplyLoadedSettings (boot, preset reload, every Confirm) now calls
-        //WindowScaler.SetScale itself, so a fresh launch picks up the saved scale immediately.
         [AvaloniaFact]
-        public void ApplyLoadedSettings_UiScaleFromSettings_ScalesWindowAtBoot() {
-            var window = new MainWindow { Settings = new AppSettings { UiScale = 1.5 } };
+        public void DynamicResourceConsumer_Border_ResizesLive_WhenScaleChanges() {
+            var probe = new Border();
+            probe.Bind(Border.WidthProperty, new DynamicResourceExtension("Foreman.Size.ControlHeightRegular"));
+            var window = new Window { Content = probe };
             window.Show();
             Dispatcher.UIThread.RunJobs();
+            Assert.Equal(22.0, probe.Width);
 
-            window.ApplyLoadedSettings();
+            WindowScaler.SetScale(1.5);
             Dispatcher.UIThread.RunJobs();
 
-            var wrapper = Assert.IsType<LayoutTransformControl>(window.Content);
-            var transform = Assert.IsType<ScaleTransform>(wrapper.LayoutTransform);
-            Assert.Equal(1.5, transform.ScaleX);
-            Assert.Equal(1.5, transform.ScaleY);
+            Assert.Equal(33.0, probe.Width);
         }
 
-        //I-3 (final fix wave): the View Options card renders inside its own popup root, outside the
-        //LayoutTransformControl WindowScaler.Track wraps Window.Content in - proven here empirically at
-        //200% (the review's own repro), not just asserted against the wrapper's own transform in isolation.
+        //A Popup's content sits outside Window.Content's visual tree; DynamicResource reaches it anyway.
         [AvaloniaFact]
-        public void SetScale_ViewOptionsPopoverContent_TracksToolbarScale() {
+        public void SetScale_ViewOptionsPopoverContent_FollowsWithoutAnyLayoutTransform() {
             var window = new MainWindow();
             window.Show();
             Dispatcher.UIThread.RunJobs();
             window.ViewModel.ToggleViewOptionsCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
 
-            var toolbarButton = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "NewGraphButton");
+            var label = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Gridlines (2n scaling)");
             var card = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "ViewOptionsCard");
-            double toolbarWidthAtDefault = TransformedWidth(toolbarButton, window);
-            double cardWidthAtDefault = TransformedWidth(card, window);
+            Assert.False(card.Parent is LayoutTransformControl);
+            Assert.Equal(13.0, label.FontSize);
+
+            WindowScaler.SetScale(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(19.5, label.FontSize);
+        }
+
+        [AvaloniaFact]
+        public void SetScale_AtOneFifty_InterpolatesMainWindowMinimumSizeBetweenContractEndpoints() {
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(900.0, window.MinWidth);
+            Assert.Equal(600.0, window.MinHeight);
+
+            WindowScaler.SetScale(1.5);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1025.0, window.MinWidth);
+            Assert.Equal(660.0, window.MinHeight);
 
             WindowScaler.SetScale(2.0);
             Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1150.0, window.MinWidth);
+            Assert.Equal(720.0, window.MinHeight);
+        }
 
-            double toolbarWidthAtDouble = TransformedWidth(toolbarButton, window);
-            double cardWidthAtDouble = TransformedWidth(card, window);
+        [AvaloniaFact]
+        public void SetScale_AtOneFifty_CanvasTokenBridgeNodePaddingFollows() {
+            WindowScaler.SetScale(1.5);
+            Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(toolbarWidthAtDefault * 2.0, toolbarWidthAtDouble, 2);
-            Assert.Equal(cardWidthAtDefault * 2.0, cardWidthAtDouble, 2);
+            Assert.Equal(12.0, TokenBridge.Current.NodePadding);
         }
 
         [AvaloniaFact]
@@ -156,15 +133,32 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(2.0, WindowScaler.CurrentScale);
         }
 
-        //--- Canvas/UI-scale independence -----------------------------------------------------------------
+        //A persisted UiScale takes effect at boot, not just after opening Settings once.
+        [AvaloniaFact]
+        public void ApplyLoadedSettings_UiScaleFromSettings_ScalesResourcesAtBoot() {
+            var window = new MainWindow { Settings = new AppSettings { UiScale = 1.5 } };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
 
-        //CRITICAL INDEPENDENCE RULE: GraphCanvasControl's Viewport (Canvas/Viewport.cs) never reads
-        //UiScale/WindowScaler - ViewScale (the graph's own zoom) is written only by ZoomAt (mouse wheel).
-        //A UiScale change can move GraphCanvasControl's local Bounds (the LayoutTransformControl measure
-        //pass gives it proportionally less/more local space) which re-centers ViewOffset through
-        //SetSize's UpdateGraphBounds call, but it must never touch ViewScale itself - that's the one field
-        //that would double-apply zoom on top of the user's own scroll-wheel zoom if something here wired
-        //it to UiScale by mistake.
+            window.ApplyLoadedSettings();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(33.0, ResourceDouble("Foreman.Size.ControlHeightRegular"));
+            Assert.False(window.Content is LayoutTransformControl);
+        }
+
+        [AvaloniaFact]
+        public void DefaultScale_ResourcesEqualBaseValues_AndContentIsNotWrapped() {
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(13.0, ResourceDouble("Foreman.Type.Body.FontSize"));
+            Assert.Equal(22.0, ResourceDouble("Foreman.Size.ControlHeightRegular"));
+            Assert.False(window.Content is LayoutTransformControl);
+        }
+
+        //ViewScale is the graph's own zoom (mouse wheel only) - UiScale must never touch it.
         [AvaloniaFact]
         public void SetScale_DoesNotAlterGraphCanvasViewportZoom() {
             var window = new MainWindow();
@@ -176,41 +170,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(viewScaleBefore, window.GraphCanvas.Viewport.ViewScale);
-        }
-
-        //FloatingPanelHost's own Canvas is a child inside GraphCanvasControl's visual tree (Canvas/Panels/
-        //FloatingPanelHost.cs), which in turn sits inside MainWindow's Content - so it inherits UiScale
-        //through the ordinary Avalonia ancestor-transform chain rather than needing its own wiring.
-        [AvaloniaFact]
-        public void SetScale_FloatingPanelContent_ScalesWithUiScale() {
-            var window = new MainWindow();
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-            var content = new Border { Width = 40, Height = 20, Focusable = true };
-            window.GraphCanvas.FloatingPanelHost.Show(content, new System.Drawing.Point(0, 0));
-            Dispatcher.UIThread.RunJobs();
-            double widthAtDefault = TransformedWidth(content, window);
-
-            WindowScaler.SetScale(1.5);
-            Dispatcher.UIThread.RunJobs();
-            double widthAtOneAndHalf = TransformedWidth(content, window);
-
-            Assert.Equal(widthAtDefault * 1.5, widthAtOneAndHalf, 2);
-        }
-
-        //Zero-change proof at the default scale: GraphCanvasControl's own Skia draw operation (DrawOperation
-        //in GraphCanvasControl.cs) renders through the exact same code path Avalonia already uses for every
-        //other control under a ScaleTransform=1.0 identity - a plain sibling render, not a special case.
-        [AvaloniaFact]
-        public void DefaultScale_LayoutTransformIsIdentity_NoVisibleChange() {
-            var window = new MainWindow();
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-
-            var wrapper = Assert.IsType<LayoutTransformControl>(window.Content);
-            var transform = Assert.IsType<ScaleTransform>(wrapper.LayoutTransform);
-            Assert.Equal(1.0, transform.ScaleX);
-            Assert.Equal(1.0, transform.ScaleY);
         }
     }
 }

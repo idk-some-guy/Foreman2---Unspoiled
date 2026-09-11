@@ -182,6 +182,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   and a `Motion.Transition` factory that the palette and browser entrance animations now build on;
   under Reduce Motion every transition it returns collapses to a same-duration opacity cross-fade.
   No visual or behavioral change with Reduce Motion off.
+- Interface scale no longer thickens borders, corner radii and the focus ring; text, controls,
+  icons and the canvas scale as before.
 
 ### Removed
 
