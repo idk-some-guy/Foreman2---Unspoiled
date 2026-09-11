@@ -129,6 +129,7 @@ namespace Foreman.Mac.UiTests.support {
         public void Dispose() => Window.Close();
 
         private static (GraphCanvasControl, AvaloniaWindow) NewControl(DataCache cache) {
+            ScaleGuard.AssertDefault();
             var control = new GraphCanvasControl();
             control.Viewport.SetSize(900, 700);
             control.Viewer.Context.DCache = cache;

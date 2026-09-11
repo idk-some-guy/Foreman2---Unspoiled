@@ -20,6 +20,7 @@ using Xunit;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.QuickAdd {
+    [Collection(ScaleTestGroup.Name)]
     public sealed class AddBrowserWindowTests {
         private static (AddBrowserWindow win, AddBrowserViewModel vm) Open(AppSettings? settings = null) {
             WindowScaler.SetScale(1.0);

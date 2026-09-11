@@ -18,6 +18,7 @@ namespace Foreman.Mac.UiTests {
     //one, arranging the toolbar group at zero height. Headless never catches this because
     //AvaloniaHeadlessPlatformOptions always reports a zero margin - this rig drives the same layout math
     //with simulated nonzero metrics instead (proven equivalent by the probe behind the diagnosis).
+    [Collection(ScaleTestGroup.Name)]
     public class TitleBarChromeMetricsTests {
         private const double Epsilon = 0.01;
 

@@ -11,6 +11,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Gallery;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
@@ -26,26 +27,31 @@ namespace Foreman.Mac.Views {
         private const double TileColumnWidth = 1520;
 
         private readonly DataCache cache;
+        private readonly GalleryRegistry registry;
         private readonly ContentControl themeShowcaseHost;
         private readonly TextBlock themeHeader;
 
+        public GalleryRegistry Registry => registry;
+
         public GalleryWindow(DataCache cache, AppSettings settings) {
             this.cache = cache;
+            registry = BuildRegistry(cache);
             Title = "Foreman Gallery";
             Width = 1600;
             Height = 1000;
             //Matches GraphViewer.Paint's canvas.Clear(SKColors.White), so ChromeWrap's black backdrop below
             //stands out the way it does over the actual canvas instead of disappearing into the window.
-            Background = Brushes.White;
+            Background = ThemeResources.ResolveBrush("Foreman.Color.GalleryCanvasBackdrop", Colors.White);
 
             var tiles = new WrapPanel { Orientation = Orientation.Horizontal, Width = TileColumnWidth };
-            tiles.Children.Add(Tile("QualityPicker", ChromeWrap(BuildQualityPicker(cache))));
+            foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Canvas"))
+                tiles.Children.Add(Tile(tile.Name, tile.Build()));
 
             //Task 6 (Plan C1 gate tool): the retokened toolbar/popover/row surfaces, live-toggleable between
             //Light and Dark so Jozef's gate pass can eyeball both variants of every one without leaving the
             //gallery. ThemeToggleButton flips the app's RequestedThemeVariant (there's only ever one window
             //open in gallery mode, so this is safe) and rebuilds the section against the freshly active theme.
-            themeShowcaseHost = new ContentControl { Name = "ThemeShowcaseHost", Content = BuildThemeShowcaseSection(cache) };
+            themeShowcaseHost = new ContentControl { Name = "ThemeShowcaseHost", Content = BuildThemeShowcaseSection() };
             //M-6 (final fix wave): this header used to hardcode Brushes.Black, so it stayed black through a
             //theme toggle while every retokened surface below it flipped - resolved once at construction
             //isn't enough on its own (nothing here re-renders on a resource change the way a real
@@ -83,19 +89,29 @@ namespace Foreman.Mac.Views {
 
         public void RefreshTheme() {
             themeHeader.Foreground = ThemeResources.ResolveBrush("Foreman.Color.Text", Colors.Black);
-            themeShowcaseHost.Content = BuildThemeShowcaseSection(cache);
+            themeShowcaseHost.Content = BuildThemeShowcaseSection();
         }
 
         //Rebuilt from scratch on every theme toggle (see ThemeToggleButton.Click above) rather than patched
         //in place - a dev tool, so simplicity wins over incremental-update plumbing.
-        private static WrapPanel BuildThemeShowcaseSection(DataCache cache) {
+        private WrapPanel BuildThemeShowcaseSection() {
             var wrap = new WrapPanel { Orientation = Orientation.Horizontal, Width = TileColumnWidth };
-            wrap.Children.Add(Tile("Toolbar / Titlebar", BuildToolbarShowcaseTile()));
-            wrap.Children.Add(Tile("View Options popover", BuildViewOptionsShowcaseTile()));
-            wrap.Children.Add(Tile("Graph Summary rows", BuildSummaryRowsShowcaseTile()));
-            wrap.Children.Add(Tile("Preset Comparator rows", BuildComparatorRowsShowcaseTile()));
-            wrap.Children.Add(Tile("Enabled Objects rows", BuildEnabledObjectsRowsShowcaseTile(cache)));
+            foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Theme"))
+                wrap.Children.Add(Tile(tile.Name, tile.Build()));
             return wrap;
+        }
+
+        //Today's dev-only tile set, one registration per panel the window shows - the declarative seam K6's
+        //future showcase additions register into instead of GalleryWindow growing more inline Build* calls.
+        private static GalleryRegistry BuildRegistry(DataCache cache) {
+            var registry = new GalleryRegistry();
+            registry.Register(new GalleryTile("Canvas", "QualityPicker", "Default", () => ChromeWrap(BuildQualityPicker(cache))));
+            registry.Register(new GalleryTile("Theme", "Toolbar / Titlebar", "Default", BuildToolbarShowcaseTile));
+            registry.Register(new GalleryTile("Theme", "View Options popover", "Default", BuildViewOptionsShowcaseTile));
+            registry.Register(new GalleryTile("Theme", "Graph Summary rows", "Default", BuildSummaryRowsShowcaseTile));
+            registry.Register(new GalleryTile("Theme", "Preset Comparator rows", "Default", BuildComparatorRowsShowcaseTile));
+            registry.Register(new GalleryTile("Theme", "Enabled Objects rows", "Default", () => BuildEnabledObjectsRowsShowcaseTile(cache)));
+            return registry;
         }
 
         //Reuses the real foreman-toolbar-* style classes (contract #toolbar) instead of hand-picking colors -
@@ -278,13 +294,14 @@ namespace Foreman.Mac.Views {
 
         private static StackPanel Tile(string caption, Control content) {
             var stack = new StackPanel { Spacing = 6, Margin = new Thickness(16) };
-            stack.Children.Add(new TextBlock { Text = caption, Foreground = Brushes.Black, FontWeight = FontWeight.Bold });
+            stack.Children.Add(new TextBlock { Text = caption, Foreground = ThemeResources.ResolveBrush("Foreman.Color.GalleryChrome", Colors.Black), FontWeight = FontWeight.Bold });
             stack.Children.Add(content);
             return stack;
         }
 
         //QualityPicker never floats on its own in the real app - approximates its former black-chrome host.
-        private static Border ChromeWrap(Control content) => new() { Background = Brushes.Black, Padding = new Thickness(8), Child = content };
+        private static Border ChromeWrap(Control content) =>
+            new() { Background = ThemeResources.ResolveBrush("Foreman.Color.GalleryChrome", Colors.Black), Padding = new Thickness(8), Child = content };
 
         private static QualityPicker BuildQualityPicker(DataCache cache) {
             var picker = new QualityPicker();

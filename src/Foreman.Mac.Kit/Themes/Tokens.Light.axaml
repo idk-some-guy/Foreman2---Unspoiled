@@ -131,4 +131,9 @@
   <!-- Canvas node card shadow; cards carry no shadow in dark, so Dark's alpha is zero. -->
   <BoxShadows x:Key="Foreman.Shadow.Card">0 2 8 0 #12000000</BoxShadows>
 
+  <!-- Task 9: GalleryWindow's canvas backdrop/chrome bubble mimic fixed real-app colors (GraphViewer's
+       white canvas clear, a floating panel's dark chrome) that don't follow the app theme either. -->
+  <Color x:Key="Foreman.Color.GalleryCanvasBackdrop">#FFFFFF</Color>
+  <Color x:Key="Foreman.Color.GalleryChrome">#000000</Color>
+
 </ResourceDictionary>

@@ -15,6 +15,7 @@ using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.Canvas {
     //Task 7 fix round: canvas painters read KitSkia.TokenBridge.Current directly, no ambient transform.
+    [Collection(ScaleTestGroup.Name)]
     public class CanvasScaleTests : IDisposable {
         public CanvasScaleTests() => WindowScaler.SetScale(1.0);
 

@@ -93,6 +93,17 @@ namespace Foreman.Mac.UiTests.Views {
             return cache;
         }
 
+        //Task 9: the declarative registry lists exactly the tiles the window renders, in the same order.
+        [AvaloniaFact]
+        public void Registry_ListsATileForEveryPanelTheWindowShows() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+
+            Assert.Equal(
+                ["QualityPicker", "Toolbar / Titlebar", "View Options popover", "Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows"],
+                window.Registry.Tiles.Select(t => t.Name));
+        }
+
         [AvaloniaFact]
         public void Construction_BuildsATilePerExpectedPanel() {
             DataCache cache = NewFixtureCache();

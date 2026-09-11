@@ -3,6 +3,7 @@ using Avalonia.Headless.XUnit;
 using Foreman.Mac;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
 using System;
 using Xunit;
 
@@ -11,6 +12,7 @@ namespace Foreman.Mac.UiTests.Theming {
     //LayoutTransformControl directly), so a scale change needs to reach the hub the same way a theme/
     //accent/contrast flip does - subscribers with baked, size-dependent visuals (Task 7 territory) can
     //then refresh off the one Changed/Subscribe path instead of a second scale-specific hook.
+    [Collection(ScaleTestGroup.Name)]
     public class AppearanceHubWiringTests : IDisposable {
         private sealed class RecordingSubscriber : IThemeAware {
             public int RefreshCount { get; private set; }

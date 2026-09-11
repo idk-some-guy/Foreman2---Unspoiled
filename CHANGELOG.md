@@ -188,6 +188,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   Beacon, the chevron and search magnifier, the radial chooser's nine outcomes, and the six Settings
   tabs), each at 16/17/18/20 pt, plus a shared stroke style for drawing them. The toolbar's own icons
   are untouched; no visual change.
+- The dev gallery window now renders from a declarative `GalleryRegistry` of tiles instead of a
+  fixed sequence of inline builder calls, and its last two hardcoded colors route through tokens;
+  no visual change.
 
 ### Removed
 

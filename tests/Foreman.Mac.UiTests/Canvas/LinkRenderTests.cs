@@ -5,6 +5,7 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using SkiaSharp;
 using System;
@@ -48,6 +49,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         private static Fixture NewFixture() {
+            ScaleGuard.AssertDefault();
             var cache = new DataCache(filterRecipes: true);
             var subgroup = new SubgroupPrototype(cache, "§§test:subgroup", "z");
             var quality = new QualityPrototype(cache, "normal", "Normal", "a");

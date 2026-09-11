@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Theming {
-    //Guards against a literal Brushes.* or raw hex color anywhere under src/Foreman.Mac except GalleryWindow.
+    //Guards against a literal Brushes.* or raw hex color anywhere under src/Foreman.Mac.
     public class TokenLiteralGuardTests {
         private static string RepoRoot => Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..");
         private static string AppSourceDirectory => Path.Combine(RepoRoot, "src", "Foreman.Mac");
@@ -14,11 +14,10 @@ namespace Foreman.Mac.UiTests.Theming {
         private static IEnumerable<string> SourceFiles(string extension) =>
             Directory.EnumerateFiles(AppSourceDirectory, $"*{extension}", SearchOption.AllDirectories)
                 .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
-                .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
-                .Where(path => !path.EndsWith($"GalleryWindow{extension}", StringComparison.Ordinal));
+                .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"));
 
         [Fact]
-        public void NoBrushesLiteral_OutsideGalleryWindow() {
+        public void NoBrushesLiteral_Anywhere() {
             var offenders = new List<string>();
 
             foreach (string path in SourceFiles(".cs")) {
@@ -32,7 +31,7 @@ namespace Foreman.Mac.UiTests.Theming {
         }
 
         [Fact]
-        public void NoHexColorLiteral_OutsideGalleryWindow() {
+        public void NoHexColorLiteral_Anywhere() {
             var offenders = new List<string>();
 
             foreach (string path in SourceFiles(".cs").Concat(SourceFiles(".axaml"))) {

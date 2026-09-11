@@ -27,6 +27,7 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Inspector {
+    [Collection(ScaleTestGroup.Name)]
     public class InspectorShellTests : IDisposable {
         public void Dispose() {
             WindowScaler.SetScale(1.0);
