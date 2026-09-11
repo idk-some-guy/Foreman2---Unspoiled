@@ -15,6 +15,7 @@ using Foreman.DataCaching.Storage;
 using Foreman.Mac;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Sheets;
@@ -34,7 +35,7 @@ namespace Foreman.Mac.Views {
     //window and MainWindow reopens it once the reload lands - see RequestReload); every other tab writes
     //straight through SettingsViewModel onto the live AppSettings/graph via MainWindow's SettingChanged
     //handler and SettingsSession.
-    public partial class SettingsWindow : Window {
+    public partial class SettingsWindow : Window, IThemeAware {
         public sealed class SettingsWindowOptions(DataCache cache) {
             public DataCache DCache { get; } = cache;
             public List<Preset>? Presets { get; set; } = [];
@@ -145,9 +146,17 @@ namespace Foreman.Mac.Views {
             //root Grid at this point).
             SheetHost.For(this);
             WindowScaler.Track(this);
+
+            AppearanceHub.Current?.Subscribe(this);
+            Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+        //Task 5: EnabledObjectsListItem.RefreshTheme() re-resolves the shared brushes and pushes them out
+        //to every row already on screen (RowBackground/Foreground are live-computed, not baked at row
+        //construction) - nothing here needs to rebuild the lists.
+        public void RefreshTheme() => EnabledObjectsListItem.RefreshTheme();
 
         //--- Tab strip ------------------------------------------------------------------------------------
 

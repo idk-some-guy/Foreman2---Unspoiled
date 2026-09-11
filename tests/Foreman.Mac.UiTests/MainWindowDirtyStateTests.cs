@@ -117,10 +117,18 @@ namespace Foreman.Mac.UiTests {
         private static Button SaveButton(MainWindow window) =>
             window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "SaveButton");
 
+        //Task 5: reads the live Foreman.Color.AccentSoft token rather than a hardcoded hex - AppearanceHub
+        //is now wired into the real App, so the token itself follows the platform accent (headless reports
+        //its own stand-in accent), and a literal expected color would drift out from under the token.
+        private static AvColor ResolveAccentSoft() {
+            Application.Current!.TryGetResource("Foreman.Color.AccentSoft", Application.Current.ActualThemeVariant, out object? resolved);
+            return Assert.IsType<AvColor>(resolved);
+        }
+
         [AvaloniaTheory]
-        [InlineData(ThemeMode.Dark, "#290A84FF")]
-        [InlineData(ThemeMode.Light, "#1F007AFF")]
-        public void SaveButton_Dirty_BackgroundUsesAccentSoftToken(ThemeMode mode, string expectedHex) {
+        [InlineData(ThemeMode.Dark)]
+        [InlineData(ThemeMode.Light)]
+        public void SaveButton_Dirty_BackgroundUsesAccentSoftToken(ThemeMode mode) {
             ((App)Application.Current!).ApplyTheme(mode);
             var window = new MainWindow();
             window.Show();
@@ -129,7 +137,7 @@ namespace Foreman.Mac.UiTests {
             Dispatcher.UIThread.RunJobs();
 
             var background = Assert.IsType<ImmutableSolidColorBrush>(SaveButton(window).Background);
-            Assert.Equal(AvColor.Parse(expectedHex), background.Color);
+            Assert.Equal(ResolveAccentSoft(), background.Color);
         }
 
         [AvaloniaFact]
@@ -140,7 +148,7 @@ namespace Foreman.Mac.UiTests {
 
             Dispatcher.UIThread.RunJobs();
 
-            var accentSoft = AvColor.Parse("#290A84FF");
+            AvColor accentSoft = ResolveAccentSoft();
             bool isTinted = SaveButton(window).Background is ImmutableSolidColorBrush { } brush && brush.Color == accentSoft;
             Assert.False(isTinted);
         }
@@ -166,7 +174,7 @@ namespace Foreman.Mac.UiTests {
             Assert.True(save.IsPointerOver);
             var presenter = save.GetVisualDescendants().OfType<ContentPresenter>().Single();
             var background = Assert.IsType<ImmutableSolidColorBrush>(presenter.Background);
-            Assert.Equal(AvColor.Parse("#290A84FF"), background.Color);
+            Assert.Equal(ResolveAccentSoft(), background.Color);
         }
     }
 }

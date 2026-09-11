@@ -10,6 +10,7 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
@@ -21,10 +22,15 @@ namespace Foreman.Mac.Views {
     //Dev-only visual check window for every canvas floating panel, launched via `--gallery` (see
     //App.BootGalleryAsync/Program.Main). Loads the current preset through the same path the real app uses
     //(ShellBootstrapper.LoadPresetAsync), then hosts each panel live instead of a static render.
-    public sealed class GalleryWindow : Window {
+    public sealed class GalleryWindow : Window, IThemeAware {
         private const double TileColumnWidth = 1520;
 
+        private readonly DataCache cache;
+        private readonly ContentControl themeShowcaseHost;
+        private readonly TextBlock themeHeader;
+
         public GalleryWindow(DataCache cache, AppSettings settings) {
+            this.cache = cache;
             Title = "Foreman Gallery";
             Width = 1600;
             Height = 1000;
@@ -39,22 +45,23 @@ namespace Foreman.Mac.Views {
             //Light and Dark so Jozef's gate pass can eyeball both variants of every one without leaving the
             //gallery. ThemeToggleButton flips the app's RequestedThemeVariant (there's only ever one window
             //open in gallery mode, so this is safe) and rebuilds the section against the freshly active theme.
-            var themeShowcaseHost = new ContentControl { Name = "ThemeShowcaseHost", Content = BuildThemeShowcaseSection(cache) };
+            themeShowcaseHost = new ContentControl { Name = "ThemeShowcaseHost", Content = BuildThemeShowcaseSection(cache) };
             //M-6 (final fix wave): this header used to hardcode Brushes.Black, so it stayed black through a
             //theme toggle while every retokened surface below it flipped - resolved once at construction
             //isn't enough on its own (nothing here re-renders on a resource change the way a real
-            //DynamicResource binding would), so the toggle handler below re-resolves it explicitly too.
-            var themeHeader = new TextBlock {
+            //DynamicResource binding would), so RefreshTheme below re-resolves it explicitly too.
+            themeHeader = new TextBlock {
                 Text = "Design language (Task 6 gate)",
                 Foreground = ThemeResources.ResolveBrush("Foreman.Color.Text", Colors.Black),
                 FontWeight = FontWeight.Bold,
             };
             var themeToggleButton = new Button { Name = "ThemeToggleButton", Content = "Toggle Theme (Light/Dark)" };
+            //Task 5: just flips the variant now - the AppearanceHub subscription below (ActualThemeVariant
+            //Changed reaches the hub already) rebuilds this section through the same RefreshTheme every
+            //other appearance/accent/contrast/scale change already drives.
             themeToggleButton.Click += (_, _) => {
                 Application app = Application.Current!;
                 app.RequestedThemeVariant = app.ActualThemeVariant == ThemeVariant.Dark ? ThemeVariant.Light : ThemeVariant.Dark;
-                themeHeader.Foreground = ThemeResources.ResolveBrush("Foreman.Color.Text", Colors.Black);
-                themeShowcaseHost.Content = BuildThemeShowcaseSection(cache);
             };
             var themeSection = new StackPanel {
                 Spacing = 6,
@@ -69,6 +76,14 @@ namespace Foreman.Mac.Views {
             };
 
             WindowScaler.Track(this);
+
+            AppearanceHub.Current?.Subscribe(this);
+            Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
+        }
+
+        public void RefreshTheme() {
+            themeHeader.Foreground = ThemeResources.ResolveBrush("Foreman.Color.Text", Colors.Black);
+            themeShowcaseHost.Content = BuildThemeShowcaseSection(cache);
         }
 
         //Rebuilt from scratch on every theme toggle (see ThemeToggleButton.Click above) rather than patched

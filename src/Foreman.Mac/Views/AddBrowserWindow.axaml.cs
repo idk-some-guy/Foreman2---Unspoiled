@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Kit;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using System;
@@ -18,7 +19,7 @@ using System.Linq;
 
 namespace Foreman.Mac.Views {
     //MainWindow keeps one instance alive for the app's lifetime; closing here hides rather than destroys it.
-    public sealed partial class AddBrowserWindow : Window {
+    public sealed partial class AddBrowserWindow : Window, IThemeAware {
         private readonly RadioButton itemsSegment;
         private readonly RadioButton recipesSegment;
         private readonly Button qualityButton;
@@ -50,11 +51,30 @@ namespace Foreman.Mac.Views {
             groupsList.ContainerPrepared += OnGroupContainerPrepared;
 
             WindowScaler.Track(this);
+
+            //IsVisible, not Closed, is this window's real open/shut signal (MainWindow hides rather than
+            //closes it); Closed below is just the backstop for a standalone instance.
+            PropertyChanged += OnIsVisibleChanged;
+            Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
         }
 
         private AddBrowserViewModel? Vm => DataContext as AddBrowserViewModel;
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+        private void OnIsVisibleChanged(object? sender, AvaloniaPropertyChangedEventArgs e) {
+            if (e.Property != IsVisibleProperty)
+                return;
+            if (IsVisible)
+                AppearanceHub.Current?.Subscribe(this);
+            else
+                AppearanceHub.Current?.Unsubscribe(this);
+        }
+
+        //Task 5: cell/group chrome is entirely DynamicResource-bound already (free on a theme flip); the
+        //sidebar's measured width is the one thing this window computes in code, off live text metrics that
+        //a scale change can move.
+        public void RefreshTheme() => UpdateSidebarWidth();
 
         private void OnDataContextChanged(object? sender, EventArgs e) {
             if (subscribedVm is not null) {

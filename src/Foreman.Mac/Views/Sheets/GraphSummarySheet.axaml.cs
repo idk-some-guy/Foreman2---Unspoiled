@@ -11,6 +11,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Models;
@@ -26,21 +27,26 @@ namespace Foreman.Mac.Views.Sheets {
     //current graph (both constructor overloads collapse to the node-list one below, matching upstream -
     //MainForm always passes the whole session, never a subset). C2c Task 3 moved this off GraphSummaryWindow
     //onto SheetHost: there's no OK/Cancel distinction, so Close and Escape both just dismiss the sheet.
-    public partial class GraphSummarySheet : SheetContent<bool> {
-        //Resolved fresh in the constructor below against the app's active theme variant, ahead of
-        //ViewModel.Refresh(nodes) - the row records' Foreground initializers read this field at construction.
+    public partial class GraphSummarySheet : SheetContent<bool>, IThemeAware {
+        //Resolved fresh by RebuildRows below (constructor, then every AppearanceHub notification) against
+        //the app's active theme variant - the row records' Foreground initializers read this field.
         internal static IBrush RowForegroundBrush = new ImmutableSolidColorBrush(Color.FromRgb(0, 0, 0));
         private static readonly Regex ComparerRegex = new(@"\d+", RegexOptions.Compiled);
 
         internal GraphSummaryViewModel ViewModel { get; } = new GraphSummaryViewModel();
 
-        private readonly List<BuildingRow> unfilteredAssemblerList;
-        private readonly List<BuildingRow> unfilteredMinerList;
-        private readonly List<BuildingRow> unfilteredPowerList;
-        private readonly List<BeaconRow> unfilteredBeaconList;
-        private readonly List<ItemRow> unfilteredItemsList;
-        private readonly List<ItemRow> unfilteredFluidsList;
-        private readonly List<KeyNodeRow> unfilteredKeyNodesList;
+        //Kept so RebuildRows (Task 5's theme-flip hook) can re-derive every row against freshly resolved
+        //brushes without the caller re-supplying the node set. Materialized once - this sheet is a
+        //point-in-time report, not a live view of the graph.
+        private readonly List<INodeViewModel> nodes;
+
+        private List<BuildingRow> unfilteredAssemblerList = [];
+        private List<BuildingRow> unfilteredMinerList = [];
+        private List<BuildingRow> unfilteredPowerList = [];
+        private List<BeaconRow> unfilteredBeaconList = [];
+        private List<ItemRow> unfilteredItemsList = [];
+        private List<ItemRow> unfilteredFluidsList = [];
+        private List<KeyNodeRow> unfilteredKeyNodesList = [];
 
         private readonly Dictionary<ListBox, int> lastSortOrder = [];
 
@@ -150,17 +156,10 @@ namespace Foreman.Mac.Views.Sheets {
 
             itemsFluidsTabItem.Header = "Items/Fluids" + " ( per " + rateString + ")";
 
-            IEnumerable<IRecipeNodeViewModel> recipeNodes = [.. nodes.OfType<IRecipeNodeViewModel>()];
+            this.nodes = [.. nodes];
+            IEnumerable<IRecipeNodeViewModel> recipeNodes = [.. this.nodes.OfType<IRecipeNodeViewModel>()];
 
-            RowForegroundBrush = ThemeResources.ResolveBrush("Foreman.Color.StatusForeground", Color.FromRgb(0, 0, 0));
-            ViewModel.Refresh(nodes);
-            unfilteredAssemblerList = [.. ViewModel.Assemblers];
-            unfilteredMinerList = [.. ViewModel.Miners];
-            unfilteredPowerList = [.. ViewModel.PowerBuildings];
-            unfilteredBeaconList = [.. ViewModel.Beacons];
-            unfilteredItemsList = [.. ViewModel.Items];
-            unfilteredFluidsList = [.. ViewModel.Fluids];
-            unfilteredKeyNodesList = [.. ViewModel.KeyNodes];
+            RebuildRows();
 
             double buildingTotal = recipeNodes.Sum(n => Math.Ceiling(n.ActualSetValue));
             double beaconTotal = recipeNodes.Sum(n => n.GetTotalBeacons());
@@ -178,10 +177,6 @@ namespace Foreman.Mac.Views.Sheets {
                 powerNetLabel.IsVisible = false;
             }
 
-            UpdateFilteredBuildingLists();
-            UpdateFilteredItemsLists();
-            UpdateFilteredKeyNodesList();
-
             buildingsFilterTextBox.TextChanging += (_, _) => UpdateFilteredBuildingLists();
             itemsFilterTextBox.TextChanging += (_, _) => UpdateFilteredItemsLists();
             foreach (CheckBox checkBox in ItemFilterCheckBoxes)
@@ -195,6 +190,35 @@ namespace Foreman.Mac.Views.Sheets {
             keyNodesExportButton.Click += (_, _) => Async.Fire(ExportKeyNodesCsvAsync(), nameof(ExportKeyNodesCsvAsync));
 
             WireColumnHeaders();
+        }
+
+        //SheetHost forwards RefreshTheme to whatever it's showing rather than each sheet subscribing to the
+        //hub itself - see SheetHost's own ctor comment.
+        public void RefreshTheme() => RebuildRows();
+
+        //Test-only seam: counts RebuildRows calls, so a test can assert a single theme flip refreshes a
+        //hosted sheet exactly once.
+        internal int RebuildRowsCallCount { get; private set; }
+
+        //Ports the constructor's own row-assembly block (now also the theme-flip hook): resolves the
+        //status brushes fresh, rebuilds every unfiltered row list from the frozen node set, then reapplies
+        //the live filters on top. Building/beacon/power totals aren't theme-dependent, so they stay in the
+        //constructor rather than here.
+        private void RebuildRows() {
+            RebuildRowsCallCount++;
+            RowForegroundBrush = ThemeResources.ResolveBrush("Foreman.Color.StatusForeground", Color.FromRgb(0, 0, 0));
+            ViewModel.Refresh(nodes);
+            unfilteredAssemblerList = [.. ViewModel.Assemblers];
+            unfilteredMinerList = [.. ViewModel.Miners];
+            unfilteredPowerList = [.. ViewModel.PowerBuildings];
+            unfilteredBeaconList = [.. ViewModel.Beacons];
+            unfilteredItemsList = [.. ViewModel.Items];
+            unfilteredFluidsList = [.. ViewModel.Fluids];
+            unfilteredKeyNodesList = [.. ViewModel.KeyNodes];
+
+            UpdateFilteredBuildingLists();
+            UpdateFilteredItemsLists();
+            UpdateFilteredKeyNodesList();
         }
 
         //One clickable header Button per upstream ColumnHeader (reference §6): each wires straight to the

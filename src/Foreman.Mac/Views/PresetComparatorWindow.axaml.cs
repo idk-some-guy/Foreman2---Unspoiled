@@ -8,6 +8,7 @@ using Avalonia.Media.Immutable;
 using Avalonia.Media.Imaging;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using System;
@@ -28,7 +29,7 @@ namespace Foreman.Mac.Views {
     //Presets-directory rescan in LoadPresetOptions - behaviorally equivalent, avoids a redundant disk
     //scan the caller already did. Hover tooltips (ListView_StartHover/EndHover, RecipeToolTip/TextToolTip)
     //aren't ported - not in this task's interface list; deferred alongside the rest of the tooltip surface.
-    public partial class PresetComparatorWindow : Window {
+    public partial class PresetComparatorWindow : Window, IThemeAware {
         internal const int LeftOnly = 0;
         internal const int Left = 1;
         internal const int Right = 2;
@@ -151,9 +152,19 @@ namespace Foreman.Mac.Views {
 
             UpdateProcessButtonCaption();
             WindowScaler.Track(this);
+
+            AppearanceHub.Current?.Subscribe(this);
+            Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+        //Task 5: RebuildTab re-resolves every status brush fresh (PresetComparatorViewModel.RebuildTab), so
+        //a theme flip while this window is open just re-runs the same pipeline the tab switch already uses.
+        public void RefreshTheme() {
+            UpdateUnfilteredRows();
+            UpdateFilteredLists();
+        }
 
         //Ports PresetSelectionBox_SelectedValueChanged (reference SettingsForm... PresetComparatorForm.cs:404-408).
         private void UpdateProcessButtonCaption() {

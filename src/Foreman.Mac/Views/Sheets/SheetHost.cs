@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.Mac.Kit;
+using Foreman.Mac.Kit.Appearance;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -57,6 +58,14 @@ namespace Foreman.Mac.Views.Sheets {
             Children.Add(scrim);
             Children.Add(panelBorder);
             AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+
+            //Task 5: forwards to whatever sheet is actually showing rather than each sheet subscribing to
+            //the hub itself - the host outlives any one sheet, so this is the one stable subscription.
+            ThemeAware.Attach(this, () => {
+                (currentContent as IThemeAware)?.RefreshTheme();
+                foreach (StackedLayer layer in stack)
+                    (layer.Content as IThemeAware)?.RefreshTheme();
+            });
         }
 
         //topAnchor (MainWindow's titlebar/toolbar row) keeps the panel flush under it instead of at y=0 -

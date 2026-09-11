@@ -7,6 +7,7 @@ using Avalonia.Platform;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using SkiaSharp;
@@ -75,6 +76,14 @@ namespace Foreman.Mac.Views.Inspector {
             DataContextChanged += (_, _) => BindViewModel();
             DetachedFromVisualTree += (_, _) => DisposeBakedIcons();
             BindViewModel();
+
+            //Task 5: baked icons carry no theme tint of their own, but a fresh rebake through this hook is
+            //what Task 7's scale-driven rebaking will build on - dispose-then-Refresh rebakes and reassigns
+            //Source synchronously, so nothing paints a disposed bitmap in between.
+            ThemeAware.Attach(this, () => {
+                DisposeBakedIcons();
+                Refresh();
+            });
         }
 
         private void DisposeBakedIcons() {

@@ -2,8 +2,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
+using Avalonia.Platform;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
 using System;
@@ -17,7 +20,23 @@ namespace Foreman.Mac {
 
         public ThemeService Theme { get; }
 
-        public App() => Theme = new ThemeService(this);
+        //one hub per app: every window subscribes to it, ThemeService keeps the ThemeMode mapping
+        public AppearanceHub Hub { get; }
+
+        //Rescaled is a static event: replace the previous App's handler or the list grows per test
+        private static EventHandler? rescaledHandler;
+
+        public App() {
+            Hub = new AppearanceHub(this, (IPlatformAppearance?)PlatformAppearance.TryCreate(this) ?? new NullPlatformAppearance());
+            AppearanceHub.Current = Hub;
+            Theme = new ThemeService(this);
+            Theme.Changed += (_, _) => Hub.Refresh();
+
+            if (rescaledHandler is not null)
+                WindowScaler.Rescaled -= rescaledHandler;
+            rescaledHandler = (_, _) => Hub.Refresh();
+            WindowScaler.Rescaled += rescaledHandler;
+        }
 
         //AvaloniaNativeMenuExporter reads Application's NativeMenu exactly once, from its own constructor,
         //which AvaloniaNativePlatformExtensions.UseAvaloniaNative runs via AfterSetup - after Initialize()
@@ -96,5 +115,15 @@ namespace Foreman.Mac {
         }
 
         public void ApplyTheme(ThemeMode mode) => Theme.Apply(mode);
+
+        //for environments without PlatformSettings
+        private sealed class NullPlatformAppearance : IPlatformAppearance {
+            public Color? AccentColor => null;
+            public ColorContrastPreference ContrastPreference => ColorContrastPreference.NoPreference;
+            public bool ReduceTransparency => false;
+            public bool ReduceMotion => false;
+            public PlatformThemeVariant ThemeVariant => PlatformThemeVariant.Light;
+            public event EventHandler? Changed { add { } remove { } }
+        }
     }
 }

@@ -5,10 +5,15 @@ using Avalonia.Platform;
 using Avalonia.Styling;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Foreman.Mac.Kit.Appearance {
     //Re-pushes platform-driven token overrides into Application resources and notifies Task 5's subscriber list.
     public sealed class AppearanceHub : IDisposable {
+        //Set by the app at startup, mirroring Application.Current - lets ThemeAware.Attach reach the one
+        //live hub without every call site threading it through.
+        public static AppearanceHub? Current { get; set; }
+
         private readonly Application app;
         private readonly IPlatformAppearance appearance;
         private readonly List<WeakReference<IThemeAware>> subscribers = [];
@@ -23,7 +28,15 @@ namespace Foreman.Mac.Kit.Appearance {
 
         public event EventHandler? Changed;
 
+        //Weakly held as a backstop; callers still unsubscribe explicitly on Detached/Closed.
         public void Subscribe(IThemeAware subscriber) => subscribers.Add(new WeakReference<IThemeAware>(subscriber));
+
+        public void Unsubscribe(IThemeAware subscriber) =>
+            subscribers.RemoveAll(w => !w.TryGetTarget(out IThemeAware? target) || ReferenceEquals(target, subscriber));
+
+        //Test-only seam: live (non-collected) subscriber count, so a test can assert the list returns to
+        //baseline after a window closes instead of poking at the weak-reference list directly.
+        public int SubscriberCount => subscribers.Count(w => w.TryGetTarget(out _));
 
         public void Refresh() {
             bool highContrast = appearance.ContrastPreference == ColorContrastPreference.High;
@@ -90,7 +103,7 @@ namespace Foreman.Mac.Kit.Appearance {
         private void NotifySubscribers() {
             for (int i = subscribers.Count - 1; i >= 0; i--) {
                 if (subscribers[i].TryGetTarget(out IThemeAware? subscriber))
-                    subscriber.OnAppearanceChanged();
+                    subscriber.RefreshTheme();
                 else
                     subscribers.RemoveAt(i);
             }

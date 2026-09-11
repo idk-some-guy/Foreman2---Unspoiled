@@ -129,6 +129,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   subgroup instead of a flat list, and every cell's tooltip shows its full name and kind.
 - Animations run at a steadier pace and cascade top-down; selecting the group or segment that is
   already active, or retyping an equivalent search, no longer rebuilds the list.
+- The UI test suite's ~3x slowdown after wiring the appearance hub is fixed: a scale change stopped
+  leaking a stale handler onto every test run's App. The factory summary sheet repaints through its
+  host instead of a second, redundant subscription, and the Add to Graph browser's own icons and
+  MainWindow's browser icon cache now rebake on a theme or scale flip like the rest of the hub's
+  subscribers.
 
 ### Changed
 
@@ -168,6 +173,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   Transparency, and Reduce Motion display preferences, widening the focus ring and promoting Border
   to BorderStrong under Increase Contrast and falling materials back to their opaque value under
   Reduce Transparency; no visual change under default macOS settings.
+- Every open window and sheet now repaints live on a theme, accent, contrast, or interface-scale
+  change, not just at launch: Settings, the factory summary sheet, the preset comparator, the Add to
+  Graph browser, the inspector, and the gallery all follow the appearance hub above. The dark-mode
+  service that used to drive this on its own now feeds into the same hub.
 
 ### Removed
 

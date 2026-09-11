@@ -1,12 +1,16 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media.Immutable;
+using Avalonia.Platform;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.Views;
 using Foreman.Mac.Views;
@@ -62,6 +66,21 @@ namespace Foreman.Mac.UiTests.Theming {
                 IsDark = isDark;
                 changed?.Invoke(this, EventArgs.Empty);
             }
+        }
+
+        //Bare fake for AppearanceHub's own seam (Foreman.Mac.Kit.Appearance.IPlatformAppearance) - this
+        //file only needs a hub to exist so the System-mode colorSource flip below has somewhere to route
+        //through (AppearanceHub.Current), not to exercise accent/contrast/motion behavior.
+        private sealed class FakeAppearance : IPlatformAppearance {
+            private EventHandler? changed;
+
+            public AvColor? AccentColor => null;
+            public ColorContrastPreference ContrastPreference => ColorContrastPreference.NoPreference;
+            public bool ReduceTransparency => false;
+            public bool ReduceMotion => false;
+            public PlatformThemeVariant ThemeVariant => PlatformThemeVariant.Light;
+
+            public event EventHandler? Changed { add => changed += value; remove => changed -= value; }
         }
 
         //--- ThemeService ---------------------------------------------------------------------------------
@@ -124,31 +143,40 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(0, colorSource.SubscriberCount);
         }
 
-        //I-2 (final fix wave): ThemeService.IsDark used to be write-only - nothing consumed a live OS
-        //appearance flip while System was active, so the Skia-painted canvas (no DynamicResource of its
-        //own) never followed it. MainWindow.LiveThemeService now wires the new Changed event through to
-        //the same canvas theme seed ApplyLoadedSettings uses (ApplyCanvasTheme, which reads
-        //Application.Current.ActualThemeVariant - Avalonia itself guards IPlatformSettings against test
-        //doubles, so a real OS flip is forced the same way this file's other tests fake an "ambient dark
-        //system": a direct RequestedThemeVariant assignment). colorSource.SetDark is the actual trigger
-        //under test - it's the one thing that fires ThemeService.Changed and, before this fix, was the one
-        //thing MainWindow never listened for.
+        //I-2 (final fix wave; Task 5 fold): ThemeService.IsDark used to be write-only - nothing consumed a
+        //live OS appearance flip while System was active, so the Skia-painted canvas (no DynamicResource of
+        //its own) never followed it. MainWindow now subscribes to AppearanceHub like every other window
+        //(IThemeAware.RefreshTheme -> ApplyCanvasTheme, which reads Application.Current.ActualThemeVariant),
+        //and ThemeService routes its own System-mode colorSource flip into hub.Refresh() instead of a
+        //MainWindow-only Changed event - the hub is the single notification path now. Avalonia itself
+        //guards IPlatformSettings against test doubles, so a real OS flip is forced the same way this
+        //file's other tests fake an "ambient dark system": a direct RequestedThemeVariant assignment.
+        //colorSource.SetDark is the actual trigger under test.
         [AvaloniaFact]
         public void OsColorFlip_InSystemMode_ChangesCanvasBackgroundColor() {
-            var colorSource = new FakeColorSource(isDark: false);
-            var themeService = new ThemeService((App)Application.Current!, colorSource);
-            themeService.Apply(ThemeMode.System);
+            AppearanceHub? previousCurrent = AppearanceHub.Current;
+            try {
+                var hub = new AppearanceHub((App)Application.Current!, new FakeAppearance());
+                AppearanceHub.Current = hub;
+                var colorSource = new FakeColorSource(isDark: false);
+                var themeService = new ThemeService((App)Application.Current!, colorSource);
+                themeService.Changed += (_, _) => hub.Refresh();
+                themeService.Apply(ThemeMode.System);
 
-            var window = new MainWindow { LiveThemeService = themeService, Settings = new AppSettings { FlagDarkMode = ThemeMode.System } };
-            window.Show();
-            window.ApplyLoadedSettings();
-            SKColor before = window.GraphCanvas.Viewer.BackgroundColor;
+                var window = new MainWindow { Settings = new AppSettings { FlagDarkMode = ThemeMode.System } };
+                window.Show();
+                window.ApplyLoadedSettings();
+                SKColor before = window.GraphCanvas.Viewer.BackgroundColor;
 
-            Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
-            colorSource.SetDark(true);
+                Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+                colorSource.SetDark(true);
 
-            SKColor after = window.GraphCanvas.Viewer.BackgroundColor;
-            Assert.NotEqual(before, after);
+                SKColor after = window.GraphCanvas.Viewer.BackgroundColor;
+                Assert.NotEqual(before, after);
+                hub.Dispose();
+            } finally {
+                AppearanceHub.Current = previousCurrent;
+            }
         }
 
         //--- GraphSummary rows ------------------------------------------------------------------------------
@@ -198,6 +226,29 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(AvColor.Parse("#000000"), Assert.IsType<ImmutableSolidColorBrush>(row.Foreground).Color);
         }
 
+        //Proves an already-shown sheet repaints, not just a freshly built one - GraphSummarySheet rows are
+        //immutable DTOs (Foreground/Background read at construction), so a live theme flip must rebuild
+        //them rather than mutate a bound brush in place. Hosted through a real SheetHost (not a bare
+        //Window): the sheet only hears about the flip via the host's forwarding.
+        [AvaloniaFact]
+        public async Task GraphSummaryRow_LiveThemeFlip_RepaintsAlreadyOpenSheet() {
+            ((App)Application.Current!).ApplyTheme(ThemeMode.Light);
+            var fx = NewFixture(await GetCacheAsync());
+            IItem item = fx.Cache.Items.Values.First(i => i.Available);
+            GraphSummarySheet sheet = NewSummaryWindowWithSupplierRow(fx, item);
+            var owner = new Window();
+            owner.Show();
+            SheetHost host = SheetHost.For(owner);
+            _ = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+
+            ((App)Application.Current!).ApplyTheme(ThemeMode.Dark);
+
+            ItemRow row = sheet.UnfilteredItemsList.Concat(sheet.UnfilteredFluidsList).First();
+            Assert.Equal(AvColor.Parse("#3D3D40"), Assert.IsType<ImmutableSolidColorBrush>(row.Background).Color);
+            Assert.Equal(AvColor.Parse("#F2F2F2"), Assert.IsType<ImmutableSolidColorBrush>(row.Foreground).Color);
+        }
+
         [AvaloniaTheory]
         [InlineData(ThemeMode.Light)]
         [InlineData(ThemeMode.Dark)]
@@ -244,6 +295,21 @@ namespace Foreman.Mac.UiTests.Theming {
 
             Assert.Equal(AvColor.Parse("#FFFFFF"), Assert.IsType<ImmutableSolidColorBrush>(row.RowBackground).Color);
             Assert.Equal(AvColor.Parse("#000000"), Assert.IsType<ImmutableSolidColorBrush>(row.Foreground).Color);
+        }
+
+        //Task 5: proves the window repaints an already-open Settings window, not just a freshly constructed
+        //one - ApplyTheme(Dark) here changes RequestedThemeVariant, which AppearanceHub already listens
+        //for (ActualThemeVariantChanged), so SettingsWindow's own hub subscription is what's under test.
+        [AvaloniaFact]
+        public async Task EnabledObjectsRow_LiveThemeFlip_RepaintsAlreadyOpenWindow() {
+            ((App)Application.Current!).ApplyTheme(ThemeMode.Light);
+            var window = new SettingsWindow(NewOptions(await GetCacheAsync()));
+
+            ((App)Application.Current!).ApplyTheme(ThemeMode.Dark);
+
+            EnabledObjectsListItem row = window.ViewModel.RecipeObjects.First(r => r.DataObject.Available);
+            Assert.Equal(AvColor.Parse("#3D3D40"), Assert.IsType<ImmutableSolidColorBrush>(row.RowBackground).Color);
+            Assert.Equal(AvColor.Parse("#F2F2F2"), Assert.IsType<ImmutableSolidColorBrush>(row.Foreground).Color);
         }
 
         [AvaloniaTheory]

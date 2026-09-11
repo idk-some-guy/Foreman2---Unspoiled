@@ -18,6 +18,11 @@ namespace Foreman.Mac.Services {
 
         public static double CurrentScale => currentScale;
 
+        //Task 5: WindowScaler has no DynamicResource of its own to carry a scale change to baked,
+        //size-dependent visuals - App wires this into AppearanceHub.Refresh() so subscribers hear about a
+        //scale change the same way they hear about a theme/accent/contrast one.
+        public static event EventHandler? Rescaled;
+
         public static void Track(Window window) {
             if (window.Content is not Control content)
                 return;
@@ -57,6 +62,7 @@ namespace Foreman.Mac.Services {
                 wrapper.LayoutTransform = new ScaleTransform(currentScale, currentScale);
             foreach (LayoutTransformControl wrapper in trackedPopupContent)
                 wrapper.LayoutTransform = new ScaleTransform(currentScale, currentScale);
+            Rescaled?.Invoke(null, EventArgs.Empty);
         }
     }
 }

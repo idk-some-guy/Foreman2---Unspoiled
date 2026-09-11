@@ -14,6 +14,7 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
@@ -30,7 +31,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 
 namespace Foreman.Mac {
-    public partial class MainWindow : Window {
+    public partial class MainWindow : Window, IThemeAware {
         public ShellViewModel Commands { get; }
         public MainWindowViewModel ViewModel { get; }
 
@@ -105,25 +106,6 @@ namespace Foreman.Mac {
 
         internal string? SaveFilePath => savefilePath;
         internal string? SaveFileBaselineJson => savefileBaselineJson;
-
-        //I-2 (final fix wave): the ThemeService this window listens to for a live OS appearance flip while
-        //FlagDarkMode is System - defaults to the app-wide singleton (set at the end of the constructor
-        //below), swappable so a test can point it at a ThemeService built around a stubbed
-        //IPlatformColorSource (FakeColorSource, DarkModeTests) instead.
-        private ThemeService? liveThemeService;
-
-        internal ThemeService? LiveThemeService {
-            get => liveThemeService;
-            set {
-                if (liveThemeService is not null)
-                    liveThemeService.Changed -= OnThemeServiceChanged;
-                liveThemeService = value;
-                if (liveThemeService is not null)
-                    liveThemeService.Changed += OnThemeServiceChanged;
-            }
-        }
-
-        private void OnThemeServiceChanged(object? sender, EventArgs e) => ApplyCanvasTheme();
 
         //A (contract #menubar): the bold app menu lives on Application, built once in App.Initialize
         //before any MainWindow exists (see the call site there), so its About/Settings/Hide items can't
@@ -200,9 +182,9 @@ namespace Foreman.Mac {
             //View Options card renders in ViewOptionsPopover's own popup root, outside the Track above.
             WindowScaler.TrackPopupContent(this, this.FindControl<LayoutTransformControl>("ViewOptionsCardScaler")!);
 
-            LiveThemeService = (Application.Current as App)?.Theme;
+            AppearanceHub.Current?.Subscribe(this);
             Closed += (_, _) => {
-                LiveThemeService = null;
+                AppearanceHub.Current?.Unsubscribe(this);
                 foreach (Bitmap bitmap in browserIconCache.Values)
                     bitmap.Dispose();
                 browserIconCache.Clear();
@@ -210,6 +192,27 @@ namespace Foreman.Mac {
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+        //Task 5: replaces the old ThemeService.Changed-only hook - the canvas has no DynamicResource of
+        //its own to pick up a live theme (System mode's OS flip), accent, contrast, or scale change, so it
+        //re-seeds here on every AppearanceHub notification.
+        public void RefreshTheme() {
+            ApplyCanvasTheme();
+            RefreshBrowserIcons();
+        }
+
+        //browserIconCache carries no theme tint of its own (same as InspectorView's caches) - clearing it
+        //forces the next GetOrBake to rebake fresh. Unlike InspectorView's direct Source reassignment, the
+        //browser's cells flow through an ObservableCollection an ItemsControl rebinds asynchronously, so an
+        //old bitmap can still be mid-render when the flip lands; only vm.Refresh()'s freshly baked instances
+        //replace it, and letting the stale ones fall out of scope (rather than disposing them here) is what
+        //keeps a still-attached Image from measuring an already-disposed one. Driven from here, not
+        //AddBrowserWindow's own RefreshTheme, since the cache and the browser instance both live on MainWindow.
+        private void RefreshBrowserIcons() {
+            browserIconCache.Clear();
+            if (browser?.DataContext is AddBrowserViewModel vm)
+                vm.Refresh(forceRebuild: true);
+        }
 
         //lazy: DataCache/Settings are not ready at construction; PlaceRequested is wired once here
         internal void OpenBrowser(AddRequest request) {
@@ -331,8 +334,8 @@ namespace Foreman.Mac {
         //ApplyTheme only swaps the window chrome's ThemeVariant, so the canvas needs its own seed here -
         //replayed at boot, preset reload, and every Settings Confirm (all via ApplyLoadedSettings above,
         //which calls this directly), and now also on a live OS appearance flip while FlagDarkMode is
-        //System (LiveThemeService.Changed, wired in the constructor) - GraphCanvas's Skia surface has no
-        //DynamicResource of its own to pick that last one up for free.
+        //System (RefreshTheme, this window's AppearanceHub subscription) - GraphCanvas's Skia surface has
+        //no DynamicResource of its own to pick that last one up for free.
         private void ApplyCanvasTheme() {
             if (Settings is not AppSettings settings)
                 return;

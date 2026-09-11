@@ -266,9 +266,13 @@ namespace Foreman.Mac.ViewModels {
                 selectedRecipesGroup = group;
         }
 
-        private void Refresh() {
+        //internal: MainWindow calls this on a theme flip to rebuild groups/cells against its freshly
+        //cleared browserIconCache (see MainWindow.RefreshBrowserIcons). forceRebuild bypasses
+        //RefreshSections' own reuse check below, which otherwise keeps the still-bound (and now
+        //stale-icon) cells whenever the candidate set itself hasn't changed.
+        internal void Refresh(bool forceRebuild = false) {
             RefreshGroups();
-            RefreshSections();
+            RefreshSections(forceRebuild);
         }
 
         //R11: a group only appears once it has at least one visible-by-availability entry for the segment.
@@ -327,9 +331,9 @@ namespace Foreman.Mac.ViewModels {
         //Gate fix 11: a rebuild that would produce the exact same content (compared by candidate, not
         //reference) is skipped outright - Sections stays untouched so its containers survive and don't
         //replay their entrance animation. Trailing whitespace in a re-typed search is the common case.
-        private void RefreshSections() {
+        private void RefreshSections(bool forceRebuild = false) {
             List<BrowserSection> candidate = BuildSections();
-            if (SectionsMatch(sections, candidate))
+            if (!forceRebuild && SectionsMatch(sections, candidate))
                 return;
 
             AddCandidate? previouslySelected = SelectedCell?.Candidate;
