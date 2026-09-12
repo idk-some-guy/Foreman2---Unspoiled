@@ -1,0 +1,33 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.Segmented" TargetType="kit:Segmented">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ControlHeightRegular}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="kit:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{DynamicResource Foreman.Color.WellBackground}"
+                BorderBrush="{DynamicResource Foreman.Color.Border}"
+                BorderThickness="1"
+                CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                Padding="{DynamicResource Foreman.Thickness.SegmentTrackPadding}">
+          <Panel>
+            <Border x:Name="PART_Selection"
+                    HorizontalAlignment="Left"
+                    Transitions="{x:Static m:Motion.SegmentedTransitions}" />
+            <Grid x:Name="PART_Track" />
+          </Panel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

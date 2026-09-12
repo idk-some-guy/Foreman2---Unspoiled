@@ -109,6 +109,8 @@
   <StreamGeometry x:Key="Kit.Glyph.Beacon.Fill.20">M11.2,2.6 A1.2,1.2 0 1,0 8.8,2.6 A1.2,1.2 0 1,0 11.2,2.6 Z</StreamGeometry>
 
   <!-- chevron is a solid ribbon, not a stroke; rotated for every disclosure arrow -->
+  <!-- 10pt: the pull-down/menu-button trailing chevron (addendum §01-02), below the shared 16/17/18/20 ladder. -->
+  <StreamGeometry x:Key="Kit.Glyph.Chevron.10">M1.5,2.4 L5,5.9 L8.5,2.4 L8.5,4.1 L5,7.6 L1.5,4.1 Z</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Chevron.16">M2.4,3.84 L8,9.44 L13.6,3.84 L13.6,6.56 L8,12.16 L2.4,6.56 Z</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Chevron.17">M2.55,4.08 L8.5,10.03 L14.45,4.08 L14.45,6.97 L8.5,12.92 L2.55,6.97 Z</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Chevron.18">M2.7,4.32 L9,10.62 L15.3,4.32 L15.3,7.38 L9,13.68 L2.7,7.38 Z</StreamGeometry>
@@ -193,4 +195,10 @@
 
   <!-- Checkbox check mark, single 10pt master (kit §02); not part of the scaled 16/17/18/20 glyph family. -->
   <StreamGeometry x:Key="Kit.Glyph.Check.10">M1.5,5.2 L4,7.6 L8.5,2.4</StreamGeometry>
+
+  <!-- Primitives addendum §08 additions: each is its own drawn-size master, not scaled from the 20pt grid. -->
+  <StreamGeometry x:Key="Kit.Glyph.PopUpChevrons.16">M5.44,5.76 L8,3.68 L10.56,5.76 L10.56,7.28 L8,5.2 L5.44,7.28 Z M5.44,10.24 L8,12.32 L10.56,10.24 L10.56,8.72 L8,10.8 L5.44,8.72 Z</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Checkmark.12">M2.7,6.24 L4.98,8.52 L9.3,3.72</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Overflow.16">M4.16,4.48 L7.68,8 L4.16,11.52 M8.8,4.48 L12.32,8 L8.8,11.52</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Filter.14">M2.38,4.2 H11.62 M3.92,7 H10.08 M5.6,9.8 H8.4</StreamGeometry>
 </ResourceDictionary>

@@ -40,6 +40,7 @@ namespace Foreman.Mac.Kit {
 
         public static Transitions ButtonTransitions => Transition(TransitionKind.Fade, ButtonStateDuration);
         public static Transitions SwitchTransitions => Transition(TransitionKind.SlideFade, SwitchKnobDuration);
+        public static Transitions SegmentedTransitions => Transition(TransitionKind.SlideFade, SegmentedSelectionDuration);
 
         public static Easing CrossFadeEasing => new CubicEaseInOut();
         public static Easing EntranceEasing => new CubicEaseOut();

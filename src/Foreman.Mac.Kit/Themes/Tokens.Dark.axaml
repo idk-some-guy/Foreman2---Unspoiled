@@ -133,6 +133,33 @@
   <x:Double x:Key="Foreman.Size.SwitchKnob">14</x:Double>
   <x:Double x:Key="Foreman.Size.SwitchKnobInset">2</x:Double>
 
+  <!-- Segmented (kit mock §02): track radius reuses Radius.Control, item radius is its own step. -->
+  <CornerRadius x:Key="Foreman.Radius.SegmentItem">4</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.SegmentTrackPadding">2</Thickness>
+  <Thickness x:Key="Foreman.Thickness.SegmentItemPadding">10,3</Thickness>
+  <!-- .mini's drawn 11.5/500; the regular segment uses Type.Callout instead (task-5-context §mock). -->
+  <x:Double x:Key="Foreman.Type.SegmentMini.FontSize">11.5</x:Double>
+  <FontWeight x:Key="Foreman.Type.SegmentMini.FontWeight">500</FontWeight>
+
+  <!-- Pop-up/pull-down/menu button (addendum §01-02): shared label-to-glyph gap. -->
+  <x:Double x:Key="Foreman.Size.ControlGlyphGap">6</x:Double>
+  <x:Double x:Key="Foreman.Size.PopUpIndicator">16</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.PopUpIndicator">3</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.PopUpPadding">10,0,3,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.PopUpPulldownPadding">10,0,8,0</Thickness>
+
+  <!-- Menu panel/item (addendum §02, §08 ladder extension). -->
+  <x:Double x:Key="Foreman.Size.GlyphMicro">12</x:Double>
+  <x:Double x:Key="Foreman.Size.GlyphSmall">14</x:Double>
+  <x:Double x:Key="Foreman.Size.MenuItemHeight">22</x:Double>
+  <x:Double x:Key="Foreman.Size.MenuPanelMinWidth">208</x:Double>
+  <x:Double x:Key="Foreman.Size.MenuCheckColumn">16</x:Double>
+  <Thickness x:Key="Foreman.Thickness.MenuPanelPadding">0,4</Thickness>
+  <Thickness x:Key="Foreman.Thickness.MenuItemMargin">4,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.MenuItemPadding">6,0,12,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.MenuSeparatorMargin">8,5</Thickness>
+  <Thickness x:Key="Foreman.Thickness.MenuButtonPadding">8,0</Thickness>
+
   <!-- glyph drawn sizes; scaled by the scale contract; no consumer until K4 -->
   <x:Double x:Key="Foreman.Size.Glyph16">16</x:Double>
   <x:Double x:Key="Foreman.Size.Glyph17">17</x:Double>

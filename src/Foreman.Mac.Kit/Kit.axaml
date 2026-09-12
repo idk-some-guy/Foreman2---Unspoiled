@@ -17,6 +17,10 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/RadioButton.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/RadioGroup.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Switch.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Segmented.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/MenuPanel.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/PopUp.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/MenuButton.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

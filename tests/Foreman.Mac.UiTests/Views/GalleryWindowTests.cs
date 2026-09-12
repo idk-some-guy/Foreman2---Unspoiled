@@ -106,7 +106,8 @@ namespace Foreman.Mac.UiTests.Views {
                 ["QualityPicker", "Toolbar / Titlebar", "View Options popover", "Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows",
                  "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)",
                  "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)",
-                 "Checkbox", "Radio group", "Switch — Settings only (A16)", "Checkbox, Radio group & Switch (150%)"],
+                 "Checkbox", "Radio group", "Switch — Settings only (A16)", "Checkbox, Radio group & Switch (150%)",
+                 "Segmented", "Pop-up buttons", "Menu button", "Segmented, Pop-up buttons & Menu button (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -133,6 +134,10 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains("Radio group", captions);
             Assert.Contains("Switch — Settings only (A16)", captions);
             Assert.Contains("Checkbox, Radio group & Switch (150%)", captions);
+            Assert.Contains("Segmented", captions);
+            Assert.Contains("Pop-up buttons", captions);
+            Assert.Contains("Menu button", captions);
+            Assert.Contains("Segmented, Pop-up buttons & Menu button (150%)", captions);
             //A sample from each end of the 30-glyph sheet, proving the full set rendered with name labels.
             Assert.Contains("New", captions);
             Assert.Contains("Settings.Appearance", captions);
@@ -221,6 +226,51 @@ namespace Foreman.Mac.UiTests.Views {
 
             StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Switch — Settings only (A16)");
             Assert.Contains(tile.GetVisualDescendants().OfType<ToggleSwitch>(), t => FocusRing.GetShowAlways(t));
+        }
+
+        [AvaloniaFact]
+        public void SegmentedTile_ShowsARegularAndAMiniExample() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            Segmented[] segmented = [.. window.GetVisualDescendants().OfType<Segmented>()];
+            Assert.Contains(segmented, s => !s.Classes.Contains("mini"));
+            Assert.Contains(segmented, s => s.Classes.Contains("mini"));
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Segmented");
+            Assert.Contains(tile.GetVisualDescendants().OfType<Segmented>(), s => FocusRing.GetShowAlways(s));
+        }
+
+        [AvaloniaFact]
+        public void PopUpButtonsTile_ShowsPopUpPullDownAndAnOpenMenuPanel() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            PopUp[] popups = [.. window.GetVisualDescendants().OfType<PopUp>()];
+            Assert.Contains(popups, p => !p.IsPullDown);
+            Assert.Contains(popups, p => p.IsPullDown);
+            Assert.Contains(window.GetVisualDescendants().OfType<MenuPanel>(), m => m.Items.Count > 0);
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Pop-up buttons");
+            Assert.Contains(tile.GetVisualDescendants().OfType<PopUp>(), p => FocusRing.GetShowAlways(p));
+        }
+
+        [AvaloniaFact]
+        public void MenuButtonTile_ShowsDefaultFilledOpenAndOverflow() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            MenuButton[] buttons = [.. window.GetVisualDescendants().OfType<MenuButton>()];
+            Assert.Contains(buttons, b => !b.IsFilled);
+            Assert.Contains(buttons, b => b.IsFilled);
+            Assert.Contains(buttons, b => b.Classes.Contains("overflow"));
+            Assert.Contains(window.GetVisualDescendants().OfType<MenuPanel>(), m => m.Items.Count > 0);
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Menu button");
+            Assert.Contains(tile.GetVisualDescendants().OfType<MenuButton>(), b => FocusRing.GetShowAlways(b));
         }
 
         [AvaloniaFact]

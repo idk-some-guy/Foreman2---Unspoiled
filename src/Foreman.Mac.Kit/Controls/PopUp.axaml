@@ -1,0 +1,90 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls">
+
+  <ControlTheme x:Key="Kit.PopUp" TargetType="kit:PopUp">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ControlHeightRegular}" />
+    <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.PopUpPadding}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="kit:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border x:Name="PART_Frame"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Size.ControlGlyphGap}">
+              <TextBlock x:Name="PART_Label"
+                         Text="{TemplateBinding DisplayText}"
+                         FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
+                         FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
+                         Foreground="{DynamicResource Foreman.Color.Text}"
+                         VerticalAlignment="Center" />
+              <Border x:Name="PART_Indicator"
+                      Width="{DynamicResource Foreman.Size.PopUpIndicator}"
+                      Height="{DynamicResource Foreman.Size.PopUpIndicator}"
+                      CornerRadius="{DynamicResource Foreman.Radius.PopUpIndicator}"
+                      Background="{DynamicResource Foreman.Color.Accent}">
+                <Path Data="{StaticResource Kit.Glyph.PopUpChevrons.16}"
+                      Fill="{DynamicResource Foreman.Color.TextOnAccent}"
+                      Width="{DynamicResource Foreman.Size.PopUpIndicator}"
+                      Height="{DynamicResource Foreman.Size.PopUpIndicator}" />
+              </Border>
+              <Path x:Name="PART_PulldownChevron"
+                    Data="{StaticResource Kit.Glyph.Chevron.10}"
+                    Fill="{DynamicResource Foreman.Color.TextTertiary}"
+                    Width="10" Height="10"
+                    IsVisible="False" />
+            </StackPanel>
+          </Border>
+          <Popup x:Name="PART_Popup"
+                 IsOpen="{TemplateBinding IsOpen}"
+                 Placement="BottomEdgeAlignedLeft"
+                 IsLightDismissEnabled="True">
+            <ContentPresenter Content="{TemplateBinding Menu}" />
+          </Popup>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pulldown /template/ Border#PART_Indicator">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:pulldown /template/ Path#PART_PulldownChevron">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:pulldown">
+      <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.PopUpPulldownPadding}" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+    </Style>
+    <Style Selector="^:open /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+
+    <!-- Gallery-only: mirrors the real :pointerover/:pressed Setters since Avalonia won't let outside code set them. -->
+    <Style Selector="^.gallery-hover /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+    <Style Selector="^.gallery-pressed /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

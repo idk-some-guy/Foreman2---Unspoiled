@@ -130,6 +130,10 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Radio group", "Default", BuildRadioGroupTile));
             registry.Register(new GalleryTile("Kit", "Switch — Settings only (A16)", "Default", BuildSwitchTile));
             registry.Register(new GalleryTile("Kit", "Checkbox, Radio group & Switch (150%)", "150%", BuildSelectionControlsScaledTile));
+            registry.Register(new GalleryTile("Kit", "Segmented", "Default", BuildSegmentedTile));
+            registry.Register(new GalleryTile("Kit", "Pop-up buttons", "Default", BuildPopUpButtonsTile));
+            registry.Register(new GalleryTile("Kit", "Menu button", "Default", BuildMenuButtonTile));
+            registry.Register(new GalleryTile("Kit", "Segmented, Pop-up buttons & Menu button (150%)", "150%", BuildMenuPrimitivesScaledTile));
             return registry;
         }
 
@@ -456,6 +460,114 @@ namespace Foreman.Mac.Views {
             container.Children.Add(BuildCheckboxTile());
             container.Children.Add(BuildRadioGroupTile());
             container.Children.Add(BuildSwitchTile());
+            return container;
+        }
+
+        private static Segmented KitSegmented(params string[] items) {
+            var segmented = new Segmented { Theme = KitTheme("Kit.Segmented") };
+            foreach (string item in items)
+                segmented.Items.Add(item);
+            return segmented;
+        }
+
+        private static StackPanel BuildSegmentedTile() {
+            Segmented regular = KitSegmented("Up", "Down");
+            FocusRing.SetShowAlways(regular, true);
+
+            Segmented mini = KitSegmented("Up", "Down", "Auto");
+            mini.Classes.Add("mini");
+            mini.SelectedIndex = 1;
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("Regular", "caption", "tertiary"), regular, KitText("Mini", "caption", "tertiary"), mini },
+            };
+        }
+
+        private static PopUp KitPopUp(bool pullDown, params string[] items) {
+            var popup = new PopUp { Theme = KitTheme("Kit.PopUp"), IsPullDown = pullDown };
+            if (pullDown)
+                popup.Label = "Add as";
+            foreach (string item in items)
+                popup.Items.Add(item);
+            if (!pullDown && items.Length > 0)
+                popup.SelectedItem = items[0];
+            return popup;
+        }
+
+        private static StackPanel BuildPopUpButtonsTile() {
+            PopUp popup = KitPopUp(false, "Items / s", "Belts / s", "Power / s");
+            FocusRing.SetShowAlways(popup, true);
+            PopUp pulldown = KitPopUp(true, "Add as blueprint", "Add as ghost");
+            PopUp openExample = KitPopUp(false, "Items / s", "Belts / s", "Power / s");
+            var openRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { openExample, openExample.Menu } };
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = {
+                    KitText("Pop-up", "caption", "tertiary"), popup,
+                    KitText("Pull-down", "caption", "tertiary"), pulldown,
+                    KitText("Open (menu panel)", "caption", "tertiary"), openRow,
+                },
+            };
+        }
+
+        private static MenuButton KitMenuButton(string label, Geometry glyph, params (string Text, bool IsDefault, bool IsChecked)[] items) {
+            var button = new MenuButton { Theme = KitTheme("Kit.MenuButton"), Label = label, Glyph = glyph };
+            foreach ((string text, bool isDefault, bool isChecked) in items)
+                button.Items.Add(new MenuButtonItem { Text = text, IsDefault = isDefault, IsChecked = isChecked });
+            return button;
+        }
+
+        private static StackPanel BuildMenuButtonTile() {
+            var filterGlyph = (Geometry)Application.Current!.FindResource("Kit.Glyph.Filter.14")!;
+
+            MenuButton normal = KitMenuButton("Filter", filterGlyph,
+                ("Show unavailable objects", false, false),
+                ("Show hidden objects", false, false),
+                ("Show only compatible recipes", true, true));
+            FocusRing.SetShowAlways(normal, true);
+
+            MenuButton filled = KitMenuButton("Filter", filterGlyph,
+                ("Show unavailable objects", false, true),
+                ("Show hidden objects", false, true),
+                ("Show only compatible recipes", true, true));
+
+            MenuButton openExample = KitMenuButton("Filter", filterGlyph,
+                ("Show unavailable objects", false, true),
+                ("Show hidden objects", false, false),
+                ("Show only compatible recipes", true, true));
+            var openRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { openExample, openExample.Menu } };
+
+            var overflow = new MenuButton { Theme = KitTheme("Kit.MenuButton") };
+            overflow.Classes.Add("overflow");
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = {
+                    KitText("Default", "caption", "tertiary"), normal,
+                    KitText("Filled", "caption", "tertiary"), filled,
+                    KitText("Open (menu panel)", "caption", "tertiary"), openRow,
+                    KitText("Overflow", "caption", "tertiary"), overflow,
+                },
+            };
+        }
+
+        private static readonly string[] MenuPrimitivesScaledSizeKeys = [
+            "Foreman.Size.ControlHeightRegular", "Foreman.Size.ControlGlyphGap", "Foreman.Size.PopUpIndicator",
+            "Foreman.Size.GlyphMicro", "Foreman.Size.GlyphSmall", "Foreman.Size.MenuItemHeight",
+            "Foreman.Size.MenuPanelMinWidth", "Foreman.Size.MenuCheckColumn",
+        ];
+
+        private static StackPanel BuildMenuPrimitivesScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in MenuPrimitivesScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildSegmentedTile());
+            container.Children.Add(BuildPopUpButtonsTile());
+            container.Children.Add(BuildMenuButtonTile());
             return container;
         }
 
