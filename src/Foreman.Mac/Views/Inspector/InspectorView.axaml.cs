@@ -77,8 +77,7 @@ namespace Foreman.Mac.Views.Inspector {
             DetachedFromVisualTree += (_, _) => DisposeBakedIcons();
             BindViewModel();
 
-            //Task 5: baked icons carry no theme tint of their own, but a fresh rebake through this hook is
-            //what Task 7's scale-driven rebaking will build on - dispose-then-Refresh rebakes and reassigns
+            //Baked icons carry no theme tint of their own; dispose-then-Refresh rebakes and reassigns
             //Source synchronously, so nothing paints a disposed bitmap in between.
             ThemeAware.Attach(this, () => {
                 DisposeBakedIcons();

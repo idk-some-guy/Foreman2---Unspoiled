@@ -84,6 +84,10 @@ namespace Foreman.Mac.Kit.Appearance {
                 resources["Foreman.FocusRing.Width"] = 4.0;
             else
                 resources.Remove("Foreman.FocusRing.Width");
+
+            resources.Remove("Foreman.FocusRing.Offset");
+            if (app.TryGetResource("Foreman.FocusRing.Offset", app.ActualThemeVariant, out object? offsetValue) && offsetValue is double offset)
+                resources["Foreman.FocusRing.Offset"] = offset;
         }
 
         private void ApplyBorderPromotion(bool highContrast) {

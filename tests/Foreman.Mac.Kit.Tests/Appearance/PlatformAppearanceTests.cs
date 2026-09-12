@@ -65,6 +65,9 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             Application.Current!.TryGetResource("Foreman.FocusRing.Width", Application.Current.ActualThemeVariant, out object? width);
             Assert.Equal(4.0, Assert.IsType<double>(width));
 
+            Application.Current!.TryGetResource("Foreman.FocusRing.Offset", Application.Current.ActualThemeVariant, out object? offset);
+            Assert.Equal(2.0, Assert.IsType<double>(offset));
+
             Application.Current!.TryGetResource("Foreman.Color.FocusRing", Application.Current.ActualThemeVariant, out object? ring);
             Assert.Equal((byte)0xFF, Assert.IsType<Color>(ring).A);
 
@@ -98,9 +101,9 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             hub.Dispose();
         }
 
-        //Task 4 fix round 1: an explicit Light/Dark flip (ThemeService.Apply) never fires
-        //IPlatformAppearance.Changed, so variant-resolved overrides must re-derive off the hub's own
-        //ActualThemeVariantChanged subscription instead of relying on caller discipline.
+        //An explicit Light/Dark flip (ThemeService.Apply) never fires IPlatformAppearance.Changed, so
+        //variant-resolved overrides must re-derive off the hub's own ActualThemeVariantChanged
+        //subscription instead of relying on caller discipline.
         [AvaloniaFact]
         public void ThemeFlip_WithContrastHigh_ReResolvesBorderToTheNewVariantsBorderStrong() {
             MergeKitIntoApplication();

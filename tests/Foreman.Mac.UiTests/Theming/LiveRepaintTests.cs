@@ -29,10 +29,10 @@ using Xunit;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.Theming {
-    //Task 5: the brief's own checklist - open Settings, a sheet, the comparator, and the browser, flip the
-    //theme through the app-wide AppearanceHub, confirm each repaints, and confirm none of them are still
-    //subscribed once closed. GraphThemeTests/DarkModeTests already cover MainWindow's own canvas repaint and
-    //the System-mode platform-follow path; this file covers the rest of the surface list.
+    //Opens Settings, a sheet, the comparator, and the browser, flips the theme through the app-wide
+    //AppearanceHub, confirms each repaints, and confirms none of them are still subscribed once closed.
+    //GraphThemeTests/DarkModeTests already cover MainWindow's own canvas repaint and the System-mode
+    //platform-follow path; this file covers the rest of the surface list.
     public class LiveRepaintTests : IDisposable {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
 

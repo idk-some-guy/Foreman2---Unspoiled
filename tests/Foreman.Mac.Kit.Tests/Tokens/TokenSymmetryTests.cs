@@ -31,8 +31,8 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.True(lightKeys.Count >= 85, $"expected a substantial token set, found {lightKeys.Count}");
         }
 
-        //K1 task 2: the semantic rebind adds these on top of the existing 25 colour keys, and renames
-        //Selection to NodeSelected (covered separately by AliasTests).
+        //The semantic rebind adds these on top of the existing 25 colour keys, and renames Selection to
+        //NodeSelected (covered separately by AliasTests).
         [AvaloniaFact]
         public void TokenFiles_DeclareTheNewK1ColorKeys() {
             var lightKeys = LoadThemeFile("Tokens.Light.axaml").Keys.Cast<string>().ToHashSet();
@@ -84,6 +84,15 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Equal((lightAccent.R, lightAccent.G, lightAccent.B), (lightAccentSoft.R, lightAccentSoft.G, lightAccentSoft.B));
             Assert.Equal((darkAccent.R, darkAccent.G, darkAccent.B), (darkAccentSoft.R, darkAccentSoft.G, darkAccentSoft.B));
+        }
+
+        [AvaloniaFact]
+        public void FocusRingOffset_IsTwo_AndSymmetricAcrossThemes() {
+            var light = LoadThemeFile("Tokens.Light.axaml");
+            var dark = LoadThemeFile("Tokens.Dark.axaml");
+
+            Assert.Equal(2.0, (double)light["Foreman.FocusRing.Offset"]!);
+            Assert.Equal(2.0, (double)dark["Foreman.FocusRing.Offset"]!);
         }
 
         [AvaloniaFact]

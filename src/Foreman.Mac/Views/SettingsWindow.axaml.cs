@@ -153,9 +153,8 @@ namespace Foreman.Mac.Views {
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        //Task 5: EnabledObjectsListItem.RefreshTheme() re-resolves the shared brushes and pushes them out
-        //to every row already on screen (RowBackground/Foreground are live-computed, not baked at row
-        //construction) - nothing here needs to rebuild the lists.
+        //RefreshTheme re-resolves the shared brushes and pushes them out to every row already on screen
+        //(RowBackground/Foreground are live-computed, not baked at row construction).
         public void RefreshTheme() => EnabledObjectsListItem.RefreshTheme();
 
         //--- Tab strip ------------------------------------------------------------------------------------

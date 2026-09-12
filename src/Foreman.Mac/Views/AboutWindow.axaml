@@ -21,15 +21,15 @@
                Source="avares://Foreman.Mac/Assets/unspoiled-icon-512.png" />
       </Border>
       <TextBlock Name="AppNameTextBlock" Text="Foreman 2" HorizontalAlignment="Center"
-                 FontSize="{DynamicResource Foreman.Type.AboutName.FontSize}"
+                 FontSize="{DynamicResource Foreman.Type.Legacy.About.Name.FontSize}"
                  FontWeight="{DynamicResource Foreman.Type.SectionHeader.FontWeight}"
                  Foreground="{DynamicResource Foreman.Color.Text}" />
       <TextBlock Name="VersionTextBlock" Text="{Binding VersionLabel}" HorizontalAlignment="Center"
-                 FontSize="{DynamicResource Foreman.Type.AboutVersion.FontSize}"
+                 FontSize="{DynamicResource Foreman.Type.Legacy.About.Version.FontSize}"
                  Foreground="{DynamicResource Foreman.Color.TextSecondary}" />
       <TextBlock Name="TaglineTextBlock" Text="A Factorio production-chain planner" HorizontalAlignment="Center"
                  TextAlignment="Center" Margin="0,6,0,0"
-                 FontSize="{DynamicResource Foreman.Type.AboutTagline.FontSize}"
+                 FontSize="{DynamicResource Foreman.Type.Legacy.About.Tagline.FontSize}"
                  Foreground="{DynamicResource Foreman.Color.TextTertiary}" />
     </StackPanel>
   </Border>

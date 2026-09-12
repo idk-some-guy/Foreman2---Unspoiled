@@ -8,10 +8,9 @@ using System;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Appearance {
-    //K1 task 7: ScaleContract.Apply(step) recomputes the kit's sizing tokens (type ramp, control
-    //heights, icon/picker/chooser sizes, the form label column, the toolbar item height, the canvas
-    //bridge's tokens) into Application.Resources, the same re-push shape AppearanceHub already uses for
-    //colour. Borders, radii, the focus ring and the scrim never move.
+    //ScaleContract.Apply(step) recomputes the kit's sizing tokens into Application.Resources, the same
+    //re-push shape AppearanceHub already uses for colour. Borders, radii, the focus ring and the scrim
+    //never move.
     public class ScaleContractTests : IDisposable {
         public ScaleContractTests() {
             MergeKitIntoApplication();
@@ -103,6 +102,7 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             ScaleContract.Apply(1.5);
 
             Assert.Equal(3.0, ResourceDouble("Foreman.FocusRing.Width"));
+            Assert.Equal(2.0, ResourceDouble("Foreman.FocusRing.Offset"));
 
             Application.Current!.TryGetResource("Foreman.Radius.Control", Application.Current.ActualThemeVariant, out object? radius);
             Assert.Equal(new CornerRadius(6), radius);

@@ -71,9 +71,9 @@ namespace Foreman.Mac.Views {
                 AppearanceHub.Current?.Unsubscribe(this);
         }
 
-        //Task 5: cell/group chrome is entirely DynamicResource-bound already (free on a theme flip); the
-        //sidebar's measured width is the one thing this window computes in code, off live text metrics that
-        //a scale change can move.
+        //Cell/group chrome is entirely DynamicResource-bound already (free on a theme flip); the sidebar's
+        //measured width is the one thing this window computes in code, off live text metrics that a scale
+        //change can move.
         public void RefreshTheme() => UpdateSidebarWidth();
 
         private void OnDataContextChanged(object? sender, EventArgs e) {

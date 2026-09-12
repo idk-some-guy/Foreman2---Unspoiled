@@ -8,10 +8,10 @@ using System;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Theming {
-    //Task 5: WindowScaler carries no DynamicResource of its own (it wraps each window's Content in a
-    //LayoutTransformControl directly), so a scale change needs to reach the hub the same way a theme/
-    //accent/contrast flip does - subscribers with baked, size-dependent visuals (Task 7 territory) can
-    //then refresh off the one Changed/Subscribe path instead of a second scale-specific hook.
+    //WindowScaler carries no DynamicResource of its own (it wraps each window's Content in a
+    //LayoutTransformControl directly), so a scale change needs to reach the hub the same way a
+    //theme/accent/contrast flip does, and subscribers with baked, size-dependent visuals refresh off
+    //the one Changed/Subscribe path instead of a second scale-specific hook.
     [Collection(ScaleTestGroup.Name)]
     public class AppearanceHubWiringTests : IDisposable {
         private sealed class RecordingSubscriber : IThemeAware {

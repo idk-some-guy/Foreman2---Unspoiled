@@ -7,8 +7,8 @@ using System;
 namespace Foreman.Mac.Kit {
     public enum TransitionKind { Fade, SlideFade, Scale, CrossFade, Reflow }
 
-    //Gate fix 11: every animated duration/easing the palette, the "Add to Graph" browser and the radial
-    //menu use traces back here, so retuning one retunes all of them together.
+    //Every animated duration/easing the palette, the "Add to Graph" browser and the radial menu use
+    //traces back here, so retuning one retunes all of them together.
     public static class Motion {
         public static readonly TimeSpan CrossFadeDuration = TimeSpan.FromMilliseconds(220);
         public static readonly TimeSpan EntranceDuration = TimeSpan.FromMilliseconds(200);

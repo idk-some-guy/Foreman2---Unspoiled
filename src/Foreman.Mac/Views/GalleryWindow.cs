@@ -62,9 +62,9 @@ namespace Foreman.Mac.Views {
                 FontWeight = FontWeight.Bold,
             };
             var themeToggleButton = new Button { Name = "ThemeToggleButton", Content = "Toggle Theme (Light/Dark)" };
-            //Task 5: just flips the variant now - the AppearanceHub subscription below (ActualThemeVariant
-            //Changed reaches the hub already) rebuilds this section through the same RefreshTheme every
-            //other appearance/accent/contrast/scale change already drives.
+            //Just flips the variant now - the AppearanceHub subscription below (ActualThemeVariantChanged
+            //reaches the hub already) rebuilds this section through the same RefreshTheme every other
+            //appearance/accent/contrast/scale change already drives.
             themeToggleButton.Click += (_, _) => {
                 Application app = Application.Current!;
                 app.RequestedThemeVariant = app.ActualThemeVariant == ThemeVariant.Dark ? ThemeVariant.Light : ThemeVariant.Dark;

@@ -93,7 +93,7 @@ namespace Foreman.Mac.UiTests.Views {
             return cache;
         }
 
-        //Task 9: the declarative registry lists exactly the tiles the window renders, in the same order.
+        //The declarative registry lists exactly the tiles the window renders, in the same order.
         [AvaloniaFact]
         public void Registry_ListsATileForEveryPanelTheWindowShows() {
             DataCache cache = NewFixtureCache();
@@ -135,7 +135,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(Colors.Black, Assert.IsAssignableFrom<ISolidColorBrush>(chrome.Background).Color);
         }
 
-        //Task 6: the gallery goes through WindowScaler.Track like every other window.
+        //The gallery goes through WindowScaler.Track like every other window.
         [AvaloniaFact]
         public void Construction_TracksWindowScaler() {
             DataCache cache = NewFixtureCache();

@@ -84,7 +84,7 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(Color.Parse("#D97A06"), Assert.IsType<Color>(value));
         }
 
-        //K1 task 2: NodeSelected replaces Selection (kept resolvable only through the alias layer above).
+        //NodeSelected replaces Selection (kept resolvable only through the alias layer above).
         [AvaloniaFact]
         public void DarkTheme_NodeSelected_MatchesContractHex() {
             Application.Current!.TryGetResource("Foreman.Color.NodeSelected", ThemeVariant.Dark, out var value);

@@ -185,9 +185,9 @@
          Popup's local value. -->
     <Popup Name="ViewOptionsPopover" PlacementTarget="{Binding #ViewOptionsButton}" Placement="Bottom"
            IsOpen="{Binding IsViewOptionsOpen, Mode=TwoWay}" IsLightDismissEnabled="True">
-      <!-- Task 7: a Popup's content renders in its own popup root, outside Window.Content - but every
-           size here is DynamicResource-bound, so it follows ScaleContract's token re-push on its own,
-           with no popup-specific transform or registration needed. -->
+      <!-- A Popup's content renders in its own popup root, outside Window.Content - but every size here
+           is DynamicResource-bound, so it follows ScaleContract's token re-push on its own, with no
+           popup-specific transform or registration needed. -->
       <Border Name="ViewOptionsCard" Background="{DynamicResource Foreman.Color.ControlBackground}"
               BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
               CornerRadius="{StaticResource Foreman.Radius.Card}" Padding="{StaticResource Foreman.Thickness.Space3}">

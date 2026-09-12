@@ -117,9 +117,9 @@ namespace Foreman.Mac.UiTests {
         private static Button SaveButton(MainWindow window) =>
             window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "SaveButton");
 
-        //Task 5: reads the live Foreman.Color.AccentSoft token rather than a hardcoded hex - AppearanceHub
-        //is now wired into the real App, so the token itself follows the platform accent (headless reports
-        //its own stand-in accent), and a literal expected color would drift out from under the token.
+        //Reads the live Foreman.Color.AccentSoft token rather than a hardcoded hex: the token follows the
+        //platform accent (headless reports its own stand-in accent), so a literal expected color would
+        //drift out from under it.
         private static AvColor ResolveAccentSoft() {
             Application.Current!.TryGetResource("Foreman.Color.AccentSoft", Application.Current.ActualThemeVariant, out object? resolved);
             return Assert.IsType<AvColor>(resolved);

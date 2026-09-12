@@ -159,8 +159,8 @@ namespace Foreman.Mac.Views {
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        //Task 5: RebuildTab re-resolves every status brush fresh (PresetComparatorViewModel.RebuildTab), so
-        //a theme flip while this window is open just re-runs the same pipeline the tab switch already uses.
+        //RebuildTab re-resolves every status brush fresh, so a theme flip while this window is open just
+        //re-runs the same pipeline the tab switch already uses.
         public void RefreshTheme() {
             UpdateUnfilteredRows();
             UpdateFilteredLists();

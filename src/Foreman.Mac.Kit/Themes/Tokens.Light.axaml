@@ -26,6 +26,7 @@
   <Color x:Key="Foreman.Color.SuccessSoft">#7334C759</Color>
   <Color x:Key="Foreman.Color.FocusRing">#007AFF</Color>
   <x:Double x:Key="Foreman.FocusRing.Width">3</x:Double>
+  <x:Double x:Key="Foreman.FocusRing.Offset">2</x:Double>
   <Color x:Key="Foreman.Color.SelectionInactive">#17000000</Color>
   <Color x:Key="Foreman.Color.ControlBackgroundPressed">#E6E6E8</Color>
   <Color x:Key="Foreman.Color.TextOnAccent">#FFFFFF</Color>
@@ -81,6 +82,21 @@
   <FontWeight x:Key="Foreman.Type.Callout.FontWeight">400</FontWeight>
   <x:Double x:Key="Foreman.Type.Caption.FontSize">11</x:Double>
   <FontWeight x:Key="Foreman.Type.Caption.FontWeight">400</FontWeight>
+
+  <!-- Per-surface sizes with no ramp-step match; K4 deletes each as its surface migrates onto the ramp. -->
+  <x:Double x:Key="Foreman.Type.Legacy.About.Name.FontSize">15</x:Double>
+  <x:Double x:Key="Foreman.Type.Legacy.About.Tagline.FontSize">10.5</x:Double>
+  <x:Double x:Key="Foreman.Type.Legacy.About.Version.FontSize">11.5</x:Double>
+  <x:Double x:Key="Foreman.Type.Legacy.Browser.Label.FontSize">10</x:Double>
+  <x:Double x:Key="Foreman.Type.Legacy.Browser.Row.FontSize">12.5</x:Double>
+  <x:Double x:Key="Foreman.Type.Legacy.Kbd.FontSize">9.5</x:Double>
+  <x:Double x:Key="Foreman.Type.Legacy.Palette.Hint.FontSize">10</x:Double>
+  <x:Double x:Key="Foreman.Type.Legacy.Palette.Row.FontSize">12.5</x:Double>
+  <x:Double x:Key="Foreman.Type.Legacy.Palette.Sub.FontSize">10.5</x:Double>
+  <x:Double x:Key="Foreman.Type.Legacy.SearchField.FontSize">12.5</x:Double>
+  <x:Double x:Key="Foreman.Type.Legacy.Toolbar.Label.FontSize">11.5</x:Double>
+  <FontWeight x:Key="Foreman.Type.Legacy.Toolbar.Label.FontWeight">500</FontWeight>
+
   <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
   <x:Double x:Key="Foreman.Size.InspectorWidthMin">260</x:Double>
   <x:Double x:Key="Foreman.Size.InspectorWidthMax">380</x:Double>
@@ -96,13 +112,13 @@
   <x:Double x:Key="Foreman.Size.Glyph18">18</x:Double>
   <x:Double x:Key="Foreman.Size.Glyph20">20</x:Double>
 
-  <!-- Task 7: a minimal Skia-canvas bridge (KitSkia.TokenBridge) - no consumer yet, same as
-       Foreman.Shadow.Window below, pending the fuller canvas migration dependency graph risk 6 flags. -->
+  <!-- A minimal Skia-canvas bridge (KitSkia.TokenBridge) - no consumer yet, same as Foreman.Shadow.Window
+       below, pending the fuller canvas migration dependency graph risk 6 flags. -->
   <x:Double x:Key="Foreman.Size.NodePadding">8</x:Double>
   <x:Double x:Key="Foreman.Type.Canvas.FontSize">10</x:Double>
 
-  <!-- Task 9: overlay sidebar's soft left shadow (contract §03's overlay ruling) and a pick cell's
-       selected-ring, both BoxShadows so light/dark can each carry their own opacity. -->
+  <!-- Overlay sidebar's soft left shadow and a pick cell's selected-ring, both BoxShadows so light/dark
+       can each carry their own opacity. -->
   <BoxShadows x:Key="Foreman.Shadow.Sidebar">-2 0 10 0 #26000000</BoxShadows>
   <BoxShadows x:Key="Foreman.Shadow.PickSelectedRing">0 0 0 1 #0068DA</BoxShadows>
 
@@ -125,14 +141,14 @@
   <CornerRadius x:Key="Foreman.Radius.SheetBottom">0,0,10,10</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Node">10</CornerRadius>
 
-  <!-- Window chrome shadow; no consumer yet (K1), alpha borrowed from Popover pending a K-later ruling. -->
+  <!-- Window chrome shadow; no consumer yet, alpha borrowed from Popover pending a K-later ruling. -->
   <BoxShadows x:Key="Foreman.Shadow.Window">0 30 60 -20 #3D000000</BoxShadows>
 
   <!-- Canvas node card shadow; cards carry no shadow in dark, so Dark's alpha is zero. -->
   <BoxShadows x:Key="Foreman.Shadow.Card">0 2 8 0 #12000000</BoxShadows>
 
-  <!-- Task 9: GalleryWindow's canvas backdrop/chrome bubble mimic fixed real-app colors (GraphViewer's
-       white canvas clear, a floating panel's dark chrome) that don't follow the app theme either. -->
+  <!-- GalleryWindow's canvas backdrop/chrome bubble mimic fixed real-app colors (GraphViewer's white
+       canvas clear, a floating panel's dark chrome) that don't follow the app theme either. -->
   <Color x:Key="Foreman.Color.GalleryCanvasBackdrop">#FFFFFF</Color>
   <Color x:Key="Foreman.Color.GalleryChrome">#000000</Color>
 

@@ -37,13 +37,13 @@ namespace Foreman.Mac.UiTests.Views {
 
         [AvaloniaFact]
         public void TypeTokenKeys_ResolveThroughAppResources() {
-            Assert.True(Application.Current!.TryGetResource("Foreman.Type.AboutName.FontSize", ThemeVariant.Light, out object? name));
+            Assert.True(Application.Current!.TryGetResource("Foreman.Type.Legacy.About.Name.FontSize", ThemeVariant.Light, out object? name));
             Assert.Equal(15d, Assert.IsType<double>(name));
 
-            Assert.True(Application.Current!.TryGetResource("Foreman.Type.AboutVersion.FontSize", ThemeVariant.Light, out object? version));
+            Assert.True(Application.Current!.TryGetResource("Foreman.Type.Legacy.About.Version.FontSize", ThemeVariant.Light, out object? version));
             Assert.Equal(11.5d, Assert.IsType<double>(version));
 
-            Assert.True(Application.Current!.TryGetResource("Foreman.Type.AboutTagline.FontSize", ThemeVariant.Light, out object? tagline));
+            Assert.True(Application.Current!.TryGetResource("Foreman.Type.Legacy.About.Tagline.FontSize", ThemeVariant.Light, out object? tagline));
             Assert.Equal(10.5d, Assert.IsType<double>(tagline));
         }
 

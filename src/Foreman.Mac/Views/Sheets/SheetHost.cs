@@ -59,9 +59,9 @@ namespace Foreman.Mac.Views.Sheets {
             Children.Add(panelBorder);
             AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
 
-            //Task 5: forwards to whatever sheet is actually showing rather than each sheet subscribing to
-            //the hub itself - the host outlives any one sheet, so this is the one stable subscription.
-            //Also re-pushes each open layer's Transitions so a live Reduce Motion toggle reaches it.
+            //Forwards to whatever sheet is actually showing rather than each sheet subscribing to the hub
+            //itself - the host outlives any one sheet, so this is the one stable subscription. Also
+            //re-pushes each open layer's Transitions so a live Reduce Motion toggle reaches it.
             ThemeAware.Attach(this, () => {
                 if (IsOpen)
                     SetOpenTransitions(scrim, panelBorder);

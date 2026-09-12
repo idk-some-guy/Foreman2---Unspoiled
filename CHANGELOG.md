@@ -129,11 +129,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   subgroup instead of a flat list, and every cell's tooltip shows its full name and kind.
 - Animations run at a steadier pace and cascade top-down; selecting the group or segment that is
   already active, or retyping an equivalent search, no longer rebuilds the list.
-- The UI test suite's ~3x slowdown after wiring the appearance hub is fixed: a scale change stopped
-  leaking a stale handler onto every test run's App. The factory summary sheet repaints through its
-  host instead of a second, redundant subscription, and the Add to Graph browser's own icons and
-  MainWindow's browser icon cache now rebake on a theme or scale flip like the rest of the hub's
-  subscribers.
 
 ### Changed
 
@@ -157,40 +152,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   bundled Space Age preset roughly fourfold.
 - Image Export, Load from Save, Science Packs, Import Preset, and the cross-preset picker now open
   as sheets sliding down from their owner window instead of separate windows.
-- Theme tokens and shared motion timing move into a new Foreman.Mac.Kit library, the first piece of
-  a shared UI kit; no visual or behavioral change.
-- Color tokens now bind to semantic roles (focus ring, pressed control, warning, success, popover
-  and titlebar materials) with the existing hex values as fallback, and the light accent corrects
-  to #007AFF. Canvas selection's token renames from Selection to NodeSelected, with an alias layer
-  keeping the old name resolvable. The preset comparator's status colors and the last four ad-hoc
-  button/field colors (quality picker, preset import, science packs) now route through these tokens
-  instead of literal brushes.
-- The Kit's type ramp narrows to five steps (LargeTitle, EmphasizedBody, Body, Callout, Caption) plus
-  new metric and size tokens (Radius.SheetBottom 10, Radius.Node, ControlHeightRegular/Large,
-  InspectorWidthMin/Max, ChooserCell), with the old per-surface keys either aliased onto the nearest
-  step or kept resolvable as-is; no visual or behavioral change.
 - A new Kit appearance hub tracks the system accent color and the Increase Contrast, Reduce
   Transparency, and Reduce Motion display preferences, widening the focus ring and promoting Border
   to BorderStrong under Increase Contrast and falling materials back to their opaque value under
   Reduce Transparency; no visual change under default macOS settings.
-- Every open window and sheet now repaints live on a theme, accent, contrast, or interface-scale
-  change, not just at launch: Settings, the factory summary sheet, the preset comparator, the Add to
-  Graph browser, the inspector, and the gallery all follow the appearance hub above. The dark-mode
-  service that used to drive this on its own now feeds into the same hub.
-- The Kit gains its full v2 motion vocabulary (popover, radial sweep, switch knob, segmented
-  selection, inspector reflow, disclosure, align tween, tab-label cross-fade, and spinner timings)
-  and a `Motion.Transition` factory that the palette and browser entrance animations now build on;
-  under Reduce Motion every transition it returns collapses to a same-duration opacity cross-fade.
-  No visual or behavioral change with Reduce Motion off.
 - Interface scale no longer thickens borders, corner radii and the focus ring; text, controls,
   icons and the canvas scale as before.
-- The Kit gains its glyph catalogue: the 29-glyph set from the ratified glyph sheet (New through
-  Beacon, the chevron and search magnifier, the radial chooser's nine outcomes, and the six Settings
-  tabs), each at 16/17/18/20 pt, plus a shared stroke style for drawing them. The toolbar's own icons
-  are untouched; no visual change.
-- The dev gallery window now renders from a declarative `GalleryRegistry` of tiles instead of a
-  fixed sequence of inline builder calls, and its last two hardcoded colors route through tokens;
-  no visual change.
 
 ### Removed
 

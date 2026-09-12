@@ -190,9 +190,8 @@ namespace Foreman.Mac {
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        //Task 5: replaces the old ThemeService.Changed-only hook - the canvas has no DynamicResource of
-        //its own to pick up a live theme (System mode's OS flip), accent, contrast, or scale change, so it
-        //re-seeds here on every AppearanceHub notification.
+        //The canvas has no DynamicResource of its own to pick up a live theme (System mode's OS flip),
+        //accent, contrast, or scale change, so it re-seeds here on every AppearanceHub notification.
         public void RefreshTheme() {
             ApplyCanvasTheme();
             RefreshBrowserIcons();

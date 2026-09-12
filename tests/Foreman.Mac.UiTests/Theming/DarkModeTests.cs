@@ -297,9 +297,9 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(AvColor.Parse("#000000"), Assert.IsType<ImmutableSolidColorBrush>(row.Foreground).Color);
         }
 
-        //Task 5: proves the window repaints an already-open Settings window, not just a freshly constructed
-        //one - ApplyTheme(Dark) here changes RequestedThemeVariant, which AppearanceHub already listens
-        //for (ActualThemeVariantChanged), so SettingsWindow's own hub subscription is what's under test.
+        //Proves the window repaints an already-open Settings window, not just a freshly constructed one -
+        //ApplyTheme(Dark) here changes RequestedThemeVariant, which AppearanceHub already listens for, so
+        //SettingsWindow's own hub subscription is what's under test.
         [AvaloniaFact]
         public async Task EnabledObjectsRow_LiveThemeFlip_RepaintsAlreadyOpenWindow() {
             ((App)Application.Current!).ApplyTheme(ThemeMode.Light);

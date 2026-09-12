@@ -7,7 +7,6 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using Xunit;
@@ -47,13 +46,34 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             return [.. lightDictionary!.Keys.Cast<string>().Where(key => !tokenKeys.Contains(key))];
         }
 
+        //Legacy-key rows document a retired key's successor; they no longer live in Aliases.axaml, so only
+        //the true forwarder rows are checked against its key set.
         [AvaloniaFact]
         public void AliasMapCsv_MatchesAliasesAxamlKeySet() {
-            var csvOldKeys = LoadCsv().Select(row => row.OldKey).ToHashSet();
+            var csvOldKeys = LoadCsv()
+                .Where(row => !row.NewKey.StartsWith("legacy-key:", StringComparison.Ordinal))
+                .Select(row => row.OldKey)
+                .ToHashSet();
             var axamlKeys = AliasKeys();
 
             Assert.Empty(csvOldKeys.Except(axamlKeys));
             Assert.Empty(axamlKeys.Except(csvOldKeys));
+        }
+
+        [AvaloniaFact]
+        public void LegacyKeyRows_PointToExplicitTokensThatExist_AndTheirOldKeyNoLongerResolves() {
+            MergeKitIntoApplication();
+
+            foreach ((string oldKey, string newKey) in LoadCsv()) {
+                if (!newKey.StartsWith("legacy-key:", StringComparison.Ordinal))
+                    continue;
+
+                string explicitKey = newKey["legacy-key:".Length..];
+                foreach (ThemeVariant variant in new[] { ThemeVariant.Light, ThemeVariant.Dark })
+                    Assert.True(Application.Current!.TryGetResource(explicitKey, variant, out _), explicitKey);
+
+                Assert.False(Application.Current!.TryGetResource(oldKey, ThemeVariant.Light, out _), oldKey);
+            }
         }
 
         [AvaloniaFact]
@@ -112,20 +132,12 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             MergeKitIntoApplication();
 
             foreach ((string oldKey, string newKey) in LoadCsv()) {
+                if (newKey.StartsWith("legacy-key:", StringComparison.Ordinal))
+                    continue;
+
                 foreach (ThemeVariant variant in new[] { ThemeVariant.Light, ThemeVariant.Dark }) {
                     bool resolved = Application.Current!.TryGetResource(oldKey, variant, out object? oldValue);
                     Assert.True(resolved, oldKey);
-
-                    if (newKey.StartsWith("legacy:", StringComparison.Ordinal)) {
-                        double literal = double.Parse(newKey.AsSpan("legacy:".Length), CultureInfo.InvariantCulture);
-                        double actual = oldValue switch {
-                            double d => d,
-                            FontWeight w => (int)w,
-                            _ => throw new InvalidOperationException($"unhandled legacy value type {oldValue?.GetType()}"),
-                        };
-                        Assert.Equal(literal, actual);
-                        continue;
-                    }
 
                     Application.Current!.TryGetResource(newKey, variant, out object? newValue);
                     Assert.Equal(newValue, oldValue);

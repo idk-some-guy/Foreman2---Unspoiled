@@ -14,7 +14,7 @@ using Xunit;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //Task 7 fix round: canvas painters read KitSkia.TokenBridge.Current directly, no ambient transform.
+    //Canvas painters read KitSkia.TokenBridge.Current directly, no ambient transform.
     [Collection(ScaleTestGroup.Name)]
     public class CanvasScaleTests : IDisposable {
         public CanvasScaleTests() => WindowScaler.SetScale(1.0);
@@ -89,8 +89,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(3, ItemTabElement.Border);
         }
 
-        //Task 7 fix round 2: a node's own overall Width/Height, baked once at construction with no live
-        //recompute path before this round, now follow UpdateState the same way tab geometry already did.
+        //A node's own overall Width/Height follows UpdateState the same way tab geometry already did.
         [AvaloniaFact]
         public void SetScale_AtOneFifty_RecipeNodeBoundsAreOnePointFiveTimesDefault() {
             using CanvasFixture fx = CanvasFixture.WithVanilla();

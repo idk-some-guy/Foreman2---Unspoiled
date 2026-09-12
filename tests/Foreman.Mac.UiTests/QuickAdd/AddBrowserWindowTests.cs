@@ -458,7 +458,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Null(ToolTip.GetTip(intermediateProducts));
         }
 
-        //Gate fix 9: the widest bundled group name must render untrimmed at every UI scale.
+        //The widest bundled group name must render untrimmed at every UI scale.
         [AvaloniaFact]
         public void SidebarWidthFitsIntermediateProductsUntrimmed_AtEveryUiScale() {
             WindowScaler.SetScale(1.0);
