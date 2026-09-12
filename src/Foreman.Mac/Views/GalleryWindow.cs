@@ -12,6 +12,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Gallery;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views.Sheets;
@@ -48,9 +49,7 @@ namespace Foreman.Mac.Views {
             foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Canvas"))
                 tiles.Children.Add(Tile(tile.Name, tile.Build()));
 
-            //K2's dev-only kit primitives section (task-1-brief): type ramp, glyph sheet, one 150% row.
-            //Kit.Text/Kit.Glyph bind their own look through DynamicResource, so this section (unlike the
-            //ad-hoc Theme section below) needs no RefreshTheme wiring to track a theme toggle.
+            //K2's dev-only kit primitives section: type ramp, glyph sheet, a 150% row, focus ring.
             var kitTiles = new WrapPanel { Orientation = Orientation.Horizontal, Width = TileColumnWidth };
             foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Kit"))
                 kitTiles.Children.Add(Tile(tile.Name, tile.Build()));
@@ -122,11 +121,12 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Type ramp", "Default", BuildTypeRampTile));
             registry.Register(new GalleryTile("Kit", "Glyphs", "Default", BuildGlyphSheetTile));
             registry.Register(new GalleryTile("Kit", "Type ramp & Glyphs (150%)", "150%", BuildKitScaledTile));
+            registry.Register(new GalleryTile("Kit", "Focus ring", "Default", BuildFocusRingTile));
+            registry.Register(new GalleryTile("Kit", "Focus ring (150%)", "150%", BuildFocusRingScaledTile));
             return registry;
         }
 
-        //Task 1 (task-1-brief): "Title — 20/700" through "Caption — 11/400", sample text lifted verbatim
-        //from the kit mock's own type-row examples (contract #type).
+        //Sample text lifted verbatim from the kit mock's type-row examples (contract #type).
         private static readonly (string Label, string Class, string Sample)[] TypeRampSteps = [
             ("Title — 20/700", "title", "Graph Summary"),
             ("Headline — 13/600", "headline", "Iron Plate Line"),
@@ -172,10 +172,7 @@ namespace Foreman.Mac.Views {
             return wrap;
         }
 
-        //Neither tile's font sizes/glyph sizes go through ScaleContract.Apply - every Kit tile shares one
-        //window, so a global re-push would also scale the two Default tiles above. Instead the multiplied
-        //values are pushed only into this container's own Resources, which DynamicResource lookups from
-        //its descendants see before they reach Application.
+        //Multiplied values live in this container's own Resources so the Default tiles beside it don't also rescale.
         private static readonly string[] KitScaledSizeKeys = [
             "Foreman.Type.LargeTitle.FontSize", "Foreman.Type.EmphasizedBody.FontSize", "Foreman.Type.Body.FontSize",
             "Foreman.Type.Callout.FontSize", "Foreman.Type.Caption.FontSize",
@@ -190,6 +187,32 @@ namespace Foreman.Mac.Views {
 
             container.Children.Add(BuildTypeRampTile());
             container.Children.Add(BuildGlyphSheetTile());
+            return container;
+        }
+
+        private static StackPanel BuildFocusRingTile() {
+            var button = new Button { Content = "Save" };
+            FocusRing.SetIsEnabled(button, true);
+            FocusRing.SetShowAlways(button, true);
+
+            var field = new TextBox { PlaceholderText = "Node name", Width = 160 };
+            FocusRing.SetIsEnabled(field, true);
+            FocusRing.SetShowAlways(field, true);
+
+            var checkBox = new CheckBox { Content = "Show Gridlines" };
+            FocusRing.SetIsEnabled(checkBox, true);
+            FocusRing.SetShowAlways(checkBox, true);
+
+            return new StackPanel { Spacing = 12, Children = { button, field, checkBox } };
+        }
+
+        private static StackPanel BuildFocusRingScaledTile() {
+            var container = new StackPanel { Spacing = 8 };
+            foreach (string key in KitScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildFocusRingTile());
             return container;
         }
 

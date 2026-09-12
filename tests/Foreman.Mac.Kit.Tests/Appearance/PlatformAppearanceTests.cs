@@ -141,6 +141,27 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         }
 
         [AvaloniaFact]
+        public void Dispose_RemovesEveryResourceOverrideItOwns() {
+            MergeKitIntoApplication();
+            var appearance = new FakeAppearance {
+                AccentColor = Color.Parse("#123456"),
+                ContrastPreference = ColorContrastPreference.High,
+                ReduceTransparency = true,
+            };
+            var hub = new AppearanceHub((Application)Application.Current!, appearance);
+
+            hub.Dispose();
+
+            Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.Accent"));
+            Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.AccentSoft"));
+            Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.AccentText"));
+            Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.FocusRing"));
+            Assert.False(Application.Current!.Resources.ContainsKey("Foreman.FocusRing.Width"));
+            Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.Border"));
+            Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.PopoverMaterial"));
+        }
+
+        [AvaloniaFact]
         public void ReduceMotion_SetsMotionFlag() {
             var appearance = new FakeAppearance();
             var hub = new AppearanceHub((Application)Application.Current!, appearance);

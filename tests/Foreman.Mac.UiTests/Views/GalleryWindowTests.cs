@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -101,7 +103,7 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Equal(
                 ["QualityPicker", "Toolbar / Titlebar", "View Options popover", "Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows",
-                 "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)"],
+                 "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -119,9 +121,30 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains("Type ramp", captions);
             Assert.Contains("Glyphs", captions);
             Assert.Contains("Type ramp & Glyphs (150%)", captions);
+            Assert.Contains("Focus ring", captions);
+            Assert.Contains("Focus ring (150%)", captions);
             //A sample from each end of the 30-glyph sheet, proving the full set rendered with name labels.
             Assert.Contains("New", captions);
             Assert.Contains("Settings.Appearance", captions);
+        }
+
+        [AvaloniaFact]
+        public void FocusRingScaledTile_KeepsTheRingWidthAndOffsetFixed() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Button[] saveButtons = [.. window.GetVisualDescendants().OfType<Button>().Where(b => Equals(b.Content, "Save"))];
+            Assert.Equal(2, saveButtons.Length);
+
+            Rectangle defaultRing = Assert.IsType<Rectangle>(AdornerLayer.GetAdorner(saveButtons[0]));
+            Rectangle scaledRing = Assert.IsType<Rectangle>(AdornerLayer.GetAdorner(saveButtons[1]));
+
+            Assert.Equal(3, defaultRing.StrokeThickness);
+            Assert.Equal(3, scaledRing.StrokeThickness);
+            Assert.Equal(new Thickness(-3.5), defaultRing.Margin);
+            Assert.Equal(new Thickness(-3.5), scaledRing.Margin);
         }
 
         //The QualityPicker tile must show the way it actually renders in the real app - floating in its own

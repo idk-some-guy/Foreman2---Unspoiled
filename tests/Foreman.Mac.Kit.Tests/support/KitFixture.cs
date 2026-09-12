@@ -11,8 +11,7 @@ using Foreman.Mac.Kit.Appearance;
 using System;
 
 namespace Foreman.Mac.Kit.Tests.support {
-    //Shared across every Controls/<Family>Tests.cs: one merged Kit dictionary, one shown window, a
-    //togglable fake platform appearance, and the scale/state/brush helpers the fidelity tests repeat.
+    //Shared across every Controls/<Family>Tests.cs: a merged Kit dictionary, a shown window, and the scale/state/brush helpers the fidelity tests repeat.
     public sealed class KitFixture : IDisposable {
         private readonly ScaleGuard scale = new();
 
@@ -24,8 +23,7 @@ namespace Foreman.Mac.Kit.Tests.support {
 
             Appearance = new FakePlatformAppearance();
             Window = new Window { Width = 400, Height = 300 };
-            //Scoped to this window, not Application.Styles - stock controls (Button, CheckBox...) need a
-            //real template to hit-test and render states; the rest of the kit suite stays theme-free.
+            //Scoped to this window, not Application.Styles, so stock controls get a real template without theming the rest of the suite.
             Window.Styles.Add(new FluentTheme());
             Window.Show();
         }
@@ -46,19 +44,20 @@ namespace Foreman.Mac.Kit.Tests.support {
 
         public void Dispose() {
             scale.Dispose();
+            //Keyboard focus is process-wide in the headless runner and outlives a closed window otherwise.
+            Window.FocusManager?.Focus(null, NavigationMethod.Unspecified);
+            Dispatcher.UIThread.RunJobs();
             Window.Close();
         }
     }
 
-    //Resets the multiplied kit tokens to 1.0 on disposal - construction also resets, so a fixture never
-    //inherits a leftover scale from a prior test.
+    //Resets the multiplied kit tokens to 1.0 on both construction and disposal, so no fixture inherits a leftover scale.
     public sealed class ScaleGuard : IDisposable {
         public ScaleGuard() => ScaleContract.Apply(1.0);
         public void Dispose() => ScaleContract.Apply(1.0);
     }
 
-    //Fakeable IPlatformAppearance a test can toggle directly, mirroring the FakeAppearance duplicated
-    //across the existing Appearance/*Tests.cs files.
+    //Fakeable IPlatformAppearance a test can toggle directly, mirroring the FakeAppearance in Appearance/*Tests.cs.
     public sealed class FakePlatformAppearance : IPlatformAppearance {
         private EventHandler? changed;
 
@@ -73,8 +72,7 @@ namespace Foreman.Mac.Kit.Tests.support {
         public void RaiseChanged() => changed?.Invoke(this, EventArgs.Empty);
     }
 
-    //Raises real pointer/keyboard events at a control - the window-level dispatch RealClick.cs uses for
-    //pointer, the direct RaiseEvent CanvasKeys.cs uses for keys (tests/Foreman.Mac.UiTests/support).
+    //Raises real pointer/keyboard events at a control, mirroring RealClick.cs/CanvasKeys.cs in tests/Foreman.Mac.UiTests/support.
     public sealed class ControlState {
         private readonly Control control;
         private readonly Window window;

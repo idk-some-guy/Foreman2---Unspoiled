@@ -84,10 +84,6 @@ namespace Foreman.Mac.Kit.Appearance {
                 resources["Foreman.FocusRing.Width"] = 4.0;
             else
                 resources.Remove("Foreman.FocusRing.Width");
-
-            resources.Remove("Foreman.FocusRing.Offset");
-            if (app.TryGetResource("Foreman.FocusRing.Offset", app.ActualThemeVariant, out object? offsetValue) && offsetValue is double offset)
-                resources["Foreman.FocusRing.Offset"] = offset;
         }
 
         private void ApplyBorderPromotion(bool highContrast) {
@@ -118,6 +114,15 @@ namespace Foreman.Mac.Kit.Appearance {
         public void Dispose() {
             appearance.Changed -= OnAppearanceChanged;
             app.ActualThemeVariantChanged -= OnAppearanceChanged;
+
+            var resources = app.Resources;
+            resources.Remove("Foreman.Color.Accent");
+            resources.Remove("Foreman.Color.AccentSoft");
+            resources.Remove("Foreman.Color.AccentText");
+            resources.Remove("Foreman.Color.FocusRing");
+            resources.Remove("Foreman.FocusRing.Width");
+            resources.Remove("Foreman.Color.Border");
+            resources.Remove("Foreman.Color.PopoverMaterial");
         }
     }
 }
