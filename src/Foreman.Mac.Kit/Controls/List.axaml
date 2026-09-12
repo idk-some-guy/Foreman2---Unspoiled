@@ -1,0 +1,60 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls">
+
+  <ControlTheme x:Key="Kit.ListBoxItem" TargetType="ListBoxItem">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ListRowHeight}" />
+    <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.ListRowPadding}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Callout.FontSize}" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="kit:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Frame"
+                Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover:not(:selected)">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+    <Style Selector="^:selected">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.AccentText}" />
+    </Style>
+    <Style Selector="^[(kit|ListHost.IsKey)=False]:selected">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.SelectionInactive}" />
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="Kit.List" TargetType="ListBox">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.WellBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Card}" />
+    <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.ListFramePadding}" />
+    <Setter Property="ItemContainerTheme" Value="{StaticResource Kit.ListBoxItem}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}">
+          <ScrollViewer x:Name="PART_ScrollViewer" Padding="{TemplateBinding Padding}">
+            <ItemsPresenter x:Name="PART_ItemsPresenter" />
+          </ScrollViewer>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

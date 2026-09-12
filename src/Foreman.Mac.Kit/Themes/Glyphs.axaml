@@ -198,6 +198,8 @@
 
   <!-- Primitives addendum §08 additions: each is its own drawn-size master, not scaled from the 20pt grid. -->
   <StreamGeometry x:Key="Kit.Glyph.PopUpChevrons.16">M5.44,5.76 L8,3.68 L10.56,5.76 L10.56,7.28 L8,5.2 L5.44,7.28 Z M5.44,10.24 L8,12.32 L10.56,10.24 L10.56,8.72 L8,10.8 L5.44,8.72 Z</StreamGeometry>
+  <!-- Disclosure triangle (addendum §07/§08): mock's 20pt-grid path M8.1,5.8 L13.7,10 L8.1,14.2 Z scaled by 12/20, distinct from the pop-up chevrons. -->
+  <StreamGeometry x:Key="Kit.Glyph.Disclosure.12">M4.86,3.48 L8.22,6 L4.86,8.52 Z</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Checkmark.12">M2.7,6.24 L4.98,8.52 L9.3,3.72</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Overflow.16">M4.16,4.48 L7.68,8 L4.16,11.52 M8.8,4.48 L12.32,8 L8.8,11.52</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Filter.14">M2.38,4.2 H11.62 M3.92,7 H10.08 M5.6,9.8 H8.4</StreamGeometry>

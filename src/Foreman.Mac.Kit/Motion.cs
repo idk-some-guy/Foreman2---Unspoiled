@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
+using Avalonia.Controls;
 using Avalonia.Layout;
 using System;
 
@@ -43,6 +44,11 @@ namespace Foreman.Mac.Kit {
         public static Transitions SegmentedTransitions => Transition(TransitionKind.SlideFade, SegmentedSelectionDuration);
         public static Transitions SliderThumbSizeTransitions => Transition(TransitionKind.Size, HoverDuration);
         public static Transitions SearchFieldClearTransitions => Transition(TransitionKind.Fade, HoverDuration);
+        public static Transitions DisclosureTransitions => Transition(TransitionKind.Scale, DisclosureDuration);
+
+        //Row selection/hover and tab fill cross-fade via opacity over snap-set overlay colors.
+        public static Transitions RowSelectionTransitions => Transition(TransitionKind.CrossFade, HoverDuration);
+        public static Transitions TabFillTransitions => Transition(TransitionKind.CrossFade, SegmentedSelectionDuration);
 
         public static Easing CrossFadeEasing => new CubicEaseInOut();
         public static Easing EntranceEasing => new CubicEaseOut();

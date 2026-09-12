@@ -85,6 +85,17 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.SliderHeight",
             "Foreman.Metrics.SliderMinWidth",
             "Foreman.Metrics.SliderNaturalWidth",
+            "Foreman.Size.ListRowHeight",
+            "Foreman.Size.SidebarRowHeight",
+            "Foreman.Size.ListRowIconGap",
+            "Foreman.Size.SidebarRowIconGap",
+            "Foreman.Metrics.GroupBoxMaxWidth",
+            "Foreman.Type.TabLabel.FontSize",
+            "Foreman.Metrics.TabItemMinWidth",
+            "Foreman.Size.TabItemHeight",
+            "Foreman.Size.TabItemGlyphGap",
+            "Foreman.Size.TabItemGap",
+            "Foreman.Size.UnderlineTabGap",
         ];
 
         //Remove-then-resolve (AppearanceHub.ApplyFocusRing's idiom) keeps repeated calls from compounding.

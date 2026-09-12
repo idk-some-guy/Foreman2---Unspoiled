@@ -25,6 +25,12 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/SearchField.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Stepper.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Slider.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Disclosure.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/ListRow.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/SidebarRow.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/List.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/GroupBox.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/TabStrip.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

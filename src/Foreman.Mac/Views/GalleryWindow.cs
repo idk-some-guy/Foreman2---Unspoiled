@@ -20,7 +20,10 @@ using Foreman.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GroupBox = Foreman.Mac.Kit.Controls.GroupBox;
 using Slider = Foreman.Mac.Kit.Controls.Slider;
+using TabStrip = Foreman.Mac.Kit.Controls.TabStrip;
+using TabStripItem = Foreman.Mac.Kit.Controls.TabStripItem;
 
 namespace Foreman.Mac.Views {
     //Dev-only visual check window for every canvas floating panel, launched via `--gallery` (see
@@ -140,6 +143,12 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Stepper", "Default", BuildStepperTile));
             registry.Register(new GalleryTile("Kit", "Slider", "Default", BuildSliderTile));
             registry.Register(new GalleryTile("Kit", "Text field, Search field, Stepper & Slider (150%)", "150%", BuildFieldControlsScaledTile));
+            registry.Register(new GalleryTile("Kit", "List rows", "Default", BuildListRowsTile));
+            registry.Register(new GalleryTile("Kit", "Sidebar rows", "Default", BuildSidebarRowsTile));
+            registry.Register(new GalleryTile("Kit", "Group box", "Default", BuildGroupBoxTile));
+            registry.Register(new GalleryTile("Kit", "Tab strips", "Default", BuildTabStripsTile));
+            registry.Register(new GalleryTile("Kit", "Disclosure", "Default", BuildDisclosureTile));
+            registry.Register(new GalleryTile("Kit", "List rows, Sidebar rows, Group box, Tab strips & Disclosure (150%)", "150%", BuildRowsAndChromeScaledTile));
             return registry;
         }
 
@@ -688,6 +697,199 @@ namespace Foreman.Mac.Views {
             container.Children.Add(BuildSearchFieldTile());
             container.Children.Add(BuildStepperTile());
             container.Children.Add(BuildSliderTile());
+            return container;
+        }
+
+        private static ListRow KitListRow(string label, string trailing, IBrush icon) => new() {
+            Theme = KitTheme("Kit.ListRow"), Label = label, Trailing = trailing, Icon = icon,
+        };
+
+        private static StackPanel BuildListRowsTile() {
+            IBrush swatch = ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue);
+
+            ListRow normal = KitListRow("Electric furnace", "×4", swatch);
+            ListRow selectedKey = KitListRow("Steel furnace", "×6", swatch);
+            selectedKey.IsSelected = true;
+            ListRow selectedIdle = KitListRow("Stone furnace", "×12", swatch);
+            selectedIdle.IsSelected = true;
+            selectedIdle.IsKey = false;
+            ListRow selectedFocused = KitListRow("Foundry", "×1", swatch);
+            selectedFocused.IsSelected = true;
+            selectedFocused.TemplateApplied += (_, e) => {
+                if (e.NameScope.Find<Border>("PART_Frame") is Border frame)
+                    FocusRing.SetShowAlways(frame, true);
+            };
+
+            var list = new ListBox { Theme = KitTheme("Kit.List") };
+            list.Items.Add(normal);
+            list.Items.Add(selectedKey);
+            list.Items.Add(selectedIdle);
+            list.Items.Add(selectedFocused);
+
+            var empty = new TextBlock {
+                Text = "No results for “plutonium”",
+                Theme = KitTheme("Kit.Text"),
+            };
+            empty.Classes.Add("callout");
+            empty.Classes.Add("tertiary");
+
+            Application.Current!.TryGetResource("Foreman.Radius.Card", null, out object? listRadius);
+            Application.Current!.TryGetResource("Foreman.Thickness.ListFramePadding", null, out object? listPadding);
+            var emptyFrame = new Border {
+                Background = ThemeResources.ResolveBrush("Foreman.Color.WellBackground", Colors.White),
+                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.Border", Color.FromArgb(0x17, 0, 0, 0)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = listRadius as CornerRadius? ?? default,
+                Padding = listPadding as Thickness? ?? default,
+                Child = empty,
+            };
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = {
+                    KitText("States", "caption", "tertiary"), list,
+                    KitText("Empty state", "caption", "tertiary"), emptyFrame,
+                },
+            };
+        }
+
+        private static SidebarRow KitSidebarRow(string label, Geometry glyph) => new() {
+            Theme = KitTheme("Kit.SidebarRow"), Label = label, Glyph = glyph,
+        };
+
+        private static StackPanel BuildSidebarRowsTile() {
+            Geometry assemblers = (Geometry)Application.Current!.FindResource("Kit.Glyph.Item.17")!;
+            Geometry smelting = (Geometry)Application.Current!.FindResource("Kit.Glyph.Recipe.17")!;
+            Geometry intermediates = (Geometry)Application.Current!.FindResource("Kit.Glyph.View.17")!;
+            Geometry fluids = (Geometry)Application.Current!.FindResource("Kit.Glyph.Connect.17")!;
+
+            SidebarRow selectedKey = KitSidebarRow("Assemblers", assemblers);
+            selectedKey.IsSelected = true;
+            SidebarRow hover = KitSidebarRow("Smelting", smelting);
+            SidebarRow selectedIdle = KitSidebarRow("Intermediates", intermediates);
+            selectedIdle.IsSelected = true;
+            selectedIdle.IsKey = false;
+            SidebarRow plain = KitSidebarRow("Fluids", fluids);
+
+            var sidebar = new StackPanel {
+                Spacing = 2,
+                Background = ThemeResources.ResolveBrush("Foreman.Color.SidebarBackground", Color.FromRgb(0xEF, 0xEF, 0xF1)),
+                Children = { selectedKey, hover, selectedIdle, plain },
+            };
+
+            return new StackPanel { Spacing = 8, Children = { KitText("Sidebar", "caption", "tertiary"), sidebar } };
+        }
+
+        private static StackPanel BuildGroupBoxTile() {
+            var direction = new StackPanel {
+                Orientation = Orientation.Horizontal,
+                Spacing = 12,
+                Children = {
+                    KitText("Default node direction", "body"),
+                    KitSegmented("Up", "Down"),
+                },
+            };
+            var smartDirection = new StackPanel {
+                Orientation = Orientation.Horizontal,
+                Spacing = 12,
+                Children = { KitText("Smart direction", "body") },
+            };
+
+            var box = new GroupBox {
+                Theme = KitTheme("Kit.GroupBox"),
+                Header = "Canvas",
+                Content = new StackPanel { Spacing = 4, Children = { direction, smartDirection } },
+            };
+
+            return new StackPanel { Spacing = 8, Children = { KitText("Group box", "caption", "tertiary"), box } };
+        }
+
+        private static TabStrip KitToolbarTabStrip(int selected, params (string Label, string GlyphKey)[] items) {
+            var strip = new TabStrip { Theme = KitTheme("Kit.TabStrip"), SelectedIndex = selected };
+            strip.Classes.Add("toolbar-tabs");
+            foreach ((string label, string glyphKey) in items)
+                strip.Items.Add(new TabStripItem { Text = label, Glyph = (Geometry)Application.Current!.FindResource(glyphKey)! });
+            return strip;
+        }
+
+        private static TabStrip KitUnderlineTabStrip(int selected, params string[] labels) {
+            var strip = new TabStrip { Theme = KitTheme("Kit.TabStrip"), SelectedIndex = selected };
+            strip.Classes.Add("underline");
+            foreach (string label in labels)
+                strip.Items.Add(new TabStripItem { Text = label });
+            return strip;
+        }
+
+        private static StackPanel BuildTabStripsTile() {
+            TabStrip toolbar = KitToolbarTabStrip(0,
+                ("General", "Kit.Glyph.Settings.General.18"),
+                ("Objects", "Kit.Glyph.Settings.EnabledObjects.18"),
+                ("Presets", "Kit.Glyph.Settings.Presets.18"),
+                ("Advanced", "Kit.Glyph.Settings.Advanced.18"));
+            toolbar.Items.Add(new TabStripItem {
+                Text = "Locked",
+                Glyph = (Geometry)Application.Current!.FindResource("Kit.Glyph.Settings.Advanced.18")!,
+                IsEnabled = false,
+            });
+            toolbar.TemplateApplied += (_, e) => {
+                if (e.NameScope.Find<StackPanel>("PART_Track") is not { } track)
+                    return;
+                if (track.Children.ElementAtOrDefault(1) is Border hoverItem)
+                    hoverItem.Classes.Add("gallery-hover");
+                if (track.Children.ElementAtOrDefault(2) is Border pressedItem)
+                    pressedItem.Classes.Add("gallery-pressed");
+                //Round-trips SelectedIndex so ApplyStateColors picks up the gallery classes added above.
+                toolbar.SelectedIndex = toolbar.Items.Count - 1;
+                toolbar.SelectedIndex = 0;
+                if (track.Children.ElementAtOrDefault(toolbar.SelectedIndex) is Border selectedItem)
+                    FocusRing.SetShowAlways(selectedItem, true);
+            };
+
+            TabStrip underline = KitUnderlineTabStrip(0, "Buildings", "Items & fluids", "Key nodes");
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = {
+                    KitText(".toolbar-tabs", "caption", "tertiary"), toolbar,
+                    KitText(".underline", "caption", "tertiary"), underline,
+                },
+            };
+        }
+
+        private static Disclosure KitDisclosure(string header, bool expanded, object content) => new() {
+            Theme = KitTheme("Kit.Disclosure"), Header = header, IsExpanded = expanded, Content = content,
+        };
+
+        private static StackPanel BuildDisclosureTile() {
+            Disclosure collapsed = KitDisclosure("Module slots", false, KitText("(hidden while collapsed)", "caption", "tertiary"));
+            Disclosure expanded = KitDisclosure("Beacons", true, KitText("Speed module ×2, Effectivity module ×1", "caption", "tertiary"));
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("Collapsed", "caption", "tertiary"), collapsed, KitText("Expanded", "caption", "tertiary"), expanded },
+            };
+        }
+
+        private static readonly string[] RowsAndChromeScaledSizeKeys = [
+            "Foreman.Size.ListRowHeight", "Foreman.Size.SidebarRowHeight",
+            "Foreman.Size.ListRowIconGap", "Foreman.Size.SidebarRowIconGap", "Foreman.Size.Glyph17", "Foreman.Size.Glyph18",
+            "Foreman.Metrics.GroupBoxMaxWidth", "Foreman.Size.ControlHeightRegular",
+            "Foreman.Type.TabLabel.FontSize", "Foreman.Metrics.TabItemMinWidth", "Foreman.Size.TabItemHeight",
+            "Foreman.Size.TabItemGlyphGap", "Foreman.Size.TabItemGap", "Foreman.Size.UnderlineTabGap",
+            "Foreman.Size.GlyphMicro",
+        ];
+
+        private static StackPanel BuildRowsAndChromeScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in RowsAndChromeScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildListRowsTile());
+            container.Children.Add(BuildSidebarRowsTile());
+            container.Children.Add(BuildGroupBoxTile());
+            container.Children.Add(BuildTabStripsTile());
+            container.Children.Add(BuildDisclosureTile());
             return container;
         }
 

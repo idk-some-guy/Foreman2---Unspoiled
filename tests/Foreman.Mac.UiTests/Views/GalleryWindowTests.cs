@@ -21,7 +21,9 @@ using System;
 using System.Linq;
 using System.Reflection;
 using Xunit;
+using GroupBox = Foreman.Mac.Kit.Controls.GroupBox;
 using Slider = Foreman.Mac.Kit.Controls.Slider;
+using TabStrip = Foreman.Mac.Kit.Controls.TabStrip;
 
 namespace Foreman.Mac.UiTests.Views {
     //Task: dev-only gallery smoke test (docs entry: "--gallery" mode). Builds a small fixture cache - a
@@ -109,7 +111,9 @@ namespace Foreman.Mac.UiTests.Views {
                  "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)",
                  "Checkbox", "Radio group", "Switch — Settings only (A16)", "Checkbox, Radio group & Switch (150%)",
                  "Segmented", "Pop-up buttons", "Menu button", "Segmented, Pop-up buttons & Menu button (150%)",
-                 "Text field", "Search field", "Stepper", "Slider", "Text field, Search field, Stepper & Slider (150%)"],
+                 "Text field", "Search field", "Stepper", "Slider", "Text field, Search field, Stepper & Slider (150%)",
+                 "List rows", "Sidebar rows", "Group box", "Tab strips", "Disclosure",
+                 "List rows, Sidebar rows, Group box, Tab strips & Disclosure (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -453,6 +457,84 @@ namespace Foreman.Mac.UiTests.Views {
             Color expectedAfter = ThemeResources.ResolveColor("Foreman.Color.Text", app.ActualThemeVariant, Colors.Black);
             Assert.NotEqual(expectedBefore, expectedAfter);
             Assert.Equal(expectedAfter, Assert.IsType<ImmutableSolidColorBrush>(Header().Foreground).Color);
+        }
+
+        [AvaloniaFact]
+        public void ListRowsTile_ShowsNormalSelectedKeyIdleAndFocusedStates() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "List rows");
+            ListRow[] rows = [.. tile.GetVisualDescendants().OfType<ListRow>()];
+
+            Assert.Contains(rows, r => !r.IsSelected);
+            Assert.Contains(rows, r => r.IsSelected && r.IsKey);
+            Assert.Contains(rows, r => r.IsSelected && !r.IsKey);
+            Assert.Contains(rows, r => r.GetVisualDescendants().OfType<Border>()
+                .Any(b => b.Name == "PART_Frame" && FocusRing.GetShowAlways(b)));
+
+            Application.Current!.TryGetResource("Kit.List", null, out object? listTheme);
+            Assert.Contains(tile.GetVisualDescendants().OfType<ListBox>(), lb => ReferenceEquals(lb.Theme, listTheme));
+
+            TextBlock emptyText = tile.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text!.Contains("plutonium"));
+            Assert.DoesNotContain(emptyText.GetVisualAncestors(), a => a is ListBox);
+            Assert.Contains(emptyText.GetVisualAncestors(), a => a is Border);
+        }
+
+        [AvaloniaFact]
+        public void SidebarRowsTile_ShowsNormalSelectedKeyAndIdleStates() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Sidebar rows");
+            SidebarRow[] rows = [.. tile.GetVisualDescendants().OfType<SidebarRow>()];
+
+            Assert.Contains(rows, r => !r.IsSelected);
+            Assert.Contains(rows, r => r.IsSelected && r.IsKey);
+            Assert.Contains(rows, r => r.IsSelected && !r.IsKey);
+        }
+
+        [AvaloniaFact]
+        public void GroupBoxTile_HostsAHeaderedFormGroup() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Group box");
+            GroupBox box = tile.GetVisualDescendants().OfType<GroupBox>().Single();
+
+            Assert.Equal("Canvas", box.Header);
+        }
+
+        [AvaloniaFact]
+        public void TabStripsTile_ShowsToolbarTabsAndUnderlineVariants() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Tab strips");
+            TabStrip[] strips = [.. tile.GetVisualDescendants().OfType<TabStrip>()];
+
+            Assert.Contains(strips, s => s.Classes.Contains("toolbar-tabs"));
+            Assert.Contains(strips, s => s.Classes.Contains("underline"));
+            Assert.All(strips, s => Assert.False(FocusRing.GetShowAlways(s)));
+            Assert.Contains(tile.GetVisualDescendants().OfType<Border>(), b => FocusRing.GetShowAlways(b));
+            Assert.Contains(strips, s => s.Items.Any(i => !i.IsEnabled));
+        }
+
+        [AvaloniaFact]
+        public void DisclosureTile_ShowsCollapsedAndExpanded() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Disclosure");
+            Disclosure[] disclosures = [.. tile.GetVisualDescendants().OfType<Disclosure>()];
+
+            Assert.Contains(disclosures, d => !d.IsExpanded);
+            Assert.Contains(disclosures, d => d.IsExpanded);
         }
     }
 }

@@ -234,4 +234,34 @@
   <Color x:Key="Foreman.Color.SliderThumbBorder">#00FFFFFF</Color>
   <BoxShadows x:Key="Foreman.Shadow.SliderThumb">0 1 3 0 #66000000</BoxShadows>
 
+  <!-- List/sidebar row (addendum §07): three selection states reuse existing color tokens; only bounds are new. -->
+  <x:Double x:Key="Foreman.Size.ListRowHeight">26</x:Double>
+  <x:Double x:Key="Foreman.Size.SidebarRowHeight">28</x:Double>
+  <x:Double x:Key="Foreman.Size.ListRowIconGap">9</x:Double>
+  <x:Double x:Key="Foreman.Size.SidebarRowIconGap">8</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.ListRowIcon">4</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.ListRowPadding">10,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.ListRowInset">6,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.SidebarRowPadding">8,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.SidebarRowInset">8,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.ListFramePadding">6</Thickness>
+
+  <!-- Group box (kit mock §04 form grammar): well-backed inset form row container. -->
+  <x:Double x:Key="Foreman.Metrics.GroupBoxMaxWidth">420</x:Double>
+  <Thickness x:Key="Foreman.Thickness.GroupBoxPadding">16,2</Thickness>
+  <Thickness x:Key="Foreman.Thickness.GroupBoxTitleMargin">0,11,0,5</Thickness>
+
+  <!-- Tab strip (addendum §05): .toolbar-tabs item bounds and its own label size step; .underline's own padding/radius. -->
+  <x:Double x:Key="Foreman.Type.TabLabel.FontSize">10.5</x:Double>
+  <FontWeight x:Key="Foreman.Type.TabLabel.FontWeight">500</FontWeight>
+  <x:Double x:Key="Foreman.Metrics.TabItemMinWidth">64</x:Double>
+  <x:Double x:Key="Foreman.Size.TabItemHeight">46</x:Double>
+  <x:Double x:Key="Foreman.Size.TabItemGlyphGap">3</x:Double>
+  <x:Double x:Key="Foreman.Size.TabItemGap">2</x:Double>
+  <x:Double x:Key="Foreman.Size.UnderlineTabGap">18</x:Double>
+  <Thickness x:Key="Foreman.Thickness.TabItemPadding">12,6</Thickness>
+  <Thickness x:Key="Foreman.Thickness.TabStripPadding">6</Thickness>
+  <Thickness x:Key="Foreman.Thickness.UnderlineTabPadding">2,0,2,8</Thickness>
+  <CornerRadius x:Key="Foreman.Radius.UnderlineTabFocus">4</CornerRadius>
+
 </ResourceDictionary>

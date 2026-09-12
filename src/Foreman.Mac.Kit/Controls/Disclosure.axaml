@@ -1,0 +1,49 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.Disclosure" TargetType="kit:Disclosure">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel>
+          <Border x:Name="PART_HeaderRow"
+                  Background="Transparent"
+                  MinHeight="{DynamicResource Foreman.Size.ControlHeightRegular}"
+                  Focusable="True"
+                  Cursor="Hand"
+                  kit:FocusRing.IsEnabled="True"
+                  kit:FocusRing.CornerRadius="{DynamicResource Foreman.Radius.Control}">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="{DynamicResource Foreman.Size.ControlGlyphGap}"
+                        VerticalAlignment="Center">
+              <Path x:Name="PART_Triangle"
+                    Data="{StaticResource Kit.Glyph.Disclosure.12}"
+                    Stretch="None"
+                    Fill="{DynamicResource Foreman.Color.TextSecondary}"
+                    RenderTransformOrigin="0.5,0.5"
+                    VerticalAlignment="Center"
+                    Transitions="{x:Static m:Motion.DisclosureTransitions}" />
+              <ContentPresenter Content="{TemplateBinding Header}"
+                                 FontSize="{DynamicResource Foreman.Type.SectionHeader.FontSize}"
+                                 FontWeight="{DynamicResource Foreman.Type.SectionHeader.FontWeight}"
+                                 Foreground="{DynamicResource Foreman.Color.TextSecondary}"
+                                 VerticalAlignment="Center" />
+            </StackPanel>
+          </Border>
+          <ContentPresenter x:Name="PART_ContentHost"
+                             Content="{TemplateBinding Content}"
+                             IsVisible="{TemplateBinding IsExpanded}" />
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^ /template/ Border#PART_HeaderRow:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>
