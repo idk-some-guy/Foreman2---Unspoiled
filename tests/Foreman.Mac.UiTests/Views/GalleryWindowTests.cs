@@ -100,7 +100,8 @@ namespace Foreman.Mac.UiTests.Views {
             var window = new GalleryWindow(cache, new AppSettings());
 
             Assert.Equal(
-                ["QualityPicker", "Toolbar / Titlebar", "View Options popover", "Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows"],
+                ["QualityPicker", "Toolbar / Titlebar", "View Options popover", "Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows",
+                 "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -115,6 +116,12 @@ namespace Foreman.Mac.UiTests.Views {
             string[] captions = [.. window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
 
             Assert.Contains("QualityPicker", captions);
+            Assert.Contains("Type ramp", captions);
+            Assert.Contains("Glyphs", captions);
+            Assert.Contains("Type ramp & Glyphs (150%)", captions);
+            //A sample from each end of the 30-glyph sheet, proving the full set rendered with name labels.
+            Assert.Contains("New", captions);
+            Assert.Contains("Settings.Appearance", captions);
         }
 
         //The QualityPicker tile must show the way it actually renders in the real app - floating in its own

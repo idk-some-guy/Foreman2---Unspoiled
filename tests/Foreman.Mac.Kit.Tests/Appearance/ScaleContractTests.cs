@@ -4,6 +4,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Tests.support;
 using System;
 using Xunit;
 
@@ -11,6 +12,7 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
     //ScaleContract.Apply(step) recomputes the kit's sizing tokens into Application.Resources, the same
     //re-push shape AppearanceHub already uses for colour. Borders, radii, the focus ring and the scrim
     //never move.
+    [Collection(KitScaleGroup.Name)]
     public class ScaleContractTests : IDisposable {
         public ScaleContractTests() {
             MergeKitIntoApplication();

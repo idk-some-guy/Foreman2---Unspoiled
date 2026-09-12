@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -47,6 +48,13 @@ namespace Foreman.Mac.Views {
             foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Canvas"))
                 tiles.Children.Add(Tile(tile.Name, tile.Build()));
 
+            //K2's dev-only kit primitives section (task-1-brief): type ramp, glyph sheet, one 150% row.
+            //Kit.Text/Kit.Glyph bind their own look through DynamicResource, so this section (unlike the
+            //ad-hoc Theme section below) needs no RefreshTheme wiring to track a theme toggle.
+            var kitTiles = new WrapPanel { Orientation = Orientation.Horizontal, Width = TileColumnWidth };
+            foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Kit"))
+                kitTiles.Children.Add(Tile(tile.Name, tile.Build()));
+
             //Task 6 (Plan C1 gate tool): the retokened toolbar/popover/row surfaces, live-toggleable between
             //Light and Dark so Jozef's gate pass can eyeball both variants of every one without leaving the
             //gallery. ThemeToggleButton flips the app's RequestedThemeVariant (there's only ever one window
@@ -76,7 +84,7 @@ namespace Foreman.Mac.Views {
             };
 
             Content = new ScrollViewer {
-                Content = new StackPanel { Children = { themeSection, tiles } },
+                Content = new StackPanel { Children = { themeSection, tiles, kitTiles } },
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             };
@@ -111,7 +119,98 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Theme", "Graph Summary rows", "Default", BuildSummaryRowsShowcaseTile));
             registry.Register(new GalleryTile("Theme", "Preset Comparator rows", "Default", BuildComparatorRowsShowcaseTile));
             registry.Register(new GalleryTile("Theme", "Enabled Objects rows", "Default", () => BuildEnabledObjectsRowsShowcaseTile(cache)));
+            registry.Register(new GalleryTile("Kit", "Type ramp", "Default", BuildTypeRampTile));
+            registry.Register(new GalleryTile("Kit", "Glyphs", "Default", BuildGlyphSheetTile));
+            registry.Register(new GalleryTile("Kit", "Type ramp & Glyphs (150%)", "150%", BuildKitScaledTile));
             return registry;
+        }
+
+        //Task 1 (task-1-brief): "Title — 20/700" through "Caption — 11/400", sample text lifted verbatim
+        //from the kit mock's own type-row examples (contract #type).
+        private static readonly (string Label, string Class, string Sample)[] TypeRampSteps = [
+            ("Title — 20/700", "title", "Graph Summary"),
+            ("Headline — 13/600", "headline", "Iron Plate Line"),
+            ("Body — 13/400", "body", "Electric Furnace · ×4"),
+            ("Callout — 12/400", "callout", "Foreman 2 · v 1.1.0u based on 2.4.0"),
+            ("Caption — 11/400", "caption", "AppSettings.DefaultNodeDirection"),
+        ];
+
+        private static StackPanel BuildTypeRampTile() {
+            var stack = new StackPanel { Spacing = 4 };
+            foreach ((string label, string cls, string sample) in TypeRampSteps) {
+                var labelText = KitText(label, "caption", "tertiary");
+                labelText.Width = 190;
+                var sampleText = KitText(sample, cls);
+                stack.Children.Add(new StackPanel {
+                    Orientation = Orientation.Horizontal, Spacing = 16,
+                    Children = { labelText, sampleText },
+                });
+            }
+            return stack;
+        }
+
+        //All 30 shared masters (Themes/Glyphs.axaml) at the 20 pt drawn size, named.
+        private static readonly string[] GlyphSheetNames = [
+            "New", "Open", "Save", "Item", "Recipe", "Connect", "Align", "Export", "Summary",
+            "View", "View.Fill", "Passthrough", "Beacon", "Beacon.Fill",
+            "Chevron", "Search",
+            "RadialAdd", "RadialSource", "RadialOutput", "RadialSpoil", "RadialUnspoil",
+            "RadialPlant", "RadialUnplant", "RadialCancel",
+            "Settings.Presets", "Settings.EnabledObjects", "Settings.General",
+            "Settings.Advanced", "Settings.Annotations", "Settings.Appearance",
+        ];
+
+        private static WrapPanel BuildGlyphSheetTile() {
+            var wrap = new WrapPanel { Orientation = Orientation.Horizontal, Width = 900 };
+            foreach (string name in GlyphSheetNames) {
+                var cell = new StackPanel {
+                    Spacing = 2, Margin = new Thickness(8), HorizontalAlignment = HorizontalAlignment.Center,
+                    Children = { KitGlyph(name, 20, "size20"), KitText(name, "caption", "secondary") },
+                };
+                wrap.Children.Add(cell);
+            }
+            return wrap;
+        }
+
+        //Neither tile's font sizes/glyph sizes go through ScaleContract.Apply - every Kit tile shares one
+        //window, so a global re-push would also scale the two Default tiles above. Instead the multiplied
+        //values are pushed only into this container's own Resources, which DynamicResource lookups from
+        //its descendants see before they reach Application.
+        private static readonly string[] KitScaledSizeKeys = [
+            "Foreman.Type.LargeTitle.FontSize", "Foreman.Type.EmphasizedBody.FontSize", "Foreman.Type.Body.FontSize",
+            "Foreman.Type.Callout.FontSize", "Foreman.Type.Caption.FontSize",
+            "Foreman.Size.Glyph16", "Foreman.Size.Glyph17", "Foreman.Size.Glyph18", "Foreman.Size.Glyph20",
+        ];
+
+        private static StackPanel BuildKitScaledTile() {
+            var container = new StackPanel { Spacing = 8 };
+            foreach (string key in KitScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildTypeRampTile());
+            container.Children.Add(BuildGlyphSheetTile());
+            return container;
+        }
+
+        private static ControlTheme KitTheme(string key) {
+            Application.Current!.TryGetResource(key, null, out object? theme);
+            return theme as ControlTheme ?? throw new InvalidOperationException($"Gallery: kit theme '{key}' not found.");
+        }
+
+        private static TextBlock KitText(string text, params string[] classes) {
+            var block = new TextBlock { Theme = KitTheme("Kit.Text"), Text = text };
+            foreach (string cls in classes)
+                block.Classes.Add(cls);
+            return block;
+        }
+
+        private static Path KitGlyph(string name, int size, params string[] classes) {
+            Application.Current!.TryGetResource($"Kit.Glyph.{name}.{size}", null, out object? geometry);
+            var path = new Path { Theme = KitTheme("Kit.Glyph"), Data = geometry as Geometry };
+            foreach (string cls in classes)
+                path.Classes.Add(cls);
+            return path;
         }
 
         //Reuses the real foreman-toolbar-* style classes (contract #toolbar) instead of hand-picking colors -
