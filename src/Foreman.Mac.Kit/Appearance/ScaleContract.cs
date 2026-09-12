@@ -96,6 +96,18 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.TabItemGlyphGap",
             "Foreman.Size.TabItemGap",
             "Foreman.Size.UnderlineTabGap",
+            "Foreman.Metrics.TooltipMaxWidth",
+            "Foreman.Size.Spinner",
+            "Foreman.Size.SpinnerLarge",
+            "Foreman.Size.SpinnerStroke",
+            "Foreman.Size.SpinnerStrokeLarge",
+            "Foreman.Size.ProgressBarWidth",
+            "Foreman.Size.ProgressBarHeight",
+            "Foreman.Size.ProgressBarSegment",
+            "Foreman.Size.ChipHeight",
+            "Foreman.Size.ChipCloseBox",
+            "Foreman.Size.ChipGap",
+            "Foreman.Size.KeyCapMinSquare",
         ];
 
         //Remove-then-resolve (AppearanceHub.ApplyFocusRing's idiom) keeps repeated calls from compounding.

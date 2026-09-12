@@ -31,6 +31,11 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/List.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/GroupBox.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/TabStrip.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Tooltip.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Spinner.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/ProgressBar.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Chip.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/KeyCap.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

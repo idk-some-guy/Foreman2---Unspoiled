@@ -24,6 +24,8 @@ using GroupBox = Foreman.Mac.Kit.Controls.GroupBox;
 using Slider = Foreman.Mac.Kit.Controls.Slider;
 using TabStrip = Foreman.Mac.Kit.Controls.TabStrip;
 using TabStripItem = Foreman.Mac.Kit.Controls.TabStripItem;
+using ProgressBar = Foreman.Mac.Kit.Controls.ProgressBar;
+using Spinner = Foreman.Mac.Kit.Controls.Spinner;
 
 namespace Foreman.Mac.Views {
     //Dev-only visual check window for every canvas floating panel, launched via `--gallery` (see
@@ -149,6 +151,11 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Tab strips", "Default", BuildTabStripsTile));
             registry.Register(new GalleryTile("Kit", "Disclosure", "Default", BuildDisclosureTile));
             registry.Register(new GalleryTile("Kit", "List rows, Sidebar rows, Group box, Tab strips & Disclosure (150%)", "150%", BuildRowsAndChromeScaledTile));
+            registry.Register(new GalleryTile("Kit", "Tooltip", "Default", BuildTooltipTile));
+            registry.Register(new GalleryTile("Kit", "Spinner & progress", "Default", BuildSpinnerAndProgressTile));
+            registry.Register(new GalleryTile("Kit", "Chips", "Default", BuildChipsTile));
+            registry.Register(new GalleryTile("Kit", "Key caps", "Default", BuildKeyCapsTile));
+            registry.Register(new GalleryTile("Kit", "Tooltip, Spinner & progress, Chips & Key caps (150%)", "150%", BuildFeedbackScaledTile));
             return registry;
         }
 
@@ -890,6 +897,128 @@ namespace Foreman.Mac.Views {
             container.Children.Add(BuildGroupBoxTile());
             container.Children.Add(BuildTabStripsTile());
             container.Children.Add(BuildDisclosureTile());
+            return container;
+        }
+
+        //Rendered directly rather than through a real hover, matching every other gallery tile's static-swatch convention.
+        private static StackPanel BuildTooltipTile() {
+            var shortTip = new ToolTip { Theme = KitTheme("Kit.Tooltip"), Content = "Find node — ⌘F" };
+            var longTip = new ToolTip {
+                Theme = KitTheme("Kit.Tooltip"),
+                Content = "Overproduction: this node makes 42 items / s more than its consumers take.",
+            };
+
+            var opaqueSwatch = new ToolTip { Theme = KitTheme("Kit.Tooltip"), Content = "Find node — ⌘F" };
+            Application.Current!.TryGetResource("Foreman.Color.TooltipMaterialOpaque", Application.Current.ActualThemeVariant, out object? opaqueMaterial);
+            var opaqueHost = new ContentControl { Content = opaqueSwatch };
+            opaqueHost.Resources["Foreman.Color.TooltipMaterial"] = opaqueMaterial!;
+
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { shortTip, longTip } };
+
+            var host = new Border { Padding = new Thickness(8) };
+            ToolTip.SetTip(host, new ToolTip { Theme = KitTheme("Kit.Tooltip"), Content = "Find node — ⌘F" });
+            TooltipTiming.SetIsEnabled(host, true);
+            host.Child = KitText("Hover wires TooltipTiming (800 ms delay, 500 ms warm window)", "callout", "secondary");
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("Material + wrapping", "caption", "tertiary"), row, KitText("Opaque fallback (Reduce Transparency)", "caption", "tertiary"), opaqueHost, host },
+            };
+        }
+
+        private static Spinner KitSpinner(params string[] classes) {
+            var spinner = new Spinner { Theme = KitTheme("Kit.Spinner") };
+            foreach (string cls in classes)
+                spinner.Classes.Add(cls);
+            return spinner;
+        }
+
+        private static ProgressBar KitProgressBar(double value, bool indeterminate = false) {
+            var bar = new ProgressBar { Theme = KitTheme("Kit.ProgressBar") };
+            if (indeterminate)
+                bar.IsIndeterminate = true;
+            else
+                bar.Value = value;
+            return bar;
+        }
+
+        private static StackPanel BuildSpinnerAndProgressTile() {
+            var spinnerRow = new StackPanel {
+                Orientation = Orientation.Horizontal,
+                Spacing = 12,
+                Children = { KitSpinner(), KitText("18 pt — Loading recent graphs…", "callout", "secondary"), KitSpinner("lg") },
+            };
+
+            var determinate = new StackPanel {
+                Spacing = 6,
+                Children = { KitProgressBar(62), KitText("Solving graph — 62 %", "callout", "secondary") },
+            };
+            var indeterminate = new StackPanel {
+                Spacing = 6,
+                Children = { KitProgressBar(0, indeterminate: true), KitText("Reading the data dump…", "callout", "secondary") },
+            };
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("Spinner — 18 / 24 pt", "caption", "tertiary"), spinnerRow, KitText("Progress — determinate / indeterminate", "caption", "tertiary"), determinate, indeterminate },
+            };
+        }
+
+        private static Chip KitChip(string label) => new() { Theme = KitTheme("Kit.Chip"), Label = label };
+
+        private static StackPanel BuildChipsTile() {
+            Chip normal = KitChip("Assembling machine");
+            Chip focused = KitChip("Electric furnace");
+            focused.TemplateApplied += (_, _) => FocusRing.SetShowAlways(focused, true);
+
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { normal, focused } };
+            return new StackPanel { Spacing = 8, Children = { KitText("Chips", "caption", "tertiary"), row } };
+        }
+
+        private static KeyCap KitKeyCap(string text, string accessibleName) =>
+            new() { Theme = KitTheme("Kit.KeyCap"), Text = text, AccessibleName = accessibleName };
+
+        private static StackPanel BuildKeyCapsTile() {
+            var commandK = new StackPanel {
+                Orientation = Orientation.Horizontal,
+                Spacing = 3,
+                Children = { KitKeyCap("⌘", "Command"), KitKeyCap("K", "K") },
+            };
+            var shiftCommandP = new StackPanel {
+                Orientation = Orientation.Horizontal,
+                Spacing = 3,
+                Children = { KitKeyCap("⇧", "Shift"), KitKeyCap("⌘", "Command"), KitKeyCap("P", "P") },
+            };
+            var returnKey = new StackPanel {
+                Orientation = Orientation.Horizontal,
+                Spacing = 3,
+                Children = { KitKeyCap("Return", "Return") },
+            };
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("Key caps", "caption", "tertiary"), commandK, shiftCommandP, returnKey },
+            };
+        }
+
+        private static readonly string[] FeedbackScaledSizeKeys = [
+            "Foreman.Metrics.TooltipMaxWidth", "Foreman.Type.Caption.FontSize",
+            "Foreman.Size.Spinner", "Foreman.Size.SpinnerLarge", "Foreman.Size.SpinnerStroke", "Foreman.Size.SpinnerStrokeLarge",
+            "Foreman.Size.ProgressBarWidth", "Foreman.Size.ProgressBarHeight", "Foreman.Size.ProgressBarSegment",
+            "Foreman.Size.ChipHeight", "Foreman.Size.ChipCloseBox", "Foreman.Size.ChipGap",
+            "Foreman.Size.KeyCapMinSquare",
+        ];
+
+        private static StackPanel BuildFeedbackScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in FeedbackScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildTooltipTile());
+            container.Children.Add(BuildSpinnerAndProgressTile());
+            container.Children.Add(BuildChipsTile());
+            container.Children.Add(BuildKeyCapsTile());
             return container;
         }
 

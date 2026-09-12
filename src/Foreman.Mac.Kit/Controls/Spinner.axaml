@@ -1,0 +1,46 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:shapes="using:Avalonia.Controls.Shapes">
+
+  <ControlTheme x:Key="Kit.Spinner" TargetType="kit:Spinner">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel HorizontalAlignment="Left" VerticalAlignment="Top">
+          <shapes:Ellipse x:Name="PART_Track" Stroke="{DynamicResource Foreman.Color.BorderStrong}" />
+          <shapes:Arc x:Name="PART_Head"
+                      Stroke="{DynamicResource Foreman.Color.Accent}"
+                      StartAngle="0"
+                      SweepAngle="90"
+                      RenderTransformOrigin="0.5,0.5" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^.animating:not(.reduce-motion) /template/ shapes|Arc#PART_Head">
+      <Style.Animations>
+        <Animation IterationCount="Infinite" Easing="LinearEasing" Duration="0:0:0.8">
+          <KeyFrame Cue="0%">
+            <Setter Property="RotateTransform.Angle" Value="0" />
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="RotateTransform.Angle" Value="360" />
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+    <Style Selector="^.animating.reduce-motion /template/ shapes|Arc#PART_Head">
+      <Style.Animations>
+        <Animation IterationCount="Infinite" Easing="LinearEasing" Duration="0:0:3">
+          <KeyFrame Cue="0%">
+            <Setter Property="RotateTransform.Angle" Value="0" />
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="RotateTransform.Angle" Value="360" />
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

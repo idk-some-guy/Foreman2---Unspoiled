@@ -264,4 +264,33 @@
   <Thickness x:Key="Foreman.Thickness.UnderlineTabPadding">2,0,2,8</Thickness>
   <CornerRadius x:Key="Foreman.Radius.UnderlineTabFocus">4</CornerRadius>
 
+  <!-- Feedback set (addendum §06): tooltip, spinner, progress bar, chip, key cap. -->
+  <Color x:Key="Foreman.Color.TooltipMaterial">#4A4A4A</Color>
+  <Color x:Key="Foreman.Color.TooltipMaterialOpaque">#4A4A4A</Color>
+  <Color x:Key="Foreman.Color.TooltipText">#FFFFFFFF</Color>
+  <BoxShadows x:Key="Foreman.Shadow.Tooltip">0 4 12 -2 #4D000000</BoxShadows>
+  <Thickness x:Key="Foreman.Thickness.TooltipPadding">8,4</Thickness>
+  <x:Double x:Key="Foreman.Metrics.TooltipMaxWidth">260</x:Double>
+
+  <x:Double x:Key="Foreman.Size.Spinner">18</x:Double>
+  <x:Double x:Key="Foreman.Size.SpinnerLarge">24</x:Double>
+  <x:Double x:Key="Foreman.Size.SpinnerStroke">2</x:Double>
+  <x:Double x:Key="Foreman.Size.SpinnerStrokeLarge">2.5</x:Double>
+
+  <x:Double x:Key="Foreman.Size.ProgressBarWidth">140</x:Double>
+  <x:Double x:Key="Foreman.Size.ProgressBarHeight">6</x:Double>
+  <x:Double x:Key="Foreman.Size.ProgressBarSegment">40</x:Double>
+
+  <x:Double x:Key="Foreman.Size.ChipHeight">20</x:Double>
+  <x:Double x:Key="Foreman.Size.ChipCloseBox">16</x:Double>
+  <x:Double x:Key="Foreman.Size.ChipGap">4</x:Double>
+  <Thickness x:Key="Foreman.Thickness.ChipPadding">10,0,4,0</Thickness>
+  <Color x:Key="Foreman.Color.ChipCloseHover">#387F7F7F</Color>
+  <x:Double x:Key="Foreman.Opacity.ChipCloseIdle">0.75</x:Double>
+
+  <x:Double x:Key="Foreman.Size.KeyCapMinSquare">18</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.KeyCap">4</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.KeyCapPadding">5,0</Thickness>
+  <BoxShadows x:Key="Foreman.Shadow.KeyCapEdge">0 1 0 0 #29FFFFFF</BoxShadows>
+
 </ResourceDictionary>

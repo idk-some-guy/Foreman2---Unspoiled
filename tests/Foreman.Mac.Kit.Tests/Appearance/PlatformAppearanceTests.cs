@@ -141,6 +141,25 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         }
 
         [AvaloniaFact]
+        public void ReduceTransparency_TooltipMaterialResolvesToOpaqueValue() {
+            MergeKitIntoApplication();
+            var appearance = new FakeAppearance();
+            var hub = new AppearanceHub((Application)Application.Current!, appearance);
+
+            appearance.ReduceTransparency = true;
+            appearance.Raise();
+
+            Assert.True(Application.Current!.Resources.ContainsKey("Foreman.Color.TooltipMaterial"));
+
+            appearance.ReduceTransparency = false;
+            appearance.Raise();
+
+            Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.TooltipMaterial"));
+
+            hub.Dispose();
+        }
+
+        [AvaloniaFact]
         public void Dispose_RemovesEveryResourceOverrideItOwns() {
             MergeKitIntoApplication();
             var appearance = new FakeAppearance {
@@ -159,6 +178,7 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             Assert.False(Application.Current!.Resources.ContainsKey("Foreman.FocusRing.Width"));
             Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.Border"));
             Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.PopoverMaterial"));
+            Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.TooltipMaterial"));
         }
 
         [AvaloniaFact]

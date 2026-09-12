@@ -98,6 +98,11 @@ namespace Foreman.Mac.Kit.Appearance {
                 app.Resources["Foreman.Color.PopoverMaterial"] = controlBackground!;
             else
                 app.Resources.Remove("Foreman.Color.PopoverMaterial");
+
+            if (reduceTransparency && app.TryGetResource("Foreman.Color.TooltipMaterialOpaque", app.ActualThemeVariant, out object? tooltipOpaque))
+                app.Resources["Foreman.Color.TooltipMaterial"] = tooltipOpaque!;
+            else
+                app.Resources.Remove("Foreman.Color.TooltipMaterial");
         }
 
         private void NotifySubscribers() {
@@ -123,6 +128,7 @@ namespace Foreman.Mac.Kit.Appearance {
             resources.Remove("Foreman.FocusRing.Width");
             resources.Remove("Foreman.Color.Border");
             resources.Remove("Foreman.Color.PopoverMaterial");
+            resources.Remove("Foreman.Color.TooltipMaterial");
         }
     }
 }

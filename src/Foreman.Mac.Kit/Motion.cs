@@ -34,6 +34,9 @@ namespace Foreman.Mac.Kit {
         public static readonly TimeSpan TabLabelCrossFadeDuration = TimeSpan.FromMilliseconds(120);
         public static readonly TimeSpan SpinnerDuration = TimeSpan.FromSeconds(0.8);
         public static readonly TimeSpan SpinnerReducedMotionDuration = TimeSpan.FromSeconds(3);
+        public static readonly TimeSpan TooltipDelay = TimeSpan.FromMilliseconds(800);
+        public static readonly TimeSpan TooltipWarmWindow = TimeSpan.FromMilliseconds(500);
+        public static readonly TimeSpan IndeterminateProgressDuration = TimeSpan.FromSeconds(1.2);
 
         //Set by AppearanceHub from the platform's Reduce Motion flag; an already-open site only picks up a
         //live change if it re-pushes its own Transitions on RefreshTheme (SheetHost and RadialMenu do).

@@ -24,6 +24,8 @@ using Xunit;
 using GroupBox = Foreman.Mac.Kit.Controls.GroupBox;
 using Slider = Foreman.Mac.Kit.Controls.Slider;
 using TabStrip = Foreman.Mac.Kit.Controls.TabStrip;
+using ProgressBar = Foreman.Mac.Kit.Controls.ProgressBar;
+using Spinner = Foreman.Mac.Kit.Controls.Spinner;
 
 namespace Foreman.Mac.UiTests.Views {
     //Task: dev-only gallery smoke test (docs entry: "--gallery" mode). Builds a small fixture cache - a
@@ -113,7 +115,9 @@ namespace Foreman.Mac.UiTests.Views {
                  "Segmented", "Pop-up buttons", "Menu button", "Segmented, Pop-up buttons & Menu button (150%)",
                  "Text field", "Search field", "Stepper", "Slider", "Text field, Search field, Stepper & Slider (150%)",
                  "List rows", "Sidebar rows", "Group box", "Tab strips", "Disclosure",
-                 "List rows, Sidebar rows, Group box, Tab strips & Disclosure (150%)"],
+                 "List rows, Sidebar rows, Group box, Tab strips & Disclosure (150%)",
+                 "Tooltip", "Spinner & progress", "Chips", "Key caps",
+                 "Tooltip, Spinner & progress, Chips & Key caps (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -535,6 +539,63 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Contains(disclosures, d => !d.IsExpanded);
             Assert.Contains(disclosures, d => d.IsExpanded);
+        }
+
+        [AvaloniaFact]
+        public void TooltipTile_ShowsMaterialAndOpaqueFallback() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Tooltip");
+            ToolTip[] tips = [.. tile.GetVisualDescendants().OfType<ToolTip>()];
+
+            Assert.True(tips.Length >= 3);
+            Assert.Contains(tips, t => Equals(t.Content, "Find node — ⌘F"));
+            Assert.Contains(tips, t => (t.Content as string)?.StartsWith("Overproduction", StringComparison.Ordinal) == true);
+        }
+
+        [AvaloniaFact]
+        public void SpinnerAndProgressTile_ShowsBothSizesAndBothProgressForms() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Spinner & progress");
+            Spinner[] spinners = [.. tile.GetVisualDescendants().OfType<Spinner>()];
+            ProgressBar[] bars = [.. tile.GetVisualDescendants().OfType<ProgressBar>()];
+
+            Assert.Contains(spinners, s => !s.Classes.Contains("lg"));
+            Assert.Contains(spinners, s => s.Classes.Contains("lg"));
+            Assert.Contains(bars, b => !b.IsIndeterminate);
+            Assert.Contains(bars, b => b.IsIndeterminate);
+        }
+
+        [AvaloniaFact]
+        public void ChipsTile_ShowsAFocusedChip() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Chips");
+            Chip[] chips = [.. tile.GetVisualDescendants().OfType<Chip>()];
+
+            Assert.Equal(2, chips.Length);
+            Assert.Contains(chips, c => FocusRing.GetShowAlways(c));
+        }
+
+        [AvaloniaFact]
+        public void KeyCapsTile_ShowsMultiKeyCombosAndANamedKey() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Key caps");
+            KeyCap[] caps = [.. tile.GetVisualDescendants().OfType<KeyCap>()];
+
+            Assert.Contains(caps, c => c.Text == "⌘" && c.AccessibleName == "Command");
+            Assert.Contains(caps, c => c.Text == "Return");
+            Assert.All(caps, c => Assert.False(c.Focusable));
         }
     }
 }

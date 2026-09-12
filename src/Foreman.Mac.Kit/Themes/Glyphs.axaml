@@ -203,6 +203,8 @@
   <StreamGeometry x:Key="Kit.Glyph.Checkmark.12">M2.7,6.24 L4.98,8.52 L9.3,3.72</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Overflow.16">M4.16,4.48 L7.68,8 L4.16,11.52 M8.8,4.48 L12.32,8 L8.8,11.52</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Filter.14">M2.38,4.2 H11.62 M3.92,7 H10.08 M5.6,9.8 H8.4</StreamGeometry>
+  <!-- Chip's close glyph (addendum §06/§08): mock's 20pt-grid path M6.6,6.6 L13.4,13.4 M13.4,6.6 L6.6,13.4 scaled by 12/20. -->
+  <StreamGeometry x:Key="Kit.Glyph.ChipClose.12">M3.96,3.96 L8.04,8.04 M8.04,3.96 L3.96,8.04</StreamGeometry>
 
   <!-- Search field's own 13pt step (addendum §04), below the shared Search.16/17/18/20 ladder. -->
   <StreamGeometry x:Key="Kit.Glyph.Search.13">M1.95,5.33 A3.38,3.38 0 1,1 8.71,5.33 A3.38,3.38 0 1,1 1.95,5.33 Z M9.75,9.75 L7.605,7.605</StreamGeometry>
