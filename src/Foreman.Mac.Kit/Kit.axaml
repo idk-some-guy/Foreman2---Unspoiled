@@ -11,6 +11,8 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Themes/Glyphs.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Text.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Glyph.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Button.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/ToolbarItem.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

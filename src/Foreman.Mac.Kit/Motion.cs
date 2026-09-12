@@ -15,6 +15,7 @@ namespace Foreman.Mac.Kit {
         public static readonly TimeSpan StaggerStep = TimeSpan.FromMilliseconds(12);
         public const int StaggerCap = 10;
         public static readonly TimeSpan HoverDuration = TimeSpan.FromMilliseconds(120);
+        public static readonly TimeSpan ButtonStateDuration = TimeSpan.FromMilliseconds(100);
         public static readonly TimeSpan RadialOpenDuration = TimeSpan.FromMilliseconds(160);
         public static readonly TimeSpan RadialCloseDuration = TimeSpan.FromMilliseconds(120);
         public const double RadialOpenScale = 0.9;
@@ -36,6 +37,8 @@ namespace Foreman.Mac.Kit {
         //Set by AppearanceHub from the platform's Reduce Motion flag; an already-open site only picks up a
         //live change if it re-pushes its own Transitions on RefreshTheme (SheetHost and RadialMenu do).
         public static bool ReduceMotion { get; set; }
+
+        public static Transitions ButtonTransitions => Transition(TransitionKind.Fade, ButtonStateDuration);
 
         public static Easing CrossFadeEasing => new CubicEaseInOut();
         public static Easing EntranceEasing => new CubicEaseOut();

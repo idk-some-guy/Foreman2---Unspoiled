@@ -14,6 +14,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
 using System;
@@ -103,7 +104,8 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Equal(
                 ["QualityPicker", "Toolbar / Titlebar", "View Options popover", "Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows",
-                 "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)"],
+                 "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)",
+                 "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -123,9 +125,49 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains("Type ramp & Glyphs (150%)", captions);
             Assert.Contains("Focus ring", captions);
             Assert.Contains("Focus ring (150%)", captions);
+            Assert.Contains("Buttons", captions);
+            Assert.Contains("Toolbar items", captions);
+            Assert.Contains("Buttons & Toolbar items (150%)", captions);
             //A sample from each end of the 30-glyph sheet, proving the full set rendered with name labels.
             Assert.Contains("New", captions);
             Assert.Contains("Settings.Appearance", captions);
+        }
+
+        [AvaloniaFact]
+        public void ButtonsTile_ShowsStandardPrimaryAndDestructiveAcrossFiveStates() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            Button[] buttons = [.. window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("primary") || b.Classes.Contains("destructive") || Equals(b.Content, "Cancel"))];
+
+            Assert.Contains(buttons, b => Equals(b.Content, "Cancel") && !b.Classes.Contains("primary") && !b.Classes.Contains("destructive"));
+            Assert.Contains(buttons, b => Equals(b.Content, "Export…") && b.Classes.Contains("primary"));
+            Assert.Contains(buttons, b => Equals(b.Content, "Discard") && b.Classes.Contains("destructive"));
+            Assert.Contains(buttons, b => !b.IsEnabled);
+        }
+
+        [AvaloniaFact]
+        public void ToolbarItemsTile_ShowsTheOnState() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            ToolbarItem[] items = [.. window.GetVisualDescendants().OfType<ToolbarItem>()];
+
+            Assert.Contains(items, i => i.IsOn);
+            Assert.Contains(items, i => !i.IsOn && i.IsEnabled);
+            Assert.Contains(items, i => !i.IsEnabled);
+        }
+
+        [AvaloniaFact]
+        public void ButtonsAndToolbarItemsScaledTile_HeightAndWidthScale() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            Assert.Contains(window.GetVisualDescendants().OfType<Button>(), b => Equals(b.Content, "Cancel") && b.Height == 33);
+            Assert.Contains(window.GetVisualDescendants().OfType<ToolbarItem>(), i => i.Height == 60 && i.MinWidth == 66);
         }
 
         [AvaloniaFact]

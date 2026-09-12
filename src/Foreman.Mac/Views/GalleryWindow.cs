@@ -123,6 +123,9 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Type ramp & Glyphs (150%)", "150%", BuildKitScaledTile));
             registry.Register(new GalleryTile("Kit", "Focus ring", "Default", BuildFocusRingTile));
             registry.Register(new GalleryTile("Kit", "Focus ring (150%)", "150%", BuildFocusRingScaledTile));
+            registry.Register(new GalleryTile("Kit", "Buttons", "Default", BuildButtonsTile));
+            registry.Register(new GalleryTile("Kit", "Toolbar items", "Default", BuildToolbarItemsTile));
+            registry.Register(new GalleryTile("Kit", "Buttons & Toolbar items (150%)", "150%", BuildButtonsAndToolbarItemsScaledTile));
             return registry;
         }
 
@@ -213,6 +216,128 @@ namespace Foreman.Mac.Views {
                     container.Resources[key] = value * 1.5;
 
             container.Children.Add(BuildFocusRingTile());
+            return container;
+        }
+
+        private enum GalleryButtonState { Normal, Hover, Pressed, Focused, Disabled }
+
+        private static readonly (string Sample, string[] Classes)[] ButtonVariants = [
+            ("Cancel", []),
+            ("Export…", ["primary"]),
+            ("Discard", ["destructive"]),
+        ];
+
+        private static readonly (string Label, GalleryButtonState State)[] ButtonStates = [
+            ("Normal", GalleryButtonState.Normal),
+            ("Hover", GalleryButtonState.Hover),
+            ("Pressed", GalleryButtonState.Pressed),
+            ("Focused", GalleryButtonState.Focused),
+            ("Disabled", GalleryButtonState.Disabled),
+        ];
+
+        private static Button KitButton(string text, params string[] classes) {
+            var button = new Button { Theme = KitTheme("Kit.Button"), Content = text };
+            foreach (string cls in classes)
+                button.Classes.Add(cls);
+            return button;
+        }
+
+        private static void ApplyGalleryState(Button button, GalleryButtonState state) {
+            switch (state) {
+                case GalleryButtonState.Hover:
+                    button.Classes.Add("gallery-hover");
+                    break;
+                case GalleryButtonState.Pressed:
+                    button.Classes.Add("gallery-pressed");
+                    break;
+                case GalleryButtonState.Focused:
+                    FocusRing.SetShowAlways(button, true);
+                    break;
+                case GalleryButtonState.Disabled:
+                    button.IsEnabled = false;
+                    break;
+            }
+        }
+
+        private static Grid BuildButtonsTile() {
+            var grid = new Grid { RowSpacing = 8, ColumnSpacing = 16 };
+            for (int c = 0; c < ButtonStates.Length; c++)
+                grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            for (int r = 0; r <= ButtonVariants.Length; r++)
+                grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            for (int c = 0; c < ButtonStates.Length; c++) {
+                TextBlock header = KitText(ButtonStates[c].Label, "caption", "tertiary");
+                Grid.SetRow(header, 0);
+                Grid.SetColumn(header, c);
+                grid.Children.Add(header);
+            }
+
+            for (int r = 0; r < ButtonVariants.Length; r++) {
+                (string sample, string[] classes) = ButtonVariants[r];
+                for (int c = 0; c < ButtonStates.Length; c++) {
+                    Button button = KitButton(sample, classes);
+                    ApplyGalleryState(button, ButtonStates[c].State);
+                    Grid.SetRow(button, r + 1);
+                    Grid.SetColumn(button, c);
+                    grid.Children.Add(button);
+                }
+            }
+            return grid;
+        }
+
+        private static readonly (string Label, GalleryButtonState State, bool On)[] ToolbarItemStates = [
+            ("Normal", GalleryButtonState.Normal, false),
+            ("Hover", GalleryButtonState.Hover, false),
+            ("Pressed", GalleryButtonState.Pressed, false),
+            ("Focused", GalleryButtonState.Focused, false),
+            ("Disabled", GalleryButtonState.Disabled, false),
+            ("On", GalleryButtonState.Normal, true),
+        ];
+
+        private static ToolbarItem KitToolbarItem(string glyphName, string label) {
+            Application.Current!.TryGetResource($"Kit.Glyph.{glyphName}.17", null, out object? geometry);
+            return new ToolbarItem { Theme = KitTheme("Kit.ToolbarItem"), Glyph = geometry as Geometry, Label = label };
+        }
+
+        private static Grid BuildToolbarItemsTile() {
+            var grid = new Grid { ColumnSpacing = 16 };
+            for (int c = 0; c < ToolbarItemStates.Length; c++)
+                grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            for (int c = 0; c < ToolbarItemStates.Length; c++) {
+                TextBlock header = KitText(ToolbarItemStates[c].Label, "caption", "tertiary");
+                Grid.SetRow(header, 0);
+                Grid.SetColumn(header, c);
+                grid.Children.Add(header);
+
+                (string _, GalleryButtonState state, bool on) = ToolbarItemStates[c];
+                ToolbarItem item = KitToolbarItem("Recipe", "Recipe");
+                ApplyGalleryState(item, state);
+                item.IsOn = on;
+                Grid.SetRow(item, 1);
+                Grid.SetColumn(item, c);
+                grid.Children.Add(item);
+            }
+            return grid;
+        }
+
+        private static readonly string[] ButtonAndToolbarItemScaledSizeKeys = [
+            "Foreman.Size.ControlHeightRegular", "Foreman.Type.EmphasizedBody.FontSize",
+            "Foreman.Size.ToolbarItemWidth", "Foreman.Size.ToolbarItemHeight",
+            "Foreman.Size.Glyph17", "Foreman.Type.Legacy.ToolbarItem.Label.FontSize",
+        ];
+
+        private static StackPanel BuildButtonsAndToolbarItemsScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in ButtonAndToolbarItemScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildButtonsTile());
+            container.Children.Add(BuildToolbarItemsTile());
             return container;
         }
 

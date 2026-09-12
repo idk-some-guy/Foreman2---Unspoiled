@@ -32,6 +32,10 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.Equal(100, Motion.SegmentedSelectionDuration.TotalMilliseconds);
 
         [Fact]
+        public void ButtonStateDuration_IsOneHundredMilliseconds() =>
+            Assert.Equal(100, Motion.ButtonStateDuration.TotalMilliseconds);
+
+        [Fact]
         public void InspectorReflowDuration_IsOneHundredEightyMilliseconds() =>
             Assert.Equal(180, Motion.InspectorReflowDuration.TotalMilliseconds);
 
