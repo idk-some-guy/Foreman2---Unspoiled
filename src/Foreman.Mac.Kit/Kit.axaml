@@ -13,6 +13,10 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Glyph.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Button.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/ToolbarItem.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/CheckBox.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/RadioButton.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/RadioGroup.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Switch.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

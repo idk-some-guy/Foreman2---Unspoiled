@@ -105,7 +105,8 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(
                 ["QualityPicker", "Toolbar / Titlebar", "View Options popover", "Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows",
                  "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)",
-                 "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)"],
+                 "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)",
+                 "Checkbox", "Radio group", "Switch — Settings only (A16)", "Checkbox, Radio group & Switch (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -128,6 +129,10 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains("Buttons", captions);
             Assert.Contains("Toolbar items", captions);
             Assert.Contains("Buttons & Toolbar items (150%)", captions);
+            Assert.Contains("Checkbox", captions);
+            Assert.Contains("Radio group", captions);
+            Assert.Contains("Switch — Settings only (A16)", captions);
+            Assert.Contains("Checkbox, Radio group & Switch (150%)", captions);
             //A sample from each end of the 30-glyph sheet, proving the full set rendered with name labels.
             Assert.Contains("New", captions);
             Assert.Contains("Settings.Appearance", captions);
@@ -168,6 +173,54 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Contains(window.GetVisualDescendants().OfType<Button>(), b => Equals(b.Content, "Cancel") && b.Height == 33);
             Assert.Contains(window.GetVisualDescendants().OfType<ToolbarItem>(), i => i.Height == 60 && i.MinWidth == 66);
+        }
+
+        [AvaloniaFact]
+        public void CheckboxTile_ShowsUncheckedAndCheckedAcrossFiveStates() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            CheckBox[] boxes = [.. window.GetVisualDescendants().OfType<CheckBox>()];
+
+            Assert.Contains(boxes, b => b.IsChecked == false);
+            Assert.Contains(boxes, b => b.IsChecked == true);
+            Assert.Contains(boxes, b => !b.IsEnabled);
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Checkbox");
+            Assert.Contains(tile.GetVisualDescendants().OfType<CheckBox>(), b => FocusRing.GetShowAlways(b));
+        }
+
+        [AvaloniaFact]
+        public void RadioGroupTile_ShowsAGroupedExampleWithOneSelection() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            RadioGroup group = window.GetVisualDescendants().OfType<RadioGroup>().First();
+            RadioButton[] radios = [.. group.Items.OfType<RadioButton>()];
+
+            Assert.Equal(["Up", "Down", "Auto"], radios.Select(r => r.Content));
+            Assert.Single(radios, r => r.IsChecked == true);
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Radio group");
+            Assert.Contains(tile.GetVisualDescendants().OfType<RadioButton>(), r => FocusRing.GetShowAlways(r));
+        }
+
+        [AvaloniaFact]
+        public void SwitchTile_ShowsOffAndOnAcrossFiveStates() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            ToggleSwitch[] toggles = [.. window.GetVisualDescendants().OfType<ToggleSwitch>()];
+
+            Assert.Contains(toggles, t => t.IsChecked == false);
+            Assert.Contains(toggles, t => t.IsChecked == true);
+            Assert.Contains(toggles, t => !t.IsEnabled);
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Switch — Settings only (A16)");
+            Assert.Contains(tile.GetVisualDescendants().OfType<ToggleSwitch>(), t => FocusRing.GetShowAlways(t));
         }
 
         [AvaloniaFact]

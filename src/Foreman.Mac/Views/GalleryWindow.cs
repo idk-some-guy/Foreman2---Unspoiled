@@ -126,6 +126,10 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Buttons", "Default", BuildButtonsTile));
             registry.Register(new GalleryTile("Kit", "Toolbar items", "Default", BuildToolbarItemsTile));
             registry.Register(new GalleryTile("Kit", "Buttons & Toolbar items (150%)", "150%", BuildButtonsAndToolbarItemsScaledTile));
+            registry.Register(new GalleryTile("Kit", "Checkbox", "Default", BuildCheckboxTile));
+            registry.Register(new GalleryTile("Kit", "Radio group", "Default", BuildRadioGroupTile));
+            registry.Register(new GalleryTile("Kit", "Switch — Settings only (A16)", "Default", BuildSwitchTile));
+            registry.Register(new GalleryTile("Kit", "Checkbox, Radio group & Switch (150%)", "150%", BuildSelectionControlsScaledTile));
             return registry;
         }
 
@@ -242,19 +246,19 @@ namespace Foreman.Mac.Views {
             return button;
         }
 
-        private static void ApplyGalleryState(Button button, GalleryButtonState state) {
+        private static void ApplyGalleryState(Control control, GalleryButtonState state) {
             switch (state) {
                 case GalleryButtonState.Hover:
-                    button.Classes.Add("gallery-hover");
+                    control.Classes.Add("gallery-hover");
                     break;
                 case GalleryButtonState.Pressed:
-                    button.Classes.Add("gallery-pressed");
+                    control.Classes.Add("gallery-pressed");
                     break;
                 case GalleryButtonState.Focused:
-                    FocusRing.SetShowAlways(button, true);
+                    FocusRing.SetShowAlways(control, true);
                     break;
                 case GalleryButtonState.Disabled:
-                    button.IsEnabled = false;
+                    control.IsEnabled = false;
                     break;
             }
         }
@@ -338,6 +342,120 @@ namespace Foreman.Mac.Views {
 
             container.Children.Add(BuildButtonsTile());
             container.Children.Add(BuildToolbarItemsTile());
+            return container;
+        }
+
+        //Shared by Checkbox/Radio/Switch: the five state-grid combinations the kit mock shows for each.
+        private static readonly (string Label, GalleryButtonState State, bool On)[] SelectionStates = [
+            ("Normal", GalleryButtonState.Normal, false),
+            ("Hover", GalleryButtonState.Hover, false),
+            ("Pressed", GalleryButtonState.Pressed, true),
+            ("Focused", GalleryButtonState.Focused, true),
+            ("Disabled", GalleryButtonState.Disabled, true),
+        ];
+
+        private static Grid BuildCheckboxTile() {
+            var grid = new Grid { ColumnSpacing = 16 };
+            for (int c = 0; c < SelectionStates.Length; c++)
+                grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            for (int c = 0; c < SelectionStates.Length; c++) {
+                TextBlock header = KitText(SelectionStates[c].Label, "caption", "tertiary");
+                Grid.SetRow(header, 0);
+                Grid.SetColumn(header, c);
+                grid.Children.Add(header);
+
+                (string _, GalleryButtonState state, bool on) = SelectionStates[c];
+                var box = new CheckBox { Theme = KitTheme("Kit.CheckBox"), IsChecked = on };
+                ApplyGalleryState(box, state);
+                Grid.SetRow(box, 1);
+                Grid.SetColumn(box, c);
+                grid.Children.Add(box);
+            }
+            return grid;
+        }
+
+        private static RadioButton KitRadioButton(string? content = null) =>
+            new() { Theme = KitTheme("Kit.RadioButton"), Content = content };
+
+        private static Grid BuildRadioGroupTile() {
+            var grid = new Grid { ColumnSpacing = 16 };
+            for (int c = 0; c < SelectionStates.Length; c++)
+                grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            for (int c = 0; c < SelectionStates.Length; c++) {
+                TextBlock header = KitText(SelectionStates[c].Label, "caption", "tertiary");
+                Grid.SetRow(header, 0);
+                Grid.SetColumn(header, c);
+                grid.Children.Add(header);
+
+                (string _, GalleryButtonState state, bool on) = SelectionStates[c];
+                RadioButton radio = KitRadioButton();
+                radio.IsChecked = on;
+                ApplyGalleryState(radio, state);
+                Grid.SetRow(radio, 1);
+                Grid.SetColumn(radio, c);
+                grid.Children.Add(radio);
+            }
+
+            var group = new RadioGroup { Theme = KitTheme("Kit.RadioGroup") };
+            RadioButton down = KitRadioButton("Down");
+            down.IsChecked = true;
+            group.Items.Add(KitRadioButton("Up"));
+            group.Items.Add(down);
+            group.Items.Add(KitRadioButton("Auto"));
+            Grid.SetRow(group, 2);
+            Grid.SetColumn(group, 0);
+            Grid.SetColumnSpan(group, SelectionStates.Length);
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            grid.Children.Add(group);
+
+            return grid;
+        }
+
+        private static Grid BuildSwitchTile() {
+            var grid = new Grid { ColumnSpacing = 16 };
+            for (int c = 0; c < SelectionStates.Length; c++)
+                grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+            for (int c = 0; c < SelectionStates.Length; c++) {
+                TextBlock header = KitText(SelectionStates[c].Label, "caption", "tertiary");
+                Grid.SetRow(header, 0);
+                Grid.SetColumn(header, c);
+                grid.Children.Add(header);
+
+                (string _, GalleryButtonState state, bool on) = SelectionStates[c];
+                var toggle = new Switch { Theme = KitTheme("Kit.Switch"), IsChecked = on };
+                ApplyGalleryState(toggle, state);
+                Grid.SetRow(toggle, 1);
+                Grid.SetColumn(toggle, c);
+                grid.Children.Add(toggle);
+            }
+            return grid;
+        }
+
+        private static readonly string[] SelectionControlsScaledSizeKeys = [
+            "Foreman.Size.CheckBox", "Foreman.Size.RadioDot", "Foreman.Size.CheckGlyph",
+            "Foreman.Size.CheckDashWidth", "Foreman.Size.CheckDashHeight",
+            "Foreman.Size.SelectionLabelGap", "Foreman.Size.RadioGroupRowGap",
+            "Foreman.Size.SwitchWidth", "Foreman.Size.SwitchHeight", "Foreman.Size.SwitchKnob",
+        ];
+
+        private static StackPanel BuildSelectionControlsScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in SelectionControlsScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildCheckboxTile());
+            container.Children.Add(BuildRadioGroupTile());
+            container.Children.Add(BuildSwitchTile());
             return container;
         }
 
@@ -540,7 +658,7 @@ namespace Foreman.Mac.Views {
         }
 
         private static StackPanel Tile(string caption, Control content) {
-            var stack = new StackPanel { Spacing = 6, Margin = new Thickness(16) };
+            var stack = new StackPanel { Name = caption, Spacing = 6, Margin = new Thickness(16) };
             stack.Children.Add(new TextBlock { Text = caption, Foreground = ThemeResources.ResolveBrush("Foreman.Color.GalleryChrome", Colors.Black), FontWeight = FontWeight.Bold });
             stack.Children.Add(content);
             return stack;
