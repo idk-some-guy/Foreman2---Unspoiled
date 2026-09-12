@@ -1,0 +1,116 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.SearchFieldClearButton" TargetType="Button">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}">
+          <Panel>
+            <Path x:Name="PART_Disc"
+                  Data="{StaticResource Kit.Glyph.Clear.16}"
+                  Fill="{DynamicResource Foreman.Color.TextTertiary}" />
+            <Path x:Name="PART_Knockout"
+                  Data="{StaticResource Kit.Glyph.Clear.Knockout.16}"
+                  Stroke="{DynamicResource Foreman.Color.WellBackground}"
+                  StrokeThickness="1.92"
+                  StrokeLineCap="Round" />
+          </Panel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Path#PART_Disc">
+      <Setter Property="Fill" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="Kit.SearchField" TargetType="kit:SearchField">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ControlHeightRegular}" />
+    <Setter Property="Width" Value="{DynamicResource Foreman.Metrics.SearchFieldNaturalWidth}" />
+    <Setter Property="MinWidth" Value="{DynamicResource Foreman.Metrics.SearchFieldMinWidth}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Pill}" />
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.WellBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Callout.FontSize}" />
+    <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.Callout.FontWeight}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    <Setter Property="PlaceholderForeground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
+    <Setter Property="CaretBrush" Value="{DynamicResource Foreman.Color.Accent}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="Cursor" Value="Ibeam" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="kit:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.Pill}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border x:Name="PART_BorderElement"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}" />
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Path Grid.Column="0"
+                  x:Name="PART_SearchGlyph"
+                  Data="{StaticResource Kit.Glyph.Search.13}"
+                  Stroke="{DynamicResource Foreman.Color.TextTertiary}"
+                  StrokeThickness="1.5"
+                  StrokeLineCap="Round"
+                  Width="{DynamicResource Foreman.Size.SearchFieldGlyph}"
+                  Height="{DynamicResource Foreman.Size.SearchFieldGlyph}"
+                  Margin="8,0,6,0"
+                  VerticalAlignment="Center" />
+            <Panel Grid.Column="1">
+              <TextBlock x:Name="PART_Placeholder"
+                         Text="{TemplateBinding PlaceholderText}"
+                         Foreground="{TemplateBinding PlaceholderForeground}"
+                         FontSize="{TemplateBinding FontSize}"
+                         FontWeight="{TemplateBinding FontWeight}"
+                         VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+              <ScrollViewer Name="PART_ScrollViewer"
+                            HorizontalScrollBarVisibility="Hidden"
+                            VerticalScrollBarVisibility="Hidden">
+                <TextPresenter Name="PART_TextPresenter"
+                               Text="{TemplateBinding Text, Mode=TwoWay}"
+                               CaretIndex="{TemplateBinding CaretIndex}"
+                               SelectionStart="{TemplateBinding SelectionStart}"
+                               SelectionEnd="{TemplateBinding SelectionEnd}"
+                               CaretBrush="{TemplateBinding CaretBrush}"
+                               SelectionBrush="{TemplateBinding SelectionBrush}"
+                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+              </ScrollViewer>
+            </Panel>
+            <Button Grid.Column="2"
+                    x:Name="PART_Clear"
+                    Theme="{StaticResource Kit.SearchFieldClearButton}"
+                    Width="{DynamicResource Foreman.Size.Glyph16}"
+                    Height="{DynamicResource Foreman.Size.Glyph16}"
+                    Margin="0,0,4,0"
+                    VerticalAlignment="Center"
+                    Focusable="False"
+                    Transitions="{x:Static m:Motion.SearchFieldClearTransitions}" />
+          </Grid>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:empty /template/ Button#PART_Clear">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
+    </Style>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

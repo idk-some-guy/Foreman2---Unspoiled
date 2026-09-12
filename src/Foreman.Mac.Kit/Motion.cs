@@ -5,7 +5,7 @@ using Avalonia.Layout;
 using System;
 
 namespace Foreman.Mac.Kit {
-    public enum TransitionKind { Fade, SlideFade, Scale, CrossFade, Reflow }
+    public enum TransitionKind { Fade, SlideFade, Scale, CrossFade, Reflow, Size }
 
     //Every animated duration/easing the palette, the "Add to Graph" browser and the radial menu use
     //traces back here, so retuning one retunes all of them together.
@@ -41,6 +41,8 @@ namespace Foreman.Mac.Kit {
         public static Transitions ButtonTransitions => Transition(TransitionKind.Fade, ButtonStateDuration);
         public static Transitions SwitchTransitions => Transition(TransitionKind.SlideFade, SwitchKnobDuration);
         public static Transitions SegmentedTransitions => Transition(TransitionKind.SlideFade, SegmentedSelectionDuration);
+        public static Transitions SliderThumbSizeTransitions => Transition(TransitionKind.Size, HoverDuration);
+        public static Transitions SearchFieldClearTransitions => Transition(TransitionKind.Fade, HoverDuration);
 
         public static Easing CrossFadeEasing => new CubicEaseInOut();
         public static Easing EntranceEasing => new CubicEaseOut();
@@ -76,6 +78,11 @@ namespace Foreman.Mac.Kit {
                     [
                         new DoubleTransition { Property = Visual.OpacityProperty, Duration = duration, Easing = resolved, Delay = delay },
                         new TransformOperationsTransition { Property = Visual.RenderTransformProperty, Duration = duration, Easing = resolved, Delay = delay },
+                    ],
+                TransitionKind.Size =>
+                    [
+                        new DoubleTransition { Property = Layoutable.WidthProperty, Duration = duration, Easing = resolved, Delay = delay },
+                        new DoubleTransition { Property = Layoutable.HeightProperty, Duration = duration, Easing = resolved, Delay = delay },
                     ],
                 _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
             };

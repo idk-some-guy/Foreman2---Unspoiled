@@ -20,6 +20,7 @@ using Foreman.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Slider = Foreman.Mac.Kit.Controls.Slider;
 
 namespace Foreman.Mac.Views {
     //Dev-only visual check window for every canvas floating panel, launched via `--gallery` (see
@@ -134,6 +135,11 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Pop-up buttons", "Default", BuildPopUpButtonsTile));
             registry.Register(new GalleryTile("Kit", "Menu button", "Default", BuildMenuButtonTile));
             registry.Register(new GalleryTile("Kit", "Segmented, Pop-up buttons & Menu button (150%)", "150%", BuildMenuPrimitivesScaledTile));
+            registry.Register(new GalleryTile("Kit", "Text field", "Default", BuildTextFieldTile));
+            registry.Register(new GalleryTile("Kit", "Search field", "Default", BuildSearchFieldTile));
+            registry.Register(new GalleryTile("Kit", "Stepper", "Default", BuildStepperTile));
+            registry.Register(new GalleryTile("Kit", "Slider", "Default", BuildSliderTile));
+            registry.Register(new GalleryTile("Kit", "Text field, Search field, Stepper & Slider (150%)", "150%", BuildFieldControlsScaledTile));
             return registry;
         }
 
@@ -568,6 +574,120 @@ namespace Foreman.Mac.Views {
             container.Children.Add(BuildSegmentedTile());
             container.Children.Add(BuildPopUpButtonsTile());
             container.Children.Add(BuildMenuButtonTile());
+            return container;
+        }
+
+        private static TextBox KitTextField(string placeholder) => new() { Theme = KitTheme("Kit.TextField"), PlaceholderText = placeholder };
+
+        private static StackPanel BuildTextFieldTile() {
+            TextBox empty = KitTextField("Item name");
+            FocusRing.SetShowAlways(empty, true);
+
+            TextBox filled = KitTextField("Item name");
+            filled.Text = "Iron Plate";
+
+            TextBox disabled = KitTextField("Item name");
+            disabled.IsEnabled = false;
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("Empty", "caption", "tertiary"), empty, KitText("Filled", "caption", "tertiary"), filled, KitText("Disabled", "caption", "tertiary"), disabled },
+            };
+        }
+
+        private static SearchField KitSearchField() => new() { Theme = KitTheme("Kit.SearchField") };
+
+        private static StackPanel BuildSearchFieldTile() {
+            SearchField natural = KitSearchField();
+            natural.Text = "electric furnace";
+            FocusRing.SetShowAlways(natural, true);
+
+            SearchField min = KitSearchField();
+            min.MinWidth = 0;
+            min.Width = 120;
+            min.Text = "iron";
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("220 natural, filled", "caption", "tertiary"), natural, KitText("120 minimum, filled", "caption", "tertiary"), min },
+            };
+        }
+
+        private static Stepper KitStepper(double value, string? unit = null) => new() {
+            Theme = KitTheme("Kit.Stepper"), Value = value, Minimum = 0, Maximum = 100, Unit = unit,
+        };
+
+        private static StackPanel BuildStepperTile() {
+            Stepper plain = KitStepper(4);
+            FocusRing.SetShowAlways(plain, true);
+
+            Stepper withUnit = KitStepper(12, "items/s");
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("Plain", "caption", "tertiary"), plain, KitText("With unit", "caption", "tertiary"), withUnit },
+            };
+        }
+
+        private static Slider KitSlider() => new() { Theme = KitTheme("Kit.Slider") };
+
+        private static StackPanel BuildSliderTile() {
+            Slider continuous = KitSlider();
+            continuous.Minimum = 0;
+            continuous.Maximum = 100;
+            continuous.Value = 58;
+            continuous.TemplateApplied += (_, e) => {
+                if (e.NameScope.Find<Border>("PART_Thumb") is { } thumb)
+                    FocusRing.SetShowAlways(thumb, true);
+            };
+
+            Slider discrete = KitSlider();
+            discrete.Minimum = 0;
+            discrete.Maximum = 100;
+            discrete.Step = 25;
+            discrete.Value = 50;
+
+            Slider formSlider = KitSlider();
+            formSlider.Minimum = 0;
+            formSlider.Maximum = 100;
+            formSlider.Value = 72;
+            formSlider.Unit = "%";
+            formSlider.ShowValue = true;
+            var formRow = new StackPanel {
+                Orientation = Orientation.Horizontal,
+                Spacing = 12,
+                Children = { KitText("Link opacity", "body"), formSlider },
+            };
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = {
+                    KitText("Continuous", "caption", "tertiary"), continuous,
+                    KitText("Discrete, ticks", "caption", "tertiary"), discrete,
+                    KitText("Form row", "caption", "tertiary"), formRow,
+                },
+            };
+        }
+
+        private static readonly string[] FieldControlsScaledSizeKeys = [
+            "Foreman.Size.ControlHeightRegular", "Foreman.Metrics.TextFieldMinWidth",
+            "Foreman.Metrics.SearchFieldMinWidth", "Foreman.Metrics.SearchFieldNaturalWidth", "Foreman.Size.SearchFieldGlyph",
+            "Foreman.Size.StepperFieldWidth", "Foreman.Size.StepperArrowColumn",
+            "Foreman.Size.SliderTrack", "Foreman.Size.SliderThumbNormal", "Foreman.Size.SliderThumbHover", "Foreman.Size.SliderThumbPressed",
+            "Foreman.Size.SliderTickHeight", "Foreman.Size.SliderTickGap", "Foreman.Size.SliderHeight",
+            "Foreman.Metrics.SliderMinWidth", "Foreman.Metrics.SliderNaturalWidth",
+        ];
+
+        private static StackPanel BuildFieldControlsScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in FieldControlsScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildTextFieldTile());
+            container.Children.Add(BuildSearchFieldTile());
+            container.Children.Add(BuildStepperTile());
+            container.Children.Add(BuildSliderTile());
             return container;
         }
 

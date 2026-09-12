@@ -21,6 +21,10 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/MenuPanel.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/PopUp.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/MenuButton.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/TextField.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/SearchField.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Stepper.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Slider.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

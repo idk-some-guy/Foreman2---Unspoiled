@@ -1,0 +1,63 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.Slider" TargetType="kit:Slider">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.SliderHeight}" />
+    <Setter Property="MinWidth" Value="{DynamicResource Foreman.Metrics.SliderMinWidth}" />
+    <Setter Property="Width" Value="{DynamicResource Foreman.Metrics.SliderNaturalWidth}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid ColumnDefinitions="*,Auto">
+          <Grid Grid.Column="0" VerticalAlignment="Center">
+            <Border x:Name="PART_Track"
+                    Height="{DynamicResource Foreman.Size.SliderTrack}"
+                    CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                    Background="{DynamicResource Foreman.Color.BorderStrong}"
+                    VerticalAlignment="Center" />
+            <Border x:Name="PART_Fill"
+                    Height="{DynamicResource Foreman.Size.SliderTrack}"
+                    CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                    Background="{DynamicResource Foreman.Color.Accent}"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    Width="0"
+                    IsHitTestVisible="False" />
+            <Canvas x:Name="PART_Ticks" IsHitTestVisible="False" />
+            <Border x:Name="PART_Thumb"
+                    Width="{DynamicResource Foreman.Size.SliderThumbNormal}"
+                    Height="{DynamicResource Foreman.Size.SliderThumbNormal}"
+                    CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                    Background="{DynamicResource Foreman.Color.SliderThumb}"
+                    BorderBrush="{DynamicResource Foreman.Color.SliderThumbBorder}"
+                    BorderThickness="0.5"
+                    BoxShadow="{DynamicResource Foreman.Shadow.SliderThumb}"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    Focusable="True"
+                    kit:FocusRing.IsEnabled="True"
+                    kit:FocusRing.CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                    Transitions="{x:Static m:Motion.SliderThumbSizeTransitions}" />
+          </Grid>
+          <TextBlock x:Name="PART_ValueLabel"
+                     Grid.Column="1"
+                     Margin="8,0,0,0"
+                     MinWidth="36"
+                     TextAlignment="Right"
+                     VerticalAlignment="Center"
+                     FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
+                     FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
+                     Foreground="{DynamicResource Foreman.Color.TextSecondary}"
+                     IsVisible="False" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

@@ -206,4 +206,32 @@
   <Color x:Key="Foreman.Color.GalleryCanvasBackdrop">#FFFFFF</Color>
   <Color x:Key="Foreman.Color.GalleryChrome">#000000</Color>
 
+  <!-- TextField (addendum context, task 6): plain 22pt well field, min-width its own token. -->
+  <x:Double x:Key="Foreman.Metrics.TextFieldMinWidth">84</x:Double>
+  <Thickness x:Key="Foreman.Thickness.TextFieldPadding">8,0</Thickness>
+
+  <!-- Search field (addendum §04): capsule bounds and its own glyph size off the 13pt step. -->
+  <x:Double x:Key="Foreman.Metrics.SearchFieldMinWidth">120</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SearchFieldNaturalWidth">220</x:Double>
+  <x:Double x:Key="Foreman.Size.SearchFieldGlyph">13</x:Double>
+
+  <!-- Stepper (kit mock §01, task-6-context): 40pt field, 15pt arrow column; cell height is ControlHeightRegular / 2 at runtime, not its own token. -->
+  <x:Double x:Key="Foreman.Size.StepperFieldWidth">40</x:Double>
+  <x:Double x:Key="Foreman.Size.StepperArrowColumn">15</x:Double>
+
+  <!-- Slider (addendum §03): thumb grows 14 -> 15 -> 16 across normal/hover/pressed. -->
+  <x:Double x:Key="Foreman.Size.SliderTrack">3</x:Double>
+  <x:Double x:Key="Foreman.Size.SliderThumbNormal">14</x:Double>
+  <x:Double x:Key="Foreman.Size.SliderThumbHover">15</x:Double>
+  <x:Double x:Key="Foreman.Size.SliderThumbPressed">16</x:Double>
+  <x:Double x:Key="Foreman.Size.SliderTickHeight">4</x:Double>
+  <x:Double x:Key="Foreman.Size.SliderTickGap">5</x:Double>
+  <x:Double x:Key="Foreman.Size.SliderHeight">26</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SliderMinWidth">80</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SliderNaturalWidth">124</x:Double>
+  <Color x:Key="Foreman.Color.SliderThumb">#FFFFFF</Color>
+  <!-- Hairline that separates a white thumb from a white well; light only, so dark carries zero alpha. -->
+  <Color x:Key="Foreman.Color.SliderThumbBorder">#24000000</Color>
+  <BoxShadows x:Key="Foreman.Shadow.SliderThumb">0 1 3 0 #33000000</BoxShadows>
+
 </ResourceDictionary>

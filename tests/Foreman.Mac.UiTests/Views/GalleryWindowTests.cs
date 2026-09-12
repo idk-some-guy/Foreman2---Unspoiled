@@ -21,6 +21,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using Xunit;
+using Slider = Foreman.Mac.Kit.Controls.Slider;
 
 namespace Foreman.Mac.UiTests.Views {
     //Task: dev-only gallery smoke test (docs entry: "--gallery" mode). Builds a small fixture cache - a
@@ -107,7 +108,8 @@ namespace Foreman.Mac.UiTests.Views {
                  "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)",
                  "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)",
                  "Checkbox", "Radio group", "Switch — Settings only (A16)", "Checkbox, Radio group & Switch (150%)",
-                 "Segmented", "Pop-up buttons", "Menu button", "Segmented, Pop-up buttons & Menu button (150%)"],
+                 "Segmented", "Pop-up buttons", "Menu button", "Segmented, Pop-up buttons & Menu button (150%)",
+                 "Text field", "Search field", "Stepper", "Slider", "Text field, Search field, Stepper & Slider (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -138,6 +140,11 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains("Pop-up buttons", captions);
             Assert.Contains("Menu button", captions);
             Assert.Contains("Segmented, Pop-up buttons & Menu button (150%)", captions);
+            Assert.Contains("Text field", captions);
+            Assert.Contains("Search field", captions);
+            Assert.Contains("Stepper", captions);
+            Assert.Contains("Slider", captions);
+            Assert.Contains("Text field, Search field, Stepper & Slider (150%)", captions);
             //A sample from each end of the 30-glyph sheet, proving the full set rendered with name labels.
             Assert.Contains("New", captions);
             Assert.Contains("Settings.Appearance", captions);
@@ -271,6 +278,64 @@ namespace Foreman.Mac.UiTests.Views {
 
             StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Menu button");
             Assert.Contains(tile.GetVisualDescendants().OfType<MenuButton>(), b => FocusRing.GetShowAlways(b));
+        }
+
+        [AvaloniaFact]
+        public void TextFieldTile_ShowsEmptyFilledAndDisabled() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Text field");
+            TextBox[] fields = [.. tile.GetVisualDescendants().OfType<TextBox>()];
+
+            Assert.Contains(fields, f => string.IsNullOrEmpty(f.Text));
+            Assert.Contains(fields, f => f.Text == "Iron Plate");
+            Assert.Contains(fields, f => !f.IsEnabled);
+            Assert.Contains(fields, f => FocusRing.GetShowAlways(f));
+        }
+
+        [AvaloniaFact]
+        public void SearchFieldTile_ShowsNaturalAndMinimumWidthsBothFilled() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Search field");
+            SearchField[] fields = [.. tile.GetVisualDescendants().OfType<SearchField>()];
+
+            Assert.Contains(fields, f => f.Width == 220 && !string.IsNullOrEmpty(f.Text));
+            Assert.Contains(fields, f => f.Width == 120 && !string.IsNullOrEmpty(f.Text));
+            Assert.Contains(fields, f => FocusRing.GetShowAlways(f));
+        }
+
+        [AvaloniaFact]
+        public void StepperTile_ShowsAPlainStepperAndOneWithAUnit() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Stepper");
+            Stepper[] steppers = [.. tile.GetVisualDescendants().OfType<Stepper>()];
+
+            Assert.Contains(steppers, s => string.IsNullOrEmpty(s.Unit));
+            Assert.Contains(steppers, s => s.Unit == "items/s");
+            Assert.Contains(steppers, s => FocusRing.GetShowAlways(s));
+        }
+
+        [AvaloniaFact]
+        public void SliderTile_ShowsContinuousDiscreteAndAFormRow() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Slider");
+            Slider[] sliders = [.. tile.GetVisualDescendants().OfType<Slider>()];
+
+            Assert.Contains(sliders, s => !s.IsDiscrete);
+            Assert.Contains(sliders, s => s.IsDiscrete);
+            Assert.Contains(sliders, s => s.ShowValue);
+            Assert.Contains(sliders, s => s.GetVisualDescendants().OfType<Border>().Any(b => b.Name == "PART_Thumb" && FocusRing.GetShowAlways(b)));
         }
 
         [AvaloniaFact]

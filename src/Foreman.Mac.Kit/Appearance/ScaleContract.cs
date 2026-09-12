@@ -70,6 +70,21 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.Glyph17",
             "Foreman.Size.Glyph18",
             "Foreman.Size.Glyph20",
+            "Foreman.Metrics.TextFieldMinWidth",
+            "Foreman.Metrics.SearchFieldMinWidth",
+            "Foreman.Metrics.SearchFieldNaturalWidth",
+            "Foreman.Size.SearchFieldGlyph",
+            "Foreman.Size.StepperFieldWidth",
+            "Foreman.Size.StepperArrowColumn",
+            "Foreman.Size.SliderTrack",
+            "Foreman.Size.SliderThumbNormal",
+            "Foreman.Size.SliderThumbHover",
+            "Foreman.Size.SliderThumbPressed",
+            "Foreman.Size.SliderTickHeight",
+            "Foreman.Size.SliderTickGap",
+            "Foreman.Size.SliderHeight",
+            "Foreman.Metrics.SliderMinWidth",
+            "Foreman.Metrics.SliderNaturalWidth",
         ];
 
         //Remove-then-resolve (AppearanceHub.ApplyFocusRing's idiom) keeps repeated calls from compounding.

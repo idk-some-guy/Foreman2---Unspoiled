@@ -201,4 +201,11 @@
   <StreamGeometry x:Key="Kit.Glyph.Checkmark.12">M2.7,6.24 L4.98,8.52 L9.3,3.72</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Overflow.16">M4.16,4.48 L7.68,8 L4.16,11.52 M8.8,4.48 L12.32,8 L8.8,11.52</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Filter.14">M2.38,4.2 H11.62 M3.92,7 H10.08 M5.6,9.8 H8.4</StreamGeometry>
+
+  <!-- Search field's own 13pt step (addendum §04), below the shared Search.16/17/18/20 ladder. -->
+  <StreamGeometry x:Key="Kit.Glyph.Search.13">M1.95,5.33 A3.38,3.38 0 1,1 8.71,5.33 A3.38,3.38 0 1,1 1.95,5.33 Z M9.75,9.75 L7.605,7.605</StreamGeometry>
+
+  <!-- Clear button (addendum §04/§08): disc fill plus a separate knockout X, drawn in the field's own background. -->
+  <StreamGeometry x:Key="Kit.Glyph.Clear.16">M1.2,8 A6.8,6.8 0 1,1 14.8,8 A6.8,6.8 0 1,1 1.2,8 Z</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Clear.Knockout.16">M5.28,5.28 L10.72,10.72 M10.72,5.28 L5.28,10.72</StreamGeometry>
 </ResourceDictionary>
