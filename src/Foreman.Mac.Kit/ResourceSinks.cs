@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Media;
 using System;
+using System.Collections.Generic;
 
 namespace Foreman.Mac.Kit {
     internal static class ResourceSinks {
@@ -73,6 +74,22 @@ namespace Foreman.Mac.Kit {
             public void OnNext(object? value) {
                 Thickness next = value is Thickness t ? t : current;
                 if (current == next)
+                    return;
+                current = next;
+                onNext(next);
+            }
+
+            public void OnError(Exception error) { }
+            public void OnCompleted() { }
+        }
+
+        //General-purpose sink for token types with no dedicated sink above (e.g. Geometry?).
+        public sealed class Sink<T>(Action<T> onNext, T seed) : IObserver<object?> {
+            private T current = seed;
+
+            public void OnNext(object? value) {
+                T next = value is T t ? t : current;
+                if (EqualityComparer<T>.Default.Equals(current, next))
                     return;
                 current = next;
                 onNext(next);

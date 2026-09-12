@@ -25,6 +25,8 @@ namespace Foreman.Mac.Kit.Controls {
 
         public AvaloniaList<string> Items { get; } = [];
 
+        internal int SelectionRepositions { get; private set; }
+
         private Grid? track;
         private Border? selection;
         private readonly List<Border> segments = [];
@@ -32,6 +34,7 @@ namespace Foreman.Mac.Kit.Controls {
         private bool hovering;
         private bool pressed;
         private Size lastTrackSize;
+        private EventHandler? trackLayoutUpdated;
 
         private CornerRadius itemRadius = new(4);
         private Thickness itemPadding = new(10, 3);
@@ -57,13 +60,20 @@ namespace Foreman.Mac.Kit.Controls {
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
             base.OnApplyTemplate(e);
+            if (track is not null && trackLayoutUpdated is not null)
+                track.LayoutUpdated -= trackLayoutUpdated;
+
             track = e.NameScope.Find<Grid>("PART_Track");
             selection = e.NameScope.Find<Border>("PART_Selection");
-            if (track is not null)
-                track.LayoutUpdated += (_, _) => {
-                    if (track.Bounds.Size != lastTrackSize)
-                        PositionSelection(animate: false);
+            if (track is not null) {
+                trackLayoutUpdated = (_, _) => {
+                    if (track.Bounds.Size == lastTrackSize)
+                        return;
+                    SelectionRepositions++;
+                    PositionSelection(animate: false);
                 };
+                track.LayoutUpdated += trackLayoutUpdated;
+            }
             Rebuild();
         }
 
@@ -74,21 +84,23 @@ namespace Foreman.Mac.Kit.Controls {
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
+            if (track is not null && trackLayoutUpdated is not null)
+                track.LayoutUpdated -= trackLayoutUpdated;
             Unsubscribe();
         }
 
         private void Subscribe() {
             Unsubscribe();
-            subs.Add(this.GetResourceObservable("Foreman.Radius.SegmentItem").Subscribe(new Sink<CornerRadius>(v => { itemRadius = v; Rebuild(); }, itemRadius)));
-            subs.Add(this.GetResourceObservable("Foreman.Thickness.SegmentItemPadding").Subscribe(new Sink<Thickness>(v => { itemPadding = v; Rebuild(); }, itemPadding)));
-            subs.Add(this.GetResourceObservable("Foreman.Type.SegmentMini.FontSize").Subscribe(new Sink<double>(v => { miniFontSize = v; ApplyStateColors(); }, miniFontSize)));
-            subs.Add(this.GetResourceObservable("Foreman.Type.SegmentMini.FontWeight").Subscribe(new Sink<FontWeight>(v => { miniFontWeight = v; ApplyStateColors(); }, miniFontWeight)));
-            subs.Add(this.GetResourceObservable("Foreman.Type.Callout.FontSize").Subscribe(new Sink<double>(v => { calloutFontSize = v; ApplyStateColors(); }, calloutFontSize)));
-            subs.Add(this.GetResourceObservable("Foreman.Type.Callout.FontWeight").Subscribe(new Sink<FontWeight>(v => { calloutFontWeight = v; ApplyStateColors(); }, calloutFontWeight)));
-            subs.Add(this.GetResourceObservable("Foreman.Color.Text").Subscribe(new BrushSink(v => { text = v; ApplyStateColors(); }, text)));
-            subs.Add(this.GetResourceObservable("Foreman.Color.TextSecondary").Subscribe(new BrushSink(v => { textSecondary = v; ApplyStateColors(); }, textSecondary)));
-            subs.Add(this.GetResourceObservable("Foreman.Color.ControlBackground").Subscribe(new BrushSink(v => { controlBackground = v; ApplyStateColors(); }, controlBackground)));
-            subs.Add(this.GetResourceObservable("Foreman.Color.ControlBackgroundPressed").Subscribe(new BrushSink(v => { controlBackgroundPressed = v; ApplyStateColors(); }, controlBackgroundPressed)));
+            subs.Add(this.GetResourceObservable("Foreman.Radius.SegmentItem").Subscribe(new ResourceSinks.RadiusSink(v => { itemRadius = v; Rebuild(); }, itemRadius)));
+            subs.Add(this.GetResourceObservable("Foreman.Thickness.SegmentItemPadding").Subscribe(new ResourceSinks.ThicknessSink(v => { itemPadding = v; Rebuild(); }, itemPadding)));
+            subs.Add(this.GetResourceObservable("Foreman.Type.SegmentMini.FontSize").Subscribe(new ResourceSinks.DoubleSink(v => { miniFontSize = v; ApplyStateColors(); }, miniFontSize)));
+            subs.Add(this.GetResourceObservable("Foreman.Type.SegmentMini.FontWeight").Subscribe(new ResourceSinks.WeightSink(v => { miniFontWeight = v; ApplyStateColors(); }, miniFontWeight)));
+            subs.Add(this.GetResourceObservable("Foreman.Type.Callout.FontSize").Subscribe(new ResourceSinks.DoubleSink(v => { calloutFontSize = v; ApplyStateColors(); }, calloutFontSize)));
+            subs.Add(this.GetResourceObservable("Foreman.Type.Callout.FontWeight").Subscribe(new ResourceSinks.WeightSink(v => { calloutFontWeight = v; ApplyStateColors(); }, calloutFontWeight)));
+            subs.Add(this.GetResourceObservable("Foreman.Color.Text").Subscribe(new ResourceSinks.BrushSink(v => { text = v; ApplyStateColors(); }, text)));
+            subs.Add(this.GetResourceObservable("Foreman.Color.TextSecondary").Subscribe(new ResourceSinks.BrushSink(v => { textSecondary = v; ApplyStateColors(); }, textSecondary)));
+            subs.Add(this.GetResourceObservable("Foreman.Color.ControlBackground").Subscribe(new ResourceSinks.BrushSink(v => { controlBackground = v; ApplyStateColors(); }, controlBackground)));
+            subs.Add(this.GetResourceObservable("Foreman.Color.ControlBackgroundPressed").Subscribe(new ResourceSinks.BrushSink(v => { controlBackgroundPressed = v; ApplyStateColors(); }, controlBackgroundPressed)));
         }
 
         private void Unsubscribe() {
@@ -230,45 +242,5 @@ namespace Foreman.Mac.Kit.Controls {
             }
         }
 
-        private sealed class Sink<T> : IObserver<object?> {
-            private readonly Action<T> onNext;
-            private readonly T fallback;
-            private T current;
-
-            public Sink(Action<T> onNext, T fallback) {
-                this.onNext = onNext;
-                this.fallback = fallback;
-                current = fallback;
-            }
-
-            public void OnNext(object? value) {
-                T next = value is T t ? t : fallback;
-                if (EqualityComparer<T>.Default.Equals(current, next))
-                    return;
-                current = next;
-                onNext(next);
-            }
-
-            public void OnError(Exception error) { }
-            public void OnCompleted() { }
-        }
-
-        private sealed class BrushSink(Action<IBrush> onNext, IBrush seed) : IObserver<object?> {
-            private IBrush current = seed;
-
-            public void OnNext(object? value) {
-                IBrush next = value switch { IBrush b => b, Color c => new SolidColorBrush(c), _ => current };
-                if (SameBrush(current, next))
-                    return;
-                current = next;
-                onNext(next);
-            }
-
-            public void OnError(Exception error) { }
-            public void OnCompleted() { }
-
-            private static bool SameBrush(IBrush a, IBrush b) =>
-                ReferenceEquals(a, b) || (a is ISolidColorBrush sa && b is ISolidColorBrush sb && sa.Color == sb.Color);
-        }
     }
 }

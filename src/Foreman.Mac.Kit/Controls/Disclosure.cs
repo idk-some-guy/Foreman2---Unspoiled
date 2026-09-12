@@ -65,7 +65,7 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void Subscribe() {
             Unsubscribe();
-            subs.Add(this.GetResourceObservable("Foreman.Size.GlyphMicro").Subscribe(new Sink(v => { glyphMicro = v; ApplyGlyphSize(); })));
+            subs.Add(this.GetResourceObservable("Foreman.Size.GlyphMicro").Subscribe(new ResourceSinks.DoubleSink(v => { glyphMicro = v; ApplyGlyphSize(); }, glyphMicro)));
         }
 
         private void Unsubscribe() {
@@ -105,10 +105,5 @@ namespace Foreman.Mac.Kit.Controls {
             triangle.RenderTransform = TransformOperations.Parse(IsExpanded ? "rotate(90deg)" : "rotate(0deg)");
         }
 
-        private sealed class Sink(Action<double> onNext) : IObserver<object?> {
-            public void OnNext(object? value) => onNext(value is double d ? d : 12.0);
-            public void OnError(Exception error) { }
-            public void OnCompleted() { }
-        }
     }
 }

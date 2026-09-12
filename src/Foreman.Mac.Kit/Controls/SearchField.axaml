@@ -63,7 +63,7 @@
                   StrokeLineCap="Round"
                   Width="{DynamicResource Foreman.Size.SearchFieldGlyph}"
                   Height="{DynamicResource Foreman.Size.SearchFieldGlyph}"
-                  Margin="8,0,6,0"
+                  Margin="{DynamicResource Foreman.Thickness.SearchFieldGlyphMargin}"
                   VerticalAlignment="Center" />
             <Panel Grid.Column="1">
               <TextBlock x:Name="PART_Placeholder"
@@ -90,7 +90,7 @@
                     Theme="{StaticResource Kit.SearchFieldClearButton}"
                     Width="{DynamicResource Foreman.Size.Glyph16}"
                     Height="{DynamicResource Foreman.Size.Glyph16}"
-                    Margin="0,0,4,0"
+                    Margin="{DynamicResource Foreman.Thickness.SearchFieldClearMargin}"
                     VerticalAlignment="Center"
                     Focusable="False"
                     Transitions="{x:Static m:Motion.SearchFieldClearTransitions}" />

@@ -12,7 +12,7 @@
           <Path x:Name="PART_Glyph"
                 Data="{StaticResource Kit.Glyph.Chevron.10}"
                 Fill="{DynamicResource Foreman.Color.TextTertiary}"
-                Width="10" Height="10"
+                Width="{DynamicResource Foreman.Size.Glyph10}" Height="{DynamicResource Foreman.Size.Glyph10}"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center" />
         </Border>
@@ -39,46 +39,16 @@
     </Style>
   </ControlTheme>
 
-  <ControlTheme x:Key="Kit.StepperValueField" TargetType="TextBox">
+  <ControlTheme x:Key="Kit.StepperValueField" TargetType="TextBox" BasedOn="{StaticResource Kit.TextField}">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Padding" Value="0" />
-    <Setter Property="FocusAdorner" Value="{x:Null}" />
-    <Setter Property="Cursor" Value="Ibeam" />
-    <Setter Property="Template">
-      <ControlTemplate>
-        <Border x:Name="PART_BorderElement"
-                Background="{TemplateBinding Background}"
-                BorderBrush="{TemplateBinding BorderBrush}"
-                BorderThickness="{TemplateBinding BorderThickness}">
-          <Grid Margin="{TemplateBinding Padding}">
-            <TextBlock x:Name="PART_Placeholder"
-                       Text="{TemplateBinding PlaceholderText}"
-                       Foreground="{TemplateBinding PlaceholderForeground}"
-                       FontSize="{TemplateBinding FontSize}"
-                       FontWeight="{TemplateBinding FontWeight}"
-                       TextAlignment="{TemplateBinding TextAlignment}"
-                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-            <ScrollViewer Name="PART_ScrollViewer"
-                          HorizontalScrollBarVisibility="Hidden"
-                          VerticalScrollBarVisibility="Hidden">
-              <TextPresenter Name="PART_TextPresenter"
-                             Text="{TemplateBinding Text, Mode=TwoWay}"
-                             CaretIndex="{TemplateBinding CaretIndex}"
-                             SelectionStart="{TemplateBinding SelectionStart}"
-                             SelectionEnd="{TemplateBinding SelectionEnd}"
-                             CaretBrush="{TemplateBinding CaretBrush}"
-                             SelectionBrush="{TemplateBinding SelectionBrush}"
-                             TextAlignment="{TemplateBinding TextAlignment}"
-                             VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-            </ScrollViewer>
-          </Grid>
-        </Border>
-      </ControlTemplate>
-    </Setter>
+    <Setter Property="Height" Value="NaN" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="False" />
 
-    <Style Selector="^:not(:empty) /template/ TextBlock#PART_Placeholder">
-      <Setter Property="IsVisible" Value="False" />
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="1" />
     </Style>
   </ControlTheme>
 
@@ -97,9 +67,9 @@
                 ClipToBounds="True">
           <Grid x:Name="PART_Columns">
             <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="40" />
               <ColumnDefinition Width="Auto" />
-              <ColumnDefinition Width="15" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBox x:Name="PART_ValueBox"
                      Grid.Column="0"

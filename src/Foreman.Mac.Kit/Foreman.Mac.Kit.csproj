@@ -13,4 +13,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.2" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Foreman.Mac.Kit.Tests" />
+  </ItemGroup>
 </Project>

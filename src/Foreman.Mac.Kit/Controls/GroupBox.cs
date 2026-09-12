@@ -11,6 +11,8 @@ namespace Foreman.Mac.Kit.Controls {
         private double maxWidthToken = 420;
         private readonly List<IDisposable> subs = [];
 
+        public GroupBox() => MaxWidth = maxWidthToken;
+
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnAttachedToVisualTree(e);
             Subscribe();
@@ -23,7 +25,7 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void Subscribe() {
             Unsubscribe();
-            subs.Add(this.GetResourceObservable("Foreman.Metrics.GroupBoxMaxWidth").Subscribe(new Sink(v => { maxWidthToken = v; MaxWidth = maxWidthToken; })));
+            subs.Add(this.GetResourceObservable("Foreman.Metrics.GroupBoxMaxWidth").Subscribe(new ResourceSinks.DoubleSink(v => { maxWidthToken = v; MaxWidth = maxWidthToken; }, maxWidthToken)));
         }
 
         private void Unsubscribe() {
@@ -32,10 +34,5 @@ namespace Foreman.Mac.Kit.Controls {
             subs.Clear();
         }
 
-        private sealed class Sink(Action<double> onNext) : IObserver<object?> {
-            public void OnNext(object? value) => onNext(value is double d ? d : 420.0);
-            public void OnError(Exception error) { }
-            public void OnCompleted() { }
-        }
     }
 }

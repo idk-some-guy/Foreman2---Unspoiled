@@ -41,7 +41,7 @@
               <Path x:Name="PART_PulldownChevron"
                     Data="{StaticResource Kit.Glyph.Chevron.10}"
                     Fill="{DynamicResource Foreman.Color.TextTertiary}"
-                    Width="10" Height="10"
+                    Width="{DynamicResource Foreman.Size.Glyph10}" Height="{DynamicResource Foreman.Size.Glyph10}"
                     IsVisible="False" />
             </StackPanel>
           </Border>

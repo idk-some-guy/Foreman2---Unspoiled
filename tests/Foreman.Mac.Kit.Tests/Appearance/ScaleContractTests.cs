@@ -92,6 +92,14 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         }
 
         [AvaloniaFact]
+        public void Apply_AtOneFifty_MultipliesTheChevronGlyphAndSliderValueLabelWidth() {
+            ScaleContract.Apply(1.5);
+
+            Assert.Equal(15.0, ResourceDouble("Foreman.Size.Glyph10"));
+            Assert.Equal(54.0, ResourceDouble("Foreman.Metrics.SliderValueLabelWidth"));
+        }
+
+        [AvaloniaFact]
         public void Apply_AtOneFifty_MultipliesAliasedTypeKeysToo() {
             ScaleContract.Apply(1.5);
 

@@ -38,9 +38,9 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void Subscribe() {
             Unsubscribe();
-            widthSub = this.GetResourceObservable("Foreman.Size.SwitchWidth", ToWidth).Subscribe(new Sink(v => { width = v; Reposition(animate: false); }));
-            knobSub = this.GetResourceObservable("Foreman.Size.SwitchKnob", ToKnob).Subscribe(new Sink(v => { knobSize = v; Reposition(animate: false); }));
-            insetSub = this.GetResourceObservable("Foreman.Size.SwitchKnobInset", ToInset).Subscribe(new Sink(v => { inset = v; Reposition(animate: false); }));
+            widthSub = this.GetResourceObservable("Foreman.Size.SwitchWidth", ToWidth).Subscribe(new ResourceSinks.DoubleSink(v => { width = v; Reposition(animate: false); }, width));
+            knobSub = this.GetResourceObservable("Foreman.Size.SwitchKnob", ToKnob).Subscribe(new ResourceSinks.DoubleSink(v => { knobSize = v; Reposition(animate: false); }, knobSize));
+            insetSub = this.GetResourceObservable("Foreman.Size.SwitchKnobInset", ToInset).Subscribe(new ResourceSinks.DoubleSink(v => { inset = v; Reposition(animate: false); }, inset));
         }
 
         private void Unsubscribe() {
@@ -71,11 +71,5 @@ namespace Foreman.Mac.Kit.Controls {
         private static object ToWidth(object? value) => value is double d ? d : 30.0;
         private static object ToKnob(object? value) => value is double d ? d : 14.0;
         private static object ToInset(object? value) => value is double d ? d : 2.0;
-
-        private sealed class Sink(Action<double> onNext) : IObserver<object?> {
-            public void OnNext(object? value) => onNext(value is double d ? d : 0.0);
-            public void OnError(Exception error) { }
-            public void OnCompleted() { }
-        }
     }
 }

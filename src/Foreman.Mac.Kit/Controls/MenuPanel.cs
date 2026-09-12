@@ -77,21 +77,21 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void Subscribe() {
             Unsubscribe();
-            subs.Add(this.GetResourceObservable("Foreman.Radius.SegmentItem").Subscribe(new Sink<CornerRadius>(v => { itemRadius = v; Rebuild(); }, itemRadius)));
-            subs.Add(this.GetResourceObservable("Foreman.Thickness.MenuItemMargin").Subscribe(new Sink<Thickness>(v => { itemMargin = v; Rebuild(); }, itemMargin)));
-            subs.Add(this.GetResourceObservable("Foreman.Thickness.MenuItemPadding").Subscribe(new Sink<Thickness>(v => { itemPadding = v; Rebuild(); }, itemPadding)));
-            subs.Add(this.GetResourceObservable("Foreman.Thickness.MenuSeparatorMargin").Subscribe(new Sink<Thickness>(v => { sepMargin = v; Rebuild(); }, sepMargin)));
-            subs.Add(this.GetResourceObservable("Foreman.Size.MenuItemHeight").Subscribe(new Sink<double>(v => { itemHeight = v; Rebuild(); }, itemHeight)));
-            subs.Add(this.GetResourceObservable("Foreman.Size.MenuCheckColumn").Subscribe(new Sink<double>(v => { checkColumn = v; Rebuild(); }, checkColumn)));
-            subs.Add(this.GetResourceObservable("Foreman.Size.GlyphMicro").Subscribe(new Sink<double>(v => { glyphMicro = v; Rebuild(); }, glyphMicro)));
-            subs.Add(this.GetResourceObservable("Foreman.Type.Callout.FontSize").Subscribe(new Sink<double>(v => { fontSize = v; Rebuild(); }, fontSize)));
-            subs.Add(this.GetResourceObservable("Foreman.Type.Callout.FontWeight").Subscribe(new Sink<FontWeight>(v => { fontWeight = v; Rebuild(); }, fontWeight)));
-            subs.Add(this.GetResourceObservable("Kit.Glyph.Checkmark.12").Subscribe(new Sink<Geometry?>(v => { checkGeometry = v; Rebuild(); }, checkGeometry)));
-            subs.Add(this.GetResourceObservable("Foreman.Color.Border").Subscribe(new BrushSink(v => { border = v; Rebuild(); }, border)));
-            subs.Add(this.GetResourceObservable("Foreman.Color.Accent").Subscribe(new BrushSink(v => { accent = v; UpdateHighlight(); }, accent)));
-            subs.Add(this.GetResourceObservable("Foreman.Color.TextOnAccent").Subscribe(new BrushSink(v => { textOnAccent = v; UpdateHighlight(); }, textOnAccent)));
-            subs.Add(this.GetResourceObservable("Foreman.Color.Text").Subscribe(new BrushSink(v => { text = v; UpdateHighlight(); }, text)));
-            subs.Add(this.GetResourceObservable("Foreman.Color.TextTertiary").Subscribe(new BrushSink(v => { textTertiary = v; UpdateHighlight(); }, textTertiary)));
+            subs.Add(this.GetResourceObservable("Foreman.Radius.SegmentItem").Subscribe(new ResourceSinks.RadiusSink(v => { itemRadius = v; Rebuild(); }, itemRadius)));
+            subs.Add(this.GetResourceObservable("Foreman.Thickness.MenuItemMargin").Subscribe(new ResourceSinks.ThicknessSink(v => { itemMargin = v; Rebuild(); }, itemMargin)));
+            subs.Add(this.GetResourceObservable("Foreman.Thickness.MenuItemPadding").Subscribe(new ResourceSinks.ThicknessSink(v => { itemPadding = v; Rebuild(); }, itemPadding)));
+            subs.Add(this.GetResourceObservable("Foreman.Thickness.MenuSeparatorMargin").Subscribe(new ResourceSinks.ThicknessSink(v => { sepMargin = v; Rebuild(); }, sepMargin)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.MenuItemHeight").Subscribe(new ResourceSinks.DoubleSink(v => { itemHeight = v; Rebuild(); }, itemHeight)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.MenuCheckColumn").Subscribe(new ResourceSinks.DoubleSink(v => { checkColumn = v; Rebuild(); }, checkColumn)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.GlyphMicro").Subscribe(new ResourceSinks.DoubleSink(v => { glyphMicro = v; Rebuild(); }, glyphMicro)));
+            subs.Add(this.GetResourceObservable("Foreman.Type.Callout.FontSize").Subscribe(new ResourceSinks.DoubleSink(v => { fontSize = v; Rebuild(); }, fontSize)));
+            subs.Add(this.GetResourceObservable("Foreman.Type.Callout.FontWeight").Subscribe(new ResourceSinks.WeightSink(v => { fontWeight = v; Rebuild(); }, fontWeight)));
+            subs.Add(this.GetResourceObservable("Kit.Glyph.Checkmark.12").Subscribe(new ResourceSinks.Sink<Geometry?>(v => { checkGeometry = v; Rebuild(); }, checkGeometry)));
+            subs.Add(this.GetResourceObservable("Foreman.Color.Border").Subscribe(new ResourceSinks.BrushSink(v => { border = v; Rebuild(); }, border)));
+            subs.Add(this.GetResourceObservable("Foreman.Color.Accent").Subscribe(new ResourceSinks.BrushSink(v => { accent = v; UpdateHighlight(); }, accent)));
+            subs.Add(this.GetResourceObservable("Foreman.Color.TextOnAccent").Subscribe(new ResourceSinks.BrushSink(v => { textOnAccent = v; UpdateHighlight(); }, textOnAccent)));
+            subs.Add(this.GetResourceObservable("Foreman.Color.Text").Subscribe(new ResourceSinks.BrushSink(v => { text = v; UpdateHighlight(); }, text)));
+            subs.Add(this.GetResourceObservable("Foreman.Color.TextTertiary").Subscribe(new ResourceSinks.BrushSink(v => { textTertiary = v; UpdateHighlight(); }, textTertiary)));
         }
 
         private void Unsubscribe() {
@@ -234,45 +234,5 @@ namespace Foreman.Mac.Kit.Controls {
             }
         }
 
-        private sealed class Sink<T> : IObserver<object?> {
-            private readonly Action<T> onNext;
-            private readonly T fallback;
-            private T current;
-
-            public Sink(Action<T> onNext, T fallback) {
-                this.onNext = onNext;
-                this.fallback = fallback;
-                current = fallback;
-            }
-
-            public void OnNext(object? value) {
-                T next = value is T t ? t : fallback;
-                if (EqualityComparer<T>.Default.Equals(current, next))
-                    return;
-                current = next;
-                onNext(next);
-            }
-
-            public void OnError(Exception error) { }
-            public void OnCompleted() { }
-        }
-
-        private sealed class BrushSink(Action<IBrush> onNext, IBrush seed) : IObserver<object?> {
-            private IBrush current = seed;
-
-            public void OnNext(object? value) {
-                IBrush next = value switch { IBrush b => b, Color c => new SolidColorBrush(c), _ => current };
-                if (SameBrush(current, next))
-                    return;
-                current = next;
-                onNext(next);
-            }
-
-            public void OnError(Exception error) { }
-            public void OnCompleted() { }
-
-            private static bool SameBrush(IBrush a, IBrush b) =>
-                ReferenceEquals(a, b) || (a is ISolidColorBrush sa && b is ISolidColorBrush sb && sa.Color == sb.Color);
-        }
     }
 }

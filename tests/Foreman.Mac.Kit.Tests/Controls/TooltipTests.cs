@@ -13,7 +13,9 @@ using System.Linq;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Controls {
-    public sealed class TooltipTests {
+    public sealed class TooltipTests : System.IDisposable {
+        public void Dispose() => Motion.ReduceMotion = false;
+
         private static ControlTheme KitTooltipTheme() {
             Assert.True(Application.Current!.TryGetResource("Kit.Tooltip", null, out object? theme));
             return Assert.IsType<ControlTheme>(theme);
@@ -105,7 +107,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.Window.Content = reduced;
             Dispatcher.UIThread.RunJobs();
             Assert.Null(reduced.Transitions);
-            Motion.ReduceMotion = false;
         }
 
         [AvaloniaFact]

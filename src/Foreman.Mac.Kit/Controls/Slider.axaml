@@ -44,7 +44,7 @@
           <TextBlock x:Name="PART_ValueLabel"
                      Grid.Column="1"
                      Margin="8,0,0,0"
-                     MinWidth="36"
+                     MinWidth="{DynamicResource Foreman.Metrics.SliderValueLabelWidth}"
                      TextAlignment="Right"
                      VerticalAlignment="Center"
                      FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"

@@ -75,6 +75,22 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void InnerValueBox_ResolvesCalloutFontSizeTransparentBackgroundAndNoFocusRing() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBox box = ValueBox(stepper);
+            Application.Current!.TryGetResource("Foreman.Type.Callout.FontSize", Application.Current.ActualThemeVariant, out object? fontSize);
+            Assert.Equal(Assert.IsType<double>(fontSize), box.FontSize);
+            Assert.Equal(Brushes.Transparent.Color, Assert.IsAssignableFrom<ISolidColorBrush>(box.Background).Color);
+
+            fixture.StateOf(box).Focus();
+            Assert.Null(AdornerLayer.GetAdorner(box));
+        }
+
+        [AvaloniaFact]
         public void InitialValue_IsFormattedIntoTheField() {
             using var fixture = new KitFixture();
             Stepper stepper = Themed();
@@ -233,11 +249,14 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             using var fixture = new KitFixture();
             Stepper stepper = Themed();
             fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
 
             stepper.IsEnabled = false;
+            Dispatcher.UIThread.RunJobs();
 
             Application.Current!.TryGetResource("Foreman.Opacity.Disabled", Application.Current.ActualThemeVariant, out object? disabled);
             Assert.Equal(Assert.IsType<double>(disabled), stepper.Opacity);
+            Assert.Equal(1, ValueBox(stepper).Opacity);
         }
 
         [AvaloniaFact]
@@ -276,6 +295,21 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(33, stepper.Height);
             Assert.Equal(60, Columns(stepper).ColumnDefinitions[0].Width.Value);
             Assert.Equal(22.5, Columns(stepper).ColumnDefinitions[2].Width.Value);
+        }
+
+        [AvaloniaFact]
+        public void Chevron_TracksScaleContract() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.Stepper", null, out object? theme));
+            var stepper = new Stepper { Theme = Assert.IsType<ControlTheme>(theme) };
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Path chevron = stepper.GetVisualDescendants().OfType<Path>().First(p => p.Name == "PART_Glyph");
+            Assert.Equal(15, chevron.Width);
         }
     }
 }

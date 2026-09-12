@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -190,6 +191,25 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             Application.Current!.TryGetResource("Foreman.Size.CheckBox", Application.Current.ActualThemeVariant, out object? size);
             Assert.Equal(Assert.IsType<double>(size), box.Bounds.Width);
+        }
+
+        [AvaloniaFact]
+        public void ClickTheGapBetweenBoxAndLabel_TogglesChecked() {
+            using var fixture = new KitFixture();
+            CheckBox box = Themed();
+            box.Content = "Compatible recipes only";
+            fixture.Window.Content = box;
+            Dispatcher.UIThread.RunJobs();
+
+            Border part = Box(box);
+            Point rightEdge = Avalonia.VisualExtensions.TranslatePoint(part, new Point(part.Bounds.Width, part.Bounds.Height / 2), fixture.Window)!.Value;
+            Point gapPoint = rightEdge + new Vector(2, 0);
+
+            fixture.Window.MouseDown(gapPoint, MouseButton.Left, RawInputModifiers.None);
+            fixture.Window.MouseUp(gapPoint, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(box.IsChecked);
         }
 
         [AvaloniaFact]

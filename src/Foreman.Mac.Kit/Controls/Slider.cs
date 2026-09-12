@@ -65,6 +65,8 @@ namespace Foreman.Mac.Kit.Controls {
 
         public int StepCount => IsDiscrete && Maximum > Minimum ? (int)Math.Round((Maximum - Minimum) / Step) : 0;
 
+        internal int TickRebuilds { get; private set; }
+
         private Border? track;
         private Border? fill;
         private Border? thumb;
@@ -131,6 +133,7 @@ namespace Foreman.Mac.Kit.Controls {
                     if (ticks.Bounds.Size == lastTicksSize)
                         return;
                     lastTicksSize = ticks.Bounds.Size;
+                    TickRebuilds++;
                     RebuildTicks();
                 };
                 ticks.LayoutUpdated += ticksLayoutUpdated;
@@ -154,12 +157,12 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void Subscribe() {
             Unsubscribe();
-            subs.Add(this.GetResourceObservable("Foreman.Size.SliderTickHeight").Subscribe(new Sink<double>(v => { tickHeight = v; RebuildTicks(); }, tickHeight)));
-            subs.Add(this.GetResourceObservable("Foreman.Size.SliderTickGap").Subscribe(new Sink<double>(v => { tickGap = v; RebuildTicks(); }, tickGap)));
-            subs.Add(this.GetResourceObservable("Foreman.Size.SliderThumbNormal").Subscribe(new Sink<double>(v => { thumbNormal = v; ApplyThumbSize(); }, thumbNormal)));
-            subs.Add(this.GetResourceObservable("Foreman.Size.SliderThumbHover").Subscribe(new Sink<double>(v => { thumbHover = v; ApplyThumbSize(); }, thumbHover)));
-            subs.Add(this.GetResourceObservable("Foreman.Size.SliderThumbPressed").Subscribe(new Sink<double>(v => { thumbPressed = v; ApplyThumbSize(); }, thumbPressed)));
-            subs.Add(this.GetResourceObservable("Foreman.Color.Border").Subscribe(new BrushSink(v => { tickBrush = v; RebuildTicks(); }, tickBrush)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.SliderTickHeight").Subscribe(new ResourceSinks.DoubleSink(v => { tickHeight = v; RebuildTicks(); }, tickHeight)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.SliderTickGap").Subscribe(new ResourceSinks.DoubleSink(v => { tickGap = v; RebuildTicks(); }, tickGap)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.SliderThumbNormal").Subscribe(new ResourceSinks.DoubleSink(v => { thumbNormal = v; ApplyThumbSize(); }, thumbNormal)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.SliderThumbHover").Subscribe(new ResourceSinks.DoubleSink(v => { thumbHover = v; ApplyThumbSize(); }, thumbHover)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.SliderThumbPressed").Subscribe(new ResourceSinks.DoubleSink(v => { thumbPressed = v; ApplyThumbSize(); }, thumbPressed)));
+            subs.Add(this.GetResourceObservable("Foreman.Color.Border").Subscribe(new ResourceSinks.BrushSink(v => { tickBrush = v; RebuildTicks(); }, tickBrush)));
         }
 
         private void Unsubscribe() {
@@ -335,45 +338,5 @@ namespace Foreman.Mac.Kit.Controls {
             return IsDiscrete ? Step : range * 0.01;
         }
 
-        private sealed class Sink<T> : IObserver<object?> {
-            private readonly Action<T> onNext;
-            private readonly T fallback;
-            private T current;
-
-            public Sink(Action<T> onNext, T fallback) {
-                this.onNext = onNext;
-                this.fallback = fallback;
-                current = fallback;
-            }
-
-            public void OnNext(object? value) {
-                T next = value is T t ? t : fallback;
-                if (EqualityComparer<T>.Default.Equals(current, next))
-                    return;
-                current = next;
-                onNext(next);
-            }
-
-            public void OnError(Exception error) { }
-            public void OnCompleted() { }
-        }
-
-        private sealed class BrushSink(Action<IBrush> onNext, IBrush seed) : IObserver<object?> {
-            private IBrush current = seed;
-
-            public void OnNext(object? value) {
-                IBrush next = value switch { IBrush b => b, Color c => new SolidColorBrush(c), _ => current };
-                if (SameBrush(current, next))
-                    return;
-                current = next;
-                onNext(next);
-            }
-
-            public void OnError(Exception error) { }
-            public void OnCompleted() { }
-
-            private static bool SameBrush(IBrush a, IBrush b) =>
-                ReferenceEquals(a, b) || (a is ISolidColorBrush sa && b is ISolidColorBrush sb && sa.Color == sb.Color);
-        }
     }
 }

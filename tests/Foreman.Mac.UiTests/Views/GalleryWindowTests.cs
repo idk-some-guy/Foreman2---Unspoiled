@@ -7,6 +7,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Avalonia.Media.Transformation;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -344,6 +345,116 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains(sliders, s => s.IsDiscrete);
             Assert.Contains(sliders, s => s.ShowValue);
             Assert.Contains(sliders, s => s.GetVisualDescendants().OfType<Border>().Any(b => b.Name == "PART_Thumb" && FocusRing.GetShowAlways(b)));
+        }
+
+        [AvaloniaFact]
+        public void SelectionControlsScaledTile_SwitchKnobXTracksScaledInset() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Checkbox, Radio group & Switch (150%)");
+            Application.Current!.TryGetResource("Foreman.Size.SwitchKnobInset", Application.Current.ActualThemeVariant, out object? insetObj);
+            double expectedX = (double)insetObj! * 1.5;
+
+            Border[] knobs = [.. tile.GetVisualDescendants().OfType<Border>().Where(b => b.Name == "PART_Knob")];
+            Assert.Contains(knobs, k => k.RenderTransform is TransformOperations ops && Math.Abs(ops.Value.M31 - expectedX) < 0.01);
+        }
+
+        [AvaloniaFact]
+        public void MenuPrimitivesScaledTile_SegmentedLabelFontSizeTracksScaledCallout() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Segmented, Pop-up buttons & Menu button (150%)");
+            Application.Current!.TryGetResource("Foreman.Type.Callout.FontSize", Application.Current.ActualThemeVariant, out object? calloutObj);
+            double expected = (double)calloutObj! * 1.5;
+
+            TextBlock[] labels = [.. tile.GetVisualDescendants().OfType<Segmented>()
+                .SelectMany(s => s.GetVisualDescendants().OfType<TextBlock>())
+                .Where(t => t.Classes.Contains("segLabel"))];
+            Assert.Contains(labels, l => Math.Abs(l.FontSize - expected) < 0.01);
+        }
+
+        [AvaloniaFact]
+        public void MenuPrimitivesScaledTile_ChevronMeasuresFifteen() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Segmented, Pop-up buttons & Menu button (150%)");
+            Path[] chevrons = [.. tile.GetVisualDescendants().OfType<Path>().Where(p => p.Name == "PART_Chevron" || p.Name == "PART_PulldownChevron")];
+            Assert.Contains(chevrons, c => c.Width == 15);
+        }
+
+        [AvaloniaFact]
+        public void FieldControlsScaledTile_StepperValueBoxFontSizeTracksScaledCallout() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Text field, Search field, Stepper & Slider (150%)");
+            Application.Current!.TryGetResource("Foreman.Type.Callout.FontSize", Application.Current.ActualThemeVariant, out object? calloutObj);
+            double expected = (double)calloutObj! * 1.5;
+
+            TextBox[] boxes = [.. tile.GetVisualDescendants().OfType<Stepper>()
+                .SelectMany(s => s.GetVisualDescendants().OfType<TextBox>())
+                .Where(b => b.Name == "PART_ValueBox")];
+            Assert.Contains(boxes, b => Math.Abs(b.FontSize - expected) < 0.01);
+        }
+
+        [AvaloniaFact]
+        public void FieldControlsScaledTile_SliderValueLabelMinWidthTracksScaledMetric() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Text field, Search field, Stepper & Slider (150%)");
+
+            TextBlock[] labels = [.. tile.GetVisualDescendants().OfType<Slider>()
+                .SelectMany(s => s.GetVisualDescendants().OfType<TextBlock>())
+                .Where(t => t.Name == "PART_ValueLabel")];
+            Assert.Contains(labels, l => l.MinWidth == 54);
+        }
+
+        [AvaloniaFact]
+        public void RowsAndChromeScaledTile_ListRowLabelFontSizeTracksScaledCallout() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "List rows, Sidebar rows, Group box, Tab strips & Disclosure (150%)");
+            Application.Current!.TryGetResource("Foreman.Type.Callout.FontSize", Application.Current.ActualThemeVariant, out object? calloutObj);
+            double expected = (double)calloutObj! * 1.5;
+
+            TextBlock[] labels = [.. tile.GetVisualDescendants().OfType<ListRow>()
+                .SelectMany(r => r.GetVisualDescendants().OfType<TextBlock>())
+                .Where(t => t.Name == "PART_Label")];
+            Assert.Contains(labels, l => Math.Abs(l.FontSize - expected) < 0.01);
+        }
+
+        [AvaloniaFact]
+        public void FeedbackScaledTile_ChipCloseGlyphWidthTracksScaledGlyphMicro() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Tooltip, Spinner & progress, Chips & Key caps (150%)");
+            Application.Current!.TryGetResource("Foreman.Size.GlyphMicro", Application.Current.ActualThemeVariant, out object? glyphMicroObj);
+            double expected = (double)glyphMicroObj! * 1.5;
+
+            Path[] glyphs = [.. tile.GetVisualDescendants().OfType<Chip>()
+                .SelectMany(c => c.GetVisualDescendants().OfType<Path>())
+                .Where(p => p.Name == "PART_CloseGlyph")];
+            Assert.Contains(glyphs, g => Math.Abs(g.Width - expected) < 0.01);
         }
 
         [AvaloniaFact]

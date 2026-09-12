@@ -38,7 +38,7 @@
               <Path x:Name="PART_Chevron"
                     Data="{StaticResource Kit.Glyph.Chevron.10}"
                     Fill="{DynamicResource Foreman.Color.TextTertiary}"
-                    Width="10" Height="10" />
+                    Width="{DynamicResource Foreman.Size.Glyph10}" Height="{DynamicResource Foreman.Size.Glyph10}" />
               <Path x:Name="PART_OverflowGlyph"
                     Data="{StaticResource Kit.Glyph.Overflow.16}"
                     Stroke="{DynamicResource Foreman.Color.TextSecondary}"

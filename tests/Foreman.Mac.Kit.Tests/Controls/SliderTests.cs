@@ -5,7 +5,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
@@ -15,7 +14,6 @@ using Foreman.Mac.Kit;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Tests.support;
 using System.Linq;
-using System.Reflection;
 using Xunit;
 using Slider = Foreman.Mac.Kit.Controls.Slider;
 
@@ -126,28 +124,24 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
-        public void ApplyTemplateTwice_RebuildsTheTrackSubscriptionOnlyOnce() {
+        public void RetemplateTwice_ThenOneLayoutPass_RebuildsTicksOnlyOnce() {
             using var fixture = new KitFixture();
-            Slider slider = Themed();
+            ControlTheme theme = KitSliderTheme();
+            Slider slider = new() { Theme = theme, Width = 124, Minimum = 0, Maximum = 100, Step = 25 };
             fixture.Window.Content = slider;
             Dispatcher.UIThread.RunJobs();
 
-            Border track = Track(slider);
-            var nameScope = new NameScope();
-            nameScope.Register("PART_Track", track);
-            nameScope.Register("PART_Fill", Fill(slider));
-            nameScope.Register("PART_Thumb", Thumb(slider));
-            nameScope.Register("PART_Ticks", Ticks(slider));
-            var args = new TemplateAppliedEventArgs(nameScope);
+            slider.Theme = null;
+            Dispatcher.UIThread.RunJobs();
+            slider.Theme = theme;
+            Dispatcher.UIThread.RunJobs();
 
-            MethodInfo onApplyTemplate = typeof(Slider).GetMethod("OnApplyTemplate", BindingFlags.NonPublic | BindingFlags.Instance)!;
-            onApplyTemplate.Invoke(slider, [args]);
-            onApplyTemplate.Invoke(slider, [args]);
+            int baseline = slider.TickRebuilds;
 
-            FieldInfo layoutUpdatedField = typeof(Layoutable).GetField("_layoutUpdated", BindingFlags.NonPublic | BindingFlags.Instance)!;
-            var handler = layoutUpdatedField.GetValue(track) as System.Delegate;
+            slider.Width += 40;
+            Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(1, handler?.GetInvocationList().Length ?? 0);
+            Assert.Equal(baseline + 1, slider.TickRebuilds);
         }
 
         [AvaloniaFact]

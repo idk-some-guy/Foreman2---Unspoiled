@@ -14,7 +14,9 @@ using Xunit;
 using ProgressBar = Foreman.Mac.Kit.Controls.ProgressBar;
 
 namespace Foreman.Mac.Kit.Tests.Controls {
-    public sealed class ProgressBarTests {
+    public sealed class ProgressBarTests : System.IDisposable {
+        public void Dispose() => Motion.ReduceMotion = false;
+
         private static ControlTheme KitProgressBarTheme() {
             Assert.True(Application.Current!.TryGetResource("Kit.ProgressBar", null, out object? theme));
             return Assert.IsType<ControlTheme>(theme);
@@ -103,21 +105,17 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         public void Indeterminate_ReduceMotion_IsFullWidthAndAnimatesOpacityNotTransform() {
             using var fixture = new KitFixture();
             Motion.ReduceMotion = true;
-            try {
-                ProgressBar bar = Themed();
-                bar.IsIndeterminate = true;
-                fixture.Window.Content = bar;
-                Dispatcher.UIThread.RunJobs();
+            ProgressBar bar = Themed();
+            bar.IsIndeterminate = true;
+            fixture.Window.Content = bar;
+            Dispatcher.UIThread.RunJobs();
 
-                Assert.Equal(140, Indicator(bar).Width);
-                double travelX = (Indicator(bar).RenderTransform as TransformGroup)?.Children.OfType<TranslateTransform>().SingleOrDefault()?.X ?? 0;
-                Assert.Equal(0, travelX);
+            Assert.Equal(140, Indicator(bar).Width);
+            double travelX = (Indicator(bar).RenderTransform as TransformGroup)?.Children.OfType<TranslateTransform>().SingleOrDefault()?.X ?? 0;
+            Assert.Equal(0, travelX);
 
-                var pulse = Assert.IsType<Animation>(Assert.Single(IndicatorStyle(KitProgressBarTheme(), reducedMotion: true).Animations));
-                Assert.Equal(Motion.IndeterminateProgressDuration, pulse.Duration);
-            } finally {
-                Motion.ReduceMotion = false;
-            }
+            var pulse = Assert.IsType<Animation>(Assert.Single(IndicatorStyle(KitProgressBarTheme(), reducedMotion: true).Animations));
+            Assert.Equal(Motion.IndeterminateProgressDuration, pulse.Duration);
         }
 
         [AvaloniaFact]

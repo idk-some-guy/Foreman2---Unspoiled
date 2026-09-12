@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -100,6 +101,24 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             Application.Current!.TryGetResource("Foreman.Opacity.Disabled", Application.Current.ActualThemeVariant, out object? disabled);
             Assert.Equal(Assert.IsType<double>(disabled), radio.Opacity);
+        }
+
+        [AvaloniaFact]
+        public void ClickTheGapBetweenBoxAndLabel_TogglesChecked() {
+            using var fixture = new KitFixture();
+            RadioButton radio = Themed("Compatible recipes only");
+            fixture.Window.Content = radio;
+            Dispatcher.UIThread.RunJobs();
+
+            Border part = Box(radio);
+            Point rightEdge = Avalonia.VisualExtensions.TranslatePoint(part, new Point(part.Bounds.Width, part.Bounds.Height / 2), fixture.Window)!.Value;
+            Point gapPoint = rightEdge + new Vector(2, 0);
+
+            fixture.Window.MouseDown(gapPoint, MouseButton.Left, RawInputModifiers.None);
+            fixture.Window.MouseUp(gapPoint, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(radio.IsChecked);
         }
 
         [AvaloniaFact]

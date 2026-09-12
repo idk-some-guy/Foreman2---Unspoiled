@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
@@ -277,6 +278,37 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(before, Segments(segmented));
+        }
+
+        [AvaloniaFact]
+        public void RetemplateTwice_ThenOneLayoutPass_RepositionsSelectionOnlyOnce() {
+            using var fixture = new KitFixture();
+            ControlTheme theme = KitSegmentedTheme();
+            Segmented segmented = new() { Theme = theme, Width = 140 };
+            segmented.Items.Add("Up");
+            segmented.Items.Add("Down");
+            fixture.Window.Content = segmented;
+            Dispatcher.UIThread.RunJobs();
+
+            segmented.Theme = null;
+            Dispatcher.UIThread.RunJobs();
+            segmented.Theme = theme;
+            Dispatcher.UIThread.RunJobs();
+
+            int baseline = segmented.SelectionRepositions;
+
+            segmented.Width += 40;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(baseline + 1, segmented.SelectionRepositions);
+
+            fixture.Window.Content = null;
+            Dispatcher.UIThread.RunJobs();
+
+            segmented.Width += 40;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(baseline + 1, segmented.SelectionRepositions);
         }
 
         [AvaloniaFact]

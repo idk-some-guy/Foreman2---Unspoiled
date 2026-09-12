@@ -13,7 +13,9 @@ using System.Linq;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Controls {
-    public sealed class SpinnerTests {
+    public sealed class SpinnerTests : System.IDisposable {
+        public void Dispose() => Motion.ReduceMotion = false;
+
         private static ControlTheme KitSpinnerTheme() {
             Assert.True(Application.Current!.TryGetResource("Kit.Spinner", null, out object? theme));
             return Assert.IsType<ControlTheme>(theme);
@@ -140,18 +142,14 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         public void Duration_FlipsToReducedMotionDuration_UnderReduceMotion() {
             using var fixture = new KitFixture();
             Motion.ReduceMotion = true;
-            try {
-                Spinner spinner = Themed();
-                fixture.Window.Content = spinner;
-                Dispatcher.UIThread.RunJobs();
+            Spinner spinner = Themed();
+            fixture.Window.Content = spinner;
+            Dispatcher.UIThread.RunJobs();
 
-                Assert.Contains("reduce-motion", spinner.Classes);
-                Assert.Equal(Motion.SpinnerReducedMotionDuration, spinner.RotationDuration);
-                var animation = Assert.IsType<Animation>(Assert.Single(HeadStyle(KitSpinnerTheme(), reducedMotion: true).Animations));
-                Assert.Equal(Motion.SpinnerReducedMotionDuration, animation.Duration);
-            } finally {
-                Motion.ReduceMotion = false;
-            }
+            Assert.Contains("reduce-motion", spinner.Classes);
+            Assert.Equal(Motion.SpinnerReducedMotionDuration, spinner.RotationDuration);
+            var animation = Assert.IsType<Animation>(Assert.Single(HeadStyle(KitSpinnerTheme(), reducedMotion: true).Animations));
+            Assert.Equal(Motion.SpinnerReducedMotionDuration, animation.Duration);
         }
 
         [AvaloniaFact]

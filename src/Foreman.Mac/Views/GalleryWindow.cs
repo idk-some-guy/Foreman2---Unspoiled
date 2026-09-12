@@ -471,6 +471,7 @@ namespace Foreman.Mac.Views {
             "Foreman.Size.CheckDashWidth", "Foreman.Size.CheckDashHeight",
             "Foreman.Size.SelectionLabelGap", "Foreman.Size.RadioGroupRowGap",
             "Foreman.Size.SwitchWidth", "Foreman.Size.SwitchHeight", "Foreman.Size.SwitchKnob",
+            "Foreman.Size.SwitchKnobInset", "Foreman.Type.Body.FontSize",
         ];
 
         private static StackPanel BuildSelectionControlsScaledTile() {
@@ -579,6 +580,7 @@ namespace Foreman.Mac.Views {
             "Foreman.Size.ControlHeightRegular", "Foreman.Size.ControlGlyphGap", "Foreman.Size.PopUpIndicator",
             "Foreman.Size.GlyphMicro", "Foreman.Size.GlyphSmall", "Foreman.Size.MenuItemHeight",
             "Foreman.Size.MenuPanelMinWidth", "Foreman.Size.MenuCheckColumn",
+            "Foreman.Type.Callout.FontSize", "Foreman.Size.Glyph16", "Foreman.Size.Glyph10",
         ];
 
         private static StackPanel BuildMenuPrimitivesScaledTile() {
@@ -691,7 +693,8 @@ namespace Foreman.Mac.Views {
             "Foreman.Size.StepperFieldWidth", "Foreman.Size.StepperArrowColumn",
             "Foreman.Size.SliderTrack", "Foreman.Size.SliderThumbNormal", "Foreman.Size.SliderThumbHover", "Foreman.Size.SliderThumbPressed",
             "Foreman.Size.SliderTickHeight", "Foreman.Size.SliderTickGap", "Foreman.Size.SliderHeight",
-            "Foreman.Metrics.SliderMinWidth", "Foreman.Metrics.SliderNaturalWidth",
+            "Foreman.Metrics.SliderMinWidth", "Foreman.Metrics.SliderNaturalWidth", "Foreman.Metrics.SliderValueLabelWidth",
+            "Foreman.Type.Callout.FontSize", "Foreman.Size.Glyph16",
         ];
 
         private static StackPanel BuildFieldControlsScaledTile() {
@@ -883,7 +886,8 @@ namespace Foreman.Mac.Views {
             "Foreman.Metrics.GroupBoxMaxWidth", "Foreman.Size.ControlHeightRegular",
             "Foreman.Type.TabLabel.FontSize", "Foreman.Metrics.TabItemMinWidth", "Foreman.Size.TabItemHeight",
             "Foreman.Size.TabItemGlyphGap", "Foreman.Size.TabItemGap", "Foreman.Size.UnderlineTabGap",
-            "Foreman.Size.GlyphMicro",
+            "Foreman.Size.GlyphMicro", "Foreman.Type.Callout.FontSize", "Foreman.Type.SectionHeader.FontSize",
+            "Foreman.Size.ControlGlyphGap",
         ];
 
         private static StackPanel BuildRowsAndChromeScaledTile() {
@@ -1006,7 +1010,7 @@ namespace Foreman.Mac.Views {
             "Foreman.Size.Spinner", "Foreman.Size.SpinnerLarge", "Foreman.Size.SpinnerStroke", "Foreman.Size.SpinnerStrokeLarge",
             "Foreman.Size.ProgressBarWidth", "Foreman.Size.ProgressBarHeight", "Foreman.Size.ProgressBarSegment",
             "Foreman.Size.ChipHeight", "Foreman.Size.ChipCloseBox", "Foreman.Size.ChipGap",
-            "Foreman.Size.KeyCapMinSquare",
+            "Foreman.Size.KeyCapMinSquare", "Foreman.Size.GlyphMicro",
         ];
 
         private static StackPanel BuildFeedbackScaledTile() {

@@ -64,6 +64,8 @@ namespace Foreman.Mac.Kit.Controls {
         private Button? downButton;
         private TextBlock? unitText;
         private Grid? columns;
+        private double fieldWidth = 40;
+        private double arrowColumn = 15;
         private readonly List<IDisposable> subs = [];
 
         static Stepper() {
@@ -105,6 +107,11 @@ namespace Foreman.Mac.Kit.Controls {
             if (downButton is not null)
                 downButton.Click += OnDownClicked;
 
+            if (columns is not null) {
+                columns.ColumnDefinitions[0].Width = new GridLength(fieldWidth);
+                columns.ColumnDefinitions[2].Width = new GridLength(arrowColumn);
+            }
+
             RefreshValueDisplay();
             RefreshUnitDisplay();
         }
@@ -122,14 +129,16 @@ namespace Foreman.Mac.Kit.Controls {
         //ColumnDefinition.Width is a GridLength, so we convert the raw double resource ourselves rather than bind it in XAML.
         private void Subscribe() {
             Unsubscribe();
-            subs.Add(this.GetResourceObservable("Foreman.Size.StepperFieldWidth").Subscribe(new Sink<double>(v => {
+            subs.Add(this.GetResourceObservable("Foreman.Size.StepperFieldWidth").Subscribe(new ResourceSinks.DoubleSink(v => {
+                fieldWidth = v;
                 if (columns is not null)
                     columns.ColumnDefinitions[0].Width = new GridLength(v);
-            }, 40)));
-            subs.Add(this.GetResourceObservable("Foreman.Size.StepperArrowColumn").Subscribe(new Sink<double>(v => {
+            }, fieldWidth)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.StepperArrowColumn").Subscribe(new ResourceSinks.DoubleSink(v => {
+                arrowColumn = v;
                 if (columns is not null)
                     columns.ColumnDefinitions[2].Width = new GridLength(v);
-            }, 15)));
+            }, arrowColumn)));
         }
 
         private void Unsubscribe() {
@@ -188,27 +197,5 @@ namespace Foreman.Mac.Kit.Controls {
             unitText.IsVisible = !string.IsNullOrEmpty(Unit);
         }
 
-        private sealed class Sink<T> : IObserver<object?> {
-            private readonly Action<T> onNext;
-            private readonly T fallback;
-            private T current;
-
-            public Sink(Action<T> onNext, T fallback) {
-                this.onNext = onNext;
-                this.fallback = fallback;
-                current = fallback;
-            }
-
-            public void OnNext(object? value) {
-                T next = value is T t ? t : fallback;
-                if (EqualityComparer<T>.Default.Equals(current, next))
-                    return;
-                current = next;
-                onNext(next);
-            }
-
-            public void OnError(Exception error) { }
-            public void OnCompleted() { }
-        }
     }
 }
