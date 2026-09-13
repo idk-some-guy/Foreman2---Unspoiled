@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Foreman.Mac.Kit;
 using Xunit;
@@ -18,7 +19,7 @@ namespace Foreman.Mac.Kit.Tests.support {
             Assert.Equal(1, calls);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void BrushSink_SuppressesSameColor_ForwardsChangedColor() {
             int calls = 0;
             var sink = new ResourceSinks.BrushSink(_ => calls++, new SolidColorBrush(Colors.Red));
@@ -30,7 +31,7 @@ namespace Foreman.Mac.Kit.Tests.support {
             Assert.Equal(1, calls);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void WeightSink_SuppressesSameWeight_ForwardsChangedWeight() {
             int calls = 0;
             var sink = new ResourceSinks.WeightSink(_ => calls++, FontWeight.Normal);
@@ -42,7 +43,7 @@ namespace Foreman.Mac.Kit.Tests.support {
             Assert.Equal(1, calls);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void RadiusSink_SuppressesSameRadius_ForwardsChangedRadius() {
             int calls = 0;
             var sink = new ResourceSinks.RadiusSink(_ => calls++, new CornerRadius(4));
@@ -54,7 +55,7 @@ namespace Foreman.Mac.Kit.Tests.support {
             Assert.Equal(1, calls);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void ThicknessSink_SuppressesSameThickness_ForwardsChangedThickness() {
             int calls = 0;
             var sink = new ResourceSinks.ThicknessSink(_ => calls++, new Thickness(4, 0));
@@ -66,7 +67,7 @@ namespace Foreman.Mac.Kit.Tests.support {
             Assert.Equal(1, calls);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void GenericSink_SuppressesSameGeometry_ForwardsChangedGeometry() {
             int calls = 0;
             Geometry? a = Geometry.Parse("M0,0 L1,1");

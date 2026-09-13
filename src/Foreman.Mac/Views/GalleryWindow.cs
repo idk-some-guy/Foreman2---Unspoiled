@@ -47,9 +47,9 @@ namespace Foreman.Mac.Views {
             Title = "Foreman Gallery";
             Width = 1600;
             Height = 1000;
-            //Matches GraphViewer.Paint's canvas.Clear(SKColors.White), so ChromeWrap's black backdrop below
-            //stands out the way it does over the actual canvas instead of disappearing into the window.
-            Background = ThemeResources.ResolveBrush("Foreman.Color.GalleryCanvasBackdrop", Colors.White);
+            //Same live WindowBackground every other window binds (SettingsWindow.axaml) - RefreshTheme
+            //below re-resolves it on every theme flip, same as themeHeader.Foreground.
+            Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White);
 
             var tiles = new WrapPanel { Orientation = Orientation.Horizontal, Width = TileColumnWidth };
             foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Canvas"))
@@ -101,6 +101,7 @@ namespace Foreman.Mac.Views {
         }
 
         public void RefreshTheme() {
+            Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White);
             themeHeader.Foreground = ThemeResources.ResolveBrush("Foreman.Color.Text", Colors.Black);
             themeShowcaseHost.Content = BuildThemeShowcaseSection();
         }

@@ -477,8 +477,7 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         //The QualityPicker tile must show the way it actually renders in the real app - floating in its own
-        //dark chrome bubble over the graph canvas's white backdrop (GraphViewer.Paint's canvas.Clear(
-        //SKColors.White)), not lost against an equally black window.
+        //dark chrome bubble, which has to stay a fixed dark color to read against either window theme.
         [AvaloniaFact]
         public void QualityPickerTile_HasNonTransparentChromeBackground() {
             DataCache cache = NewFixtureCache();
@@ -487,11 +486,29 @@ namespace Foreman.Mac.UiTests.Views {
             var window = new GalleryWindow(cache, settings);
             window.Show();
 
-            Assert.Equal(Colors.White, Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color);
-
             QualityPicker picker = window.GetVisualDescendants().OfType<QualityPicker>().Single(p => p.Parent is Border);
             Border chrome = picker.GetVisualAncestors().OfType<Border>().First();
             Assert.Equal(Colors.Black, Assert.IsAssignableFrom<ISolidColorBrush>(chrome.Background).Color);
+        }
+
+        //Bug fix: the window used to fill from a one-shot GalleryCanvasBackdrop token pinned to white in
+        //both variants, making every kit tile impossible to judge against its own background. It now binds
+        //the same live WindowBackground every other window does, re-resolved by RefreshTheme on every flip.
+        [AvaloniaFact]
+        public void Background_TracksWindowBackgroundTokenLiveAcrossThemeToggle() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Application app = Application.Current!;
+
+            Color expectedBefore = ThemeResources.ResolveColor("Foreman.Color.WindowBackground", app.ActualThemeVariant, Colors.White);
+            Assert.Equal(expectedBefore, Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color);
+
+            RealClick(window, FindByName(window, "ThemeToggleButton"));
+
+            Color expectedAfter = ThemeResources.ResolveColor("Foreman.Color.WindowBackground", app.ActualThemeVariant, Colors.White);
+            Assert.NotEqual(expectedBefore, expectedAfter);
+            Assert.Equal(expectedAfter, Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color);
         }
 
         //The gallery goes through WindowScaler.Track like every other window.

@@ -129,6 +129,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   subgroup instead of a flat list, and every cell's tooltip shows its full name and kind.
 - Animations run at a steadier pace and cascade top-down; selecting the group or segment that is
   already active, or retyping an equivalent search, no longer rebuilds the list.
+- The dev-only gallery window (`--gallery`) now fills from the live window background token instead
+  of a fixed white, so it follows light/dark like every other window and its kit tiles read against
+  the ground they'd actually sit on.
 
 ### Changed
 
