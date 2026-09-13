@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Styling;
 using System;
 using System.Linq;
 
@@ -31,7 +30,9 @@ namespace Foreman.Mac.Kit.Controls {
             AvaloniaProperty.RegisterDirect<MenuButton, MenuPanel>(nameof(Menu), o => o.Menu);
 
         private bool isFilled;
+        private Popup? host;
         private string? displayLabel;
+        private NavigationMethod closeNavigationMethod = NavigationMethod.Pointer;
 
         public string? Label {
             get => GetValue(LabelProperty);
@@ -58,26 +59,53 @@ namespace Foreman.Mac.Kit.Controls {
 
         static MenuButton() {
             FocusableProperty.OverrideDefaultValue<MenuButton>(true);
-            IsOpenProperty.Changed.AddClassHandler<MenuButton>((b, e) => b.PseudoClasses.Set(":open", (bool)e.NewValue!));
+            IsOpenProperty.Changed.AddClassHandler<MenuButton>((b, e) => b.OnIsOpenChanged((bool)e.NewValue!));
             LabelProperty.Changed.AddClassHandler<MenuButton>((b, _) => b.Recompute());
         }
 
         public MenuButton() {
             Menu.RequestClose += (_, _) => IsOpen = false;
-            Items.CollectionChanged += (_, _) => Recompute();
+            Items.CollectionChanged += (_, _) => { Recompute(); RebuildMenu(); };
             Recompute();
+        }
+
+        protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
+            base.OnApplyTemplate(e);
+            if (host is not null)
+                host.Closed -= OnHostClosed;
+            host = e.NameScope.Find<Popup>("PART_Popup");
+            if (host is null)
+                return;
+            host.Closed += OnHostClosed;
+            host.IsOpen = IsOpen;
         }
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnAttachedToVisualTree(e);
-            if (Menu.Theme is null && this.TryGetResource("Kit.MenuPanel", ActualThemeVariant, out object? theme) && theme is ControlTheme controlTheme)
-                Menu.Theme = controlTheme;
             RebuildMenu();
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
             IsOpen = false;
+        }
+
+        //Light dismiss closes the templated Popup directly; without this the control stays :open and its Popup never reopens.
+        private void OnHostClosed(object? sender, EventArgs e) {
+            closeNavigationMethod = NavigationMethod.Pointer;
+            IsOpen = false;
+        }
+
+        private void OnIsOpenChanged(bool isOpen) {
+            PseudoClasses.Set(":open", isOpen);
+            if (host is not null)
+                host.IsOpen = isOpen;
+            if (!isOpen) {
+                NavigationMethod method = closeNavigationMethod;
+                closeNavigationMethod = NavigationMethod.Pointer;
+                if (VisualRoot is not null)
+                    Focus(method);
+            }
         }
 
         private void Recompute() {
@@ -159,10 +187,12 @@ namespace Foreman.Mac.Kit.Controls {
                     break;
                 case Key.Enter:
                 case Key.Space:
+                    closeNavigationMethod = NavigationMethod.Tab;
                     Menu.ActivateHighlighted();
                     e.Handled = true;
                     break;
                 case Key.Escape:
+                    closeNavigationMethod = NavigationMethod.Tab;
                     IsOpen = false;
                     e.Handled = true;
                     break;

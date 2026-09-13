@@ -183,6 +183,19 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             Assert.Equal(33, ItemRow(panel, 0).Height);
         }
+
+        [AvaloniaFact]
+        public void UnthemedPanel_AdoptsKitMenuPanelFromItsHostScope() {
+            using var fixture = new KitFixture();
+            var panel = new MenuPanel();
+            panel.Items.Add(new MenuRow { Text = "Items / s" });
+            fixture.Window.Content = panel;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(KitMenuPanelTheme(), panel.Theme);
+            Assert.Single(ItemsPanel(panel).Children);
+            Assert.True(panel.Bounds.Width > 0 && panel.Bounds.Height > 0);
+        }
     }
 
     [Collection(KitScaleGroup.Name)]

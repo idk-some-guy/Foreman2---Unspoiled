@@ -247,5 +247,24 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             Assert.Equal(22.5, part.Width);
         }
+
+        [AvaloniaFact]
+        public void CheckGlyphAndDash_StretchUniformlyAndTrackScaleContract() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.CheckBox", null, out object? theme));
+            var box = new CheckBox { Theme = Assert.IsType<ControlTheme>(theme) };
+            fixture.Window.Content = box;
+            Dispatcher.UIThread.RunJobs();
+
+            Path check = box.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_Check");
+            Rectangle dash = box.GetVisualDescendants().OfType<Rectangle>().Single(r => r.Name == "PART_Dash");
+            Assert.Equal(Stretch.Uniform, check.Stretch);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(15, check.Width);
+            Assert.Equal(12, dash.Width);
+        }
     }
 }

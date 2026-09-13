@@ -131,13 +131,14 @@ namespace Foreman.Mac.Kit.Controls {
 
                 var segment = new Border {
                     Child = label,
+                    Background = Brushes.Transparent,
                     CornerRadius = itemRadius,
                     Padding = itemPadding,
                 };
                 segment.Classes.Add("segment");
 
                 int index = i;
-                segment.PointerPressed += (_, _) => SelectedIndex = index;
+                segment.PointerReleased += (_, _) => SelectedIndex = index;
 
                 Grid.SetColumn(segment, i);
                 track.Children.Add(segment);

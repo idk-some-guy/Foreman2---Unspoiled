@@ -3,6 +3,7 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -106,6 +107,55 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.StateOf(segment0).Press();
 
             Assert.Equal(fixture.Brush("Foreman.Color.ControlBackgroundPressed").ToImmutable(), Selection(segmented).Background?.ToImmutable());
+        }
+
+        [AvaloniaFact]
+        public void Selection_OverlayIsNotHitTestVisible() {
+            using var fixture = new KitFixture();
+            Segmented segmented = Themed("Up", "Down");
+            fixture.Window.Content = segmented;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(Selection(segmented).IsHitTestVisible);
+        }
+
+        [AvaloniaFact]
+        public void PointerClick_OnTheEmptyAreaOfAColumn_SelectsThatSegment() {
+            using var fixture = new KitFixture();
+            Segmented segmented = Themed("Up", "Down");
+            segmented.Width = 200;
+            segmented.SelectedIndex = 1;
+            fixture.Window.Content = segmented;
+            Dispatcher.UIThread.RunJobs();
+
+            Border segment = Segments(segmented)[0];
+            Point edge = Avalonia.VisualExtensions.TranslatePoint(segment, new Point(4, segment.Bounds.Height / 2), fixture.Window)!.Value;
+
+            fixture.Window.MouseDown(edge, MouseButton.Left, RawInputModifiers.None);
+            fixture.Window.MouseUp(edge, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(0, segmented.SelectedIndex);
+        }
+
+        [AvaloniaFact]
+        public void Press_DoesNotSelect_ReleaseOverTheSameSegmentSelects() {
+            using var fixture = new KitFixture();
+            Segmented segmented = Themed("Up", "Down");
+            segmented.Width = 200;
+            fixture.Window.Content = segmented;
+            Dispatcher.UIThread.RunJobs();
+
+            Border segment = Segments(segmented)[1];
+            Point edge = Avalonia.VisualExtensions.TranslatePoint(segment, new Point(4, segment.Bounds.Height / 2), fixture.Window)!.Value;
+
+            fixture.Window.MouseDown(edge, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(0, segmented.SelectedIndex);
+
+            fixture.Window.MouseUp(edge, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, segmented.SelectedIndex);
         }
 
         [AvaloniaFact]

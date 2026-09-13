@@ -59,6 +59,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- Kit pop-up buttons and menu buttons open a real menu again: the panel picks up its own theme, so
+  it is no longer an invisible zero-size popup, and dismissing it by clicking away leaves the button
+  ready to reopen instead of stuck open.
 - An alert raised from inside an open sheet (a mod-mismatch or overwrite confirm, a warning)
   stacks on top of it as a second sheet.
 - The inspector sidebar now overlays the canvas instead of pushing it. Its identity header, quality
@@ -132,6 +135,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The dev-only gallery window (`--gallery`) now fills from the live window background token instead
   of a fixed white, so it follows light/dark like every other window and its kit tiles read against
   the ground they'd actually sit on.
+- The keyboard focus ring no longer clips to the corners of the control it outlines, the checkbox
+  check mark now scales with the interface scale setting, and the segmented control now reacts to
+  clicks anywhere in a segment instead of missing presses off its label text.
+- Closing a pop-up button or menu button's menu, by Escape, Return, or a click away, now returns
+  keyboard focus to the button, with the focus ring back only when the close came from the
+  keyboard.
 
 ### Changed
 

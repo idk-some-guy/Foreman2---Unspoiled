@@ -226,6 +226,53 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void Opening_RendersEveryRowAndSettlesWithoutRebuilding() {
+            using var fixture = new KitFixture();
+            MenuButton button = Themed();
+            fixture.Window.Content = button;
+            Dispatcher.UIThread.RunJobs();
+
+            button.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle(300);
+
+            StackPanel items = button.Menu.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "PART_Items");
+            Assert.Equal(button.Menu.Items.Count, items.Children.Count);
+            Assert.True(button.Menu.Bounds.Width > 0 && button.Menu.Bounds.Height > 0);
+
+            int rebuilds = 0;
+            int layouts = 0;
+            items.Children.CollectionChanged += (_, _) => rebuilds++;
+            button.Menu.LayoutUpdated += (_, _) => layouts++;
+            AnimationClock.Settle(300);
+
+            Assert.Equal(0, rebuilds);
+            Assert.True(layouts <= 2, $"MenuPanel laid out {layouts} times while idle.");
+        }
+
+        [AvaloniaFact]
+        public void LightDismiss_ClosesTheControlAndTheMenuReopens() {
+            using var fixture = new KitFixture();
+            MenuButton button = Themed();
+            fixture.Window.Content = button;
+            Dispatcher.UIThread.RunJobs();
+
+            button.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            Popup host = button.GetVisualDescendants().OfType<Popup>().Single();
+            Assert.True(host.IsOpen);
+
+            host.IsOpen = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(button.IsOpen);
+            Assert.DoesNotContain(":open", button.Classes);
+
+            button.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(host.IsOpen);
+        }
+
+        [AvaloniaFact]
         public void KeyboardFocus_ShowsAFocusRingAtTheControlRadius() {
             using var fixture = new KitFixture();
             MenuButton button = Themed();
@@ -238,6 +285,37 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Application.Current!.TryGetResource("Foreman.FocusRing.Offset", Application.Current.ActualThemeVariant, out object? offset);
             double expected = ((CornerRadius)radius!).TopLeft + (double)offset!;
             Assert.Equal(expected, ring.RadiusX);
+        }
+
+        [AvaloniaFact]
+        public void EscapeAfterOpen_ReturnsFocusToTheControlWithARing() {
+            using var fixture = new KitFixture();
+            MenuButton button = Themed();
+            fixture.Window.Content = button;
+            fixture.StateOf(button).Focus();
+
+            fixture.StateOf(button).KeyDown(Key.Space);
+            fixture.StateOf(button).KeyDown(Key.Escape);
+
+            Assert.True(button.IsKeyboardFocusWithin);
+            Assert.IsType<Rectangle>(AdornerLayer.GetAdorner(button));
+        }
+
+        [AvaloniaFact]
+        public void LightDismiss_ReturnsFocusToTheControl() {
+            using var fixture = new KitFixture();
+            MenuButton button = Themed();
+            fixture.Window.Content = button;
+            Dispatcher.UIThread.RunJobs();
+
+            button.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            Popup host = button.GetVisualDescendants().OfType<Popup>().Single();
+
+            host.IsOpen = false;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(button.IsKeyboardFocusWithin);
         }
     }
 }

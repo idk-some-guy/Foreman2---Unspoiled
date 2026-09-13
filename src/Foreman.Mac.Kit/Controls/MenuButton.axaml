@@ -51,7 +51,6 @@
             </StackPanel>
           </Border>
           <Popup x:Name="PART_Popup"
-                 IsOpen="{TemplateBinding IsOpen}"
                  Placement="BottomEdgeAlignedLeft"
                  IsLightDismissEnabled="True">
             <ContentPresenter Content="{TemplateBinding Menu}" />

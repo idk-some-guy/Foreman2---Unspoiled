@@ -38,6 +38,19 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void KeyboardFocus_RingIsNotClippedByTheAdornerLayer() {
+            using var fixture = new KitFixture();
+            Button button = EnabledButton();
+            fixture.Window.Content = button;
+
+            fixture.StateOf(button).Focus();
+
+            Rectangle ring = Assert.IsType<Rectangle>(RingOn(button));
+            Assert.False(AdornerLayer.GetIsClipEnabled(ring));
+            Assert.Equal(new Size(button.Bounds.Width + 7, button.Bounds.Height + 7), ring.Bounds.Size);
+        }
+
+        [AvaloniaFact]
         public void PointerFocus_ShowsNoRing() {
             using var fixture = new KitFixture();
             Button button = EnabledButton();

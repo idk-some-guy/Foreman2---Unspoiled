@@ -18,6 +18,7 @@
           <Panel>
             <Border x:Name="PART_Selection"
                     HorizontalAlignment="Left"
+                    IsHitTestVisible="False"
                     Transitions="{x:Static m:Motion.SegmentedTransitions}" />
             <Grid x:Name="PART_Track" />
           </Panel>

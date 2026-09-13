@@ -3,7 +3,6 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Styling;
 using System;
 using System.Collections.Specialized;
 using System.Linq;
@@ -35,6 +34,8 @@ namespace Foreman.Mac.Kit.Controls {
             AvaloniaProperty.RegisterDirect<PopUp, string?>(nameof(DisplayText), o => o.DisplayText);
 
         private string? displayText;
+        private Popup? host;
+        private NavigationMethod closeNavigationMethod = NavigationMethod.Pointer;
 
         public string? SelectedItem {
             get => GetValue(SelectedItemProperty);
@@ -81,15 +82,30 @@ namespace Foreman.Mac.Kit.Controls {
             UpdateDisplayText();
         }
 
+        protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
+            base.OnApplyTemplate(e);
+            if (host is not null)
+                host.Closed -= OnHostClosed;
+            host = e.NameScope.Find<Popup>("PART_Popup");
+            if (host is null)
+                return;
+            host.Closed += OnHostClosed;
+            host.IsOpen = IsOpen;
+        }
+
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnAttachedToVisualTree(e);
-            if (Menu.Theme is null && this.TryGetResource("Kit.MenuPanel", ActualThemeVariant, out object? theme) && theme is ControlTheme controlTheme)
-                Menu.Theme = controlTheme;
             RebuildMenu();
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
+            IsOpen = false;
+        }
+
+        //Light dismiss closes the templated Popup directly; without this the control stays :open and its Popup never reopens.
+        private void OnHostClosed(object? sender, EventArgs e) {
+            closeNavigationMethod = NavigationMethod.Pointer;
             IsOpen = false;
         }
 
@@ -117,8 +133,15 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void OnIsOpenChanged(bool isOpen) {
             PseudoClasses.Set(":open", isOpen);
-            if (!isOpen)
+            if (host is not null)
+                host.IsOpen = isOpen;
+            if (!isOpen) {
+                NavigationMethod method = closeNavigationMethod;
+                closeNavigationMethod = NavigationMethod.Pointer;
+                if (VisualRoot is not null)
+                    Focus(method);
                 return;
+            }
 
             RebuildMenu();
             int current = Items.ToList().IndexOf(SelectedItem ?? "");
@@ -145,10 +168,12 @@ namespace Foreman.Mac.Kit.Controls {
                         break;
                     case Key.Enter:
                     case Key.Space:
+                        closeNavigationMethod = NavigationMethod.Tab;
                         Menu.ActivateHighlighted();
                         e.Handled = true;
                         break;
                     case Key.Escape:
+                        closeNavigationMethod = NavigationMethod.Tab;
                         IsOpen = false;
                         e.Handled = true;
                         break;

@@ -524,7 +524,9 @@ namespace Foreman.Mac.Views {
             FocusRing.SetShowAlways(popup, true);
             PopUp pulldown = KitPopUp(true, "Add as blueprint", "Add as ghost");
             PopUp openExample = KitPopUp(false, "Items / s", "Belts / s", "Power / s");
-            var openRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { openExample, openExample.Menu } };
+            //A MenuPanel can only have one visual parent, so the standalone panel comes from a second instance that is never opened.
+            PopUp menuSource = KitPopUp(false, "Items / s", "Belts / s", "Power / s");
+            var openRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { openExample, menuSource.Menu } };
 
             return new StackPanel {
                 Spacing = 8,
@@ -561,7 +563,12 @@ namespace Foreman.Mac.Views {
                 ("Show unavailable objects", false, true),
                 ("Show hidden objects", false, false),
                 ("Show only compatible recipes", true, true));
-            var openRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { openExample, openExample.Menu } };
+            //A MenuPanel can only have one visual parent, so the standalone panel comes from a second instance that is never opened.
+            MenuButton menuSource = KitMenuButton("Filter", filterGlyph,
+                ("Show unavailable objects", false, true),
+                ("Show hidden objects", false, false),
+                ("Show only compatible recipes", true, true));
+            var openRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { openExample, menuSource.Menu } };
 
             var overflow = new MenuButton { Theme = KitTheme("Kit.MenuButton") };
             overflow.Classes.Add("overflow");

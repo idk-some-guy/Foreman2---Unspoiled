@@ -122,6 +122,8 @@ namespace Foreman.Mac.Kit.Controls {
                 //A 2pt offset plus half a 3pt stroke lands on a fractional pixel; rounding would add a stray pixel.
                 UseLayoutRounding = false,
             };
+            //AdornerLayer clips an adorner to the adorned element's bounds by default; our ring extends past it via a negative margin.
+            AdornerLayer.SetIsClipEnabled(ring, false);
 
             double width = 3.0;
             double offset = 0.0;

@@ -6,6 +6,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -77,6 +78,7 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void Subscribe() {
             Unsubscribe();
+            subs.Add(this.GetResourceObservable("Kit.MenuPanel").Subscribe(new ResourceSinks.Sink<ControlTheme?>(v => Theme ??= v, null)));
             subs.Add(this.GetResourceObservable("Foreman.Radius.SegmentItem").Subscribe(new ResourceSinks.RadiusSink(v => { itemRadius = v; Rebuild(); }, itemRadius)));
             subs.Add(this.GetResourceObservable("Foreman.Thickness.MenuItemMargin").Subscribe(new ResourceSinks.ThicknessSink(v => { itemMargin = v; Rebuild(); }, itemMargin)));
             subs.Add(this.GetResourceObservable("Foreman.Thickness.MenuItemPadding").Subscribe(new ResourceSinks.ThicknessSink(v => { itemPadding = v; Rebuild(); }, itemPadding)));

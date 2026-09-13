@@ -32,6 +32,7 @@
                       StrokeThickness="1.6"
                       Width="{DynamicResource Foreman.Size.CheckGlyph}"
                       Height="{DynamicResource Foreman.Size.CheckGlyph}"
+                      Stretch="Uniform"
                       HorizontalAlignment="Center"
                       VerticalAlignment="Center"
                       IsVisible="False" />
