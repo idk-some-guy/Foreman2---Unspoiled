@@ -23,31 +23,50 @@
                   CornerRadius="{TemplateBinding CornerRadius}"
                   Padding="{TemplateBinding Padding}">
             <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Size.ControlGlyphGap}">
-              <Path x:Name="PART_Glyph"
-                    Data="{TemplateBinding Glyph}"
-                    Fill="{DynamicResource Foreman.Color.TextSecondary}"
-                    Width="{DynamicResource Foreman.Size.GlyphSmall}"
-                    Height="{DynamicResource Foreman.Size.GlyphSmall}"
-                    IsVisible="{TemplateBinding Glyph, Converter={x:Static conv:ObjectConverters.IsNotNull}}" />
+              <Viewbox x:Name="PART_GlyphBox"
+                       Width="{DynamicResource Foreman.Size.GlyphSmall}"
+                       Height="{DynamicResource Foreman.Size.GlyphSmall}"
+                       Stretch="Uniform"
+                       StretchDirection="Both"
+                       IsVisible="{TemplateBinding Glyph, Converter={x:Static conv:ObjectConverters.IsNotNull}}">
+                <Path x:Name="PART_Glyph"
+                      Data="{TemplateBinding Glyph}"
+                      Fill="{DynamicResource Foreman.Color.TextSecondary}"
+                      Stretch="None"
+                      Width="14" Height="14" />
+              </Viewbox>
               <TextBlock x:Name="PART_Label"
                          Text="{TemplateBinding DisplayLabel}"
                          FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
                          FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
                          Foreground="{DynamicResource Foreman.Color.Text}"
                          VerticalAlignment="Center" />
-              <Path x:Name="PART_Chevron"
-                    Data="{StaticResource Kit.Glyph.Chevron.10}"
-                    Fill="{DynamicResource Foreman.Color.TextTertiary}"
-                    Width="{DynamicResource Foreman.Size.Glyph10}" Height="{DynamicResource Foreman.Size.Glyph10}" />
-              <Path x:Name="PART_OverflowGlyph"
-                    Data="{StaticResource Kit.Glyph.Overflow.16}"
-                    Stroke="{DynamicResource Foreman.Color.TextSecondary}"
-                    StrokeThickness="1.5"
-                    StrokeLineCap="Round"
-                    StrokeJoin="Round"
-                    Width="{DynamicResource Foreman.Size.Glyph16}"
-                    Height="{DynamicResource Foreman.Size.Glyph16}"
-                    IsVisible="False" />
+              <Viewbox x:Name="PART_ChevronBox"
+                       Width="{DynamicResource Foreman.Size.Glyph10}"
+                       Height="{DynamicResource Foreman.Size.Glyph10}"
+                       Stretch="Uniform"
+                       StretchDirection="Both">
+                <Path x:Name="PART_Chevron"
+                      Data="{StaticResource Kit.Glyph.Chevron.10}"
+                      Fill="{DynamicResource Foreman.Color.TextTertiary}"
+                      Stretch="None"
+                      Width="10" Height="10" />
+              </Viewbox>
+              <Viewbox x:Name="PART_OverflowGlyphBox"
+                       Width="{DynamicResource Foreman.Size.Glyph16}"
+                       Height="{DynamicResource Foreman.Size.Glyph16}"
+                       Stretch="Uniform"
+                       StretchDirection="Both"
+                       IsVisible="False">
+                <Path x:Name="PART_OverflowGlyph"
+                      Data="{StaticResource Kit.Glyph.Overflow.16}"
+                      Stroke="{DynamicResource Foreman.Color.TextSecondary}"
+                      StrokeThickness="1.5"
+                      StrokeLineCap="Round"
+                      StrokeJoin="Round"
+                      Stretch="None"
+                      Width="16" Height="16" />
+              </Viewbox>
             </StackPanel>
           </Border>
           <Popup x:Name="PART_Popup"
@@ -99,16 +118,16 @@
     <Style Selector="^.overflow /template/ StackPanel">
       <Setter Property="HorizontalAlignment" Value="Center" />
     </Style>
-    <Style Selector="^.overflow /template/ Path#PART_Glyph">
+    <Style Selector="^.overflow /template/ Viewbox#PART_GlyphBox">
       <Setter Property="IsVisible" Value="False" />
     </Style>
     <Style Selector="^.overflow /template/ TextBlock#PART_Label">
       <Setter Property="IsVisible" Value="False" />
     </Style>
-    <Style Selector="^.overflow /template/ Path#PART_Chevron">
+    <Style Selector="^.overflow /template/ Viewbox#PART_ChevronBox">
       <Setter Property="IsVisible" Value="False" />
     </Style>
-    <Style Selector="^.overflow /template/ Path#PART_OverflowGlyph">
+    <Style Selector="^.overflow /template/ Viewbox#PART_OverflowGlyphBox">
       <Setter Property="IsVisible" Value="True" />
     </Style>
     <Style Selector="^.overflow:pointerover /template/ Path#PART_OverflowGlyph">

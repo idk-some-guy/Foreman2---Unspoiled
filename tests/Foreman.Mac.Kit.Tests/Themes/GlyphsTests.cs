@@ -5,6 +5,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Foreman.Mac.Kit.Appearance;
 using System;
 using System.Collections.Generic;
 using Xunit;
@@ -65,6 +66,52 @@ namespace Foreman.Mac.Kit.Tests.Themes {
             Assert.True(bounds.Top >= margin - tolerance, $"{name}.{size} top {bounds.Top}");
             Assert.True(bounds.Right <= size - margin + tolerance, $"{name}.{size} right {bounds.Right}");
             Assert.True(bounds.Bottom <= size - margin + tolerance, $"{name}.{size} bottom {bounds.Bottom}");
+        }
+
+        [AvaloniaFact]
+        public void GlyphIconTheme_StretchIsNoneSoTheDrawingNeverInflatesPastItsMasterLiveArea() {
+            MergeKitIntoApplication();
+            Assert.True(Application.Current!.TryGetResource("Kit.GlyphIcon", null, out object? theme));
+            var controlTheme = Assert.IsType<ControlTheme>(theme);
+
+            var path = new Path { Theme = controlTheme, Data = ResourceGeometry("Kit.Glyph.Recipe.20") };
+            path.Classes.Add("size20");
+            var window = new Window { Content = path };
+            window.Show();
+
+            //A scaled render wraps this fixed-size Path in a Viewbox; the Path itself must never stretch.
+            Assert.Equal(Stretch.None, path.Stretch);
+            Assert.Equal(path.Data!.Bounds, path.RenderedGeometry!.Bounds);
+        }
+
+        [AvaloniaTheory]
+        [InlineData("size16", 16)]
+        [InlineData("size17", 17)]
+        [InlineData("size18", 18)]
+        [InlineData("size20", 20)]
+        public void GlyphIconTheme_SizeClassSetsTheMasterBoxRegardlessOfScaleContract(string sizeClass, double masterSize) {
+            MergeKitIntoApplication();
+            Assert.True(Application.Current!.TryGetResource("Kit.GlyphIcon", null, out object? theme));
+            var controlTheme = Assert.IsType<ControlTheme>(theme);
+
+            var path = new Path { Theme = controlTheme, Data = ResourceGeometry($"Kit.Glyph.Recipe.{(int)masterSize}") };
+            path.Classes.Add(sizeClass);
+            var window = new Window { Content = path };
+            window.Show();
+
+            try {
+                Assert.Equal(masterSize, path.Width);
+                Assert.Equal(masterSize, path.Height);
+
+                ScaleContract.Apply(1.5);
+                window.UpdateLayout();
+
+                //The class Setter is a fixed master box; a wrapping Viewbox tracks ScaleContract instead.
+                Assert.Equal(masterSize, path.Width);
+                Assert.Equal(masterSize, path.Height);
+            } finally {
+                ScaleContract.Apply(1.0);
+            }
         }
 
         [AvaloniaFact]

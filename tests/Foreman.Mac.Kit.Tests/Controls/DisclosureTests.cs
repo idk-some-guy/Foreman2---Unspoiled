@@ -56,6 +56,19 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void Glyph_RenderedGeometryMatchesItsUnscaledMaster() {
+            using var fixture = new KitFixture();
+            Disclosure disclosure = Themed("Module slots", "content");
+            fixture.Window.Content = disclosure;
+            Dispatcher.UIThread.RunJobs();
+
+            var master = (Geometry)Application.Current!.FindResource("Kit.Glyph.Disclosure.12")!;
+            Path triangle = Triangle(disclosure);
+            Assert.Equal(master.Bounds.Width, triangle.RenderedGeometry!.Bounds.Width, 2);
+            Assert.Equal(master.Bounds.Height, triangle.RenderedGeometry.Bounds.Height, 2);
+        }
+
+        [AvaloniaFact]
         public void Glyph_DiffersFromThePopUpChevronInBounds() {
             using var fixture = new KitFixture();
             Application.Current!.TryGetResource("Kit.Glyph.Disclosure.12", null, out object? disclosureGeometry);
@@ -243,7 +256,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
     [Collection(KitScaleGroup.Name)]
     public class DisclosureScaleTests {
         [AvaloniaFact]
-        public void HeaderRow_TracksScaleContract() {
+        public void TriangleViewbox_TracksScaleContractWhileThePathStaysAtItsMasterSize() {
             using var fixture = new KitFixture();
             Assert.True(Application.Current!.TryGetResource("Kit.Disclosure", null, out object? theme));
             var disclosure = new Disclosure { Theme = (ControlTheme)theme!, Header = "Module slots", Content = "content" };
@@ -251,12 +264,16 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Dispatcher.UIThread.RunJobs();
 
             Path triangle = disclosure.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_Triangle");
-            Assert.Equal(12, triangle.Width);
+            Viewbox box = disclosure.GetVisualDescendants().OfType<Viewbox>().Single();
+            Assert.Equal(Stretch.None, triangle.Stretch);
+            Assert.Equal(12, box.Bounds.Width);
+            Assert.Equal(12, triangle.Bounds.Width);
 
             ScaleContract.Apply(1.5);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(18, triangle.Width);
+            Assert.Equal(18, box.Bounds.Width);
+            Assert.Equal(12, triangle.Bounds.Width);
         }
     }
 }

@@ -1046,12 +1046,17 @@ namespace Foreman.Mac.Views {
             return block;
         }
 
-        private static Path KitGlyph(string name, int size, params string[] classes) {
+        private static Viewbox KitGlyph(string name, int size, params string[] classes) {
             Application.Current!.TryGetResource($"Kit.Glyph.{name}.{size}", null, out object? geometry);
             var path = new Path { Theme = KitTheme("Kit.Glyph"), Data = geometry as Geometry };
             foreach (string cls in classes)
                 path.Classes.Add(cls);
-            return path;
+
+            var box = new Viewbox { Stretch = Stretch.Uniform, StretchDirection = StretchDirection.Both, Child = path };
+            IObservable<object?> scaledSize = box.GetResourceObservable($"Foreman.Size.Glyph{size}");
+            box.Bind(Viewbox.WidthProperty, scaledSize);
+            box.Bind(Viewbox.HeightProperty, scaledSize);
+            return box;
         }
 
         //Reuses the real foreman-toolbar-* style classes (contract #toolbar) instead of hand-picking colors -

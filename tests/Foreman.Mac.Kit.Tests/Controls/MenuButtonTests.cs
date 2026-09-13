@@ -8,6 +8,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
 using System.Linq;
@@ -316,6 +317,73 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(button.IsKeyboardFocusWithin);
+        }
+    }
+
+    [Collection(KitScaleGroup.Name)]
+    public class MenuButtonScaleTests {
+        private static ControlTheme KitMenuButtonTheme() {
+            Assert.True(Application.Current!.TryGetResource("Kit.MenuButton", null, out object? theme));
+            return Assert.IsType<ControlTheme>(theme);
+        }
+
+        [AvaloniaFact]
+        public void ChevronViewbox_TracksScaleContractWhileThePathStaysAtItsMasterSize() {
+            using var fixture = new KitFixture();
+            var button = new MenuButton { Theme = KitMenuButtonTheme(), Label = "Filter" };
+            fixture.Window.Content = button;
+            Dispatcher.UIThread.RunJobs();
+
+            Path chevron = button.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_Chevron");
+            Viewbox box = button.GetVisualDescendants().OfType<Viewbox>().Single(v => v.Name == "PART_ChevronBox");
+            Assert.Equal(10, box.Bounds.Width);
+            Assert.Equal(10, chevron.Bounds.Width);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(15, box.Bounds.Width);
+            Assert.Equal(10, chevron.Bounds.Width);
+        }
+
+        [AvaloniaFact]
+        public void OverflowGlyphViewbox_TracksScaleContractWhileThePathStaysAtItsMasterSize() {
+            using var fixture = new KitFixture();
+            var button = new MenuButton { Theme = KitMenuButtonTheme(), Label = "Filter" };
+            button.Classes.Add("overflow");
+            fixture.Window.Content = button;
+            Dispatcher.UIThread.RunJobs();
+
+            Path glyph = button.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_OverflowGlyph");
+            Viewbox box = button.GetVisualDescendants().OfType<Viewbox>().Single(v => v.Name == "PART_OverflowGlyphBox");
+            Assert.Equal(16, box.Bounds.Width);
+            Assert.Equal(16, glyph.Bounds.Width);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(24, box.Bounds.Width);
+            Assert.Equal(16, glyph.Bounds.Width);
+        }
+
+        [AvaloniaFact]
+        public void LeadingGlyphViewbox_TracksScaleContractWhileThePathStaysAtItsMasterSize() {
+            using var fixture = new KitFixture();
+            var glyph = (Geometry)Application.Current!.FindResource("Kit.Glyph.Filter.14")!;
+            var button = new MenuButton { Theme = KitMenuButtonTheme(), Label = "Filter", Glyph = glyph };
+            fixture.Window.Content = button;
+            Dispatcher.UIThread.RunJobs();
+
+            Path path = button.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_Glyph");
+            Viewbox box = button.GetVisualDescendants().OfType<Viewbox>().Single(v => v.Name == "PART_GlyphBox");
+            Assert.Equal(14, box.Bounds.Width);
+            Assert.Equal(path.Data!.Bounds, path.RenderedGeometry!.Bounds);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(21, box.Bounds.Width);
+            Assert.Equal(path.Data!.Bounds, path.RenderedGeometry!.Bounds);
         }
     }
 }

@@ -5,7 +5,6 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Media.Transformation;
 using System;
-using System.Collections.Generic;
 
 namespace Foreman.Mac.Kit.Controls {
     public class Disclosure : HeaderedContentControl {
@@ -23,8 +22,6 @@ namespace Foreman.Mac.Kit.Controls {
         private Path? triangle;
         private EventHandler<PointerPressedEventArgs>? headerPressed;
         private EventHandler<KeyEventArgs>? headerKeyDown;
-        private double glyphMicro = 12;
-        private readonly List<IDisposable> subs = [];
 
         static Disclosure() {
             IsExpandedProperty.Changed.AddClassHandler<Disclosure>((d, _) => d.ApplyRotation());
@@ -49,36 +46,7 @@ namespace Foreman.Mac.Kit.Controls {
                 headerRow.KeyDown += headerKeyDown;
             }
 
-            ApplyGlyphSize();
             ApplyRotation();
-        }
-
-        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
-            base.OnAttachedToVisualTree(e);
-            Subscribe();
-        }
-
-        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
-            base.OnDetachedFromVisualTree(e);
-            Unsubscribe();
-        }
-
-        private void Subscribe() {
-            Unsubscribe();
-            subs.Add(this.GetResourceObservable("Foreman.Size.GlyphMicro").Subscribe(new ResourceSinks.DoubleSink(v => { glyphMicro = v; ApplyGlyphSize(); }, glyphMicro)));
-        }
-
-        private void Unsubscribe() {
-            foreach (IDisposable sub in subs)
-                sub.Dispose();
-            subs.Clear();
-        }
-
-        private void ApplyGlyphSize() {
-            if (triangle is null)
-                return;
-            triangle.Width = glyphMicro;
-            triangle.Height = glyphMicro;
         }
 
         private void HandleHeaderKey(KeyEventArgs e) {

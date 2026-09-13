@@ -18,10 +18,15 @@
                 CornerRadius="{TemplateBinding CornerRadius}"
                 Padding="{TemplateBinding Padding}">
           <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Path Theme="{StaticResource Kit.Glyph}"
-                  Classes="size17"
-                  Data="{TemplateBinding Glyph}"
-                  Stroke="{TemplateBinding Foreground}" />
+            <Viewbox Width="{DynamicResource Foreman.Size.Glyph17}"
+                     Height="{DynamicResource Foreman.Size.Glyph17}"
+                     Stretch="Uniform"
+                     StretchDirection="Both">
+              <Path Theme="{StaticResource Kit.Glyph}"
+                    Classes="size17"
+                    Data="{TemplateBinding Glyph}"
+                    Stroke="{TemplateBinding Foreground}" />
+            </Viewbox>
             <TextBlock Text="{TemplateBinding Label}"
                        Foreground="{TemplateBinding Foreground}"
                        FontSize="{DynamicResource Foreman.Type.Legacy.ToolbarItem.Label.FontSize}"

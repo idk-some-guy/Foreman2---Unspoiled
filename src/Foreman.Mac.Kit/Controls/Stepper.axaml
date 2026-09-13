@@ -9,12 +9,18 @@
     <Setter Property="Template">
       <ControlTemplate>
         <Border x:Name="PART_Cell" Background="{TemplateBinding Background}">
-          <Path x:Name="PART_Glyph"
-                Data="{StaticResource Kit.Glyph.Chevron.10}"
-                Fill="{DynamicResource Foreman.Color.TextTertiary}"
-                Width="{DynamicResource Foreman.Size.Glyph10}" Height="{DynamicResource Foreman.Size.Glyph10}"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center" />
+          <Viewbox Width="{DynamicResource Foreman.Size.Glyph10}"
+                   Height="{DynamicResource Foreman.Size.Glyph10}"
+                   Stretch="Uniform"
+                   StretchDirection="Both"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center">
+            <Path x:Name="PART_Glyph"
+                  Data="{StaticResource Kit.Glyph.Chevron.10}"
+                  Fill="{DynamicResource Foreman.Color.TextTertiary}"
+                  Stretch="None"
+                  Width="10" Height="10" />
+          </Viewbox>
         </Border>
       </ControlTemplate>
     </Setter>

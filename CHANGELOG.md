@@ -59,6 +59,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- The keyboard focus ring on pill-shaped controls (radio buttons, switches) no longer draws
+  looping arcs past the control's own edge, and its radius now matches the ring's true drawn
+  extent rather than overshooting it; a pop-up's indicator now sits flush against the control's
+  trailing edge instead of crowding the label, with a proper gap between the label and the
+  indicator/chevron; and every glyph that scales with the interface grows its whole design box
+  uniformly instead of stretching the artwork itself past the size the icon sheet drew it at.
 - Kit pop-up buttons and menu buttons open a real menu again: the panel picks up its own theme, so
   it is no longer an invisible zero-size popup, and dismissing it by clicking away leaves the button
   ready to reopen instead of stuck open.

@@ -236,5 +236,25 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(180, field.MinWidth);
             Assert.Equal(330, field.Width);
         }
+
+        [AvaloniaFact]
+        public void SearchGlyphViewbox_TracksScaleContractWhileThePathStaysAtItsMasterSize() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.SearchField", null, out object? theme));
+            var field = new SearchField { Theme = Assert.IsType<ControlTheme>(theme) };
+            fixture.Window.Content = field;
+            Dispatcher.UIThread.RunJobs();
+
+            Path glyph = field.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_SearchGlyph");
+            Viewbox box = field.GetVisualDescendants().OfType<Viewbox>().Single();
+            Assert.Equal(13, box.Bounds.Width);
+            Assert.Equal(13, glyph.Bounds.Width);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(20, box.Bounds.Width);
+            Assert.Equal(13, glyph.Bounds.Width);
+        }
     }
 }

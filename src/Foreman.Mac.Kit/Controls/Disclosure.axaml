@@ -17,13 +17,19 @@
             <StackPanel Orientation="Horizontal"
                         Spacing="{DynamicResource Foreman.Size.ControlGlyphGap}"
                         VerticalAlignment="Center">
-              <Path x:Name="PART_Triangle"
-                    Data="{StaticResource Kit.Glyph.Disclosure.12}"
-                    Stretch="None"
-                    Fill="{DynamicResource Foreman.Color.TextSecondary}"
-                    RenderTransformOrigin="0.5,0.5"
-                    VerticalAlignment="Center"
-                    Transitions="{x:Static m:Motion.DisclosureTransitions}" />
+              <Viewbox Width="{DynamicResource Foreman.Size.GlyphMicro}"
+                       Height="{DynamicResource Foreman.Size.GlyphMicro}"
+                       Stretch="Uniform"
+                       StretchDirection="Both"
+                       VerticalAlignment="Center">
+                <Path x:Name="PART_Triangle"
+                      Data="{StaticResource Kit.Glyph.Disclosure.12}"
+                      Stretch="None"
+                      Width="12" Height="12"
+                      Fill="{DynamicResource Foreman.Color.TextSecondary}"
+                      RenderTransformOrigin="0.5,0.5"
+                      Transitions="{x:Static m:Motion.DisclosureTransitions}" />
+              </Viewbox>
               <ContentPresenter Content="{TemplateBinding Header}"
                                  FontSize="{DynamicResource Foreman.Type.SectionHeader.FontSize}"
                                  FontWeight="{DynamicResource Foreman.Type.SectionHeader.FontWeight}"

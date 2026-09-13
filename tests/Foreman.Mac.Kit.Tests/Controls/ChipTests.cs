@@ -204,5 +204,26 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(30, chip.Height);
             Assert.Equal(24, CloseBox(chip).Width);
         }
+
+        [AvaloniaFact]
+        public void CloseGlyphViewbox_TracksScaleContractWhileThePathStaysAtItsMasterSize() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.Chip", null, out object? theme));
+            var chip = new Chip { Theme = (ControlTheme)theme!, Label = "Assembler" };
+            fixture.Window.Content = chip;
+            Dispatcher.UIThread.RunJobs();
+
+            Path glyph = chip.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_CloseGlyph");
+            Viewbox box = chip.GetVisualDescendants().OfType<Viewbox>().Single();
+            Assert.Equal(Stretch.None, glyph.Stretch);
+            Assert.Equal(12, box.Bounds.Width);
+            Assert.Equal(12, glyph.Bounds.Width);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(18, box.Bounds.Width);
+            Assert.Equal(12, glyph.Bounds.Width);
+        }
     }
 }

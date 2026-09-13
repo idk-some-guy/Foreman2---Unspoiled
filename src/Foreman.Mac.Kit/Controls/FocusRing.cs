@@ -128,26 +128,35 @@ namespace Foreman.Mac.Kit.Controls {
             double width = 3.0;
             double offset = 0.0;
 
+            void ApplyRadius() {
+                //Rectangle deflates its rendered geometry by StrokeThickness/2, so the drawn half-extent is control/2 + offset.
+                double radius = Math.Min(controlRadius.TopLeft + offset,
+                    Math.Min(control.Bounds.Width / 2 + offset, control.Bounds.Height / 2 + offset));
+                ring.RadiusX = radius;
+                ring.RadiusY = radius;
+            }
+
             void ApplyWidth(object? value) {
                 width = value is double w ? w : 3.0;
                 ring.StrokeThickness = width;
                 ring.Margin = RingMargin(width, offset);
+                ApplyRadius();
             }
 
             void ApplyOffset(object? value) {
                 offset = value is double o ? o : 0.0;
-                ring.RadiusX = controlRadius.TopLeft + offset;
-                ring.RadiusY = controlRadius.TopLeft + offset;
                 ring.Margin = RingMargin(width, offset);
+                ApplyRadius();
             }
 
             IDisposable stroke = ring.Bind(Shape.StrokeProperty, ring.GetResourceObservable("Foreman.Color.FocusRing", ToBrush));
-            IDisposable thickness = ring.GetResourceObservable("Foreman.FocusRing.Width", ToWidth).Subscribe(new RingObserver(ApplyWidth));
-            IDisposable margin = ring.GetResourceObservable("Foreman.FocusRing.Offset", ToOffset).Subscribe(new RingObserver(ApplyOffset));
+            IDisposable thickness = ring.GetResourceObservable("Foreman.FocusRing.Width", ToWidth).Subscribe(new RingObserver<object?>(ApplyWidth));
+            IDisposable margin = ring.GetResourceObservable("Foreman.FocusRing.Offset", ToOffset).Subscribe(new RingObserver<object?>(ApplyOffset));
+            IDisposable bounds = control.GetObservable(Visual.BoundsProperty).Subscribe(new RingObserver<Rect>(_ => ApplyRadius()));
 
             if (control.GetValue(RingBindingsProperty) is IDisposable previous)
                 previous.Dispose();
-            control.SetValue(RingBindingsProperty, new RingBindings(stroke, thickness, margin));
+            control.SetValue(RingBindingsProperty, new RingBindings(stroke, thickness, margin, bounds));
 
             AdornerLayer.SetAdorner(control, ring);
         }
@@ -165,17 +174,18 @@ namespace Foreman.Mac.Kit.Controls {
 
         private static Thickness RingMargin(double width, double offset) => new(-(offset + width / 2));
 
-        private sealed class RingObserver(Action<object?> onNext) : IObserver<object?> {
-            public void OnNext(object? value) => onNext(value);
+        private sealed class RingObserver<T>(Action<T> onNext) : IObserver<T> {
+            public void OnNext(T value) => onNext(value);
             public void OnError(Exception error) { }
             public void OnCompleted() { }
         }
 
-        private sealed class RingBindings(IDisposable stroke, IDisposable width, IDisposable offset) : IDisposable {
+        private sealed class RingBindings(IDisposable stroke, IDisposable width, IDisposable offset, IDisposable bounds) : IDisposable {
             public void Dispose() {
                 stroke.Dispose();
                 width.Dispose();
                 offset.Dispose();
+                bounds.Dispose();
             }
         }
     }

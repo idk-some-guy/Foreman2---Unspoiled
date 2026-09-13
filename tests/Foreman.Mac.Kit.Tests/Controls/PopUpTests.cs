@@ -35,6 +35,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         private static Border Indicator(PopUp popup) => popup.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Indicator");
         private static Path Chevron(PopUp popup) => popup.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_PulldownChevron");
         private static TextBlock Label(PopUp popup) => popup.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Label");
+        private static StackPanel TrailingColumn(PopUp popup) => popup.GetVisualDescendants().OfType<StackPanel>().Single();
 
         private sealed class TestCommand : ICommand {
             public object? Parameter;
@@ -102,6 +103,54 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Path chevron = Chevron(popup);
             Assert.True(chevron.IsVisible);
             Assert.Equal(fixture.Brush("Foreman.Color.TextTertiary").ToImmutable(), chevron.Fill?.ToImmutable());
+        }
+
+        [AvaloniaFact]
+        public void TrailingColumnGap_ComesFromTheControlGlyphGapSizeToken() {
+            using var fixture = new KitFixture();
+            PopUp popup = Themed("Items / s");
+            popup.Width = 200;
+            fixture.Window.Content = popup;
+            Dispatcher.UIThread.RunJobs();
+
+            Application.Current!.TryGetResource("Foreman.Size.ControlGlyphGap", Application.Current.ActualThemeVariant, out object? gap);
+            TextBlock label = Label(popup);
+            double labelRight = Avalonia.VisualExtensions.TranslatePoint(label, new Point(label.Bounds.Width, 0), popup)!.Value.X;
+            double trailingLeft = Avalonia.VisualExtensions.TranslatePoint(TrailingColumn(popup), new Point(0, 0), popup)!.Value.X;
+
+            Assert.Equal(labelRight + (double)gap!, trailingLeft, 2);
+        }
+
+        [AvaloniaFact]
+        public void IndicatorGlyph_StretchIsNoneAndRenderedGeometryMatchesItsUnscaledMaster() {
+            using var fixture = new KitFixture();
+            PopUp popup = Themed("Items / s");
+            fixture.Window.Content = popup;
+            Dispatcher.UIThread.RunJobs();
+
+            Path glyph = Indicator(popup).GetVisualDescendants().OfType<Path>().Single();
+            var master = (Geometry)Application.Current!.FindResource("Kit.Glyph.PopUpChevrons.16")!;
+
+            Assert.Equal(Stretch.None, glyph.Stretch);
+            Assert.Equal(master.Bounds.Width, glyph.RenderedGeometry!.Bounds.Width, 2);
+            Assert.Equal(master.Bounds.Height, glyph.RenderedGeometry.Bounds.Height, 2);
+        }
+
+        [AvaloniaFact]
+        public void WiderThanItsText_LabelFillsAndIndicatorHugsTheRightPaddingInset() {
+            using var fixture = new KitFixture();
+            PopUp popup = Themed("Items / s");
+            popup.Width = 200;
+            fixture.Window.Content = popup;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock label = Label(popup);
+            Point labelLeft = Avalonia.VisualExtensions.TranslatePoint(label, new Point(0, 0), popup)!.Value;
+            Assert.Equal(popup.BorderThickness.Left + 10, labelLeft.X, 3);
+
+            Border indicator = Indicator(popup);
+            Point indicatorRight = Avalonia.VisualExtensions.TranslatePoint(indicator, new Point(indicator.Bounds.Width, 0), popup)!.Value;
+            Assert.Equal(popup.Bounds.Width - popup.BorderThickness.Right - 3, indicatorRight.X, 3);
         }
 
         [AvaloniaFact]
@@ -362,6 +411,49 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(24, indicator.Width);
+        }
+
+        [AvaloniaFact]
+        public void IndicatorGlyphViewbox_TracksScaleContractWhileThePathStaysAtItsMasterSize() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.PopUp", null, out object? theme));
+            var popup = new PopUp { Theme = Assert.IsType<ControlTheme>(theme) };
+            popup.Items.Add("Items / s");
+            fixture.Window.Content = popup;
+            Dispatcher.UIThread.RunJobs();
+
+            Border indicator = popup.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Indicator");
+            Viewbox box = indicator.GetVisualDescendants().OfType<Viewbox>().Single();
+            Path glyph = indicator.GetVisualDescendants().OfType<Path>().Single();
+            Assert.Equal(16, box.Bounds.Width);
+            Assert.Equal(16, glyph.Bounds.Width);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(24, box.Bounds.Width);
+            Assert.Equal(16, glyph.Bounds.Width);
+        }
+
+        [AvaloniaFact]
+        public void IndicatorLeftEdge_AtOneFiftyPercentIsLabelRightPlusTheScaledGlyphGap() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.PopUp", null, out object? theme));
+            var popup = new PopUp { Theme = Assert.IsType<ControlTheme>(theme), Width = 200 };
+            popup.Items.Add("Items / s");
+            popup.SelectedItem = "Items / s";
+            fixture.Window.Content = popup;
+            Dispatcher.UIThread.RunJobs();
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock label = popup.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Label");
+            Border indicator = popup.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Indicator");
+            double labelRight = Avalonia.VisualExtensions.TranslatePoint(label, new Point(label.Bounds.Width, 0), popup)!.Value.X;
+            double indicatorLeft = Avalonia.VisualExtensions.TranslatePoint(indicator, new Point(0, 0), popup)!.Value.X;
+
+            Assert.Equal(labelRight + 9, indicatorLeft, 2);
         }
     }
 }

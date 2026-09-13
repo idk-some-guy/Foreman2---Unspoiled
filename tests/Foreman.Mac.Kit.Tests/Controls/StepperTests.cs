@@ -298,18 +298,24 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
-        public void Chevron_TracksScaleContract() {
+        public void ChevronViewbox_TracksScaleContractWhileThePathStaysAtItsMasterSize() {
             using var fixture = new KitFixture();
             Assert.True(Application.Current!.TryGetResource("Kit.Stepper", null, out object? theme));
             var stepper = new Stepper { Theme = Assert.IsType<ControlTheme>(theme) };
             fixture.Window.Content = stepper;
             Dispatcher.UIThread.RunJobs();
 
+            Button up = stepper.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Up");
+            Path chevron = up.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_Glyph");
+            Viewbox box = up.GetVisualDescendants().OfType<Viewbox>().Single();
+            Assert.Equal(10, box.Bounds.Width);
+            Assert.Equal(10, chevron.Bounds.Width);
+
             ScaleContract.Apply(1.5);
             Dispatcher.UIThread.RunJobs();
 
-            Path chevron = stepper.GetVisualDescendants().OfType<Path>().First(p => p.Name == "PART_Glyph");
-            Assert.Equal(15, chevron.Width);
+            Assert.Equal(15, box.Bounds.Width);
+            Assert.Equal(10, chevron.Bounds.Width);
         }
     }
 }

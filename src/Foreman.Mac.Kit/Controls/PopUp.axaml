@@ -10,6 +10,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
     <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
     <Setter Property="kit:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
     <Setter Property="Template">
@@ -21,29 +22,47 @@
                   BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="{TemplateBinding CornerRadius}"
                   Padding="{TemplateBinding Padding}">
-            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Size.ControlGlyphGap}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Foreman.Size.ControlGlyphGap}">
               <TextBlock x:Name="PART_Label"
+                         Grid.Column="0"
                          Text="{TemplateBinding DisplayText}"
                          FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
                          FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
                          Foreground="{DynamicResource Foreman.Color.Text}"
+                         TextTrimming="CharacterEllipsis"
                          VerticalAlignment="Center" />
-              <Border x:Name="PART_Indicator"
-                      Width="{DynamicResource Foreman.Size.PopUpIndicator}"
-                      Height="{DynamicResource Foreman.Size.PopUpIndicator}"
-                      CornerRadius="{DynamicResource Foreman.Radius.PopUpIndicator}"
-                      Background="{DynamicResource Foreman.Color.Accent}">
-                <Path Data="{StaticResource Kit.Glyph.PopUpChevrons.16}"
-                      Fill="{DynamicResource Foreman.Color.TextOnAccent}"
-                      Width="{DynamicResource Foreman.Size.PopUpIndicator}"
-                      Height="{DynamicResource Foreman.Size.PopUpIndicator}" />
-              </Border>
-              <Path x:Name="PART_PulldownChevron"
-                    Data="{StaticResource Kit.Glyph.Chevron.10}"
-                    Fill="{DynamicResource Foreman.Color.TextTertiary}"
-                    Width="{DynamicResource Foreman.Size.Glyph10}" Height="{DynamicResource Foreman.Size.Glyph10}"
-                    IsVisible="False" />
-            </StackPanel>
+              <StackPanel Grid.Column="1"
+                          Orientation="Horizontal"
+                          Spacing="{DynamicResource Foreman.Size.ControlGlyphGap}">
+                <Border x:Name="PART_Indicator"
+                        Width="{DynamicResource Foreman.Size.PopUpIndicator}"
+                        Height="{DynamicResource Foreman.Size.PopUpIndicator}"
+                        CornerRadius="{DynamicResource Foreman.Radius.PopUpIndicator}"
+                        Background="{DynamicResource Foreman.Color.Accent}">
+                  <Viewbox Width="{DynamicResource Foreman.Size.PopUpIndicator}"
+                           Height="{DynamicResource Foreman.Size.PopUpIndicator}"
+                           Stretch="Uniform"
+                           StretchDirection="Both">
+                    <Path Data="{StaticResource Kit.Glyph.PopUpChevrons.16}"
+                          Fill="{DynamicResource Foreman.Color.TextOnAccent}"
+                          Stretch="None"
+                          Width="16" Height="16" />
+                  </Viewbox>
+                </Border>
+                <Viewbox x:Name="PART_PulldownChevronBox"
+                         Width="{DynamicResource Foreman.Size.Glyph10}"
+                         Height="{DynamicResource Foreman.Size.Glyph10}"
+                         Stretch="Uniform"
+                         StretchDirection="Both"
+                         IsVisible="False">
+                  <Path x:Name="PART_PulldownChevron"
+                        Data="{StaticResource Kit.Glyph.Chevron.10}"
+                        Fill="{DynamicResource Foreman.Color.TextTertiary}"
+                        Stretch="None"
+                        Width="10" Height="10" />
+                </Viewbox>
+              </StackPanel>
+            </Grid>
           </Border>
           <Popup x:Name="PART_Popup"
                  Placement="BottomEdgeAlignedLeft"
@@ -57,7 +76,7 @@
     <Style Selector="^:pulldown /template/ Border#PART_Indicator">
       <Setter Property="IsVisible" Value="False" />
     </Style>
-    <Style Selector="^:pulldown /template/ Path#PART_PulldownChevron">
+    <Style Selector="^:pulldown /template/ Viewbox#PART_PulldownChevronBox">
       <Setter Property="IsVisible" Value="True" />
     </Style>
     <Style Selector="^:pulldown">

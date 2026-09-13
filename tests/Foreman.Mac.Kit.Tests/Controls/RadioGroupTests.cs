@@ -13,6 +13,7 @@ using Avalonia.VisualTree;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
+using System;
 using System.Linq;
 using Xunit;
 
@@ -122,7 +123,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
-        public void KeyboardFocus_ShowsTheFocusRingWithTheRadioCornerRadius() {
+        public void KeyboardFocus_ShowsTheFocusRingWithTheRadioCornerRadius_ClampedToTheRadiosOwnBounds() {
             using var fixture = new KitFixture();
             RadioButton radio = Themed("Up");
             fixture.Window.Content = radio;
@@ -133,7 +134,9 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             Application.Current!.TryGetResource("Foreman.Radius.Pill", Application.Current.ActualThemeVariant, out object? radius);
             Application.Current!.TryGetResource("Foreman.FocusRing.Offset", Application.Current.ActualThemeVariant, out object? offset);
-            double expected = ((CornerRadius)radius!).TopLeft + (double)offset!;
+            //Rectangle deflates its rendered geometry by StrokeThickness/2, so the drawn half-extent is bounds/2 + offset.
+            double expected = Math.Min(((CornerRadius)radius!).TopLeft + (double)offset!,
+                Math.Min(radio.Bounds.Width / 2 + (double)offset!, radio.Bounds.Height / 2 + (double)offset!));
             Assert.Equal(expected, ring.RadiusX);
         }
 

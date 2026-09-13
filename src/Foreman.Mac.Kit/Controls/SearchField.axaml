@@ -55,16 +55,21 @@
                   BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="{TemplateBinding CornerRadius}" />
           <Grid ColumnDefinitions="Auto,*,Auto">
-            <Path Grid.Column="0"
-                  x:Name="PART_SearchGlyph"
-                  Data="{StaticResource Kit.Glyph.Search.13}"
-                  Stroke="{DynamicResource Foreman.Color.TextTertiary}"
-                  StrokeThickness="1.5"
-                  StrokeLineCap="Round"
-                  Width="{DynamicResource Foreman.Size.SearchFieldGlyph}"
-                  Height="{DynamicResource Foreman.Size.SearchFieldGlyph}"
-                  Margin="{DynamicResource Foreman.Thickness.SearchFieldGlyphMargin}"
-                  VerticalAlignment="Center" />
+            <Viewbox Grid.Column="0"
+                     Width="{DynamicResource Foreman.Size.SearchFieldGlyph}"
+                     Height="{DynamicResource Foreman.Size.SearchFieldGlyph}"
+                     Stretch="Uniform"
+                     StretchDirection="Both"
+                     Margin="{DynamicResource Foreman.Thickness.SearchFieldGlyphMargin}"
+                     VerticalAlignment="Center">
+              <Path x:Name="PART_SearchGlyph"
+                    Data="{StaticResource Kit.Glyph.Search.13}"
+                    Stroke="{DynamicResource Foreman.Color.TextTertiary}"
+                    StrokeThickness="1.5"
+                    StrokeLineCap="Round"
+                    Stretch="None"
+                    Width="13" Height="13" />
+            </Viewbox>
             <Panel Grid.Column="1">
               <TextBlock x:Name="PART_Placeholder"
                          Text="{TemplateBinding PlaceholderText}"

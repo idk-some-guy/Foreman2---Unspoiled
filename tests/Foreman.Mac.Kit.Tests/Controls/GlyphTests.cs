@@ -99,7 +99,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
     [Collection(KitScaleGroup.Name)]
     public class GlyphScaleTests {
         [AvaloniaFact]
-        public void SizeTwentyClass_WidthAndHeight_TrackScaleContract() {
+        public void SizeTwentyClass_WidthAndHeight_StayAtTheMasterSizeRegardlessOfScaleContract() {
             using var fixture = new KitFixture();
             Assert.True(Application.Current!.TryGetResource("Kit.Glyph", null, out object? theme));
             Assert.True(Application.Current!.TryGetResource("Kit.Glyph.Recipe.20", null, out object? geometry));
@@ -107,10 +107,11 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             path.Classes.Add("size20");
             fixture.Window.Content = path;
 
+            //The class Setter is a fixed master box; a scaling consumer wraps this Path in a Viewbox.
             ScaleContract.Apply(1.5);
 
-            Assert.Equal(30.0, path.Width);
-            Assert.Equal(30.0, path.Height);
+            Assert.Equal(20.0, path.Width);
+            Assert.Equal(20.0, path.Height);
         }
     }
 }

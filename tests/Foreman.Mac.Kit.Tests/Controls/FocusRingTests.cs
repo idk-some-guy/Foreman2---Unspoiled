@@ -205,6 +205,58 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Null(AdornerLayer.GetAdorner(button));
         }
 
+        [AvaloniaTheory]
+        [InlineData(15, 15)]
+        [InlineData(30, 18)]
+        public void KeyboardFocus_RingBoundsInflateBySevenOverTheControlsOwnSize(double width, double height) {
+            using var fixture = new KitFixture();
+            var control = new Button { Content = "x", Width = width, Height = height };
+            FocusRing.SetIsEnabled(control, true);
+            fixture.Window.Content = control;
+
+            fixture.StateOf(control).Focus();
+
+            Rectangle ring = Assert.IsType<Rectangle>(RingOn(control));
+            Assert.Equal(control.Bounds.Width + 7, ring.Bounds.Width);
+            Assert.Equal(control.Bounds.Height + 7, ring.Bounds.Height);
+        }
+
+        [AvaloniaFact]
+        public void PillCornerRadius_ClampsToTheDrawnHalfExtentAfterStrokeDeflation() {
+            using var fixture = new KitFixture();
+            var control = new Button { Content = "x", Width = 30, Height = 18 };
+            FocusRing.SetIsEnabled(control, true);
+            FocusRing.SetCornerRadius(control, new CornerRadius(100));
+            fixture.Window.Content = control;
+
+            fixture.StateOf(control).Focus();
+
+            //Rectangle deflates its rendered geometry by StrokeThickness/2, so the true drawn
+            //half-height is control.Height/2 + offset (11), not the ring box's own half-height (12.5).
+            Rectangle ring = Assert.IsType<Rectangle>(RingOn(control));
+            Assert.Equal(11, ring.RadiusX);
+            Assert.Equal(11, ring.RadiusY);
+        }
+
+        [AvaloniaFact]
+        public void PillCornerRadius_RenderedGeometryFormsATrueCapsuleWithNoOverlappingArcs() {
+            using var fixture = new KitFixture();
+            var control = new Button { Content = "x", Width = 30, Height = 18 };
+            FocusRing.SetIsEnabled(control, true);
+            FocusRing.SetCornerRadius(control, new CornerRadius(100));
+            fixture.Window.Content = control;
+
+            fixture.StateOf(control).Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            Rectangle ring = Assert.IsType<Rectangle>(RingOn(control));
+            //A looping/self-intersecting capsule draws past the ring's own box; a true one stays inside it.
+            Rect rendered = ring.RenderedGeometry!.Bounds;
+            Assert.True(rendered.Width <= ring.Bounds.Width + 0.01, $"rendered width {rendered.Width} > ring width {ring.Bounds.Width}");
+            Assert.True(rendered.Height <= ring.Bounds.Height + 0.01, $"rendered height {rendered.Height} > ring height {ring.Bounds.Height}");
+            Assert.Equal(control.Bounds.Height + 4, rendered.Height, 2);
+        }
+
         [AvaloniaFact]
         public void ShowAlways_SetBeforeParenting_RingOffsetResolvesOnceAttached() {
             using var fixture = new KitFixture();
@@ -311,6 +363,23 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Rectangle ring = Assert.IsType<Rectangle>(AdornerLayer.GetAdorner(button));
             Assert.Equal(3, ring.StrokeThickness);
             Assert.Equal(new Size(button.Bounds.Width + 7, button.Bounds.Height + 7), ring.Bounds.Size);
+        }
+
+        [AvaloniaTheory]
+        [InlineData(15, 15)]
+        [InlineData(30, 18)]
+        public void KeyboardFocus_AtOnePointFiveScale_RingBoundsInflateBySevenOverTheControlsOwnSize(double width, double height) {
+            using var fixture = new KitFixture();
+            var control = new Button { Content = "x", Width = width, Height = height };
+            FocusRing.SetIsEnabled(control, true);
+            fixture.Window.Content = control;
+
+            ScaleContract.Apply(1.5);
+            fixture.StateOf(control).Focus();
+
+            Rectangle ring = Assert.IsType<Rectangle>(AdornerLayer.GetAdorner(control));
+            Assert.Equal(control.Bounds.Width + 7, ring.Bounds.Width);
+            Assert.Equal(control.Bounds.Height + 7, ring.Bounds.Height);
         }
     }
 }

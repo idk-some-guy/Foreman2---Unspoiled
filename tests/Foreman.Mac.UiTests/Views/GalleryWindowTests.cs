@@ -348,6 +348,25 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
+        public void KitScaledTile_GlyphSheetViewboxIsOneAndAHalfTimesTheDefaultTilesWhileGeometryStaysAtMasterSize() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel defaultTile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Glyphs");
+            StackPanel scaledTile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Type ramp & Glyphs (150%)");
+
+            Viewbox defaultBox = defaultTile.GetVisualDescendants().OfType<Viewbox>().First(v => v.Child is Path);
+            Viewbox scaledBox = scaledTile.GetVisualDescendants().OfType<Viewbox>().First(v => v.Child is Path);
+            Assert.Equal(defaultBox.Bounds.Width * 1.5, scaledBox.Bounds.Width, 2);
+
+            Path defaultPath = (Path)defaultBox.Child!;
+            Path scaledPath = (Path)scaledBox.Child!;
+            Assert.Equal(defaultPath.RenderedGeometry!.Bounds, scaledPath.RenderedGeometry!.Bounds);
+        }
+
+        [AvaloniaFact]
         public void SelectionControlsScaledTile_SwitchKnobXTracksScaledInset() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
@@ -380,15 +399,33 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public void MenuPrimitivesScaledTile_ChevronMeasuresFifteen() {
+        public void MenuPrimitivesScaledTile_ChevronViewboxScalesToFifteenSquare() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
+            //The chevron Path keeps Stretch=None at its master size; a wrapping Viewbox scales the drawn box.
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Segmented, Pop-up buttons & Menu button (150%)");
+            Viewbox[] chevronBoxes = [.. tile.GetVisualDescendants().OfType<Viewbox>()
+                .Where(v => v.Child is Path p && (p.Name == "PART_Chevron" || p.Name == "PART_PulldownChevron"))];
+            Assert.Contains(chevronBoxes, v => v.Bounds.Width == 15 && v.Bounds.Height == 15);
+        }
+
+        [AvaloniaFact]
+        public void MenuPrimitivesScaledTile_ChevronRenderedGeometryMatchesItsUnscaledMaster() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            //Stretch="None" means the Path's own RenderedGeometry never inflates; only the ancestor Viewbox grows.
             StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Segmented, Pop-up buttons & Menu button (150%)");
             Path[] chevrons = [.. tile.GetVisualDescendants().OfType<Path>().Where(p => p.Name == "PART_Chevron" || p.Name == "PART_PulldownChevron")];
-            Assert.Contains(chevrons, c => c.Width == 15);
+            var master = (Geometry)Application.Current!.FindResource("Kit.Glyph.Chevron.10")!;
+            Assert.Contains(chevrons, c =>
+                Math.Abs(c.RenderedGeometry!.Bounds.Width - master.Bounds.Width) < 0.01 &&
+                Math.Abs(c.RenderedGeometry.Bounds.Height - master.Bounds.Height) < 0.01);
         }
 
         [AvaloniaFact]
@@ -441,20 +478,21 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public void FeedbackScaledTile_ChipCloseGlyphWidthTracksScaledGlyphMicro() {
+        public void FeedbackScaledTile_ChipCloseGlyphViewboxWidthTracksScaledGlyphMicro() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
+            //PART_CloseGlyph keeps Stretch=None at its 12pt master size; a wrapping Viewbox scales the drawn box.
             StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Tooltip, Spinner & progress, Chips & Key caps (150%)");
             Application.Current!.TryGetResource("Foreman.Size.GlyphMicro", Application.Current.ActualThemeVariant, out object? glyphMicroObj);
             double expected = (double)glyphMicroObj! * 1.5;
 
-            Path[] glyphs = [.. tile.GetVisualDescendants().OfType<Chip>()
-                .SelectMany(c => c.GetVisualDescendants().OfType<Path>())
-                .Where(p => p.Name == "PART_CloseGlyph")];
-            Assert.Contains(glyphs, g => Math.Abs(g.Width - expected) < 0.01);
+            Viewbox[] boxes = [.. tile.GetVisualDescendants().OfType<Chip>()
+                .SelectMany(c => c.GetVisualDescendants().OfType<Viewbox>())
+                .Where(v => v.Child is Path p && p.Name == "PART_CloseGlyph")];
+            Assert.Contains(boxes, v => Math.Abs(v.Bounds.Width - expected) < 0.01);
         }
 
         [AvaloniaFact]

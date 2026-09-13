@@ -249,21 +249,40 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
-        public void CheckGlyphAndDash_StretchUniformlyAndTrackScaleContract() {
+        public void CheckGlyph_StretchIsNoneAndItsViewboxTracksScaleContract() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.CheckBox", null, out object? theme));
+            var box = new CheckBox { Theme = Assert.IsType<ControlTheme>(theme), IsChecked = true };
+            fixture.Window.Content = box;
+            Dispatcher.UIThread.RunJobs();
+
+            Path check = box.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_Check");
+            Viewbox checkBox = box.GetVisualDescendants().OfType<Viewbox>().Single();
+            Assert.Equal(Stretch.None, check.Stretch);
+            Assert.Equal(10, check.Bounds.Width);
+            Assert.Equal(10, checkBox.Bounds.Width);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(10, check.Bounds.Width);
+            Assert.Equal(15, checkBox.Bounds.Width);
+        }
+
+        [AvaloniaFact]
+        public void Dash_TracksScaleContractDirectly() {
             using var fixture = new KitFixture();
             Assert.True(Application.Current!.TryGetResource("Kit.CheckBox", null, out object? theme));
             var box = new CheckBox { Theme = Assert.IsType<ControlTheme>(theme) };
             fixture.Window.Content = box;
             Dispatcher.UIThread.RunJobs();
 
-            Path check = box.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_Check");
             Rectangle dash = box.GetVisualDescendants().OfType<Rectangle>().Single(r => r.Name == "PART_Dash");
-            Assert.Equal(Stretch.Uniform, check.Stretch);
+            Assert.Equal(8, dash.Width);
 
             ScaleContract.Apply(1.5);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(15, check.Width);
             Assert.Equal(12, dash.Width);
         }
     }

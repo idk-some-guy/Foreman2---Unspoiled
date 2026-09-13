@@ -25,17 +25,21 @@
                     BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
                     BorderThickness="1">
               <Grid>
-                <Path x:Name="PART_Check"
-                      Theme="{StaticResource Kit.Glyph}"
-                      Data="{StaticResource Kit.Glyph.Check.10}"
-                      Stroke="{DynamicResource Foreman.Color.TextOnAccent}"
-                      StrokeThickness="1.6"
-                      Width="{DynamicResource Foreman.Size.CheckGlyph}"
-                      Height="{DynamicResource Foreman.Size.CheckGlyph}"
-                      Stretch="Uniform"
-                      HorizontalAlignment="Center"
-                      VerticalAlignment="Center"
-                      IsVisible="False" />
+                <Viewbox Width="{DynamicResource Foreman.Size.CheckGlyph}"
+                         Height="{DynamicResource Foreman.Size.CheckGlyph}"
+                         Stretch="Uniform"
+                         StretchDirection="Both"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center">
+                  <Path x:Name="PART_Check"
+                        Theme="{StaticResource Kit.Glyph}"
+                        Data="{StaticResource Kit.Glyph.Check.10}"
+                        Stroke="{DynamicResource Foreman.Color.TextOnAccent}"
+                        StrokeThickness="1.6"
+                        Width="10" Height="10"
+                        Stretch="None"
+                        IsVisible="False" />
+                </Viewbox>
                 <Rectangle x:Name="PART_Dash"
                            Fill="{DynamicResource Foreman.Color.TextOnAccent}"
                            Width="{DynamicResource Foreman.Size.CheckDashWidth}"

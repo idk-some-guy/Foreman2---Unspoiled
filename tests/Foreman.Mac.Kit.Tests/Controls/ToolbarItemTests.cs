@@ -192,5 +192,26 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(60, item.Height);
             Assert.Equal(66, item.MinWidth);
         }
+
+        [AvaloniaFact]
+        public void GlyphViewbox_TracksScaleContractWhileThePathStaysAtItsMasterSize() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.ToolbarItem", null, out object? theme));
+            Assert.True(Application.Current!.TryGetResource("Kit.Glyph.Recipe.17", null, out object? glyph));
+            var item = new ToolbarItem { Theme = Assert.IsType<ControlTheme>(theme), Glyph = Assert.IsAssignableFrom<Geometry>(glyph), Label = "Recipe" };
+            fixture.Window.Content = item;
+            Dispatcher.UIThread.RunJobs();
+
+            Viewbox box = item.GetVisualDescendants().OfType<Viewbox>().Single();
+            Path path = item.GetVisualDescendants().OfType<Path>().Single();
+            Assert.Equal(17, box.Bounds.Width);
+            Assert.Equal(17, path.Bounds.Width);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(26, box.Bounds.Width);
+            Assert.Equal(17, path.Bounds.Width);
+        }
     }
 }

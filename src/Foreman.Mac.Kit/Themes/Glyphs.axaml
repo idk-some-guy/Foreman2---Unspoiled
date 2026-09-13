@@ -2,6 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <!-- one 20 pt master per glyph from the ratified sheet, scaled about the origin to 16/17/18 -->
 
+  <!-- Stretch stays None; a scaling consumer wraps the Path in a Viewbox bound to Foreman.Size.GlyphNN. -->
   <ControlTheme x:Key="Kit.GlyphIcon" TargetType="Path">
     <Setter Property="Stretch" Value="None" />
     <Setter Property="StrokeThickness" Value="1.5" />
@@ -19,20 +20,20 @@
       <Setter Property="Fill" Value="{DynamicResource Foreman.Color.TextTertiary}" />
     </Style>
     <Style Selector="^.size16">
-      <Setter Property="Width" Value="{DynamicResource Foreman.Size.Glyph16}" />
-      <Setter Property="Height" Value="{DynamicResource Foreman.Size.Glyph16}" />
+      <Setter Property="Width" Value="16" />
+      <Setter Property="Height" Value="16" />
     </Style>
     <Style Selector="^.size17">
-      <Setter Property="Width" Value="{DynamicResource Foreman.Size.Glyph17}" />
-      <Setter Property="Height" Value="{DynamicResource Foreman.Size.Glyph17}" />
+      <Setter Property="Width" Value="17" />
+      <Setter Property="Height" Value="17" />
     </Style>
     <Style Selector="^.size18">
-      <Setter Property="Width" Value="{DynamicResource Foreman.Size.Glyph18}" />
-      <Setter Property="Height" Value="{DynamicResource Foreman.Size.Glyph18}" />
+      <Setter Property="Width" Value="18" />
+      <Setter Property="Height" Value="18" />
     </Style>
     <Style Selector="^.size20">
-      <Setter Property="Width" Value="{DynamicResource Foreman.Size.Glyph20}" />
-      <Setter Property="Height" Value="{DynamicResource Foreman.Size.Glyph20}" />
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Height" Value="20" />
     </Style>
   </ControlTheme>
 
