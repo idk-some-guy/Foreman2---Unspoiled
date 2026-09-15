@@ -94,6 +94,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   400ms before appearing so a fast solve never flashes it. Below 196x260 the panel switches itself to
   a single compact line rather than clip. ChooserGrid, SheetFrame and a new FormGroup state slot now
   wire a real state panel into their gallery examples in place of a stub.
+- Kit.ZoomStepper lands in the gallery: a fixed-width readout that never reflows the toolbar between
+  25% and 400%, with the minus and plus buttons staying live through a solve. The readout swaps to a
+  small spinner after a 400ms grace so a fast solve never flashes it, and to an alert glyph on solve
+  failure that opens a host-supplied error popover; the zoom value returns the moment the error clears.
+- Kit.ZoomStepper's solve-error alert now opens a real popover it hosts itself, carrying the error
+  content and returning the readout to its number on Escape, an outside click, or the error clearing.
+  The solving spinner's fade-out actually renders instead of vanishing in the same frame it starts,
+  and the readout, micro buttons, and glyph boxes scale with the interface size setting like the rest
+  of the kit.
+- Kit.PopoverHost now queues a popover add, bring-to-front, or remove that lands mid-layout and
+  applies it right after, so opening one from a control's own TemplateApplied handler no longer
+  needs a manual workaround. Dismissing Kit.ZoomStepper's error popover leaves the error flag for the
+  host to clear, and the readout stays its true fixed size at 150% instead of stretching a few points
+  tall.
 
 ### Fixed
 

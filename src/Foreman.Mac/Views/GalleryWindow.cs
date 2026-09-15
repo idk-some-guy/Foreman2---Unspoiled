@@ -194,6 +194,9 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Sheet frame — error (State panel)", "Default", BuildSheetFrameErrorTile));
             registry.Register(new GalleryTile("Kit", "Form group — load failure (State panel)", "Default", BuildFormGroupLoadFailureTile));
             registry.Register(new GalleryTile("Kit", "Inspector group — body delegation (State panel)", "Default", BuildInspectorGroupBodyStateTile));
+            registry.Register(new GalleryTile("Kit", "Zoom stepper — at rest, hovered, solving, solve failed", "Default", BuildZoomStepperTile));
+            registry.Register(new GalleryTile("Kit", "Zoom stepper — solve-error popover", "Default", BuildZoomStepperPopoverTile));
+            registry.Register(new GalleryTile("Kit", "Zoom stepper (150%)", "150%", BuildZoomStepperScaledTile));
             return registry;
         }
 
@@ -1775,6 +1778,81 @@ namespace Foreman.Mac.Views {
                 Child = group,
             };
             return new StackPanel { Spacing = 8, Children = { KitText("Inspector group — body delegation (State panel)", "caption", "tertiary"), frame } };
+        }
+
+        private static ZoomStepper KitZoomStepper(double value = 140) =>
+            new() { Theme = KitTheme("Kit.ZoomStepper"), Value = value };
+
+        private static StackPanel ZoomStepperColumn(string caption, ZoomStepper stepper) =>
+            new() { Spacing = 6, Children = { KitText(caption, "caption", "tertiary"), stepper } };
+
+        //Addendum §08: the readout swaps its 42pt box for the number, a small spinner mid-solve, or an alert glyph on solve failure - the − and + stay live in every state.
+        private static StackPanel BuildZoomStepperTile() {
+            ZoomStepper rest = KitZoomStepper();
+
+            ZoomStepper hovered = KitZoomStepper();
+            hovered.TemplateApplied += (_, _) =>
+                hovered.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Readout").Classes.Add("gallery-hover");
+
+            ZoomStepper solving = KitZoomStepper();
+            solving.IsSolving = true;
+
+            ZoomStepper error = KitZoomStepper();
+            error.HasSolveError = true;
+
+            var row = new StackPanel {
+                Orientation = Orientation.Horizontal, Spacing = 16,
+                Children = {
+                    ZoomStepperColumn("At rest", rest),
+                    ZoomStepperColumn("Readout hovered", hovered),
+                    ZoomStepperColumn("Solving", solving),
+                    ZoomStepperColumn("Solve failed", error),
+                },
+            };
+            return new StackPanel { Spacing = 8, Children = { KitText("Zoom stepper", "caption", "tertiary"), row } };
+        }
+
+        //The stepper owns its error popover (addendum §08): opened here once the template exists, carrying a host-supplied Kit.StatePanel.error, the same slot a real solve failure fills.
+        private static Border BuildZoomStepperPopoverTile() {
+            ZoomStepper stepper = KitZoomStepper();
+            var errorPanel = KitStatePanel(StatePanelShape.Error, "Solve failed",
+                "Beacon count must be 0 or more.",
+                KitButtonRow(KitRowButton("Fix It", ButtonRowRole.Default)));
+            stepper.ErrorPopoverContent = errorPanel;
+            stepper.TemplateApplied += (_, _) => {
+                stepper.HasSolveError = true;
+                stepper.IsErrorPopoverOpen = true;
+            };
+
+            var host = new PopoverHost { Width = 320, Height = 160 };
+            Avalonia.Controls.Canvas.SetLeft(stepper, 40);
+            Avalonia.Controls.Canvas.SetTop(stepper, 20);
+            host.Surface.Children.Add(stepper);
+
+            return new Border {
+                Width = 320, Height = 160,
+                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
+                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
+                BorderThickness = new Thickness(1),
+                Child = host,
+            };
+        }
+
+        private static readonly string[] ZoomStepperScaledSizeKeys = [
+            "Foreman.Size.ControlHeightRegular", "Foreman.Size.ZoomReadoutWidth", "Foreman.Size.ZoomReadoutHeight",
+            "Foreman.Size.ZoomStepperMicroButtonWidth", "Foreman.Size.ZoomStepperMicroButtonHeight",
+            "Foreman.Size.GlyphMicro", "Foreman.Size.SpinnerSmall", "Foreman.Size.SpinnerStrokeSmall",
+            "Foreman.Type.Caption.FontSize",
+        ];
+
+        private static StackPanel BuildZoomStepperScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in ZoomStepperScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildZoomStepperTile());
+            return container;
         }
 
         private static ControlTheme KitTheme(string key) {

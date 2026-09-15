@@ -54,6 +54,16 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         [AvaloniaTheory]
         [InlineData("Tokens.Light.axaml")]
         [InlineData("Tokens.Dark.axaml")]
+        public void ZoomStepperTokens_ReadoutSixteenTall_MicroButtonTwentyBySixteen(string fileName) {
+            var tokens = LoadThemeFile(fileName);
+            Assert.Equal(16d, tokens["Foreman.Size.ZoomReadoutHeight"]);
+            Assert.Equal(20d, tokens["Foreman.Size.ZoomStepperMicroButtonWidth"]);
+            Assert.Equal(16d, tokens["Foreman.Size.ZoomStepperMicroButtonHeight"]);
+        }
+
+        [AvaloniaTheory]
+        [InlineData("Tokens.Light.axaml")]
+        [InlineData("Tokens.Dark.axaml")]
         public void ChooserCell_IsEightyEight(string fileName) {
             var tokens = LoadThemeFile(fileName);
             Assert.Equal(88d, tokens["Foreman.Size.ChooserCell"]);

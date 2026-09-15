@@ -149,6 +149,12 @@
   <x:Double x:Key="Foreman.Size.ToolbarItem">26</x:Double>
   <x:Double x:Key="Foreman.Size.ToolbarItemWidth">44</x:Double>
   <x:Double x:Key="Foreman.Size.ToolbarItemHeight">40</x:Double>
+  <!-- The unified titlebar row (K3 composites addendum §08/§12); the readout's fixed box keeps 25%/400% from reflowing it. -->
+  <x:Double x:Key="Foreman.Size.ToolbarRowHeight">52</x:Double>
+  <x:Double x:Key="Foreman.Size.ZoomReadoutWidth">42</x:Double>
+  <x:Double x:Key="Foreman.Size.ZoomReadoutHeight">16</x:Double>
+  <x:Double x:Key="Foreman.Size.ZoomStepperMicroButtonWidth">20</x:Double>
+  <x:Double x:Key="Foreman.Size.ZoomStepperMicroButtonHeight">16</x:Double>
   <Thickness x:Key="Foreman.Thickness.ButtonPadding">13,0</Thickness>
   <Thickness x:Key="Foreman.Thickness.ToolbarItemPadding">8,3</Thickness>
 

@@ -138,7 +138,9 @@ namespace Foreman.Mac.UiTests.Views {
                  "State panel — empty (inspector & new graph)", "State panel — no results",
                  "State panel — loading (determinate & compact)", "State panel — error", "State panel (150%)",
                  "Chooser grid — no results (State panel)", "Sheet frame — error (State panel)",
-                 "Form group — load failure (State panel)", "Inspector group — body delegation (State panel)"],
+                 "Form group — load failure (State panel)", "Inspector group — body delegation (State panel)",
+                 "Zoom stepper — at rest, hovered, solving, solve failed", "Zoom stepper — solve-error popover",
+                 "Zoom stepper (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -1262,6 +1264,59 @@ namespace Foreman.Mac.UiTests.Views {
             //The panel's own ButtonRow is an ItemsControl too (its own PART_ItemsPresenter) - scope to the one templated by the group itself.
             ItemsPresenter itemsPresenter = group.GetVisualDescendants().OfType<ItemsPresenter>().Single(p => p.TemplatedParent == group);
             Assert.False(itemsPresenter.IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void ZoomStepperTile_ShowsFourInstances_AtRestHoveredSolvingAndError() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Zoom stepper — at rest, hovered, solving, solve failed");
+            ZoomStepper[] steppers = [.. tile.GetVisualDescendants().OfType<ZoomStepper>()];
+
+            Assert.Equal(4, steppers.Length);
+            Assert.False(steppers[0].IsSolving);
+            Assert.False(steppers[0].HasSolveError);
+            Assert.True(steppers[2].IsSolving);
+            Assert.True(steppers[3].HasSolveError);
+
+            Button hoveredReadout = steppers[1].GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Readout");
+            Assert.Contains("gallery-hover", hoveredReadout.Classes);
+        }
+
+        [AvaloniaFact]
+        public void ZoomStepperPopoverTile_OpensItsOwnErrorPopover_CarryingTheHostSuppliedStatePanel() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Zoom stepper — solve-error popover");
+            ZoomStepper stepper = tile.GetVisualDescendants().OfType<ZoomStepper>().Single();
+            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+
+            Assert.True(stepper.HasSolveError);
+            Assert.True(stepper.IsErrorPopoverOpen);
+            Assert.True(popover.IsOpen);
+            StatePanel panel = Assert.IsType<StatePanel>(popover.Content);
+            Assert.Equal(StatePanelShape.Error, panel.Shape);
+        }
+
+        [AvaloniaFact]
+        public void ZoomStepperScaledTile_ResolvesReadoutAndMicroButtonSizes_AtOneAndAHalfScale() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Zoom stepper (150%)");
+            Button readout = tile.GetVisualDescendants().OfType<Button>().First(b => b.Name == "PART_Readout");
+            Button minus = tile.GetVisualDescendants().OfType<Button>().First(b => b.Name == "PART_Minus");
+
+            Assert.Equal(63, readout.Bounds.Width);
+            Assert.Equal(24, readout.Bounds.Height);
+            Assert.Equal(30, minus.Bounds.Width);
+            Assert.Equal(24, minus.Bounds.Height);
         }
     }
 }
