@@ -67,6 +67,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   box-shadow: selection is now an inset ring and keyboard focus the shared outer ring, so a slot can
   show both at once. An empty slot carries a real plus glyph instead of an 8pt "+", and a missing
   module shows an alert glyph with a tooltip naming it while Delete still clears the slot.
+- Kit.ChooserCell and Kit.ChooserGrid land in the gallery, replacing the add-browser's old cell and
+  subhead styles. A cell's label may wrap and truncate to two lines, but its tooltip and VoiceOver
+  name always carry the untruncated item; the grid is one tab stop with arrow/Home/End/Page traversal
+  across section headings, a sticky heading per section, and a staggered entrance that now honours a
+  live Reduce Motion toggle on an already-built grid.
 
 ### Fixed
 

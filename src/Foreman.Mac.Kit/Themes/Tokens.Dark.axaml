@@ -54,6 +54,7 @@
 
   <x:Double x:Key="Foreman.Space.Space1">4</x:Double>
   <x:Double x:Key="Foreman.Space.Space2">8</x:Double>
+  <x:Double x:Key="Foreman.Space.Space15">6</x:Double>
   <x:Double x:Key="Foreman.Space.Space3">12</x:Double>
   <x:Double x:Key="Foreman.Space.Space4">16</x:Double>
   <x:Double x:Key="Foreman.Space.Space5">24</x:Double>
@@ -76,6 +77,8 @@
   <!-- The 5px gap is a per-cell margin (half of it, 2.5, on each side), not a panel Spacing. -->
   <CornerRadius x:Key="Foreman.Radius.PickCell">5</CornerRadius>
   <Thickness x:Key="Foreman.Thickness.PickCellGap">2.5</Thickness>
+  <!-- Not Radius.Control 6 - the chooser cell has been a literal 8 in three or more places (addendum §12.2). -->
+  <CornerRadius x:Key="Foreman.Radius.ChooserCell">8</CornerRadius>
 
   <x:Double x:Key="Foreman.Type.LargeTitle.FontSize">20</x:Double>
   <FontWeight x:Key="Foreman.Type.LargeTitle.FontWeight">700</FontWeight>
@@ -91,6 +94,8 @@
   <FontWeight x:Key="Foreman.Type.Callout.Emphasized.FontWeight">500</FontWeight>
   <x:Double x:Key="Foreman.Type.Caption.FontSize">11</x:Double>
   <FontWeight x:Key="Foreman.Type.Caption.FontWeight">400</FontWeight>
+  <FontWeight x:Key="Foreman.Type.Caption.Emphasized.FontWeight">600</FontWeight>
+  <x:Double x:Key="Foreman.Type.Caption.LineHeight">13.2</x:Double>
 
   <!-- Per-surface sizes with no ramp-step match; K4 deletes each as its surface migrates onto the ramp. -->
   <x:Double x:Key="Foreman.Type.Legacy.About.Name.FontSize">15</x:Double>

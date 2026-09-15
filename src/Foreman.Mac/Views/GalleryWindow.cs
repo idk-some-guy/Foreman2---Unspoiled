@@ -170,6 +170,9 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Pick cell — filled and empty, five states each", "Default", BuildPickCellStatesTile));
             registry.Register(new GalleryTile("Kit", "Pick grid — module slots & beacon row", "Default", BuildPickGridTile));
             registry.Register(new GalleryTile("Kit", "Pick cell & Pick grid (150%)", "150%", BuildPickCompositesScaledTile));
+            registry.Register(new GalleryTile("Kit", "Chooser cell — five states", "Default", BuildChooserCellStatesTile));
+            registry.Register(new GalleryTile("Kit", "Chooser grid — search results, two headings", "Default", BuildChooserGridTile));
+            registry.Register(new GalleryTile("Kit", "Chooser cell & Chooser grid (150%)", "150%", BuildChooserCompositesScaledTile));
             return registry;
         }
 
@@ -1340,6 +1343,74 @@ namespace Foreman.Mac.Views {
 
             container.Children.Add(BuildPickCellStatesTile());
             container.Children.Add(BuildPickGridTile());
+            return container;
+        }
+
+        private static ChooserCell KitChooserCell(bool selected = false, IImage? icon = null, string? name = null) => new() {
+            Theme = KitTheme("Kit.ChooserCell"), IsSelected = selected, Icon = icon, Label = name, FullName = name,
+        };
+
+        //Addendum §04 state grid: Normal / Hover / Selected / Selected+focused / Disabled.
+        private static StackPanel BuildChooserCellStatesTile() {
+            IImage art = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue));
+
+            ChooserCell Cell(bool selected) => KitChooserCell(selected: selected, icon: art, name: "Assembling machine 3");
+            ChooserCell normal = Cell(false);
+            ChooserCell hover = Cell(false);
+            hover.Classes.Add("gallery-hover");
+            ChooserCell selected = Cell(true);
+            ChooserCell selectedFocused = Cell(true);
+            selectedFocused.TemplateApplied += (_, _) => FocusRing.SetShowAlways(selectedFocused, true);
+            ChooserCell disabled = Cell(false);
+            disabled.IsEnabled = false;
+
+            var row = new StackPanel {
+                Orientation = Orientation.Horizontal,
+                Spacing = 12,
+                Children = { normal, hover, selected, selectedFocused, disabled },
+            };
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("Normal · Hover · Selected · Selected+focused · Disabled", "caption", "tertiary"), row },
+            };
+        }
+
+        //Two "Group · Subgroup" headings, matching the addendum's own search-results figure.
+        private static StackPanel BuildChooserGridTile() {
+            IImage plate = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue));
+            IImage smelted = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Warning", Colors.Orange));
+
+            var smelting = new ChooserSection { Group = "Production", Subgroup = "Smelting" };
+            smelting.Items.Add(new ChooserItem { Icon = plate, Name = "Iron plate" });
+            smelting.Items.Add(new ChooserItem { Icon = plate, Name = "Copper plate" });
+            smelting.Items.Add(new ChooserItem { Icon = plate, Name = "Steel plate" });
+
+            var metallurgy = new ChooserSection { Group = "Production", Subgroup = "Metallurgy" };
+            metallurgy.Items.Add(new ChooserItem { Icon = smelted, Name = "Casting iron plate" });
+            metallurgy.Items.Add(new ChooserItem { Icon = smelted, Name = "Molten iron from lava" });
+
+            var grid = new ChooserGrid { Theme = KitTheme("Kit.ChooserGrid"), Width = 360, Height = 260, Query = "plate" };
+            grid.Sections.Add(smelting);
+            grid.Sections.Add(metallurgy);
+            grid.SelectedItem = smelting.Items[0];
+
+            return new StackPanel { Spacing = 8, Children = { KitText("Chooser grid", "caption", "tertiary"), grid } };
+        }
+
+        private static readonly string[] ChooserCompositesScaledSizeKeys = [
+            "Foreman.Size.ChooserCell", "Foreman.Size.BrowserCell", "Foreman.Size.BrowserCellLabelHeight",
+            "Foreman.Type.Caption.FontSize", "Foreman.Type.SectionHeader.FontSize",
+        ];
+
+        private static StackPanel BuildChooserCompositesScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in ChooserCompositesScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildChooserCellStatesTile());
+            container.Children.Add(BuildChooserGridTile());
             return container;
         }
 

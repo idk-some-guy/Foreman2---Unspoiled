@@ -125,7 +125,9 @@ namespace Foreman.Mac.UiTests.Views {
                  "Inspector group — expanded, collapsed, hovered, focused", "Split divider — rest, hovered, dragging, focused",
                  "Inspector group & Split divider (150%)",
                  "Pick cell — filled and empty, five states each", "Pick grid — module slots & beacon row",
-                 "Pick cell & Pick grid (150%)"],
+                 "Pick cell & Pick grid (150%)",
+                 "Chooser cell — five states", "Chooser grid — search results, two headings",
+                 "Chooser cell & Chooser grid (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -945,6 +947,47 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Equal(39, gridCell.Bounds.Width);
             Assert.Equal(new Thickness(2.5), gridCell.Margin);
+        }
+
+        [AvaloniaFact]
+        public void ChooserCellStatesTile_ShowsFiveStates() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Chooser cell — five states");
+            ChooserCell[] cells = [.. tile.GetVisualDescendants().OfType<ChooserCell>()];
+
+            Assert.Equal(5, cells.Length);
+            Assert.All(cells, c => Assert.NotNull(c.Icon));
+            Assert.Contains(cells, c => c.IsSelected);
+            Assert.Contains(cells, c => c.Classes.Contains("gallery-hover"));
+            Assert.Contains(cells, c => !c.IsEnabled);
+        }
+
+        [AvaloniaFact]
+        public void ChooserGridTile_ShowsTwoSearchResultHeadings() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Chooser grid — search results, two headings");
+            ChooserGrid grid = tile.GetVisualDescendants().OfType<ChooserGrid>().Single();
+
+            Assert.Equal(2, grid.Sections.Count);
+            Assert.Equal(5, grid.GetVisualDescendants().OfType<ChooserCell>().Count());
+        }
+
+        [AvaloniaFact]
+        public void ChooserCompositesScaledTile_CellScalesToOneHundredThirtyTwo() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Chooser cell & Chooser grid (150%)");
+            ChooserCell cell = tile.GetVisualDescendants().OfType<ChooserCell>().First();
+
+            Assert.Equal(132, cell.Bounds.Width);
         }
     }
 }
