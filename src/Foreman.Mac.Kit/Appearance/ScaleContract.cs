@@ -45,6 +45,7 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.BrowserCellRowHeight",
             "Foreman.Size.BrowserCellLabelHeight",
             "Foreman.Size.FormLabelColumn",
+            "Foreman.Size.FormLabelColumnInspector",
             "Foreman.Size.ToolbarItem",
             "Foreman.Size.ToolbarItemWidth",
             "Foreman.Size.ToolbarItemHeight",

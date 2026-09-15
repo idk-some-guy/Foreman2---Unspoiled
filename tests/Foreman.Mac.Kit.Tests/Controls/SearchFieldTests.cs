@@ -16,6 +16,7 @@ using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
 using System.Linq;
 using Xunit;
+using Spinner = Foreman.Mac.Kit.Controls.Spinner;
 
 namespace Foreman.Mac.Kit.Tests.Controls {
     public sealed class SearchFieldTests {
@@ -261,6 +262,100 @@ namespace Foreman.Mac.Kit.Tests.Controls {
                 new Point(field.Bounds.Width - 10, field.Bounds.Height / 2));
 
             Assert.NotEqual(field.SelectionStart, field.SelectionEnd);
+        }
+
+        private static Viewbox LeadingGlyphBox(SearchField field) =>
+            field.GetVisualDescendants().OfType<Viewbox>().Single(v => v.Name == "PART_LeadingGlyphBox");
+
+        private static Spinner LoadingSpinner(SearchField field) =>
+            field.GetVisualDescendants().OfType<Spinner>().Single(s => s.Name == "PART_LoadingSpinner");
+
+        [AvaloniaFact]
+        public void IsLoading_DoesNotSwapDuringTheGracePeriod() {
+            using var fixture = new KitFixture();
+            SearchField field = Themed();
+            fixture.Window.Content = field;
+            Dispatcher.UIThread.RunJobs();
+
+            field.IsLoading = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(LeadingGlyphBox(field).IsVisible);
+            Assert.False(LoadingSpinner(field).IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void IsLoading_SwapsToAnEighteenPointSpinnerAfterTheStatePanelDelay() {
+            using var fixture = new KitFixture();
+            SearchField field = Themed();
+            fixture.Window.Content = field;
+            Dispatcher.UIThread.RunJobs();
+
+            field.IsLoading = true;
+            AnimationClock.Settle(450);
+
+            Assert.False(LeadingGlyphBox(field).IsVisible);
+            Spinner spinner = LoadingSpinner(field);
+            Assert.True(spinner.IsVisible);
+
+            Application.Current!.TryGetResource("Foreman.Size.Spinner", Application.Current.ActualThemeVariant, out object? size);
+            Assert.Equal(Assert.IsType<double>(size), spinner.Diameter);
+        }
+
+        [AvaloniaFact]
+        public void NonLoadingField_SpinnerCarriesNoAnimatingClass() {
+            using var fixture = new KitFixture();
+            SearchField field = Themed();
+            fixture.Window.Content = field;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.DoesNotContain("animating", LoadingSpinner(field).Classes);
+        }
+
+        [AvaloniaFact]
+        public void NonLoadingField_SpinnerDoesNotRegainTheAnimatingClassAfterReattach() {
+            using var fixture = new KitFixture();
+            SearchField field = Themed();
+            fixture.Window.Content = field;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.Window.Content = null;
+            Dispatcher.UIThread.RunJobs();
+            fixture.Window.Content = field;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.DoesNotContain("animating", LoadingSpinner(field).Classes);
+        }
+
+        [AvaloniaFact]
+        public void LoadingField_SpinnerCarriesTheAnimatingClassOnlyAfterTheGracePeriod() {
+            using var fixture = new KitFixture();
+            SearchField field = Themed();
+            fixture.Window.Content = field;
+            Dispatcher.UIThread.RunJobs();
+
+            field.IsLoading = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.DoesNotContain("animating", LoadingSpinner(field).Classes);
+
+            AnimationClock.Settle(450);
+            Assert.Contains("animating", LoadingSpinner(field).Classes);
+        }
+
+        [AvaloniaFact]
+        public void IsLoading_SetFalseBeforeTheGracePeriod_NeverSwaps() {
+            using var fixture = new KitFixture();
+            SearchField field = Themed();
+            fixture.Window.Content = field;
+            Dispatcher.UIThread.RunJobs();
+
+            field.IsLoading = true;
+            Dispatcher.UIThread.RunJobs();
+            field.IsLoading = false;
+            AnimationClock.Settle(450);
+
+            Assert.True(LeadingGlyphBox(field).IsVisible);
+            Assert.False(LoadingSpinner(field).IsVisible);
         }
 
         private sealed class RelayCommand(System.Action execute) : System.Windows.Input.ICommand {

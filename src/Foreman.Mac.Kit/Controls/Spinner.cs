@@ -31,13 +31,19 @@ namespace Foreman.Mac.Kit.Controls {
             RotationDuration = Motion.ReduceMotion ? Motion.SpinnerReducedMotionDuration : Motion.SpinnerDuration;
             Classes.Set("reduce-motion", Motion.ReduceMotion);
             //A detached keyframe animation completes for good, so the selector has to re-match to restart it.
-            Classes.Set("animating", true);
+            Classes.Set("animating", IsVisible);
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
             Classes.Set("animating", false);
             Unsubscribe();
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
+            base.OnPropertyChanged(change);
+            if (change.Property == IsVisibleProperty)
+                Classes.Set("animating", change.GetNewValue<bool>());
         }
 
         private void Subscribe() {

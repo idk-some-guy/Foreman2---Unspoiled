@@ -31,7 +31,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         private static Ellipse Track(Spinner spinner) =>
             spinner.GetVisualDescendants().OfType<Ellipse>().Single(el => el.Name == "PART_Track");
 
-        private static Arc Head(Spinner spinner) =>
+        internal static Arc Head(Spinner spinner) =>
             spinner.GetVisualDescendants().OfType<Arc>().Single(a => a.Name == "PART_Head");
 
         private static Style HeadStyle(ControlTheme theme, bool reducedMotion) =>
@@ -186,6 +186,22 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void HiddenAtAttach_GainsTheAnimatingClass_WhenShownLater() {
+            using var fixture = new KitFixture();
+            Spinner spinner = Themed();
+            spinner.IsVisible = false;
+            fixture.Window.Content = spinner;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.DoesNotContain("animating", spinner.Classes);
+
+            spinner.IsVisible = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Contains("animating", spinner.Classes);
+        }
+
+        [AvaloniaFact]
         public void Detach_UnsubscribesFromResourceObservables() {
             using var fixture = new KitFixture();
             Spinner spinner = Themed();
@@ -210,10 +226,10 @@ namespace Foreman.Mac.Kit.Tests.Controls {
     public class SpinnerScaleTests {
         [AvaloniaTheory]
         [InlineData(0)]
-        [InlineData(200)]
-        [InlineData(400)]
-        [InlineData(600)]
-        public void HeadCurve_StaysOnTheTracksCircleAtOneAndAHalfTimesScale(int elapsedMs) {
+        [InlineData(90)]
+        [InlineData(180)]
+        [InlineData(270)]
+        public void HeadCurve_StaysOnTheTracksCircleAtOneAndAHalfTimesScale(double angle) {
             using var fixture = new KitFixture();
             Assert.True(Application.Current!.TryGetResource("Kit.Spinner", null, out object? theme));
             var spinner = new Spinner { Theme = (ControlTheme)theme! };
@@ -221,8 +237,11 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Dispatcher.UIThread.RunJobs();
             ScaleContract.Apply(1.5);
             Dispatcher.UIThread.RunJobs();
-            if (elapsedMs > 0)
-                AnimationClock.Settle(elapsedMs);
+
+            var group = Assert.IsType<TransformGroup>(SpinnerTests.Head(spinner).RenderTransform);
+            var rotate = Assert.Single(group.Children.OfType<RotateTransform>());
+            rotate.SetCurrentValue(RotateTransform.AngleProperty, angle);
+            Dispatcher.UIThread.RunJobs();
 
             SpinnerTests.AssertHeadStaysInsideTheSpinner(spinner);
         }

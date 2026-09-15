@@ -15,6 +15,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
@@ -118,7 +119,9 @@ namespace Foreman.Mac.UiTests.Views {
                  "List rows", "Sidebar rows", "Group box", "Tab strips", "Disclosure",
                  "List rows, Sidebar rows, Group box, Tab strips & Disclosure (150%)",
                  "Tooltip", "Spinner & progress", "Chips", "Key caps",
-                 "Tooltip, Spinner & progress, Chips & Key caps (150%)"],
+                 "Tooltip, Spinner & progress, Chips & Key caps (150%)",
+                 "Form group (boxed, 132)", "Form rows (inspector, 108)", "Form row notes & errors",
+                 "Form row — search field & chip row", "Form group & Form rows (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -762,6 +765,88 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains(caps, c => c.Text == "⌘" && c.AccessibleName == "Command");
             Assert.Contains(caps, c => c.Text == "Return");
             Assert.All(caps, c => Assert.False(c.Focusable));
+        }
+
+        [AvaloniaFact]
+        public void FormGroupBoxedTile_ShowsABoxedGroupWithFiveRowsAtTheWindowLabelColumn() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form group (boxed, 132)");
+            FormGroup group = tile.GetVisualDescendants().OfType<FormGroup>().Single();
+            Assert.True(group.IsBoxed);
+            Assert.Equal("Canvas", group.Title);
+
+            FormRow[] rows = [.. tile.GetVisualDescendants().OfType<FormRow>()];
+            Assert.Equal(5, rows.Length);
+            Assert.All(rows, r => Assert.False(r.IsInspector));
+            Assert.Contains(rows, r => r.Label == "Node width");
+            Assert.Contains(rows, r => r.Label == "Link width" && !string.IsNullOrEmpty(r.Note));
+        }
+
+        [AvaloniaFact]
+        public void FormRowsInspectorTile_ShowsFourRowsAtTheInspectorLabelColumn() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form rows (inspector, 108)");
+            FormRow[] rows = [.. tile.GetVisualDescendants().OfType<FormRow>()];
+
+            Assert.Equal(4, rows.Length);
+            Assert.All(rows, r => Assert.True(r.IsInspector));
+            Assert.Contains(rows, r => r.Label == "Quality");
+            Assert.Contains(rows, r => r.Label == "Rate");
+        }
+
+        [AvaloniaFact]
+        public void FormRowNotesAndErrorsTile_ShowsANoteRowAndAnErrorRow() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form row notes & errors");
+            FormRow[] rows = [.. tile.GetVisualDescendants().OfType<FormRow>()];
+
+            Assert.Contains(rows, r => r.Label == "Assembler" && r.Note == "Used for every new node until you change it.");
+            Assert.Contains(rows, r => r.Label == "Beacon count" && r.Error == "Must be 0 or more.");
+            Assert.Contains(rows, r => r.Label == "Belt overlays");
+        }
+
+        [AvaloniaFact]
+        public void FormRowSearchAndChipTile_ShowsALoadingSearchFieldAndAChipRow() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form row — search field & chip row");
+
+            SearchField[] fields = [.. tile.GetVisualDescendants().OfType<SearchField>()];
+            Assert.Contains(fields, f => f.IsLoading);
+
+            Chip[] chips = [.. tile.GetVisualDescendants().OfType<Chip>()];
+            Assert.Equal(2, chips.Length);
+            Assert.Contains(chips, c => c.Label == "Iron plate");
+            Assert.Contains(chips, c => c.Label == "Copper plate");
+        }
+
+        [AvaloniaFact]
+        public void FormCompositesScaledTile_LabelColumnsResolveTo198And162() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form group & Form rows (150%)");
+            FormRow[] rows = [.. tile.GetVisualDescendants().OfType<FormRow>()];
+
+            FormRow windowShaped = rows.First(r => !r.IsInspector);
+            FormRow inspectorShaped = rows.First(r => r.IsInspector);
+
+            Grid windowGrid = windowShaped.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Grid");
+            Grid inspectorGrid = inspectorShaped.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Grid");
+            Assert.Equal(198, windowGrid.ColumnDefinitions[0].Width.Value);
+            Assert.Equal(162, inspectorGrid.ColumnDefinitions[0].Width.Value);
         }
     }
 }

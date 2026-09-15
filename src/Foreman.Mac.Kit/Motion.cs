@@ -37,6 +37,7 @@ namespace Foreman.Mac.Kit {
         public static readonly TimeSpan TooltipDelay = TimeSpan.FromMilliseconds(800);
         public static readonly TimeSpan TooltipWarmWindow = TimeSpan.FromMilliseconds(500);
         public static readonly TimeSpan IndeterminateProgressDuration = TimeSpan.FromSeconds(1.2);
+        public static readonly TimeSpan StatePanelDelay = TimeSpan.FromMilliseconds(400);
 
         //Set by AppearanceHub from the platform's Reduce Motion flag; an already-open site only picks up a
         //live change if it re-pushes its own Transitions on RefreshTheme (SheetHost and RadialMenu do).
@@ -48,6 +49,8 @@ namespace Foreman.Mac.Kit {
         public static Transitions SliderThumbSizeTransitions => Transition(TransitionKind.Size, HoverDuration);
         public static Transitions SearchFieldClearTransitions => Transition(TransitionKind.Fade, HoverDuration);
         public static Transitions DisclosureTransitions => Transition(TransitionKind.Scale, DisclosureDuration);
+        public static Transitions FormRowReflowTransitions => Transition(TransitionKind.Reflow, InspectorReflowDuration);
+        public static Transitions FormRowCrossFadeTransitions => Transition(TransitionKind.CrossFade, TabLabelCrossFadeDuration);
 
         //Row selection/hover and tab fill cross-fade via opacity over snap-set overlay colors.
         public static Transitions RowSelectionTransitions => Transition(TransitionKind.CrossFade, HoverDuration);

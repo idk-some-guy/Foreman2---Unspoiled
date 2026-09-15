@@ -36,6 +36,8 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/ProgressBar.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Chip.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/KeyCap.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/FormRow.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/FormGroup.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

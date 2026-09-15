@@ -12,6 +12,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Gallery;
 using Foreman.Mac.Services;
@@ -157,6 +158,11 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Chips", "Default", BuildChipsTile));
             registry.Register(new GalleryTile("Kit", "Key caps", "Default", BuildKeyCapsTile));
             registry.Register(new GalleryTile("Kit", "Tooltip, Spinner & progress, Chips & Key caps (150%)", "150%", BuildFeedbackScaledTile));
+            registry.Register(new GalleryTile("Kit", "Form group (boxed, 132)", "Default", BuildFormGroupBoxedTile));
+            registry.Register(new GalleryTile("Kit", "Form rows (inspector, 108)", "Default", BuildFormRowsInspectorTile));
+            registry.Register(new GalleryTile("Kit", "Form row notes & errors", "Default", BuildFormRowNotesAndErrorsTile));
+            registry.Register(new GalleryTile("Kit", "Form row — search field & chip row", "Default", BuildFormRowSearchAndChipTile));
+            registry.Register(new GalleryTile("Kit", "Form group & Form rows (150%)", "150%", BuildFormCompositesScaledTile));
             return registry;
         }
 
@@ -1032,6 +1038,129 @@ namespace Foreman.Mac.Views {
             container.Children.Add(BuildSpinnerAndProgressTile());
             container.Children.Add(BuildChipsTile());
             container.Children.Add(BuildKeyCapsTile());
+            return container;
+        }
+
+        private static FormRow KitFormRow(string label, Control content, bool inspector = false, string? note = null, string? error = null) {
+            var row = new FormRow { Theme = KitTheme("Kit.FormRow"), Label = label, Content = content, IsInspector = inspector };
+            if (note is not null)
+                row.Note = note;
+            if (error is not null)
+                row.Error = error;
+            return row;
+        }
+
+        private static FormGroup KitFormGroup(string title, bool boxed, params FormRow[] rows) {
+            var group = new FormGroup { Theme = KitTheme("Kit.FormGroup"), Title = title, IsBoxed = boxed };
+            foreach (FormRow row in rows)
+                group.Items.Add(row);
+            return group;
+        }
+
+        //Settings shape (contract §01): a boxed group at the 132 pt window label column.
+        private static FormGroup BuildFormGroupBoxedTile() {
+            FormRow direction = KitFormRow("Default node direction", KitSegmented("Up", "Down"));
+            FormRow width = KitFormRow("Node width", KitStepper(140, "pt"));
+
+            var opacityRow = new StackPanel {
+                Orientation = Orientation.Horizontal, Spacing = 8,
+                Children = { KitSlider(), KitText("72 %", "callout", "secondary") },
+            };
+            FormRow opacity = KitFormRow("Link opacity", opacityRow);
+
+            FormRow smart = KitFormRow("Smart direction", new Switch { Theme = KitTheme("Kit.Switch"), IsChecked = true });
+
+            var scaleCheckbox = new CheckBox { Theme = KitTheme("Kit.CheckBox"), Content = "Scale link width by throughput" };
+            FormRow linkWidth = KitFormRow("Link width", scaleCheckbox, note: "Off by default. Wide graphs read faster without it.");
+
+            return KitFormGroup("Canvas", true, direction, width, opacity, smart, linkWidth);
+        }
+
+        //Inspector shape (contract §01): plain rows (no well) at the 108 pt sidebar label column.
+        private static StackPanel BuildFormRowsInspectorTile() {
+            FormRow quality = KitFormRow("Quality", KitPopUp(false, "Normal", "High", "Ultra"), inspector: true);
+            FormRow rate = KitFormRow("Rate", KitStepper(12.5, "/s"), inspector: true);
+            FormRow keyNode = KitFormRow("Key node", new CheckBox { Theme = KitTheme("Kit.CheckBox") }, inspector: true);
+            FormRow lowPriority = KitFormRow("Low priority", new CheckBox { Theme = KitTheme("Kit.CheckBox") }, inspector: true);
+
+            var stack = new StackPanel { Width = 276, Spacing = 8, Children = { quality, rate, keyNode, lowPriority } };
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("Inspector shape, 108 pt label column", "caption", "tertiary"), stack },
+            };
+        }
+
+        private static StackPanel BuildFormRowNotesAndErrorsTile() {
+            FormRow assembler = KitFormRow("Assembler", KitTextField("Assembling machine 3"),
+                note: "Used for every new node until you change it.");
+
+            FormRow beaconCount = KitFormRow("Beacon count", KitTextField("−2"), error: "Must be 0 or more.");
+
+            var relatedChecks = new StackPanel {
+                Spacing = 6,
+                Children = {
+                    new CheckBox { Theme = KitTheme("Kit.CheckBox"), Content = "Show belt direction arrows" },
+                    new CheckBox { Theme = KitTheme("Kit.CheckBox"), Content = "Show throughput badges", IsChecked = true },
+                },
+            };
+            FormRow grouped = KitFormRow("Belt overlays", relatedChecks);
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = {
+                    KitText("Note", "caption", "tertiary"), assembler,
+                    KitText("Error", "caption", "tertiary"), beaconCount,
+                    KitText("Checkbox-row grouping", "caption", "tertiary"), grouped,
+                },
+            };
+        }
+
+        //Closes the two K2 deferrals this task owns: SearchField's loading spinner slot and Chip's owner-handoff contract.
+        private static StackPanel BuildFormRowSearchAndChipTile() {
+            SearchField loading = KitSearchField();
+            loading.IsLoading = true;
+            FormRow searchRow = KitFormRow("Search", loading);
+
+            Chip iron = KitChip("Iron plate");
+            Chip copper = KitChip("Copper plate");
+            var chipOwner = KitText("Filters (owner)", "caption", "tertiary");
+            ChipHost.SetFocusFallback(iron, chipOwner);
+            ChipHost.SetFocusFallback(copper, chipOwner);
+            var chipRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { iron, copper } };
+            FormRow filters = KitFormRow("Filters", chipRow);
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = {
+                    KitText("Search field — loading state", "caption", "tertiary"), searchRow,
+                    chipOwner, filters,
+                },
+            };
+        }
+
+        private static readonly string[] FormCompositesScaledSizeKeys = [
+            "Foreman.Size.FormLabelColumn", "Foreman.Size.FormLabelColumnInspector", "Foreman.Size.ControlHeightRegular",
+            "Foreman.Type.Callout.FontSize", "Foreman.Type.Caption.FontSize", "Foreman.Type.SectionHeader.FontSize",
+            "Foreman.Size.StepperFieldWidth", "Foreman.Size.StepperArrowColumn",
+            "Foreman.Size.SliderTrack", "Foreman.Size.SliderThumbNormal", "Foreman.Size.SliderHeight",
+            "Foreman.Size.SwitchWidth", "Foreman.Size.SwitchHeight", "Foreman.Size.SwitchKnob",
+            "Foreman.Size.CheckBox", "Foreman.Size.CheckGlyph", "Foreman.Size.PopUpIndicator",
+            "Foreman.Metrics.TextFieldMinWidth", "Foreman.Metrics.SearchFieldMinWidth", "Foreman.Metrics.SearchFieldNaturalWidth",
+            "Foreman.Size.SearchFieldGlyph", "Foreman.Size.Spinner", "Foreman.Size.SpinnerStroke",
+            "Foreman.Size.ChipHeight", "Foreman.Size.ChipCloseBox", "Foreman.Size.ChipGap",
+            "Foreman.Metrics.GroupBoxMaxWidth",
+        ];
+
+        private static StackPanel BuildFormCompositesScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in FormCompositesScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildFormGroupBoxedTile());
+            container.Children.Add(BuildFormRowsInspectorTile());
+            container.Children.Add(BuildFormRowNotesAndErrorsTile());
+            container.Children.Add(BuildFormRowSearchAndChipTile());
             return container;
         }
 

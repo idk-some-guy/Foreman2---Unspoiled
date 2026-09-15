@@ -113,6 +113,7 @@
   <x:Double x:Key="Foreman.Size.ControlHeightLarge">24</x:Double>
   <x:Double x:Key="Foreman.Size.PickCell">26</x:Double>
   <x:Double x:Key="Foreman.Size.FormLabelColumn">132</x:Double>
+  <x:Double x:Key="Foreman.Size.FormLabelColumnInspector">108</x:Double>
   <x:Double x:Key="Foreman.Size.ToolbarItem">26</x:Double>
   <x:Double x:Key="Foreman.Size.ToolbarItemWidth">44</x:Double>
   <x:Double x:Key="Foreman.Size.ToolbarItemHeight">40</x:Double>
@@ -253,7 +254,7 @@
 
   <!-- Group box (kit mock §04 form grammar): well-backed inset form row container. -->
   <x:Double x:Key="Foreman.Metrics.GroupBoxMaxWidth">420</x:Double>
-  <Thickness x:Key="Foreman.Thickness.GroupBoxPadding">16,2</Thickness>
+  <Thickness x:Key="Foreman.Thickness.GroupBoxPadding">12,14</Thickness>
   <Thickness x:Key="Foreman.Thickness.GroupBoxTitleMargin">0,11,0,5</Thickness>
 
   <!-- Tab strip (addendum §05): .toolbar-tabs item bounds and its own label size step; .underline's own padding/radius. -->

@@ -158,6 +158,78 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void Removal_WithNoNextChip_FocusesTheOwnerViaChipHostFocusFallback() {
+            using var fixture = new KitFixture();
+            Chip only = Themed("Assembling machine");
+            var fallback = new Button();
+            ChipHost.SetFocusFallback(only, fallback);
+            var panel = new StackPanel { Children = { only } };
+            var host = new StackPanel { Children = { fallback, panel } };
+            fixture.Window.Content = host;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.StateOf(only).Focus();
+            fixture.StateOf(only).KeyDown(Key.Delete);
+
+            Assert.True(fallback.IsFocused);
+        }
+
+        [AvaloniaFact]
+        public void Removal_OfTheLastChipInAThreeChipRow_FallsBackToThePreviousChip() {
+            using var fixture = new KitFixture();
+            Chip first = Themed("Assembling machine");
+            Chip second = Themed("Electric furnace");
+            Chip third = Themed("Chemical plant");
+            var fallback = new Button();
+            ChipHost.SetFocusFallback(third, fallback);
+            var panel = new StackPanel { Children = { first, second, third } };
+            var host = new StackPanel { Children = { fallback, panel } };
+            fixture.Window.Content = host;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.StateOf(third).Focus();
+            fixture.StateOf(third).KeyDown(Key.Delete);
+
+            Assert.True(second.IsFocused);
+            Assert.False(fallback.IsFocused);
+        }
+
+        [AvaloniaFact]
+        public void Removal_OfTheMiddleChipInAThreeChipRow_PrefersTheNextChipOverThePrevious() {
+            using var fixture = new KitFixture();
+            Chip first = Themed("Assembling machine");
+            Chip second = Themed("Electric furnace");
+            Chip third = Themed("Chemical plant");
+            var panel = new StackPanel { Children = { first, second, third } };
+            fixture.Window.Content = panel;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.StateOf(second).Focus();
+            fixture.StateOf(second).KeyDown(Key.Delete);
+
+            Assert.True(third.IsFocused);
+        }
+
+        [AvaloniaFact]
+        public void Removal_WithANextChip_PrefersTheNextChipOverTheFallback() {
+            using var fixture = new KitFixture();
+            Chip first = Themed("Assembling machine");
+            Chip second = Themed("Electric furnace");
+            var fallback = new Button();
+            ChipHost.SetFocusFallback(first, fallback);
+            var panel = new StackPanel { Children = { first, second } };
+            var host = new StackPanel { Children = { fallback, panel } };
+            fixture.Window.Content = host;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.StateOf(first).Focus();
+            fixture.StateOf(first).KeyDown(Key.Delete);
+
+            Assert.True(second.IsFocused);
+            Assert.False(fallback.IsFocused);
+        }
+
+        [AvaloniaFact]
         public void Chip_IsFocusable() {
             using var fixture = new KitFixture();
             Chip chip = Themed("Assembling machine");

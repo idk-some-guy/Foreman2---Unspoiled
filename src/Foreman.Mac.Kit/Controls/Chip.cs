@@ -116,11 +116,15 @@ namespace Foreman.Mac.Kit.Controls {
         }
 
         private void Remove() {
-            Chip? next = NextChip();
+            Chip? landing = NextChip() ?? PreviousChip();
+            Control? fallback = landing is null ? ChipHost.GetFocusFallback(this) : null;
             if (RemoveCommand?.CanExecute(null) == true)
                 RemoveCommand.Execute(null);
             Removed?.Invoke(this, EventArgs.Empty);
-            next?.Focus(NavigationMethod.Directional);
+            if (landing is not null)
+                landing.Focus(NavigationMethod.Directional);
+            else
+                fallback?.Focus(NavigationMethod.Directional);
         }
 
         private Chip? NextChip() {
@@ -129,6 +133,14 @@ namespace Foreman.Mac.Kit.Controls {
             List<Chip> chips = [.. panel.Children.OfType<Chip>()];
             int index = chips.IndexOf(this);
             return index < 0 ? null : chips.ElementAtOrDefault(index + 1);
+        }
+
+        private Chip? PreviousChip() {
+            if (Parent is not Panel panel)
+                return null;
+            List<Chip> chips = [.. panel.Children.OfType<Chip>()];
+            int index = chips.IndexOf(this);
+            return index <= 0 ? null : chips[index - 1];
         }
     }
 }

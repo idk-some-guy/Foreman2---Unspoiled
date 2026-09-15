@@ -56,6 +56,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The graph summary, text/shape annotation properties, and confirm/warning/save-before-continuing
   alerts now attach as sheets too.
 - Settings is a non-modal window with toolbar tabs; changes apply as you make them.
+- Kit.FormRow and Kit.FormGroup, the shared label/control-column form layout for Settings and the
+  inspector, land in the gallery ahead of the surfaces that will adopt them. Kit.SearchField gained
+  a loading spinner slot and Kit.Chip a focus-fallback contract for the row that hosts it.
 
 ### Fixed
 
@@ -64,6 +67,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   arrows flush at the control's trailing edge; text and search fields show an accent-soft
   selection highlight when text is selected or dragged; and the spinner's head stays on its track
   through a full rotation instead of swinging off it.
+- Kit.FormRow's error ring now draws outside the control's own box instead of thickening it, so the
+  control column and the content-to-unit gap hold steady whether or not a row is in error. Its
+  label's first line baseline-aligns to the control's own first line, growing the row instead of
+  drawing past it when the label wraps to two lines; the label also focuses the control on click
+  without a hand cursor and names it for VoiceOver, with the note or error read out as its help
+  text. Note and error rows cross-fade, and a row's own height animates off the same clock as it
+  grows or shrinks with the note, error, or content. Kit.Chip falls back to the previous chip before
+  the owning control when the last chip in a row is removed, and Kit.Spinner now tracks its own
+  visibility for the animating class, so Kit.SearchField's loading spinner animates only while
+  actually showing, including after the field is detached and reattached.
 - The stepper's unit-label spacing now tracks the kit's shared glyph-gap token instead of a fixed
   value.
 - The keyboard focus ring on pill-shaped controls (radio buttons, switches) no longer draws

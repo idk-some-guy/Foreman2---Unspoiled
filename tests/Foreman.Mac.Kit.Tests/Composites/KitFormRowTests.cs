@@ -1,0 +1,623 @@
+using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
+using Avalonia.Automation.Peers;
+using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Shapes;
+using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Media.TextFormatting;
+using Avalonia.Styling;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using Foreman.Mac.Kit;
+using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Tests.support;
+using System.Linq;
+using Xunit;
+
+namespace Foreman.Mac.Kit.Tests.Composites {
+    public sealed class KitFormRowTests : System.IDisposable {
+        public void Dispose() => Motion.ReduceMotion = false;
+
+        private static ControlTheme KitFormRowTheme() {
+            Assert.True(Application.Current!.TryGetResource("Kit.FormRow", null, out object? theme));
+            return Assert.IsType<ControlTheme>(theme);
+        }
+
+        private static FormRow Themed(string label, object? content = null) =>
+            new() { Theme = KitFormRowTheme(), Label = label, Content = content ?? new TextBlock { Text = "value" } };
+
+        private static Grid FrameGrid(FormRow row) =>
+            row.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Grid");
+
+        private static TextBlock LabelText(FormRow row) =>
+            row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Label");
+
+        private static Border ControlBorder(FormRow row) =>
+            row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_ControlBorder");
+
+        private static Panel ControlHost(FormRow row) =>
+            row.GetVisualDescendants().OfType<Panel>().Single(p => p.Name == "PART_ControlHost");
+
+        [AvaloniaFact]
+        public void KitFormRow_IsAControlThemeTargetingFormRow() {
+            using var fixture = new KitFixture();
+            Assert.Equal(typeof(FormRow), KitFormRowTheme().TargetType);
+        }
+
+        [AvaloniaFact]
+        public void ColumnWidths_WindowShape_AreLabel132Gutter12Star() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Node width");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Grid grid = FrameGrid(row);
+            Assert.Equal(132, grid.ColumnDefinitions[0].Width.Value);
+            Assert.Equal(12, grid.ColumnDefinitions[1].Width.Value);
+            Assert.True(grid.ColumnDefinitions[2].Width.IsStar);
+        }
+
+        [AvaloniaFact]
+        public void ColumnWidths_InspectorShape_SwapsLabelTo108() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Quality");
+            row.IsInspector = true;
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Grid grid = FrameGrid(row);
+            Assert.Equal(108, grid.ColumnDefinitions[0].Width.Value);
+        }
+
+        [AvaloniaFact]
+        public void Label_IsRightAlignedWrappingNoTrim() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Default node direction");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock label = LabelText(row);
+            Assert.Equal(HorizontalAlignment.Right, label.HorizontalAlignment);
+            Assert.Equal(TextWrapping.Wrap, label.TextWrapping);
+            Assert.Equal(TextTrimming.None, label.TextTrimming);
+            Assert.Equal("Default node direction", label.Text);
+        }
+
+        [AvaloniaFact]
+        public void Label_BaselineAlignsToTheControlsFirstLine_ForASingleLineControl() {
+            using var fixture = new KitFixture();
+            var content = new Border { Width = 80, Height = 22 };
+            FormRow row = Themed("Node width", content);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock label = LabelText(row);
+            Border controlBorder = ControlBorder(row);
+
+            TextLine labelLine = label.TextLayout!.TextLines[0];
+            double expectedLocal = (controlBorder.Bounds.Height - labelLine.Height) / 2 + labelLine.Baseline;
+            double expectedY = controlBorder.TranslatePoint(new Point(0, expectedLocal), fixture.Window)!.Value.Y;
+            double labelBaselineY = label.TranslatePoint(new Point(0, labelLine.Baseline), fixture.Window)!.Value.Y;
+
+            Assert.Equal(expectedY, labelBaselineY, 2);
+        }
+
+        [AvaloniaFact]
+        public void Label_BaselineTracksTheContentsOwnArrangedHeight_NotTheFixedRowMinHeight() {
+            using var fixture = new KitFixture();
+            var shortContent = new Border { Width = 80, Height = 22 };
+            var tallContent = new Border { Width = 80, Height = 26 };
+            FormRow shortRow = Themed("Node width", shortContent);
+            FormRow tallRow = Themed("Node width", tallContent);
+            var stack = new StackPanel { Children = { shortRow, tallRow } };
+            fixture.Window.Content = stack;
+            Dispatcher.UIThread.RunJobs();
+
+            double shortOffset = Assert.IsType<TranslateTransform>(LabelText(shortRow).RenderTransform).Y;
+            double tallOffset = Assert.IsType<TranslateTransform>(LabelText(tallRow).RenderTransform).Y;
+
+            Assert.Equal((tallContent.Height - shortContent.Height) / 2, tallOffset - shortOffset, 2);
+        }
+
+        [AvaloniaFact]
+        public void Label_BaselineAlignsToTheControlsFirstLine_ForAMultilineTextBox() {
+            using var fixture = new KitFixture();
+            var content = new TextBox { AcceptsReturn = true, Height = 80, Text = "line one\nline two\nline three" };
+            FormRow row = Themed("Node width", content);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock label = LabelText(row);
+            TextPresenter presenter = content.GetVisualDescendants().OfType<TextPresenter>().Single();
+
+            double labelBaselineY = label.TranslatePoint(new Point(0, label.TextLayout!.TextLines[0].Baseline), fixture.Window)!.Value.Y;
+            double presenterFirstLineBaselineY = presenter.TranslatePoint(new Point(0, presenter.TextLayout!.TextLines[0].Baseline), fixture.Window)!.Value.Y;
+            Assert.Equal(presenterFirstLineBaselineY, labelBaselineY, 2);
+
+            double controlCenterY = content.TranslatePoint(new Point(0, content.Bounds.Height / 2), fixture.Window)!.Value.Y;
+            Assert.True(labelBaselineY < controlCenterY - 5,
+                $"label baseline {labelBaselineY} should sit near the control's first line, well above its center {controlCenterY}");
+        }
+
+        [AvaloniaFact]
+        public void Label_WhenItWrapsToTwoLines_AlignsItsFirstLineToTheControl_NotClampedToTheRowTop() {
+            using var fixture = new KitFixture();
+            var content = new Border { Width = 80, Height = 22 };
+            FormRow row = Themed("A label long enough to wrap across two full lines at the window label column width", content);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock label = LabelText(row);
+            Assert.True(label.TextLayout!.TextLines.Count >= 2, "the label needs to actually wrap for this test to be meaningful");
+            Assert.IsType<TranslateTransform>(label.RenderTransform);
+
+            Border controlBorder = ControlBorder(row);
+            TextLine labelLine = label.TextLayout!.TextLines[0];
+            double expectedLocal = (controlBorder.Bounds.Height - labelLine.Height) / 2 + labelLine.Baseline;
+            double expectedY = controlBorder.TranslatePoint(new Point(0, expectedLocal), fixture.Window)!.Value.Y;
+            double labelBaselineY = label.TranslatePoint(new Point(0, labelLine.Baseline), fixture.Window)!.Value.Y;
+
+            Assert.Equal(expectedY, labelBaselineY, 2);
+        }
+
+        [AvaloniaTheory]
+        [InlineData(22)]
+        [InlineData(26)]
+        public void Label_WhenItWraps_ItsTranslatedBottomStaysInsideTheRowsBounds(double contentHeight) {
+            using var fixture = new KitFixture();
+            var content = new Border { Width = 80, Height = contentHeight };
+            FormRow row = Themed("A label long enough to wrap across two full lines at the window label column width", content);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock label = LabelText(row);
+            Assert.True(label.TextLayout!.TextLines.Count >= 2, "the label needs to actually wrap for this test to be meaningful");
+
+            double offset = Assert.IsType<TranslateTransform>(label.RenderTransform).Y;
+            double labelBottom = label.Bounds.Y + offset + label.Bounds.Height;
+
+            Assert.True(labelBottom <= row.Bounds.Height + 0.5,
+                $"label's translated bottom {labelBottom} escaped the row's bounds {row.Bounds.Height}");
+        }
+
+        [AvaloniaFact]
+        public void DefaultState_ControlBorderIsTransparentAndNoOtherBorderHasABrush() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Node width");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Border controlBorder = ControlBorder(row);
+            Assert.Equal(Colors.Transparent, Assert.IsAssignableFrom<ISolidColorBrush>(controlBorder.BorderBrush).Color);
+
+            Assert.All(row.GetVisualDescendants().OfType<Border>().Where(b => !ReferenceEquals(b, controlBorder)),
+                b => Assert.Null(b.BorderBrush));
+        }
+
+        [AvaloniaFact]
+        public void ControlBorder_SurroundsTheContentByOnePointOnEveryEdge() {
+            using var fixture = new KitFixture();
+            var content = new Border { Width = 80, Height = 22 };
+            FormRow row = Themed("Node width", content);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Border controlBorder = ControlBorder(row);
+            Assert.Equal(content.Bounds.Width + 2, controlBorder.Bounds.Width);
+            Assert.Equal(content.Bounds.Height + 2, controlBorder.Bounds.Height);
+
+            double contentLeft = content.TranslatePoint(new Point(0, 0), fixture.Window)!.Value.X;
+            double borderLeft = controlBorder.TranslatePoint(new Point(0, 0), fixture.Window)!.Value.X;
+            Assert.Equal(1, contentLeft - borderLeft, 2);
+        }
+
+        [AvaloniaFact]
+        public void EnteringErrorState_DoesNotShiftTheControlBordersBounds() {
+            using var fixture = new KitFixture();
+            var content = new Border { Width = 80, Height = 22 };
+            FormRow row = Themed("Beacon count", content);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Rect before = ControlBorder(row).Bounds;
+
+            row.Error = "Must be 0 or more.";
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(before, ControlBorder(row).Bounds);
+        }
+
+        [AvaloniaFact]
+        public void EnteringErrorState_DoesNotShiftTheContentLabelOrUnitBounds() {
+            using var fixture = new KitFixture();
+            var content = new Border { Width = 80, Height = 22 };
+            FormRow row = Themed("Beacon count", content);
+            row.Unit = "pt";
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock label = LabelText(row);
+            TextBlock unit = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Unit");
+
+            Rect contentBefore = content.Bounds;
+            Rect labelBefore = label.Bounds;
+            Rect unitBefore = unit.Bounds;
+
+            row.Error = "Must be 0 or more.";
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(contentBefore, content.Bounds);
+            Assert.Equal(labelBefore, label.Bounds);
+            Assert.Equal(unitBefore, unit.Bounds);
+        }
+
+        [AvaloniaFact]
+        public void RowMinHeight_IsControlHeightRegular() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Node width");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Application.Current!.TryGetResource("Foreman.Size.ControlHeightRegular", Application.Current.ActualThemeVariant, out object? height);
+            Grid grid = FrameGrid(row);
+            Assert.Equal(Assert.IsType<double>(height), grid.RowDefinitions[0].MinHeight);
+        }
+
+        [AvaloniaFact]
+        public void RowGrowsWithATallerControl() {
+            using var fixture = new KitFixture();
+            var tall = new Border { Height = 60 };
+            FormRow row = Themed("Beacon layout", tall);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(row.Bounds.Height >= 60);
+        }
+
+        [AvaloniaFact]
+        public void Note_UsesCaptionAndTextTertiary_StartsOnTheControlEdge() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Assembler");
+            row.Note = "Used for every new node until you change it.";
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+            Assert.True(note.IsVisible);
+            Assert.Equal("Used for every new node until you change it.", note.Text);
+            Application.Current!.TryGetResource("Foreman.Type.Caption.FontSize", Application.Current.ActualThemeVariant, out object? size);
+            Assert.Equal(Assert.IsType<double>(size), note.FontSize);
+            Assert.Equal(fixture.Brush("Foreman.Color.TextTertiary").ToImmutable(), note.Foreground?.ToImmutable());
+
+            StackPanel errorRow = row.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_ErrorRow");
+            Assert.False(errorRow.IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void Error_ReplacesTheNote_AndAddsAnErrorBorderToTheControl() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Beacon count");
+            row.Note = "This note must disappear once Error is set.";
+            row.Error = "Must be 0 or more.";
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel noteRow = row.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_NoteRow");
+            StackPanel errorRow = row.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_ErrorRow");
+            Assert.False(noteRow.IsVisible);
+            Assert.True(errorRow.IsVisible);
+
+            TextBlock errorText = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_ErrorText");
+            Assert.Equal("Must be 0 or more.", errorText.Text);
+            Assert.Equal(fixture.Brush("Foreman.Color.Error").ToImmutable(), errorText.Foreground?.ToImmutable());
+
+            Path errorGlyph = row.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_ErrorGlyph");
+            Assert.Equal(Application.Current!.FindResource("Kit.Glyph.Alert.12"), errorGlyph.Data);
+            Assert.Equal(fixture.Brush("Foreman.Color.Error").ToImmutable(), errorGlyph.Stroke?.ToImmutable());
+
+            Border controlBorder = ControlBorder(row);
+            Assert.Equal(new Thickness(1), controlBorder.BorderThickness);
+            Assert.Equal(fixture.Brush("Foreman.Color.Error").ToImmutable(), controlBorder.BorderBrush?.ToImmutable());
+        }
+
+        [AvaloniaFact]
+        public void TwoRowsInTheSameShape_ResolveTheSameControlColumnX() {
+            using var fixture = new KitFixture();
+            FormRow first = Themed("Node width");
+            FormRow second = Themed("Link opacity");
+            var stack = new StackPanel { Children = { first, second } };
+            fixture.Window.Content = stack;
+            Dispatcher.UIThread.RunJobs();
+
+            double firstX = ControlHost(first).TranslatePoint(new Point(0, 0), fixture.Window)!.Value.X;
+            double secondX = ControlHost(second).TranslatePoint(new Point(0, 0), fixture.Window)!.Value.X;
+            Assert.Equal(firstX, secondX);
+        }
+
+        [AvaloniaFact]
+        public void Disabled_OpacityIsTheDisabledToken() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Node width");
+            fixture.Window.Content = row;
+
+            row.IsEnabled = false;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+
+            Application.Current!.TryGetResource("Foreman.Opacity.Disabled", Application.Current.ActualThemeVariant, out object? disabled);
+            Assert.Equal(Assert.IsType<double>(disabled), row.Opacity);
+        }
+
+        [AvaloniaFact]
+        public void NoteAndErrorRows_CrossFadeAtTheTabLabelCrossFadeDuration() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Assembler");
+            row.Note = "value";
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel noteRow = row.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_NoteRow");
+            StackPanel errorRow = row.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_ErrorRow");
+
+            var noteTransition = Assert.Single(noteRow.Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
+            Assert.Equal(Motion.TabLabelCrossFadeDuration, noteTransition.Duration);
+            var errorTransition = Assert.Single(errorRow.Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
+            Assert.Equal(Motion.TabLabelCrossFadeDuration, errorTransition.Duration);
+        }
+
+        [AvaloniaFact]
+        public void ReduceMotion_NoteAndErrorRows_StayOpacityOnlyWithCrossFadeEasing() {
+            using var fixture = new KitFixture();
+            fixture.Appearance.ReduceMotion = true;
+            _ = new AppearanceHub(Application.Current!, fixture.Appearance);
+            FormRow row = Themed("Assembler");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel noteRow = row.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_NoteRow");
+            Assert.DoesNotContain(noteRow.Transitions!, t => t is not DoubleTransition);
+            var opacity = Assert.Single(noteRow.Transitions!.OfType<DoubleTransition>());
+            Assert.IsType<CubicEaseInOut>(opacity.Easing);
+        }
+
+        [AvaloniaFact]
+        public void Transitions_AnimateHeightAndOpacityAtTheInspectorReflowDuration() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Node width");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            var height = Assert.Single(row.Transitions!.OfType<DoubleTransition>(), t => t.Property == Layoutable.HeightProperty);
+            var opacity = Assert.Single(row.Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
+            Assert.Equal(Motion.InspectorReflowDuration, height.Duration);
+            Assert.Equal(Motion.InspectorReflowDuration, opacity.Duration);
+        }
+
+        [AvaloniaFact]
+        public void ReduceMotion_RowReflow_CollapsesToOpacityOnly() {
+            using var fixture = new KitFixture();
+            fixture.Appearance.ReduceMotion = true;
+            _ = new AppearanceHub(Application.Current!, fixture.Appearance);
+            FormRow row = Themed("Node width");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.DoesNotContain(row.Transitions!, t => t is not DoubleTransition);
+            var opacity = Assert.Single(row.Transitions!.OfType<DoubleTransition>());
+            Assert.Equal(Visual.OpacityProperty, opacity.Property);
+            Assert.Equal(Motion.InspectorReflowDuration, opacity.Duration);
+        }
+
+        [AvaloniaFact]
+        public void AddingANote_AnimatesHeightFromTheOldValueToTheNewMeasuredValue_ThenClearsTheExplicitHeight() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Assembler");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            double before = row.Bounds.Height;
+            Assert.True(double.IsNaN(row.Height));
+
+            int layouts = 0;
+            row.LayoutUpdated += (_, _) => layouts++;
+
+            row.Note = "Used for every new node until you change it.";
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(double.IsNaN(row.Height));
+            Assert.True(row.Height >= before);
+
+            AnimationClock.Settle((int)Motion.InspectorReflowDuration.TotalMilliseconds + 100);
+
+            Assert.True(double.IsNaN(row.Height));
+            Assert.True(row.Bounds.Height > before);
+            Assert.True(layouts <= 40, $"FormRow laid out {layouts} times settling one note reflow.");
+        }
+
+        [AvaloniaFact]
+        public void ReduceMotion_AddingANote_NeverDrivesAnExplicitHeight() {
+            using var fixture = new KitFixture();
+            fixture.Appearance.ReduceMotion = true;
+            _ = new AppearanceHub(Application.Current!, fixture.Appearance);
+            FormRow row = Themed("Assembler");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            row.Note = "Used for every new node until you change it.";
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+
+            Assert.True(double.IsNaN(row.Height));
+        }
+
+        [AvaloniaFact]
+        public void Unit_RendersAfterTheControlInCalloutTextSecondary() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Node width");
+            row.Unit = "pt";
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock unit = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Unit");
+            Assert.True(unit.IsVisible);
+            Assert.Equal("pt", unit.Text);
+            Assert.Equal(fixture.Brush("Foreman.Color.TextSecondary").ToImmutable(), unit.Foreground?.ToImmutable());
+
+            Panel controlHost = ControlHost(row);
+            double controlRight = controlHost.TranslatePoint(new Point(controlHost.Bounds.Width, 0), fixture.Window)!.Value.X;
+            double unitLeft = unit.TranslatePoint(new Point(0, 0), fixture.Window)!.Value.X;
+            Application.Current!.TryGetResource("Foreman.Space.Space2", Application.Current.ActualThemeVariant, out object? space2);
+            Assert.Equal(Assert.IsType<double>(space2), unitLeft - controlRight, 2);
+
+            Grid grid = FrameGrid(row);
+            double controlColumnOriginX = grid.TranslatePoint(
+                new Point(grid.ColumnDefinitions[0].Width.Value + grid.ColumnDefinitions[1].Width.Value, 0), fixture.Window)!.Value.X;
+            Assert.True(unitLeft > controlColumnOriginX);
+        }
+
+        [AvaloniaFact]
+        public void Unit_IsNotVisibleWhenUnset() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Node width");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock unit = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Unit");
+            Assert.False(unit.IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void ClickingTheLabel_FocusesTheContentControl() {
+            using var fixture = new KitFixture();
+            var content = new TextBox();
+            FormRow row = Themed("Beacon count", content);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.StateOf(LabelText(row)).Click();
+
+            Assert.True(content.IsFocused);
+        }
+
+        [AvaloniaFact]
+        public void VoiceOver_LabelNamesTheContentControl() {
+            using var fixture = new KitFixture();
+            var content = new TextBox();
+            FormRow row = Themed("Beacon count", content);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(content);
+            Assert.Equal("Beacon count", peer.GetName());
+        }
+
+        [AvaloniaFact]
+        public void VoiceOver_NoteBecomesHelpTextUnlessThereIsAnError() {
+            using var fixture = new KitFixture();
+            var content = new TextBox();
+            FormRow row = Themed("Beacon count", content);
+            row.Note = "Must be 0 or more.";
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(content);
+            Assert.Equal("Must be 0 or more.", peer.GetHelpText());
+
+            row.Error = "Invalid value.";
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("Invalid value.", peer.GetHelpText());
+        }
+    }
+
+    [Collection(KitScaleGroup.Name)]
+    public class KitFormRowScaleTests {
+        private static Grid FrameGrid(FormRow row) =>
+            row.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Grid");
+
+        private static Panel ControlHost(FormRow row) =>
+            row.GetVisualDescendants().OfType<Panel>().Single(p => p.Name == "PART_ControlHost");
+
+        [AvaloniaFact]
+        public void LabelColumnAndRowMinHeight_TrackScaleContract_GutterStaysFixed() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.FormRow", null, out object? theme));
+            var row = new FormRow { Theme = (ControlTheme)theme!, Label = "Node width", Content = new TextBlock { Text = "value" } };
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Grid grid = FrameGrid(row);
+            Assert.Equal(132, grid.ColumnDefinitions[0].Width.Value);
+            Assert.Equal(12, grid.ColumnDefinitions[1].Width.Value);
+            Assert.Equal(22, grid.RowDefinitions[0].MinHeight);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(198, grid.ColumnDefinitions[0].Width.Value);
+            Assert.Equal(12, grid.ColumnDefinitions[1].Width.Value);
+            Assert.Equal(33, grid.RowDefinitions[0].MinHeight);
+        }
+
+        [AvaloniaFact]
+        public void Unit_GapTracksSpace2AtOneAndAHalfTimesScale() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.FormRow", null, out object? theme));
+            var row = new FormRow { Theme = (ControlTheme)theme!, Label = "Node width", Unit = "pt", Content = new TextBlock { Text = "value" } };
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Panel controlHost = ControlHost(row);
+            TextBlock unit = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Unit");
+
+            Application.Current!.TryGetResource("Foreman.Space.Space2", Application.Current.ActualThemeVariant, out object? space2);
+            double controlRight = controlHost.TranslatePoint(new Point(controlHost.Bounds.Width, 0), fixture.Window)!.Value.X;
+            double unitLeft = unit.TranslatePoint(new Point(0, 0), fixture.Window)!.Value.X;
+            Assert.Equal(Assert.IsType<double>(space2), unitLeft - controlRight, 2);
+        }
+
+        [AvaloniaFact]
+        public void InspectorLabelColumn_TracksScaleContract() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.FormRow", null, out object? theme));
+            var row = new FormRow { Theme = (ControlTheme)theme!, Label = "Quality", IsInspector = true, Content = new TextBlock { Text = "value" } };
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Grid grid = FrameGrid(row);
+            Assert.Equal(108, grid.ColumnDefinitions[0].Width.Value);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(162, grid.ColumnDefinitions[0].Width.Value);
+        }
+
+        [AvaloniaFact]
+        public void NoteLineHeight_Tracks135TimesCaptionFontSize_AtEveryScaleStep() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.FormRow", null, out object? theme));
+            var row = new FormRow { Theme = (ControlTheme)theme!, Label = "Assembler", Note = "value", Content = new TextBlock { Text = "value" } };
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+            Application.Current!.TryGetResource("Foreman.Type.Caption.FontSize", Application.Current.ActualThemeVariant, out object? baseSize);
+            Assert.Equal((double)baseSize! * 1.35, note.LineHeight);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Application.Current!.TryGetResource("Foreman.Type.Caption.FontSize", Application.Current.ActualThemeVariant, out object? scaledSize);
+            Assert.Equal((double)scaledSize! * 1.35, note.LineHeight);
+        }
+    }
+}
