@@ -213,6 +213,12 @@
   <!-- Search field's own 13pt step (addendum §04), below the shared Search.16/17/18/20 ladder. -->
   <StreamGeometry x:Key="Kit.Glyph.Search.13">M1.95,5.33 A3.38,3.38 0 1,1 8.71,5.33 A3.38,3.38 0 1,1 1.95,5.33 Z M9.75,9.75 L7.605,7.605</StreamGeometry>
 
+  <!-- Pick cell's empty slot and the zoom stepper (K3 composites addendum §10): 20pt masters M9.1,4.4 H10.9 V9.1 H15.6 V10.9 H10.9 V15.6 H9.1 V10.9 H4.4 V9.1 H9.1 Z / M4.4,9.1 H15.6 V10.9 H4.4 Z scaled by 12/20. -->
+  <StreamGeometry x:Key="Kit.Glyph.Plus.12">M5.46,2.64 H6.54 V5.46 H9.36 V6.54 H6.54 V9.36 H5.46 V6.54 H2.64 V5.46 H5.46 Z</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Minus.12">M2.64,5.46 H9.36 V6.54 H2.64 Z</StreamGeometry>
+  <!-- SlotAdd is not a sixth master, it is the pick cell's own name for Plus - same geometry, two keys. -->
+  <StreamGeometry x:Key="Kit.Glyph.SlotAdd.12">M5.46,2.64 H6.54 V5.46 H9.36 V6.54 H6.54 V9.36 H5.46 V6.54 H2.64 V5.46 H5.46 Z</StreamGeometry>
+
   <!-- Clear button (addendum §04/§08): disc fill plus a separate knockout X, drawn in the field's own background. -->
   <StreamGeometry x:Key="Kit.Glyph.Clear.16">M1.2,8 A6.8,6.8 0 1,1 14.8,8 A6.8,6.8 0 1,1 1.2,8 Z</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Clear.Knockout.16">M5.28,5.28 L10.72,10.72 M10.72,5.28 L5.28,10.72</StreamGeometry>

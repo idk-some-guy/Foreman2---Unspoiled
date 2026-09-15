@@ -63,6 +63,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   on its very first layout, never realizing its body until it is first expanded. The divider is a
   real 5pt splitter with a hover-revealed grip, tab-stop arrow-key resizing, a double-click reset,
   and an Escape-to-restore drag, ahead of the fixed 300pt inspector edge it will eventually replace.
+- Kit.PickCell and Kit.PickGrid land in the gallery, replacing the module/beacon slot's old shared
+  box-shadow: selection is now an inset ring and keyboard focus the shared outer ring, so a slot can
+  show both at once. An empty slot carries a real plus glyph instead of an 8pt "+", and a missing
+  module shows an alert glyph with a tooltip naming it while Delete still clears the slot.
 
 ### Fixed
 

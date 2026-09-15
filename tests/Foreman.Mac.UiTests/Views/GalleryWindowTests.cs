@@ -123,7 +123,9 @@ namespace Foreman.Mac.UiTests.Views {
                  "Form group (boxed, 132)", "Form rows (inspector, 108)", "Form row notes & errors",
                  "Form row — search field & chip row", "Form group & Form rows (150%)",
                  "Inspector group — expanded, collapsed, hovered, focused", "Split divider — rest, hovered, dragging, focused",
-                 "Inspector group & Split divider (150%)"],
+                 "Inspector group & Split divider (150%)",
+                 "Pick cell — filled and empty, five states each", "Pick grid — module slots & beacon row",
+                 "Pick cell & Pick grid (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -895,6 +897,54 @@ namespace Foreman.Mac.UiTests.Views {
 
             SplitDivider divider = tile.GetVisualDescendants().OfType<SplitDivider>().First();
             Assert.Equal(5, divider.Bounds.Width);
+        }
+
+        [AvaloniaFact]
+        public void PickCellStatesTile_ShowsFilledAndEmptyRowsAtFiveStatesEach() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Pick cell — filled and empty, five states each");
+            PickCell[] cells = [.. tile.GetVisualDescendants().OfType<PickCell>()];
+
+            Assert.Equal(10, cells.Length);
+            Assert.Equal(5, cells.Count(c => c.Icon is not null));
+            Assert.Equal(5, cells.Count(c => c.IsEmpty));
+            Assert.Contains(cells, c => c.IsSelected);
+            Assert.Contains(cells, c => c.Classes.Contains("gallery-hover"));
+            Assert.Contains(cells, c => !c.IsEnabled);
+        }
+
+        [AvaloniaFact]
+        public void PickGridTile_ShowsAModuleRowAndABeaconRowInsideFormRows() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Pick grid — module slots & beacon row");
+            FormRow[] rows = [.. tile.GetVisualDescendants().OfType<FormRow>()];
+            PickGrid[] grids = [.. tile.GetVisualDescendants().OfType<PickGrid>()];
+
+            Assert.Equal(2, rows.Length);
+            Assert.All(rows, r => Assert.True(r.IsInspector));
+            Assert.Equal(2, grids.Length);
+            Assert.Contains(grids, g => g.Slots.Count == 4);
+            Assert.Contains(grids, g => g.Slots.Count == 2);
+        }
+
+        [AvaloniaFact]
+        public void PickCompositesScaledTile_CellScalesButGapStaysAtTwoPointFive() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Pick cell & Pick grid (150%)");
+            PickGrid grid = tile.GetVisualDescendants().OfType<PickGrid>().First();
+            PickCell gridCell = grid.GetVisualDescendants().OfType<PickCell>().First();
+
+            Assert.Equal(39, gridCell.Bounds.Width);
+            Assert.Equal(new Thickness(2.5), gridCell.Margin);
         }
     }
 }

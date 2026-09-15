@@ -35,6 +35,7 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.ControlHeightRegular",
             "Foreman.Size.ControlHeightLarge",
             "Foreman.Size.PickCell",
+            "Foreman.Size.PickCellIcon",
             "Foreman.Size.PaletteWidth",
             "Foreman.Size.PaletteRowIcon",
             "Foreman.Size.BrowserSidebar",

@@ -167,6 +167,9 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Inspector group — expanded, collapsed, hovered, focused", "Default", BuildInspectorGroupTile));
             registry.Register(new GalleryTile("Kit", "Split divider — rest, hovered, dragging, focused", "Default", BuildSplitDividerTile));
             registry.Register(new GalleryTile("Kit", "Inspector group & Split divider (150%)", "150%", BuildInspectorAndDividerScaledTile));
+            registry.Register(new GalleryTile("Kit", "Pick cell — filled and empty, five states each", "Default", BuildPickCellStatesTile));
+            registry.Register(new GalleryTile("Kit", "Pick grid — module slots & beacon row", "Default", BuildPickGridTile));
+            registry.Register(new GalleryTile("Kit", "Pick cell & Pick grid (150%)", "150%", BuildPickCompositesScaledTile));
             return registry;
         }
 
@@ -1240,6 +1243,103 @@ namespace Foreman.Mac.Views {
 
             container.Children.Add(BuildInspectorGroupTile());
             container.Children.Add(BuildSplitDividerTile());
+            return container;
+        }
+
+        private static DrawingImage PickCellIconArt(IBrush color) =>
+            new DrawingImage(new GeometryDrawing { Geometry = new EllipseGeometry(new Rect(0, 0, 18, 18)), Brush = color });
+
+        private static PickCell KitPickCell(bool selected = false, bool empty = false, bool missing = false, IImage? icon = null, string? name = null) => new() {
+            Theme = KitTheme("Kit.PickCell"), IsSelected = selected, IsEmpty = empty, IsMissing = missing, Icon = icon, AccessibleName = name,
+        };
+
+        //Addendum §03 state grid: Normal / Hover / Selected / Selected+focused / Disabled, filled then empty.
+        private static StackPanel BuildPickCellStatesTile() {
+            IImage art = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue));
+
+            PickCell FilledCell(bool selected) => KitPickCell(selected: selected, icon: art, name: "Productivity Module 3");
+            PickCell filledNormal = FilledCell(false);
+            PickCell filledHover = FilledCell(false);
+            filledHover.Classes.Add("gallery-hover");
+            PickCell filledSelected = FilledCell(true);
+            PickCell filledSelectedFocused = FilledCell(true);
+            filledSelectedFocused.TemplateApplied += (_, _) => FocusRing.SetShowAlways(filledSelectedFocused, true);
+            PickCell filledDisabled = FilledCell(false);
+            filledDisabled.IsEnabled = false;
+
+            var filledRow = new StackPanel {
+                Orientation = Orientation.Horizontal,
+                Spacing = 12,
+                Children = { filledNormal, filledHover, filledSelected, filledSelectedFocused, filledDisabled },
+            };
+
+            PickCell EmptyCell(bool selected) => KitPickCell(selected: selected, empty: true);
+            PickCell emptyNormal = EmptyCell(false);
+            PickCell emptyHover = EmptyCell(false);
+            emptyHover.Classes.Add("gallery-hover");
+            PickCell emptySelected = EmptyCell(true);
+            PickCell emptySelectedFocused = EmptyCell(true);
+            emptySelectedFocused.TemplateApplied += (_, _) => FocusRing.SetShowAlways(emptySelectedFocused, true);
+            PickCell emptyDisabled = EmptyCell(false);
+            emptyDisabled.IsEnabled = false;
+
+            var emptyRow = new StackPanel {
+                Orientation = Orientation.Horizontal,
+                Spacing = 12,
+                Children = { emptyNormal, emptyHover, emptySelected, emptySelectedFocused, emptyDisabled },
+            };
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = {
+                    KitText("Normal · Hover · Selected · Selected+focused · Disabled", "caption", "tertiary"),
+                    filledRow, emptyRow,
+                },
+            };
+        }
+
+        //Modules (two filled, two empty) and Beacon modules (two filled), each a PickGrid inside a
+        //Kit.FormRow control column, matching the addendum's own figure.
+        private static StackPanel BuildPickGridTile() {
+            IImage productivity = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue));
+            IImage speed = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Warning", Colors.Orange));
+
+            var modules = new PickGrid { Theme = KitTheme("Kit.PickGrid"), GroupLabel = "Module slots" };
+            modules.Slots.Add(new PickSlot { Icon = productivity, Name = "Productivity Module 3" });
+            modules.Slots.Add(new PickSlot { Icon = speed, Name = "Speed Module 2" });
+            modules.Slots.Add(new PickSlot { IsEmpty = true });
+            modules.Slots.Add(new PickSlot { IsEmpty = true });
+
+            var beacons = new PickGrid { Theme = KitTheme("Kit.PickGrid"), GroupLabel = "Beacon modules" };
+            beacons.Slots.Add(new PickSlot { Icon = speed, Name = "Speed Module 2" });
+            beacons.Slots.Add(new PickSlot { Icon = speed, Name = "Speed Module 2" });
+
+            var stack = new StackPanel {
+                Width = 276,
+                Spacing = 8,
+                Children = {
+                    KitFormRow("Modules", modules, inspector: true),
+                    KitFormRow("Beacon modules", beacons, inspector: true),
+                },
+            };
+            return new StackPanel { Spacing = 8, Children = { KitText("Pick grid", "caption", "tertiary"), stack } };
+        }
+
+        private static readonly string[] PickCompositesScaledSizeKeys = [
+            "Foreman.Size.PickCell", "Foreman.Size.PickCellIcon", "Foreman.Size.GlyphMicro",
+            "Foreman.Size.FormLabelColumnInspector", "Foreman.Size.ControlHeightRegular", "Foreman.Type.Callout.FontSize",
+        ];
+
+        //Thickness.PickCellGap is deliberately left out of the scaled-resources override - the 2.5pt gap
+        //between cells stays 2.5pt here too (Thickness tokens do not scale, addendum §11).
+        private static StackPanel BuildPickCompositesScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in PickCompositesScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildPickCellStatesTile());
+            container.Children.Add(BuildPickGridTile());
             return container;
         }
 

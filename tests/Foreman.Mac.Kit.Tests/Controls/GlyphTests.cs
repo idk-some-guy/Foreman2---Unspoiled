@@ -94,6 +94,27 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Null(path.Stroke);
             Assert.Equal(expected, Assert.IsAssignableFrom<ISolidColorBrush>(path.Fill).Color);
         }
+
+        //K3 composites addendum §10/§14: Plus/Minus land as their own 12pt masters, SlotAdd is the pick
+        //cell's own name for Plus - one geometry, two keys.
+        [AvaloniaFact]
+        public void PlusAndMinus_ExistAtTwelvePoints() {
+            using var fixture = new KitFixture();
+            Assert.NotNull(GlyphGeometry("Plus", 12));
+            Assert.NotNull(GlyphGeometry("Minus", 12));
+        }
+
+        [AvaloniaFact]
+        public void SlotAdd_AndPlus_ResolveToTheSameGeometryBounds() {
+            using var fixture = new KitFixture();
+            Assert.Equal(GlyphGeometry("Plus", 12).Bounds, GlyphGeometry("SlotAdd", 12).Bounds);
+        }
+
+        [AvaloniaFact]
+        public void SlotAdd_AndMinus_AreDifferentGeometry() {
+            using var fixture = new KitFixture();
+            Assert.NotEqual(GlyphGeometry("Minus", 12).Bounds, GlyphGeometry("SlotAdd", 12).Bounds);
+        }
     }
 
     [Collection(KitScaleGroup.Name)]

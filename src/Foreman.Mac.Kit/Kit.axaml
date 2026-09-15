@@ -40,6 +40,8 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/FormGroup.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/InspectorGroup.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/SplitDivider.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/PickCell.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/PickGrid.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>
