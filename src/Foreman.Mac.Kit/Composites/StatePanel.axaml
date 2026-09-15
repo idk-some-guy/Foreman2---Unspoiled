@@ -1,0 +1,71 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites"
+                    xmlns:ctrl="using:Foreman.Mac.Kit.Controls">
+
+  <ControlTheme x:Key="Kit.StatePanel" TargetType="kit:StatePanel">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <StackPanel x:Name="PART_FullLayout" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      MaxWidth="{DynamicResource Foreman.Metrics.StatePanelMaxWidth}">
+            <Panel x:Name="PART_GlyphBox" Width="{DynamicResource Foreman.Size.GlyphState}" Height="{DynamicResource Foreman.Size.GlyphState}"
+                   HorizontalAlignment="Center">
+              <ctrl:Spinner x:Name="PART_Spinner" Theme="{StaticResource Kit.Spinner}" Classes="lg"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            AutomationProperties.AccessibilityView="Raw" />
+              <Viewbox x:Name="PART_GlyphViewbox" Width="{DynamicResource Foreman.Size.GlyphState}" Height="{DynamicResource Foreman.Size.GlyphState}"
+                       Stretch="Uniform" StretchDirection="Both">
+                <Path x:Name="PART_Glyph" Theme="{StaticResource Kit.Glyph}" Width="32" Height="32" Stretch="None"
+                      AutomationProperties.AccessibilityView="Raw" />
+              </Viewbox>
+            </Panel>
+            <TextBlock x:Name="PART_Headline" Theme="{StaticResource Kit.Text}" Classes="headline"
+                       HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="NoWrap"
+                       TextTrimming="CharacterEllipsis" Margin="0,12,0,0" />
+            <TextBlock x:Name="PART_Sentence" Theme="{StaticResource Kit.Text}" Classes="callout secondary"
+                       HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3"
+                       MaxWidth="{DynamicResource Foreman.Metrics.StatePanelSentenceMaxWidth}" LineHeight="16.8" Margin="0,4,0,0"
+                       Text="{TemplateBinding Sentence}" />
+            <ctrl:ProgressBar x:Name="PART_Progress" Theme="{StaticResource Kit.ProgressBar}"
+                               HorizontalAlignment="Center" Margin="0,12,0,0" IsVisible="False" />
+            <ContentPresenter x:Name="PART_ButtonsHost" HorizontalAlignment="Center" Margin="0,16,0,0" />
+          </StackPanel>
+
+          <Grid x:Name="PART_CompactLayout" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsVisible="False">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Panel x:Name="PART_CompactGlyphBox" Grid.Column="0" Width="{DynamicResource Foreman.Size.Glyph16}" Height="{DynamicResource Foreman.Size.Glyph16}"
+                   VerticalAlignment="Center">
+              <ctrl:Spinner x:Name="PART_CompactSpinner" Theme="{StaticResource Kit.Spinner}" Classes="sm"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            AutomationProperties.AccessibilityView="Raw" />
+              <Viewbox x:Name="PART_CompactGlyphViewbox" Stretch="Uniform" StretchDirection="Both">
+                <Path x:Name="PART_CompactGlyph" Theme="{StaticResource Kit.Glyph}"
+                      AutomationProperties.AccessibilityView="Raw" />
+              </Viewbox>
+            </Panel>
+            <TextBlock x:Name="PART_CompactSentence" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="callout"
+                       VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                       Margin="{DynamicResource Foreman.Thickness.StatePanelCompactSentenceMargin}" Text="{TemplateBinding Sentence}" />
+            <ContentPresenter x:Name="PART_CompactButtonsHost" Grid.Column="2" VerticalAlignment="Center"
+                               Margin="{DynamicResource Foreman.Thickness.StatePanelCompactButtonsMargin}" />
+          </Grid>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:error /template/ Path#PART_Glyph">
+      <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.Error}" />
+    </Style>
+    <Style Selector="^:error /template/ Path#PART_CompactGlyph">
+      <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.Error}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

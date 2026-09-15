@@ -386,6 +386,31 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void StateContent_AcceptsAKitStatePanel_AndHidesTheGridUnderneath() {
+            using var fixture = new KitFixture();
+            ChooserGrid grid = TwoSectionGrid();
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(Application.Current!.TryGetResource("Kit.StatePanel", null, out object? theme));
+            Assert.True(Application.Current!.TryGetResource("Kit.ButtonRow", null, out object? rowTheme));
+            Assert.True(Application.Current!.TryGetResource("Kit.Button", null, out object? buttonTheme));
+            var row = new ButtonRow { Theme = (ControlTheme)rowTheme! };
+            row.Items.Add(new Button { Theme = (ControlTheme)buttonTheme!, Content = "Clear Filters" });
+            grid.StateContent = new StatePanel {
+                Theme = (ControlTheme)theme!,
+                Shape = StatePanelShape.NoResults,
+                Headline = "No results",
+                Sentence = "Nothing matches this search.",
+                Buttons = row,
+            };
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(Scroll(grid).IsVisible);
+            Assert.Single(grid.GetVisualDescendants().OfType<StatePanel>());
+        }
+
+        [AvaloniaFact]
         public void VoiceOver_GroupNameAnnouncesResultCount() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();

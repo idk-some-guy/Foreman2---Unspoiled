@@ -87,6 +87,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   keys arm the same way, and any other key dismisses the ring and opens the same six items as a
   context menu. Both composites carry real automation roles now. PaletteMaterial and TitlebarMaterial
   gained the opaque-fallback pair every material now shares.
+- Kit.StatePanel lands in the gallery, drawing the four A25 shapes (empty, no-results, loading,
+  error) that FormGroup, InspectorGroup, PickGrid, ChooserGrid, SheetFrame and PopoverFrame will all
+  delegate to. Empty, no-results and error refuse to build without a real button, so a surface can no
+  longer ship a hint instead of a way out; loading is the one shape that may carry none, and it waits
+  400ms before appearing so a fast solve never flashes it. Below 196x260 the panel switches itself to
+  a single compact line rather than clip. ChooserGrid, SheetFrame and a new FormGroup state slot now
+  wire a real state panel into their gallery examples in place of a stub.
 
 ### Fixed
 

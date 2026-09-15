@@ -50,6 +50,7 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/AlertFrame.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/PopoverFrame.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/RadialRing.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/StatePanel.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

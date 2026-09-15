@@ -48,11 +48,14 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void Subscribe() {
             Unsubscribe();
-            bool large = Classes.Contains("lg");
-            subs.Add(this.GetResourceObservable(large ? "Foreman.Size.SpinnerLarge" : "Foreman.Size.Spinner")
-                .Subscribe(new ResourceSinks.DoubleSink(v => { Diameter = v; ApplyMetrics(); }, Diameter)));
-            subs.Add(this.GetResourceObservable(large ? "Foreman.Size.SpinnerStrokeLarge" : "Foreman.Size.SpinnerStroke")
-                .Subscribe(new ResourceSinks.DoubleSink(v => { StrokeWidth = v; ApplyMetrics(); }, StrokeWidth)));
+            string sizeKey = Classes.Contains("lg") ? "Foreman.Size.SpinnerLarge"
+                : Classes.Contains("sm") ? "Foreman.Size.SpinnerSmall"
+                : "Foreman.Size.Spinner";
+            string strokeKey = Classes.Contains("lg") ? "Foreman.Size.SpinnerStrokeLarge"
+                : Classes.Contains("sm") ? "Foreman.Size.SpinnerStrokeSmall"
+                : "Foreman.Size.SpinnerStroke";
+            subs.Add(this.GetResourceObservable(sizeKey).Subscribe(new ResourceSinks.DoubleSink(v => { Diameter = v; ApplyMetrics(); }, Diameter)));
+            subs.Add(this.GetResourceObservable(strokeKey).Subscribe(new ResourceSinks.DoubleSink(v => { StrokeWidth = v; ApplyMetrics(); }, StrokeWidth)));
         }
 
         private void Unsubscribe() {

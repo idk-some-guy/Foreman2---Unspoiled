@@ -22,6 +22,7 @@
                        LetterSpacing="0"
                        Foreground="{DynamicResource Foreman.Color.TextSecondary}" />
             <ItemsPresenter x:Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+            <ContentPresenter x:Name="PART_StateHost" IsVisible="False" />
           </StackPanel>
         </Border>
       </ControlTemplate>

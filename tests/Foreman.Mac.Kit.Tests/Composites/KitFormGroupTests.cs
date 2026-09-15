@@ -142,6 +142,34 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Contains(group.GetVisualDescendants(), v => ReferenceEquals(v, row1));
             Assert.Contains(group.GetVisualDescendants(), v => ReferenceEquals(v, row2));
         }
+
+        [AvaloniaFact]
+        public void StateContent_AcceptsAKitStatePanel_AndHidesTheRowsUnderneath() {
+            using var fixture = new KitFixture();
+            FormGroup group = Themed("Settings", new TextBlock { Text = "row" });
+            fixture.Window.Content = group;
+            Dispatcher.UIThread.RunJobs();
+
+            var itemsPresenter = group.GetVisualDescendants().OfType<ItemsPresenter>().Single(p => p.Name == "PART_ItemsPresenter");
+            Assert.True(itemsPresenter.IsVisible);
+
+            Assert.True(Application.Current!.TryGetResource("Kit.StatePanel", null, out object? theme));
+            Assert.True(Application.Current!.TryGetResource("Kit.ButtonRow", null, out object? rowTheme));
+            Assert.True(Application.Current!.TryGetResource("Kit.Button", null, out object? buttonTheme));
+            var buttons = new ButtonRow { Theme = (ControlTheme)rowTheme! };
+            buttons.Items.Add(new Button { Theme = (ControlTheme)buttonTheme!, Content = "Try Again" });
+            group.StateContent = new StatePanel {
+                Theme = (ControlTheme)theme!,
+                Shape = StatePanelShape.Error,
+                Headline = "Couldn’t load this pane",
+                Sentence = "Settings failed to read the current profile.",
+                Buttons = buttons,
+            };
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(itemsPresenter.IsVisible);
+            Assert.Single(group.GetVisualDescendants().OfType<StatePanel>());
+        }
     }
 
     [Collection(KitScaleGroup.Name)]

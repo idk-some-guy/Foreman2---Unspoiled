@@ -185,6 +185,15 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Popover frame — tail clamped near a corner", "Default", BuildPopoverFrameCornerTile));
             registry.Register(new GalleryTile("Kit", "Radial ring — six slices, one armed", "Default", BuildRadialRingTile));
             registry.Register(new GalleryTile("Kit", "Popover frame & Radial ring (150%)", "150%", BuildPopoverAndRadialScaledTile));
+            registry.Register(new GalleryTile("Kit", "State panel — empty (inspector & new graph)", "Default", BuildStatePanelEmptyTile));
+            registry.Register(new GalleryTile("Kit", "State panel — no results", "Default", BuildStatePanelNoResultsTile));
+            registry.Register(new GalleryTile("Kit", "State panel — loading (determinate & compact)", "Default", BuildStatePanelLoadingTile));
+            registry.Register(new GalleryTile("Kit", "State panel — error", "Default", BuildStatePanelErrorTile));
+            registry.Register(new GalleryTile("Kit", "State panel (150%)", "150%", BuildStatePanelScaledTile));
+            registry.Register(new GalleryTile("Kit", "Chooser grid — no results (State panel)", "Default", BuildChooserGridNoResultsTile));
+            registry.Register(new GalleryTile("Kit", "Sheet frame — error (State panel)", "Default", BuildSheetFrameErrorTile));
+            registry.Register(new GalleryTile("Kit", "Form group — load failure (State panel)", "Default", BuildFormGroupLoadFailureTile));
+            registry.Register(new GalleryTile("Kit", "Inspector group — body delegation (State panel)", "Default", BuildInspectorGroupBodyStateTile));
             return registry;
         }
 
@@ -1630,6 +1639,142 @@ namespace Foreman.Mac.Views {
             container.Children.Add(BuildPopoverFrameTile());
             container.Children.Add(BuildRadialRingTile());
             return container;
+        }
+
+        private static StatePanel KitStatePanel(StatePanelShape shape, string headline, string sentence, ButtonRow? buttons = null, double? progress = null) =>
+            new() {
+                Theme = KitTheme("Kit.StatePanel"),
+                Shape = shape,
+                Headline = headline,
+                Sentence = sentence,
+                Buttons = buttons,
+                Progress = progress,
+            };
+
+        private static Border StatePanelFrame(Control panel, double width, double height) =>
+            new() {
+                Width = width, Height = height,
+                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
+                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
+                BorderThickness = new Thickness(1),
+                Child = panel,
+            };
+
+        //Addendum §07: inspector no-selection (one button) beside a new-graph empty state (two buttons).
+        private static StackPanel BuildStatePanelEmptyTile() {
+            StatePanel inspector = KitStatePanel(StatePanelShape.Empty, "No node selected",
+                "Select a node on the canvas to edit its recipe, building and modules.",
+                KitButtonRow(KitRowButton("Add Recipe…", ButtonRowRole.Default)));
+            StatePanel newGraph = KitStatePanel(StatePanelShape.Empty, "This graph is empty",
+                "Add a recipe or an item to start planning. You can also paste a graph from the clipboard.",
+                KitButtonRow(KitRowButton("Add Item…", ButtonRowRole.Other), KitRowButton("Add Recipe…", ButtonRowRole.Default)));
+
+            var row = new StackPanel {
+                Orientation = Orientation.Horizontal, Spacing = 14,
+                Children = { StatePanelFrame(inspector, 280, 260), StatePanelFrame(newGraph, 360, 260) },
+            };
+            return new StackPanel { Spacing = 8, Children = { KitText("State panel — .empty", "caption", "tertiary"), row } };
+        }
+
+        private static StackPanel BuildStatePanelNoResultsTile() {
+            StatePanel panel = KitStatePanel(StatePanelShape.NoResults, "No results for “beacn”",
+                "Nothing matches this search. Two filters are hiding results.",
+                KitButtonRow(KitRowButton("Clear Search", ButtonRowRole.Helper), KitRowButton("Clear Filters", ButtonRowRole.Default)));
+
+            return new StackPanel { Spacing = 8, Children = { KitText("State panel — .no-results", "caption", "tertiary"), StatePanelFrame(panel, 420, 260) } };
+        }
+
+        //A .compact instance is forced by giving it a region under RegionMinHeight (196pt) - the panel's own MeasureOverride decision.
+        private static StackPanel BuildStatePanelLoadingTile() {
+            StatePanel full = KitStatePanel(StatePanelShape.Loading, "Loading Factorio data",
+                "Reading Space Age — mod 3 of 7.", KitButtonRow(KitRowButton("Cancel", ButtonRowRole.Cancel)), progress: 42);
+            StatePanel compact = KitStatePanel(StatePanelShape.Loading, "Solving", "Solving — 62 %",
+                KitButtonRow(KitRowButton("Cancel", ButtonRowRole.Cancel)));
+
+            var row = new StackPanel {
+                Orientation = Orientation.Horizontal, Spacing = 14,
+                Children = { StatePanelFrame(full, 300, 260), StatePanelFrame(compact, 280, 90) },
+            };
+            return new StackPanel { Spacing = 8, Children = { KitText("State panel — .loading, full & .compact", "caption", "tertiary"), row } };
+        }
+
+        private static StackPanel BuildStatePanelErrorTile() {
+            StatePanel panel = KitStatePanel(StatePanelShape.Error, "Couldn’t read that save file",
+                "The file ends partway through the blueprint section. It may have been copied while the game was writing it.",
+                KitButtonRow(KitRowButton("Show in Finder", ButtonRowRole.Other), KitRowButton("Choose Another…", ButtonRowRole.Other), KitRowButton("Try Again", ButtonRowRole.Default)));
+
+            return new StackPanel { Spacing = 8, Children = { KitText("State panel — .error", "caption", "tertiary"), StatePanelFrame(panel, 420, 260) } };
+        }
+
+        private static readonly string[] StatePanelScaledSizeKeys = [
+            "Foreman.Size.GlyphState", "Foreman.Metrics.StatePanelMaxWidth", "Foreman.Metrics.StatePanelSentenceMaxWidth",
+            "Foreman.Type.EmphasizedBody.FontSize", "Foreman.Type.Callout.FontSize",
+            "Foreman.Size.Glyph16", "Foreman.Size.GlyphMicro",
+            "Foreman.Size.SpinnerLarge", "Foreman.Size.SpinnerSmall", "Foreman.Size.SpinnerStrokeSmall",
+            "Foreman.Size.ProgressBarWidth", "Foreman.Size.ProgressBarHeight",
+        ];
+
+        private static StackPanel BuildStatePanelScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in StatePanelScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildStatePanelErrorTile());
+            return container;
+        }
+
+        //Slot delegation (Task 7): the state panel fills the StateContent slot each earlier composite already exposes.
+        private static StackPanel BuildChooserGridNoResultsTile() {
+            var grid = new ChooserGrid { Theme = KitTheme("Kit.ChooserGrid"), Width = 360, Height = 260 };
+            grid.StateContent = KitStatePanel(StatePanelShape.NoResults, "No results for “beacn”",
+                "Nothing matches this search.", KitButtonRow(KitRowButton("Clear Search", ButtonRowRole.Default)));
+
+            return new StackPanel { Spacing = 8, Children = { KitText("Chooser grid — no results", "caption", "tertiary"), grid } };
+        }
+
+        private static StackPanel BuildSheetFrameErrorTile() {
+            var sheet = new SheetFrame {
+                Theme = KitTheme("Kit.SheetFrame"),
+                Title = "Factory summary",
+                Content = new TextBlock { Text = "summary" },
+                Buttons = KitButtonRow(KitRowButton("Cancel", ButtonRowRole.Cancel)),
+                IsOpen = true,
+            };
+            sheet.StateContent = KitStatePanel(StatePanelShape.Error, "Couldn’t build the summary",
+                "The graph has an unresolved recipe.", KitButtonRow(KitRowButton("Try Again", ButtonRowRole.Default)));
+
+            var mockWindow = new Panel { Width = 420, Height = 260, Children = { sheet } };
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("Sheet frame — error", "caption", "tertiary"), StatePanelFrame(mockWindow, 420, 260) },
+            };
+        }
+
+        private static StackPanel BuildFormGroupLoadFailureTile() {
+            var group = new FormGroup { Theme = KitTheme("Kit.FormGroup"), Title = "Appearance", IsBoxed = true, Width = 340 };
+            group.StateContent = KitStatePanel(StatePanelShape.Error, "Couldn’t load this pane",
+                "Settings failed to read the current profile.", KitButtonRow(KitRowButton("Try Again", ButtonRowRole.Default)));
+
+            return new StackPanel { Spacing = 8, Children = { KitText("Form group — Settings pane load failure", "caption", "tertiary"), group } };
+        }
+
+        //Addendum §02 states row: "Unavailable recipe -> the Recipe group renders with Kit.StatePanel.error in its body."
+        //The group's Content is a FormGroup; the state panel fills that body's own StateContent slot (Task 7 delegation).
+        private static StackPanel BuildInspectorGroupBodyStateTile() {
+            InspectorGroup group = KitInspectorGroup("Recipe", true, []);
+            var body = (FormGroup)group.Content!;
+            body.StateContent = KitStatePanel(StatePanelShape.Error, "Recipe unavailable",
+                "This recipe was removed by a mod update.", KitButtonRow(KitRowButton("Choose Recipe…", ButtonRowRole.Default)));
+
+            var frame = new Border {
+                Width = 276,
+                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
+                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
+                BorderThickness = new Thickness(1),
+                Child = group,
+            };
+            return new StackPanel { Spacing = 8, Children = { KitText("Inspector group — body delegation (State panel)", "caption", "tertiary"), frame } };
         }
 
         private static ControlTheme KitTheme(string key) {

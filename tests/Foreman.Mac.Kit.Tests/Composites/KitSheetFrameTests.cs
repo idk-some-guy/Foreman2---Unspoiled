@@ -239,6 +239,29 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void StateContent_AcceptsAKitStatePanel_AndHidesTheSheetsOwnContent() {
+            using var fixture = new KitFixture();
+            SheetFrame sheet = Themed();
+            sheet.IsOpen = true;
+            Shown(sheet);
+
+            Assert.True(Application.Current!.TryGetResource("Kit.StatePanel", null, out object? theme));
+            var row = RowWithCancelAndDefault();
+            sheet.StateContent = new StatePanel {
+                Theme = (ControlTheme)theme!,
+                Shape = StatePanelShape.Error,
+                Headline = "Couldn’t read that save file",
+                Sentence = "The file ends partway through the blueprint section.",
+                Buttons = row,
+            };
+            Dispatcher.UIThread.RunJobs();
+
+            var contentHost = sheet.GetVisualDescendants().OfType<ContentPresenter>().Single(c => c.Name == "PART_ContentHost");
+            Assert.False(contentHost.IsVisible);
+            Assert.Single(sheet.GetVisualDescendants().OfType<StatePanel>());
+        }
+
+        [AvaloniaFact]
         public void Tab_TrapsFocusInsideTheSheet_WrappingPastTheLastControl() {
             using var fixture = new KitFixture();
             var field = new TextBox();

@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless;
@@ -133,7 +134,11 @@ namespace Foreman.Mac.UiTests.Views {
                  "Scrim, Sheet frame, Button row & Alert frame (150%)",
                  "Popover frame — anchored below, with a form group inside", "Popover frame — tail clamped near a corner",
                  "Radial ring — six slices, one armed",
-                 "Popover frame & Radial ring (150%)"],
+                 "Popover frame & Radial ring (150%)",
+                 "State panel — empty (inspector & new graph)", "State panel — no results",
+                 "State panel — loading (determinate & compact)", "State panel — error", "State panel (150%)",
+                 "Chooser grid — no results (State panel)", "Sheet frame — error (State panel)",
+                 "Form group — load failure (State panel)", "Inspector group — body delegation (State panel)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -1123,6 +1128,140 @@ namespace Foreman.Mac.UiTests.Views {
             TextBlock title = tile.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Title");
             Application.Current!.TryGetResource("Foreman.Type.SectionHeader.FontSize", Application.Current.ActualThemeVariant, out object? fontSizeObj);
             Assert.Equal((double)fontSizeObj! * 1.5, title.FontSize);
+        }
+
+        [AvaloniaFact]
+        public void StatePanelEmptyTile_ShowsInspectorAndNewGraphShapes_WithFittingButtonCounts() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "State panel — empty (inspector & new graph)");
+            StatePanel[] panels = [.. tile.GetVisualDescendants().OfType<StatePanel>()];
+
+            Assert.Equal(2, panels.Length);
+            Assert.All(panels, p => Assert.Equal(StatePanelShape.Empty, p.Shape));
+            Assert.Single(panels[0].Buttons!.Items);
+            Assert.Equal(2, panels[1].Buttons!.Items.Count);
+        }
+
+        [AvaloniaFact]
+        public void StatePanelNoResultsTile_QuotesTheQuery_AndOffersClearFilters() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "State panel — no results");
+            StatePanel panel = tile.GetVisualDescendants().OfType<StatePanel>().Single();
+
+            Assert.Equal(StatePanelShape.NoResults, panel.Shape);
+            Assert.Contains("beacn", panel.Headline);
+            Assert.Equal(2, panel.Buttons!.Items.Count);
+        }
+
+        [AvaloniaFact]
+        public void StatePanelLoadingTile_FullStaysFull_NarrowRegionForcesCompact() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "State panel — loading (determinate & compact)");
+            StatePanel[] panels = [.. tile.GetVisualDescendants().OfType<StatePanel>()];
+
+            Assert.Equal(2, panels.Length);
+            Assert.All(panels, p => Assert.Equal(StatePanelShape.Loading, p.Shape));
+            Assert.False(panels[0].IsCompact);
+            Assert.True(panels[1].IsCompact);
+        }
+
+        [AvaloniaFact]
+        public void StatePanelErrorTile_NamesTheCause_WithThreeButtons() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "State panel — error");
+            StatePanel panel = tile.GetVisualDescendants().OfType<StatePanel>().Single();
+
+            Assert.Equal(StatePanelShape.Error, panel.Shape);
+            Assert.Equal(3, panel.Buttons!.Items.Count);
+        }
+
+        [AvaloniaFact]
+        public void StatePanelScaledTile_GlyphViewboxResolvesFortyEight_PathRendersAtTheScaledSize() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "State panel (150%)");
+            Viewbox box = tile.GetVisualDescendants().OfType<Viewbox>().Single(v => v.Name == "PART_GlyphViewbox");
+            Assert.Equal(48, box.Bounds.Width);
+            Assert.Equal(48, box.Bounds.Height);
+
+            Path glyph = tile.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_Glyph");
+            Assert.Equal(32, glyph.Width);
+            Point topLeft = glyph.TranslatePoint(new Point(0, 0), window) ?? default;
+            Point bottomRight = glyph.TranslatePoint(new Point(glyph.Bounds.Width, glyph.Bounds.Height), window) ?? default;
+            Assert.Equal(48, bottomRight.X - topLeft.X, 0.01);
+            Assert.Equal(48, bottomRight.Y - topLeft.Y, 0.01);
+        }
+
+        [AvaloniaFact]
+        public void InspectorGroupBodyStateTile_HostsAStatePanel_InTheGroupsFormGroupBody() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Inspector group — body delegation (State panel)");
+            InspectorGroup group = tile.GetVisualDescendants().OfType<InspectorGroup>().Single();
+            FormGroup body = Assert.IsType<FormGroup>(group.Content);
+            StatePanel panel = tile.GetVisualDescendants().OfType<StatePanel>().Single();
+
+            Assert.Equal(StatePanelShape.Error, panel.Shape);
+            ItemsPresenter itemsPresenter = body.GetVisualDescendants().OfType<ItemsPresenter>().Single(p => p.TemplatedParent == body);
+            Assert.False(itemsPresenter.IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void ChooserGridNoResultsTile_HostsAStatePanel_AndHidesTheGridScroll() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Chooser grid — no results (State panel)");
+            ChooserGrid grid = tile.GetVisualDescendants().OfType<ChooserGrid>().Single();
+            StatePanel panel = tile.GetVisualDescendants().OfType<StatePanel>().Single();
+
+            Assert.Equal(StatePanelShape.NoResults, panel.Shape);
+            ScrollViewer scroll = grid.GetVisualDescendants().OfType<ScrollViewer>().Single(s => s.Name == "PART_Scroll");
+            Assert.False(scroll.IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void SheetFrameErrorTile_HostsAStatePanel_InItsStateSlot() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Sheet frame — error (State panel)");
+            StatePanel panel = tile.GetVisualDescendants().OfType<StatePanel>().Single();
+            Assert.Equal(StatePanelShape.Error, panel.Shape);
+        }
+
+        [AvaloniaFact]
+        public void FormGroupLoadFailureTile_HostsAStatePanel_AndHidesTheEmptyRowList() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form group — load failure (State panel)");
+            FormGroup group = tile.GetVisualDescendants().OfType<FormGroup>().Single();
+            StatePanel panel = tile.GetVisualDescendants().OfType<StatePanel>().Single();
+
+            Assert.Equal(StatePanelShape.Error, panel.Shape);
+            //The panel's own ButtonRow is an ItemsControl too (its own PART_ItemsPresenter) - scope to the one templated by the group itself.
+            ItemsPresenter itemsPresenter = group.GetVisualDescendants().OfType<ItemsPresenter>().Single(p => p.TemplatedParent == group);
+            Assert.False(itemsPresenter.IsVisible);
         }
     }
 }

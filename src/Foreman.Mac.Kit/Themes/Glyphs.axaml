@@ -209,6 +209,18 @@
 
   <!-- Form row's error mark (K3 composites addendum §10): 20pt master M10,3.6 L17.6,16.2 A1.2,1.2 0 0,1 16.6,17.8 H3.4 A1.2,1.2 0 0,1 2.4,16.2 Z M10,8.4 V11.9 M10,14.4 h0.01 scaled by 12/20. -->
   <StreamGeometry x:Key="Kit.Glyph.Alert.12">M6,2.16 L10.56,9.72 A0.72,0.72 0 0,1 9.96,10.68 H2.04 A0.72,0.72 0 0,1 1.44,9.72 Z M6,5.04 V7.14 M6,8.64 h0.006</StreamGeometry>
+  <!-- State panel glyph (K3 composites addendum §07/§10), same 20pt master scaled by 32/20. -->
+  <StreamGeometry x:Key="Kit.Glyph.Alert.32">M16,5.76 L28.16,25.92 A1.92,1.92 0 0,1 26.56,28.48 H5.44 A1.92,1.92 0 0,1 3.84,25.92 Z M16,13.44 V19.04 M16,23.04 h0.016</StreamGeometry>
+
+  <!-- State panel's .empty/.no-results glyphs (K3 composites addendum §10): 20pt masters
+       M4,3.4 H8 A1.2,1.2 0 0,1 9.2,4.6 V6.6 A1.2,1.2 0 0,1 8,7.8 H4 A1.2,1.2 0 0,1 2.8,6.6 V4.6 A1.2,1.2 0 0,1 4,3.4 Z
+       M12,12.2 H16 A1.2,1.2 0 0,1 17.2,13.4 V15.4 A1.2,1.2 0 0,1 16,16.6 H12 A1.2,1.2 0 0,1 10.8,15.4 V13.4 A1.2,1.2 0 0,1 12,12.2 Z
+       M6,7.8 V12.8 A1.6,1.6 0 0,0 7.6,14.4 H10.8
+       and M13.4,8.2 A5.2,5.2 0 1,1 3,8.2 A5.2,5.2 0 1,1 13.4,8.2 Z M5.9,8.2 H10.5 M15,15 L11.9,11.9 - scaled by 16/20 and 32/20. -->
+  <StreamGeometry x:Key="Kit.Glyph.EmptyGraph.16">M3.2,2.72 H6.4 A0.96,0.96 0 0,1 7.36,3.68 V5.28 A0.96,0.96 0 0,1 6.4,6.24 H3.2 A0.96,0.96 0 0,1 2.24,5.28 V3.68 A0.96,0.96 0 0,1 3.2,2.72 Z M9.6,9.76 H12.8 A0.96,0.96 0 0,1 13.76,10.72 V12.32 A0.96,0.96 0 0,1 12.8,13.28 H9.6 A0.96,0.96 0 0,1 8.64,12.32 V10.72 A0.96,0.96 0 0,1 9.6,9.76 Z M4.8,6.24 V10.24 A1.28,1.28 0 0,0 6.08,11.52 H8.64</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.EmptyGraph.32">M6.4,5.44 H12.8 A1.92,1.92 0 0,1 14.72,7.36 V10.56 A1.92,1.92 0 0,1 12.8,12.48 H6.4 A1.92,1.92 0 0,1 4.48,10.56 V7.36 A1.92,1.92 0 0,1 6.4,5.44 Z M19.2,19.52 H25.6 A1.92,1.92 0 0,1 27.52,21.44 V24.64 A1.92,1.92 0 0,1 25.6,26.56 H19.2 A1.92,1.92 0 0,1 17.28,24.64 V21.44 A1.92,1.92 0 0,1 19.2,19.52 Z M9.6,12.48 V20.48 A2.56,2.56 0 0,0 12.16,23.04 H17.28</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.NoResults.16">M10.72,6.56 A4.16,4.16 0 1,1 2.4,6.56 A4.16,4.16 0 1,1 10.72,6.56 Z M4.72,6.56 H8.4 M12,12 L9.52,9.52</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.NoResults.32">M21.44,13.12 A8.32,8.32 0 1,1 4.8,13.12 A8.32,8.32 0 1,1 21.44,13.12 Z M9.44,13.12 H16.8 M24,24 L19.04,19.04</StreamGeometry>
 
   <!-- Search field's own 13pt step (addendum §04), below the shared Search.16/17/18/20 ladder. -->
   <StreamGeometry x:Key="Kit.Glyph.Search.13">M1.95,5.33 A3.38,3.38 0 1,1 8.71,5.33 A3.38,3.38 0 1,1 1.95,5.33 Z M9.75,9.75 L7.605,7.605</StreamGeometry>
