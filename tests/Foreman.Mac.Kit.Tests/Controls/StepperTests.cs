@@ -270,6 +270,74 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             Assert.IsType<Rectangle>(AdornerLayer.GetAdorner(stepper));
         }
+
+        [AvaloniaFact]
+        public void NoUnit_ArrowsSitFlushAtTheTrailingEdgeAndTheFieldFillsTheRest() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Width = 160;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            Border frame = Frame(stepper);
+            Button up = UpButton(stepper);
+            TextBox box = ValueBox(stepper);
+
+            double arrowRight = RightEdgeIn(up, stepper);
+            double arrowLeft = LeftEdgeIn(up, stepper);
+            double fieldRight = RightEdgeIn(box, stepper);
+
+            Assert.Equal(160 - frame.BorderThickness.Right, arrowRight, 2);
+            Assert.Equal(arrowLeft, fieldRight, 2);
+        }
+
+        [AvaloniaFact]
+        public void WithUnit_ArrowsStayFlushAndTheUnitSitsBetweenTheFieldAndTheArrows() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Width = 160;
+            stepper.Unit = "/s";
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            Border frame = Frame(stepper);
+            Button up = UpButton(stepper);
+            TextBox box = ValueBox(stepper);
+            TextBlock unit = UnitText(stepper);
+
+            double arrowRight = RightEdgeIn(up, stepper);
+            double arrowLeft = LeftEdgeIn(up, stepper);
+            double unitRight = RightEdgeIn(unit, stepper);
+            double fieldRight = RightEdgeIn(box, stepper);
+
+            Assert.Equal(160 - frame.BorderThickness.Right, arrowRight, 2);
+            Assert.Equal(arrowLeft, unitRight + unit.Margin.Right, 2);
+            Assert.True(fieldRight < arrowLeft, "the field must shrink to leave room for the unit");
+        }
+
+        [AvaloniaFact]
+        public void UnitMargin_TracksTheControlGlyphGapToken() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Unit = "/s";
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock unit = UnitText(stepper);
+            Application.Current!.Resources["Foreman.Size.ControlGlyphGap"] = 20.0;
+            try {
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(20, unit.Margin.Right);
+            } finally {
+                Application.Current!.Resources.Remove("Foreman.Size.ControlGlyphGap");
+            }
+        }
+
+        private static double RightEdgeIn(Visual element, Visual ancestor) =>
+            (element.TranslatePoint(new Point(element.Bounds.Width, 0), ancestor) ?? default).X;
+
+        private static double LeftEdgeIn(Visual element, Visual ancestor) =>
+            (element.TranslatePoint(new Point(0, 0), ancestor) ?? default).X;
     }
 
     [Collection(KitScaleGroup.Name)]
@@ -286,14 +354,16 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(22, stepper.Height);
-            Assert.Equal(40, Columns(stepper).ColumnDefinitions[0].Width.Value);
+            Assert.Equal(GridUnitType.Star, Columns(stepper).ColumnDefinitions[0].Width.GridUnitType);
+            Assert.Equal(40, Columns(stepper).ColumnDefinitions[0].MinWidth);
             Assert.Equal(15, Columns(stepper).ColumnDefinitions[2].Width.Value);
 
             ScaleContract.Apply(1.5);
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(33, stepper.Height);
-            Assert.Equal(60, Columns(stepper).ColumnDefinitions[0].Width.Value);
+            Assert.Equal(GridUnitType.Star, Columns(stepper).ColumnDefinitions[0].Width.GridUnitType);
+            Assert.Equal(60, Columns(stepper).ColumnDefinitions[0].MinWidth);
             Assert.Equal(22.5, Columns(stepper).ColumnDefinitions[2].Width.Value);
         }
 

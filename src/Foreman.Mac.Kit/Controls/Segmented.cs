@@ -10,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Globalization;
+using System.Linq;
 
 namespace Foreman.Mac.Kit.Controls {
     public class Segmented : TemplatedControl {
@@ -26,6 +27,7 @@ namespace Foreman.Mac.Kit.Controls {
         public AvaloniaList<string> Items { get; } = [];
 
         internal int SelectionRepositions { get; private set; }
+        internal int ColumnSizings { get; private set; }
 
         private Grid? track;
         private Border? selection;
@@ -33,11 +35,13 @@ namespace Foreman.Mac.Kit.Controls {
         private readonly List<TextBlock> labels = [];
         private bool hovering;
         private bool pressed;
-        private Size lastTrackSize;
+        private Rect[] lastCellBounds = [];
         private EventHandler? trackLayoutUpdated;
 
         private CornerRadius itemRadius = new(4);
         private Thickness itemPadding = new(10, 3);
+        private double sizedFontSize = double.NaN;
+        private FontWeight sizedFontWeight;
         private double miniFontSize = 11.5;
         private FontWeight miniFontWeight = FontWeight.Medium;
         private double calloutFontSize = 12;
@@ -65,10 +69,13 @@ namespace Foreman.Mac.Kit.Controls {
 
             track = e.NameScope.Find<Grid>("PART_Track");
             selection = e.NameScope.Find<Border>("PART_Selection");
+            lastCellBounds = [];
             if (track is not null) {
                 trackLayoutUpdated = (_, _) => {
-                    if (track.Bounds.Size == lastTrackSize)
+                    Rect[] cellBounds = [.. segments.Select(s => s.Bounds)];
+                    if (cellBounds.SequenceEqual(lastCellBounds))
                         return;
+                    lastCellBounds = cellBounds;
                     SelectionRepositions++;
                     PositionSelection(animate: false);
                 };
@@ -149,6 +156,7 @@ namespace Foreman.Mac.Kit.Controls {
                 selection.CornerRadius = itemRadius;
 
             ApplyStateColors();
+            SizeColumns();
             PositionSelection(animate: false);
         }
 
@@ -174,19 +182,37 @@ namespace Foreman.Mac.Kit.Controls {
 
             if (selection is not null)
                 selection.Background = down ? controlBackgroundPressed : controlBackground;
+
+            if (fontSize != sizedFontSize || fontWeight != sizedFontWeight) {
+                sizedFontSize = fontSize;
+                sizedFontWeight = fontWeight;
+                SizeColumns();
+            }
+        }
+
+        //Star columns get a MinWidth pinned to each label's measured width, so cells stay content-sized until the host sets an explicit Width.
+        private void SizeColumns() {
+            if (track is null || track.ColumnDefinitions.Count != segments.Count)
+                return;
+
+            ColumnSizings++;
+            for (int i = 0; i < segments.Count; i++) {
+                segments[i].Measure(Size.Infinity);
+                track.ColumnDefinitions[i].MinWidth = segments[i].DesiredSize.Width;
+            }
         }
 
         private void PositionSelection(bool animate) {
             if (track is null || selection is null || segments.Count == 0)
                 return;
 
-            lastTrackSize = track.Bounds.Size;
-            double width = track.Bounds.Width / segments.Count;
-            selection.Width = width;
-            selection.Height = track.Bounds.Height;
+            int index = SelectedIndex >= 0 && SelectedIndex < segments.Count ? SelectedIndex : 0;
+            Border cell = segments[index];
 
-            double x = SelectedIndex >= 0 && SelectedIndex < segments.Count ? SelectedIndex * width : 0;
-            TransformOperations operations = TransformOperations.Parse($"translateX({x.ToString(CultureInfo.InvariantCulture)}px)");
+            selection.Width = cell.Bounds.Width;
+            selection.Height = cell.Bounds.Height;
+
+            TransformOperations operations = TransformOperations.Parse($"translateX({cell.Bounds.X.ToString(CultureInfo.InvariantCulture)}px)");
 
             if (animate) {
                 selection.RenderTransform = operations;

@@ -152,6 +152,39 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(Motion.SpinnerReducedMotionDuration, animation.Duration);
         }
 
+        [AvaloniaTheory]
+        [InlineData(0)]
+        [InlineData(90)]
+        [InlineData(180)]
+        [InlineData(270)]
+        public void HeadCurve_StaysOnTheTracksCircleThroughARotation(double angle) {
+            using var fixture = new KitFixture();
+            Spinner spinner = Themed();
+            fixture.Window.Content = spinner;
+            Dispatcher.UIThread.RunJobs();
+
+            var group = Assert.IsType<TransformGroup>(Head(spinner).RenderTransform);
+            var rotate = Assert.Single(group.Children.OfType<RotateTransform>());
+            rotate.SetCurrentValue(RotateTransform.AngleProperty, angle);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(angle, rotate.Angle);
+            AssertHeadStaysInsideTheSpinner(spinner);
+        }
+
+        //Geometry.Bounds after a transform is unreliable for a partial arc, so we check the head's real transformed bounds instead.
+        internal static void AssertHeadStaysInsideTheSpinner(Spinner spinner) {
+            Arc head = Head(spinner);
+
+            Matrix transform = head.TransformToVisual(spinner) ?? Matrix.Identity;
+            Rect transformedBounds = new Rect(head.Bounds.Size).TransformToAABB(transform);
+
+            //Allowance scales with the head's own size: it absorbs float rounding in the rotation matrix, not a real drift.
+            double tolerance = head.Bounds.Width / 18.0;
+            Assert.True(new Rect(spinner.Bounds.Size).Inflate(tolerance).Contains(transformedBounds),
+                $"head's transformed bounds {transformedBounds} escaped the spinner's own bounds {spinner.Bounds} — the head has drifted off-center");
+        }
+
         [AvaloniaFact]
         public void Detach_UnsubscribesFromResourceObservables() {
             using var fixture = new KitFixture();
@@ -175,6 +208,25 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
     [Collection(KitScaleGroup.Name)]
     public class SpinnerScaleTests {
+        [AvaloniaTheory]
+        [InlineData(0)]
+        [InlineData(200)]
+        [InlineData(400)]
+        [InlineData(600)]
+        public void HeadCurve_StaysOnTheTracksCircleAtOneAndAHalfTimesScale(int elapsedMs) {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.Spinner", null, out object? theme));
+            var spinner = new Spinner { Theme = (ControlTheme)theme! };
+            fixture.Window.Content = spinner;
+            Dispatcher.UIThread.RunJobs();
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+            if (elapsedMs > 0)
+                AnimationClock.Settle(elapsedMs);
+
+            SpinnerTests.AssertHeadStaysInsideTheSpinner(spinner);
+        }
+
         [AvaloniaFact]
         public void Diameter_TracksScaleContract() {
             using var fixture = new KitFixture();

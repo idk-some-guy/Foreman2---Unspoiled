@@ -41,6 +41,8 @@
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
     <Setter Property="PlaceholderForeground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
     <Setter Property="CaretBrush" Value="{DynamicResource Foreman.Color.Accent}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource Foreman.Color.AccentSoft}" />
+    <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Foreman.Color.Text}" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="FocusAdorner" Value="{x:Null}" />
     <Setter Property="Cursor" Value="Ibeam" />
@@ -87,6 +89,7 @@
                                SelectionEnd="{TemplateBinding SelectionEnd}"
                                CaretBrush="{TemplateBinding CaretBrush}"
                                SelectionBrush="{TemplateBinding SelectionBrush}"
+                               SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
               </ScrollViewer>
             </Panel>
@@ -107,6 +110,10 @@
     <Style Selector="^:empty /template/ Button#PART_Clear">
       <Setter Property="Opacity" Value="0" />
       <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+
+    <Style Selector="^:not(:empty) /template/ TextBlock#PART_Placeholder">
+      <Setter Property="IsVisible" Value="False" />
     </Style>
 
     <Style Selector="^:pointerover /template/ Border#PART_BorderElement">

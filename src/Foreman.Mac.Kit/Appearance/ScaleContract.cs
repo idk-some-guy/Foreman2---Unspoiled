@@ -9,6 +9,7 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Type.Body.FontSize",
             "Foreman.Type.EmphasizedBody.FontSize",
             "Foreman.Type.Callout.FontSize",
+            "Foreman.Type.SegmentMini.FontSize",
             "Foreman.Type.Caption.FontSize",
             "Foreman.Type.WindowTitle.FontSize",
             "Foreman.Type.InspectorTitle.FontSize",

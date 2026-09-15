@@ -589,6 +589,7 @@ namespace Foreman.Mac.Views {
             "Foreman.Size.GlyphMicro", "Foreman.Size.GlyphSmall", "Foreman.Size.MenuItemHeight",
             "Foreman.Size.MenuPanelMinWidth", "Foreman.Size.MenuCheckColumn",
             "Foreman.Type.Callout.FontSize", "Foreman.Size.Glyph16", "Foreman.Size.Glyph10",
+            "Foreman.Type.SegmentMini.FontSize",
         ];
 
         private static StackPanel BuildMenuPrimitivesScaledTile() {

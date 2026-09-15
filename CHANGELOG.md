@@ -59,6 +59,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- The search field's placeholder now hides the moment typed text is non-empty instead of
+  overlaying it; the stepper's value field fills the remaining width when no unit is set, with the
+  arrows flush at the control's trailing edge; text and search fields show an accent-soft
+  selection highlight when text is selected or dragged; and the spinner's head stays on its track
+  through a full rotation instead of swinging off it.
+- The stepper's unit-label spacing now tracks the kit's shared glyph-gap token instead of a fixed
+  value.
 - The keyboard focus ring on pill-shaped controls (radio buttons, switches) no longer draws
   looping arcs past the control's own edge, and its radius now matches the ring's true drawn
   extent rather than overshooting it; a pop-up's indicator now sits flush against the control's
@@ -147,6 +154,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Closing a pop-up button or menu button's menu, by Escape, Return, or a click away, now returns
   keyboard focus to the button, with the focus ring back only when the close came from the
   keyboard.
+- The segmented control's selection highlight now tracks its segment's own measured position and
+  width, so it no longer drifts off the label at the mini size or at a larger interface scale.
 
 ### Changed
 

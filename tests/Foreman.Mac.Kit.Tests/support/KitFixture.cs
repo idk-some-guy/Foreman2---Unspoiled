@@ -108,6 +108,13 @@ namespace Foreman.Mac.Kit.Tests.support {
             Dispatcher.UIThread.RunJobs();
         }
 
+        //Real TextInput through the headless window, mirroring how a keyboard actually fills a field (vs. setting Text directly).
+        public void Type(string text) {
+            Focus();
+            window.KeyTextInput(text);
+            Dispatcher.UIThread.RunJobs();
+        }
+
         public void KeyDown(Key key, KeyModifiers modifiers = KeyModifiers.None) {
             control.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = modifiers });
             Dispatcher.UIThread.RunJobs();
@@ -118,10 +125,25 @@ namespace Foreman.Mac.Kit.Tests.support {
             Dispatcher.UIThread.RunJobs();
         }
 
+        //Press-move-release through the control's own local points, mirroring how a real mouse drag selects text.
+        public void Drag(Point from, Point to) {
+            window.MouseDown(Translate(from), MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+            window.MouseMove(Translate(to), RawInputModifiers.LeftMouseButton);
+            Dispatcher.UIThread.RunJobs();
+            window.MouseUp(Translate(to), MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+        }
+
         private Point Center() {
             Dispatcher.UIThread.RunJobs();
             Point center = new(control.Bounds.Width / 2, control.Bounds.Height / 2);
-            return Avalonia.VisualExtensions.TranslatePoint(control, center, window) ?? center;
+            return Translate(center);
+        }
+
+        private Point Translate(Point localPoint) {
+            Dispatcher.UIThread.RunJobs();
+            return Avalonia.VisualExtensions.TranslatePoint(control, localPoint, window) ?? localPoint;
         }
     }
 }

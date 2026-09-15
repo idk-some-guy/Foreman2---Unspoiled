@@ -12,7 +12,7 @@
                       Stroke="{DynamicResource Foreman.Color.Accent}"
                       StartAngle="0"
                       SweepAngle="90"
-                      RenderTransformOrigin="0.5,0.5" />
+                      RenderTransformOrigin="50%,50%" />
         </Panel>
       </ControlTemplate>
     </Setter>

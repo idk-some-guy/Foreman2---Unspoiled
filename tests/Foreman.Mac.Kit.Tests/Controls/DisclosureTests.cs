@@ -251,6 +251,30 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             var opacity = Assert.IsType<DoubleTransition>(only);
             Assert.Equal(Visual.OpacityProperty, opacity.Property);
         }
+
+        [AvaloniaFact]
+        public void RenderTransformOrigin_ParsesToCenterAndRotatedBoundsStayInside() {
+            using var fixture = new KitFixture();
+            Disclosure disclosure = Themed("Module slots", "content");
+            disclosure.IsExpanded = false;
+            fixture.Window.Content = disclosure;
+            Dispatcher.UIThread.RunJobs();
+
+            Path triangle = Triangle(disclosure);
+            Assert.Equal(RelativePoint.Center, triangle.RenderTransformOrigin);
+
+            disclosure.IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+
+            Border headerRow = HeaderRow(disclosure);
+            Matrix matrix = triangle.TransformToVisual(headerRow) ?? Matrix.Identity;
+            Rect transformedBounds = new Rect(triangle.Bounds.Size).TransformToAABB(matrix);
+            Rect headerRowBounds = new Rect(headerRow.Bounds.Size).Inflate(0.5);
+
+            Assert.True(headerRowBounds.Contains(transformedBounds),
+                $"triangle's transformed bounds {transformedBounds} escaped the header row's bounds {headerRowBounds}");
+        }
     }
 
     [Collection(KitScaleGroup.Name)]

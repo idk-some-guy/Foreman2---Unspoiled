@@ -27,24 +27,57 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             return Assert.IsType<ControlTheme>(theme);
         }
 
-        private static Segmented Themed(params string[] items) {
+        internal static Segmented Themed(params string[] items) {
             var segmented = new Segmented { Theme = KitSegmentedTheme() };
             foreach (string item in items)
                 segmented.Items.Add(item);
             return segmented;
         }
 
-        private static Border[] Segments(Segmented segmented) =>
+        internal static Border[] Segments(Segmented segmented) =>
             [.. segmented.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("segment"))];
 
-        private static TextBlock[] Labels(Segmented segmented) =>
+        internal static TextBlock[] Labels(Segmented segmented) =>
             [.. segmented.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("segLabel"))];
 
-        private static Border Selection(Segmented segmented) =>
+        internal static Border Selection(Segmented segmented) =>
             segmented.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Selection");
 
-        private static Grid Track(Segmented segmented) =>
+        internal static Grid Track(Segmented segmented) =>
             segmented.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Track");
+
+        //Every label sits inside its own cell, and after settling on each index PART_Selection's real (transformed) rect matches that cell's rect.
+        internal static void AssertLayoutMatchesCells(Segmented segmented) {
+            Dispatcher.UIThread.RunJobs();
+
+            Border[] cells = Segments(segmented);
+            TextBlock[] labels = Labels(segmented);
+
+            for (int i = 0; i < cells.Length; i++) {
+                Border cell = cells[i];
+                TextBlock label = labels[i];
+
+                Assert.True(label.Bounds.X >= -0.5 && label.Bounds.Y >= -0.5, $"label {i} starts outside its cell: {label.Bounds}");
+                Assert.True(label.Bounds.Right <= cell.Bounds.Width + 0.5, $"label {i} right edge {label.Bounds.Right} exceeds cell width {cell.Bounds.Width}");
+                Assert.True(label.Bounds.Bottom <= cell.Bounds.Height + 0.5, $"label {i} bottom edge {label.Bounds.Bottom} exceeds cell height {cell.Bounds.Height}");
+                Assert.True(label.DesiredSize.Width <= cell.Bounds.Width + 0.5, $"label {i} desired width {label.DesiredSize.Width} clips cell width {cell.Bounds.Width}");
+                Assert.True(label.DesiredSize.Height <= cell.Bounds.Height + 0.5, $"label {i} desired height {label.DesiredSize.Height} clips cell height {cell.Bounds.Height}");
+            }
+
+            for (int i = 0; i < cells.Length; i++) {
+                segmented.SelectedIndex = i;
+                Dispatcher.UIThread.RunJobs();
+                AnimationClock.Settle();
+
+                Border cell = cells[i];
+                Border selection = Selection(segmented);
+                double dx = selection.RenderTransform is TransformOperations ops ? ops.Value.M31 : 0;
+
+                Assert.Equal(cell.Bounds.X, selection.Bounds.X + dx, 0);
+                Assert.Equal(cell.Bounds.Width, selection.Bounds.Width, 0);
+                Assert.Equal(cell.Bounds.Height, selection.Bounds.Height, 0);
+            }
+        }
 
         [AvaloniaFact]
         public void KitSegmented_IsAControlThemeTargetingSegmented() {
@@ -278,11 +311,12 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.Window.Content = segmented;
             Dispatcher.UIThread.RunJobs();
 
+            double expectedX = Segments(segmented)[0].Bounds.Width;
+
             segmented.SelectedIndex = 1;
             Dispatcher.UIThread.RunJobs();
             AnimationClock.Settle();
 
-            double expectedX = Track(segmented).Bounds.Width / 3 * 1;
             var transform = Assert.IsType<TransformOperations>(Selection(segmented).RenderTransform);
             Assert.Equal(expectedX, transform.Value.M31, 1);
         }
@@ -294,6 +328,8 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.Window.Content = segmented;
             Dispatcher.UIThread.RunJobs();
 
+            double expectedX = Segments(segmented)[0].Bounds.Width;
+
             segmented.SelectedIndex = 1;
             Dispatcher.UIThread.RunJobs();
 
@@ -301,7 +337,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.Window.UpdateLayout();
             Dispatcher.UIThread.RunJobs();
 
-            double expectedX = Track(segmented).Bounds.Width / 3 * 1;
             var midFlight = Assert.IsType<TransformOperations>(Selection(segmented).RenderTransform);
             Assert.NotEqual(expectedX, midFlight.Value.M31, 1);
 
@@ -362,6 +397,79 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void Layout_EqualLabels_CellsTrackSelectionAllAlign() {
+            using var fixture = new KitFixture();
+            Segmented segmented = Themed("Up", "Down", "Auto");
+            fixture.Window.Content = segmented;
+
+            AssertLayoutMatchesCells(segmented);
+        }
+
+        [AvaloniaFact]
+        public void Layout_UnequalLabels_CellsTrackSelectionAllAlign() {
+            using var fixture = new KitFixture();
+            Segmented segmented = Themed("Up", "Downwards", "A");
+            fixture.Window.Content = segmented;
+
+            AssertLayoutMatchesCells(segmented);
+        }
+
+        [AvaloniaFact]
+        public void Layout_Mini_EqualLabels_CellsTrackSelectionAllAlign() {
+            using var fixture = new KitFixture();
+            Segmented segmented = Themed("Up", "Down", "Auto");
+            segmented.Classes.Add("mini");
+            fixture.Window.Content = segmented;
+
+            AssertLayoutMatchesCells(segmented);
+        }
+
+        [AvaloniaFact]
+        public void Layout_Mini_UnequalLabels_CellsTrackSelectionAllAlign() {
+            using var fixture = new KitFixture();
+            Segmented segmented = Themed("Up", "Downwards", "A");
+            segmented.Classes.Add("mini");
+            fixture.Window.Content = segmented;
+
+            AssertLayoutMatchesCells(segmented);
+        }
+
+        [AvaloniaFact]
+        public void Layout_UnconstrainedWidth_TrackWidthMatchesSumOfCellsDesiredWidths() {
+            using var fixture = new KitFixture();
+            Segmented segmented = Themed("Up", "Downwards", "A");
+            var host = new StackPanel { HorizontalAlignment = HorizontalAlignment.Left };
+            host.Children.Add(segmented);
+            fixture.Window.Content = host;
+            Dispatcher.UIThread.RunJobs();
+
+            double expected = Segments(segmented).Sum(cell => cell.DesiredSize.Width);
+            Assert.Equal(expected, Track(segmented).Bounds.Width, 1);
+        }
+
+        [AvaloniaFact]
+        public void HoverAndPress_DoNotReSizeColumns_MiniToggleDoes() {
+            using var fixture = new KitFixture();
+            Segmented segmented = Themed("Up", "Downwards", "A");
+            fixture.Window.Content = segmented;
+            Dispatcher.UIThread.RunJobs();
+
+            int baseline = segmented.ColumnSizings;
+
+            fixture.StateOf(segmented).Hover();
+            fixture.StateOf(segmented).Press();
+            segmented.SelectedIndex = 1;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(baseline, segmented.ColumnSizings);
+
+            segmented.Classes.Add("mini");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(baseline + 1, segmented.ColumnSizings);
+        }
+
+        [AvaloniaFact]
         public void ScopedToken_SegmentItemPaddingComesFromTheControlsOwnResourceScope() {
             using var fixture = new KitFixture();
             Segmented segmented = Themed("Up", "Down");
@@ -393,6 +501,38 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(33, segmented.Height);
+        }
+
+        [AvaloniaFact]
+        public void Layout_150Percent_EqualLabels_CellsTrackSelectionAllAlign() {
+            using var fixture = new KitFixture();
+            Segmented segmented = SegmentedTests.Themed("Up", "Down", "Auto");
+            segmented.Classes.Add("mini");
+            fixture.Window.Content = segmented;
+            Dispatcher.UIThread.RunJobs();
+            Application.Current!.TryGetResource("Foreman.Type.SegmentMini.FontSize", Application.Current.ActualThemeVariant, out object? miniFontSize);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal((double)miniFontSize! * 1.5, SegmentedTests.Labels(segmented)[0].FontSize, 1);
+            SegmentedTests.AssertLayoutMatchesCells(segmented);
+        }
+
+        [AvaloniaFact]
+        public void Layout_150Percent_UnequalLabels_CellsTrackSelectionAllAlign() {
+            using var fixture = new KitFixture();
+            Segmented segmented = SegmentedTests.Themed("Up", "Downwards", "A");
+            segmented.Classes.Add("mini");
+            fixture.Window.Content = segmented;
+            Dispatcher.UIThread.RunJobs();
+            Application.Current!.TryGetResource("Foreman.Type.SegmentMini.FontSize", Application.Current.ActualThemeVariant, out object? miniFontSize);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal((double)miniFontSize! * 1.5, SegmentedTests.Labels(segmented)[0].FontSize, 1);
+            SegmentedTests.AssertLayoutMatchesCells(segmented);
         }
     }
 }

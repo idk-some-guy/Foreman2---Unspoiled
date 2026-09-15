@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
@@ -129,6 +130,38 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             Application.Current!.TryGetResource("Foreman.Opacity.Disabled", Application.Current.ActualThemeVariant, out object? disabled);
             Assert.Equal(Assert.IsType<double>(disabled), field.Opacity);
+        }
+
+        [AvaloniaFact]
+        public void SelectAll_ShowsAccentSoftHighlightAcrossTheWholeText() {
+            using var fixture = new KitFixture();
+            TextBox field = Themed();
+            field.Text = "iron plate";
+            fixture.Window.Content = field;
+            Dispatcher.UIThread.RunJobs();
+
+            field.SelectAll();
+            Dispatcher.UIThread.RunJobs();
+
+            var presenter = field.GetVisualDescendants().OfType<TextPresenter>().Single(p => p.Name == "PART_TextPresenter");
+            Assert.Equal(fixture.Brush("Foreman.Color.AccentSoft").ToImmutable(), presenter.SelectionBrush?.ToImmutable());
+            Assert.Equal(0, field.SelectionStart);
+            Assert.Equal("iron plate".Length, field.SelectionEnd);
+        }
+
+        [AvaloniaFact]
+        public void PointerDrag_SelectsARangeOfText() {
+            using var fixture = new KitFixture();
+            TextBox field = Themed();
+            field.Text = "iron plate";
+            fixture.Window.Content = field;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.StateOf(field).Drag(
+                new Point(10, field.Bounds.Height / 2),
+                new Point(field.Bounds.Width - 10, field.Bounds.Height / 2));
+
+            Assert.NotEqual(field.SelectionStart, field.SelectionEnd);
         }
     }
 

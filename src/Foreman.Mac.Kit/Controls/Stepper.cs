@@ -66,6 +66,7 @@ namespace Foreman.Mac.Kit.Controls {
         private Grid? columns;
         private double fieldWidth = 40;
         private double arrowColumn = 15;
+        private double glyphGap = 6;
         private readonly List<IDisposable> subs = [];
 
         static Stepper() {
@@ -108,7 +109,8 @@ namespace Foreman.Mac.Kit.Controls {
                 downButton.Click += OnDownClicked;
 
             if (columns is not null) {
-                columns.ColumnDefinitions[0].Width = new GridLength(fieldWidth);
+                columns.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
+                columns.ColumnDefinitions[0].MinWidth = fieldWidth;
                 columns.ColumnDefinitions[2].Width = new GridLength(arrowColumn);
             }
 
@@ -132,13 +134,17 @@ namespace Foreman.Mac.Kit.Controls {
             subs.Add(this.GetResourceObservable("Foreman.Size.StepperFieldWidth").Subscribe(new ResourceSinks.DoubleSink(v => {
                 fieldWidth = v;
                 if (columns is not null)
-                    columns.ColumnDefinitions[0].Width = new GridLength(v);
+                    columns.ColumnDefinitions[0].MinWidth = v;
             }, fieldWidth)));
             subs.Add(this.GetResourceObservable("Foreman.Size.StepperArrowColumn").Subscribe(new ResourceSinks.DoubleSink(v => {
                 arrowColumn = v;
                 if (columns is not null)
                     columns.ColumnDefinitions[2].Width = new GridLength(v);
             }, arrowColumn)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.ControlGlyphGap").Subscribe(new ResourceSinks.DoubleSink(v => {
+                glyphGap = v;
+                RefreshUnitDisplay();
+            }, glyphGap)));
         }
 
         private void Unsubscribe() {
@@ -193,8 +199,10 @@ namespace Foreman.Mac.Kit.Controls {
         private void RefreshUnitDisplay() {
             if (unitText is null)
                 return;
+            bool hasUnit = !string.IsNullOrEmpty(Unit);
             unitText.Text = Unit;
-            unitText.IsVisible = !string.IsNullOrEmpty(Unit);
+            unitText.IsVisible = hasUnit;
+            unitText.Margin = hasUnit ? new Thickness(0, 0, glyphGap, 0) : default;
         }
 
     }
