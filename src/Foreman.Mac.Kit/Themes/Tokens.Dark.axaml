@@ -39,6 +39,14 @@
   <!-- PopoverMaterial and TitlebarMaterialOpaque have no contract hex; they reuse ControlBackground / TitlebarBackground -->
   <Color x:Key="Foreman.Color.PopoverMaterial">#3D3D40</Color>
   <Color x:Key="Foreman.Color.TitlebarMaterialOpaque">#323234</Color>
+  <!-- No real blur in this port, so a material and its opaque fallback share one hex - PopoverMaterialOpaque
+       mirrors ControlBackground the way TooltipMaterialOpaque already does (addendum §12.10). -->
+  <Color x:Key="Foreman.Color.PopoverMaterialOpaque">#3D3D40</Color>
+  <!-- v2 §01: titlebar/popover/palette are the app's three materials. Palette reuses the popover's value; -->
+  <!-- titlebar's is TitlebarMaterialOpaque's, already on the books. -->
+  <Color x:Key="Foreman.Color.PaletteMaterial">#3D3D40</Color>
+  <Color x:Key="Foreman.Color.PaletteMaterialOpaque">#3D3D40</Color>
+  <Color x:Key="Foreman.Color.TitlebarMaterial">#323234</Color>
 
   <x:Double x:Key="Foreman.Opacity.Disabled">0.38</x:Double>
 
@@ -79,6 +87,13 @@
   <Thickness x:Key="Foreman.Thickness.PickCellGap">2.5</Thickness>
   <!-- Not Radius.Control 6 - the chooser cell has been a literal 8 in three or more places (addendum §12.2). -->
   <CornerRadius x:Key="Foreman.Radius.ChooserCell">8</CornerRadius>
+  <!-- Also the radial hub's and the palette's radius - one key covers all three (addendum §12.2). -->
+  <CornerRadius x:Key="Foreman.Radius.Popover">10</CornerRadius>
+  <!-- Fixed at every scale step - the tail is pointer-sized, not type-sized (addendum §11). -->
+  <x:Double x:Key="Foreman.Size.PopoverTail">12</x:Double>
+  <!-- Fixed at every scale step (ruling 5) - the ring is a pointer gesture, not type-driven. -->
+  <x:Double x:Key="Foreman.Size.RadialOuter">100</x:Double>
+  <x:Double x:Key="Foreman.Size.RadialHub">38</x:Double>
 
   <x:Double x:Key="Foreman.Type.LargeTitle.FontSize">20</x:Double>
   <FontWeight x:Key="Foreman.Type.LargeTitle.FontWeight">700</FontWeight>
@@ -96,6 +111,9 @@
   <FontWeight x:Key="Foreman.Type.Caption.FontWeight">400</FontWeight>
   <FontWeight x:Key="Foreman.Type.Caption.Emphasized.FontWeight">600</FontWeight>
   <x:Double x:Key="Foreman.Type.Caption.LineHeight">13.2</x:Double>
+  <!-- Not on ScaleContract's ramp - the radial ring is fixed at 220pt at every scale step (ruling 5). -->
+  <x:Double x:Key="Foreman.Type.RadialLabel.FontSize">11</x:Double>
+  <FontWeight x:Key="Foreman.Type.RadialLabel.FontWeight">600</FontWeight>
 
   <!-- Per-surface sizes with no ramp-step match; K4 deletes each as its surface migrates onto the ramp. -->
   <x:Double x:Key="Foreman.Type.Legacy.About.Name.FontSize">15</x:Double>

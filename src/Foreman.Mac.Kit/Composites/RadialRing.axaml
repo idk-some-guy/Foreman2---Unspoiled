@@ -1,0 +1,21 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites">
+
+  <ControlTheme x:Key="Kit.RadialRing" TargetType="kit:RadialRing">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+    <Setter Property="RenderTransform" Value="scale(0.9)" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Canvas x:Name="PART_Root" Background="Transparent" />
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:open">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="RenderTransform" Value="scale(1)" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

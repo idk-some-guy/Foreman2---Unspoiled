@@ -76,6 +76,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   collapse to three named sizes; a button row orders itself Other/Cancel/Default with a destructive
   trailing action never taking the default styling or the Return key, so Cancel keeps it; a sheet
   traps Tab inside itself while open and returns focus to whatever opened it on dismiss.
+- Kit.PopoverFrame and Kit.RadialRing land in the gallery, hosted by a new Kit.PopoverHost overlay
+  layer that clamps a popover to its own bounds and closes it on an outside press, swallowing that
+  click rather than also passing it to whatever sits beneath. The popover
+  carries the app's translucent material with an opaque fallback and a tail that tracks its anchor,
+  falling back from below to above to trailing to leading before it clamps to the window, and moves
+  focus into itself on open. The ring stays fixed at 220pt across at every display scale; a slice
+  arms the moment the pointer crosses the hub boundary into its wedge and stays armed once the
+  pointer leaves the ring, a cursor dot with an accent halo tracks the pointer, arrow and diagonal
+  keys arm the same way, and any other key dismisses the ring and opens the same six items as a
+  context menu. Both composites carry real automation roles now. PaletteMaterial and TitlebarMaterial
+  gained the opaque-fallback pair every material now shares.
 
 ### Fixed
 

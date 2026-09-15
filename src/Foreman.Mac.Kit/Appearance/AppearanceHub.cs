@@ -102,16 +102,20 @@ namespace Foreman.Mac.Kit.Appearance {
                 app.Resources.Remove("Foreman.Opacity.SplitGripIdle");
         }
 
+        //Every material - popover, tooltip, palette, titlebar - re-points to its own opaque token under Reduce
+        //Transparency or Increase Contrast; there is no live blur in this port, so the swap is purely behavioral.
         private void ApplyMaterialFallback(bool reduceTransparency) {
-            if (reduceTransparency && app.TryGetResource("Foreman.Color.ControlBackground", app.ActualThemeVariant, out object? controlBackground))
-                app.Resources["Foreman.Color.PopoverMaterial"] = controlBackground!;
-            else
-                app.Resources.Remove("Foreman.Color.PopoverMaterial");
+            ApplyMaterial("Foreman.Color.PopoverMaterial", "Foreman.Color.PopoverMaterialOpaque", reduceTransparency);
+            ApplyMaterial("Foreman.Color.TooltipMaterial", "Foreman.Color.TooltipMaterialOpaque", reduceTransparency);
+            ApplyMaterial("Foreman.Color.PaletteMaterial", "Foreman.Color.PaletteMaterialOpaque", reduceTransparency);
+            ApplyMaterial("Foreman.Color.TitlebarMaterial", "Foreman.Color.TitlebarMaterialOpaque", reduceTransparency);
+        }
 
-            if (reduceTransparency && app.TryGetResource("Foreman.Color.TooltipMaterialOpaque", app.ActualThemeVariant, out object? tooltipOpaque))
-                app.Resources["Foreman.Color.TooltipMaterial"] = tooltipOpaque!;
+        private void ApplyMaterial(string materialKey, string opaqueKey, bool reduceTransparency) {
+            if (reduceTransparency && app.TryGetResource(opaqueKey, app.ActualThemeVariant, out object? opaque))
+                app.Resources[materialKey] = opaque!;
             else
-                app.Resources.Remove("Foreman.Color.TooltipMaterial");
+                app.Resources.Remove(materialKey);
         }
 
         private void NotifySubscribers() {
@@ -138,6 +142,8 @@ namespace Foreman.Mac.Kit.Appearance {
             resources.Remove("Foreman.Color.Border");
             resources.Remove("Foreman.Color.PopoverMaterial");
             resources.Remove("Foreman.Color.TooltipMaterial");
+            resources.Remove("Foreman.Color.PaletteMaterial");
+            resources.Remove("Foreman.Color.TitlebarMaterial");
             resources.Remove("Foreman.Opacity.SplitGripIdle");
         }
     }

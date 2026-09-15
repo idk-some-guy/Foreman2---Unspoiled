@@ -130,7 +130,10 @@ namespace Foreman.Mac.UiTests.Views {
                  "Chooser cell — five states", "Chooser grid — search results, two headings",
                  "Chooser cell & Chooser grid (150%)",
                  "Scrim & Sheet frame", "Button row — five shapes", "Alert frame — two-button & three-button",
-                 "Scrim, Sheet frame, Button row & Alert frame (150%)"],
+                 "Scrim, Sheet frame, Button row & Alert frame (150%)",
+                 "Popover frame — anchored below, with a form group inside", "Popover frame — tail clamped near a corner",
+                 "Radial ring — six slices, one armed",
+                 "Popover frame & Radial ring (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -1059,6 +1062,67 @@ namespace Foreman.Mac.UiTests.Views {
 
             Button rowButton = tile.GetVisualDescendants().OfType<ButtonRow>().First().Items.OfType<Button>().First();
             Assert.Equal(96, rowButton.MinWidth);
+        }
+
+        [AvaloniaFact]
+        public void PopoverFrameTile_OpensBelowItsAnchor_HostingAFormGroup() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Popover frame — anchored below, with a form group inside");
+            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+
+            Assert.True(popover.IsOpen);
+            Assert.Equal(PopoverEdge.Bottom, popover.ResolvedPlacement);
+            FormGroup group = Assert.IsType<FormGroup>(popover.Content);
+            Assert.Equal("Show on nodes", group.Title);
+        }
+
+        [AvaloniaFact]
+        public void PopoverFrameCornerTile_ClampsTheTailNearTheAnchorsCorner() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Popover frame — tail clamped near a corner");
+            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+            Border tail = popover.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Tail");
+
+            Assert.True(popover.IsOpen);
+            Assert.Equal(PopoverEdge.Bottom, popover.ResolvedPlacement);
+            Assert.Equal(26, tail.Margin.Left);
+        }
+
+        [AvaloniaFact]
+        public void RadialRingTile_ShowsSixSlicesWithOneArmed() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Radial ring — six slices, one armed");
+            RadialRing ring = tile.GetVisualDescendants().OfType<RadialRing>().Single();
+
+            Assert.True(ring.IsOpen);
+            Assert.Equal(6, ring.Items.Count);
+            Assert.Equal(2, ring.ArmedIndex);
+        }
+
+        [AvaloniaFact]
+        public void PopoverAndRadialScaledTile_RingStays220_PopoverScalesWithItsGroupTitle() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Popover frame & Radial ring (150%)");
+            RadialRing ring = tile.GetVisualDescendants().OfType<RadialRing>().Single();
+
+            Assert.Equal(220, ring.Bounds.Width);
+            Assert.Equal(220, ring.Bounds.Height);
+
+            TextBlock title = tile.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Title");
+            Application.Current!.TryGetResource("Foreman.Type.SectionHeader.FontSize", Application.Current.ActualThemeVariant, out object? fontSizeObj);
+            Assert.Equal((double)fontSizeObj! * 1.5, title.FontSize);
         }
     }
 }

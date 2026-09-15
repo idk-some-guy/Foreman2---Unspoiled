@@ -181,6 +181,10 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Button row — five shapes", "Default", BuildButtonRowShapesTile));
             registry.Register(new GalleryTile("Kit", "Alert frame — two-button & three-button", "Default", BuildAlertFramesTile));
             registry.Register(new GalleryTile("Kit", "Scrim, Sheet frame, Button row & Alert frame (150%)", "150%", BuildSheetCompositesScaledTile));
+            registry.Register(new GalleryTile("Kit", "Popover frame — anchored below, with a form group inside", "Default", BuildPopoverFrameTile));
+            registry.Register(new GalleryTile("Kit", "Popover frame — tail clamped near a corner", "Default", BuildPopoverFrameCornerTile));
+            registry.Register(new GalleryTile("Kit", "Radial ring — six slices, one armed", "Default", BuildRadialRingTile));
+            registry.Register(new GalleryTile("Kit", "Popover frame & Radial ring (150%)", "150%", BuildPopoverAndRadialScaledTile));
             return registry;
         }
 
@@ -1537,6 +1541,94 @@ namespace Foreman.Mac.Views {
             container.Children.Add(BuildSheetFrameTile());
             container.Children.Add(BuildButtonRowShapesTile());
             container.Children.Add(BuildAlertFramesTile());
+            return container;
+        }
+
+        //Anchored below the button, holding a Kit.FormGroup - the view-options checklist the popover replaces.
+        private static Border BuildPopoverFrameTile() {
+            var anchor = new Button { Theme = KitTheme("Kit.Button"), Content = "View options" };
+
+            var group = new FormGroup { Theme = KitTheme("Kit.FormGroup"), Title = "Show on nodes" };
+            group.Items.Add(new CheckBox { Theme = KitTheme("Kit.CheckBox"), Content = "Rates", IsChecked = true });
+            group.Items.Add(new CheckBox { Theme = KitTheme("Kit.CheckBox"), Content = "Machine counts", IsChecked = true });
+            group.Items.Add(new CheckBox { Theme = KitTheme("Kit.CheckBox"), Content = "Module icons" });
+
+            var popover = new PopoverFrame { Theme = KitTheme("Kit.PopoverFrame"), Content = group, Anchor = anchor };
+
+            var host = new PopoverHost { Width = 320, Height = 220 };
+            Avalonia.Controls.Canvas.SetLeft(anchor, 40);
+            Avalonia.Controls.Canvas.SetTop(anchor, 20);
+            host.Surface.Children.Add(anchor);
+            host.Surface.Children.Add(popover);
+            popover.IsOpen = true;
+
+            return new Border {
+                Width = 320, Height = 220,
+                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
+                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
+                BorderThickness = new Thickness(1),
+                Child = host,
+            };
+        }
+
+        //Anchor pinned at the top-left corner - the tail clamps to its 26pt minimum offset instead of
+        //centering under the anchor, and the frame itself clamps flush to the host's edge.
+        private static Border BuildPopoverFrameCornerTile() {
+            var anchor = new Button { Theme = KitTheme("Kit.Button"), Content = "•" };
+            var content = new TextBlock { Theme = KitTheme("Kit.Text"), Text = "Clamped near the corner" };
+            var popover = new PopoverFrame { Theme = KitTheme("Kit.PopoverFrame"), Content = content, Anchor = anchor };
+
+            var host = new PopoverHost { Width = 220, Height = 140 };
+            Avalonia.Controls.Canvas.SetLeft(anchor, 4);
+            Avalonia.Controls.Canvas.SetTop(anchor, 4);
+            host.Surface.Children.Add(anchor);
+            host.Surface.Children.Add(popover);
+            popover.IsOpen = true;
+
+            return new Border {
+                Width = 220, Height = 140,
+                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
+                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
+                BorderThickness = new Thickness(1),
+                Child = host,
+            };
+        }
+
+        private static readonly string[] RadialRingGlyphKeys = ["RadialCancel", "Recipe", "Item", "RadialSource", "RadialOutput", "RadialPlant"];
+        private static readonly string[] RadialRingLabels = ["Cancel", "Recipe", "Item", "Source", "Output", "Plant"];
+
+        //One armed slice (index 2, "Item") - the addendum's own worked example.
+        private static Border BuildRadialRingTile() {
+            var ring = new RadialRing { Theme = KitTheme("Kit.RadialRing") };
+            for (int i = 0; i < RadialRingGlyphKeys.Length; i++)
+                ring.Items.Add(new RadialItem { GlyphKey = RadialRingGlyphKeys[i], Label = RadialRingLabels[i] });
+            ring.IsOpen = true;
+            ring.ArmedIndex = 2;
+
+            return new Border {
+                Width = 220, Height = 220,
+                Background = ThemeResources.ResolveBrush("Foreman.Color.CanvasBackground", Colors.White),
+                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
+                BorderThickness = new Thickness(1),
+                Child = ring,
+            };
+        }
+
+        private static readonly string[] PopoverAndRadialScaledSizeKeys = [
+            "Foreman.Type.SectionHeader.FontSize", "Foreman.Type.Callout.FontSize",
+            "Foreman.Size.ControlHeightRegular", "Foreman.Metrics.ButtonMinWidth",
+        ];
+
+        //The popover's content scales with these keys; the ring row sits alongside it unscaled - it's
+        //excluded from ScaleContract entirely, so its row proves the ring stays 220 regardless.
+        private static StackPanel BuildPopoverAndRadialScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in PopoverAndRadialScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildPopoverFrameTile());
+            container.Children.Add(BuildRadialRingTile());
             return container;
         }
 
