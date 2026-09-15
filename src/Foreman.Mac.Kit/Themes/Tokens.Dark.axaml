@@ -223,6 +223,14 @@
        doesn't follow the app theme either. -->
   <Color x:Key="Foreman.Color.GalleryChrome">#000000</Color>
 
+  <!-- Sheet widths (K3 composites addendum §12.9): replaces the shipped 340/348/360/460/780. -->
+  <x:Double x:Key="Foreman.Metrics.SheetWidthAlert">300</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SheetWidthStandard">360</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SheetWidthWide">460</x:Double>
+
+  <!-- Kit.ButtonRow (K3 composites addendum §05): a button never shrinks below this. -->
+  <x:Double x:Key="Foreman.Metrics.ButtonMinWidth">64</x:Double>
+
   <!-- TextField (addendum context, task 6): plain 22pt well field, min-width its own token. -->
   <x:Double x:Key="Foreman.Metrics.TextFieldMinWidth">84</x:Double>
   <Thickness x:Key="Foreman.Thickness.TextFieldPadding">8,0</Thickness>

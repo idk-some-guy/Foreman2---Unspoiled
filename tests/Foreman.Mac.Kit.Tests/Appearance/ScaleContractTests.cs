@@ -56,6 +56,13 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         }
 
         [AvaloniaFact]
+        public void Apply_AtOneFifty_MultipliesButtonMinWidth() {
+            ScaleContract.Apply(1.5);
+
+            Assert.Equal(96.0, ResourceDouble("Foreman.Metrics.ButtonMinWidth"));
+        }
+
+        [AvaloniaFact]
         public void Apply_AtOneFifty_MultipliesIconPickerAndChooserSizes() {
             ScaleContract.Apply(1.5);
 

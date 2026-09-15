@@ -68,6 +68,16 @@
       <Setter Property="Background" Value="{DynamicResource Foreman.Color.ErrorPressed}" />
     </Style>
 
+    <Style Selector="^.plain">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.AccentText}" />
+      <Setter Property="Padding" Value="6,0" />
+    </Style>
+    <Style Selector="^.plain:pointerover, ^.plain:pressed">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
     <!-- Gallery-only: mirrors the real :pointerover/:pressed Setters since Avalonia won't let outside code set them. -->
     <Style Selector="^.gallery-hover">
       <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />

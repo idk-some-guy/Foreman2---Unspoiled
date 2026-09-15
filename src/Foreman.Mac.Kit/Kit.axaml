@@ -44,6 +44,10 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/PickGrid.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ChooserCell.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ChooserGrid.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/Scrim.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ButtonRow.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/SheetFrame.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/AlertFrame.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

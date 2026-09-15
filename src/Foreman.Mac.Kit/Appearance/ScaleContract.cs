@@ -34,6 +34,7 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.InspectorWidthMax",
             "Foreman.Size.ControlHeightRegular",
             "Foreman.Size.ControlHeightLarge",
+            "Foreman.Metrics.ButtonMinWidth",
             "Foreman.Size.PickCell",
             "Foreman.Size.PickCellIcon",
             "Foreman.Size.PaletteWidth",
@@ -113,6 +114,9 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.ChipCloseBox",
             "Foreman.Size.ChipGap",
             "Foreman.Size.KeyCapMinSquare",
+            "Foreman.Metrics.SheetWidthAlert",
+            "Foreman.Metrics.SheetWidthStandard",
+            "Foreman.Metrics.SheetWidthWide",
         ];
 
         //Remove-then-resolve (AppearanceHub.ApplyFocusRing's idiom) keeps repeated calls from compounding.

@@ -72,9 +72,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   name always carry the untruncated item; the grid is one tab stop with arrow/Home/End/Page traversal
   across section headings, a sticky heading per section, and a staggered entrance that now honours a
   live Reduce Motion toggle on an already-built grid.
+- Kit.Scrim, Kit.ButtonRow, Kit.SheetFrame and Kit.AlertFrame land in the gallery. Sheet widths
+  collapse to three named sizes; a button row orders itself Other/Cancel/Default with a destructive
+  trailing action never taking the default styling or the Return key, so Cancel keeps it; a sheet
+  traps Tab inside itself while open and returns focus to whatever opened it on dismiss.
 
 ### Fixed
 
+- Kit.SheetFrame now handles ⌘. and ⌘⌫ itself, so they work no matter which control inside the
+  sheet has focus; Return in a destructive alert raises Cancelled instead of Closed; a sheet that
+  has never been opened lets clicks pass through to whatever sits behind it; going busy no longer
+  force-enables a default button a consumer had already disabled. SheetFrame and AlertFrame report
+  themselves to VoiceOver, and the alert's icon is excluded from the automation tree. Kit.Button's
+  plain style no longer lightens the label weight, and the gallery's alert tiles show the real app
+  icon.
 - The search field's placeholder now hides the moment typed text is non-empty instead of
   overlaying it; the stepper's value field fills the remaining width when no unit is set, with the
   arrows flush at the control's trailing edge; text and search fields show an accent-soft

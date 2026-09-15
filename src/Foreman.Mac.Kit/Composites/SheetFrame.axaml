@@ -1,0 +1,57 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites"
+                    xmlns:ctrl="using:Foreman.Mac.Kit.Controls">
+
+  <ControlTheme x:Key="Kit.SheetFrame" TargetType="kit:SheetFrame">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <kit:Scrim x:Name="PART_Scrim" TopInset="{TemplateBinding TopInset}" Opacity="0" />
+          <Border x:Name="PART_Panel"
+                  Background="{DynamicResource Foreman.Color.WindowBackground}"
+                  BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
+                  BorderThickness="1,0,1,1"
+                  CornerRadius="{DynamicResource Foreman.Radius.SheetBottom}"
+                  BoxShadow="{DynamicResource Foreman.Shadow.Sheet}"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Top"
+                  Opacity="0"
+                  RenderTransformOrigin="50%,0%"
+                  RenderTransform="translateY(-16px)">
+            <StackPanel>
+              <TextBlock x:Name="PART_Title"
+                         Theme="{StaticResource Kit.Text}"
+                         Classes="headline"
+                         Text="{TemplateBinding Title}" />
+              <Grid x:Name="PART_Body">
+                <ContentPresenter x:Name="PART_ContentHost" Content="{TemplateBinding Content}" />
+                <ContentPresenter x:Name="PART_StateHost" Content="{TemplateBinding StateContent}" IsVisible="False" />
+              </Grid>
+              <Grid x:Name="PART_Footer" ColumnDefinitions="Auto,*">
+                <StackPanel x:Name="PART_Busy" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                            IsVisible="{TemplateBinding IsBusy}">
+                  <ctrl:Spinner Theme="{StaticResource Kit.Spinner}" Width="14" Height="14" />
+                  <TextBlock x:Name="PART_BusyText" Theme="{StaticResource Kit.Text}" Classes="caption secondary"
+                             Text="{TemplateBinding BusyText}" />
+                </StackPanel>
+                <ContentPresenter Grid.Column="1" x:Name="PART_ButtonsHost" Content="{TemplateBinding Buttons}" />
+              </Grid>
+            </StackPanel>
+          </Border>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:open /template/ Border#PART_Panel">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="RenderTransform" Value="translateY(0)" />
+    </Style>
+    <Style Selector="^:open /template/ kit|Scrim#PART_Scrim">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

@@ -4,6 +4,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Foreman;
@@ -94,6 +96,8 @@ namespace Foreman.Mac.Views {
                 Content = new StackPanel { Children = { themeSection, tiles, kitTiles } },
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                //A tile can legitimately focus a control on construction (Kit.SheetFrame opens with focus on its first field); without this the page jumps to whichever tile last stole focus.
+                BringIntoViewOnFocusChange = false,
             };
 
             WindowScaler.Track(this);
@@ -173,6 +177,10 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Chooser cell — five states", "Default", BuildChooserCellStatesTile));
             registry.Register(new GalleryTile("Kit", "Chooser grid — search results, two headings", "Default", BuildChooserGridTile));
             registry.Register(new GalleryTile("Kit", "Chooser cell & Chooser grid (150%)", "150%", BuildChooserCompositesScaledTile));
+            registry.Register(new GalleryTile("Kit", "Scrim & Sheet frame", "Default", BuildSheetFrameTile));
+            registry.Register(new GalleryTile("Kit", "Button row — five shapes", "Default", BuildButtonRowShapesTile));
+            registry.Register(new GalleryTile("Kit", "Alert frame — two-button & three-button", "Default", BuildAlertFramesTile));
+            registry.Register(new GalleryTile("Kit", "Scrim, Sheet frame, Button row & Alert frame (150%)", "150%", BuildSheetCompositesScaledTile));
             return registry;
         }
 
@@ -1411,6 +1419,124 @@ namespace Foreman.Mac.Views {
 
             container.Children.Add(BuildChooserCellStatesTile());
             container.Children.Add(BuildChooserGridTile());
+            return container;
+        }
+
+        private static Button KitRowButton(string text, ButtonRowRole role) {
+            var button = KitButton(text);
+            ButtonRow.SetRole(button, role);
+            return button;
+        }
+
+        private static ButtonRow KitButtonRow(params Button[] buttons) {
+            var row = new ButtonRow { Theme = KitTheme("Kit.ButtonRow") };
+            foreach (Button b in buttons)
+                row.Items.Add(b);
+            return row;
+        }
+
+        //Addendum §05: Scrim + Sheet frame over a mock window area, the "Export an image" sheet.
+        private static Border BuildSheetFrameTile() {
+            var field = new TextBox { Theme = KitTheme("Kit.TextField"), Text = "2×" };
+            var content = new StackPanel { Spacing = 8, Children = { field } };
+            var buttons = KitButtonRow(KitRowButton("Cancel", ButtonRowRole.Cancel), KitRowButton("Export…", ButtonRowRole.Default));
+
+            var sheet = new SheetFrame {
+                Theme = KitTheme("Kit.SheetFrame"),
+                Title = "Export an image",
+                Content = content,
+                Buttons = buttons,
+                IsOpen = true,
+            };
+
+            var mockWindow = new Panel {
+                Width = 420,
+                Height = 260,
+                Children = { sheet },
+            };
+            return new Border {
+                Width = 420, Height = 260,
+                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
+                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
+                BorderThickness = new Thickness(1),
+                Child = mockWindow,
+            };
+        }
+
+        //Addendum §05: the four ButtonRow shapes, in the mock's order.
+        private static StackPanel BuildButtonRowShapesTile() {
+            ButtonRow oneButton = KitButtonRow(KitRowButton("Done", ButtonRowRole.Default));
+            ButtonRow twoButton = KitButtonRow(KitRowButton("Cancel", ButtonRowRole.Cancel), KitRowButton("Save", ButtonRowRole.Default));
+            ButtonRow threeButton = KitButtonRow(
+                KitRowButton("Don't Save", ButtonRowRole.Other),
+                KitRowButton("Cancel", ButtonRowRole.Cancel),
+                KitRowButton("Save", ButtonRowRole.Default));
+            ButtonRow destructive = KitButtonRow(KitRowButton("Discard", ButtonRowRole.Destructive), KitRowButton("Cancel", ButtonRowRole.Cancel));
+            ButtonRow helper = KitButtonRow(
+                KitRowButton("Reset to defaults", ButtonRowRole.Helper),
+                KitRowButton("Cancel", ButtonRowRole.Cancel),
+                KitRowButton("Apply", ButtonRowRole.Default));
+
+            var stack = new StackPanel { Width = 340, Spacing = 12 };
+            foreach (ButtonRow row in new[] { oneButton, twoButton, threeButton, destructive, helper })
+                stack.Children.Add(row);
+            return stack;
+        }
+
+        //Addendum §05: a two-button destructive alert and a three-button alert (destructive leading of Cancel).
+        private static StackPanel BuildAlertFramesTile() {
+            AlertFrame twoButton = KitAlertFrame(
+                "Discard changes to this graph?",
+                "You have unsaved edits made since the last save. Discarding cannot be undone.",
+                KitButtonRow(KitRowButton("Discard", ButtonRowRole.Destructive), KitRowButton("Cancel", ButtonRowRole.Cancel)));
+
+            AlertFrame threeButton = KitAlertFrame(
+                "Save changes before closing?",
+                "Your changes will be lost if you don't save them.",
+                KitButtonRow(
+                    KitRowButton("Don't Save", ButtonRowRole.Other),
+                    KitRowButton("Cancel", ButtonRowRole.Cancel),
+                    KitRowButton("Save", ButtonRowRole.Default)));
+
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { AlertWindowFrame(twoButton), AlertWindowFrame(threeButton) } };
+            return new StackPanel { Spacing = 8, Children = { KitText("Alert frame", "caption", "tertiary"), row } };
+        }
+
+        private static AlertFrame KitAlertFrame(string headline, string informative, ButtonRow buttons) => new() {
+            Theme = KitTheme("Kit.AlertFrame"), Icon = AppIconAsset(), Headline = headline, InformativeText = informative, Buttons = buttons, IsOpen = true,
+        };
+
+        //The real app icon (AboutWindow renders the same asset), confirmed to decode headless.
+        private static readonly Lazy<Bitmap> appIconAsset = new(() => {
+            using System.IO.Stream stream = AssetLoader.Open(new Uri("avares://Foreman.Mac/Assets/unspoiled-icon-512.png"));
+            return new Bitmap(stream);
+        });
+
+        private static Bitmap AppIconAsset() => appIconAsset.Value;
+
+        private static Border AlertWindowFrame(AlertFrame alert) => new() {
+            Width = 340, Height = 180,
+            Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
+            BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
+            BorderThickness = new Thickness(1),
+            Child = alert,
+        };
+
+        private static readonly string[] SheetCompositesScaledSizeKeys = [
+            "Foreman.Metrics.SheetWidthAlert", "Foreman.Metrics.SheetWidthStandard", "Foreman.Metrics.SheetWidthWide",
+            "Foreman.Size.ControlHeightRegular", "Foreman.Type.EmphasizedBody.FontSize", "Foreman.Type.Callout.FontSize",
+            "Foreman.Metrics.ButtonMinWidth",
+        ];
+
+        private static StackPanel BuildSheetCompositesScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in SheetCompositesScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildSheetFrameTile());
+            container.Children.Add(BuildButtonRowShapesTile());
+            container.Children.Add(BuildAlertFramesTile());
             return container;
         }
 

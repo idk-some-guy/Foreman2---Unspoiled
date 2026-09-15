@@ -191,6 +191,22 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void Plain_NormalState_TransparentFillAndBorder_SameWeightAsStandard() {
+            using var fixture = new KitFixture();
+            Button standard = Themed("Cancel");
+            Button plain = Themed("Reset to defaults", "plain");
+            var stack = new StackPanel { Children = { standard, plain } };
+            fixture.Window.Content = stack;
+
+            Assert.Equal(Brushes.Transparent.ToImmutable(), plain.Background?.ToImmutable());
+            Assert.Equal(Brushes.Transparent.ToImmutable(), plain.BorderBrush?.ToImmutable());
+            Assert.Equal(new Thickness(6, 0), plain.Padding);
+            //The mock's .btn.plain changes only background/border/colour/padding - the label must not render lighter than its siblings.
+            Assert.Equal(standard.FontWeight, plain.FontWeight);
+            Assert.Equal(standard.BorderThickness, plain.BorderThickness);
+        }
+
+        [AvaloniaFact]
         public void KeyboardFocus_ShowsTheFocusRing() {
             using var fixture = new KitFixture();
             Button button = Themed("Cancel");

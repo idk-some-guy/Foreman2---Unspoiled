@@ -6,6 +6,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
@@ -127,7 +128,9 @@ namespace Foreman.Mac.UiTests.Views {
                  "Pick cell — filled and empty, five states each", "Pick grid — module slots & beacon row",
                  "Pick cell & Pick grid (150%)",
                  "Chooser cell — five states", "Chooser grid — search results, two headings",
-                 "Chooser cell & Chooser grid (150%)"],
+                 "Chooser cell & Chooser grid (150%)",
+                 "Scrim & Sheet frame", "Button row — five shapes", "Alert frame — two-button & three-button",
+                 "Scrim, Sheet frame, Button row & Alert frame (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -511,7 +514,12 @@ namespace Foreman.Mac.UiTests.Views {
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            Button[] saveButtons = [.. window.GetVisualDescendants().OfType<Button>().Where(b => Equals(b.Content, "Save"))];
+            //Scoped to the two Focus ring tiles - later composites (K3) legitimately reuse "Save" as a
+            //Kit.ButtonRow default-button label elsewhere in the gallery.
+            StackPanel[] focusRingTiles = [.. window.GetVisualDescendants().OfType<StackPanel>()
+                .Where(s => s.Name is "Focus ring" or "Focus ring (150%)")];
+            Button[] saveButtons = [.. focusRingTiles.SelectMany(t => t.GetVisualDescendants().OfType<Button>())
+                .Where(b => Equals(b.Content, "Save"))];
             Assert.Equal(2, saveButtons.Length);
 
             Rectangle defaultRing = Assert.IsType<Rectangle>(AdornerLayer.GetAdorner(saveButtons[0]));
@@ -988,6 +996,69 @@ namespace Foreman.Mac.UiTests.Views {
             ChooserCell cell = tile.GetVisualDescendants().OfType<ChooserCell>().First();
 
             Assert.Equal(132, cell.Bounds.Width);
+        }
+
+        [AvaloniaFact]
+        public void SheetFrameTile_ShowsAnOpenSheetWithATitleAndButtonRow() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Scrim & Sheet frame");
+            SheetFrame sheet = tile.GetVisualDescendants().OfType<SheetFrame>().Single();
+
+            Assert.True(sheet.IsOpen);
+            Assert.Equal("Export an image", sheet.Title);
+            Assert.NotNull(sheet.Buttons);
+        }
+
+        [AvaloniaFact]
+        public void ButtonRowShapesTile_ShowsAllFiveRows_DestructiveNeverDefault() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Button row — five shapes");
+            ButtonRow[] rows = [.. tile.GetVisualDescendants().OfType<ButtonRow>()];
+
+            Assert.Equal(5, rows.Length);
+            ButtonRow destructiveRow = rows.Single(r => r.Items.OfType<Button>().Any(b => ButtonRow.GetRole(b) == ButtonRowRole.Destructive));
+            Button destructive = destructiveRow.Items.OfType<Button>().Single(b => ButtonRow.GetRole(b) == ButtonRowRole.Destructive);
+            Assert.DoesNotContain("primary", destructive.Classes);
+        }
+
+        [AvaloniaFact]
+        public void AlertFramesTile_ShowsTwoAndThreeButtonAlerts() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Alert frame — two-button & three-button");
+            AlertFrame[] alerts = [.. tile.GetVisualDescendants().OfType<AlertFrame>()];
+
+            Assert.Equal(2, alerts.Length);
+            Assert.Contains(alerts, a => a.Buttons!.Items.OfType<Button>().Count() == 2);
+            Assert.Contains(alerts, a => a.Buttons!.Items.OfType<Button>().Count() == 3);
+            //The app icon asset (the same one AboutWindow renders), not an empty 32pt column.
+            Assert.All(alerts, a => Assert.IsAssignableFrom<Bitmap>(a.Icon));
+        }
+
+        [AvaloniaFact]
+        public void SheetCompositesScaledTile_SheetWidthStandardScalesTo540() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Scrim, Sheet frame, Button row & Alert frame (150%)");
+            //Three SheetFrames live in this tile (the plain sheet plus one nested in each AlertFrame) -
+            //the plain one is the only Standard-width sheet.
+            SheetFrame sheet = tile.GetVisualDescendants().OfType<SheetFrame>().Single(s => s.WidthClass == SheetWidthClass.Standard);
+            Border panel = sheet.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Panel");
+
+            Assert.Equal(540, panel.Width);
+
+            Button rowButton = tile.GetVisualDescendants().OfType<ButtonRow>().First().Items.OfType<Button>().First();
+            Assert.Equal(96, rowButton.MinWidth);
         }
     }
 }
