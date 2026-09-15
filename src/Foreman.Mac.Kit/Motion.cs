@@ -51,6 +51,7 @@ namespace Foreman.Mac.Kit {
         public static Transitions DisclosureTransitions => Transition(TransitionKind.Scale, DisclosureDuration);
         public static Transitions FormRowReflowTransitions => Transition(TransitionKind.Reflow, InspectorReflowDuration);
         public static Transitions FormRowCrossFadeTransitions => Transition(TransitionKind.CrossFade, TabLabelCrossFadeDuration);
+        public static Transitions SplitGripTransitions => Transition(TransitionKind.Fade, HoverDuration);
 
         //Row selection/hover and tab fill cross-fade via opacity over snap-set overlay colors.
         public static Transitions RowSelectionTransitions => Transition(TransitionKind.CrossFade, HoverDuration);

@@ -5,6 +5,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
@@ -163,6 +164,9 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Form row notes & errors", "Default", BuildFormRowNotesAndErrorsTile));
             registry.Register(new GalleryTile("Kit", "Form row — search field & chip row", "Default", BuildFormRowSearchAndChipTile));
             registry.Register(new GalleryTile("Kit", "Form group & Form rows (150%)", "150%", BuildFormCompositesScaledTile));
+            registry.Register(new GalleryTile("Kit", "Inspector group — expanded, collapsed, hovered, focused", "Default", BuildInspectorGroupTile));
+            registry.Register(new GalleryTile("Kit", "Split divider — rest, hovered, dragging, focused", "Default", BuildSplitDividerTile));
+            registry.Register(new GalleryTile("Kit", "Inspector group & Split divider (150%)", "150%", BuildInspectorAndDividerScaledTile));
             return registry;
         }
 
@@ -1161,6 +1165,81 @@ namespace Foreman.Mac.Views {
             container.Children.Add(BuildFormRowsInspectorTile());
             container.Children.Add(BuildFormRowNotesAndErrorsTile());
             container.Children.Add(BuildFormRowSearchAndChipTile());
+            return container;
+        }
+
+        private static InspectorGroup KitInspectorGroup(string header, bool expanded, FormRow[] rows) {
+            var body = new FormGroup { Theme = KitTheme("Kit.FormGroup") };
+            foreach (FormRow row in rows)
+                body.Items.Add(row);
+            return new InspectorGroup { Theme = KitTheme("Kit.InspectorGroup"), Header = header, IsExpanded = expanded, Content = body };
+        }
+
+        private static FormRow[] RecipeGroupRows() => [
+            KitFormRow("Quality", KitPopUp(false, "Normal", "High", "Ultra"), inspector: true),
+            KitFormRow("Building", KitPopUp(false, "Assembler 3", "Assembler 2"), inspector: true),
+        ];
+
+        //Contract §02: group 1 expanded, group 2 hovered, group 3 focused (ring on the whole header row),
+        //group 4 collapsed - a collapsed group never measures its body expanded on first layout.
+        private static StackPanel BuildInspectorGroupTile() {
+            InspectorGroup expanded = KitInspectorGroup("Recipe", true, RecipeGroupRows());
+
+            InspectorGroup hovered = KitInspectorGroup("Module slots", true, RecipeGroupRows());
+            hovered.Classes.Add("gallery-hover");
+
+            InspectorGroup focused = KitInspectorGroup("Beacons", true, RecipeGroupRows());
+            focused.TemplateApplied += (_, _) => FocusRing.SetShowAlways(
+                focused.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_HeaderRow"), true);
+
+            InspectorGroup collapsed = KitInspectorGroup("View options", false, RecipeGroupRows());
+
+            var stack = new StackPanel { Width = 276, Spacing = 0, Children = { expanded, hovered, focused, collapsed } };
+            return new StackPanel { Spacing = 8, Children = { KitText("Inspector group", "caption", "tertiary"), stack } };
+        }
+
+        private static Border SplitPane() => new() { Width = 90, Height = 120, Background = new SolidColorBrush(Color.Parse("#11000000")) };
+
+        private static StackPanel BuildSplitDividerTile() {
+            SplitDivider rest = new() { Theme = KitTheme("Kit.SplitDivider"), Height = 120 };
+
+            SplitDivider hovered = new() { Theme = KitTheme("Kit.SplitDivider"), Height = 120 };
+            hovered.Classes.Add("gallery-hover");
+
+            SplitDivider dragging = new() { Theme = KitTheme("Kit.SplitDivider"), Height = 120 };
+            dragging.Classes.Add("gallery-dragging");
+
+            SplitDivider focused = new() { Theme = KitTheme("Kit.SplitDivider"), Height = 120 };
+            focused.TemplateApplied += (_, _) => FocusRing.SetShowAlways(focused, true);
+
+            var row = new StackPanel {
+                Orientation = Orientation.Horizontal,
+                Spacing = 16,
+                Children = {
+                    new StackPanel { Orientation = Orientation.Horizontal, Children = { SplitPane(), rest, SplitPane() } },
+                    new StackPanel { Orientation = Orientation.Horizontal, Children = { SplitPane(), hovered, SplitPane() } },
+                    new StackPanel { Orientation = Orientation.Horizontal, Children = { SplitPane(), dragging, SplitPane() } },
+                    new StackPanel { Orientation = Orientation.Horizontal, Children = { SplitPane(), focused, SplitPane() } },
+                },
+            };
+            return new StackPanel { Spacing = 8, Children = { KitText("Split divider", "caption", "tertiary"), row } };
+        }
+
+        private static readonly string[] InspectorAndDividerScaledSizeKeys = [
+            "Foreman.Size.ControlHeightRegular", "Foreman.Size.FormLabelColumnInspector",
+            "Foreman.Type.SectionHeader.FontSize", "Foreman.Type.Callout.FontSize",
+            "Foreman.Size.ControlGlyphGap", "Foreman.Size.GlyphMicro", "Foreman.Size.PopUpIndicator",
+        ];
+
+        //SplitDividerHit is deliberately left out of the scaled-resources override - the hit area stays 5 here too.
+        private static StackPanel BuildInspectorAndDividerScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in InspectorAndDividerScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildInspectorGroupTile());
+            container.Children.Add(BuildSplitDividerTile());
             return container;
         }
 

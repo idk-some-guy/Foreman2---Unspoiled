@@ -121,7 +121,9 @@ namespace Foreman.Mac.UiTests.Views {
                  "Tooltip", "Spinner & progress", "Chips", "Key caps",
                  "Tooltip, Spinner & progress, Chips & Key caps (150%)",
                  "Form group (boxed, 132)", "Form rows (inspector, 108)", "Form row notes & errors",
-                 "Form row — search field & chip row", "Form group & Form rows (150%)"],
+                 "Form row — search field & chip row", "Form group & Form rows (150%)",
+                 "Inspector group — expanded, collapsed, hovered, focused", "Split divider — rest, hovered, dragging, focused",
+                 "Inspector group & Split divider (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -847,6 +849,52 @@ namespace Foreman.Mac.UiTests.Views {
             Grid inspectorGrid = inspectorShaped.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Grid");
             Assert.Equal(198, windowGrid.ColumnDefinitions[0].Width.Value);
             Assert.Equal(162, inspectorGrid.ColumnDefinitions[0].Width.Value);
+        }
+
+        [AvaloniaFact]
+        public void InspectorGroupTile_ShowsFourGroupsExpandedHoveredFocusedCollapsed() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Inspector group — expanded, collapsed, hovered, focused");
+            InspectorGroup[] groups = [.. tile.GetVisualDescendants().OfType<InspectorGroup>()];
+
+            Assert.Equal(4, groups.Length);
+            Assert.Contains(groups, g => (string?)g.Header == "Recipe" && g.IsExpanded);
+            Assert.Contains(groups, g => (string?)g.Header == "Module slots" && g.Classes.Contains("gallery-hover"));
+            Assert.Contains(groups, g => (string?)g.Header == "Beacons" && g.IsExpanded);
+            Assert.Contains(groups, g => (string?)g.Header == "View options" && !g.IsExpanded);
+        }
+
+        [AvaloniaFact]
+        public void SplitDividerTile_ShowsFourDividersRestHoveredDraggingFocused() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Split divider — rest, hovered, dragging, focused");
+            SplitDivider[] dividers = [.. tile.GetVisualDescendants().OfType<SplitDivider>()];
+
+            Assert.Equal(4, dividers.Length);
+            Assert.Contains(dividers, d => d.Classes.Contains("gallery-hover"));
+            Assert.Contains(dividers, d => d.Classes.Contains("gallery-dragging"));
+            Assert.All(dividers, d => Assert.Equal(300, d.Value));
+        }
+
+        [AvaloniaFact]
+        public void InspectorAndDividerScaledTile_HeaderHeightScalesButDividerHitWidthStaysFive() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Inspector group & Split divider (150%)");
+
+            Border header = tile.GetVisualDescendants().OfType<Border>().First(b => b.Name == "PART_HeaderRow");
+            Assert.Equal(33, header.Height);
+
+            SplitDivider divider = tile.GetVisualDescendants().OfType<SplitDivider>().First();
+            Assert.Equal(5, divider.Bounds.Width);
         }
     }
 }

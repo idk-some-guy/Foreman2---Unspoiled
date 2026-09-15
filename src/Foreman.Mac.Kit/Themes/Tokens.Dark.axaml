@@ -69,6 +69,9 @@
   <CornerRadius x:Key="Foreman.Radius.Control">6</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Card">9</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Window">11</CornerRadius>
+  <!-- Distinct from Radius.Control's 6, per the addendum's group-header spec row. -->
+  <CornerRadius x:Key="Foreman.Radius.InspectorGroupHeader">4</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.InspectorGroupHeaderPadding">4,0,0,0</Thickness>
 
   <!-- The 5px gap is a per-cell margin (half of it, 2.5, on each side), not a panel Spacing. -->
   <CornerRadius x:Key="Foreman.Radius.PickCell">5</CornerRadius>
@@ -109,6 +112,10 @@
   <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
   <x:Double x:Key="Foreman.Size.InspectorWidthMin">260</x:Double>
   <x:Double x:Key="Foreman.Size.InspectorWidthMax">380</x:Double>
+  <!-- Split divider hit area; excluded from ScaleContract.MultipliedKeys on purpose - fixed at every scale step. -->
+  <x:Double x:Key="Foreman.Size.SplitDividerHit">5</x:Double>
+  <!-- Grip opacity at rest; AppearanceHub overrides this to 1 under Increase Contrast, same idiom as FocusRing.Width. -->
+  <x:Double x:Key="Foreman.Opacity.SplitGripIdle">0</x:Double>
   <x:Double x:Key="Foreman.Size.ControlHeightRegular">22</x:Double>
   <x:Double x:Key="Foreman.Size.ControlHeightLarge">24</x:Double>
   <x:Double x:Key="Foreman.Size.PickCell">26</x:Double>
@@ -199,7 +206,7 @@
   <CornerRadius x:Key="Foreman.Radius.SheetBottom">0,0,10,10</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Node">10</CornerRadius>
 
-  <!-- Window chrome shadow; no consumer yet, alpha borrowed from Popover pending a K-later ruling. -->
+  <!-- Window chrome shadow; no consumer yet. Alpha confirmed against Shadow.Popover's own (K3): same #3D/#99 pair in both themes. -->
   <BoxShadows x:Key="Foreman.Shadow.Window">0 30 60 -20 #99000000</BoxShadows>
 
   <!-- Canvas node card shadow; cards carry no shadow in dark, so Dark's alpha is zero. -->

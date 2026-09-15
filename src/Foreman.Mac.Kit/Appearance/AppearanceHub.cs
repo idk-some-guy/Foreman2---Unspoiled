@@ -46,6 +46,7 @@ namespace Foreman.Mac.Kit.Appearance {
             ApplyFocusRing(highContrast);
             ApplyBorderPromotion(highContrast);
             ApplyMaterialFallback(reduceTransparency);
+            ApplyGripIdleOpacity(highContrast);
             Motion.ReduceMotion = appearance.ReduceMotion;
 
             Changed?.Invoke(this, EventArgs.Empty);
@@ -93,6 +94,14 @@ namespace Foreman.Mac.Kit.Appearance {
                 app.Resources.Remove("Foreman.Color.Border");
         }
 
+        //SplitDivider's grip is opacity-0 at rest and hover-revealed; Increase Contrast keeps it visible at rest.
+        private void ApplyGripIdleOpacity(bool highContrast) {
+            if (highContrast)
+                app.Resources["Foreman.Opacity.SplitGripIdle"] = 1.0;
+            else
+                app.Resources.Remove("Foreman.Opacity.SplitGripIdle");
+        }
+
         private void ApplyMaterialFallback(bool reduceTransparency) {
             if (reduceTransparency && app.TryGetResource("Foreman.Color.ControlBackground", app.ActualThemeVariant, out object? controlBackground))
                 app.Resources["Foreman.Color.PopoverMaterial"] = controlBackground!;
@@ -129,6 +138,7 @@ namespace Foreman.Mac.Kit.Appearance {
             resources.Remove("Foreman.Color.Border");
             resources.Remove("Foreman.Color.PopoverMaterial");
             resources.Remove("Foreman.Color.TooltipMaterial");
+            resources.Remove("Foreman.Opacity.SplitGripIdle");
         }
     }
 }

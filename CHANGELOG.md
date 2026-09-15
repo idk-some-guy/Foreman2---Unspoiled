@@ -59,6 +59,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Kit.FormRow and Kit.FormGroup, the shared label/control-column form layout for Settings and the
   inspector, land in the gallery ahead of the surfaces that will adopt them. Kit.SearchField gained
   a loading spinner slot and Kit.Chip a focus-fallback contract for the row that hosts it.
+- Kit.InspectorGroup and Kit.SplitDivider land in the gallery. A collapsed group renders collapsed
+  on its very first layout, never realizing its body until it is first expanded. The divider is a
+  real 5pt splitter with a hover-revealed grip, tab-stop arrow-key resizing, a double-click reset,
+  and an Escape-to-restore drag, ahead of the fixed 300pt inspector edge it will eventually replace.
 
 ### Fixed
 
