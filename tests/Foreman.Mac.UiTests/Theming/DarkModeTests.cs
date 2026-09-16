@@ -143,25 +143,20 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(0, colorSource.SubscriberCount);
         }
 
-        //I-2 (final fix wave; Task 5 fold): ThemeService.IsDark used to be write-only - nothing consumed a
-        //live OS appearance flip while System was active, so the Skia-painted canvas (no DynamicResource of
-        //its own) never followed it. MainWindow now subscribes to AppearanceHub like every other window
-        //(IThemeAware.RefreshTheme -> ApplyCanvasTheme, which reads Application.Current.ActualThemeVariant),
-        //and ThemeService routes its own System-mode colorSource flip into hub.Refresh() instead of a
-        //MainWindow-only Changed event - the hub is the single notification path now. Avalonia itself
-        //guards IPlatformSettings against test doubles, so a real OS flip is forced the same way this
-        //file's other tests fake an "ambient dark system": a direct RequestedThemeVariant assignment.
-        //colorSource.SetDark is the actual trigger under test.
+        //MainWindow subscribes to AppearanceHub like every other window (IThemeAware.RefreshTheme ->
+        //ApplyCanvasTheme, which reads Application.Current.ActualThemeVariant): GraphCanvas's Skia surface
+        //has no DynamicResource of its own to follow a live OS flip, and the hub is its single notification
+        //path. Avalonia guards IPlatformSettings against test doubles, so the flip is forced the same way
+        //this file's other tests fake an "ambient dark system" - a direct RequestedThemeVariant
+        //assignment, which the hub hears on its own ActualThemeVariantChanged hook.
         [AvaloniaFact]
         public void OsColorFlip_InSystemMode_ChangesCanvasBackgroundColor() {
             AppearanceHub? previousCurrent = AppearanceHub.Current;
+            ThemeVariant? previousVariant = Application.Current!.RequestedThemeVariant;
+            var hub = new AppearanceHub((App)Application.Current!, new FakeAppearance());
             try {
-                var hub = new AppearanceHub((App)Application.Current!, new FakeAppearance());
                 AppearanceHub.Current = hub;
-                var colorSource = new FakeColorSource(isDark: false);
-                var themeService = new ThemeService((App)Application.Current!, colorSource);
-                themeService.Changed += (_, _) => hub.Refresh();
-                themeService.Apply(ThemeMode.System);
+                Application.Current!.RequestedThemeVariant = ThemeVariant.Default;
 
                 var window = new MainWindow { Settings = new AppSettings { FlagDarkMode = ThemeMode.System } };
                 window.Show();
@@ -169,13 +164,12 @@ namespace Foreman.Mac.UiTests.Theming {
                 SKColor before = window.GraphCanvas.Viewer.BackgroundColor;
 
                 Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
-                colorSource.SetDark(true);
 
-                SKColor after = window.GraphCanvas.Viewer.BackgroundColor;
-                Assert.NotEqual(before, after);
-                hub.Dispose();
+                Assert.NotEqual(before, window.GraphCanvas.Viewer.BackgroundColor);
             } finally {
+                hub.Dispose();
                 AppearanceHub.Current = previousCurrent;
+                Application.Current!.RequestedThemeVariant = previousVariant;
             }
         }
 

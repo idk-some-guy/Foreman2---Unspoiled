@@ -11,6 +11,7 @@ using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac {
@@ -19,26 +20,33 @@ namespace Foreman.Mac {
         //existing - a dev-only switch to the gallery boot path (`--gallery`) instead of the normal shell.
         public static bool GalleryMode { get; set; }
 
-        public ThemeService Theme { get; }
+        public ThemeService Theme { get; private set; }
 
         //one hub per app: every window subscribes to it, ThemeService keeps the ThemeMode mapping
-        public AppearanceHub Hub { get; }
+        public AppearanceHub Hub { get; private set; }
 
         //Rescaled is a static event: replace the previous App's handler or the list grows per test
         private static EventHandler? rescaledHandler;
 
         public App() {
-            Hub = new AppearanceHub(this, (IPlatformAppearance?)PlatformAppearance.TryCreate(this) ?? new NullPlatformAppearance());
+            InstallAppearance(null, null);
+        }
+
+        //One OS colour event reaches both the platform appearance and the theme service's colour source, so
+        //only the appearance leg is wired to the hub; either null argument takes the production seam.
+        [MemberNotNull(nameof(Hub), nameof(Theme))]
+        internal void InstallAppearance(IPlatformAppearance? appearance, IPlatformColorSource? colorSource) {
+            Hub?.Dispose();
+            Theme?.Dispose();
+
+            Hub = new AppearanceHub(this, appearance ?? (IPlatformAppearance?)PlatformAppearance.TryCreate(this) ?? new NullPlatformAppearance());
             AppearanceHub.Current = Hub;
-            Theme = new ThemeService(this);
-            Theme.Changed += (_, _) => Hub.Refresh();
+            Hub.Changed += (_, _) => TokenBridge.Refresh();
+            Theme = colorSource is null ? new ThemeService(this) : new ThemeService(this, colorSource);
 
             if (rescaledHandler is not null)
                 WindowScaler.Rescaled -= rescaledHandler;
-            rescaledHandler = (_, _) => {
-                Hub.Refresh();
-                TokenBridge.Refresh();
-            };
+            rescaledHandler = (_, _) => Hub.Refresh();
             WindowScaler.Rescaled += rescaledHandler;
         }
 

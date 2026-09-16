@@ -2,6 +2,9 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <Color x:Key="Foreman.Color.CanvasBackground">#FAFAFA</Color>
+  <Color x:Key="Foreman.Color.CanvasTabBorder">#696969</Color>
+  <Color x:Key="Foreman.Color.CanvasChipBorder">#B8860B</Color>
+  <Color x:Key="Foreman.Color.CanvasErrorBorder">#8B0000</Color>
   <Color x:Key="Foreman.Color.WindowBackground">#ECECEF</Color>
   <Color x:Key="Foreman.Color.TitlebarBackground">#E7E7EA</Color>
   <Color x:Key="Foreman.Color.SidebarBackground">#EFEFF1</Color>

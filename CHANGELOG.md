@@ -129,9 +129,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   date, and a right-click/Shift-F10 context menu (Open, Open in New Window, Duplicate, Export…,
   Show in Finder, Remove from Recents). An unavailable row dims but stays selectable and focusable,
   with the reason folded into its meta line and only Open disabled.
+- Kit.SkiaBridge now carries the canvas painters' tab, chip and error border colors as theme tokens
+  (formerly the #696969/#B8860B/#8B0000 literals) alongside its existing metrics, re-resolved on every
+  theme, scale or contrast change and republished to the painters only when a value moved.
 
 ### Fixed
 
+- Kit.SkiaBridge repaints the canvas once per appearance change. App no longer wires both
+  PlatformAppearance and the theme service's own system-follow subscription to the same refresh for one
+  OS event, and a system light/dark flip, which reaches the appearance hub on two separate legs, no
+  longer walks the painters twice.
 - Kit.SheetFrame now handles ⌘. and ⌘⌫ itself, so they work no matter which control inside the
   sheet has focus; Return in a destructive alert raises Cancelled instead of Closed; a sheet that
   has never been opened lets clicks pass through to whatever sits behind it; going busy no longer
