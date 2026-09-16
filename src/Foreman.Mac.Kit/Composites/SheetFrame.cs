@@ -16,7 +16,6 @@ using System.Linq;
 namespace Foreman.Mac.Kit.Composites {
     public enum SheetWidthClass { Alert, Standard, Wide }
 
-    //Single-sheet chrome: scrim + panel, headline, content, button row; the FIFO queue and stacking live in the app's SheetHost.
     public class SheetFrame : ContentControl {
         protected override Type StyleKeyOverride => typeof(SheetFrame);
 
@@ -38,7 +37,6 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<string?> BusyTextProperty =
             AvaloniaProperty.Register<SheetFrame, string?>(nameof(BusyText));
 
-        //A25 error state: delegates to Kit.StatePanel (Task 7); stubbed here as a plain content slot.
         public static readonly StyledProperty<object?> StateContentProperty =
             AvaloniaProperty.Register<SheetFrame, object?>(nameof(StateContent));
 
@@ -72,7 +70,6 @@ namespace Foreman.Mac.Kit.Composites {
         private double titleBottomSpace3 = 12;
         private double footerTopSpace4 = 16;
 
-        //A25: the pre-busy value of the default button, restored when IsBusy clears.
         private bool? priorDefaultEnabled;
 
         static SheetFrame() {
@@ -88,7 +85,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         public SheetFrame() {
             AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
-            //A never-opened frame must not swallow clicks meant for whatever sits behind it.
             IsHitTestVisible = IsOpen;
         }
 
@@ -148,7 +144,6 @@ namespace Foreman.Mac.Kit.Composites {
             tokenSubs.Clear();
         }
 
-        //Content margin is Space5 minus 4 (addendum §05).
         private void ApplyContentMargin() {
             if (panel is not null)
                 panel.Padding = new Thickness(Math.Max(0, contentSpace5 - 4));
@@ -170,7 +165,6 @@ namespace Foreman.Mac.Kit.Composites {
             protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Window;
         }
 
-        //Panel sits flush under the titlebar (topAnchor's bottom), same offset the scrim carries.
         private void ApplyTopInset() {
             if (panel is not null)
                 panel.Margin = new Thickness(0, TopInset, 0, 0);
@@ -194,13 +188,11 @@ namespace Foreman.Mac.Kit.Composites {
             widthBinding = panel.Bind(Layoutable.WidthProperty, this.GetResourceObservable(key));
         }
 
-        //OnApplyTemplate re-runs this without an old value on hand - unsubscribes from whichever row is actually still wired (the field).
         private void ApplyButtons(ButtonRow? old) {
             ButtonRow? previouslyWired = old ?? buttonRow;
             if (previouslyWired is not null) {
                 previouslyWired.DefaultInvoked -= OnDefaultInvoked;
                 previouslyWired.CancelInvoked -= OnCancelInvoked;
-                //Swapping rows mid-busy must not strand the outgoing default button disabled.
                 if (priorDefaultEnabled is { } prior && previouslyWired.ResolveDefaultButton() is { } outgoingDefault) {
                     outgoingDefault.IsEnabled = prior;
                     priorDefaultEnabled = null;
@@ -214,7 +206,6 @@ namespace Foreman.Mac.Kit.Composites {
             ApplyBusy();
         }
 
-        //A destructive alert promotes Cancel into the default slot, so Return there still means Cancelled, not Closed.
         private void OnDefaultInvoked(object? sender, ButtonRowRole role) {
             if (IsBusy)
                 return;
@@ -234,7 +225,6 @@ namespace Foreman.Mac.Kit.Composites {
             contentHost.IsVisible = !showState;
         }
 
-        //A25 loading state: only ever touches IsEnabled going into/out of busy, never force-enabling a consumer-disabled default.
         private void ApplyBusy() {
             if (buttonRow?.ResolveDefaultButton() is not { } def)
                 return;
@@ -282,7 +272,6 @@ namespace Foreman.Mac.Kit.Composites {
             target?.Focus();
         }
 
-        //Tunnel so Return/Escape win regardless of which control inside the sheet has focus, and traps Tab.
         private void OnKeyDown(object? sender, KeyEventArgs e) {
             if (!IsOpen)
                 return;

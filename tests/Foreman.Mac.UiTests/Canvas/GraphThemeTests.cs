@@ -230,23 +230,13 @@ namespace Foreman.Mac.UiTests.Canvas {
             public void Raise() => changed?.Invoke(this, EventArgs.Empty);
         }
 
-        //Raisable fake for ThemeService's IPlatformColorSource seam - its half of the same shared OS event.
-        private sealed class RaisableColorSource : IPlatformColorSource {
-            private EventHandler? changed;
-            public bool IsDark => false;
-            public event EventHandler? Changed { add => changed += value; remove => changed -= value; }
-            public void Raise() => changed?.Invoke(this, EventArgs.Empty);
-        }
-
-        //One OS colour event reaches PlatformAppearance and ThemeService's colour source at once. The app
-        //installs the hooks under test here itself, so restoring its dropped Theme.Changed leg reads 2.
+        //A System-mode OS colour event raises the platform appearance leg, the app's only hook onto it.
         [AvaloniaFact]
-        public void OneOsColorEvent_InSystemMode_RefreshesTheAppsHubAndBridgeExactlyOnce() {
+        public void AppearanceEvent_InSystemMode_RefreshesTheAppsHubAndBridgeExactlyOnce() {
             App app = (App)Application.Current!;
             ThemeVariant? previousVariant = app.RequestedThemeVariant;
             var appearance = new RaisableAppearance();
-            var colorSource = new RaisableColorSource();
-            app.InstallAppearance(appearance, colorSource);
+            app.InstallAppearance(appearance);
             app.ApplyTheme(ThemeMode.System);
             StageMovedCanvasToken();
 
@@ -258,7 +248,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             TokenBridge.Changed += bridgeHandler;
             try {
                 appearance.Raise();
-                colorSource.Raise();
 
                 Assert.Equal(1, hubChangedCount);
                 Assert.Equal(1, bridgeChangedCount);
@@ -266,7 +255,7 @@ namespace Foreman.Mac.UiTests.Canvas {
                 TokenBridge.Changed -= bridgeHandler;
                 app.Hub.Changed -= hubHandler;
                 ClearMovedCanvasToken();
-                app.InstallAppearance(null, null);
+                app.InstallAppearance(null);
                 app.RequestedThemeVariant = previousVariant;
             }
         }
@@ -279,7 +268,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             App app = (App)Application.Current!;
             ThemeVariant? previousVariant = app.RequestedThemeVariant;
             var appearance = new RaisableAppearance();
-            app.InstallAppearance(appearance, null);
+            app.InstallAppearance(appearance);
             app.ApplyTheme(ThemeMode.System);
             StageMovedCanvasToken();
 
@@ -299,7 +288,7 @@ namespace Foreman.Mac.UiTests.Canvas {
                 TokenBridge.Changed -= bridgeHandler;
                 app.Hub.Changed -= hubHandler;
                 ClearMovedCanvasToken();
-                app.InstallAppearance(null, null);
+                app.InstallAppearance(null);
                 app.RequestedThemeVariant = previousVariant;
             }
         }

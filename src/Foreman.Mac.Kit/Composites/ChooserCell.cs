@@ -7,8 +7,7 @@ using Avalonia.Media;
 using System;
 
 namespace Foreman.Mac.Kit.Composites {
-    //The one place in the kit a label may truncate (addendum §04): FullName always carries the untruncated
-    //string to the tooltip and AXTitle, so the gesture is learnable and VoiceOver never sees the ellipsis.
+    //The one place in the kit a label may truncate: FullName always carries the untruncated string to the tooltip and AXTitle.
     public class ChooserCell : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(ChooserCell);
 

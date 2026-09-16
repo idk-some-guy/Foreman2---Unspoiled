@@ -1188,6 +1188,7 @@ namespace Foreman.Mac.Views {
             "Foreman.Size.SearchFieldGlyph", "Foreman.Size.Spinner", "Foreman.Size.SpinnerStroke",
             "Foreman.Size.ChipHeight", "Foreman.Size.ChipCloseBox", "Foreman.Size.ChipGap",
             "Foreman.Metrics.GroupBoxMaxWidth",
+            "Foreman.Size.Glyph16", "Foreman.Size.GlyphMicro", "Foreman.Type.Body.FontSize",
         ];
 
         private static StackPanel BuildFormCompositesScaledTile() {
@@ -1429,7 +1430,10 @@ namespace Foreman.Mac.Views {
 
         private static readonly string[] ChooserCompositesScaledSizeKeys = [
             "Foreman.Size.ChooserCell", "Foreman.Size.BrowserCell", "Foreman.Size.BrowserCellLabelHeight",
-            "Foreman.Type.Caption.FontSize", "Foreman.Type.SectionHeader.FontSize",
+            "Foreman.Type.Caption.FontSize", "Foreman.Type.Caption.LineHeight", "Foreman.Type.SectionHeader.FontSize",
+            "Foreman.Metrics.SearchFieldMinWidth", "Foreman.Metrics.SearchFieldNaturalWidth",
+            "Foreman.Size.ControlHeightRegular", "Foreman.Size.SearchFieldGlyph", "Foreman.Size.Glyph16",
+            "Foreman.Type.Body.FontSize", "Foreman.Type.Callout.FontSize",
         ];
 
         private static StackPanel BuildChooserCompositesScaledTile() {
@@ -1546,7 +1550,7 @@ namespace Foreman.Mac.Views {
         private static readonly string[] SheetCompositesScaledSizeKeys = [
             "Foreman.Metrics.SheetWidthAlert", "Foreman.Metrics.SheetWidthStandard", "Foreman.Metrics.SheetWidthWide",
             "Foreman.Size.ControlHeightRegular", "Foreman.Type.EmphasizedBody.FontSize", "Foreman.Type.Callout.FontSize",
-            "Foreman.Metrics.ButtonMinWidth",
+            "Foreman.Type.Callout.LineHeight", "Foreman.Size.AlertIcon", "Foreman.Metrics.ButtonMinWidth",
         ];
 
         private static StackPanel BuildSheetCompositesScaledTile() {
@@ -1722,10 +1726,11 @@ namespace Foreman.Mac.Views {
 
         private static readonly string[] StatePanelScaledSizeKeys = [
             "Foreman.Size.GlyphState", "Foreman.Metrics.StatePanelMaxWidth", "Foreman.Metrics.StatePanelSentenceMaxWidth",
-            "Foreman.Type.EmphasizedBody.FontSize", "Foreman.Type.Callout.FontSize",
+            "Foreman.Type.EmphasizedBody.FontSize", "Foreman.Type.Callout.FontSize", "Foreman.Type.Callout.LineHeight",
             "Foreman.Size.Glyph16", "Foreman.Size.GlyphMicro",
             "Foreman.Size.SpinnerLarge", "Foreman.Size.SpinnerSmall", "Foreman.Size.SpinnerStrokeSmall",
             "Foreman.Size.ProgressBarWidth", "Foreman.Size.ProgressBarHeight",
+            "Foreman.Size.ControlHeightRegular", "Foreman.Type.Body.FontSize",
         ];
 
         private static StackPanel BuildStatePanelScaledTile() {
@@ -1853,7 +1858,7 @@ namespace Foreman.Mac.Views {
             "Foreman.Size.ControlHeightRegular", "Foreman.Size.ZoomReadoutWidth", "Foreman.Size.ZoomReadoutHeight",
             "Foreman.Size.ZoomStepperMicroButtonWidth", "Foreman.Size.ZoomStepperMicroButtonHeight",
             "Foreman.Size.GlyphMicro", "Foreman.Size.SpinnerSmall", "Foreman.Size.SpinnerStrokeSmall",
-            "Foreman.Type.Caption.FontSize",
+            "Foreman.Type.Caption.FontSize", "Foreman.Type.Callout.FontSize",
         ];
 
         private static StackPanel BuildZoomStepperScaledTile() {
@@ -1896,6 +1901,9 @@ namespace Foreman.Mac.Views {
             "Foreman.Type.Legacy.ToolbarItem.Label.FontSize", "Foreman.Size.Glyph17",
             "Foreman.Metrics.SearchFieldNaturalWidth", "Foreman.Metrics.SearchFieldMinWidth",
             "Foreman.Size.ZoomReadoutWidth", "Foreman.Size.ZoomReadoutHeight", "Foreman.Size.ZoomStepperMicroButtonWidth", "Foreman.Size.ZoomStepperMicroButtonHeight",
+            "Foreman.Size.ControlHeightRegular", "Foreman.Size.SearchFieldGlyph", "Foreman.Size.Glyph16",
+            "Foreman.Type.Body.FontSize", "Foreman.Type.Callout.FontSize",
+            "Foreman.Size.ControlGlyphGap", "Foreman.Size.Glyph10", "Foreman.Size.GlyphSmall",
         ];
 
         private static StackPanel BuildToolbarRowScaledTile() {
@@ -1975,6 +1983,9 @@ namespace Foreman.Mac.Views {
         private static readonly string[] PalettePanelScaledSizeKeys = [
             "Foreman.Size.PaletteWidth", "Foreman.Size.PaletteRowIcon", "Foreman.Size.ListRowHeight",
             "Foreman.Type.Callout.FontSize", "Foreman.Type.Caption.FontSize",
+            "Foreman.Metrics.SearchFieldMinWidth", "Foreman.Metrics.SearchFieldNaturalWidth",
+            "Foreman.Size.ControlHeightRegular", "Foreman.Size.SearchFieldGlyph", "Foreman.Size.Glyph16",
+            "Foreman.Type.Body.FontSize", "Foreman.Type.EmphasizedBody.FontSize", "Foreman.Type.LargeTitle.FontSize",
         ];
 
         private static StackPanel BuildPalettePanelScaledTile() {

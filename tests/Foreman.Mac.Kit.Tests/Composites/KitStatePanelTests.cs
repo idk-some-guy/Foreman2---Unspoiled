@@ -229,6 +229,22 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void LoadingDelay_AfterTheGrace_PumpsWithZeroLayoutGrowth() {
+            using var fixture = new KitFixture();
+            StatePanel panel = NewPanel(StatePanelShape.Loading);
+            Shown(panel);
+
+            AnimationClock.Settle(650);
+            Assert.Equal(1, panel.Opacity);
+
+            int layouts = 0;
+            panel.LayoutUpdated += (_, _) => layouts++;
+            AnimationClock.Settle(300);
+
+            Assert.Equal(0, layouts);
+        }
+
+        [AvaloniaFact]
         public void NonLoadingShape_AppearsImmediately_NoDelay() {
             using var fixture = new KitFixture();
             StatePanel panel = NewPanel(StatePanelShape.Empty);

@@ -21,7 +21,7 @@
             <Border x:Name="PART_IconFrame"
                     Width="{DynamicResource Foreman.Size.BrowserCell}"
                     Height="{DynamicResource Foreman.Size.BrowserCell}"
-                    CornerRadius="8"
+                    CornerRadius="{DynamicResource Foreman.Radius.ChooserCell}"
                     BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
                     BorderThickness="1"
                     ClipToBounds="True"

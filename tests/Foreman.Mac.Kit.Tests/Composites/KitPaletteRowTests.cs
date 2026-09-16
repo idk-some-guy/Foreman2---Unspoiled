@@ -72,6 +72,17 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void RootBackground_FollowsTheControlsOwnBackgroundProperty() {
+            using var fixture = new KitFixture();
+            PaletteRow row = NewRow();
+            row.Background = Brushes.SteelBlue;
+            Shown(row);
+
+            Border frame = row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Frame");
+            Assert.Equal(Brushes.SteelBlue.ToImmutable(), frame.Background?.ToImmutable());
+        }
+
+        [AvaloniaFact]
         public void Height_ResolvesListRowHeight() {
             using var fixture = new KitFixture();
             PaletteRow row = NewRow();
@@ -222,6 +233,26 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void KitPalettePanel_IsAControlThemeTargetingPalettePanel() {
             using var fixture = new KitFixture();
             Assert.Equal(typeof(PalettePanel), KitPalettePanelTheme().TargetType);
+        }
+
+        private static StackPanel Root(PalettePanel panel) =>
+            panel.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "PART_Root");
+
+        [AvaloniaFact]
+        public void PalettePanel_BackgroundResolvesPaletteMaterial_AndSwapsToOpaqueUnderReduceTransparency() {
+            using var fixture = new KitFixture();
+            PalettePanel panel = NewPanel(FourResults);
+            Shown(panel);
+
+            Assert.Equal(fixture.Brush("Foreman.Color.PaletteMaterial").ToImmutable(), Root(panel).Background?.ToImmutable());
+
+            var hub = new AppearanceHub((Application)Application.Current!, fixture.Appearance);
+            fixture.Appearance.ReduceTransparency = true;
+            fixture.Appearance.RaiseChanged();
+
+            Assert.Equal(fixture.Brush("Foreman.Color.PaletteMaterialOpaque").ToImmutable(), Root(panel).Background?.ToImmutable());
+
+            hub.Dispose();
         }
 
         [AvaloniaFact]

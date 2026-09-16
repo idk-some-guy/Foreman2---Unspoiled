@@ -369,6 +369,31 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void StickyHeadings_AfterScroll_SettleWithNoRenderTransformReassignments_AndBoundedLayouts() {
+            using var fixture = new KitFixture();
+            ChooserGrid grid = TwoSectionGrid(height: 150);
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            //Past the first heading's natural position and into the second heading pushing it back up - the branch that exercises pushLimit.
+            ScrollViewer scroll = Scroll(grid);
+            scroll.Offset = new Vector(0, 40);
+            AnimationClock.Settle();
+
+            //UpdateStickyHeadings always reassigns RenderTransform when it runs, so counting that change is
+            //a direct proxy for how many times the scroll-driven Dispatcher.Post loop actually re-fires.
+            int updates = 0;
+            int layouts = 0;
+            foreach (StackPanel heading in Headings(grid))
+                heading.PropertyChanged += (_, e) => { if (e.Property == Visual.RenderTransformProperty) updates++; };
+            grid.LayoutUpdated += (_, _) => layouts++;
+            AnimationClock.Settle(300);
+
+            Assert.Equal(0, updates);
+            Assert.True(layouts <= 10, $"ChooserGrid laid out {layouts} times settling sticky headings.");
+        }
+
+        [AvaloniaFact]
         public void StateContent_HidesHeadingsAndCells_AndRendersTheSlot() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();

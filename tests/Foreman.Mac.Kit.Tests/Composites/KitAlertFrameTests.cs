@@ -122,6 +122,24 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(16.8, informative.LineHeight);
         }
 
+        //At 100% the token's own value (32) equals AlertFrame.axaml's XAML fallback literal, so this
+        //assertion would hold either way; 150% is where the token and the stale literal actually diverge.
+        [AvaloniaFact]
+        public void IconColumn_ResolvesAlertIconToken_NotAXamlFallbackLiteral() {
+            using var fixture = new KitFixture();
+            AlertFrame alert = Themed();
+            Shown(alert);
+            Foreman.Mac.Kit.Appearance.ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Image icon = alert.GetVisualDescendants().OfType<Image>().Single(i => i.Name == "PART_Icon");
+            Grid body = alert.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Body" && g.ColumnDefinitions.Count == 3);
+            Application.Current!.TryGetResource("Foreman.Size.AlertIcon", Application.Current.ActualThemeVariant, out object? iconSize);
+
+            Assert.Equal((double)iconSize!, icon.Bounds.Width);
+            Assert.Equal((double)iconSize!, body.ColumnDefinitions[0].Width.Value);
+        }
+
         [AvaloniaFact]
         public void NoInformativeText_StillLaysOutWithoutCollapsingTheIconColumn() {
             using var fixture = new KitFixture();

@@ -487,8 +487,9 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Null(panel.Transitions);
 
             //Hover-fill and label cross-fade transitions stay attached through the collapse.
-            Assert.All(items, i => Assert.True(i.Transitions is { } t &&
-                t.OfType<BrushTransition>().Any(bt => bt.Property == TemplatedControl.BackgroundProperty)));
+            Assert.All(items, i => Assert.True(
+                i.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_HoverFill").Transitions is { } t &&
+                t.OfType<DoubleTransition>().Any(dt => dt.Property == Visual.OpacityProperty)));
         }
 
         [AvaloniaFact]

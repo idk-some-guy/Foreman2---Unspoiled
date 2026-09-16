@@ -51,9 +51,7 @@ namespace Foreman.Mac.Kit.Composites {
             isDetaching = false;
         }
 
-        //Set before the base call recurses into children, so a hosted control's own detach handler
-        //(e.g. ZoomStepper removing its open error popover) sees it and defers instead of mutating the
-        //Surface a sibling's detach is still being cascaded through.
+        //Set before the base call recurses into children, so a hosted control's own detach handler defers instead of mutating the Surface mid-cascade.
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             isDetaching = true;
             base.OnDetachedFromVisualTree(e);
@@ -77,9 +75,7 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
-        //Mid-layout defers so a mutation from TemplateApplied doesn't corrupt the pass in flight;
-        //mid-detach defers so a hosted control's own detach handler never mutates the Surface while
-        //this host's own detach cascade is still walking it.
+        //Mid-layout or mid-detach both defer, so a mutation never corrupts a pass or cascade in flight.
         private void RunOrDefer(Action mutate) {
             if (layoutDepth == 0 && !isDetaching) {
                 mutate();

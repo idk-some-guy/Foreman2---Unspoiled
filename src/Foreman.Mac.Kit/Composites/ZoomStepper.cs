@@ -18,8 +18,7 @@ namespace Foreman.Mac.Kit.Composites {
     //Error beats Solving beats Normal when both flags are set at once (defensive - the host should never do this).
     public enum ZoomStepperState { Normal, Solving, Error }
 
-    //Toolbar's zoom readout (K3 composites addendum §08): a number, or a spinner mid-solve, or an alert that
-    //opens the stepper's own error popover, carrying host-supplied content - never more than one of the three at a time.
+    //Toolbar's zoom readout: a number, or a spinner mid-solve, or an alert that opens the stepper's own error popover - never more than one of the three at a time.
     public class ZoomStepper : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(ZoomStepper);
 
@@ -105,8 +104,16 @@ namespace Foreman.Mac.Kit.Composites {
             ApplyStateVisuals();
         }
 
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
+            base.OnAttachedToVisualTree(e);
+            if (templateApplied)
+                ApplyStateVisuals();
+        }
+
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
+            spinnerHideSub?.Dispose();
+            spinnerHideSub = null;
             if (errorPopover is { } popover) {
                 popover.Closed -= OnErrorPopoverClosed;
                 popoverHost?.Remove(popover);
@@ -189,7 +196,7 @@ namespace Foreman.Mac.Kit.Composites {
             string percent = FormatPercent(Value);
             string text = DisplayState switch {
                 ZoomStepperState.Solving => $"Solving — zoom {percent}",
-                ZoomStepperState.Error => $"Zoom {percent} — solve failed",
+                ZoomStepperState.Error => $"Solve failed — zoom {percent}",
                 _ => "Actual Size (⌘0)",
             };
             ToolTip.SetTip(readout, text);

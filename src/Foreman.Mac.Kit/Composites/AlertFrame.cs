@@ -46,6 +46,7 @@ namespace Foreman.Mac.Kit.Composites {
 
         //Gap between the icon column and the text stack (addendum §05: Foreman.Space.Space3).
         private double bodyGapSpace3 = 12;
+        private double iconSize = 32;
 
         static AlertFrame() {
             InformativeTextProperty.Changed.AddClassHandler<AlertFrame>((f, _) => f.ApplyInformative());
@@ -67,7 +68,7 @@ namespace Foreman.Mac.Kit.Composites {
             }
             ApplyInformative();
             ApplyAccessibility();
-            ApplyBodyGap();
+            ApplyBodyColumns();
         }
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
@@ -75,8 +76,12 @@ namespace Foreman.Mac.Kit.Composites {
             Unsubscribe();
             tokenSubs.Add(this.GetResourceObservable("Foreman.Space.Space3").Subscribe(new ResourceSinks.DoubleSink(v => {
                 bodyGapSpace3 = v;
-                ApplyBodyGap();
+                ApplyBodyColumns();
             }, bodyGapSpace3)));
+            tokenSubs.Add(this.GetResourceObservable("Foreman.Size.AlertIcon").Subscribe(new ResourceSinks.DoubleSink(v => {
+                iconSize = v;
+                ApplyBodyColumns();
+            }, iconSize)));
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
@@ -101,9 +106,11 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void ApplyAccessibility() => AutomationProperties.SetName(this, Headline);
 
-        private void ApplyBodyGap() {
-            if (body is not null && body.ColumnDefinitions.Count > 1)
-                body.ColumnDefinitions[1].Width = new GridLength(bodyGapSpace3);
+        private void ApplyBodyColumns() {
+            if (body is null || body.ColumnDefinitions.Count <= 1)
+                return;
+            body.ColumnDefinitions[0].Width = new GridLength(iconSize);
+            body.ColumnDefinitions[1].Width = new GridLength(bodyGapSpace3);
         }
     }
 }

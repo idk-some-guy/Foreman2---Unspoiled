@@ -51,6 +51,7 @@ namespace Foreman.Mac.Kit.Composites {
 
         private double outerRadius = 100;
         private double hubRadius = 38;
+        private double diameter = 220;
         private double labelFontSize = 11;
         private FontWeight labelWeight = FontWeight.Normal;
         private IBrush sliceFill = Brushes.Transparent;
@@ -101,6 +102,7 @@ namespace Foreman.Mac.Kit.Composites {
             Unsubscribe();
             tokenSubs.Add(this.GetResourceObservable("Foreman.Size.RadialOuter").Subscribe(new ResourceSinks.DoubleSink(v => { outerRadius = v; RebuildVisuals(); }, outerRadius)));
             tokenSubs.Add(this.GetResourceObservable("Foreman.Size.RadialHub").Subscribe(new ResourceSinks.DoubleSink(v => { hubRadius = v; RebuildVisuals(); }, hubRadius)));
+            tokenSubs.Add(this.GetResourceObservable("Foreman.Size.RadialDiameter").Subscribe(new ResourceSinks.DoubleSink(v => { diameter = v; RebuildVisuals(); }, diameter)));
             tokenSubs.Add(this.GetResourceObservable("Foreman.Type.RadialLabel.FontSize").Subscribe(new ResourceSinks.DoubleSink(v => { labelFontSize = v; RebuildVisuals(); }, labelFontSize)));
             tokenSubs.Add(this.GetResourceObservable("Foreman.Type.RadialLabel.FontWeight").Subscribe(new ResourceSinks.WeightSink(v => { labelWeight = v; RebuildVisuals(); }, labelWeight)));
             tokenSubs.Add(this.GetResourceObservable("Foreman.Color.PopoverMaterial").Subscribe(new ResourceSinks.BrushSink(v => { sliceFill = v; RebuildVisuals(); }, sliceFill)));
@@ -123,18 +125,17 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void RecomputeCanOpen() => SetAndRaise(CanOpenProperty, ref canOpen, Items.Count(i => i.IsEnabled) >= 2);
 
-        //220pt across (addendum §06/§12) is a fixed 10pt margin beyond the 100pt outer radius, not derived from it - matches the mock's own 0..220 viewBox regardless of the radii tokens.
-        private const double Diameter = 220;
-        private const double Center = Diameter / 2;
+        //A fixed 10pt margin beyond the 100pt outer radius, not derived from it - matches the mock's own 0..220 viewBox regardless of the radii tokens.
+        private double Center => diameter / 2;
 
         private void RebuildVisuals() {
             if (root is null)
                 return;
 
-            Width = Diameter;
-            Height = Diameter;
-            root.Width = Diameter;
-            root.Height = Diameter;
+            Width = diameter;
+            Height = diameter;
+            root.Width = diameter;
+            root.Height = diameter;
             root.Children.Clear();
             sliceVisuals.Clear();
             iconVisuals.Clear();
@@ -310,8 +311,7 @@ namespace Foreman.Mac.Kit.Composites {
             CommitOrDismiss();
         }
 
-        //Tracks direction continuously once past the hub, wedge to wedge, without needing to cross back through
-        //the hub between them; re-entering the hub clears the arm, so a release there cancels rather than commits.
+        //Tracks direction continuously once past the hub, wedge to wedge; re-entering the hub clears the arm.
         private void Arm(Point position) {
             Point vector = position - new Point(Center, Center);
             double radius = RadialGeometry.Length(vector);

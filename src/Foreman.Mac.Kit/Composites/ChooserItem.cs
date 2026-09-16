@@ -2,16 +2,14 @@ using Avalonia.Collections;
 using Avalonia.Media;
 
 namespace Foreman.Mac.Kit.Composites {
-    //A single catalog entry - what one Kit.ChooserCell shows. Icon/Name/IsEnabled only; selection and
-    //keyboard position live on the grid, matching PickSlot's own split.
+    //A single catalog entry - what one Kit.ChooserCell shows; selection and keyboard position live on the grid.
     public sealed class ChooserItem {
         public IImage? Icon { get; set; }
         public string? Name { get; set; }
         public bool IsEnabled { get; set; } = true;
     }
 
-    //One heading plus the items under it. Group/Subgroup are kept apart rather than pre-joined so the grid
-    //can pick "Group · Subgroup" or the bare Subgroup depending on whether a search Query is active.
+    //One heading plus the items under it; Group/Subgroup stay apart so the grid can pick either depending on whether a search Query is active.
     public sealed class ChooserSection {
         public string? Group { get; set; }
         public string? Subgroup { get; set; }

@@ -27,7 +27,7 @@
                        TextTrimming="CharacterEllipsis" Margin="0,12,0,0" />
             <TextBlock x:Name="PART_Sentence" Theme="{StaticResource Kit.Text}" Classes="callout secondary"
                        HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3"
-                       MaxWidth="{DynamicResource Foreman.Metrics.StatePanelSentenceMaxWidth}" LineHeight="16.8" Margin="0,4,0,0"
+                       MaxWidth="{DynamicResource Foreman.Metrics.StatePanelSentenceMaxWidth}" LineHeight="{DynamicResource Foreman.Type.Callout.LineHeight}" Margin="0,4,0,0"
                        Text="{TemplateBinding Sentence}" />
             <ctrl:ProgressBar x:Name="PART_Progress" Theme="{StaticResource Kit.ProgressBar}"
                                HorizontalAlignment="Center" Margin="0,12,0,0" IsVisible="False" />

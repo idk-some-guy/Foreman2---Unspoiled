@@ -107,7 +107,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.Equal(newDark, oldDark);
         }
 
-        //Fix round item 3: a real DynamicResource consumer, not just a direct TryGetResource call.
+        //A real DynamicResource consumer, not just a direct TryGetResource call.
         [AvaloniaFact]
         public void RealDynamicResourceConsumer_Border_FollowsThemeVariant_ThroughAlias() {
             MergeKitIntoApplication();

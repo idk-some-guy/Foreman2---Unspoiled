@@ -107,6 +107,23 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(220, ring.Bounds.Height);
         }
 
+        [AvaloniaFact]
+        public void Diameter_ResolvesItsToken_AndStays220At150Percent() {
+            using var fixture = new KitFixture();
+            Application.Current!.TryGetResource("Foreman.Size.RadialDiameter", Application.Current.ActualThemeVariant, out object? token);
+            Assert.Equal(220.0, Assert.IsType<double>(token));
+
+            (_, RadialRing ring) = Shown();
+            Assert.Equal(220, ring.Bounds.Width);
+            Assert.Equal(220, ring.Bounds.Height);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(220, ring.Bounds.Width);
+            Assert.Equal(220, ring.Bounds.Height);
+        }
+
         [Fact]
         public void SixSlices_CoverAllThreeSixtyDegrees_WithNoGap() {
             Assert.Equal(6, RadialGeometry.SliceCount);

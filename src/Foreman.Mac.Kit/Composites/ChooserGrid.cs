@@ -18,7 +18,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace Foreman.Mac.Kit.Composites {
     //The add-browser grid (addendum §04); a cell never receives real keyboard focus, so all navigation lives here.
@@ -116,8 +115,7 @@ namespace Foreman.Mac.Kit.Composites {
             scrollSub = null;
         }
 
-        //Held outside `subs` (which OnAttachedToVisualTree's Subscribe() clears on every re-attach) since
-        //the template is only ever applied once - re-attach is the only chance this gets re-hooked.
+        //Held outside `subs` since the template is only ever applied once - re-attach is the only chance this gets re-hooked.
         private void HookScroll() {
             scrollSub?.Dispose();
             scrollSub = scroll?.GetObservable(ScrollViewer.OffsetProperty)
@@ -387,27 +385,8 @@ namespace Foreman.Mac.Kit.Composites {
         private void FadeOutAndRemove(ChooserCell cell) {
             if (track is null)
                 return;
-            if (cell.Parent is Panel oldParent)
-                oldParent.Children.Remove(cell);
             var wrap = new WrapPanel { Orientation = Orientation.Horizontal, IsHitTestVisible = false };
-            wrap.Children.Add(cell);
-            track.Children.Add(wrap);
-
-            var animation = new Animation {
-                Duration = Motion.CrossFadeDuration,
-                Easing = Motion.LeavingEasing,
-                Children = {
-                    new KeyFrame { Cue = new Cue(0), Setters = { new Setter(OpacityProperty, 1.0) } },
-                    new KeyFrame { Cue = new Cue(1), Setters = { new Setter(OpacityProperty, 0.0) } },
-                },
-            };
-            _ = FadeAsync(animation, cell, wrap);
-        }
-
-        private async Task FadeAsync(Animation animation, ChooserCell cell, WrapPanel wrap) {
-            await animation.RunAsync(cell);
-            cell.Opacity = 0;
-            track?.Children.Remove(wrap);
+            CompositeMotion.FadeOutAndRemove(cell, wrap, track);
         }
 
         private void RefreshMotionState() {

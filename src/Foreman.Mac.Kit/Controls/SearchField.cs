@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Threading;
 using System;
 using System.Windows.Input;
 
@@ -34,7 +33,8 @@ namespace Foreman.Mac.Kit.Controls {
         private Button? clearButton;
         private Viewbox? leadingGlyphBox;
         private Spinner? loadingSpinner;
-        private IDisposable? loadingDelayHandle;
+        private IDisposable? loadingRevealSub;
+        private IDisposable? loadingHideSub;
 
         static SearchField() {
             PlaceholderTextProperty.OverrideDefaultValue<SearchField>("Search");
@@ -56,30 +56,59 @@ namespace Foreman.Mac.Kit.Controls {
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
-            loadingDelayHandle?.Dispose();
-            loadingDelayHandle = null;
+            loadingRevealSub?.Dispose();
+            loadingRevealSub = null;
+            loadingHideSub?.Dispose();
+            loadingHideSub = null;
         }
 
+        //Delayed reveal via a held-then-animated Opacity transition (ZoomStepper.cs's idiom), never a wall-clock timer:
+        //IsLoading clearing before the grace elapses cancels the pending reveal without a flash.
         private void ApplyLoadingState() {
-            loadingDelayHandle?.Dispose();
-            loadingDelayHandle = null;
-            if (IsLoading)
-                loadingDelayHandle = DispatcherTimer.RunOnce(ShowLoadingSpinner, Motion.StatePanelDelay);
-            else
-                SetLoadingVisual(false);
+            if (leadingGlyphBox is null || loadingSpinner is null)
+                return;
+
+            //Fresh Transitions every call (ZoomStepper's ApplyStateVisuals idiom) cancels whatever fade was already in flight.
+            loadingRevealSub?.Dispose();
+            loadingRevealSub = null;
+            loadingHideSub?.Dispose();
+            loadingHideSub = null;
+
+            if (IsLoading) {
+                loadingSpinner.Transitions = Motion.Transition(TransitionKind.CrossFade, Motion.TabLabelCrossFadeDuration, delay: Motion.StatePanelDelay);
+                loadingRevealSub = loadingSpinner.GetObservable(Visual.OpacityProperty).Subscribe(new OpacitySink(v => {
+                    if (v <= 0)
+                        return;
+                    loadingSpinner.IsVisible = true;
+                    leadingGlyphBox.IsVisible = false;
+                    loadingRevealSub?.Dispose();
+                    loadingRevealSub = null;
+                }));
+                loadingSpinner.Opacity = 1;
+            } else {
+                loadingSpinner.Transitions = Motion.Transition(TransitionKind.CrossFade, Motion.TabLabelCrossFadeDuration);
+                if (loadingSpinner.Opacity <= 0) {
+                    loadingSpinner.Opacity = 0;
+                    loadingSpinner.IsVisible = false;
+                    leadingGlyphBox.IsVisible = true;
+                } else {
+                    loadingSpinner.Opacity = 0;
+                    loadingHideSub = loadingSpinner.GetObservable(Visual.OpacityProperty).Subscribe(new OpacitySink(v => {
+                        if (v > 0)
+                            return;
+                        loadingSpinner.IsVisible = false;
+                        leadingGlyphBox.IsVisible = true;
+                        loadingHideSub?.Dispose();
+                        loadingHideSub = null;
+                    }));
+                }
+            }
         }
 
-        private void ShowLoadingSpinner() {
-            loadingDelayHandle = null;
-            if (IsLoading)
-                SetLoadingVisual(true);
-        }
-
-        private void SetLoadingVisual(bool loading) {
-            if (leadingGlyphBox is not null)
-                leadingGlyphBox.IsVisible = !loading;
-            if (loadingSpinner is not null)
-                loadingSpinner.IsVisible = loading;
+        private sealed class OpacitySink(Action<double> onNext) : IObserver<double> {
+            public void OnNext(double value) => onNext(value);
+            public void OnError(Exception error) { }
+            public void OnCompleted() { }
         }
 
         protected override void OnKeyDown(KeyEventArgs e) {

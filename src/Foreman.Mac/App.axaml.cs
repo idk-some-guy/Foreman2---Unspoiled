@@ -29,20 +29,19 @@ namespace Foreman.Mac {
         private static EventHandler? rescaledHandler;
 
         public App() {
-            InstallAppearance(null, null);
+            InstallAppearance(null);
         }
 
-        //One OS colour event reaches both the platform appearance and the theme service's colour source, so
-        //only the appearance leg is wired to the hub; either null argument takes the production seam.
+        //The OS colour event reaches the platform appearance leg, wired to the hub; a null argument takes
+        //the production seam.
         [MemberNotNull(nameof(Hub), nameof(Theme))]
-        internal void InstallAppearance(IPlatformAppearance? appearance, IPlatformColorSource? colorSource) {
+        internal void InstallAppearance(IPlatformAppearance? appearance) {
             Hub?.Dispose();
-            Theme?.Dispose();
 
             Hub = new AppearanceHub(this, appearance ?? (IPlatformAppearance?)PlatformAppearance.TryCreate(this) ?? new NullPlatformAppearance());
             AppearanceHub.Current = Hub;
             Hub.Changed += (_, _) => TokenBridge.Refresh();
-            Theme = colorSource is null ? new ThemeService(this) : new ThemeService(this, colorSource);
+            Theme = new ThemeService(this);
 
             if (rescaledHandler is not null)
                 WindowScaler.Rescaled -= rescaledHandler;

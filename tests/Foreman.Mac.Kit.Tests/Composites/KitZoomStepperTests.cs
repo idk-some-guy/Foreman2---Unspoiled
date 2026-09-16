@@ -17,6 +17,7 @@ using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
 using System;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Windows.Input;
 using Xunit;
@@ -347,6 +348,20 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void SolveError_AutomationValueAndTooltip_LeadWithSolveFailed() {
+            using var fixture = new KitFixture();
+            ZoomStepper stepper = NewStepper(140);
+            Shown(stepper);
+
+            stepper.HasSolveError = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Button readout = Readout(stepper);
+            Assert.Equal("Solve failed — zoom 140 %", ToolTip.GetTip(readout));
+            Assert.Equal("Solve failed — zoom 140 %", AutomationProperties.GetName(readout));
+        }
+
+        [AvaloniaFact]
         public void StateTransitions_UseTabLabelCrossFadeDuration() {
             using var fixture = new KitFixture();
             ZoomStepper stepper = NewStepper();
@@ -523,6 +538,39 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
             Assert.True(caught is null, caught?.ToString());
             Assert.DoesNotContain(popover, host.Surface.Children);
+        }
+
+        private sealed class DisposeSpy : IDisposable {
+            public bool Disposed { get; private set; }
+            public void Dispose() => Disposed = true;
+        }
+
+        [AvaloniaFact]
+        public void Detach_MidSpinnerFade_DisposesTheOpacitySubscription_AndReattachRestoresTheErrorPopover() {
+            using var fixture = new KitFixture();
+            ZoomStepper stepper = NewStepper();
+            (Window window, PopoverHost host) = ShownInHost(stepper);
+
+            //Standing in for an in-flight fade's live subscription (Solving -> Normal), without depending on transition timing.
+            var spy = new DisposeSpy();
+            FieldInfo subField = typeof(ZoomStepper).GetField("spinnerHideSub", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            subField.SetValue(stepper, spy);
+
+            host.Surface.Children.Remove(stepper);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(spy.Disposed);
+            Assert.Null(subField.GetValue(stepper));
+
+            stepper.HasSolveError = true;
+            Path errorGlyph = ErrorGlyph(stepper);
+            //Simulate the readout's error visuals having been reset while detached.
+            errorGlyph.Opacity = 0;
+
+            host.Surface.Children.Add(stepper);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(1, errorGlyph.Opacity);
         }
 
         [AvaloniaFact]

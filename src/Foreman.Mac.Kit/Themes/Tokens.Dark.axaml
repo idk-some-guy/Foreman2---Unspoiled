@@ -63,21 +63,18 @@
   <Color x:Key="Foreman.Color.StatusWarningBackground">#4A2B30</Color>
   <Color x:Key="Foreman.Color.StatusCautionBackground">#453D22</Color>
 
+  <x:Double x:Key="Foreman.Space.Space05">2</x:Double>
   <x:Double x:Key="Foreman.Space.Space1">4</x:Double>
   <x:Double x:Key="Foreman.Space.Space2">8</x:Double>
   <x:Double x:Key="Foreman.Space.Space15">6</x:Double>
   <x:Double x:Key="Foreman.Space.Space3">12</x:Double>
   <x:Double x:Key="Foreman.Space.Space4">16</x:Double>
   <x:Double x:Key="Foreman.Space.Space5">24</x:Double>
-  <x:Double x:Key="Foreman.Space.Space6">32</x:Double>
 
-  <!-- Thickness twins of Space.Space1-6: CornerRadius and Thickness (Margin/Padding) reject a boxed x:Double resource at style-application time. -->
-  <Thickness x:Key="Foreman.Thickness.Space1">4</Thickness>
+  <!-- Thickness twins of Space.Space05,2-3: CornerRadius and Thickness (Margin/Padding) reject a boxed x:Double resource at style-application time. -->
+  <Thickness x:Key="Foreman.Thickness.Space05">2</Thickness>
   <Thickness x:Key="Foreman.Thickness.Space2">8</Thickness>
   <Thickness x:Key="Foreman.Thickness.Space3">12</Thickness>
-  <Thickness x:Key="Foreman.Thickness.Space4">16</Thickness>
-  <Thickness x:Key="Foreman.Thickness.Space5">24</Thickness>
-  <Thickness x:Key="Foreman.Thickness.Space6">32</Thickness>
   <CornerRadius x:Key="Foreman.Radius.Control">6</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Card">9</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Window">11</CornerRadius>
@@ -97,6 +94,10 @@
   <!-- Fixed at every scale step (ruling 5) - the ring is a pointer gesture, not type-driven. -->
   <x:Double x:Key="Foreman.Size.RadialOuter">100</x:Double>
   <x:Double x:Key="Foreman.Size.RadialHub">38</x:Double>
+  <x:Double x:Key="Foreman.Size.RadialDiameter">220</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.PaletteRowIcon">5</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.RecentRowIcon">7</CornerRadius>
+  <x:Double x:Key="Foreman.Size.AlertIcon">32</x:Double>
 
   <x:Double x:Key="Foreman.Type.LargeTitle.FontSize">20</x:Double>
   <FontWeight x:Key="Foreman.Type.LargeTitle.FontWeight">700</FontWeight>
@@ -110,6 +111,7 @@
   <x:Double x:Key="Foreman.Type.Callout.FontSize">12</x:Double>
   <FontWeight x:Key="Foreman.Type.Callout.FontWeight">400</FontWeight>
   <FontWeight x:Key="Foreman.Type.Callout.Emphasized.FontWeight">500</FontWeight>
+  <x:Double x:Key="Foreman.Type.Callout.LineHeight">16.8</x:Double>
   <x:Double x:Key="Foreman.Type.Caption.FontSize">11</x:Double>
   <FontWeight x:Key="Foreman.Type.Caption.FontWeight">400</FontWeight>
   <FontWeight x:Key="Foreman.Type.Caption.Emphasized.FontWeight">600</FontWeight>

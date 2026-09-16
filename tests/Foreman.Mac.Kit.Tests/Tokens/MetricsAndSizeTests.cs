@@ -4,10 +4,39 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using System;
+using System.IO;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Tokens {
     public class MetricsAndSizeTests {
+        private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+
+        private static string ReadComposite(string fileName) =>
+            File.ReadAllText(Path.Combine(RepoRoot, "src", "Foreman.Mac.Kit", "Composites", fileName));
+
+        [AvaloniaFact]
+        public void CompositeTemplates_DeclareNoLiteralRadiusOrGlyphSize() {
+            string chooserCell = ReadComposite("ChooserCell.axaml");
+            Assert.DoesNotContain("CornerRadius=\"8\"", chooserCell);
+
+            string paletteRow = ReadComposite("PaletteRow.axaml");
+            Assert.DoesNotContain("CornerRadius=\"5\"", paletteRow);
+
+            string recentRow = ReadComposite("RecentRow.axaml");
+            Assert.DoesNotContain("CornerRadius=\"7\"", recentRow);
+
+            string alertFrame = ReadComposite("AlertFrame.axaml");
+            Assert.DoesNotContain("Width=\"32\" Height=\"32\"", alertFrame);
+            Assert.DoesNotContain("LineHeight=\"16.8\"", alertFrame);
+
+            string zoomStepper = ReadComposite("ZoomStepper.axaml");
+            Assert.DoesNotContain("Padding=\"2\"", zoomStepper);
+            Assert.DoesNotContain("Spacing=\"2\"", zoomStepper);
+
+            string statePanel = ReadComposite("StatePanel.axaml");
+            Assert.DoesNotContain("LineHeight=\"16.8\"", statePanel);
+        }
+
         private static IResourceDictionary LoadThemeFile(string fileName) {
             var include = new ResourceInclude(new Uri("avares://Foreman.Mac.Kit/")) {
                 Source = new Uri($"avares://Foreman.Mac.Kit/Themes/{fileName}"),

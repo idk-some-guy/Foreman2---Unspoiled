@@ -8,13 +8,11 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using Avalonia.Styling;
-using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace Foreman.Mac.Kit.Composites {
     public class FormRow : ContentControl {
@@ -109,9 +107,7 @@ namespace Foreman.Mac.Kit.Composites {
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
-            reflowCancellation?.Cancel();
-            reflowCancellation = null;
-            ClearExplicitHeight();
+            CompositeMotion.ClearExplicitHeight(this, ref reflowCancellation);
             Unsubscribe();
         }
 
@@ -253,54 +249,12 @@ namespace Foreman.Mac.Kit.Composites {
         };
 
         private void BeginHeightReflow() {
-            if (Motion.ReduceMotion || grid is null || VisualRoot is null)
+            if (grid is null)
                 return;
-            double oldHeight = Bounds.Height;
-            if (oldHeight <= 0)
-                return;
-
-            //Height starts at NaN (auto), which a transition can't animate into - suspend it for this one pin.
-            Transitions? transitions = Transitions;
-            Transitions = null;
-            Height = oldHeight;
-            Transitions = transitions;
-
-            reflowCancellation?.Cancel();
-            var cancellation = new CancellationTokenSource();
-            reflowCancellation = cancellation;
-            Dispatcher.UIThread.Post(() => _ = RunHeightReflow(oldHeight, cancellation.Token), DispatcherPriority.Loaded);
-        }
-
-        private async Task RunHeightReflow(double oldHeight, CancellationToken token) {
-            if (grid is null || token.IsCancellationRequested)
-                return;
-            grid.Measure(new Size(Bounds.Width, double.PositiveInfinity));
-            double newHeight = grid.DesiredSize.Height;
-
-            var reflow = new Animation {
-                Duration = Motion.InspectorReflowDuration,
-                Children = {
-                    new KeyFrame { Cue = new Cue(0), Setters = { new Setter(HeightProperty, oldHeight) } },
-                    new KeyFrame { Cue = new Cue(1), Setters = { new Setter(HeightProperty, newHeight) } },
-                },
-            };
-
-            try {
-                await reflow.RunAsync(this, token);
-            } catch (OperationCanceledException) {
-                return;
-            }
-
-            if (!token.IsCancellationRequested)
-                ClearExplicitHeight();
-        }
-
-        private void ClearExplicitHeight() {
-            reflowCancellation = null;
-            Transitions? transitions = Transitions;
-            Transitions = null;
-            Height = double.NaN;
-            Transitions = transitions;
+            CompositeMotion.ReflowHeight(this, () => {
+                grid.Measure(new Size(Bounds.Width, double.PositiveInfinity));
+                return grid.DesiredSize.Height;
+            }, () => CompositeMotion.ClearExplicitHeight(this, ref reflowCancellation), ref reflowCancellation);
         }
 
         private void ApplyAccessibility() {

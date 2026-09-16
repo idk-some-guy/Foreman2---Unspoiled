@@ -135,10 +135,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- Kit.SkiaBridge repaints the canvas once per appearance change. App no longer wires both
-  PlatformAppearance and the theme service's own system-follow subscription to the same refresh for one
-  OS event, and a system light/dark flip, which reaches the appearance hub on two separate legs, no
-  longer walks the painters twice.
+- Kit.ToolbarItem's hover, pressed and on fill now covers the whole item instead of stopping short at
+  the padded content; the gallery's 150% chooser, state-panel and sheet tiles scope every scaled type
+  key they resolve, so cell labels, sentence line boxes and the alert's icon and its column track the
+  tile's scale instead of sitting at 100%.
+- Kit.SkiaBridge repaints the canvas once per appearance change. A system light/dark flip reaches the
+  appearance hub through PlatformAppearance alone, so the painters no longer walk twice for one OS
+  event; ThemeService dropped its own dormant colour-source subscription, since the single-refresh
+  guarantee was already AppearanceHub and TokenBridge's alone.
 - Kit.SheetFrame now handles ⌘. and ⌘⌫ itself, so they work no matter which control inside the
   sheet has focus; Return in a destructive alert raises Cancelled instead of Closed; a sheet that
   has never been opened lets clicks pass through to whatever sits behind it; going busy no longer
@@ -282,6 +286,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   zoom stepper's solving spinner had no control template at all, so it never actually rendered
   during a live solve; it now sizes and animates correctly, and the gallery needs no special-cased
   workaround to show it. Closing a window with an open zoom-stepper error popover no longer throws.
+- The search field's loading spinner now reveals itself on the animation clock instead of a
+  wall-clock timer, and toolbar item hover crossfades an overlay instead of animating the control's
+  own background. The zoom stepper disposes its spinner fade subscription on detach and rebuilds its
+  error state on reattach, and its solve-failed readout now reads "Solve failed" before the zoom
+  percentage, matching the solving state's own wording. PalettePanel now paints its own background,
+  and PaletteRow/RecentRow follow the control's own Background property instead of a hardcoded
+  transparent fill. Several 150% gallery tiles now scope the tokens their hosted primitives read, not
+  just the ones their own composite touches, so a search field or icon inside them scales along with
+  everything else. A handful of literal radii and sizes in the composite templates now resolve real
+  tokens, and the kit's dead Space6 and Thickness1/4/5/6 tokens are gone.
 
 ### Changed
 

@@ -57,7 +57,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.Equal(3000, Motion.SpinnerReducedMotionDuration.TotalMilliseconds);
         }
 
-        //The 10 pre-existing duration/scale constants (Task 4/5) keep their names and values untouched.
+        //The 10 pre-existing duration/scale constants keep their names and values untouched.
         [Fact]
         public void ThePreExistingTenConstants_KeepTheirValues() {
             Assert.Equal(220, Motion.CrossFadeDuration.TotalMilliseconds);

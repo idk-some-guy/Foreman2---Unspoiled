@@ -11,10 +11,7 @@ using System;
 using System.Collections.Generic;
 
 namespace Foreman.Mac.Kit.Composites {
-    //A row (or, given Columns, a wrapped block) of PickCell slots. The grid is the sole tab stop - cells
-    //never receive real focus - so arrow/Home/End/Return/Delete are all handled here and the currently
-    //"current" slot is both the inset-ring selection and, only while the grid itself holds keyboard focus,
-    //the outer FocusRing target (addendum §13 delta 1: the two marks are independent and can compose).
+    //A row (or, given Columns, a wrapped block) of PickCell slots; the grid is the sole tab stop, so arrow/Home/End/Return/Delete are all handled here.
     public class PickGrid : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(PickGrid);
 

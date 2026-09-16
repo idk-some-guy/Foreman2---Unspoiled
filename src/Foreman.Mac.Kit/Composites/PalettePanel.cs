@@ -18,7 +18,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace Foreman.Mac.Kit.Composites {
     //One quick-add result: Kind disambiguates two rows sharing a Name ("Iron plate" item vs. recipe).
@@ -101,8 +100,7 @@ namespace Foreman.Mac.Kit.Composites {
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
             rebuildScheduled = false;
-            reflowCancellation?.Cancel();
-            ClearExplicitHeight();
+            CompositeMotion.ClearExplicitHeight(this, ref reflowCancellation);
         }
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
@@ -233,27 +231,8 @@ namespace Foreman.Mac.Kit.Composites {
         private void FadeOutAndRemove(PaletteRow row) {
             if (track is null)
                 return;
-            if (row.Parent is Panel oldParent)
-                oldParent.Children.Remove(row);
             var wrap = new StackPanel { IsHitTestVisible = false };
-            wrap.Children.Add(row);
-            track.Children.Add(wrap);
-
-            var animation = new Animation {
-                Duration = Motion.CrossFadeDuration,
-                Easing = Motion.LeavingEasing,
-                Children = {
-                    new KeyFrame { Cue = new Cue(0), Setters = { new Setter(OpacityProperty, 1.0) } },
-                    new KeyFrame { Cue = new Cue(1), Setters = { new Setter(OpacityProperty, 0.0) } },
-                },
-            };
-            _ = FadeAsync(animation, row, wrap);
-        }
-
-        private async Task FadeAsync(Animation animation, PaletteRow row, StackPanel wrap) {
-            await animation.RunAsync(row);
-            row.Opacity = 0;
-            track?.Children.Remove(wrap);
+            CompositeMotion.FadeOutAndRemove(row, wrap, track);
         }
 
         //Forwards the ambient ListHost.IsKey (inherited from whatever real window hosts this panel) onto every row.
@@ -345,53 +324,10 @@ namespace Foreman.Mac.Kit.Composites {
 
         //The panel's own height eases to the new content height (addendum §09) - mirrors Kit.FormRow's reflow exactly.
         private void BeginHeightReflow() {
-            if (Motion.ReduceMotion || VisualRoot is null)
-                return;
-            double oldHeight = Bounds.Height;
-            if (oldHeight <= 0)
-                return;
-
-            Transitions? transitions = Transitions;
-            Transitions = null;
-            Height = oldHeight;
-            Transitions = transitions;
-
-            reflowCancellation?.Cancel();
-            var cancellation = new CancellationTokenSource();
-            reflowCancellation = cancellation;
-            Dispatcher.UIThread.Post(() => _ = RunHeightReflow(oldHeight, cancellation.Token), DispatcherPriority.Loaded);
-        }
-
-        private async Task RunHeightReflow(double oldHeight, CancellationToken token) {
-            if (token.IsCancellationRequested)
-                return;
-            Measure(new Size(Bounds.Width, double.PositiveInfinity));
-            double newHeight = DesiredSize.Height;
-
-            var reflow = new Animation {
-                Duration = Motion.InspectorReflowDuration,
-                Children = {
-                    new KeyFrame { Cue = new Cue(0), Setters = { new Setter(HeightProperty, oldHeight) } },
-                    new KeyFrame { Cue = new Cue(1), Setters = { new Setter(HeightProperty, newHeight) } },
-                },
-            };
-
-            try {
-                await reflow.RunAsync(this, token);
-            } catch (OperationCanceledException) {
-                return;
-            }
-
-            if (!token.IsCancellationRequested)
-                ClearExplicitHeight();
-        }
-
-        private void ClearExplicitHeight() {
-            reflowCancellation = null;
-            Transitions? transitions = Transitions;
-            Transitions = null;
-            Height = double.NaN;
-            Transitions = transitions;
+            CompositeMotion.ReflowHeight(this, () => {
+                Measure(new Size(Bounds.Width, double.PositiveInfinity));
+                return DesiredSize.Height;
+            }, () => CompositeMotion.ClearExplicitHeight(this, ref reflowCancellation), ref reflowCancellation);
         }
 
         protected override AutomationPeer OnCreateAutomationPeer() => new PalettePanelAutomationPeer(this);

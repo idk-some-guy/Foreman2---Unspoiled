@@ -69,8 +69,8 @@
                 BorderBrush="{DynamicResource Foreman.Color.Border}"
                 BorderThickness="1"
                 CornerRadius="{DynamicResource Foreman.Radius.Control}"
-                Padding="2">
-          <StackPanel Orientation="Horizontal" Spacing="2">
+                Padding="{DynamicResource Foreman.Thickness.Space05}">
+          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Space.Space05}">
             <Button x:Name="PART_Minus"
                     Theme="{StaticResource Kit.ZoomStepperMicroButton}"
                     Command="{TemplateBinding ZoomOutCommand}"

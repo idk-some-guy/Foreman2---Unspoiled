@@ -17,6 +17,7 @@ using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Tests.support;
 using System.Linq;
+using System.Threading;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Composites {
@@ -504,6 +505,51 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(double.IsNaN(row.Height));
             Assert.True(row.Bounds.Height > before);
             Assert.True(layouts <= 40, $"FormRow laid out {layouts} times settling one note reflow.");
+        }
+
+        //Direct unit coverage of the shared helper (FormRow.cs and PalettePanel.cs both call it), independent
+        //of either composite's own measure logic.
+        [AvaloniaFact]
+        public void ReflowHeight_SharedHelper_ClearsTheExplicitHeightOnCompletion() {
+            using var fixture = new KitFixture();
+            var host = new Border { MinHeight = 40 };
+            fixture.Window.Content = host;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(double.IsNaN(host.Height));
+            double before = host.Bounds.Height;
+
+            CancellationTokenSource? cts = null;
+            CompositeMotion.ReflowHeight(host, () => 80, () => CompositeMotion.ClearExplicitHeight(host, ref cts), ref cts);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(double.IsNaN(host.Height));
+
+            AnimationClock.Settle((int)Motion.InspectorReflowDuration.TotalMilliseconds + 100);
+
+            Assert.True(double.IsNaN(host.Height));
+            Assert.True(host.Bounds.Height >= before);
+        }
+
+        //FormRow and PalettePanel both inlined this exact block in their detach handlers; the reflow
+        //continuation must go through the same helper, not just the detach path.
+        [AvaloniaFact]
+        public void ClearExplicitHeight_SharedHelper_RestoresAutoHeight_AndDropsTheCancellation() {
+            using var fixture = new KitFixture();
+            var host = new Border { MinHeight = 40 };
+            fixture.Window.Content = host;
+            Dispatcher.UIThread.RunJobs();
+
+            CancellationTokenSource? cts = null;
+            CompositeMotion.ReflowHeight(host, () => 80, () => CompositeMotion.ClearExplicitHeight(host, ref cts), ref cts);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.NotNull(cts);
+
+            AnimationClock.Settle((int)Motion.InspectorReflowDuration.TotalMilliseconds + 100);
+
+            Assert.True(double.IsNaN(host.Height));
+            Assert.Null(cts);
         }
 
         [AvaloniaFact]

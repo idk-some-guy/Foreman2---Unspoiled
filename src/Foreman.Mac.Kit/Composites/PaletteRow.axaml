@@ -6,12 +6,13 @@
   <ControlTheme x:Key="Kit.PaletteRow" TargetType="kit:PaletteRow">
     <Setter Property="Height" Value="{DynamicResource Foreman.Size.ListRowHeight}" />
     <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Background" Value="Transparent" />
     <Setter Property="Template">
       <ControlTemplate>
         <Border x:Name="PART_Frame"
                 Height="{DynamicResource Foreman.Size.ListRowHeight}"
                 CornerRadius="{DynamicResource Foreman.Radius.Control}"
-                Background="Transparent">
+                Background="{TemplateBinding Background}">
           <Panel>
             <Border x:Name="PART_Fill"
                     CornerRadius="{DynamicResource Foreman.Radius.Control}"
@@ -28,7 +29,7 @@
                       Grid.Column="0"
                       Width="{DynamicResource Foreman.Size.PaletteRowIcon}"
                       Height="{DynamicResource Foreman.Size.PaletteRowIcon}"
-                      CornerRadius="5"
+                      CornerRadius="{DynamicResource Foreman.Radius.PaletteRowIcon}"
                       Background="{TemplateBinding Icon}"
                       BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
                       BorderThickness="1"

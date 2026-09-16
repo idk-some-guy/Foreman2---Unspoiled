@@ -18,7 +18,7 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<double?> TrailingGapProperty =
             AvaloniaProperty.Register<FormGroup, double?>(nameof(TrailingGap));
 
-        //A25 load-failure state (Settings pane): delegates to Kit.StatePanel (Task 7).
+        //A25 load-failure state (Settings pane): delegates to Kit.StatePanel.
         public static readonly StyledProperty<object?> StateContentProperty =
             AvaloniaProperty.Register<FormGroup, object?>(nameof(StateContent));
 

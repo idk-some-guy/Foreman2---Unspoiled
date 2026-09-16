@@ -8,7 +8,7 @@
     <Setter Property="Transitions" Value="{x:Static m:Motion.FormRowReflowTransitions}" />
     <Setter Property="Template">
       <ControlTemplate>
-        <StackPanel x:Name="PART_Root">
+        <StackPanel x:Name="PART_Root" Background="{DynamicResource Foreman.Color.PaletteMaterial}">
           <Panel x:Name="PART_Header" />
           <Panel>
             <StackPanel x:Name="PART_Track" Margin="6,4,6,4" Spacing="1" />

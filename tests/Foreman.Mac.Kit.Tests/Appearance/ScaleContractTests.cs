@@ -48,6 +48,13 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         }
 
         [AvaloniaFact]
+        public void CaptionLineHeight_ScalesWithCaptionFontSize() {
+            ScaleContract.Apply(1.5);
+
+            Assert.Equal(13.2 * 1.5, ResourceDouble("Foreman.Type.Caption.LineHeight"));
+        }
+
+        [AvaloniaFact]
         public void Apply_AtOneFifty_MultipliesControlHeights() {
             ScaleContract.Apply(1.5);
 

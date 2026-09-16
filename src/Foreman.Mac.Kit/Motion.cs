@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using System;
 
@@ -54,13 +53,8 @@ namespace Foreman.Mac.Kit {
         public static Transitions FormRowCrossFadeTransitions => Transition(TransitionKind.CrossFade, TabLabelCrossFadeDuration);
         public static Transitions SplitGripTransitions => Transition(TransitionKind.Fade, HoverDuration);
 
-        //A toolbar item's hover fill is a brush change, not an opacity fade - Transition() has no brush case, so Reduce Motion is applied here directly.
-        public static Transitions ToolbarItemHoverTransitions =>
-            ReduceMotion
-                ? Transition(TransitionKind.CrossFade, HoverDuration)
-                : [
-                    new BrushTransition { Property = TemplatedControl.BackgroundProperty, Duration = HoverDuration, Easing = EntranceEasing },
-                ];
+        //Cross-fades PART_HoverFill's opacity over a snap-set colour, like every other fill in the kit - never a BrushTransition on Background.
+        public static Transitions ToolbarItemHoverTransitions => Transition(TransitionKind.CrossFade, HoverDuration);
 
         //Row selection/hover and tab fill cross-fade via opacity over snap-set overlay colors.
         public static Transitions RowSelectionTransitions => Transition(TransitionKind.CrossFade, HoverDuration);

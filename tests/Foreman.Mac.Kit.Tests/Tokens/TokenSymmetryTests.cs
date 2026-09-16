@@ -5,11 +5,21 @@ using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Tokens {
     public class TokenSymmetryTests {
+        private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+
+        private static readonly string[] ConsumerRoots = [
+            Path.Combine("src", "Foreman.Mac.Kit"),
+            Path.Combine("src", "Foreman.Mac"),
+            Path.Combine("tests", "Foreman.Mac.Kit.Tests"),
+            Path.Combine("tests", "Foreman.Mac.UiTests"),
+        ];
+
         private static IResourceDictionary LoadThemeFile(string fileName) {
             var include = new ResourceInclude(new Uri("avares://Foreman.Mac.Kit/")) {
                 Source = new Uri($"avares://Foreman.Mac.Kit/Themes/{fileName}"),
@@ -28,7 +38,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Empty(onlyInLight);
             Assert.Empty(onlyInDark);
-            Assert.True(lightKeys.Count >= 85, $"expected a substantial token set, found {lightKeys.Count}");
+            Assert.Equal(267, lightKeys.Count);
         }
 
         //The semantic rebind adds these on top of the existing 25 colour keys, and renames Selection to
@@ -61,7 +71,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         private static Color ColorOf(IResourceDictionary dictionary, string key) => (Color)dictionary[key]!;
         private static int Brightness(Color color) => color.R + color.G + color.B;
 
-        //Fix round item 2: the pressed fill must read as more pushed-in than hover, in both themes.
+        //The pressed fill must read as more pushed-in than hover, in both themes.
         [AvaloniaFact]
         public void ControlBackgroundPressed_IsDarkerThanHover_BothThemes() {
             var light = LoadThemeFile("Tokens.Light.axaml");
@@ -71,7 +81,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.True(Brightness(ColorOf(dark, "Foreman.Color.ControlBackgroundPressed")) < Brightness(ColorOf(dark, "Foreman.Color.ControlBackgroundHover")));
         }
 
-        //Fix round item 4: AccentSoft is Accent's own RGB at a fixed alpha, not an independent value.
+        //AccentSoft is Accent's own RGB at a fixed alpha, not an independent value.
         [AvaloniaFact]
         public void AccentSoft_DerivesFromAccentColor_BothThemes() {
             var light = LoadThemeFile("Tokens.Light.axaml");
@@ -93,6 +103,48 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Equal(2.0, (double)light["Foreman.FocusRing.Offset"]!);
             Assert.Equal(2.0, (double)dark["Foreman.FocusRing.Offset"]!);
+        }
+
+        //A bare substring match lets a key stand in for its own longer neighbour (Foreman.Space.Space1 is
+        //"referenced" by any Foreman.Space.Space15 use); this requires the match not continue into another
+        //identifier character. ScaleContract.cs is excluded - a key only listed in its MultipliedKeys ramp
+        //and read by nothing else must still count as dead.
+        private static bool IsConsumerFile(string path) =>
+            (path.EndsWith(".axaml", StringComparison.Ordinal) || path.EndsWith(".cs", StringComparison.Ordinal))
+            && !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            && !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            && Path.GetFileName(path) is not ("Tokens.Light.axaml" or "Tokens.Dark.axaml" or "ScaleContract.cs");
+
+        private static bool IsTokenReferenced(string key, string haystack) =>
+            System.Text.RegularExpressions.Regex.IsMatch(haystack, $@"(?<![\w.]){System.Text.RegularExpressions.Regex.Escape(key)}(?![\w.])");
+
+        [AvaloniaFact]
+        public void IsConsumerFile_ExcludesScaleContract() {
+            Assert.False(IsConsumerFile(Path.Combine("src", "Foreman.Mac.Kit", "Appearance", "ScaleContract.cs")));
+            Assert.True(IsConsumerFile(Path.Combine("src", "Foreman.Mac.Kit", "Composites", "AlertFrame.cs")));
+        }
+
+        [AvaloniaFact]
+        public void IsTokenReferenced_APrefixKeyIsNotSatisfiedByAReferencedNeighboursKey() {
+            string haystack = "the gap uses {DynamicResource Foreman.Space.Space15} here";
+
+            Assert.False(IsTokenReferenced("Foreman.Space.Space1", haystack));
+            Assert.True(IsTokenReferenced("Foreman.Space.Space15", haystack));
+        }
+
+        [AvaloniaFact]
+        public void EveryDeclaredToken_HasAtLeastOneConsumer() {
+            var declaredKeys = LoadThemeFile("Tokens.Light.axaml").Keys.Cast<string>().ToHashSet();
+
+            string[] files = [.. ConsumerRoots
+                .SelectMany(root => Directory.EnumerateFiles(Path.Combine(RepoRoot, root), "*", SearchOption.AllDirectories))
+                .Where(IsConsumerFile)];
+
+            string haystack = string.Join('\n', files.Select(File.ReadAllText));
+
+            string[] unreferenced = [.. declaredKeys.Where(key => !IsTokenReferenced(key, haystack))];
+
+            Assert.Empty(unreferenced);
         }
 
         [AvaloniaFact]

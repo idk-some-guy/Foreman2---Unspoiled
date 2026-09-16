@@ -78,7 +78,8 @@
                            Theme="{StaticResource Kit.Spinner}"
                            Margin="{DynamicResource Foreman.Thickness.SearchFieldGlyphMargin}"
                            VerticalAlignment="Center"
-                           IsVisible="False" />
+                           IsVisible="False"
+                           Opacity="0" />
             </Panel>
             <Panel Grid.Column="1">
               <TextBlock x:Name="PART_Placeholder"

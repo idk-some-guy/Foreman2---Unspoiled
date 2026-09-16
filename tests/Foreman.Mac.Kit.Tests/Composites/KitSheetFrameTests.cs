@@ -535,5 +535,22 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             AnimationClock.Settle();
             Assert.Equal(0, panel.Opacity);
         }
+
+        [AvaloniaFact]
+        public void OpenSheet_Settles_ThenPumpsWithZeroLayoutGrowth() {
+            using var fixture = new KitFixture();
+            SheetFrame sheet = Themed();
+            Shown(sheet);
+
+            sheet.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+
+            int layouts = 0;
+            sheet.LayoutUpdated += (_, _) => layouts++;
+            AnimationClock.Settle(300);
+
+            Assert.Equal(0, layouts);
+        }
     }
 }

@@ -56,6 +56,17 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void RootBackground_FollowsTheControlsOwnBackgroundProperty() {
+            using var fixture = new KitFixture();
+            RecentRow row = NewRow();
+            row.Background = Brushes.SteelBlue;
+            Shown(row);
+
+            Border frame = row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Frame");
+            Assert.Equal(Brushes.SteelBlue.ToImmutable(), frame.Background?.ToImmutable());
+        }
+
+        [AvaloniaFact]
         public void Height_ResolvesRecentRowHeight() {
             using var fixture = new KitFixture();
             RecentRow row = NewRow();

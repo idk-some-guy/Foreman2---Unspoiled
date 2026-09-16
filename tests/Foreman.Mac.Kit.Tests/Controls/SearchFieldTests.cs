@@ -358,6 +358,25 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.False(LoadingSpinner(field).IsVisible);
         }
 
+        //The delayed reveal is an animation-clock opacity transition, not a wall-clock timer - the spinner's
+        //own Opacity stays at zero rather than a plain IsVisible flip landing after a DispatcherTimer fires.
+        [AvaloniaFact]
+        public void IsLoading_ClearedBeforeTheGraceElapses_NeverShowsTheSpinner() {
+            using var fixture = new KitFixture();
+            SearchField field = Themed();
+            fixture.Window.Content = field;
+            Dispatcher.UIThread.RunJobs();
+
+            field.IsLoading = true;
+            Dispatcher.UIThread.RunJobs();
+            field.IsLoading = false;
+            AnimationClock.Settle(450);
+
+            Assert.True(LeadingGlyphBox(field).IsVisible);
+            Assert.False(LoadingSpinner(field).IsVisible);
+            Assert.Equal(0, LoadingSpinner(field).Opacity);
+        }
+
         private sealed class RelayCommand(System.Action execute) : System.Windows.Input.ICommand {
             public event System.EventHandler? CanExecuteChanged { add { } remove { } }
             public bool CanExecute(object? parameter) => true;

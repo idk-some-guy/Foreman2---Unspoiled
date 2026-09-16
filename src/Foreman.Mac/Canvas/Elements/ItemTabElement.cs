@@ -40,8 +40,7 @@ namespace Foreman.Mac.Canvas.Elements {
         private static readonly SKPaint DisconnectedBorderPaint = StrokePaint(TokenBridge.Current.ErrorBorder);
         private static readonly SKPaint FillPaint = new() { Color = SKColors.White, Style = SKPaintStyle.Fill, IsAntialias = true };
 
-        //The three paints above bake Border's StrokeWidth and TokenBridge's border colours once at
-        //type-init; keep both live on every theme/scale/contrast change.
+        //The three paints above bake Border's StrokeWidth and TokenBridge's border colours once at type-init; this handler keeps both live.
         static ItemTabElement() {
             TokenBridge.Changed += (_, _) => {
                 RegularBorderPaint.StrokeWidth = Border;

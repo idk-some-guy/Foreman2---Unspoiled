@@ -9,9 +9,7 @@ using Avalonia.Media.Imaging;
 using System;
 
 namespace Foreman.Mac.Kit.Composites {
-    //A single module/beacon slot. Selection (inset ring) and keyboard focus (the shared FocusRing adorner)
-    //are two independent marks composed on top of each other - PickGrid drives both from outside, since the
-    //grid itself is the one tab stop and cells never receive real focus (addendum §13 delta 1).
+    //A single module/beacon slot; PickGrid drives selection and focus from outside since cells never receive real focus.
     public class PickCell : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(PickCell);
 

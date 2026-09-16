@@ -1072,6 +1072,20 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(132, cell.Bounds.Width);
         }
 
+        //Caption.LineHeight joined the scale ramp but the tile's own scoped keys never picked it up - the
+        //cell's label font grew while its line box stayed at the unscaled 13.2.
+        [AvaloniaFact]
+        public void ChooserCompositesScaledTile_CellLabelLineHeightScalesWithItsFontSize() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Chooser cell & Chooser grid (150%)");
+            TextBlock label = tile.GetVisualDescendants().OfType<TextBlock>().First(t => t.Name == "PART_Label");
+
+            Assert.Equal(19.8, label.LineHeight, 3);
+        }
+
         [AvaloniaFact]
         public void SheetFrameTile_ShowsAnOpenSheetWithATitleAndButtonRow() {
             DataCache cache = NewFixtureCache();
@@ -1133,6 +1147,26 @@ namespace Foreman.Mac.UiTests.Views {
 
             Button rowButton = tile.GetVisualDescendants().OfType<ButtonRow>().First().Items.OfType<Button>().First();
             Assert.Equal(96, rowButton.MinWidth);
+        }
+
+        //AlertIcon and Callout.LineHeight joined the scale ramp but the tile's own scoped keys never picked
+        //them up - the alert's icon, its column and its informative line box stayed at 100% while the sheet
+        //width scaled around them.
+        [AvaloniaFact]
+        public void SheetCompositesScaledTile_AlertIconAndItsColumnResolveTheScaledAlertIconToken() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Scrim, Sheet frame, Button row & Alert frame (150%)");
+            Image icon = tile.GetVisualDescendants().OfType<Image>().First(i => i.Name == "PART_Icon");
+            //SheetFrame's own PART_Body (the content host, zero columns) shares the name with AlertFrame's
+            //three-column body - the alert's grid is the one that actually carries the icon column.
+            Grid body = tile.GetVisualDescendants().OfType<Grid>().First(g => g.Name == "PART_Body" && g.ColumnDefinitions.Count == 3);
+
+            Assert.Equal(48, icon.Bounds.Width);
+            Assert.Equal(48, body.ColumnDefinitions[0].Width.Value);
         }
 
         [AvaloniaFact]
@@ -1326,6 +1360,20 @@ namespace Foreman.Mac.UiTests.Views {
             Point bottomRight = glyph.TranslatePoint(new Point(glyph.Bounds.Width, glyph.Bounds.Height), window) ?? default;
             Assert.Equal(48, bottomRight.X - topLeft.X, 0.01);
             Assert.Equal(48, bottomRight.Y - topLeft.Y, 0.01);
+        }
+
+        //Callout.LineHeight joined the scale ramp but the tile's own scoped keys never picked it up - the
+        //sentence's type grew while its line box stayed at the unscaled 16.8.
+        [AvaloniaFact]
+        public void StatePanelScaledTile_SentenceLineHeightScalesWithItsFontSize() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "State panel (150%)");
+            TextBlock sentence = tile.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Sentence");
+
+            Assert.Equal(25.2, sentence.LineHeight, 3);
         }
 
         [AvaloniaFact]
@@ -1651,6 +1699,23 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(39, row.Bounds.Height);
             Border icon = row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Icon");
             Assert.Equal(33, icon.Bounds.Width);
+        }
+
+        //The panel's search field is a hosted primitive, not a key the composite reads directly - its own
+        //glyph box (Foreman.Size.SearchFieldGlyph) must resolve the tile's scaled token, not the ambient 100%.
+        [AvaloniaFact]
+        public void PalettePanelScaledTile_SearchFieldGlyphWidthResolvesTheScaledToken() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Palette panel (150%)");
+            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+            PalettePanel panel = Assert.IsType<PalettePanel>(popover.Content);
+
+            Viewbox glyphBox = panel.Search.GetVisualDescendants().OfType<Viewbox>().Single(v => v.Name == "PART_LeadingGlyphBox");
+            Assert.Equal(20, glyphBox.Bounds.Width);
         }
 
         [AvaloniaFact]

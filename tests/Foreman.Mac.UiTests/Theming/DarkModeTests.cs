@@ -49,27 +49,8 @@ namespace Foreman.Mac.UiTests.Theming {
             return sharedCache;
         }
 
-        //Fake for ThemeService's IPlatformColorSource seam (internal to Foreman.Mac.Services) - Avalonia's
-        //own IPlatformSettings can't be implemented by test code, which is exactly why that seam exists.
-        private sealed class FakeColorSource(bool isDark) : IPlatformColorSource {
-            private EventHandler? changed;
-
-            public bool IsDark { get; private set; } = isDark;
-            public int SubscriberCount { get; private set; }
-
-            public event EventHandler? Changed {
-                add { changed += value; SubscriberCount++; }
-                remove { changed -= value; SubscriberCount--; }
-            }
-
-            public void SetDark(bool isDark) {
-                IsDark = isDark;
-                changed?.Invoke(this, EventArgs.Empty);
-            }
-        }
-
         //Bare fake for AppearanceHub's own seam (Foreman.Mac.Kit.Appearance.IPlatformAppearance) - this
-        //file only needs a hub to exist so the System-mode colorSource flip below has somewhere to route
+        //file only needs a hub to exist so the System-mode variant flip below has somewhere to route
         //through (AppearanceHub.Current), not to exercise accent/contrast/motion behavior.
         private sealed class FakeAppearance : IPlatformAppearance {
             private EventHandler? changed;
@@ -92,7 +73,7 @@ namespace Foreman.Mac.UiTests.Theming {
             service.Apply(ThemeMode.Dark);
 
             Assert.Equal(ThemeVariant.Dark, Application.Current!.RequestedThemeVariant);
-            Assert.True(service.IsDark);
+            Assert.Equal(ThemeVariant.Dark, Application.Current!.ActualThemeVariant);
         }
 
         [AvaloniaFact]
@@ -102,45 +83,20 @@ namespace Foreman.Mac.UiTests.Theming {
             service.Apply(ThemeMode.Light);
 
             Assert.Equal(ThemeVariant.Light, Application.Current!.RequestedThemeVariant);
-            Assert.False(service.IsDark);
+            Assert.Equal(ThemeVariant.Light, Application.Current!.ActualThemeVariant);
         }
 
+        //ThemeService has no live-follow logic of its own - System hands RequestedThemeVariant to
+        //Avalonia's built-in OS-follow, and the headless platform can't be driven to prove that follow
+        //(GraphThemeTests hits the same wall: its System-mode variant leg is a direct assignment, not a
+        //raised platform event). So this stays a ThemeService unit test: Default is the whole contract.
         [AvaloniaFact]
-        public void Apply_System_SetsDefaultAndFollowsStubbedPlatformValueLive() {
-            var colorSource = new FakeColorSource(isDark: true);
-            var service = new ThemeService((App)Application.Current!, colorSource);
+        public void Apply_System_SetsRequestedThemeVariantToDefault() {
+            var service = new ThemeService((App)Application.Current!);
 
             service.Apply(ThemeMode.System);
 
             Assert.Equal(ThemeVariant.Default, Application.Current!.RequestedThemeVariant);
-            Assert.True(service.IsDark);
-            Assert.Equal(1, colorSource.SubscriberCount);
-
-            colorSource.SetDark(false);
-
-            Assert.False(service.IsDark);
-        }
-
-        [AvaloniaFact]
-        public void Apply_AwayFromSystem_UnsubscribesThePreviousPlatformSettings() {
-            var colorSource = new FakeColorSource(isDark: true);
-            var service = new ThemeService((App)Application.Current!, colorSource);
-            service.Apply(ThemeMode.System);
-
-            service.Apply(ThemeMode.Dark);
-
-            Assert.Equal(0, colorSource.SubscriberCount);
-        }
-
-        [AvaloniaFact]
-        public void Dispose_UnsubscribesFromPlatformSettings() {
-            var colorSource = new FakeColorSource(isDark: true);
-            var service = new ThemeService((App)Application.Current!, colorSource);
-            service.Apply(ThemeMode.System);
-
-            service.Dispose();
-
-            Assert.Equal(0, colorSource.SubscriberCount);
         }
 
         //MainWindow subscribes to AppearanceHub like every other window (IThemeAware.RefreshTheme ->

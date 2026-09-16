@@ -34,6 +34,9 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         private static ToolbarItem Themed(string label) =>
             new() { Theme = KitToolbarItemTheme(), Glyph = RecipeGlyph(), Label = label };
 
+        private static Border Fill(ToolbarItem item) =>
+            item.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_HoverFill");
+
         [AvaloniaFact]
         public void KitToolbarItem_IsAControlThemeTargetingToolbarItem() {
             using var fixture = new KitFixture();
@@ -71,7 +74,8 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.StateOf(item).Hover();
             AnimationClock.Settle();
 
-            Assert.Equal(fixture.Brush("Foreman.Color.ControlBackgroundHover").ToImmutable(), item.Background?.ToImmutable());
+            Assert.Equal(fixture.Brush("Foreman.Color.ControlBackgroundHover").ToImmutable(), Fill(item).Background?.ToImmutable());
+            Assert.Equal(1, Fill(item).Opacity);
             Assert.Equal(fixture.Brush("Foreman.Color.Text").ToImmutable(), item.Foreground?.ToImmutable());
         }
 
@@ -85,7 +89,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.StateOf(item).Press();
             AnimationClock.Settle();
 
-            Assert.Equal(fixture.Brush("Foreman.Color.ControlBackgroundPressed").ToImmutable(), item.Background?.ToImmutable());
+            Assert.Equal(fixture.Brush("Foreman.Color.ControlBackgroundPressed").ToImmutable(), Fill(item).Background?.ToImmutable());
         }
 
         [AvaloniaFact]
@@ -97,7 +101,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             item.IsOn = true;
             AnimationClock.Settle();
 
-            Assert.Equal(fixture.Brush("Foreman.Color.AccentSoft").ToImmutable(), item.Background?.ToImmutable());
+            Assert.Equal(fixture.Brush("Foreman.Color.AccentSoft").ToImmutable(), Fill(item).Background?.ToImmutable());
             Assert.Equal(fixture.Brush("Foreman.Color.Accent").ToImmutable(), item.Foreground?.ToImmutable());
         }
 
@@ -166,28 +170,32 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
-        public void Hover_FillTransitionsOverHoverDuration() {
+        public void Hover_CrossFadesAnOpacityOverlay_AndNeverAnimatesBackground() {
             using var fixture = new KitFixture();
             ToolbarItem item = Themed("Recipe");
             fixture.Window.Content = item;
             Dispatcher.UIThread.RunJobs();
 
-            var rest = item.Background?.ToImmutable();
+            Assert.DoesNotContain(item.Transitions ?? [], t => t is BrushTransition);
+            var restBackground = item.Background?.ToImmutable();
             var hoverTarget = fixture.Brush("Foreman.Color.ControlBackgroundHover").ToImmutable();
 
             fixture.StateOf(item).Hover();
-            //Mid fill: still transitioning over Motion.HoverDuration, not swapped in the same pass.
+            //Mid fade: the overlay is still transitioning over Motion.HoverDuration, not swapped in the same pass.
             AnimationClock.Settle(60);
-            var mid = item.Background?.ToImmutable();
-            Assert.NotEqual(rest, mid);
-            Assert.NotEqual(hoverTarget, mid);
+            Assert.Equal(restBackground, item.Background?.ToImmutable());
+            double midOpacity = Fill(item).Opacity;
+            Assert.NotEqual(0, midOpacity);
+            Assert.NotEqual(1, midOpacity);
 
             AnimationClock.Settle(300);
-            Assert.Equal(hoverTarget, item.Background?.ToImmutable());
+            Assert.Equal(restBackground, item.Background?.ToImmutable());
+            Assert.Equal(1, Fill(item).Opacity);
+            Assert.Equal(hoverTarget, Fill(item).Background?.ToImmutable());
         }
 
         [AvaloniaFact]
-        public void ReduceMotion_CollapsesTheHoverFillToOpacityOnly_AndRestoresOnFlipBack() {
+        public void ReduceMotion_KeepsTheOpacityOnlyHoverFill_BothDirections() {
             //A ControlTheme Setter's x:Static resolves once per merged dictionary, so each direction needs its own fixture (a fresh dictionary) to re-resolve under the current flag.
             Motion.ReduceMotion = true;
             using (var reducedFixture = new KitFixture()) {
@@ -195,8 +203,8 @@ namespace Foreman.Mac.Kit.Tests.Controls {
                 reducedFixture.Window.Content = reduced;
                 Dispatcher.UIThread.RunJobs();
 
-                Assert.DoesNotContain(reduced.Transitions!, t => t is BrushTransition);
-                DoubleTransition opacity = Assert.Single(reduced.Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
+                Assert.DoesNotContain(Fill(reduced).Transitions!, t => t is BrushTransition);
+                DoubleTransition opacity = Assert.Single(Fill(reduced).Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
                 Assert.Equal(Motion.HoverDuration, opacity.Duration);
             }
 
@@ -206,7 +214,9 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             restoredFixture.Window.Content = restored;
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Single(restored.Transitions!.OfType<BrushTransition>(), t => t.Property == TemplatedControl.BackgroundProperty);
+            Assert.DoesNotContain(Fill(restored).Transitions!, t => t is BrushTransition);
+            DoubleTransition restoredOpacity = Assert.Single(Fill(restored).Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
+            Assert.Equal(Motion.HoverDuration, restoredOpacity.Duration);
         }
 
         [AvaloniaFact]
@@ -312,6 +322,79 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
     [Collection(KitScaleGroup.Name)]
     public class ToolbarItemScaleTests {
+        private static ControlTheme KitToolbarItemTheme() {
+            Assert.True(Application.Current!.TryGetResource("Kit.ToolbarItem", null, out object? theme));
+            return Assert.IsType<ControlTheme>(theme);
+        }
+
+        private static Geometry RecipeGlyph() {
+            Assert.True(Application.Current!.TryGetResource("Kit.Glyph.Recipe.17", null, out object? value));
+            return Assert.IsAssignableFrom<Geometry>(value);
+        }
+
+        private static ToolbarItem Themed(string label) =>
+            new() { Theme = KitToolbarItemTheme(), Glyph = RecipeGlyph(), Label = label };
+
+        private static Border Fill(ToolbarItem item) =>
+            item.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_HoverFill");
+
+        //Before this fix PART_HoverFill sat inside the padded content Border, inset by ToolbarItemPadding on
+        //every side - the fill covered a smaller rect than the item itself, at 100% and even more so at 150%.
+        [AvaloniaTheory]
+        [InlineData(1.0)]
+        [InlineData(1.5)]
+        public void Hover_FillCoversTheItemsFullBounds(double scale) {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("Recipe");
+            fixture.Window.Content = item;
+            Dispatcher.UIThread.RunJobs();
+            ScaleContract.Apply(scale);
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.StateOf(item).Hover();
+            AnimationClock.Settle();
+
+            Assert.Equal(item.Bounds.Width, Fill(item).Bounds.Width);
+            Assert.Equal(item.Bounds.Height, Fill(item).Bounds.Height);
+        }
+
+        [AvaloniaTheory]
+        [InlineData(1.0)]
+        [InlineData(1.5)]
+        public void On_FillCoversTheItemsFullBounds(double scale) {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("Recipe");
+            fixture.Window.Content = item;
+            Dispatcher.UIThread.RunJobs();
+            ScaleContract.Apply(scale);
+            Dispatcher.UIThread.RunJobs();
+
+            item.IsOn = true;
+            AnimationClock.Settle();
+
+            Assert.Equal(item.Bounds.Width, Fill(item).Bounds.Width);
+            Assert.Equal(item.Bounds.Height, Fill(item).Bounds.Height);
+        }
+
+        [AvaloniaTheory]
+        [InlineData(1.0)]
+        [InlineData(1.5)]
+        public void Pressed_FillCoversTheItemsFullBounds(double scale) {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("Recipe");
+            fixture.Window.Content = item;
+            Dispatcher.UIThread.RunJobs();
+            ScaleContract.Apply(scale);
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.StateOf(item).Hover();
+            fixture.StateOf(item).Press();
+            AnimationClock.Settle();
+
+            Assert.Equal(item.Bounds.Width, Fill(item).Bounds.Width);
+            Assert.Equal(item.Bounds.Height, Fill(item).Bounds.Height);
+        }
+
         [AvaloniaFact]
         public void WidthAndHeight_TrackScaleContract() {
             using var fixture = new KitFixture();
