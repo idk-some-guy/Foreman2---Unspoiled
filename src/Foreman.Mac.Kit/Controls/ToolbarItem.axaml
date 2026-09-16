@@ -52,6 +52,14 @@
       <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
     </Style>
 
+    <!-- Toolbar collapse step 1 (K3 composites addendum §08): the label drops, the tooltip carries it instead. -->
+    <Style Selector="^.icon-only">
+      <Setter Property="MinWidth" Value="{DynamicResource Foreman.Size.ToolbarItemIconOnlyWidth}" />
+    </Style>
+    <Style Selector="^.icon-only /template/ TextBlock">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+
     <!-- Gallery-only: mirrors Kit.Button's fake-hover/pressed classes, for the same reason. -->
     <Style Selector="^.gallery-hover">
       <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />

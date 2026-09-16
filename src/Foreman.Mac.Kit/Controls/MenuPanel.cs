@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -152,6 +153,7 @@ namespace Foreman.Mac.Kit.Controls {
                     Cursor = item.IsEnabled ? HandCursor : Cursor.Default,
                     Child = content,
                 };
+                AutomationProperties.SetName(row, item.Text);
 
                 MenuRow captured = item;
                 row.PointerEntered += (_, _) => { if (captured.IsEnabled) HighlightedIndex = rows.FindIndex(r => r.Model == captured); };

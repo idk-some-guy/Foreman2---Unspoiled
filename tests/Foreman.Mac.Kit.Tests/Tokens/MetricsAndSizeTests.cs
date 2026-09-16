@@ -64,6 +64,14 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         [AvaloniaTheory]
         [InlineData("Tokens.Light.axaml")]
         [InlineData("Tokens.Dark.axaml")]
+        public void ToolbarItemIconOnlyWidth_IsTwentyEight(string fileName) {
+            var tokens = LoadThemeFile(fileName);
+            Assert.Equal(28d, tokens["Foreman.Size.ToolbarItemIconOnlyWidth"]);
+        }
+
+        [AvaloniaTheory]
+        [InlineData("Tokens.Light.axaml")]
+        [InlineData("Tokens.Dark.axaml")]
         public void ChooserCell_IsEightyEight(string fileName) {
             var tokens = LoadThemeFile(fileName);
             Assert.Equal(88d, tokens["Foreman.Size.ChooserCell"]);

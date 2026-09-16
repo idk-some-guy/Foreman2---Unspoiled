@@ -51,6 +51,7 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.ToolbarItem",
             "Foreman.Size.ToolbarItemWidth",
             "Foreman.Size.ToolbarItemHeight",
+            "Foreman.Size.ToolbarItemIconOnlyWidth",
             "Foreman.Size.ToolbarRowHeight",
             "Foreman.Size.ZoomReadoutWidth",
             "Foreman.Size.ZoomReadoutHeight",

@@ -55,6 +55,9 @@ namespace Foreman.Mac.Kit.Controls {
 
         public AvaloniaList<MenuButtonItem> Items { get; } = [];
 
+        //Plain one-shot actions (no check slot, no Reset row) - what a toolbar overflow moves its trailing group's commands into. Mutually exclusive with Items.
+        public AvaloniaList<MenuButtonAction> ActionItems { get; } = [];
+
         public MenuPanel Menu { get; } = new();
 
         static MenuButton() {
@@ -66,6 +69,7 @@ namespace Foreman.Mac.Kit.Controls {
         public MenuButton() {
             Menu.RequestClose += (_, _) => IsOpen = false;
             Items.CollectionChanged += (_, _) => { Recompute(); RebuildMenu(); };
+            ActionItems.CollectionChanged += (_, _) => RebuildMenu();
             Recompute();
         }
 
@@ -121,6 +125,22 @@ namespace Foreman.Mac.Kit.Controls {
         private void RebuildMenu() {
             int keepHighlight = Menu.HighlightedIndex;
             Menu.Items.Clear();
+
+            if (ActionItems.Count > 0) {
+                foreach (MenuButtonAction action in ActionItems) {
+                    MenuButtonAction captured = action;
+                    Menu.Items.Add(new MenuRow {
+                        Text = action.Text,
+                        HasCheckSlot = false,
+                        IsEnabled = action.IsEnabled,
+                        KeepOpenOnActivate = false,
+                        Activate = () => captured.Activate?.Invoke(),
+                    });
+                }
+                if (keepHighlight >= 0 && keepHighlight < Menu.Items.Count)
+                    Menu.HighlightedIndex = keepHighlight;
+                return;
+            }
 
             foreach (MenuButtonItem item in Items) {
                 MenuButtonItem captured = item;

@@ -108,6 +108,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   needs a manual workaround. Dismissing Kit.ZoomStepper's error popover leaves the error flag for the
   host to clear, and the readout stays its true fixed size at 150% instead of stretching a few points
   tall.
+- Kit.ToolbarRow lands in the gallery: title, document/add/arrange/share-view groups, a search field
+  and Kit.ZoomStepper laid out with a fixed 16pt gap between groups and no drawn rule anywhere. As
+  the row narrows it collapses in three measured steps: item labels drop to icon-only with a
+  tooltip, the search field shrinks to its minimum width, then the trailing group folds into an
+  overflow menu button. The title and the zoom stepper never collapse.
+- Kit.ToolbarRow's group gaps are now real fixed-width spacer elements rather than arithmetic, its
+  collapse decision stays correct after a resize token, an item-width token, or a scale change, and
+  an icon-only item keeps its label instead of losing it; the trailing group's overflow menu now
+  exposes each action's label to VoiceOver, and the gallery's toolbar row tile shows the search
+  field's loading state.
 
 ### Fixed
 

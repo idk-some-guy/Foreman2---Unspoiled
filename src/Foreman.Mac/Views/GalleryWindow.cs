@@ -197,6 +197,8 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Zoom stepper — at rest, hovered, solving, solve failed", "Default", BuildZoomStepperTile));
             registry.Register(new GalleryTile("Kit", "Zoom stepper — solve-error popover", "Default", BuildZoomStepperPopoverTile));
             registry.Register(new GalleryTile("Kit", "Zoom stepper (150%)", "150%", BuildZoomStepperScaledTile));
+            registry.Register(new GalleryTile("Kit", "Toolbar row — full, labels dropped, overflowed", "Default", BuildToolbarRowTile));
+            registry.Register(new GalleryTile("Kit", "Toolbar row (150%)", "150%", BuildToolbarRowScaledTile));
             return registry;
         }
 
@@ -1852,6 +1854,49 @@ namespace Foreman.Mac.Views {
                     container.Resources[key] = value * 1.5;
 
             container.Children.Add(BuildZoomStepperTile());
+            return container;
+        }
+
+        //Addendum §08: title · groups · flexible gap · search · zoom, collapsing in three measured steps as the row narrows.
+        private static ToolbarRow KitToolbarRow(bool searchLoading = false) {
+            var row = new ToolbarRow { Theme = KitTheme("Kit.ToolbarRow"), Title = "Untitled graph" };
+            row.Groups.Add(new ToolbarGroup { Role = ToolbarGroupRole.Document, Items = [KitToolbarItem("New", "New"), KitToolbarItem("Open", "Open"), KitToolbarItem("Save", "Save")] });
+            row.Groups.Add(new ToolbarGroup { Role = ToolbarGroupRole.Add, Items = [KitToolbarItem("Recipe", "Recipe"), KitToolbarItem("Item", "Item")] });
+            row.Groups.Add(new ToolbarGroup { Role = ToolbarGroupRole.Arrange, Items = [KitToolbarItem("Align", "Align")] });
+            row.Groups.Add(new ToolbarGroup { Role = ToolbarGroupRole.ShareView, Items = [KitToolbarItem("Export", "Export"), KitToolbarItem("View", "View")] });
+            row.SearchField.IsLoading = searchLoading;
+            return row;
+        }
+
+        private static StackPanel BuildToolbarRowTile() {
+            return new StackPanel {
+                Spacing = 12,
+                Children = {
+                    KitText("Toolbar row — full width", "caption", "tertiary"),
+                    StatePanelFrame(KitToolbarRow(searchLoading: true), 1400, 52),
+                    KitText("Toolbar row — labels dropped, search shrunk", "caption", "tertiary"),
+                    StatePanelFrame(KitToolbarRow(), 1000, 52),
+                    KitText("Toolbar row — overflowed", "caption", "tertiary"),
+                    StatePanelFrame(KitToolbarRow(), 320, 52),
+                },
+            };
+        }
+
+        private static readonly string[] ToolbarRowScaledSizeKeys = [
+            "Foreman.Size.ToolbarRowHeight", "Foreman.Size.ToolbarItemWidth", "Foreman.Size.ToolbarItemHeight", "Foreman.Size.ToolbarItemIconOnlyWidth",
+            "Foreman.Type.Legacy.ToolbarItem.Label.FontSize", "Foreman.Size.Glyph17",
+            "Foreman.Metrics.SearchFieldNaturalWidth", "Foreman.Metrics.SearchFieldMinWidth",
+            "Foreman.Size.ZoomReadoutWidth", "Foreman.Size.ZoomReadoutHeight", "Foreman.Size.ZoomStepperMicroButtonWidth", "Foreman.Size.ZoomStepperMicroButtonHeight",
+        ];
+
+        private static StackPanel BuildToolbarRowScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in ToolbarRowScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(KitText("Toolbar row (150%)", "caption", "tertiary"));
+            container.Children.Add(StatePanelFrame(KitToolbarRow(), 1400, 78));
             return container;
         }
 

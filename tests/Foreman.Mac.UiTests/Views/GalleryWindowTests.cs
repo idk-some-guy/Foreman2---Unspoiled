@@ -140,7 +140,7 @@ namespace Foreman.Mac.UiTests.Views {
                  "Chooser grid — no results (State panel)", "Sheet frame — error (State panel)",
                  "Form group — load failure (State panel)", "Inspector group — body delegation (State panel)",
                  "Zoom stepper — at rest, hovered, solving, solve failed", "Zoom stepper — solve-error popover",
-                 "Zoom stepper (150%)"],
+                 "Zoom stepper (150%)", "Toolbar row — full, labels dropped, overflowed", "Toolbar row (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -1317,6 +1317,62 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(24, readout.Bounds.Height);
             Assert.Equal(30, minus.Bounds.Width);
             Assert.Equal(24, minus.Bounds.Height);
+        }
+
+        [AvaloniaFact]
+        public void ToolbarRowTile_ShowsFullLabelsDroppedAndOverflowedStates() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Toolbar row — full, labels dropped, overflowed");
+            ToolbarRow[] rows = [.. tile.GetVisualDescendants().OfType<ToolbarRow>()];
+
+            Assert.Equal(3, rows.Length);
+            Assert.All(rows, r => Assert.Equal(52, r.Bounds.Height));
+            //The title and the zoom stepper never collapse (addendum §08), at every one of the three widths.
+            Assert.All(rows, r => Assert.True(r.ZoomStepper.IsVisible));
+
+            ToolbarRow full = rows[0];
+            Assert.All(full.Groups.SelectMany(g => g.Items), i => Assert.DoesNotContain("icon-only", i.Classes));
+            Assert.Equal(220, full.SearchField.Width);
+
+            ToolbarRow overflowed = rows[2];
+            Assert.True(overflowed.OverflowButton.IsVisible);
+            Assert.Equal(["Export", "View"], overflowed.OverflowButton.ActionItems.Select(a => a.Text));
+        }
+
+        [AvaloniaFact]
+        public void ToolbarRowScaledTile_RowHeightResolvesSeventyEight_AtOneAndAHalfScale() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Toolbar row (150%)");
+            ToolbarRow row = tile.GetVisualDescendants().OfType<ToolbarRow>().Single();
+
+            Assert.Equal(78, row.Bounds.Height);
+        }
+
+        [AvaloniaFact]
+        public void ToolbarRowScaledTile_BetweenGroupGapStaysSixteen_AtOneAndAHalfScale() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Toolbar row (150%)");
+            ToolbarRow row = tile.GetVisualDescendants().OfType<ToolbarRow>().Single();
+            var panel = row.GetVisualDescendants().OfType<ToolbarRowPanel>().Single();
+
+            ToolbarItem[] items = [.. row.Groups.SelectMany(g => g.Items)];
+            ToolbarItem save = items.Single(i => i.Label == "Save");
+            ToolbarItem recipe = items.Single(i => i.Label == "Recipe");
+            double saveRight = (Avalonia.VisualExtensions.TranslatePoint(save, new Point(0, 0), panel)?.X ?? double.NaN) + save.Bounds.Width;
+            double recipeLeft = Avalonia.VisualExtensions.TranslatePoint(recipe, new Point(0, 0), panel)?.X ?? double.NaN;
+            Assert.Equal(16, recipeLeft - saveRight, 3);
         }
     }
 }

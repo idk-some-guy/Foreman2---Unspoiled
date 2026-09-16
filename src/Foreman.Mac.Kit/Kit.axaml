@@ -52,6 +52,7 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/RadialRing.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/StatePanel.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ZoomStepper.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ToolbarRow.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>
