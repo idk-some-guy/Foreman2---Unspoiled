@@ -248,6 +248,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   with no hover swap on its rule, and its row body padding matches the figure exactly, closing the
   wasted space below the footer hints. The gallery's palette tiles open inside a real
   Kit.PopoverFrame, one showing the search field's loading spinner.
+- Kit.Slider no longer clips its own thumb at Value 0 and 100, and Kit.FormRow no longer clips its
+  own error ring's top edge; both controls were self-clipping to their own bounds. A slider's value
+  label now baseline-aligns against a form row's label when the slider sits directly in the row, and
+  the gallery's own form-row example uses a real Kit.FormRow to show it. A popover's tail now hides
+  and reopens with its panel instead of staying on screen after a click outside closes it. The
+  radial ring re-arms as the pointer crosses from wedge to wedge outside the hub, not only on first
+  crossing the hub boundary. The zoom stepper's solving spinner carries the `animating` class while
+  visible.
+- The boxed form group's Link opacity row now uses a real Kit.Slider with ShowValue/Unit instead of
+  a hand-paired label, and Kit.FormRow's label baseline search skips a control's own hidden text
+  instead of landing on it by coincidence. A popover reopens on its own anchor's click and after an
+  outside-press dismiss, across repeated cycles, with no leftover layout churn once it settles. The
+  radial ring cancels rather than commits when the pointer returns to the hub before release. The
+  zoom stepper's solving spinner had no control template at all, so it never actually rendered
+  during a live solve; it now sizes and animates correctly, and the gallery needs no special-cased
+  workaround to show it. Closing a window with an open zoom-stepper error popover no longer throws.
 
 ### Changed
 

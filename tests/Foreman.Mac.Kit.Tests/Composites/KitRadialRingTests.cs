@@ -169,6 +169,47 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void MovingLaterallyBetweenWedges_OutsideTheHub_ReArmsWithoutReenteringTheHub() {
+            using var fixture = new KitFixture();
+            (Window window, RadialRing ring) = Shown();
+
+            //Due north (angle 270) at radius 60 sits in slice 0.
+            MoveTo(window, new Point(110, 50));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(0, ring.ArmedIndex);
+
+            //Same radius, angle 330 - slice 1's wedge - reached without dropping back inside the 38pt hub.
+            MoveTo(window, new Point(161.96, 80));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, ring.ArmedIndex);
+        }
+
+        [AvaloniaFact]
+        public void ReturningInsideTheHub_ClearsTheArm_SoReleaseCancelsInsteadOfCommitting() {
+            using var fixture = new KitFixture();
+            (Window window, RadialRing ring) = Shown();
+
+            int committed = 0, dismissed = 0;
+            ring.Committed += (_, _) => committed++;
+            ring.Dismissed += (_, _) => dismissed++;
+
+            //Due north (angle 270) at radius 60 sits in slice 0.
+            MoveTo(window, new Point(110, 50));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(0, ring.ArmedIndex);
+
+            MoveTo(window, new Point(110, 110));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(-1, ring.ArmedIndex);
+
+            ReleaseAt(window, new Point(110, 110));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(0, committed);
+            Assert.Equal(1, dismissed);
+        }
+
+        [AvaloniaFact]
         public void ReleaseInsideTheHub_CommitsNothing() {
             using var fixture = new KitFixture();
             (Window window, RadialRing ring) = Shown();

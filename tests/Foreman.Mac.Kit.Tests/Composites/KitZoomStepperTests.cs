@@ -16,6 +16,7 @@ using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
 using System;
 using System.Linq;
+using System.Threading;
 using System.Windows.Input;
 using Xunit;
 using SpinnerControl = Foreman.Mac.Kit.Controls.Spinner;
@@ -283,6 +284,54 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void Solving_PastTheGrace_SpinnerIsVisibleAndAnimating() {
+            using var fixture = new KitFixture();
+            ZoomStepper stepper = NewStepper();
+            Shown(stepper);
+
+            stepper.IsSolving = true;
+            AnimationClock.Settle(650);
+
+            SpinnerControl spinner = Spinner(stepper);
+            Assert.True(spinner.IsVisible);
+            Assert.Equal(1, spinner.Opacity);
+            Assert.Contains("animating", spinner.Classes);
+        }
+
+        //A themeless PART_Spinner builds no template, so it stays zero-sized even once IsVisible/Opacity flip -
+        //this pins real layout size, not just the flags, with real elapsed time driving the render clock.
+        [AvaloniaFact]
+        public void Solving_SetBeforeShow_SpinnerBecomesVisibleAndAnimatingAfterRealTimePastTheGrace() {
+            using var fixture = new KitFixture();
+            ZoomStepper stepper = NewStepper();
+            stepper.IsSolving = true;
+            Shown(stepper);
+
+            Thread.Sleep(650);
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+
+            SpinnerControl spinner = Spinner(stepper);
+            Assert.True(spinner.IsVisible);
+            Assert.Equal(1, spinner.Opacity);
+            Assert.Contains("animating", spinner.Classes);
+            Assert.True(spinner.Bounds.Width > 0);
+            Assert.True(spinner.Bounds.Height > 0);
+
+            //Layout position only (Bounds.Position through each ancestor), not TranslatePoint/TransformToVisual -
+            //those fold in the head's own RenderTransform, and a rotated square's AABB grows past its corners
+            //at any non-cardinal angle even though the circle it draws does not.
+            Arc head = spinner.GetVisualDescendants().OfType<Arc>().Single(a => a.Name == "PART_Head");
+            Point headOffset = default;
+            for (Visual? v = head; v is not null && v != spinner; v = v.GetVisualParent())
+                if (v is Avalonia.Layout.Layoutable layoutable)
+                    headOffset += layoutable.Bounds.Position;
+            Rect headInSpinner = new(headOffset, head.Bounds.Size);
+            Assert.True(new Rect(spinner.Bounds.Size).Contains(headInSpinner),
+                $"head's laid-out bounds {headInSpinner} sit outside the spinner's own bounds {spinner.Bounds}");
+        }
+
+        [AvaloniaFact]
         public void Solving_AutomationValue_StillContainsThePercentage() {
             using var fixture = new KitFixture();
             ZoomStepper stepper = NewStepper(140);
@@ -448,6 +497,31 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
             PopoverFrame popover = window.GetVisualDescendants().OfType<PopoverFrame>().Single();
             Assert.True(popover.IsOpen);
+        }
+
+        [AvaloniaFact]
+        public void ClosingTheWindow_WithTheErrorPopoverOpen_DoesNotThrow_AndRemovesThePopover() {
+            using var fixture = new KitFixture();
+            ZoomStepper stepper = NewStepper();
+            (Window window, PopoverHost host) = ShownInHost(stepper);
+
+            stepper.HasSolveError = true;
+            Dispatcher.UIThread.RunJobs();
+            new ControlState(Readout(stepper), window).Click();
+            Assert.True(stepper.IsErrorPopoverOpen);
+            PopoverFrame popover = window.GetVisualDescendants().OfType<PopoverFrame>().Single();
+            Assert.True(popover.IsOpen);
+
+            Exception? caught = null;
+            try {
+                window.Close();
+                Dispatcher.UIThread.RunJobs();
+            } catch (Exception ex) {
+                caught = ex;
+            }
+
+            Assert.True(caught is null, caught?.ToString());
+            Assert.DoesNotContain(popover, host.Surface.Children);
         }
 
         [AvaloniaFact]

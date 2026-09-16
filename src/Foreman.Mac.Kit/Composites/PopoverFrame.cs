@@ -153,6 +153,8 @@ namespace Foreman.Mac.Kit.Composites {
             Avalonia.Animation.Easings.Easing easing = open ? Motion.RadialOpenEasing : Motion.LeavingEasing;
             if (panel is not null)
                 panel.Transitions = Motion.Transition(TransitionKind.Scale, duration, easing);
+            if (tail is not null)
+                tail.Transitions = Motion.Transition(TransitionKind.Fade, duration, easing);
 
             PseudoClasses.Set(":open", open);
             IsHitTestVisible = open;

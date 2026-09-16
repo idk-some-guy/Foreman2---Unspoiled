@@ -725,11 +725,7 @@ namespace Foreman.Mac.Views {
             formSlider.Value = 72;
             formSlider.Unit = "%";
             formSlider.ShowValue = true;
-            var formRow = new StackPanel {
-                Orientation = Orientation.Horizontal,
-                Spacing = 12,
-                Children = { KitText("Link opacity", "body"), formSlider },
-            };
+            FormRow formRow = KitFormRow("Link opacity", formSlider);
 
             return new StackPanel {
                 Spacing = 8,
@@ -1101,11 +1097,13 @@ namespace Foreman.Mac.Views {
             FormRow direction = KitFormRow("Default node direction", KitSegmented("Up", "Down"));
             FormRow width = KitFormRow("Node width", KitStepper(140, "pt"));
 
-            var opacityRow = new StackPanel {
-                Orientation = Orientation.Horizontal, Spacing = 8,
-                Children = { KitSlider(), KitText("72 %", "callout", "secondary") },
-            };
-            FormRow opacity = KitFormRow("Link opacity", opacityRow);
+            Slider opacitySlider = KitSlider();
+            opacitySlider.Minimum = 0;
+            opacitySlider.Maximum = 100;
+            opacitySlider.Value = 72;
+            opacitySlider.Unit = "%";
+            opacitySlider.ShowValue = true;
+            FormRow opacity = KitFormRow("Link opacity", opacitySlider);
 
             FormRow smart = KitFormRow("Smart direction", new Switch { Theme = KitTheme("Kit.Switch"), IsChecked = true });
 
@@ -1571,6 +1569,7 @@ namespace Foreman.Mac.Views {
             group.Items.Add(new CheckBox { Theme = KitTheme("Kit.CheckBox"), Content = "Module icons" });
 
             var popover = new PopoverFrame { Theme = KitTheme("Kit.PopoverFrame"), Content = group, Anchor = anchor };
+            anchor.Click += (_, _) => popover.IsOpen = true;
 
             var host = new PopoverHost { Width = 320, Height = 220 };
             Avalonia.Controls.Canvas.SetLeft(anchor, 40);
@@ -1594,6 +1593,7 @@ namespace Foreman.Mac.Views {
             var anchor = new Button { Theme = KitTheme("Kit.Button"), Content = "•" };
             var content = new TextBlock { Theme = KitTheme("Kit.Text"), Text = "Clamped near the corner" };
             var popover = new PopoverFrame { Theme = KitTheme("Kit.PopoverFrame"), Content = content, Anchor = anchor };
+            anchor.Click += (_, _) => popover.IsOpen = true;
 
             var host = new PopoverHost { Width = 220, Height = 140 };
             Avalonia.Controls.Canvas.SetLeft(anchor, 4);
@@ -1928,6 +1928,7 @@ namespace Foreman.Mac.Views {
         private static Border PalettePopoverTile(PalettePanel panel, double width, double height) {
             var anchor = new Button { Theme = KitTheme("Kit.Button"), Content = "Quick Add" };
             var popover = new PopoverFrame { Theme = KitTheme("Kit.PopoverFrame"), Content = panel, Anchor = anchor };
+            anchor.Click += (_, _) => popover.IsOpen = true;
 
             var host = new PopoverHost { Width = width, Height = height };
             Avalonia.Controls.Canvas.SetLeft(anchor, 24);

@@ -81,6 +81,36 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void Thumb_AtBothTrackExtremes_OverhangIsNotClippedByAnAncestor() {
+            using var fixture = new KitFixture();
+            Slider slider = Themed();
+            slider.Minimum = 0;
+            slider.Maximum = 100;
+            fixture.Window.Content = slider;
+            Dispatcher.UIThread.RunJobs();
+
+            slider.Value = 0;
+            Dispatcher.UIThread.RunJobs();
+            AssertThumbOverhangIsUnclipped(slider);
+
+            slider.Value = 100;
+            Dispatcher.UIThread.RunJobs();
+            AssertThumbOverhangIsUnclipped(slider);
+        }
+
+        private static void AssertThumbOverhangIsUnclipped(Slider slider) {
+            Border thumb = Thumb(slider);
+            for (Visual? ancestor = slider; ancestor is not null; ancestor = ancestor.GetVisualParent()) {
+                if (!ancestor.ClipToBounds)
+                    continue;
+                Point topLeft = thumb.TranslatePoint(new Point(0, 0), ancestor) ?? default;
+                Point bottomRight = thumb.TranslatePoint(new Point(thumb.Bounds.Width, thumb.Bounds.Height), ancestor) ?? default;
+                bool clipped = topLeft.X < 0 || topLeft.Y < 0 || bottomRight.X > ancestor.Bounds.Width || bottomRight.Y > ancestor.Bounds.Height;
+                Assert.False(clipped, $"{ancestor.GetType().Name} (ClipToBounds=true) clips the thumb overhang.");
+            }
+        }
+
+        [AvaloniaFact]
         public void FocusAdorner_AttachesToTheThumbNotTheTrack() {
             using var fixture = new KitFixture();
             Slider slider = Themed();

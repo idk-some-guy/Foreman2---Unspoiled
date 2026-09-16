@@ -98,7 +98,7 @@
                          Height="{DynamicResource Foreman.Size.SpinnerSmall}"
                          HorizontalAlignment="Center"
                          VerticalAlignment="Center">
-                  <ctrl:Spinner x:Name="PART_Spinner" Classes="sm" IsVisible="False" Opacity="0" />
+                  <ctrl:Spinner x:Name="PART_Spinner" Theme="{StaticResource Kit.Spinner}" Classes="sm" IsVisible="False" Opacity="0" />
                 </Viewbox>
                 <Viewbox Width="{DynamicResource Foreman.Size.GlyphMicro}" Height="{DynamicResource Foreman.Size.GlyphMicro}"
                          HorizontalAlignment="Center"

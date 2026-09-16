@@ -145,6 +145,52 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void Label_BaselineAlignsToASlidersValueLabel() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.Slider", null, out object? sliderTheme));
+            var slider = new Foreman.Mac.Kit.Controls.Slider {
+                Theme = Assert.IsType<ControlTheme>(sliderTheme), Width = 124,
+                Minimum = 0, Maximum = 100, Value = 72, Unit = "%", ShowValue = true,
+            };
+            FormRow row = Themed("Link opacity", slider);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock label = LabelText(row);
+            TextBlock valueLabel = slider.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_ValueLabel");
+
+            double labelBaselineY = label.TranslatePoint(new Point(0, label.TextLayout!.TextLines[0].Baseline), fixture.Window)!.Value.Y;
+            double valueBaselineY = valueLabel.TranslatePoint(new Point(0, valueLabel.TextLayout!.TextLines[0].Baseline), fixture.Window)!.Value.Y;
+
+            Assert.Equal(valueBaselineY, labelBaselineY, 2);
+        }
+
+        //A control whose visual tree happens to carry a hidden text part earlier than its real, visible one (Kit.Slider's
+        //own PART_ValueLabel when ShowValue is off) must not win the baseline search over that visible text.
+        [AvaloniaFact]
+        public void Label_SkipsAnInvisibleTextDescendant_AligningToTheVisibleOneInstead() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.Slider", null, out object? sliderTheme));
+            var slider = new Foreman.Mac.Kit.Controls.Slider { Theme = Assert.IsType<ControlTheme>(sliderTheme), Width = 124 };
+            //PART_ValueLabel resolves Foreman.Type.Callout.FontSize (12): a visible sibling at a different
+            //size proves the search actually skips the hidden part rather than landing on it by coincidence.
+            var valueText = new TextBlock { Text = "72 %", FontSize = 20 };
+            var opacityRow = new StackPanel {
+                Orientation = Orientation.Horizontal, Spacing = 8,
+                Children = { slider, valueText },
+            };
+            FormRow row = Themed("Link opacity", opacityRow);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock label = LabelText(row);
+            double labelBaselineY = label.TranslatePoint(new Point(0, label.TextLayout!.TextLines[0].Baseline), fixture.Window)!.Value.Y;
+            double valueBaselineY = valueText.TranslatePoint(new Point(0, valueText.TextLayout!.TextLines[0].Baseline), fixture.Window)!.Value.Y;
+
+            Assert.Equal(valueBaselineY, labelBaselineY, 2);
+        }
+
+        [AvaloniaFact]
         public void Label_WhenItWrapsToTwoLines_AlignsItsFirstLineToTheControl_NotClampedToTheRowTop() {
             using var fixture = new KitFixture();
             var content = new Border { Width = 80, Height = 22 };
@@ -323,6 +369,27 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Border controlBorder = ControlBorder(row);
             Assert.Equal(new Thickness(1), controlBorder.BorderThickness);
             Assert.Equal(fixture.Brush("Foreman.Color.Error").ToImmutable(), controlBorder.BorderBrush?.ToImmutable());
+        }
+
+        //PART_ControlBorder sits on a -1 margin to outline the control from just outside its bounds; a row that
+        //self-clips to its own bounds cuts the ring's top edge, since row 0 starts flush at the row's own top.
+        [AvaloniaFact]
+        public void ErrorBorder_AllFourEdgesRenderInsideTheRow_NoneClippedByTheRowItself() {
+            using var fixture = new KitFixture();
+            var content = new Border { Width = 80, Height = 22 };
+            FormRow row = Themed("Beacon count", content);
+            row.Error = "Must be 0 or more.";
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Border ring = ControlBorder(row);
+            Point topLeft = ring.TranslatePoint(new Point(0, 0), row) ?? default;
+            Point bottomRight = ring.TranslatePoint(new Point(ring.Bounds.Width, ring.Bounds.Height), row) ?? default;
+
+            Assert.False(row.ClipToBounds && topLeft.Y < 0, "the row clips the error ring's top edge.");
+            Assert.False(row.ClipToBounds && topLeft.X < 0, "the row clips the error ring's left edge.");
+            Assert.False(row.ClipToBounds && bottomRight.X > row.Bounds.Width, "the row clips the error ring's right edge.");
+            Assert.False(row.ClipToBounds && bottomRight.Y > row.Bounds.Height, "the row clips the error ring's bottom edge.");
         }
 
         [AvaloniaFact]

@@ -46,7 +46,6 @@ namespace Foreman.Mac.Kit.Composites {
         private readonly List<StackPanel> cellVisuals = [];
         private Ellipse? cursorDot;
         private Ellipse? cursorHalo;
-        private double previousRadius;
         private readonly List<IDisposable> tokenSubs = [];
         private readonly List<IDisposable> glyphSubs = [];
 
@@ -250,7 +249,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void ApplyOpenState(bool open) {
             if (open) {
-                previousRadius = 0;
                 ArmedIndex = -1;
                 if (cursorDot is not null)
                     cursorDot.IsVisible = false;
@@ -312,18 +310,18 @@ namespace Foreman.Mac.Kit.Composites {
             CommitOrDismiss();
         }
 
-        //Arms only at the moment the pointer crosses the hub boundary outward; further movement leaves the last arm standing until the pointer crosses out again - a fast flick still commits.
+        //Tracks direction continuously once past the hub, wedge to wedge, without needing to cross back through
+        //the hub between them; re-entering the hub clears the arm, so a release there cancels rather than commits.
         private void Arm(Point position) {
             Point vector = position - new Point(Center, Center);
             double radius = RadialGeometry.Length(vector);
-            bool wasInsideHub = previousRadius < hubRadius;
-            bool isOutsideHub = radius >= hubRadius;
-            if (wasInsideHub && isOutsideHub) {
-                int index = RadialGeometry.SliceForAngle(RadialGeometry.AngleOf(vector));
-                if (index < Items.Count && Items[index].IsEnabled)
-                    ArmedIndex = index;
+            if (radius < hubRadius) {
+                ArmedIndex = -1;
+                return;
             }
-            previousRadius = radius;
+            int index = RadialGeometry.SliceForAngle(RadialGeometry.AngleOf(vector));
+            if (index < Items.Count && Items[index].IsEnabled)
+                ArmedIndex = index;
         }
 
         private void CommitOrDismiss() {

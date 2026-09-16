@@ -11,6 +11,7 @@ using Avalonia.VisualTree;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
+using System;
 using System.Linq;
 using System.Windows.Input;
 using Xunit;
@@ -296,6 +297,29 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             host.Content = null;
             Dispatcher.UIThread.RunJobs();
 
+            Assert.False(popup.IsOpen);
+        }
+
+        [AvaloniaFact]
+        public void ClosingTheWindow_WithTheFlyoutOpen_DoesNotThrow_AndClosesTheFlyout() {
+            using var fixture = new KitFixture();
+            PopUp popup = Themed("Items / s");
+            fixture.Window.Content = popup;
+            Dispatcher.UIThread.RunJobs();
+
+            popup.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(popup.IsOpen);
+
+            Exception? caught = null;
+            try {
+                fixture.Window.Close();
+                Dispatcher.UIThread.RunJobs();
+            } catch (Exception ex) {
+                caught = ex;
+            }
+
+            Assert.True(caught is null, caught?.ToString());
             Assert.False(popup.IsOpen);
         }
 

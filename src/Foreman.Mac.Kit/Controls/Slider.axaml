@@ -8,6 +8,7 @@
     <Setter Property="MinWidth" Value="{DynamicResource Foreman.Metrics.SliderMinWidth}" />
     <Setter Property="Width" Value="{DynamicResource Foreman.Metrics.SliderNaturalWidth}" />
     <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="ClipToBounds" Value="False" />
     <Setter Property="Template">
       <ControlTemplate>
         <Grid ColumnDefinitions="*,Auto">

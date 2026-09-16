@@ -23,7 +23,8 @@
                   Background="{DynamicResource Foreman.Color.PopoverMaterial}"
                   BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
                   RenderTransformOrigin="50%,50%"
-                  RenderTransform="rotate(45deg)" />
+                  RenderTransform="rotate(45deg)"
+                  Opacity="0" />
         </Grid>
       </ControlTemplate>
     </Setter>
@@ -31,6 +32,10 @@
     <Style Selector="^:open /template/ Border#PART_Panel">
       <Setter Property="Opacity" Value="1" />
       <Setter Property="RenderTransform" Value="scale(1)" />
+    </Style>
+
+    <Style Selector="^:open /template/ Border#PART_Tail">
+      <Setter Property="Opacity" Value="1" />
     </Style>
   </ControlTheme>
 

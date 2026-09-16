@@ -11,6 +11,7 @@ using Avalonia.VisualTree;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
+using System;
 using System.Linq;
 using Xunit;
 
@@ -136,6 +137,29 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.False(button.IsFilled);
             foreach (MenuButtonItem item in button.Items)
                 Assert.Equal(item.IsDefault, item.IsChecked);
+        }
+
+        [AvaloniaFact]
+        public void ClosingTheWindow_WithTheFlyoutOpen_DoesNotThrow_AndClosesTheFlyout() {
+            using var fixture = new KitFixture();
+            MenuButton button = Themed();
+            fixture.Window.Content = button;
+            Dispatcher.UIThread.RunJobs();
+
+            button.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(button.IsOpen);
+
+            Exception? caught = null;
+            try {
+                fixture.Window.Close();
+                Dispatcher.UIThread.RunJobs();
+            } catch (Exception ex) {
+                caught = ex;
+            }
+
+            Assert.True(caught is null, caught?.ToString());
+            Assert.False(button.IsOpen);
         }
 
         [AvaloniaFact]

@@ -14,6 +14,7 @@ namespace Foreman.Mac.Kit.Composites {
         public Canvas Surface { get; } = new();
 
         private int layoutDepth;
+        private bool isDetaching;
         private readonly List<Action> pendingMutations = [];
 
         static PopoverHost() {
@@ -45,6 +46,19 @@ namespace Foreman.Mac.Kit.Composites {
             Surface.Children.Add(frame);
         });
 
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
+            base.OnAttachedToVisualTree(e);
+            isDetaching = false;
+        }
+
+        //Set before the base call recurses into children, so a hosted control's own detach handler
+        //(e.g. ZoomStepper removing its open error popover) sees it and defers instead of mutating the
+        //Surface a sibling's detach is still being cascaded through.
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
+            isDetaching = true;
+            base.OnDetachedFromVisualTree(e);
+        }
+
         protected override Size MeasureOverride(Size availableSize) {
             layoutDepth++;
             try {
@@ -63,8 +77,11 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
+        //Mid-layout defers so a mutation from TemplateApplied doesn't corrupt the pass in flight;
+        //mid-detach defers so a hosted control's own detach handler never mutates the Surface while
+        //this host's own detach cascade is still walking it.
         private void RunOrDefer(Action mutate) {
-            if (layoutDepth == 0) {
+            if (layoutDepth == 0 && !isDetaching) {
                 mutate();
                 return;
             }

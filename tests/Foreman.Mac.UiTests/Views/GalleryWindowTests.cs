@@ -372,6 +372,26 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
+        public void SliderTile_FormRowExampleUsesARealFormRowWithTheLabelBaselineOnTheSlidersValueLabel() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Slider");
+            FormRow formRow = tile.GetVisualDescendants().OfType<FormRow>().Single(r => r.Label == "Link opacity");
+            Slider slider = formRow.GetVisualDescendants().OfType<Slider>().Single();
+
+            TextBlock label = formRow.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Label");
+            TextBlock valueLabel = slider.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_ValueLabel");
+
+            double labelBaselineY = label.TranslatePoint(new Point(0, label.TextLayout!.TextLines[0].Baseline), window)!.Value.Y;
+            double valueBaselineY = valueLabel.TranslatePoint(new Point(0, valueLabel.TextLayout!.TextLines[0].Baseline), window)!.Value.Y;
+
+            Assert.Equal(valueBaselineY, labelBaselineY, 2);
+        }
+
+        [AvaloniaFact]
         public void KitScaledTile_GlyphSheetViewboxIsOneAndAHalfTimesTheDefaultTilesWhileGeometryStaysAtMasterSize() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
@@ -598,6 +618,22 @@ namespace Foreman.Mac.UiTests.Views {
             window.MouseUp(center, MouseButton.Left, RawInputModifiers.None);
         }
 
+        //The gallery's own ScrollViewer stretches its content well past the fixed 1000pt window, and
+        //BringIntoViewOnFocusChange is off, so a real pointer click on a control past the fold needs the
+        //viewport scrolled to it directly (the same idiom QuickAddPalette.BringHighlightIntoView uses).
+        private static void ScrollIntoView(Control control) {
+            if (control.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault() is not ScrollViewer scrollViewer)
+                return;
+            Point topLeft = control.TranslatePoint(new Point(0, 0), scrollViewer) ?? default;
+            double bottom = topLeft.Y + control.Bounds.Height;
+            double viewportHeight = scrollViewer.Viewport.Height;
+            if (topLeft.Y < 0)
+                scrollViewer.Offset += new Vector(0, topLeft.Y);
+            else if (bottom > viewportHeight)
+                scrollViewer.Offset += new Vector(0, bottom - viewportHeight);
+            Dispatcher.UIThread.RunJobs();
+        }
+
         //Task 6 gate tool (task-6-brief): the Design language section shows every retokened surface this
         //plan touched - toolbar/titlebar, the View Options popover, and the three status-colored row kinds.
         [AvaloniaFact]
@@ -809,6 +845,29 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.All(rows, r => Assert.False(r.IsInspector));
             Assert.Contains(rows, r => r.Label == "Node width");
             Assert.Contains(rows, r => r.Label == "Link width" && !string.IsNullOrEmpty(r.Note));
+        }
+
+        [AvaloniaFact]
+        public void FormGroupBoxedTile_LinkOpacityRow_IsARealSliderWithShowValue_BaselineAlignedToItsOwnValueLabel() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form group (boxed, 132)");
+            FormRow opacityRow = tile.GetVisualDescendants().OfType<FormRow>().Single(r => r.Label == "Link opacity");
+
+            Slider slider = Assert.IsType<Slider>(opacityRow.Content);
+            Assert.True(slider.ShowValue);
+            Assert.Equal("%", slider.Unit);
+
+            TextBlock label = opacityRow.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Label");
+            TextBlock valueLabel = slider.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_ValueLabel");
+
+            double labelBaselineY = label.TranslatePoint(new Point(0, label.TextLayout!.TextLines[0].Baseline), window)!.Value.Y;
+            double valueBaselineY = valueLabel.TranslatePoint(new Point(0, valueLabel.TextLayout!.TextLines[0].Baseline), window)!.Value.Y;
+
+            Assert.Equal(valueBaselineY, labelBaselineY, 2);
         }
 
         [AvaloniaFact]
@@ -1089,6 +1148,34 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
+        public void PopoverFrameTile_AnchorClick_ReopensAfterALightDismiss_AcrossRepeatedCycles() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Popover frame — anchored below, with a form group inside");
+            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+            Button anchor = Assert.IsType<Button>(popover.Anchor);
+            ScrollIntoView(anchor);
+            int layouts = 0;
+            popover.LayoutUpdated += (_, _) => layouts++;
+
+            Assert.True(popover.IsOpen);
+            for (int cycle = 0; cycle < 3; cycle++) {
+                RealClick(window, anchor);
+                AnimationClock.Settle();
+                Assert.False(popover.IsOpen);
+
+                RealClick(window, anchor);
+                AnimationClock.Settle();
+                Assert.True(popover.IsOpen);
+            }
+
+            Assert.True(layouts <= 400, $"Popover frame laid out {layouts} times across three reopen cycles.");
+        }
+
+        [AvaloniaFact]
         public void PopoverFrameCornerTile_ClampsTheTailNearTheAnchorsCorner() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
@@ -1101,6 +1188,34 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.True(popover.IsOpen);
             Assert.Equal(PopoverEdge.Bottom, popover.ResolvedPlacement);
             Assert.Equal(26, tail.Margin.Left);
+        }
+
+        [AvaloniaFact]
+        public void PopoverFrameCornerTile_AnchorClick_ReopensAfterALightDismiss_AcrossRepeatedCycles() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Popover frame — tail clamped near a corner");
+            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+            Button anchor = Assert.IsType<Button>(popover.Anchor);
+            ScrollIntoView(anchor);
+            int layouts = 0;
+            popover.LayoutUpdated += (_, _) => layouts++;
+
+            Assert.True(popover.IsOpen);
+            for (int cycle = 0; cycle < 3; cycle++) {
+                RealClick(window, anchor);
+                AnimationClock.Settle();
+                Assert.False(popover.IsOpen);
+
+                RealClick(window, anchor);
+                AnimationClock.Settle();
+                Assert.True(popover.IsOpen);
+            }
+
+            Assert.True(layouts <= 400, $"Popover frame laid out {layouts} times across three reopen cycles.");
         }
 
         [AvaloniaFact]
@@ -1288,6 +1403,26 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
+        public void ZoomStepperTile_SolvingExample_ShowsItsSpinnerAfterTheGraceSettles() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Zoom stepper — at rest, hovered, solving, solve failed");
+            ZoomStepper solving = tile.GetVisualDescendants().OfType<ZoomStepper>().ElementAt(2);
+            Assert.True(solving.IsSolving);
+
+            Spinner spinner = solving.GetVisualDescendants().OfType<Spinner>().Single(s => s.Name == "PART_Spinner");
+            AnimationClock.Settle(650);
+
+            Assert.True(spinner.IsVisible);
+            Assert.Equal(1, spinner.Opacity);
+            Assert.Contains("animating", spinner.Classes);
+            Assert.True(spinner.Bounds.Width > 0);
+        }
+
+        [AvaloniaFact]
         public void ZoomStepperPopoverTile_OpensItsOwnErrorPopover_CarryingTheHostSuppliedStatePanel() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
@@ -1397,6 +1532,34 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
+        public void PalettePanelTile_AnchorClick_ReopensAfterALightDismiss_AcrossRepeatedCycles() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Palette panel — quick-add results");
+            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+            Button anchor = Assert.IsType<Button>(popover.Anchor);
+            ScrollIntoView(anchor);
+            int layouts = 0;
+            popover.LayoutUpdated += (_, _) => layouts++;
+
+            Assert.True(popover.IsOpen);
+            for (int cycle = 0; cycle < 3; cycle++) {
+                RealClick(window, anchor);
+                AnimationClock.Settle();
+                Assert.False(popover.IsOpen);
+
+                RealClick(window, anchor);
+                AnimationClock.Settle();
+                Assert.True(popover.IsOpen);
+            }
+
+            Assert.True(layouts <= 400, $"Popover frame laid out {layouts} times across three reopen cycles.");
+        }
+
+        [AvaloniaFact]
         public void PalettePanelNoResultsTile_ShowsACompactStatePanel_WithTheSearchHeaderStillVisible() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
@@ -1438,6 +1601,24 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(39, row.Bounds.Height);
             Border icon = row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Icon");
             Assert.Equal(33, icon.Bounds.Width);
+        }
+
+        [AvaloniaFact]
+        public void Close_DoesNotThrow_WithEveryTileRegistered() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Exception? caught = null;
+            try {
+                window.Close();
+                Dispatcher.UIThread.RunJobs();
+            } catch (Exception ex) {
+                caught = ex;
+            }
+
+            Assert.True(caught is null, caught?.ToString());
         }
     }
 }

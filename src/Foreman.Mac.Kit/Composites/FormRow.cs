@@ -211,9 +211,9 @@ namespace Foreman.Mac.Kit.Composites {
             if (Content is not Control content)
                 return null;
 
-            Control? textHost = content is TextBlock or TextPresenter
+            Control? textHost = content is TextBlock or TextPresenter && content.IsEffectivelyVisible
                 ? content
-                : content.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c is TextBlock or TextPresenter);
+                : content.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c is TextBlock or TextPresenter && c.IsEffectivelyVisible);
 
             if (textHost is not null && FirstLine(textHost) is TextLine hostLine)
                 return textHost.TranslatePoint(new Point(0, hostLine.Baseline), this)?.Y;
@@ -231,9 +231,9 @@ namespace Foreman.Mac.Kit.Composites {
             if (labelLine is null)
                 return 0;
 
-            Control? textHost = content is TextBlock or TextPresenter
+            Control? textHost = content is TextBlock or TextPresenter && content.IsEffectivelyVisible
                 ? content
-                : content.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c is TextBlock or TextPresenter);
+                : content.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c is TextBlock or TextPresenter && c.IsEffectivelyVisible);
 
             double controlBaselineLocal;
             if (textHost is not null && FirstLine(textHost) is TextLine hostLine) {

@@ -408,6 +408,97 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void OutsidePress_ClosesTheFrame_HidingBothThePanelAndTheTail() {
+            using var fixture = new KitFixture();
+            (Window window, _, _, PopoverFrame popover) = Shown();
+            Border panel = Panel(popover);
+            Border tail = Tail(popover);
+            AnimationClock.Settle();
+            Assert.Equal(1, panel.Opacity);
+            Assert.Equal(1, tail.Opacity);
+
+            window.MouseDown(new Point(5, 5), MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+
+            Assert.Equal(0, panel.Opacity);
+            Assert.Equal(0, tail.Opacity);
+        }
+
+        [AvaloniaFact]
+        public void OutsidePress_ThenReopening_RestoresBothThePanelAndTheTail_AcrossRepeatedCycles() {
+            using var fixture = new KitFixture();
+            (Window window, _, _, PopoverFrame popover) = Shown();
+            Border panel = Panel(popover);
+            Border tail = Tail(popover);
+            AnimationClock.Settle();
+            Assert.Equal(1, panel.Opacity);
+            Assert.Equal(1, tail.Opacity);
+
+            for (int cycle = 0; cycle < 3; cycle++) {
+                window.MouseDown(new Point(5, 5), MouseButton.Left, RawInputModifiers.None);
+                Dispatcher.UIThread.RunJobs();
+                AnimationClock.Settle();
+                Assert.False(popover.IsOpen);
+                Assert.Equal(0, panel.Opacity);
+                Assert.Equal(0, tail.Opacity);
+
+                popover.IsOpen = true;
+                AnimationClock.Settle();
+                Assert.True(popover.IsOpen);
+                Assert.Equal(1, panel.Opacity);
+                Assert.Equal(1, tail.Opacity);
+                Assert.True(popover.IsHitTestVisible);
+            }
+        }
+
+        [AvaloniaFact]
+        public void RepeatedOpenCloseCycles_EachTimeShowAndHideBothThePanelAndTheTail() {
+            using var fixture = new KitFixture();
+            (_, _, _, PopoverFrame popover) = Shown();
+            Border panel = Panel(popover);
+            Border tail = Tail(popover);
+            AnimationClock.Settle();
+            Assert.Equal(1, panel.Opacity);
+            Assert.Equal(1, tail.Opacity);
+
+            for (int cycle = 0; cycle < 3; cycle++) {
+                popover.IsOpen = false;
+                AnimationClock.Settle();
+                Assert.Equal(0, panel.Opacity);
+                Assert.Equal(0, tail.Opacity);
+
+                popover.IsOpen = true;
+                AnimationClock.Settle();
+                Assert.Equal(1, panel.Opacity);
+                Assert.Equal(1, tail.Opacity);
+            }
+        }
+
+        [AvaloniaFact]
+        public void Pumping_RepeatedOpenCloseCycles_StaysBounded() {
+            using var fixture = new KitFixture();
+            (_, _, _, PopoverFrame popover) = Shown();
+            AnimationClock.Settle();
+
+            int layouts = 0;
+            popover.LayoutUpdated += (_, _) => layouts++;
+
+            for (int cycle = 0; cycle < 3; cycle++) {
+                popover.IsOpen = false;
+                AnimationClock.Settle();
+                popover.IsOpen = true;
+                AnimationClock.Settle();
+            }
+
+            Assert.True(layouts <= 120, $"PopoverFrame laid out {layouts} times across three open/close cycles.");
+
+            layouts = 0;
+            AnimationClock.Settle(300);
+            Assert.Equal(0, layouts);
+        }
+
+        [AvaloniaFact]
         public void OutsidePress_ThatClosesTheFrame_DoesNotReachAControlBeneath() {
             using var fixture = new KitFixture();
             (Window window, PopoverHost host, _, PopoverFrame popover) = Shown();
