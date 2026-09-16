@@ -202,6 +202,8 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Palette panel — quick-add results", "Default", BuildPalettePanelTile));
             registry.Register(new GalleryTile("Kit", "Palette panel — no results", "Default", BuildPalettePanelNoResultsTile));
             registry.Register(new GalleryTile("Kit", "Palette panel (150%)", "150%", BuildPalettePanelScaledTile));
+            registry.Register(new GalleryTile("Kit", "Recent row — selected, hovered, inactive, unavailable & focused", "Default", BuildRecentRowTile));
+            registry.Register(new GalleryTile("Kit", "Recent row (150%)", "150%", BuildRecentRowScaledTile));
             return registry;
         }
 
@@ -1986,6 +1988,58 @@ namespace Foreman.Mac.Views {
 
             container.Children.Add(KitText("Palette panel (150%)", "caption", "tertiary"));
             container.Children.Add(PalettePopoverTile(panel, 460, 320));
+            return container;
+        }
+
+        //Addendum §09's welcome-window library entry.
+        private static RecentRow KitRecentRow(string label, string preset, int nodes, string relative, string absolute, IBrush icon) => new() {
+            Theme = KitTheme("Kit.RecentRow"),
+            Label = label, PresetLabel = preset, NodeCount = nodes, RelativeTime = relative, AbsoluteTime = absolute, Icon = icon,
+        };
+
+        private static StackPanel BuildRecentRowTile() {
+            IBrush swatch = ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue);
+
+            RecentRow selected = KitRecentRow("Blue science 90/min", "Space Age", 214, "2 hours ago", "Tue 15 Sep 2026, 3:04 PM", swatch);
+            selected.IsSelected = true;
+
+            RecentRow hovered = KitRecentRow("Kovarex loop", "Vanilla 2.0", 38, "Yesterday", "Mon 14 Sep 2026, 11:20 AM", swatch);
+            hovered.Classes.Add("gallery-hover");
+
+            RecentRow inactiveSelected = KitRecentRow("Rocket ramp", "Space Age", 611, "3 Sep", "Thu 3 Sep 2026, 9:02 AM", swatch);
+            inactiveSelected.IsSelected = true;
+            inactiveSelected.IsKey = false;
+
+            RecentRow unavailable = KitRecentRow("Old megabase", "Preset missing", 1204, "12 Jul", "Sun 12 Jul 2026, 6:41 PM", swatch);
+            unavailable.IsUnavailable = true;
+
+            RecentRow focused = KitRecentRow("Oil cracking test", "Vanilla 2.0", 12, "28 Aug", "Fri 28 Aug 2026, 2:15 PM", swatch);
+            focused.TemplateApplied += (_, e) => {
+                if (e.NameScope.Find<Border>("PART_Frame") is Border frame)
+                    FocusRing.SetShowAlways(frame, true);
+            };
+
+            var list = new StackPanel { Spacing = 2, Children = { selected, hovered, inactiveSelected, unavailable, focused } };
+            return new StackPanel { Spacing = 8, Children = { KitText("Recent row", "caption", "tertiary"), list } };
+        }
+
+        private static readonly string[] RecentRowScaledSizeKeys = [
+            "Foreman.Size.RecentRowHeight", "Foreman.Size.RecentRowIcon",
+            "Foreman.Type.EmphasizedBody.FontSize", "Foreman.Type.Caption.FontSize",
+        ];
+
+        private static StackPanel BuildRecentRowScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in RecentRowScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            IBrush swatch = ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue);
+            RecentRow row = KitRecentRow("Blue science 90/min", "Space Age", 214, "2 hours ago", "Tue 15 Sep 2026, 3:04 PM", swatch);
+            row.IsSelected = true;
+
+            container.Children.Add(KitText("Recent row (150%)", "caption", "tertiary"));
+            container.Children.Add(row);
             return container;
         }
 

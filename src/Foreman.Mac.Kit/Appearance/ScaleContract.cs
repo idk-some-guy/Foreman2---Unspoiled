@@ -94,6 +94,8 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Metrics.SliderNaturalWidth",
             "Foreman.Metrics.SliderValueLabelWidth",
             "Foreman.Size.ListRowHeight",
+            "Foreman.Size.RecentRowHeight",
+            "Foreman.Size.RecentRowIcon",
             "Foreman.Size.SidebarRowHeight",
             "Foreman.Size.ListRowIconGap",
             "Foreman.Size.SidebarRowIconGap",

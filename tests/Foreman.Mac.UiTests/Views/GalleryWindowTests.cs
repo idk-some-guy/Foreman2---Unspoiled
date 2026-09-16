@@ -144,7 +144,8 @@ namespace Foreman.Mac.UiTests.Views {
                  "Form group — load failure (State panel)", "Inspector group — body delegation (State panel)",
                  "Zoom stepper — at rest, hovered, solving, solve failed", "Zoom stepper — solve-error popover",
                  "Zoom stepper (150%)", "Toolbar row — full, labels dropped, overflowed", "Toolbar row (150%)",
-                 "Palette panel — quick-add results", "Palette panel — no results", "Palette panel (150%)"],
+                 "Palette panel — quick-add results", "Palette panel — no results", "Palette panel (150%)",
+                 "Recent row — selected, hovered, inactive, unavailable & focused", "Recent row (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -1650,6 +1651,21 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(39, row.Bounds.Height);
             Border icon = row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Icon");
             Assert.Equal(33, icon.Bounds.Width);
+        }
+
+        [AvaloniaFact]
+        public void RecentRowScaledTile_RowHeightAndIconResolveToSixtyNineAndFortyFive_AtOneAndAHalfScale() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Recent row (150%)");
+            RecentRow row = tile.GetVisualDescendants().OfType<RecentRow>().Single();
+
+            Assert.Equal(69, row.Bounds.Height);
+            Border icon = row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Icon");
+            Assert.Equal(45, icon.Bounds.Width);
         }
 
         [AvaloniaFact]

@@ -1,0 +1,84 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.RecentRow" TargetType="kit:RecentRow">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.RecentRowHeight}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Frame"
+                Height="{DynamicResource Foreman.Size.RecentRowHeight}"
+                CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                Background="Transparent">
+          <Panel>
+            <Border x:Name="PART_Fill"
+                    CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                    Opacity="0"
+                    IsHitTestVisible="False"
+                    Transitions="{x:Static m:Motion.RowSelectionTransitions}" />
+            <Border x:Name="PART_SelectionFill"
+                    CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                    Opacity="0"
+                    IsHitTestVisible="False"
+                    Transitions="{x:Static m:Motion.RowSelectionTransitions}" />
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="16,0">
+              <Border x:Name="PART_Icon"
+                      Grid.Column="0"
+                      Width="{DynamicResource Foreman.Size.RecentRowIcon}"
+                      Height="{DynamicResource Foreman.Size.RecentRowIcon}"
+                      CornerRadius="7"
+                      Background="{TemplateBinding Icon}"
+                      BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
+                      BorderThickness="1"
+                      Margin="0,0,12,0" />
+              <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                <TextBlock x:Name="PART_Name"
+                           Text="{TemplateBinding Label}"
+                           FontSize="{DynamicResource Foreman.Type.EmphasizedBody.FontSize}"
+                           FontWeight="{DynamicResource Foreman.Type.EmphasizedBody.FontWeight}"
+                           TextTrimming="CharacterEllipsis" />
+                <StackPanel x:Name="PART_Meta" Orientation="Horizontal" Spacing="{DynamicResource Foreman.Space.Space15}">
+                  <TextBlock x:Name="PART_Preset"
+                             Theme="{StaticResource Kit.Text}"
+                             Classes="caption tertiary"
+                             Text="{TemplateBinding PresetLabel}" />
+                  <TextBlock Theme="{StaticResource Kit.Text}" Classes="caption tertiary" Text="·" />
+                  <TextBlock x:Name="PART_NodeCount"
+                             Theme="{StaticResource Kit.Text}"
+                             Classes="caption tertiary" />
+                </StackPanel>
+              </StackPanel>
+              <TextBlock x:Name="PART_Time"
+                         Grid.Column="2"
+                         Theme="{StaticResource Kit.Text}"
+                         Classes="caption tertiary"
+                         Text="{TemplateBinding RelativeTime}"
+                         ToolTip.Tip="{TemplateBinding AbsoluteTime}"
+                         TextTrimming="None"
+                         Margin="12,0,0,0"
+                         VerticalAlignment="Center" />
+            </Grid>
+            <Popup x:Name="PART_Popup"
+                   Placement="Pointer"
+                   IsLightDismissEnabled="True">
+              <ContentPresenter Content="{TemplateBinding Menu}" />
+            </Popup>
+          </Panel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:unavailable">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+
+    <!-- Gallery-only: mirrors the real hover fill since Avalonia won't let outside code set IsPointerOver. -->
+    <Style Selector="^.gallery-hover /template/ Border#PART_Fill">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

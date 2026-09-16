@@ -124,6 +124,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   arrow press, and a compact Kit.StatePanel for no results. A keystroke that turns up the same
   results replays no animation. The palette and browser row-label type sizes retire onto the
   Callout/Caption ramp.
+- Kit.RecentRow lands in the gallery: a 46pt welcome-window library entry with a preset/node-count
+  meta line, a trailing relative time pinned to the row's edge whose tooltip carries the absolute
+  date, and a right-click/Shift-F10 context menu (Open, Open in New Window, Duplicate, Export…,
+  Show in Finder, Remove from Recents). An unavailable row dims but stays selectable and focusable,
+  with the reason folded into its meta line and only Open disabled.
 
 ### Fixed
 

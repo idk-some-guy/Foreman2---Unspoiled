@@ -295,6 +295,9 @@
 
   <!-- List/sidebar row (addendum §07): three selection states reuse existing color tokens; only bounds are new. -->
   <x:Double x:Key="Foreman.Size.ListRowHeight">26</x:Double>
+  <!-- Recent row (addendum §09): welcome-window library entry, new in K3. -->
+  <x:Double x:Key="Foreman.Size.RecentRowHeight">46</x:Double>
+  <x:Double x:Key="Foreman.Size.RecentRowIcon">30</x:Double>
   <x:Double x:Key="Foreman.Size.SidebarRowHeight">28</x:Double>
   <x:Double x:Key="Foreman.Size.ListRowIconGap">9</x:Double>
   <x:Double x:Key="Foreman.Size.SidebarRowIconGap">8</x:Double>
