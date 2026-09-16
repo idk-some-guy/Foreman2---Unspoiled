@@ -139,7 +139,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             foreach (TextBlock hint in hintTexts) {
                 Point topRight = hint.TranslatePoint(new Point(hint.Bounds.Width, 0), palette) ?? new Point(double.NaN, double.NaN);
                 Assert.True(topRight.X <= 272 - 12 + 0.5, $"hint '{hint.Text}' right edge ({topRight.X}) overflows the palette");
-                Assert.Equal(10, hint.FontSize, 0.01);
+                Assert.Equal(11, hint.FontSize, 0.01);
             }
 
             var kbdCaps = palette.GetVisualDescendants().OfType<Border>().Where(b => b.Classes.Contains("foreman-kbd")).ToList();

@@ -119,12 +119,8 @@
   <x:Double x:Key="Foreman.Type.Legacy.About.Name.FontSize">15</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.About.Tagline.FontSize">10.5</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.About.Version.FontSize">11.5</x:Double>
-  <x:Double x:Key="Foreman.Type.Legacy.Browser.Label.FontSize">10</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.Browser.Row.FontSize">12.5</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.Kbd.FontSize">9.5</x:Double>
-  <x:Double x:Key="Foreman.Type.Legacy.Palette.Hint.FontSize">10</x:Double>
-  <x:Double x:Key="Foreman.Type.Legacy.Palette.Row.FontSize">12.5</x:Double>
-  <x:Double x:Key="Foreman.Type.Legacy.Palette.Sub.FontSize">10.5</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.SearchField.FontSize">12.5</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.Toolbar.Label.FontSize">11.5</x:Double>
   <FontWeight x:Key="Foreman.Type.Legacy.Toolbar.Label.FontWeight">500</FontWeight>

@@ -53,6 +53,8 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/StatePanel.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ZoomStepper.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ToolbarRow.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/PaletteRow.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/PalettePanel.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

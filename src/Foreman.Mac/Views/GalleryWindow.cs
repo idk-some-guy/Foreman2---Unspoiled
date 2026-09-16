@@ -199,6 +199,9 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Zoom stepper (150%)", "150%", BuildZoomStepperScaledTile));
             registry.Register(new GalleryTile("Kit", "Toolbar row — full, labels dropped, overflowed", "Default", BuildToolbarRowTile));
             registry.Register(new GalleryTile("Kit", "Toolbar row (150%)", "150%", BuildToolbarRowScaledTile));
+            registry.Register(new GalleryTile("Kit", "Palette panel — quick-add results", "Default", BuildPalettePanelTile));
+            registry.Register(new GalleryTile("Kit", "Palette panel — no results", "Default", BuildPalettePanelNoResultsTile));
+            registry.Register(new GalleryTile("Kit", "Palette panel (150%)", "150%", BuildPalettePanelScaledTile));
             return registry;
         }
 
@@ -1897,6 +1900,87 @@ namespace Foreman.Mac.Views {
 
             container.Children.Add(KitText("Toolbar row (150%)", "caption", "tertiary"));
             container.Children.Add(StatePanelFrame(KitToolbarRow(), 1400, 78));
+            return container;
+        }
+
+        private static readonly PaletteFooterHint[] PaletteFooterHintsFull = [
+            new() { KeyText = "↩", KeyAccessibleName = "Return", Description = "Add" },
+            new() { KeyText = "⌥↩", KeyAccessibleName = "Option Return", Description = "Add as source" },
+            new() { KeyText = "esc", KeyAccessibleName = "Escape", Description = "Close" },
+        ];
+
+        private static readonly PaletteFooterHint[] PaletteFooterHintsCloseOnly = [
+            new() { KeyText = "esc", KeyAccessibleName = "Escape", Description = "Close" },
+        ];
+
+        //Addendum §09's quick-add palette: the top row is selected by default, hosted in a Kit.PopoverFrame in the real app.
+        private static PalettePanel KitPalettePanel(PaletteFooterHint[] hints, params (string Name, string Kind)[] results) {
+            var panel = new PalettePanel { Theme = KitTheme("Kit.PalettePanel") };
+            IBrush swatch = ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue);
+            foreach ((string name, string kind) in results)
+                panel.Results.Add(new PaletteResult(name, kind, swatch));
+            foreach (PaletteFooterHint hint in hints)
+                panel.FooterHints.Add(hint);
+            return panel;
+        }
+
+        //Hosts a palette panel example in the same PopoverFrame + PopoverHost structure the real quick-add trigger opens against.
+        private static Border PalettePopoverTile(PalettePanel panel, double width, double height) {
+            var anchor = new Button { Theme = KitTheme("Kit.Button"), Content = "Quick Add" };
+            var popover = new PopoverFrame { Theme = KitTheme("Kit.PopoverFrame"), Content = panel, Anchor = anchor };
+
+            var host = new PopoverHost { Width = width, Height = height };
+            Avalonia.Controls.Canvas.SetLeft(anchor, 24);
+            Avalonia.Controls.Canvas.SetTop(anchor, 20);
+            host.Surface.Children.Add(anchor);
+            host.Surface.Children.Add(popover);
+            popover.IsOpen = true;
+
+            return new Border {
+                Width = width, Height = height,
+                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
+                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
+                BorderThickness = new Thickness(1),
+                Child = host,
+            };
+        }
+
+        private static StackPanel BuildPalettePanelTile() {
+            PalettePanel panel = KitPalettePanel(PaletteFooterHintsFull,
+                ("Iron plate", "item"),
+                ("Iron plate", "recipe"),
+                ("Iron plate (legendary)", "recipe"),
+                ("Casting iron plate", "recipe"));
+            panel.Search.Text = "iron pl";
+
+            return new StackPanel { Spacing = 8, Children = { KitText("Palette panel", "caption", "tertiary"), PalettePopoverTile(panel, 320, 260) } };
+        }
+
+        //Search still loading - the leading glyph has already swapped for the spinner.
+        private static StackPanel BuildPalettePanelNoResultsTile() {
+            PalettePanel panel = KitPalettePanel(PaletteFooterHintsCloseOnly);
+            panel.Search.Text = "beacn";
+            panel.Search.IsLoading = true;
+
+            return new StackPanel { Spacing = 8, Children = { KitText("Palette panel — no results", "caption", "tertiary"), PalettePopoverTile(panel, 320, 180) } };
+        }
+
+        private static readonly string[] PalettePanelScaledSizeKeys = [
+            "Foreman.Size.PaletteWidth", "Foreman.Size.PaletteRowIcon", "Foreman.Size.ListRowHeight",
+            "Foreman.Type.Callout.FontSize", "Foreman.Type.Caption.FontSize",
+        ];
+
+        private static StackPanel BuildPalettePanelScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in PalettePanelScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            PalettePanel panel = KitPalettePanel(PaletteFooterHintsFull, ("Iron plate", "item"), ("Iron plate", "recipe"));
+            panel.Search.Text = "iron pl";
+
+            container.Children.Add(KitText("Palette panel (150%)", "caption", "tertiary"));
+            container.Children.Add(PalettePopoverTile(panel, 460, 320));
             return container;
         }
 

@@ -43,6 +43,7 @@
     <Setter Property="CaretBrush" Value="{DynamicResource Foreman.Color.Accent}" />
     <Setter Property="SelectionBrush" Value="{DynamicResource Foreman.Color.AccentSoft}" />
     <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Foreman.Color.Text}" />
+    <Setter Property="Padding" Value="0" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="FocusAdorner" Value="{x:Null}" />
     <Setter Property="Cursor" Value="Ibeam" />
@@ -56,7 +57,7 @@
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="{TemplateBinding CornerRadius}" />
-          <Grid ColumnDefinitions="Auto,*,Auto">
+          <Grid ColumnDefinitions="Auto,*,Auto" Margin="{TemplateBinding Padding}">
             <Panel Grid.Column="0">
               <Viewbox x:Name="PART_LeadingGlyphBox"
                        Width="{DynamicResource Foreman.Size.SearchFieldGlyph}"
@@ -123,12 +124,23 @@
       <Setter Property="IsVisible" Value="False" />
     </Style>
 
-    <Style Selector="^:pointerover /template/ Border#PART_BorderElement">
+    <Style Selector="^:pointerover:not(.flush) /template/ Border#PART_BorderElement">
       <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
     </Style>
 
     <Style Selector="^:disabled">
       <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+
+    <Style Selector="^.flush">
+      <Setter Property="Height" Value="NaN" />
+      <Setter Property="Width" Value="NaN" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="12,9" />
+      <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Body.FontSize}" />
+      <Setter Property="kit:FocusRing.CornerRadius" Value="0" />
     </Style>
   </ControlTheme>
 

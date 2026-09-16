@@ -118,6 +118,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   an icon-only item keeps its label instead of losing it; the trailing group's overflow menu now
   exposes each action's label to VoiceOver, and the gallery's toolbar row tile shows the search
   field's loading state.
+- Kit.PaletteRow and its panel example land in the gallery, replacing the quick-add palette's old
+  row and hint styles: a 26pt row with a 22pt icon, staggered entrance and leaving fades, a panel
+  height ease as results change, the top row selected by default so Return commits without an
+  arrow press, and a compact Kit.StatePanel for no results. A keystroke that turns up the same
+  results replays no animation. The palette and browser row-label type sizes retire onto the
+  Callout/Caption ramp.
 
 ### Fixed
 
@@ -235,6 +241,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   keyboard.
 - The segmented control's selection highlight now tracks its segment's own measured position and
   width, so it no longer drifts off the label at the mini size or at a larger interface scale.
+- Kit.PaletteRow's entering rows now actually fade in instead of starting at full opacity, and a
+  requery whose top result is unchanged still selects it. PalettePanel exposes IsKey to its rows,
+  cancels its pending rebuild and reflow on detach, and re-arms both on reattach; its search header
+  is now a flush, bordered Kit.SearchField variant spanning the panel edge to edge at Body type,
+  with no hover swap on its rule, and its row body padding matches the figure exactly, closing the
+  wasted space below the footer hints. The gallery's palette tiles open inside a real
+  Kit.PopoverFrame, one showing the search field's loading spinner.
 
 ### Changed
 

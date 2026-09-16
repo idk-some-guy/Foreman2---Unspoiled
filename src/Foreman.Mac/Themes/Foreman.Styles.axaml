@@ -592,14 +592,14 @@
   </Style>
 
   <Style Selector="TextBlock.foreman-qa-row-name">
-    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Legacy.Palette.Row.FontSize}" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Callout.FontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="TextTrimming" Value="CharacterEllipsis" />
   </Style>
 
   <Style Selector="TextBlock.foreman-qa-row-sub">
-    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Legacy.Palette.Sub.FontSize}" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Caption.FontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="HorizontalAlignment" Value="Right" />
@@ -612,7 +612,7 @@
   </Style>
 
   <Style Selector="TextBlock.foreman-qa-hint-text">
-    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Legacy.Palette.Hint.FontSize}" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Caption.FontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
@@ -799,7 +799,7 @@
   </Style>
 
   <Style Selector="TextBlock.foreman-browser-cell-label">
-    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Legacy.Browser.Label.FontSize}" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Caption.FontSize}" />
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
     <Setter Property="MaxWidth" Value="{DynamicResource Foreman.Size.BrowserCellPitch}" />
     <Setter Property="Height" Value="{DynamicResource Foreman.Size.BrowserCellLabelHeight}" />

@@ -1,0 +1,25 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.PalettePanel" TargetType="kit:PalettePanel">
+    <Setter Property="Width" Value="{DynamicResource Foreman.Size.PaletteWidth}" />
+    <Setter Property="Transitions" Value="{x:Static m:Motion.FormRowReflowTransitions}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel x:Name="PART_Root">
+          <Panel x:Name="PART_Header" />
+          <Panel>
+            <StackPanel x:Name="PART_Track" Margin="6,4,6,4" Spacing="1" />
+            <ContentPresenter x:Name="PART_State" Margin="6,0,6,0" IsVisible="False" />
+          </Panel>
+          <Border BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,1,0,0">
+            <StackPanel x:Name="PART_Footer" Orientation="Horizontal" Spacing="12" Margin="12,6" />
+          </Border>
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

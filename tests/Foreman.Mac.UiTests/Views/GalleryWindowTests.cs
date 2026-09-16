@@ -20,6 +20,7 @@ using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views;
 using System;
 using System.Linq;
@@ -140,7 +141,8 @@ namespace Foreman.Mac.UiTests.Views {
                  "Chooser grid — no results (State panel)", "Sheet frame — error (State panel)",
                  "Form group — load failure (State panel)", "Inspector group — body delegation (State panel)",
                  "Zoom stepper — at rest, hovered, solving, solve failed", "Zoom stepper — solve-error popover",
-                 "Zoom stepper (150%)", "Toolbar row — full, labels dropped, overflowed", "Toolbar row (150%)"],
+                 "Zoom stepper (150%)", "Toolbar row — full, labels dropped, overflowed", "Toolbar row (150%)",
+                 "Palette panel — quick-add results", "Palette panel — no results", "Palette panel (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
         }
 
@@ -1373,6 +1375,69 @@ namespace Foreman.Mac.UiTests.Views {
             double saveRight = (Avalonia.VisualExtensions.TranslatePoint(save, new Point(0, 0), panel)?.X ?? double.NaN) + save.Bounds.Width;
             double recipeLeft = Avalonia.VisualExtensions.TranslatePoint(recipe, new Point(0, 0), panel)?.X ?? double.NaN;
             Assert.Equal(16, recipeLeft - saveRight, 3);
+        }
+
+        [AvaloniaFact]
+        public void PalettePanelTile_ShowsTopRowSelected_WithResultsAndFooterHints() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Palette panel — quick-add results");
+            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+            PalettePanel panel = Assert.IsType<PalettePanel>(popover.Content);
+
+            Assert.True(popover.IsOpen);
+            Assert.Equal(272, panel.Bounds.Width);
+            Assert.Equal(4, panel.Results.Count);
+            Assert.Equal(panel.Results[0], panel.SelectedItem);
+            Assert.Equal(3, panel.FooterHints.Count);
+            Assert.Equal("iron pl", panel.Search.Text);
+        }
+
+        [AvaloniaFact]
+        public void PalettePanelNoResultsTile_ShowsACompactStatePanel_WithTheSearchHeaderStillVisible() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Palette panel — no results");
+            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+            PalettePanel panel = Assert.IsType<PalettePanel>(popover.Content);
+            StatePanel state = tile.GetVisualDescendants().OfType<StatePanel>().Single();
+
+            Assert.True(popover.IsOpen);
+            Assert.Empty(panel.Results);
+            Assert.Equal(StatePanelShape.NoResults, state.Shape);
+            Assert.True(state.IsCompact);
+            Assert.True(panel.Search.IsVisible);
+            Assert.Single(panel.FooterHints);
+
+            AnimationClock.Settle(450);
+            Spinner spinner = panel.Search.GetVisualDescendants().OfType<Spinner>().Single(s => s.Name == "PART_LoadingSpinner");
+            Assert.True(spinner.IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void PalettePanelScaledTile_WidthResolvesFourHundredEight_AtOneAndAHalfScale() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Palette panel (150%)");
+            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+            PalettePanel panel = Assert.IsType<PalettePanel>(popover.Content);
+
+            Assert.True(popover.IsOpen);
+            Assert.Equal(408, panel.Bounds.Width);
+
+            PaletteRow row = panel.GetVisualDescendants().OfType<PaletteRow>().First();
+            Assert.Equal(39, row.Bounds.Height);
+            Border icon = row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Icon");
+            Assert.Equal(33, icon.Bounds.Width);
         }
     }
 }
