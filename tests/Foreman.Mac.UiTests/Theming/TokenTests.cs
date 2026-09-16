@@ -57,13 +57,6 @@ namespace Foreman.Mac.UiTests.Theming {
         }
 
         [AvaloniaFact]
-        public void DarkTheme_Selection_MatchesContractHex() {
-            Application.Current!.TryGetResource("Foreman.Color.Selection", ThemeVariant.Dark, out var value);
-
-            Assert.Equal(Color.Parse("#FF9F0A"), Assert.IsType<Color>(value));
-        }
-
-        [AvaloniaFact]
         public void LightTheme_CanvasBackground_MatchesContractHex() {
             Application.Current!.TryGetResource("Foreman.Color.CanvasBackground", ThemeVariant.Light, out var value);
 
@@ -77,14 +70,7 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(Color.Parse("#007AFF"), Assert.IsType<Color>(value));
         }
 
-        [AvaloniaFact]
-        public void LightTheme_Selection_MatchesContractHex() {
-            Application.Current!.TryGetResource("Foreman.Color.Selection", ThemeVariant.Light, out var value);
-
-            Assert.Equal(Color.Parse("#D97A06"), Assert.IsType<Color>(value));
-        }
-
-        //NodeSelected replaces Selection (kept resolvable only through the alias layer above).
+        //NodeSelected replaces the retired Selection key.
         [AvaloniaFact]
         public void DarkTheme_NodeSelected_MatchesContractHex() {
             Application.Current!.TryGetResource("Foreman.Color.NodeSelected", ThemeVariant.Dark, out var value);

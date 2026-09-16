@@ -38,11 +38,11 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Empty(onlyInLight);
             Assert.Empty(onlyInDark);
-            Assert.Equal(267, lightKeys.Count);
+            Assert.Equal(275, lightKeys.Count);
         }
 
         //The semantic rebind adds these on top of the existing 25 colour keys, and renames Selection to
-        //NodeSelected (covered separately by AliasTests).
+        //NodeSelected.
         [AvaloniaFact]
         public void TokenFiles_DeclareTheNewK1ColorKeys() {
             var lightKeys = LoadThemeFile("Tokens.Light.axaml").Keys.Cast<string>().ToHashSet();

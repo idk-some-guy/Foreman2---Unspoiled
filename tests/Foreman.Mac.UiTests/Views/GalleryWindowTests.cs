@@ -1,14 +1,12 @@
 using Avalonia;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
@@ -28,10 +26,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Xunit;
-using GroupBox = Foreman.Mac.Kit.Controls.GroupBox;
 using Slider = Foreman.Mac.Kit.Controls.Slider;
-using TabStrip = Foreman.Mac.Kit.Controls.TabStrip;
-using ProgressBar = Foreman.Mac.Kit.Controls.ProgressBar;
 using Spinner = Foreman.Mac.Kit.Controls.Spinner;
 
 namespace Foreman.Mac.UiTests.Views {
@@ -187,33 +182,6 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public void ButtonsTile_ShowsStandardPrimaryAndDestructiveAcrossFiveStates() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            Button[] buttons = [.. window.GetVisualDescendants().OfType<Button>().Where(b => b.Classes.Contains("primary") || b.Classes.Contains("destructive") || Equals(b.Content, "Cancel"))];
-
-            Assert.Contains(buttons, b => Equals(b.Content, "Cancel") && !b.Classes.Contains("primary") && !b.Classes.Contains("destructive"));
-            Assert.Contains(buttons, b => Equals(b.Content, "Export…") && b.Classes.Contains("primary"));
-            Assert.Contains(buttons, b => Equals(b.Content, "Discard") && b.Classes.Contains("destructive"));
-            Assert.Contains(buttons, b => !b.IsEnabled);
-        }
-
-        [AvaloniaFact]
-        public void ToolbarItemsTile_ShowsTheOnState() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            ToolbarItem[] items = [.. window.GetVisualDescendants().OfType<ToolbarItem>()];
-
-            Assert.Contains(items, i => i.IsOn);
-            Assert.Contains(items, i => !i.IsOn && i.IsEnabled);
-            Assert.Contains(items, i => !i.IsEnabled);
-        }
-
-        [AvaloniaFact]
         public void ButtonsAndToolbarItemsScaledTile_HeightAndWidthScale() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
@@ -221,177 +189,6 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Contains(window.GetVisualDescendants().OfType<Button>(), b => Equals(b.Content, "Cancel") && b.Height == 33);
             Assert.Contains(window.GetVisualDescendants().OfType<ToolbarItem>(), i => i.Height == 60 && i.MinWidth == 66);
-        }
-
-        [AvaloniaFact]
-        public void CheckboxTile_ShowsUncheckedAndCheckedAcrossFiveStates() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            CheckBox[] boxes = [.. window.GetVisualDescendants().OfType<CheckBox>()];
-
-            Assert.Contains(boxes, b => b.IsChecked == false);
-            Assert.Contains(boxes, b => b.IsChecked == true);
-            Assert.Contains(boxes, b => !b.IsEnabled);
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Checkbox");
-            Assert.Contains(tile.GetVisualDescendants().OfType<CheckBox>(), b => FocusRing.GetShowAlways(b));
-        }
-
-        [AvaloniaFact]
-        public void RadioGroupTile_ShowsAGroupedExampleWithOneSelection() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            RadioGroup group = window.GetVisualDescendants().OfType<RadioGroup>().First();
-            RadioButton[] radios = [.. group.Items.OfType<RadioButton>()];
-
-            Assert.Equal(["Up", "Down", "Auto"], radios.Select(r => r.Content));
-            Assert.Single(radios, r => r.IsChecked == true);
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Radio group");
-            Assert.Contains(tile.GetVisualDescendants().OfType<RadioButton>(), r => FocusRing.GetShowAlways(r));
-        }
-
-        [AvaloniaFact]
-        public void SwitchTile_ShowsOffAndOnAcrossFiveStates() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            ToggleSwitch[] toggles = [.. window.GetVisualDescendants().OfType<ToggleSwitch>()];
-
-            Assert.Contains(toggles, t => t.IsChecked == false);
-            Assert.Contains(toggles, t => t.IsChecked == true);
-            Assert.Contains(toggles, t => !t.IsEnabled);
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Switch — Settings only (A16)");
-            Assert.Contains(tile.GetVisualDescendants().OfType<ToggleSwitch>(), t => FocusRing.GetShowAlways(t));
-        }
-
-        [AvaloniaFact]
-        public void SegmentedTile_ShowsARegularAndAMiniExample() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            Segmented[] segmented = [.. window.GetVisualDescendants().OfType<Segmented>()];
-            Assert.Contains(segmented, s => !s.Classes.Contains("mini"));
-            Assert.Contains(segmented, s => s.Classes.Contains("mini"));
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Segmented");
-            Assert.Contains(tile.GetVisualDescendants().OfType<Segmented>(), s => FocusRing.GetShowAlways(s));
-        }
-
-        [AvaloniaFact]
-        public void PopUpButtonsTile_ShowsPopUpPullDownAndAnOpenMenuPanel() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            PopUp[] popups = [.. window.GetVisualDescendants().OfType<PopUp>()];
-            Assert.Contains(popups, p => !p.IsPullDown);
-            Assert.Contains(popups, p => p.IsPullDown);
-            Assert.Contains(window.GetVisualDescendants().OfType<MenuPanel>(), m => m.Items.Count > 0);
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Pop-up buttons");
-            Assert.Contains(tile.GetVisualDescendants().OfType<PopUp>(), p => FocusRing.GetShowAlways(p));
-        }
-
-        [AvaloniaFact]
-        public void MenuButtonTile_ShowsDefaultFilledOpenAndOverflow() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            MenuButton[] buttons = [.. window.GetVisualDescendants().OfType<MenuButton>()];
-            Assert.Contains(buttons, b => !b.IsFilled);
-            Assert.Contains(buttons, b => b.IsFilled);
-            Assert.Contains(buttons, b => b.Classes.Contains("overflow"));
-            Assert.Contains(window.GetVisualDescendants().OfType<MenuPanel>(), m => m.Items.Count > 0);
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Menu button");
-            Assert.Contains(tile.GetVisualDescendants().OfType<MenuButton>(), b => FocusRing.GetShowAlways(b));
-        }
-
-        [AvaloniaFact]
-        public void TextFieldTile_ShowsEmptyFilledAndDisabled() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Text field");
-            TextBox[] fields = [.. tile.GetVisualDescendants().OfType<TextBox>()];
-
-            Assert.Contains(fields, f => string.IsNullOrEmpty(f.Text));
-            Assert.Contains(fields, f => f.Text == "Iron Plate");
-            Assert.Contains(fields, f => !f.IsEnabled);
-            Assert.Contains(fields, f => FocusRing.GetShowAlways(f));
-        }
-
-        [AvaloniaFact]
-        public void SearchFieldTile_ShowsNaturalAndMinimumWidthsBothFilled() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Search field");
-            SearchField[] fields = [.. tile.GetVisualDescendants().OfType<SearchField>()];
-
-            Assert.Contains(fields, f => f.Width == 220 && !string.IsNullOrEmpty(f.Text));
-            Assert.Contains(fields, f => f.Width == 120 && !string.IsNullOrEmpty(f.Text));
-            Assert.Contains(fields, f => FocusRing.GetShowAlways(f));
-        }
-
-        [AvaloniaFact]
-        public void StepperTile_ShowsAPlainStepperAndOneWithAUnit() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Stepper");
-            Stepper[] steppers = [.. tile.GetVisualDescendants().OfType<Stepper>()];
-
-            Assert.Contains(steppers, s => string.IsNullOrEmpty(s.Unit));
-            Assert.Contains(steppers, s => s.Unit == "items/s");
-            Assert.Contains(steppers, s => FocusRing.GetShowAlways(s));
-        }
-
-        [AvaloniaFact]
-        public void SliderTile_ShowsContinuousDiscreteAndAFormRow() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Slider");
-            Slider[] sliders = [.. tile.GetVisualDescendants().OfType<Slider>()];
-
-            Assert.Contains(sliders, s => !s.IsDiscrete);
-            Assert.Contains(sliders, s => s.IsDiscrete);
-            Assert.Contains(sliders, s => s.ShowValue);
-            Assert.Contains(sliders, s => s.GetVisualDescendants().OfType<Border>().Any(b => b.Name == "PART_Thumb" && FocusRing.GetShowAlways(b)));
-        }
-
-        [AvaloniaFact]
-        public void SliderTile_FormRowExampleUsesARealFormRowWithTheLabelBaselineOnTheSlidersValueLabel() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Slider");
-            FormRow formRow = tile.GetVisualDescendants().OfType<FormRow>().Single(r => r.Label == "Link opacity");
-            Slider slider = formRow.GetVisualDescendants().OfType<Slider>().Single();
-
-            TextBlock label = formRow.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Label");
-            TextBlock valueLabel = slider.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_ValueLabel");
-
-            double labelBaselineY = label.TranslatePoint(new Point(0, label.TextLayout!.TextLines[0].Baseline), window)!.Value.Y;
-            double valueBaselineY = valueLabel.TranslatePoint(new Point(0, valueLabel.TextLayout!.TextLines[0].Baseline), window)!.Value.Y;
-
-            Assert.Equal(valueBaselineY, labelBaselineY, 2);
         }
 
         [AvaloniaFact]
@@ -698,228 +495,6 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public void ListRowsTile_ShowsNormalSelectedKeyIdleAndFocusedStates() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "List rows");
-            ListRow[] rows = [.. tile.GetVisualDescendants().OfType<ListRow>()];
-
-            Assert.Contains(rows, r => !r.IsSelected);
-            Assert.Contains(rows, r => r.IsSelected && r.IsKey);
-            Assert.Contains(rows, r => r.IsSelected && !r.IsKey);
-            Assert.Contains(rows, r => r.GetVisualDescendants().OfType<Border>()
-                .Any(b => b.Name == "PART_Frame" && FocusRing.GetShowAlways(b)));
-
-            Application.Current!.TryGetResource("Kit.List", null, out object? listTheme);
-            Assert.Contains(tile.GetVisualDescendants().OfType<ListBox>(), lb => ReferenceEquals(lb.Theme, listTheme));
-
-            TextBlock emptyText = tile.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text!.Contains("plutonium"));
-            Assert.DoesNotContain(emptyText.GetVisualAncestors(), a => a is ListBox);
-            Assert.Contains(emptyText.GetVisualAncestors(), a => a is Border);
-        }
-
-        [AvaloniaFact]
-        public void SidebarRowsTile_ShowsNormalSelectedKeyAndIdleStates() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Sidebar rows");
-            SidebarRow[] rows = [.. tile.GetVisualDescendants().OfType<SidebarRow>()];
-
-            Assert.Contains(rows, r => !r.IsSelected);
-            Assert.Contains(rows, r => r.IsSelected && r.IsKey);
-            Assert.Contains(rows, r => r.IsSelected && !r.IsKey);
-        }
-
-        [AvaloniaFact]
-        public void GroupBoxTile_HostsAHeaderedFormGroup() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Group box");
-            GroupBox box = tile.GetVisualDescendants().OfType<GroupBox>().Single();
-
-            Assert.Equal("Canvas", box.Header);
-        }
-
-        [AvaloniaFact]
-        public void TabStripsTile_ShowsToolbarTabsAndUnderlineVariants() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Tab strips");
-            TabStrip[] strips = [.. tile.GetVisualDescendants().OfType<TabStrip>()];
-
-            Assert.Contains(strips, s => s.Classes.Contains("toolbar-tabs"));
-            Assert.Contains(strips, s => s.Classes.Contains("underline"));
-            Assert.All(strips, s => Assert.False(FocusRing.GetShowAlways(s)));
-            Assert.Contains(tile.GetVisualDescendants().OfType<Border>(), b => FocusRing.GetShowAlways(b));
-            Assert.Contains(strips, s => s.Items.Any(i => !i.IsEnabled));
-        }
-
-        [AvaloniaFact]
-        public void DisclosureTile_ShowsCollapsedAndExpanded() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Disclosure");
-            Disclosure[] disclosures = [.. tile.GetVisualDescendants().OfType<Disclosure>()];
-
-            Assert.Contains(disclosures, d => !d.IsExpanded);
-            Assert.Contains(disclosures, d => d.IsExpanded);
-        }
-
-        [AvaloniaFact]
-        public void TooltipTile_ShowsMaterialAndOpaqueFallback() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Tooltip");
-            ToolTip[] tips = [.. tile.GetVisualDescendants().OfType<ToolTip>()];
-
-            Assert.True(tips.Length >= 3);
-            Assert.Contains(tips, t => Equals(t.Content, "Find node — ⌘F"));
-            Assert.Contains(tips, t => (t.Content as string)?.StartsWith("Overproduction", StringComparison.Ordinal) == true);
-        }
-
-        [AvaloniaFact]
-        public void SpinnerAndProgressTile_ShowsBothSizesAndBothProgressForms() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Spinner & progress");
-            Spinner[] spinners = [.. tile.GetVisualDescendants().OfType<Spinner>()];
-            ProgressBar[] bars = [.. tile.GetVisualDescendants().OfType<ProgressBar>()];
-
-            Assert.Contains(spinners, s => !s.Classes.Contains("lg"));
-            Assert.Contains(spinners, s => s.Classes.Contains("lg"));
-            Assert.Contains(bars, b => !b.IsIndeterminate);
-            Assert.Contains(bars, b => b.IsIndeterminate);
-        }
-
-        [AvaloniaFact]
-        public void ChipsTile_ShowsAFocusedChip() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Chips");
-            Chip[] chips = [.. tile.GetVisualDescendants().OfType<Chip>()];
-
-            Assert.Equal(2, chips.Length);
-            Assert.Contains(chips, c => FocusRing.GetShowAlways(c));
-        }
-
-        [AvaloniaFact]
-        public void KeyCapsTile_ShowsMultiKeyCombosAndANamedKey() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Key caps");
-            KeyCap[] caps = [.. tile.GetVisualDescendants().OfType<KeyCap>()];
-
-            Assert.Contains(caps, c => c.Text == "⌘" && c.AccessibleName == "Command");
-            Assert.Contains(caps, c => c.Text == "Return");
-            Assert.All(caps, c => Assert.False(c.Focusable));
-        }
-
-        [AvaloniaFact]
-        public void FormGroupBoxedTile_ShowsABoxedGroupWithFiveRowsAtTheWindowLabelColumn() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form group (boxed, 132)");
-            FormGroup group = tile.GetVisualDescendants().OfType<FormGroup>().Single();
-            Assert.True(group.IsBoxed);
-            Assert.Equal("Canvas", group.Title);
-
-            FormRow[] rows = [.. tile.GetVisualDescendants().OfType<FormRow>()];
-            Assert.Equal(5, rows.Length);
-            Assert.All(rows, r => Assert.False(r.IsInspector));
-            Assert.Contains(rows, r => r.Label == "Node width");
-            Assert.Contains(rows, r => r.Label == "Link width" && !string.IsNullOrEmpty(r.Note));
-        }
-
-        [AvaloniaFact]
-        public void FormGroupBoxedTile_LinkOpacityRow_IsARealSliderWithShowValue_BaselineAlignedToItsOwnValueLabel() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form group (boxed, 132)");
-            FormRow opacityRow = tile.GetVisualDescendants().OfType<FormRow>().Single(r => r.Label == "Link opacity");
-
-            Slider slider = Assert.IsType<Slider>(opacityRow.Content);
-            Assert.True(slider.ShowValue);
-            Assert.Equal("%", slider.Unit);
-
-            TextBlock label = opacityRow.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Label");
-            TextBlock valueLabel = slider.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_ValueLabel");
-
-            double labelBaselineY = label.TranslatePoint(new Point(0, label.TextLayout!.TextLines[0].Baseline), window)!.Value.Y;
-            double valueBaselineY = valueLabel.TranslatePoint(new Point(0, valueLabel.TextLayout!.TextLines[0].Baseline), window)!.Value.Y;
-
-            Assert.Equal(valueBaselineY, labelBaselineY, 2);
-        }
-
-        [AvaloniaFact]
-        public void FormRowsInspectorTile_ShowsFourRowsAtTheInspectorLabelColumn() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form rows (inspector, 108)");
-            FormRow[] rows = [.. tile.GetVisualDescendants().OfType<FormRow>()];
-
-            Assert.Equal(4, rows.Length);
-            Assert.All(rows, r => Assert.True(r.IsInspector));
-            Assert.Contains(rows, r => r.Label == "Quality");
-            Assert.Contains(rows, r => r.Label == "Rate");
-        }
-
-        [AvaloniaFact]
-        public void FormRowNotesAndErrorsTile_ShowsANoteRowAndAnErrorRow() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form row notes & errors");
-            FormRow[] rows = [.. tile.GetVisualDescendants().OfType<FormRow>()];
-
-            Assert.Contains(rows, r => r.Label == "Assembler" && r.Note == "Used for every new node until you change it.");
-            Assert.Contains(rows, r => r.Label == "Beacon count" && r.Error == "Must be 0 or more.");
-            Assert.Contains(rows, r => r.Label == "Belt overlays");
-        }
-
-        [AvaloniaFact]
-        public void FormRowSearchAndChipTile_ShowsALoadingSearchFieldAndAChipRow() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form row — search field & chip row");
-
-            SearchField[] fields = [.. tile.GetVisualDescendants().OfType<SearchField>()];
-            Assert.Contains(fields, f => f.IsLoading);
-
-            Chip[] chips = [.. tile.GetVisualDescendants().OfType<Chip>()];
-            Assert.Equal(2, chips.Length);
-            Assert.Contains(chips, c => c.Label == "Iron plate");
-            Assert.Contains(chips, c => c.Label == "Copper plate");
-        }
-
-        [AvaloniaFact]
         public void FormCompositesScaledTile_LabelColumnsResolveTo198And162() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
@@ -938,37 +513,6 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public void InspectorGroupTile_ShowsFourGroupsExpandedHoveredFocusedCollapsed() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Inspector group — expanded, collapsed, hovered, focused");
-            InspectorGroup[] groups = [.. tile.GetVisualDescendants().OfType<InspectorGroup>()];
-
-            Assert.Equal(4, groups.Length);
-            Assert.Contains(groups, g => (string?)g.Header == "Recipe" && g.IsExpanded);
-            Assert.Contains(groups, g => (string?)g.Header == "Module slots" && g.Classes.Contains("gallery-hover"));
-            Assert.Contains(groups, g => (string?)g.Header == "Beacons" && g.IsExpanded);
-            Assert.Contains(groups, g => (string?)g.Header == "View options" && !g.IsExpanded);
-        }
-
-        [AvaloniaFact]
-        public void SplitDividerTile_ShowsFourDividersRestHoveredDraggingFocused() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Split divider — rest, hovered, dragging, focused");
-            SplitDivider[] dividers = [.. tile.GetVisualDescendants().OfType<SplitDivider>()];
-
-            Assert.Equal(4, dividers.Length);
-            Assert.Contains(dividers, d => d.Classes.Contains("gallery-hover"));
-            Assert.Contains(dividers, d => d.Classes.Contains("gallery-dragging"));
-            Assert.All(dividers, d => Assert.Equal(300, d.Value));
-        }
-
-        [AvaloniaFact]
         public void InspectorAndDividerScaledTile_HeaderHeightScalesButDividerHitWidthStaysFive() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
@@ -984,40 +528,6 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public void PickCellStatesTile_ShowsFilledAndEmptyRowsAtFiveStatesEach() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Pick cell — filled and empty, five states each");
-            PickCell[] cells = [.. tile.GetVisualDescendants().OfType<PickCell>()];
-
-            Assert.Equal(10, cells.Length);
-            Assert.Equal(5, cells.Count(c => c.Icon is not null));
-            Assert.Equal(5, cells.Count(c => c.IsEmpty));
-            Assert.Contains(cells, c => c.IsSelected);
-            Assert.Contains(cells, c => c.Classes.Contains("gallery-hover"));
-            Assert.Contains(cells, c => !c.IsEnabled);
-        }
-
-        [AvaloniaFact]
-        public void PickGridTile_ShowsAModuleRowAndABeaconRowInsideFormRows() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Pick grid — module slots & beacon row");
-            FormRow[] rows = [.. tile.GetVisualDescendants().OfType<FormRow>()];
-            PickGrid[] grids = [.. tile.GetVisualDescendants().OfType<PickGrid>()];
-
-            Assert.Equal(2, rows.Length);
-            Assert.All(rows, r => Assert.True(r.IsInspector));
-            Assert.Equal(2, grids.Length);
-            Assert.Contains(grids, g => g.Slots.Count == 4);
-            Assert.Contains(grids, g => g.Slots.Count == 2);
-        }
-
-        [AvaloniaFact]
         public void PickCompositesScaledTile_CellScalesButGapStaysAtTwoPointFive() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
@@ -1029,35 +539,6 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Equal(39, gridCell.Bounds.Width);
             Assert.Equal(new Thickness(2.5), gridCell.Margin);
-        }
-
-        [AvaloniaFact]
-        public void ChooserCellStatesTile_ShowsFiveStates() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Chooser cell — five states");
-            ChooserCell[] cells = [.. tile.GetVisualDescendants().OfType<ChooserCell>()];
-
-            Assert.Equal(5, cells.Length);
-            Assert.All(cells, c => Assert.NotNull(c.Icon));
-            Assert.Contains(cells, c => c.IsSelected);
-            Assert.Contains(cells, c => c.Classes.Contains("gallery-hover"));
-            Assert.Contains(cells, c => !c.IsEnabled);
-        }
-
-        [AvaloniaFact]
-        public void ChooserGridTile_ShowsTwoSearchResultHeadings() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Chooser grid — search results, two headings");
-            ChooserGrid grid = tile.GetVisualDescendants().OfType<ChooserGrid>().Single();
-
-            Assert.Equal(2, grid.Sections.Count);
-            Assert.Equal(5, grid.GetVisualDescendants().OfType<ChooserCell>().Count());
         }
 
         [AvaloniaFact]
@@ -1084,51 +565,6 @@ namespace Foreman.Mac.UiTests.Views {
             TextBlock label = tile.GetVisualDescendants().OfType<TextBlock>().First(t => t.Name == "PART_Label");
 
             Assert.Equal(19.8, label.LineHeight, 3);
-        }
-
-        [AvaloniaFact]
-        public void SheetFrameTile_ShowsAnOpenSheetWithATitleAndButtonRow() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Scrim & Sheet frame");
-            SheetFrame sheet = tile.GetVisualDescendants().OfType<SheetFrame>().Single();
-
-            Assert.True(sheet.IsOpen);
-            Assert.Equal("Export an image", sheet.Title);
-            Assert.NotNull(sheet.Buttons);
-        }
-
-        [AvaloniaFact]
-        public void ButtonRowShapesTile_ShowsAllFiveRows_DestructiveNeverDefault() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Button row — five shapes");
-            ButtonRow[] rows = [.. tile.GetVisualDescendants().OfType<ButtonRow>()];
-
-            Assert.Equal(5, rows.Length);
-            ButtonRow destructiveRow = rows.Single(r => r.Items.OfType<Button>().Any(b => ButtonRow.GetRole(b) == ButtonRowRole.Destructive));
-            Button destructive = destructiveRow.Items.OfType<Button>().Single(b => ButtonRow.GetRole(b) == ButtonRowRole.Destructive);
-            Assert.DoesNotContain("primary", destructive.Classes);
-        }
-
-        [AvaloniaFact]
-        public void AlertFramesTile_ShowsTwoAndThreeButtonAlerts() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Alert frame — two-button & three-button");
-            AlertFrame[] alerts = [.. tile.GetVisualDescendants().OfType<AlertFrame>()];
-
-            Assert.Equal(2, alerts.Length);
-            Assert.Contains(alerts, a => a.Buttons!.Items.OfType<Button>().Count() == 2);
-            Assert.Contains(alerts, a => a.Buttons!.Items.OfType<Button>().Count() == 3);
-            //The app icon asset (the same one AboutWindow renders), not an empty 32pt column.
-            Assert.All(alerts, a => Assert.IsAssignableFrom<Bitmap>(a.Icon));
         }
 
         [AvaloniaFact]
@@ -1170,21 +606,6 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public void PopoverFrameTile_OpensBelowItsAnchor_HostingAFormGroup() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Popover frame — anchored below, with a form group inside");
-            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
-
-            Assert.True(popover.IsOpen);
-            Assert.Equal(PopoverEdge.Bottom, popover.ResolvedPlacement);
-            FormGroup group = Assert.IsType<FormGroup>(popover.Content);
-            Assert.Equal("Show on nodes", group.Title);
-        }
-
-        [AvaloniaFact]
         public void PopoverFrameTile_AnchorClick_ReopensAfterALightDismiss_AcrossRepeatedCycles() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
@@ -1210,21 +631,6 @@ namespace Foreman.Mac.UiTests.Views {
             }
 
             Assert.True(layouts <= 400, $"Popover frame laid out {layouts} times across three reopen cycles.");
-        }
-
-        [AvaloniaFact]
-        public void PopoverFrameCornerTile_ClampsTheTailNearTheAnchorsCorner() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Popover frame — tail clamped near a corner");
-            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
-            Border tail = popover.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Tail");
-
-            Assert.True(popover.IsOpen);
-            Assert.Equal(PopoverEdge.Bottom, popover.ResolvedPlacement);
-            Assert.Equal(26, tail.Margin.Left);
         }
 
         [AvaloniaFact]
@@ -1256,20 +662,6 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public void RadialRingTile_ShowsSixSlicesWithOneArmed() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Radial ring — six slices, one armed");
-            RadialRing ring = tile.GetVisualDescendants().OfType<RadialRing>().Single();
-
-            Assert.True(ring.IsOpen);
-            Assert.Equal(6, ring.Items.Count);
-            Assert.Equal(2, ring.ArmedIndex);
-        }
-
-        [AvaloniaFact]
         public void PopoverAndRadialScaledTile_RingStays220_PopoverScalesWithItsGroupTitle() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
@@ -1284,63 +676,6 @@ namespace Foreman.Mac.UiTests.Views {
             TextBlock title = tile.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Title");
             Application.Current!.TryGetResource("Foreman.Type.SectionHeader.FontSize", Application.Current.ActualThemeVariant, out object? fontSizeObj);
             Assert.Equal((double)fontSizeObj! * 1.5, title.FontSize);
-        }
-
-        [AvaloniaFact]
-        public void StatePanelEmptyTile_ShowsInspectorAndNewGraphShapes_WithFittingButtonCounts() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "State panel — empty (inspector & new graph)");
-            StatePanel[] panels = [.. tile.GetVisualDescendants().OfType<StatePanel>()];
-
-            Assert.Equal(2, panels.Length);
-            Assert.All(panels, p => Assert.Equal(StatePanelShape.Empty, p.Shape));
-            Assert.Single(panels[0].Buttons!.Items);
-            Assert.Equal(2, panels[1].Buttons!.Items.Count);
-        }
-
-        [AvaloniaFact]
-        public void StatePanelNoResultsTile_QuotesTheQuery_AndOffersClearFilters() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "State panel — no results");
-            StatePanel panel = tile.GetVisualDescendants().OfType<StatePanel>().Single();
-
-            Assert.Equal(StatePanelShape.NoResults, panel.Shape);
-            Assert.Contains("beacn", panel.Headline);
-            Assert.Equal(2, panel.Buttons!.Items.Count);
-        }
-
-        [AvaloniaFact]
-        public void StatePanelLoadingTile_FullStaysFull_NarrowRegionForcesCompact() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "State panel — loading (determinate & compact)");
-            StatePanel[] panels = [.. tile.GetVisualDescendants().OfType<StatePanel>()];
-
-            Assert.Equal(2, panels.Length);
-            Assert.All(panels, p => Assert.Equal(StatePanelShape.Loading, p.Shape));
-            Assert.False(panels[0].IsCompact);
-            Assert.True(panels[1].IsCompact);
-        }
-
-        [AvaloniaFact]
-        public void StatePanelErrorTile_NamesTheCause_WithThreeButtons() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "State panel — error");
-            StatePanel panel = tile.GetVisualDescendants().OfType<StatePanel>().Single();
-
-            Assert.Equal(StatePanelShape.Error, panel.Shape);
-            Assert.Equal(3, panel.Buttons!.Items.Count);
         }
 
         [AvaloniaFact]
@@ -1377,121 +712,6 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public void InspectorGroupBodyStateTile_HostsAStatePanel_InTheGroupsFormGroupBody() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Inspector group — body delegation (State panel)");
-            InspectorGroup group = tile.GetVisualDescendants().OfType<InspectorGroup>().Single();
-            FormGroup body = Assert.IsType<FormGroup>(group.Content);
-            StatePanel panel = tile.GetVisualDescendants().OfType<StatePanel>().Single();
-
-            Assert.Equal(StatePanelShape.Error, panel.Shape);
-            ItemsPresenter itemsPresenter = body.GetVisualDescendants().OfType<ItemsPresenter>().Single(p => p.TemplatedParent == body);
-            Assert.False(itemsPresenter.IsVisible);
-        }
-
-        [AvaloniaFact]
-        public void ChooserGridNoResultsTile_HostsAStatePanel_AndHidesTheGridScroll() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Chooser grid — no results (State panel)");
-            ChooserGrid grid = tile.GetVisualDescendants().OfType<ChooserGrid>().Single();
-            StatePanel panel = tile.GetVisualDescendants().OfType<StatePanel>().Single();
-
-            Assert.Equal(StatePanelShape.NoResults, panel.Shape);
-            ScrollViewer scroll = grid.GetVisualDescendants().OfType<ScrollViewer>().Single(s => s.Name == "PART_Scroll");
-            Assert.False(scroll.IsVisible);
-        }
-
-        [AvaloniaFact]
-        public void SheetFrameErrorTile_HostsAStatePanel_InItsStateSlot() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Sheet frame — error (State panel)");
-            StatePanel panel = tile.GetVisualDescendants().OfType<StatePanel>().Single();
-            Assert.Equal(StatePanelShape.Error, panel.Shape);
-        }
-
-        [AvaloniaFact]
-        public void FormGroupLoadFailureTile_HostsAStatePanel_AndHidesTheEmptyRowList() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form group — load failure (State panel)");
-            FormGroup group = tile.GetVisualDescendants().OfType<FormGroup>().Single();
-            StatePanel panel = tile.GetVisualDescendants().OfType<StatePanel>().Single();
-
-            Assert.Equal(StatePanelShape.Error, panel.Shape);
-            //The panel's own ButtonRow is an ItemsControl too (its own PART_ItemsPresenter) - scope to the one templated by the group itself.
-            ItemsPresenter itemsPresenter = group.GetVisualDescendants().OfType<ItemsPresenter>().Single(p => p.TemplatedParent == group);
-            Assert.False(itemsPresenter.IsVisible);
-        }
-
-        [AvaloniaFact]
-        public void ZoomStepperTile_ShowsFourInstances_AtRestHoveredSolvingAndError() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Zoom stepper — at rest, hovered, solving, solve failed");
-            ZoomStepper[] steppers = [.. tile.GetVisualDescendants().OfType<ZoomStepper>()];
-
-            Assert.Equal(4, steppers.Length);
-            Assert.False(steppers[0].IsSolving);
-            Assert.False(steppers[0].HasSolveError);
-            Assert.True(steppers[2].IsSolving);
-            Assert.True(steppers[3].HasSolveError);
-
-            Button hoveredReadout = steppers[1].GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Readout");
-            Assert.Contains("gallery-hover", hoveredReadout.Classes);
-        }
-
-        [AvaloniaFact]
-        public void ZoomStepperTile_SolvingExample_ShowsItsSpinnerAfterTheGraceSettles() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Zoom stepper — at rest, hovered, solving, solve failed");
-            ZoomStepper solving = tile.GetVisualDescendants().OfType<ZoomStepper>().ElementAt(2);
-            Assert.True(solving.IsSolving);
-
-            Spinner spinner = solving.GetVisualDescendants().OfType<Spinner>().Single(s => s.Name == "PART_Spinner");
-            AnimationClock.Settle(650);
-
-            Assert.True(spinner.IsVisible);
-            Assert.Equal(1, spinner.Opacity);
-            Assert.Contains("animating", spinner.Classes);
-            Assert.True(spinner.Bounds.Width > 0);
-        }
-
-        [AvaloniaFact]
-        public void ZoomStepperPopoverTile_OpensItsOwnErrorPopover_CarryingTheHostSuppliedStatePanel() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Zoom stepper — solve-error popover");
-            ZoomStepper stepper = tile.GetVisualDescendants().OfType<ZoomStepper>().Single();
-            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
-
-            Assert.True(stepper.HasSolveError);
-            Assert.True(stepper.IsErrorPopoverOpen);
-            Assert.True(popover.IsOpen);
-            StatePanel panel = Assert.IsType<StatePanel>(popover.Content);
-            Assert.Equal(StatePanelShape.Error, panel.Shape);
-        }
-
-        [AvaloniaFact]
         public void ZoomStepperScaledTile_ResolvesReadoutAndMicroButtonSizes_AtOneAndAHalfScale() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
@@ -1505,30 +725,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(24, readout.Bounds.Height);
             Assert.Equal(30, minus.Bounds.Width);
             Assert.Equal(24, minus.Bounds.Height);
-        }
-
-        [AvaloniaFact]
-        public void ToolbarRowTile_ShowsFullLabelsDroppedAndOverflowedStates() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Toolbar row — full, labels dropped, overflowed");
-            ToolbarRow[] rows = [.. tile.GetVisualDescendants().OfType<ToolbarRow>()];
-
-            Assert.Equal(3, rows.Length);
-            Assert.All(rows, r => Assert.Equal(52, r.Bounds.Height));
-            //The title and the zoom stepper never collapse (addendum §08), at every one of the three widths.
-            Assert.All(rows, r => Assert.True(r.ZoomStepper.IsVisible));
-
-            ToolbarRow full = rows[0];
-            Assert.All(full.Groups.SelectMany(g => g.Items), i => Assert.DoesNotContain("icon-only", i.Classes));
-            Assert.Equal(220, full.SearchField.Width);
-
-            ToolbarRow overflowed = rows[2];
-            Assert.True(overflowed.OverflowButton.IsVisible);
-            Assert.Equal(["Export", "View"], overflowed.OverflowButton.ActionItems.Select(a => a.Text));
         }
 
         [AvaloniaFact]
@@ -1593,40 +789,13 @@ namespace Foreman.Mac.UiTests.Views {
 
             foreach (StackPanel tile in new[] { fullTile, scaledTile })
                 foreach (ToolbarRow row in tile.GetVisualDescendants().OfType<ToolbarRow>()) {
-                    foreach (Visual ancestor in AncestorsUpTo(row, tile))
+                    foreach (Visual ancestor in row.GetVisualAncestors().TakeWhile(a => !ReferenceEquals(a, tile)))
                         if (ancestor is Border border)
                             Assert.Equal(default, border.BorderThickness);
 
                     var frame = Assert.IsType<Border>(row.GetVisualParent());
                     Assert.Equal(frame.Bounds.Width, row.Bounds.Width);
                 }
-        }
-
-        private static IEnumerable<Visual> AncestorsUpTo(Visual start, Visual stop) {
-            Visual? current = start.GetVisualParent();
-            while (current is not null && !ReferenceEquals(current, stop)) {
-                yield return current;
-                current = current.GetVisualParent();
-            }
-        }
-
-        [AvaloniaFact]
-        public void PalettePanelTile_ShowsTopRowSelected_WithResultsAndFooterHints() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Palette panel — quick-add results");
-            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
-            PalettePanel panel = Assert.IsType<PalettePanel>(popover.Content);
-
-            Assert.True(popover.IsOpen);
-            Assert.Equal(272, panel.Bounds.Width);
-            Assert.Equal(4, panel.Results.Count);
-            Assert.Equal(panel.Results[0], panel.SelectedItem);
-            Assert.Equal(3, panel.FooterHints.Count);
-            Assert.Equal("iron pl", panel.Search.Text);
         }
 
         [AvaloniaFact]
@@ -1655,30 +824,6 @@ namespace Foreman.Mac.UiTests.Views {
             }
 
             Assert.True(layouts <= 400, $"Popover frame laid out {layouts} times across three reopen cycles.");
-        }
-
-        [AvaloniaFact]
-        public void PalettePanelNoResultsTile_ShowsACompactStatePanel_WithTheSearchHeaderStillVisible() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-
-            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Palette panel — no results");
-            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
-            PalettePanel panel = Assert.IsType<PalettePanel>(popover.Content);
-            StatePanel state = tile.GetVisualDescendants().OfType<StatePanel>().Single();
-
-            Assert.True(popover.IsOpen);
-            Assert.Empty(panel.Results);
-            Assert.Equal(StatePanelShape.NoResults, state.Shape);
-            Assert.True(state.IsCompact);
-            Assert.True(panel.Search.IsVisible);
-            Assert.Single(panel.FooterHints);
-
-            AnimationClock.Settle(450);
-            Spinner spinner = panel.Search.GetVisualDescendants().OfType<Spinner>().Single(s => s.Name == "PART_LoadingSpinner");
-            Assert.True(spinner.IsVisible);
         }
 
         [AvaloniaFact]

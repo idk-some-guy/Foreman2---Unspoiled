@@ -133,6 +133,15 @@
   <x:Double x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontSize">9.5</x:Double>
   <FontWeight x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontWeight">500</FontWeight>
 
+  <!-- Forwarders read only by src/Foreman.Mac/Themes/Foreman.Styles.axaml; K4 deletes each as its surface migrates. -->
+  <StaticResource x:Key="Foreman.Type.WindowTitle.FontSize" ResourceKey="Foreman.Type.EmphasizedBody.FontSize" />
+  <StaticResource x:Key="Foreman.Type.WindowTitle.FontWeight" ResourceKey="Foreman.Type.EmphasizedBody.FontWeight" />
+  <StaticResource x:Key="Foreman.Type.InspectorTitle.FontSize" ResourceKey="Foreman.Type.EmphasizedBody.FontSize" />
+  <StaticResource x:Key="Foreman.Type.InspectorTitle.FontWeight" ResourceKey="Foreman.Type.EmphasizedBody.FontWeight" />
+  <StaticResource x:Key="Foreman.Type.InspectorSubtitle.FontSize" ResourceKey="Foreman.Type.Caption.FontSize" />
+  <StaticResource x:Key="Foreman.Type.Browser.Subhead.FontSize" ResourceKey="Foreman.Type.Caption.FontSize" />
+  <StaticResource x:Key="Foreman.Type.SmallBody.FontSize" ResourceKey="Foreman.Type.Callout.FontSize" />
+
   <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
   <x:Double x:Key="Foreman.Size.InspectorWidthMin">260</x:Double>
   <x:Double x:Key="Foreman.Size.InspectorWidthMax">380</x:Double>
@@ -238,6 +247,8 @@
   <x:Double x:Key="Foreman.Size.BrowserSidebarMax">320</x:Double>
   <x:Double x:Key="Foreman.Size.BrowserCell">40</x:Double>
   <x:Double x:Key="Foreman.Size.ChooserCell">88</x:Double>
+  <!-- Forwarder read only by src/Foreman.Mac/Views/AddBrowserWindow.axaml and Foreman.Styles.axaml; K4 deletes it as the browser migrates. -->
+  <StaticResource x:Key="Foreman.Size.BrowserCellPitch" ResourceKey="Foreman.Size.ChooserCell" />
   <x:Double x:Key="Foreman.Size.BrowserCellRowHeight">78</x:Double>
   <x:Double x:Key="Foreman.Size.BrowserCellLabelHeight">24</x:Double>
   <CornerRadius x:Key="Foreman.Radius.SearchField">7</CornerRadius>

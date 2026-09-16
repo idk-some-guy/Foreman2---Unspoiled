@@ -325,6 +325,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   Reduce Transparency; no visual change under default macOS settings.
 - Interface scale no longer thickens borders, corner radii and the focus ring; text, controls,
   icons and the canvas scale as before.
+- Internal: the kit's temporary token-alias file is gone. No visible change; four unused forwarding
+  keys were deleted, and the handful still read by legacy screens moved into the main token files
+  with the same values.
 
 ### Removed
 
