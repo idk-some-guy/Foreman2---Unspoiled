@@ -134,6 +134,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   themselves to VoiceOver, and the alert's icon is excluded from the automation tree. Kit.Button's
   plain style no longer lightens the label weight, and the gallery's alert tiles show the real app
   icon.
+- Kit.ToolbarRow sits on the titlebar's own material with no drawn rule at either end, reports
+  itself to VoiceOver as an AXToolBar, and its items, overflow button and zoom stepper share one
+  tab stop that arrow keys rove across, re-homing to the overflow button when the trailing group
+  folds into it; the search field keeps its own stop for ⌘F. Item hover now fills over a brush
+  transition and the icon-only label swap cross-fades instead of cutting, and the zoom stepper's
+  Zoom Out, readout and Zoom In report as named children to VoiceOver.
 - The search field's placeholder now hides the moment typed text is non-empty instead of
   overlaying it; the stepper's value field fills the remaining width when no unit is set, with the
   arrows flush at the control's trailing edge; text and search fields show an accent-soft

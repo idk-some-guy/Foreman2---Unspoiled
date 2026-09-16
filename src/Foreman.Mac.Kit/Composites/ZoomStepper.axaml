@@ -3,7 +3,6 @@
                     xmlns:kit="using:Foreman.Mac.Kit.Composites"
                     xmlns:ctrl="using:Foreman.Mac.Kit.Controls">
 
-  <!-- Stock Buttons - both micro buttons and the readout - so their own theme carries the shared hover/press states. -->
   <ControlTheme x:Key="Kit.ZoomStepperMicroButton" TargetType="Button">
     <Setter Property="Width" Value="{DynamicResource Foreman.Size.ZoomStepperMicroButtonWidth}" />
     <Setter Property="Height" Value="{DynamicResource Foreman.Size.ZoomStepperMicroButtonHeight}" />
@@ -16,6 +15,8 @@
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="ctrl:FocusRing.IsEnabled" Value="True" />
     <Setter Property="ctrl:FocusRing.CornerRadius" Value="4" />
+    <!-- Reachable only via the toolbar row's roving tab stop - never independently Tab-stoppable. -->
+    <Setter Property="IsTabStop" Value="False" />
     <Setter Property="Template">
       <ControlTemplate>
         <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}">
@@ -33,7 +34,7 @@
     </Style>
   </ControlTheme>
 
-  <ControlTheme x:Key="Kit.ZoomStepperReadout" TargetType="Button">
+  <ControlTheme x:Key="Kit.ZoomStepperReadout" TargetType="kit:ZoomStepperReadout">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="4" />
@@ -41,6 +42,7 @@
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="ctrl:FocusRing.IsEnabled" Value="True" />
     <Setter Property="ctrl:FocusRing.CornerRadius" Value="4" />
+    <Setter Property="IsTabStop" Value="False" />
     <Setter Property="Template">
       <ControlTemplate>
         <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}">
@@ -83,7 +85,7 @@
               </Viewbox>
             </Button>
 
-            <Button x:Name="PART_Readout"
+            <kit:ZoomStepperReadout x:Name="PART_Readout"
                     Theme="{StaticResource Kit.ZoomStepperReadout}"
                     Width="{DynamicResource Foreman.Size.ZoomReadoutWidth}"
                     Height="{DynamicResource Foreman.Size.ZoomReadoutHeight}"
@@ -111,7 +113,7 @@
                         Width="12" Height="12" Stretch="None" Opacity="0" />
                 </Viewbox>
               </Grid>
-            </Button>
+            </kit:ZoomStepperReadout>
 
             <Button x:Name="PART_Plus"
                     Theme="{StaticResource Kit.ZoomStepperMicroButton}"

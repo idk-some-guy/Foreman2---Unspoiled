@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
@@ -8,14 +9,18 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Foreman.Mac.Kit;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
+using System;
 using System.Linq;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Controls {
-    public class ToolbarItemTests {
+    public sealed class ToolbarItemTests : IDisposable {
+        public void Dispose() => Motion.ReduceMotion = false;
+
         private static ControlTheme KitToolbarItemTheme() {
             Assert.True(Application.Current!.TryGetResource("Kit.ToolbarItem", null, out object? theme));
             return Assert.IsType<ControlTheme>(theme);
@@ -64,6 +69,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.Window.Content = item;
 
             fixture.StateOf(item).Hover();
+            AnimationClock.Settle();
 
             Assert.Equal(fixture.Brush("Foreman.Color.ControlBackgroundHover").ToImmutable(), item.Background?.ToImmutable());
             Assert.Equal(fixture.Brush("Foreman.Color.Text").ToImmutable(), item.Foreground?.ToImmutable());
@@ -77,6 +83,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             fixture.StateOf(item).Hover();
             fixture.StateOf(item).Press();
+            AnimationClock.Settle();
 
             Assert.Equal(fixture.Brush("Foreman.Color.ControlBackgroundPressed").ToImmutable(), item.Background?.ToImmutable());
         }
@@ -88,6 +95,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.Window.Content = item;
 
             item.IsOn = true;
+            AnimationClock.Settle();
 
             Assert.Equal(fixture.Brush("Foreman.Color.AccentSoft").ToImmutable(), item.Background?.ToImmutable());
             Assert.Equal(fixture.Brush("Foreman.Color.Accent").ToImmutable(), item.Foreground?.ToImmutable());
@@ -155,6 +163,134 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.StateOf(item).Focus();
 
             Assert.IsType<Rectangle>(AdornerLayer.GetAdorner(item));
+        }
+
+        [AvaloniaFact]
+        public void Hover_FillTransitionsOverHoverDuration() {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("Recipe");
+            fixture.Window.Content = item;
+            Dispatcher.UIThread.RunJobs();
+
+            var rest = item.Background?.ToImmutable();
+            var hoverTarget = fixture.Brush("Foreman.Color.ControlBackgroundHover").ToImmutable();
+
+            fixture.StateOf(item).Hover();
+            //Mid fill: still transitioning over Motion.HoverDuration, not swapped in the same pass.
+            AnimationClock.Settle(60);
+            var mid = item.Background?.ToImmutable();
+            Assert.NotEqual(rest, mid);
+            Assert.NotEqual(hoverTarget, mid);
+
+            AnimationClock.Settle(300);
+            Assert.Equal(hoverTarget, item.Background?.ToImmutable());
+        }
+
+        [AvaloniaFact]
+        public void ReduceMotion_CollapsesTheHoverFillToOpacityOnly_AndRestoresOnFlipBack() {
+            //A ControlTheme Setter's x:Static resolves once per merged dictionary, so each direction needs its own fixture (a fresh dictionary) to re-resolve under the current flag.
+            Motion.ReduceMotion = true;
+            using (var reducedFixture = new KitFixture()) {
+                ToolbarItem reduced = Themed("Recipe");
+                reducedFixture.Window.Content = reduced;
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.DoesNotContain(reduced.Transitions!, t => t is BrushTransition);
+                DoubleTransition opacity = Assert.Single(reduced.Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
+                Assert.Equal(Motion.HoverDuration, opacity.Duration);
+            }
+
+            Motion.ReduceMotion = false;
+            using var restoredFixture = new KitFixture();
+            ToolbarItem restored = Themed("Recipe");
+            restoredFixture.Window.Content = restored;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Single(restored.Transitions!.OfType<BrushTransition>(), t => t.Property == TemplatedControl.BackgroundProperty);
+        }
+
+        [AvaloniaFact]
+        public void ClassesSubscription_DoesNotAccumulate_AcrossRepeatedTemplateApplication() {
+            using var fixture = new KitFixture();
+            ControlTheme theme = KitToolbarItemTheme();
+            ToolbarItem item = Themed("Recipe");
+            fixture.Window.Content = item;
+            Dispatcher.UIThread.RunJobs();
+
+            item.Theme = null;
+            Dispatcher.UIThread.RunJobs();
+            item.Theme = theme;
+            Dispatcher.UIThread.RunJobs();
+
+            int baseline = item.LabelVisibilityApplyCount;
+            item.Classes.Add("icon-only");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(baseline + 1, item.LabelVisibilityApplyCount);
+        }
+
+        [AvaloniaFact]
+        public void Detach_DisposesTheLiveLabelOpacitySubscription() {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("Recipe");
+            fixture.Window.Content = item;
+            Dispatcher.UIThread.RunJobs();
+
+            item.Classes.Add("icon-only");
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(item.HasLiveLabelOpacitySubscription);
+
+            fixture.Window.Content = null;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(item.HasLiveLabelOpacitySubscription);
+        }
+
+        [AvaloniaFact]
+        public void ClassesSubscription_UnhooksOnDetach_AndRehooksOnReattach() {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("Recipe");
+            fixture.Window.Content = item;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.Window.Content = null;
+            Dispatcher.UIThread.RunJobs();
+
+            int detachedCount = item.LabelVisibilityApplyCount;
+            item.Classes.Add("icon-only");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(detachedCount, item.LabelVisibilityApplyCount);
+
+            fixture.Window.Content = item;
+            Dispatcher.UIThread.RunJobs();
+
+            item.Classes.Add("spacer");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(detachedCount + 1, item.LabelVisibilityApplyCount);
+        }
+
+        [AvaloniaFact]
+        public void IconOnly_LabelCrossFadesOpacity_InsteadOfAHardIsVisibleFlip() {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("Recipe");
+            fixture.Window.Content = item;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock label = item.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Recipe");
+            Assert.True(label.IsVisible);
+
+            item.Classes.Add("icon-only");
+            Dispatcher.UIThread.RunJobs();
+
+            //Fading, not cut: still visible right after the class flips, not yet at zero opacity.
+            Assert.True(label.IsVisible);
+            DoubleTransition opacity = Assert.Single(label.Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
+            Assert.Equal(Motion.TabLabelCrossFadeDuration, opacity.Duration);
+
+            AnimationClock.Settle();
+
+            Assert.False(label.IsVisible);
+            Assert.Equal(0, label.Opacity);
         }
 
         [AvaloniaFact]

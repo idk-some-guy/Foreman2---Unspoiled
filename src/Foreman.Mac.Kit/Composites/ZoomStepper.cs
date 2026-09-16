@@ -1,13 +1,16 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Windows.Input;
 using SpinnerControl = Foreman.Mac.Kit.Controls.Spinner;
 
@@ -64,7 +67,9 @@ namespace Foreman.Mac.Kit.Composites {
         private ZoomStepperState DisplayState =>
             appliedState == ZoomStepperState.Error && errorDismissed ? ZoomStepperState.Normal : appliedState;
 
-        private Button? readout;
+        private ZoomStepperReadout? readout;
+        private Button? minusButton;
+        private Button? plusButton;
         private TextBlock? valueText;
         private SpinnerControl? spinner;
         private Path? errorGlyph;
@@ -84,7 +89,9 @@ namespace Foreman.Mac.Kit.Composites {
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
             base.OnApplyTemplate(e);
-            readout = e.NameScope.Find<Button>("PART_Readout");
+            readout = e.NameScope.Find<ZoomStepperReadout>("PART_Readout");
+            minusButton = e.NameScope.Find<Button>("PART_Minus");
+            plusButton = e.NameScope.Find<Button>("PART_Plus");
             valueText = e.NameScope.Find<TextBlock>("PART_Value");
             spinner = e.NameScope.Find<SpinnerControl>("PART_Spinner");
             errorGlyph = e.NameScope.Find<Path>("PART_ErrorGlyph");
@@ -187,11 +194,25 @@ namespace Foreman.Mac.Kit.Composites {
             };
             ToolTip.SetTip(readout, text);
             AutomationProperties.SetName(readout, text);
-            AutomationProperties.SetHelpText(readout, percent);
+            readout.AccessibleValue = FormatPercentWords(Value);
         }
 
         private static string FormatPercent(double value) =>
             string.Format(CultureInfo.InvariantCulture, "{0} %", (int)Math.Round(value, MidpointRounding.AwayFromZero));
+
+        //The addendum's VoiceOver row spells the unit out ("140 percent") rather than using the "%" sign FormatPercent shows sighted users.
+        private static string FormatPercentWords(double value) =>
+            string.Format(CultureInfo.InvariantCulture, "{0} percent", (int)Math.Round(value, MidpointRounding.AwayFromZero));
+
+        //Roving order for the row's peer tree (K3 addendum §08 VoiceOver row): Zoom Out, the readout, Zoom In.
+        internal IEnumerable<Control> AutomationChildren() {
+            if (minusButton is not null)
+                yield return minusButton;
+            if (readout is not null)
+                yield return readout;
+            if (plusButton is not null)
+                yield return plusButton;
+        }
 
         private static double CoerceValue(AvaloniaObject sender, double value) => Math.Clamp(value, 25, 400);
 
@@ -253,12 +274,33 @@ namespace Foreman.Mac.Kit.Composites {
         private sealed class ZoomStepperAutomationPeer(ZoomStepper owner) : ControlAutomationPeer(owner) {
             protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Group;
             protected override string GetNameCore() => "Zoom";
+            protected override IReadOnlyList<AutomationPeer> GetChildrenCore() =>
+                [.. owner.AutomationChildren().Select(ControlAutomationPeer.CreatePeerForElement)];
         }
 
         private sealed class OpacitySink(Action<double> onNext) : IObserver<double> {
             public void OnNext(double value) => onNext(value);
             public void OnError(Exception error) { }
             public void OnCompleted() { }
+        }
+    }
+
+    //A named Button subclass so the readout's own automation peer can expose a value pattern - a stock Button's peer has none.
+    public class ZoomStepperReadout : Button {
+        public static readonly StyledProperty<string?> AccessibleValueProperty =
+            AvaloniaProperty.Register<ZoomStepperReadout, string?>(nameof(AccessibleValue));
+
+        public string? AccessibleValue {
+            get => GetValue(AccessibleValueProperty);
+            set => SetValue(AccessibleValueProperty, value);
+        }
+
+        protected override AutomationPeer OnCreateAutomationPeer() => new ZoomStepperReadoutAutomationPeer(this);
+
+        private sealed class ZoomStepperReadoutAutomationPeer(ZoomStepperReadout owner) : ControlAutomationPeer(owner), IValueProvider {
+            bool IValueProvider.IsReadOnly => true;
+            string? IValueProvider.Value => owner.AccessibleValue;
+            void IValueProvider.SetValue(string? value) { }
         }
     }
 }

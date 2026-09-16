@@ -1668,6 +1668,10 @@ namespace Foreman.Mac.Views {
                 Child = panel,
             };
 
+        //Unlike StatePanelFrame, this draws nothing: a real toolbar sits directly on its own titlebar material with no rule at either end (addendum §08 Grouping row).
+        private static Border ToolbarRowFrame(Control row, double width, double height) =>
+            new() { Width = width, Height = height, Child = row };
+
         //Addendum §07: inspector no-selection (one button) beside a new-graph empty state (two buttons).
         private static StackPanel BuildStatePanelEmptyTile() {
             StatePanel inspector = KitStatePanel(StatePanelShape.Empty, "No node selected",
@@ -1876,11 +1880,11 @@ namespace Foreman.Mac.Views {
                 Spacing = 12,
                 Children = {
                     KitText("Toolbar row — full width", "caption", "tertiary"),
-                    StatePanelFrame(KitToolbarRow(searchLoading: true), 1400, 52),
+                    ToolbarRowFrame(KitToolbarRow(searchLoading: true), 1400, 52),
                     KitText("Toolbar row — labels dropped, search shrunk", "caption", "tertiary"),
-                    StatePanelFrame(KitToolbarRow(), 1000, 52),
+                    ToolbarRowFrame(KitToolbarRow(), 1000, 52),
                     KitText("Toolbar row — overflowed", "caption", "tertiary"),
-                    StatePanelFrame(KitToolbarRow(), 320, 52),
+                    ToolbarRowFrame(KitToolbarRow(), 320, 52),
                 },
             };
         }
@@ -1899,7 +1903,7 @@ namespace Foreman.Mac.Views {
                     container.Resources[key] = value * 1.5;
 
             container.Children.Add(KitText("Toolbar row (150%)", "caption", "tertiary"));
-            container.Children.Add(StatePanelFrame(KitToolbarRow(), 1400, 78));
+            container.Children.Add(ToolbarRowFrame(KitToolbarRow(), 1400, 78));
             return container;
         }
 

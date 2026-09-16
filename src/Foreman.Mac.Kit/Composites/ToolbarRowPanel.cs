@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
+using Avalonia.VisualTree;
 using Foreman.Mac.Kit.Controls;
 using System;
 using System.Collections.Generic;
@@ -25,6 +26,10 @@ namespace Foreman.Mac.Kit.Composites {
         private MenuButton? overflowButton;
         private Control? overflowSpacer;
         private SearchField? searchField;
+        private ZoomStepper? zoomStepper;
+
+        //Raised once per real collapse-step change, after visibility is applied - the row uses it to re-home its roving tab stop.
+        internal event Action? CollapseStepChanged;
 
         private double groupGap = 16;
         private double sidePadding = 12;
@@ -66,7 +71,7 @@ namespace Foreman.Mac.Kit.Composites {
         }
 
         //Called once per ToolbarRow.Rebuild(): flat leading-to-trailing child list tagged with gap kind, group panels, and the trailing group's overflow pairing.
-        internal void SetContent(IReadOnlyList<(Control Child, ToolbarGapKind Gap)> content, IReadOnlyList<ToolbarItem> items, IReadOnlyList<StackPanel> groups, StackPanel? overflowGroup, MenuButton? overflow, SearchField? field) {
+        internal void SetContent(IReadOnlyList<(Control Child, ToolbarGapKind Gap)> content, IReadOnlyList<ToolbarItem> items, IReadOnlyList<StackPanel> groups, StackPanel? overflowGroup, MenuButton? overflow, SearchField? field, ZoomStepper? zoom) {
             Children.Clear();
             gaps.Clear();
             gapSpacerBefore.Clear();
@@ -89,6 +94,7 @@ namespace Foreman.Mac.Kit.Composites {
             overflowButton = overflow;
             overflowSpacer = overflow is not null ? gapSpacerBefore.GetValueOrDefault(overflow) : null;
             searchField = field;
+            zoomStepper = zoom;
 
             RecacheItemWidths();
             foreach (Control child in Children)
@@ -124,6 +130,40 @@ namespace Foreman.Mac.Kit.Composites {
         internal double LabeledWidthOf(ToolbarItem item) => labeledWidths.GetValueOrDefault(item);
         internal double IconOnlyWidthOf(ToolbarItem item) => iconOnlyWidths.GetValueOrDefault(item);
         internal double RequiredWidthAtStep(int step) => requiredByStep[step];
+
+        //Roving-tabindex order (K3 composites addendum §08 keyboard row): visible items group by group, the overflow button when it's showing, then the zoom stepper's three buttons.
+        internal List<Control> FocusTargets() => FocusCandidates(onlyVisible: true);
+
+        //Every possible roving-group member regardless of visibility - clears a stale IsTabStop left on a member whose group just folded away.
+        internal List<Control> AllFocusCandidates() => FocusCandidates(onlyVisible: false);
+
+        private List<Control> FocusCandidates(bool onlyVisible) {
+            List<Control> targets = [];
+            foreach (StackPanel group in groupPanels)
+                if (!onlyVisible || group.IsVisible)
+                    targets.AddRange(group.Children.OfType<ToolbarItem>());
+            if (overflowButton is not null && (!onlyVisible || overflowButton.IsVisible))
+                targets.Add(overflowButton);
+            if (zoomStepper is not null && (!onlyVisible || zoomStepper.IsVisible)) {
+                Button[] stepperButtons = [.. zoomStepper.GetVisualDescendants().OfType<Button>()];
+                foreach (string name in ZoomStepperButtonNames)
+                    if (stepperButtons.FirstOrDefault(b => b.Name == name) is { } button)
+                        targets.Add(button);
+            }
+            return targets;
+        }
+
+        private static readonly string[] ZoomStepperButtonNames = ["PART_Minus", "PART_Readout", "PART_Plus"];
+
+        //Picks the roving target after a collapse-step change moved the previous one out of the tree: the overflow button when it swallowed the previous target's group, otherwise the leading visible target.
+        internal Control? ReplacementFocusTarget(Control? previous) {
+            List<Control> targets = FocusTargets();
+            if (previous is not null && targets.Contains(previous))
+                return previous;
+            if (previous is not null && overflowGroupPanel is not null && overflowGroupPanel.Children.Contains(previous) && overflowButton is { IsVisible: true })
+                return overflowButton;
+            return targets.FirstOrDefault();
+        }
 
         private double LabelWidth(ToolbarItem item) {
             if (string.IsNullOrEmpty(item.Label))
@@ -226,6 +266,8 @@ namespace Foreman.Mac.Kit.Composites {
                 overflowButton.IsVisible = overflow;
             if (overflowSpacer is not null)
                 overflowSpacer.IsVisible = overflow;
+
+            CollapseStepChanged?.Invoke();
         }
 
         private static double GapWidth(ToolbarGapKind kind, double flexAmount) => kind switch {

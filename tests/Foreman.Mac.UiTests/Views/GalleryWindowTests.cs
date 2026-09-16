@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
@@ -23,6 +24,7 @@ using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Xunit;
@@ -1510,6 +1512,53 @@ namespace Foreman.Mac.UiTests.Views {
             double saveRight = (Avalonia.VisualExtensions.TranslatePoint(save, new Point(0, 0), panel)?.X ?? double.NaN) + save.Bounds.Width;
             double recipeLeft = Avalonia.VisualExtensions.TranslatePoint(recipe, new Point(0, 0), panel)?.X ?? double.NaN;
             Assert.Equal(16, recipeLeft - saveRight, 3);
+        }
+
+        [AvaloniaFact]
+        public void ToolbarRowTile_SitsOnTitlebarMaterial_AndIsAnAXToolBar() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Application app = Application.Current!;
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Toolbar row — full, labels dropped, overflowed");
+            ToolbarRow row = tile.GetVisualDescendants().OfType<ToolbarRow>().First();
+
+            Color expected = ThemeResources.ResolveColor("Foreman.Color.TitlebarMaterial", app.ActualThemeVariant, Colors.White);
+            Assert.Equal(expected, Assert.IsAssignableFrom<ISolidColorBrush>(row.Background).Color);
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(row);
+            Assert.Equal(AutomationControlType.ToolBar, peer.GetAutomationControlType());
+        }
+
+        [AvaloniaFact]
+        public void ToolbarRowTiles_DrawNoBorderAroundTheRow_AndFillTheirContainerWidth() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel fullTile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Toolbar row — full, labels dropped, overflowed");
+            StackPanel scaledTile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Toolbar row (150%)");
+
+            foreach (StackPanel tile in new[] { fullTile, scaledTile })
+                foreach (ToolbarRow row in tile.GetVisualDescendants().OfType<ToolbarRow>()) {
+                    foreach (Visual ancestor in AncestorsUpTo(row, tile))
+                        if (ancestor is Border border)
+                            Assert.Equal(default, border.BorderThickness);
+
+                    var frame = Assert.IsType<Border>(row.GetVisualParent());
+                    Assert.Equal(frame.Bounds.Width, row.Bounds.Width);
+                }
+        }
+
+        private static IEnumerable<Visual> AncestorsUpTo(Visual start, Visual stop) {
+            Visual? current = start.GetVisualParent();
+            while (current is not null && !ReferenceEquals(current, stop)) {
+                yield return current;
+                current = current.GetVisualParent();
+            }
         }
 
         [AvaloniaFact]

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless;
@@ -593,6 +594,34 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(stepper);
             Assert.Equal(AutomationControlType.Group, peer.GetAutomationControlType());
             Assert.Equal("Zoom", peer.GetName());
+        }
+
+        [AvaloniaFact]
+        public void AutomationPeer_HasThreeChildren_ZoomOutReadoutZoomIn_InOrder() {
+            using var fixture = new KitFixture();
+            ZoomStepper stepper = NewStepper(140);
+            Shown(stepper);
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(stepper);
+            AutomationPeer[] children = [.. peer.GetChildren()];
+
+            Assert.Equal(3, children.Length);
+            Assert.Equal("Zoom Out", children[0].GetName());
+            Assert.Equal(AutomationProperties.GetName(Readout(stepper)), children[1].GetName());
+            Assert.Equal("Zoom In", children[2].GetName());
+        }
+
+        [AvaloniaFact]
+        public void AutomationPeer_ActualSizeChild_ValueReadsThePercentageInWords() {
+            using var fixture = new KitFixture();
+            ZoomStepper stepper = NewStepper(140);
+            Shown(stepper);
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(stepper);
+            AutomationPeer readoutPeer = peer.GetChildren()[1];
+
+            var value = Assert.IsAssignableFrom<IValueProvider>(readoutPeer);
+            Assert.Equal("140 percent", value.Value);
         }
     }
 }
