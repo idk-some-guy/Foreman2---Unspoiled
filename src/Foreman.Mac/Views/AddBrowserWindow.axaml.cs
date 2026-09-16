@@ -27,6 +27,7 @@ namespace Foreman.Mac.Views {
         private readonly ItemsControl groupsList;
         private AddBrowserViewModel? subscribedVm;
         private int lastPointerClickCount = 1;
+        private readonly WindowMinSizeScale minSizeScale;
 
         //Parameterless so the XAML runtime loader can find it (AVLN3001) - the caller assigns DataContext
         //separately and OnDataContextChanged below picks it up.
@@ -50,7 +51,7 @@ namespace Foreman.Mac.Views {
             DataContextChanged += OnDataContextChanged;
             groupsList.ContainerPrepared += OnGroupContainerPrepared;
 
-            WindowScaler.Track(this);
+            minSizeScale = new WindowMinSizeScale(this);
 
             //IsVisible, not Closed, is this window's real open/shut signal (MainWindow hides rather than
             //closes it); Closed below is just the backstop for a standalone instance.
@@ -65,16 +66,23 @@ namespace Foreman.Mac.Views {
         private void OnIsVisibleChanged(object? sender, AvaloniaPropertyChangedEventArgs e) {
             if (e.Property != IsVisibleProperty)
                 return;
-            if (IsVisible)
+            if (IsVisible) {
                 AppearanceHub.Current?.Subscribe(this);
-            else
+                //An appearance change made while hidden never reached this window - resync now rather
+                //than wait for the next unrelated notification.
+                RefreshTheme();
+            } else {
                 AppearanceHub.Current?.Unsubscribe(this);
+            }
         }
 
         //Cell/group chrome is entirely DynamicResource-bound already (free on a theme flip); the sidebar's
         //measured width is the one thing this window computes in code, off live text metrics that a scale
         //change can move.
-        public void RefreshTheme() => UpdateSidebarWidth();
+        public void RefreshTheme() {
+            minSizeScale.Apply();
+            UpdateSidebarWidth();
+        }
 
         private void OnDataContextChanged(object? sender, EventArgs e) {
             if (subscribedVm is not null) {

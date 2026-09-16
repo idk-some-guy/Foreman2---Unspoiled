@@ -20,6 +20,7 @@ using Foreman.Graph;
 using Foreman.Models;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
@@ -1306,6 +1307,74 @@ namespace Foreman.Mac.UiTests {
 
             Assert.Equal(originalBorderWidth, shape.BorderWidth);
             Assert.False(window.ViewModel.IsDirty);
+        }
+
+        [AvaloniaFact]
+        public void PopoverHost_IsMountedOnce_AndSpansTheContentArea() {
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var host = Assert.Single(window.GetVisualDescendants().OfType<PopoverHost>());
+            var rootGrid = (Grid)window.Content!;
+            var titleBarRow = window.FindControl<Grid>("TitleBarRow")!;
+
+            Assert.Equal(rootGrid.Bounds.Width, host.Bounds.Width, 1);
+            Assert.Equal(rootGrid.Bounds.Height - titleBarRow.Bounds.Height, host.Bounds.Height, 1);
+        }
+
+        //Regression: the mounted host is a full-bleed sibling above the canvas in z-order - with nothing
+        //open it must stay out of hit-testing, or every canvas press hits it instead of the node under it.
+        [AvaloniaFact]
+        public async Task PopoverHost_WithNothingOpen_ARealClickSelectsTheNodeUnderTheCursor() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId id = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            BaseNodeElement element = window.GraphCanvas.Viewer.NodeElementDictionary[id];
+            element.RequestStateUpdate();
+            element.PrePaint(); //HitTest needs the element's paint bounds computed to find it
+            Dispatcher.UIThread.RunJobs(); //forces layout so GraphCanvas has real Bounds to translate through
+            AnimationClock.Settle(); //a queued layout pass isn't a render tick - settle before trusting arranged bounds
+
+            Point canvasPoint = window.GraphCanvas.Viewport.GraphToScreen(element.Location);
+            Point screenPoint = window.GraphCanvas.TranslatePoint(canvasPoint, window)!.Value;
+            Assert.Same(window.GraphCanvas, window.InputHitTest(screenPoint));
+
+            window.MouseDown(screenPoint, MouseButton.Left, RawInputModifiers.None);
+
+            Assert.Contains(element, window.GraphCanvas.Viewer.SelectedNodes);
+        }
+
+        //A consumer adding and opening a popover into the mounted host, then closing and removing it, must
+        //not leave the host laying out on its own once settled (K3's PopoverHost defers mutations that land
+        //mid-layout - a leak here would show as ongoing layout passes with nothing left open).
+        [AvaloniaFact]
+        public void PopoverHost_OpenThenCloseCycle_SettlesWithZeroLayoutGrowth() {
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var host = window.GetVisualDescendants().OfType<PopoverHost>().Single();
+            var anchor = new Border { Width = 20, Height = 20 };
+            host.Surface.Children.Add(anchor);
+            var popover = new PopoverFrame { Anchor = anchor, Content = new TextBlock { Text = "probe" } };
+            host.Surface.Children.Add(popover);
+
+            popover.IsOpen = true;
+            AnimationClock.Settle();
+            popover.IsOpen = false;
+            AnimationClock.Settle();
+            host.Surface.Children.Remove(popover);
+            host.Surface.Children.Remove(anchor);
+            AnimationClock.Settle();
+
+            int layouts = 0;
+            host.LayoutUpdated += (_, _) => layouts++;
+            AnimationClock.Settle(300);
+
+            Assert.Equal(0, layouts);
         }
     }
 }

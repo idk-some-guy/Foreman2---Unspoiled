@@ -42,6 +42,7 @@ namespace Foreman.Mac.Views {
         private readonly GalleryRegistry registry;
         private readonly ContentControl themeShowcaseHost;
         private readonly TextBlock themeHeader;
+        private readonly WindowMinSizeScale minSizeScale;
 
         public GalleryRegistry Registry => registry;
 
@@ -100,13 +101,14 @@ namespace Foreman.Mac.Views {
                 BringIntoViewOnFocusChange = false,
             };
 
-            WindowScaler.Track(this);
+            minSizeScale = new WindowMinSizeScale(this);
 
             AppearanceHub.Current?.Subscribe(this);
             Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
         }
 
         public void RefreshTheme() {
+            minSizeScale.Apply();
             Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White);
             themeHeader.Foreground = ThemeResources.ResolveBrush("Foreman.Color.Text", Colors.Black);
             themeShowcaseHost.Content = BuildThemeShowcaseSection();

@@ -328,6 +328,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Internal: the kit's temporary token-alias file is gone. No visible change; four unused forwarding
   keys were deleted, and the handful still read by legacy screens moved into the main token files
   with the same values.
+- Internal: every window now registers its minimum-size scaling with the same appearance hub it
+  already used for theme, instead of a separate tracking list; the main window gains one shared
+  popover overlay layer for future popovers to anchor against. No visible change.
 
 ### Removed
 

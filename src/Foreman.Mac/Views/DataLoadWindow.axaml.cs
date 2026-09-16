@@ -3,6 +3,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using System;
 using System.Collections.Generic;
@@ -10,7 +11,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Views {
-    public partial class DataLoadWindow : Window {
+    public partial class DataLoadWindow : Window, IThemeAware {
         private const string CloseWarningTitle = "Preset load interrupted";
         private const string CloseWarningMessage =
             "Preset loading is still in progress.\n\n" +
@@ -25,6 +26,7 @@ namespace Foreman.Mac.Views {
         private bool loadInProgress;
         private bool loadCompleted;
         private bool closeWarningAcknowledged;
+        private readonly WindowMinSizeScale minSizeScale;
 
         public Task LoadTask { get; }
         public DataCache? Result { get; private set; }
@@ -42,10 +44,15 @@ namespace Foreman.Mac.Views {
             selectedPreset = preset;
             this.filterRecipes = filterRecipes;
             LoadTask = RunLoadAsync();
-            WindowScaler.Track(this);
+            minSizeScale = new WindowMinSizeScale(this);
+
+            AppearanceHub.Current?.Subscribe(this);
+            Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+        public void RefreshTheme() => minSizeScale.Apply();
 
         private async Task RunLoadAsync() {
             var progress = new Progress<KeyValuePair<int, string>>(ApplyProgress);

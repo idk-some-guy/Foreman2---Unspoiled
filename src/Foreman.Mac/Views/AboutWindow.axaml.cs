@@ -1,12 +1,15 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 
 namespace Foreman.Mac.Views {
     //I-4 (final fix wave) verdict fix: the real About panel from the ratified mock (design doc
     //.about-card), replacing the plain MessageDialog that carried only "Foreman 2\n{version}".
-    public partial class AboutWindow : Window {
+    public partial class AboutWindow : Window, IThemeAware {
         public string VersionLabel { get; }
+
+        private readonly WindowMinSizeScale minSizeScale;
 
         public AboutWindow() : this(Foreman.AppVersion.VersionedDisplay) {
         }
@@ -19,10 +22,15 @@ namespace Foreman.Mac.Views {
             appNameTextBlock = this.FindControl<TextBlock>("AppNameTextBlock")!;
             versionTextBlock = this.FindControl<TextBlock>("VersionTextBlock")!;
             taglineTextBlock = this.FindControl<TextBlock>("TaglineTextBlock")!;
-            WindowScaler.Track(this);
+            minSizeScale = new WindowMinSizeScale(this);
+
+            AppearanceHub.Current?.Subscribe(this);
+            Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+        public void RefreshTheme() => minSizeScale.Apply();
 
         private readonly Image appIconImage;
         private readonly TextBlock appNameTextBlock;

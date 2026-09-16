@@ -8,6 +8,7 @@ using Foreman;
 using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
+using Foreman.Mac.Views;
 using System;
 using System.Linq;
 using Xunit;
@@ -116,6 +117,51 @@ namespace Foreman.Mac.UiTests.Theming {
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(1150.0, window.MinWidth);
             Assert.Equal(720.0, window.MinHeight);
+        }
+
+        //No contract endpoint on this window, so its minimum is plain base times the scale step.
+        [AvaloniaFact]
+        public void SetScale_AtOneFifty_ScalesAddBrowserWindowMinimumSize_ByBaseTimesScale() {
+            var window = new AddBrowserWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            WindowScaler.SetScale(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(960.0, window.MinWidth);
+            Assert.Equal(660.0, window.MinHeight);
+        }
+
+        [AvaloniaFact]
+        public void SetScale_AtOneFifty_ScalesPresetComparatorWindowMinimumSize_ByBaseTimesScale() {
+            var window = new PresetComparatorWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            WindowScaler.SetScale(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(1018.5, window.MinWidth);
+            Assert.Equal(621.0, window.MinHeight);
+        }
+
+        //AddBrowserWindow leaves the hub while MainWindow hides it, so a scale change made during that
+        //gap must still land once it is shown again, not wait for the next unrelated notification.
+        [AvaloniaFact]
+        public void AddBrowserWindow_MinimumSizeResyncsOnShow_AfterAScaleChangeWhileHidden() {
+            var window = new AddBrowserWindow();
+            window.Show();
+            window.Hide();
+            Dispatcher.UIThread.RunJobs();
+
+            WindowScaler.SetScale(1.5);
+            Dispatcher.UIThread.RunJobs();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(960.0, window.MinWidth);
+            Assert.Equal(660.0, window.MinHeight);
         }
 
         [AvaloniaFact]

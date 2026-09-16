@@ -73,6 +73,7 @@ namespace Foreman.Mac.Views {
         private readonly List<ComparatorRow>[] filteredSelectedTabRows = [[], [], [], []];
 
         private bool comparing;
+        private readonly WindowMinSizeScale minSizeScale;
 
         internal DataCache? LeftCache { get; private set; }
         internal DataCache? RightCache { get; private set; }
@@ -151,7 +152,7 @@ namespace Foreman.Mac.Views {
             };
 
             UpdateProcessButtonCaption();
-            WindowScaler.Track(this);
+            minSizeScale = new WindowMinSizeScale(this);
 
             AppearanceHub.Current?.Subscribe(this);
             Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
@@ -162,6 +163,7 @@ namespace Foreman.Mac.Views {
         //RebuildTab re-resolves every status brush fresh, so a theme flip while this window is open just
         //re-runs the same pipeline the tab switch already uses.
         public void RefreshTheme() {
+            minSizeScale.Apply();
             UpdateUnfilteredRows();
             UpdateFilteredLists();
         }

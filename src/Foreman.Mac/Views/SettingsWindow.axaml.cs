@@ -70,6 +70,8 @@ namespace Foreman.Mac.Views {
         //Dedups baked icons by source SKBitmap reference, same intent as upstream's EnabledObjectsIconIndex.
         private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
 
+        private readonly WindowMinSizeScale minSizeScale;
+
         public SettingsWindowOptions Options { get; }
 
         public SettingsViewModel ViewModel { get; }
@@ -142,10 +144,10 @@ namespace Foreman.Mac.Views {
             UpdateModList();
             EnabledObjectsListItem.RefreshTheme();
             LoadUnfilteredLists();
-            //Before WindowScaler.Track below - see MainWindow's own matching comment (Content is still the
+            //Before minSizeScale below - see MainWindow's own matching comment (Content is still the
             //root Grid at this point).
             SheetHost.For(this);
-            WindowScaler.Track(this);
+            minSizeScale = new WindowMinSizeScale(this);
 
             AppearanceHub.Current?.Subscribe(this);
             Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
@@ -155,7 +157,10 @@ namespace Foreman.Mac.Views {
 
         //RefreshTheme re-resolves the shared brushes and pushes them out to every row already on screen
         //(RowBackground/Foreground are live-computed, not baked at row construction).
-        public void RefreshTheme() => EnabledObjectsListItem.RefreshTheme();
+        public void RefreshTheme() {
+            minSizeScale.Apply();
+            EnabledObjectsListItem.RefreshTheme();
+        }
 
         //--- Tab strip ------------------------------------------------------------------------------------
 

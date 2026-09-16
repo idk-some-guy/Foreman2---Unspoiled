@@ -49,6 +49,8 @@ namespace Foreman.Mac {
         public PresetResolver? PresetResolver { get; set; }
         public SettingsService? SettingsService { get; set; }
 
+        private readonly WindowMinSizeScale minSizeScale;
+
         //One "Add to Graph" browser for the window's lifetime; BrowseRequested reopens/reseeds it.
         private AddBrowserWindow? browser;
         internal AddBrowserWindow? BrowserWindow => browser;
@@ -177,7 +179,7 @@ namespace Foreman.Mac {
             //SheetHost overlays Content directly (spanning child); TitleBarRow as the anchor keeps sheets
             //flush under the toolbar instead of covering it.
             Views.Sheets.SheetHost.For(this, this.FindControl<Grid>("TitleBarRow"));
-            WindowScaler.Track(this, (1150, 720));
+            minSizeScale = new WindowMinSizeScale(this, (1150, 720));
 
             AppearanceHub.Current?.Subscribe(this);
             Closed += (_, _) => {
@@ -193,6 +195,7 @@ namespace Foreman.Mac {
         //The canvas has no DynamicResource of its own to pick up a live theme (System mode's OS flip),
         //accent, contrast, or scale change, so it re-seeds here on every AppearanceHub notification.
         public void RefreshTheme() {
+            minSizeScale.Apply();
             ApplyCanvasTheme();
             RefreshBrowserIcons();
         }

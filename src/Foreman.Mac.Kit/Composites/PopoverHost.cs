@@ -19,16 +19,20 @@ namespace Foreman.Mac.Kit.Composites {
 
         static PopoverHost() {
             PopoverFrame.IsOpenProperty.Changed.AddClassHandler<PopoverFrame>((frame, e) => {
-                if ((bool)e.NewValue! && frame.FindAncestorOfType<PopoverHost>() is { } host)
+                if (frame.FindAncestorOfType<PopoverHost>() is not { } host)
+                    return;
+                if ((bool)e.NewValue!)
                     host.BringToFront(frame);
+                host.UpdateBackground();
             });
         }
 
         public PopoverHost() {
-            //A bare Panel with no Background has no hit surface for an outside press.
-            Background = Brushes.Transparent;
             Children.Add(Surface);
+            Surface.Children.CollectionChanged += (_, _) => UpdateBackground();
             AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
+            //A Panel with a null Background has no hit surface of its own; Surface children still hit-test on their own.
+            UpdateBackground();
         }
 
         //Every consumer reaches the Surface through Add/Remove so a mutation fired mid-layout (e.g. TemplateApplied) queues instead of corrupting the enumeration in flight.
@@ -38,6 +42,9 @@ namespace Foreman.Mac.Kit.Composites {
         });
 
         internal void Remove(Control popover) => RunOrDefer(() => Surface.Children.Remove(popover));
+
+        private void UpdateBackground() =>
+            Background = Surface.Children.OfType<PopoverFrame>().Any(f => f.IsOpen) ? Brushes.Transparent : null;
 
         internal void BringToFront(PopoverFrame frame) => RunOrDefer(() => {
             if (!Surface.Children.Contains(frame))

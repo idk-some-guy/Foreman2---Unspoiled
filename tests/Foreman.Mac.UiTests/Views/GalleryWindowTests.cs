@@ -39,7 +39,9 @@ namespace Foreman.Mac.UiTests.Views {
             return (DataCacheStore)field.GetValue(cache)!;
         }
 
-        private static DataCache NewFixtureCache() {
+        //Reused by Theming/AppearanceHubWiringTests - GalleryWindow builds its Canvas/Kit tiles at
+        //construction, which needs enough of a cache to not throw.
+        internal static DataCache NewFixtureCache() {
             var cache = new DataCache(filterRecipes: true);
             var quality = new QualityPrototype(cache, "normal", "Normal", "a");
             DataCacheStore store = Store(cache);
@@ -398,9 +400,9 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(expectedAfter, Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color);
         }
 
-        //The gallery goes through WindowScaler.Track like every other window.
+        //The gallery joins AppearanceHub like every other window; scale never wraps Content in a LayoutTransformControl.
         [AvaloniaFact]
-        public void Construction_TracksWindowScaler() {
+        public void Construction_DoesNotWrapContentInALayoutTransform() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
             window.Show();

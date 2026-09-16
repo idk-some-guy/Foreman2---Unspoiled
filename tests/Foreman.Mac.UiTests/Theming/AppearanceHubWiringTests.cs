@@ -1,10 +1,15 @@
 using Avalonia;
 using Avalonia.Headless.XUnit;
+using Foreman;
+using Foreman.DataCaching;
 using Foreman.Mac;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
+using Foreman.Mac.UiTests.Views;
+using Foreman.Mac.Views;
 using System;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Theming {
@@ -24,6 +29,8 @@ namespace Foreman.Mac.UiTests.Theming {
             GC.SuppressFinalize(this);
         }
 
+        private static int SubscriberCount => ((App)Application.Current!).Hub.SubscriberCount;
+
         [AvaloniaFact]
         public void SetScale_NotifiesTheAppWideHubsSubscribers() {
             var hub = ((App)Application.Current!).Hub;
@@ -33,6 +40,72 @@ namespace Foreman.Mac.UiTests.Theming {
             WindowScaler.SetScale(1.5);
 
             Assert.True(subscriber.RefreshCount > 0);
+        }
+
+        //AddBrowserWindow's real open/shut signal is IsVisible, not Closed - MainWindow hides rather than closes it.
+        [AvaloniaFact]
+        public void AddBrowserWindow_JoinsTheHubOnShow_AndLeavesOnHide() {
+            int before = SubscriberCount;
+            var window = new AddBrowserWindow();
+            Assert.Equal(before, SubscriberCount);
+
+            window.Show();
+            Assert.Equal(before + 1, SubscriberCount);
+
+            window.Hide();
+            Assert.Equal(before, SubscriberCount);
+        }
+
+        [AvaloniaFact]
+        public void SettingsWindow_JoinsTheHubOnConstruction_AndLeavesOnClose() {
+            int before = SubscriberCount;
+            var window = new SettingsWindow();
+            Assert.Equal(before + 1, SubscriberCount);
+
+            window.Close();
+            Assert.Equal(before, SubscriberCount);
+        }
+
+        [AvaloniaFact]
+        public void AboutWindow_JoinsTheHubOnConstruction_AndLeavesOnClose() {
+            int before = SubscriberCount;
+            var window = new AboutWindow();
+            Assert.Equal(before + 1, SubscriberCount);
+
+            window.Close();
+            Assert.Equal(before, SubscriberCount);
+        }
+
+        [AvaloniaFact]
+        public void PresetComparatorWindow_JoinsTheHubOnConstruction_AndLeavesOnClose() {
+            int before = SubscriberCount;
+            var window = new PresetComparatorWindow();
+            Assert.Equal(before + 1, SubscriberCount);
+
+            window.Close();
+            Assert.Equal(before, SubscriberCount);
+        }
+
+        [AvaloniaFact]
+        public async Task DataLoadWindow_JoinsTheHubOnConstruction_AndLeavesOnceLoadFinishesAndCloses() {
+            int before = SubscriberCount;
+            var window = new DataLoadWindow(new Preset("Nonexistent Preset", true, true));
+            Assert.Equal(before + 1, SubscriberCount);
+
+            await window.LoadTask;
+
+            Assert.Equal(before, SubscriberCount);
+        }
+
+        [AvaloniaFact]
+        public void GalleryWindow_JoinsTheHubOnConstruction_AndLeavesOnClose() {
+            int before = SubscriberCount;
+            DataCache cache = GalleryWindowTests.NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            Assert.Equal(before + 1, SubscriberCount);
+
+            window.Close();
+            Assert.Equal(before, SubscriberCount);
         }
     }
 }

@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Foreman.Mac.Converters;
-using Foreman.Mac.Services;
 using System.Globalization;
 
 namespace Foreman.Mac.UiTests.support {
@@ -61,7 +60,6 @@ namespace Foreman.Mac.UiTests.support {
             Content = root;
 
             RefreshMargin();
-            WindowScaler.Track(this);
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {

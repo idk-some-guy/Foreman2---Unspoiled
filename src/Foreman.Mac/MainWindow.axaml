@@ -3,6 +3,7 @@
         xmlns:vm="using:Foreman.Mac.ViewModels"
         xmlns:conv="using:Foreman.Mac.Converters"
         xmlns:inspector="using:Foreman.Mac.Views.Inspector"
+        xmlns:composites="using:Foreman.Mac.Kit.Composites"
         x:Class="Foreman.Mac.MainWindow"
         x:Name="RootWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -265,6 +266,8 @@
       <ContentControl Name="GraphViewerHost" />
       <inspector:InspectorView Name="Inspector" DataContext="{Binding Inspector}"
                                 HorizontalAlignment="Right" ZIndex="1" />
+      <!-- PopoverFrame throws without a PopoverHost ancestor - this spans the row so every future consumer reaches it. -->
+      <composites:PopoverHost Name="ContentPopoverHost" ZIndex="2" />
     </Grid>
   </Grid>
 </Window>
