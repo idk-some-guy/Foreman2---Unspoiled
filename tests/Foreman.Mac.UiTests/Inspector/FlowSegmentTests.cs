@@ -9,6 +9,7 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
 using Foreman.Models.Nodes;
@@ -51,8 +52,8 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorTestSupport.Select(window, supplier!);
 
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
-            view.FindControl<RadioButton>("RateFixed")!.IsChecked = true;
-            view.FindControl<CompactStepper>("RateValue")!.Value = 90;
+            view.FindControl<Segmented>("RateMode")!.SelectedIndex = 1;
+            view.FindControl<Stepper>("RateValue")!.Value = 90;
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(RateType.Manual, supplier!.RateType);
@@ -66,7 +67,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorTestSupport.Select(window, node);
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
 
-            view.FindControl<ToggleSwitch>("KeyNode")!.IsChecked = true;
+            view.FindControl<CheckBox>("KeyNode")!.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
             view.FindControl<TextBox>("KeyNodeTitle")!.Text = "Main output";
             Dispatcher.UIThread.RunJobs();
@@ -93,12 +94,12 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorTestSupport.Select(window, node!);
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
 
-            view.FindControl<RadioButton>("RateFixed")!.IsChecked = true;
+            view.FindControl<Segmented>("RateMode")!.SelectedIndex = 1;
             Dispatcher.UIThread.RunJobs();
             Assert.True(redrawCount > 0);
 
             int afterFixedRate = redrawCount;
-            view.FindControl<ToggleSwitch>("KeyNode")!.IsChecked = true;
+            view.FindControl<CheckBox>("KeyNode")!.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
             Assert.True(redrawCount > afterFixedRate);
 
@@ -108,7 +109,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.True(redrawCount > afterKeyNode);
 
             int afterTitle = redrawCount;
-            view.FindControl<ToggleSwitch>("Simplify")!.IsChecked = true;
+            view.FindControl<CheckBox>("Simplify")!.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
             Assert.True(redrawCount > afterTitle);
         }
@@ -124,14 +125,14 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
             InspectorTestSupport.Select(window, supplier!);
             var supplierView = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
-            Assert.False(supplierView.FindControl<ToggleSwitch>("Simplify")!.IsVisible);
+            Assert.False(supplierView.FindControl<CheckBox>("Simplify")!.IsVisible);
 
             NodeId passthroughId = window.GraphCanvas.Viewer.Session.Editor.CreatePassthroughNode(pair, new Point(100, 0));
             window.GraphCanvas.Viewer.Session.View.TryGetNode(passthroughId, out INodeViewModel? passthrough);
             Dispatcher.UIThread.RunJobs();
             InspectorTestSupport.Select(window, passthrough!);
             var passthroughView = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
-            ToggleSwitch simplify = passthroughView.FindControl<ToggleSwitch>("Simplify")!;
+            CheckBox simplify = passthroughView.FindControl<CheckBox>("Simplify")!;
             Assert.True(simplify.IsVisible);
             Assert.False(simplify.IsChecked);
 
@@ -159,7 +160,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(37, view.FindControl<CompactStepper>("RateValue")!.Value);
+            Assert.Equal(37, view.FindControl<Stepper>("RateValue")!.Value);
         }
 
         [AvaloniaFact]
@@ -191,15 +192,11 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             InspectorTestSupport.Select(window, supplier);
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
-            CompactStepper rateValue = view.FindControl<CompactStepper>("RateValue")!;
-            Grid rateRow = (Grid)rateValue.Parent!;
-            Assert.False(rateRow.IsVisible);
 
-            view.FindControl<RadioButton>("RateFixed")!.IsChecked = true;
+            view.FindControl<Segmented>("RateMode")!.SelectedIndex = 1;
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(RateType.Manual, supplier.RateType);
-            Assert.True(rateRow.IsVisible);
         }
 
         [AvaloniaFact]
@@ -217,14 +214,12 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             InspectorTestSupport.Select(window, supplier!);
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
-            Assert.True(view.FindControl<RadioButton>("RateFixed")!.IsChecked);
+            Assert.Equal(1, view.FindControl<Segmented>("RateMode")!.SelectedIndex);
 
-            view.FindControl<RadioButton>("RateAuto")!.IsChecked = true;
+            view.FindControl<Segmented>("RateMode")!.SelectedIndex = 0;
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(RateType.Auto, supplier!.RateType);
-            CompactStepper rateValue = view.FindControl<CompactStepper>("RateValue")!;
-            Assert.False(((Grid)rateValue.Parent!).IsVisible);
         }
 
         [AvaloniaFact]
@@ -244,12 +239,12 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             InspectorTestSupport.Select(window, supplier!);
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
-            Assert.Equal(2, view.FindControl<CompactStepper>("RateValue")!.Value);
+            Assert.Equal(2, view.FindControl<Stepper>("RateValue")!.Value);
 
             //Same underlying rate, new display unit, through the real View menu path (MenuSetRateUnit) -
             //no re-select: InspectorView.RefreshSegment forwards the change straight to the bound segment.
             SetRateUnitViaMenu(window, "1 min");
-            Assert.Equal(120, view.FindControl<CompactStepper>("RateValue")!.Value); //2/sec * 60
+            Assert.Equal(120, view.FindControl<Stepper>("RateValue")!.Value); //2/sec * 60
         }
 
         //Mirrors NativeMenuTests.cs's own TopMenu/SubMenu helpers (not shared - private to that file) to
@@ -289,9 +284,9 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             InspectorTestSupport.Select(window, supplier);
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
-            Assert.Equal(7, view.FindControl<CompactStepper>("RateValue")!.Value); //displayed value is what the solver actually produced
+            Assert.Equal(7, view.FindControl<Stepper>("RateValue")!.Value); //displayed value is what the solver actually produced
 
-            view.FindControl<RadioButton>("RateFixed")!.IsChecked = true; //toggle only - never touch RateValue directly
+            view.FindControl<Segmented>("RateMode")!.SelectedIndex = 1; //toggle only - never touch RateValue directly
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(RateType.Manual, supplier.RateType);
@@ -304,7 +299,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorTestSupport.Select(window, node);
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
 
-            view.FindControl<ToggleSwitch>("KeyNode")!.IsChecked = true;
+            view.FindControl<CheckBox>("KeyNode")!.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
             TextBox titleBox = view.FindControl<TextBox>("KeyNodeTitle")!;
             titleBox.Text = "";

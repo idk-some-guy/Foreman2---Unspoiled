@@ -3,6 +3,7 @@
              xmlns:vm="using:Foreman.Mac.ViewModels"
              xmlns:insp="using:Foreman.Mac.Views.Inspector"
              xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
              x:Class="Foreman.Mac.Views.Inspector.RecipeSegmentView"
              x:DataType="vm:RecipeSegmentViewModel">
   <StackPanel Spacing="0">
@@ -21,32 +22,26 @@
     <Border Classes="foreman-inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
 
     <kit:InspectorGroup Header="Rate" Theme="{StaticResource Kit.InspectorGroup}">
-      <StackPanel Spacing="0">
-        <Border Classes="foreman-seg-mini" HorizontalAlignment="Left">
-          <StackPanel Orientation="Horizontal" Spacing="2">
-            <RadioButton Name="RateAuto" GroupName="RecipeRateType" Content="Auto" Classes="foreman-seg-mini-item" />
-            <RadioButton Name="RateFixed" GroupName="RecipeRateType" Content="Fixed" Classes="foreman-seg-mini-item"
-                         IsChecked="{Binding IsFixedRate, Mode=TwoWay}" />
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Mode" LabelColumn="Inspector">
+          <ctrl:Segmented Name="RateMode" Theme="{StaticResource Kit.Segmented}" Classes="mini" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Buildings" LabelColumn="Inspector">
+          <ctrl:Stepper Name="AssemblerCountValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Decimals="2"
+                        IsEnabled="{Binding IsFixedRate}" Value="{Binding AssemblerCount, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Options" LabelColumn="Inspector">
+          <StackPanel Spacing="2">
+            <CheckBox Name="LowPriority" Theme="{StaticResource Kit.CheckBox}" Content="Low-priority recipe"
+                      IsChecked="{Binding LowPriority, Mode=TwoWay}" />
+            <CheckBox Name="KeyNode" Theme="{StaticResource Kit.CheckBox}" Content="Key node"
+                      IsChecked="{Binding IsKeyNode, Mode=TwoWay}" />
           </StackPanel>
-        </Border>
-        <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto">
-          <TextBlock Grid.Column="0" Text="# Assemblers" Classes="foreman-row-label" />
-          <insp:CompactStepper Grid.Column="1" Name="AssemblerCountValue" Minimum="0" FormatString="N2"
-                                IsEnabled="{Binding IsFixedRate}" Value="{Binding AssemblerCount, Mode=TwoWay}" />
-        </Grid>
-        <Grid Classes="foreman-toggle-row" ColumnDefinitions="*,Auto">
-          <TextBlock Grid.Column="0" Text="Low Priority Recipe" Classes="foreman-row-label" />
-          <ToggleSwitch Grid.Column="1" Name="LowPriority" Classes="foreman-mini-switch" OnContent="{x:Null}" OffContent="{x:Null}"
-                        IsChecked="{Binding LowPriority, Mode=TwoWay}" />
-        </Grid>
-        <Grid Classes="foreman-toggle-row" ColumnDefinitions="*,Auto">
-          <TextBlock Grid.Column="0" Text="Key Node" Classes="foreman-row-label" />
-          <ToggleSwitch Grid.Column="1" Name="KeyNode" Classes="foreman-mini-switch" OnContent="{x:Null}" OffContent="{x:Null}"
-                        IsChecked="{Binding IsKeyNode, Mode=TwoWay}" />
-        </Grid>
-        <TextBox Name="KeyNodeTitle" MaxLength="200" IsVisible="{Binding IsKeyNode}"
-                  Text="{Binding KeyNodeTitle, Mode=TwoWay}" />
-      </StackPanel>
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Inspector" IsVisible="{Binding IsKeyNode}">
+          <TextBox Name="KeyNodeTitle" MaxLength="200" Text="{Binding KeyNodeTitle, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
     </kit:InspectorGroup>
 
     <Border Classes="foreman-inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
@@ -63,16 +58,18 @@
           </StackPanel>
         </StackPanel>
         <insp:PickGrid Name="AssemblerGrid" Items="{Binding AssemblerOptions}" Margin="0,0,0,4" />
-        <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto" IsVisible="{Binding ShowsNeighbours}">
-          <TextBlock Grid.Column="0" Text="Avg. neighbours" Classes="foreman-row-label" />
-          <insp:CompactStepper Grid.Column="1" Name="AvgNeighboursValue" Minimum="0" Maximum="100" Increment="0.05" FormatString="N2"
-                                IsVisible="{Binding ShowsNeighbours}" Value="{Binding AvgNeighbours, Mode=TwoWay}" />
-        </Grid>
-        <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto" IsVisible="{Binding ShowsExtraProductivity}">
-          <TextBlock Grid.Column="0" Text="Extra productivity %" Classes="foreman-row-label" />
-          <insp:CompactStepper Grid.Column="1" Name="ExtraProductivityValue" Minimum="0" Maximum="100000" Increment="10" FormatString="N2"
-                                IsVisible="{Binding ShowsExtraProductivity}" Value="{Binding ExtraProductivityPercent, Mode=TwoWay}" />
-        </Grid>
+        <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+          <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Neighbours" LabelColumn="Inspector"
+                       IsVisible="{Binding ShowsNeighbours}">
+            <ctrl:Stepper Name="AvgNeighboursValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="100" Increment="0.05" Decimals="2"
+                          IsVisible="{Binding ShowsNeighbours}" Value="{Binding AvgNeighbours, Mode=TwoWay}" />
+          </kit:FormRow>
+          <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Extra prod." LabelColumn="Inspector"
+                       IsVisible="{Binding ShowsExtraProductivity}">
+            <ctrl:Stepper Name="ExtraProductivityValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="100000" Increment="10" Decimals="2"
+                          Unit="%" IsVisible="{Binding ShowsExtraProductivity}" Value="{Binding ExtraProductivityPercent, Mode=TwoWay}" />
+          </kit:FormRow>
+        </kit:FormGroup>
       </StackPanel>
     </kit:InspectorGroup>
 
@@ -84,16 +81,21 @@
     <Border Classes="foreman-inspector-group-rule" Height="1" IsVisible="{Binding ShowsFuel}"
             Background="{DynamicResource Foreman.Color.Border}" />
 
-    <kit:InspectorGroup Header="{Binding ModulesTitle}" Theme="{StaticResource Kit.InspectorGroup}">
-      <StackPanel Spacing="{StaticResource Foreman.Space.Space2}">
-        <insp:PickGrid Name="EquippedGrid" Items="{Binding EquippedModules}" />
-        <TextBlock Text="Tap an equipped module to remove it; tap an option below to add."
-                   Classes="foreman-field-note" TextWrapping="Wrap" />
-        <insp:PickGrid Name="ModuleOptionsGrid" Items="{Binding ModuleOptions}" />
-      </StackPanel>
+    <kit:InspectorGroup Name="ModulesGroup" Header="{Binding ModulesTitle}" IsVisible="{Binding HasModuleSlots}" Theme="{StaticResource Kit.InspectorGroup}">
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Equipped" LabelColumn="Inspector"
+                     Note="{Binding ModulesHelpText}">
+          <kit:PickGrid Name="EquippedGrid" Theme="{StaticResource Kit.PickGrid}" GroupLabel="Module slots" EmptyItemNoun="module" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Add" LabelColumn="Inspector"
+                     IsVisible="{Binding HasModuleOptions}">
+          <kit:PickGrid Name="ModuleOptionsGrid" Theme="{StaticResource Kit.PickGrid}" GroupLabel="Available modules" NamesSlots="False" EmptyItemNoun="module" />
+        </kit:FormRow>
+      </kit:FormGroup>
     </kit:InspectorGroup>
 
-    <Border Classes="foreman-inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
+    <Border Classes="foreman-inspector-group-rule" Height="1" IsVisible="{Binding HasModuleSlots}"
+            Background="{DynamicResource Foreman.Color.Border}" />
 
     <kit:InspectorGroup Name="BeaconGroup" Header="Beacon" Theme="{StaticResource Kit.InspectorGroup}">
       <StackPanel Spacing="0">
@@ -109,24 +111,28 @@
         </StackPanel>
         <insp:PickGrid Name="BeaconOptions" Items="{Binding BeaconOptions}" Margin="0,0,0,4" />
 
-        <StackPanel Name="BeaconDetail" Spacing="0" IsVisible="{Binding HasBeacon}">
-          <insp:PickGrid Name="EquippedBeaconGrid" Items="{Binding EquippedBeaconModules}" Margin="0,0,0,4" />
-          <insp:PickGrid Name="BeaconModuleOptionsGrid" Items="{Binding BeaconModuleOptions}" Margin="0,0,0,4" />
-          <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Text="# Beacons" Classes="foreman-row-label" />
-            <insp:CompactStepper Grid.Column="1" Name="BeaconCountValue" Minimum="0" Maximum="1000" FormatString="0.##"
-                                  Value="{Binding BeaconCount, Mode=TwoWay}" />
-          </Grid>
-          <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Text="/ Assembler" Classes="foreman-row-label" />
-            <insp:CompactStepper Grid.Column="1" Name="BeaconsPerAssemblerValue" Minimum="0" Maximum="1000" FormatString="N2"
-                                  Value="{Binding BeaconsPerAssembler, Mode=TwoWay}" />
-          </Grid>
-          <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Text="Additional" Classes="foreman-row-label" />
-            <insp:CompactStepper Grid.Column="1" Name="BeaconsTotalValue" Minimum="0" Maximum="1000" FormatString="N2"
-                                  Value="{Binding BeaconsTotal, Mode=TwoWay}" />
-          </Grid>
+        <StackPanel Name="BeaconDetail" Spacing="{StaticResource Foreman.Space.Space2}" IsVisible="{Binding HasBeacon}">
+          <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+            <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Equipped" LabelColumn="Inspector">
+              <kit:PickGrid Name="EquippedBeaconGrid" Theme="{StaticResource Kit.PickGrid}" GroupLabel="Beacon module slots" EmptyItemNoun="module" />
+            </kit:FormRow>
+            <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Add" LabelColumn="Inspector"
+                         IsVisible="{Binding HasBeaconModuleOptions}">
+              <kit:PickGrid Name="BeaconModuleOptionsGrid" Theme="{StaticResource Kit.PickGrid}" GroupLabel="Available beacon modules" NamesSlots="False" EmptyItemNoun="module" />
+            </kit:FormRow>
+            <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="# Beacons" LabelColumn="Inspector">
+              <ctrl:Stepper Name="BeaconCountValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="1000" Decimals="2"
+                            Value="{Binding BeaconCount, Mode=TwoWay}" />
+            </kit:FormRow>
+            <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="/ Assembler" LabelColumn="Inspector">
+              <ctrl:Stepper Name="BeaconsPerAssemblerValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="1000" Decimals="2"
+                            Value="{Binding BeaconsPerAssembler, Mode=TwoWay}" />
+            </kit:FormRow>
+            <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Additional" LabelColumn="Inspector">
+              <ctrl:Stepper Name="BeaconsTotalValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="1000" Decimals="2"
+                            Value="{Binding BeaconsTotal, Mode=TwoWay}" />
+            </kit:FormRow>
+          </kit:FormGroup>
         </StackPanel>
       </StackPanel>
     </kit:InspectorGroup>

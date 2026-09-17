@@ -1,45 +1,40 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Foreman.Mac.ViewModels"
-             xmlns:insp="using:Foreman.Mac.Views.Inspector"
              xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
              x:Class="Foreman.Mac.Views.Inspector.FlowSegmentView"
              x:DataType="vm:FlowSegmentViewModel">
   <StackPanel Spacing="0">
     <kit:InspectorGroup Header="Rate" Theme="{StaticResource Kit.InspectorGroup}">
-      <StackPanel Spacing="0">
-        <Border Classes="foreman-seg-mini" HorizontalAlignment="Left">
-          <StackPanel Orientation="Horizontal" Spacing="2">
-            <RadioButton Name="RateAuto" GroupName="FlowRateType" Content="Auto" Classes="foreman-seg-mini-item" />
-            <RadioButton Name="RateFixed" GroupName="FlowRateType" Content="Fixed" Classes="foreman-seg-mini-item"
-                         IsChecked="{Binding IsFixedRate, Mode=TwoWay}" />
-          </StackPanel>
-        </Border>
-        <Grid Classes="foreman-insp-row" ColumnDefinitions="*,Auto" IsVisible="{Binding IsFixedRate}">
-          <TextBlock Grid.Column="0" Text="Rate" Classes="foreman-row-label" />
-          <insp:CompactStepper Grid.Column="1" Name="RateValue" Minimum="0" FormatString="N4"
-                                Value="{Binding FixedRate, Mode=TwoWay}" />
-        </Grid>
-      </StackPanel>
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Mode" LabelColumn="Inspector">
+          <ctrl:Segmented Name="RateMode" Theme="{StaticResource Kit.Segmented}" Classes="mini" />
+        </kit:FormRow>
+        <kit:FormRow Name="RateValueRow" Theme="{StaticResource Kit.FormRow}" Label="Rate" LabelColumn="Inspector"
+                     IsVisible="{Binding IsFixedRate}">
+          <ctrl:Stepper Name="RateValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Decimals="4"
+                        Value="{Binding FixedRate, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
     </kit:InspectorGroup>
 
     <Border Classes="foreman-inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
 
     <kit:InspectorGroup Header="Node" Theme="{StaticResource Kit.InspectorGroup}">
-      <StackPanel Spacing="0">
-        <Grid Classes="foreman-toggle-row" ColumnDefinitions="*,Auto">
-          <TextBlock Grid.Column="0" Text="Key Node" Classes="foreman-row-label" />
-          <ToggleSwitch Grid.Column="1" Name="KeyNode" Classes="foreman-mini-switch" OnContent="{x:Null}" OffContent="{x:Null}"
-                        IsChecked="{Binding IsKeyNode, Mode=TwoWay}" />
-        </Grid>
-        <TextBox Name="KeyNodeTitle" MaxLength="200" IsVisible="{Binding IsKeyNode}"
-                  Text="{Binding KeyNodeTitle, Mode=TwoWay}" />
-        <Grid Classes="foreman-toggle-row" ColumnDefinitions="*,Auto" IsVisible="{Binding ShowsSimplify}">
-          <TextBlock Grid.Column="0" Text="Simplify throughput node" Classes="foreman-row-label" />
-          <ToggleSwitch Grid.Column="1" Name="Simplify" Classes="foreman-mini-switch" OnContent="{x:Null}" OffContent="{x:Null}"
-                        IsVisible="{Binding ShowsSimplify}" IsChecked="{Binding SimplifyThroughput, Mode=TwoWay}" />
-        </Grid>
-      </StackPanel>
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Options" LabelColumn="Inspector">
+          <StackPanel Spacing="2">
+            <CheckBox Name="KeyNode" Theme="{StaticResource Kit.CheckBox}" Content="Key node"
+                      IsChecked="{Binding IsKeyNode, Mode=TwoWay}" />
+            <CheckBox Name="Simplify" Theme="{StaticResource Kit.CheckBox}" Content="Draw simplified"
+                      IsVisible="{Binding ShowsSimplify}" IsChecked="{Binding SimplifyThroughput, Mode=TwoWay}" />
+          </StackPanel>
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Inspector" IsVisible="{Binding IsKeyNode}">
+          <TextBox Name="KeyNodeTitle" MaxLength="200" Text="{Binding KeyNodeTitle, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
     </kit:InspectorGroup>
   </StackPanel>
 </UserControl>

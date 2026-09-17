@@ -13,7 +13,6 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
-using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
@@ -127,7 +126,6 @@ namespace Foreman.Mac.Views {
         //future showcase additions register into instead of GalleryWindow growing more inline Build* calls.
         private static GalleryRegistry BuildRegistry(DataCache cache) {
             var registry = new GalleryRegistry();
-            registry.Register(new GalleryTile("Canvas", "QualityPicker", "Default", () => ChromeWrap(BuildQualityPicker(cache))));
             registry.Register(new GalleryTile("Theme", "Graph Summary rows", "Default", BuildSummaryRowsShowcaseTile));
             registry.Register(new GalleryTile("Theme", "Preset Comparator rows", "Default", BuildComparatorRowsShowcaseTile));
             registry.Register(new GalleryTile("Theme", "Enabled Objects rows", "Default", () => BuildEnabledObjectsRowsShowcaseTile(cache)));
@@ -1343,8 +1341,8 @@ namespace Foreman.Mac.Views {
             };
         }
 
-        //Modules (two filled, two empty) and Beacon modules (two filled), each a PickGrid inside a
-        //Kit.FormRow control column, matching the addendum's own figure.
+        //Modules (two filled, two empty, the first selected) and Beacon modules (two filled), each a
+        //PickGrid inside a Kit.FormRow control column, matching the addendum's own figure.
         private static StackPanel BuildPickGridTile() {
             IImage productivity = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue));
             IImage speed = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Warning", Colors.Orange));
@@ -1354,6 +1352,7 @@ namespace Foreman.Mac.Views {
             modules.Slots.Add(new PickSlot { Icon = speed, Name = "Speed Module 2" });
             modules.Slots.Add(new PickSlot { IsEmpty = true });
             modules.Slots.Add(new PickSlot { IsEmpty = true });
+            modules.SelectedIndex = 0;
 
             var beacons = new PickGrid { Theme = KitTheme("Kit.PickGrid"), GroupLabel = "Beacon modules" };
             beacons.Slots.Add(new PickSlot { Icon = speed, Name = "Speed Module 2" });
@@ -2210,14 +2209,5 @@ namespace Foreman.Mac.Views {
             return stack;
         }
 
-        //QualityPicker never floats on its own in the real app - approximates its former black-chrome host.
-        private static Border ChromeWrap(Control content) =>
-            new() { Background = ThemeResources.ResolveBrush("Foreman.Color.GalleryChrome", Colors.Black), Padding = new Thickness(8), Child = content };
-
-        private static QualityPicker BuildQualityPicker(DataCache cache) {
-            var picker = new QualityPicker();
-            picker.SetQualities(cache.AvailableQualities.Where(q => q.Enabled));
-            return picker;
-        }
     }
 }

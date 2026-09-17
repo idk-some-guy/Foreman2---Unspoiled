@@ -123,7 +123,30 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(Application.Current!.FindResource("Kit.Glyph.Plus.12"), glyph.Data);
             Assert.Equal(fixture.Brush("Foreman.Color.TextTertiary").ToImmutable(), glyph.Fill?.ToImmutable());
             Assert.Equal(0, Icon(cell).Opacity);
+            Assert.Equal("Empty slot — press Return to choose", ToolTip.GetTip(cell));
+        }
+
+        [AvaloniaFact]
+        public void Empty_WithAnEmptyItemNoun_NamesItInTheTooltip() {
+            using var fixture = new KitFixture();
+            PickCell cell = Themed();
+            cell.IsEmpty = true;
+            cell.EmptyItemNoun = "module";
+            fixture.Window.Content = cell;
+            Dispatcher.UIThread.RunJobs();
+
             Assert.Equal("Empty slot — press Return to choose a module", ToolTip.GetTip(cell));
+        }
+
+        [AvaloniaFact]
+        public void Filled_TooltipEqualsTheAccessibleName() {
+            using var fixture = new KitFixture();
+            PickCell cell = Themed();
+            cell.AccessibleName = "Productivity Module 3";
+            fixture.Window.Content = cell;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("Productivity Module 3", ToolTip.GetTip(cell));
         }
 
         [AvaloniaFact]

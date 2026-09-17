@@ -22,7 +22,6 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Type.Legacy.Browser.Row.FontSize",
             "Foreman.Type.Legacy.Kbd.FontSize",
             "Foreman.Type.Legacy.SearchField.FontSize",
-            "Foreman.Type.Legacy.Toolbar.Label.FontSize",
             "Foreman.Type.Legacy.ToolbarItem.Label.FontSize",
             "Foreman.Type.Canvas.FontSize",
             "Foreman.Size.InspectorWidth",

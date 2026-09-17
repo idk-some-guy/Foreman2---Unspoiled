@@ -152,6 +152,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The inspector's Recipe group now shows its own header, and when the node's recipe is missing from
   the current preset it swaps its card for Kit.StatePanel.error with Open Presets and Pick Another
   Recipe buttons, while the Rate, Assembler, Fuel, Modules and Beacon groups stay live.
+- The inspector's form body now composes Kit.FormRow and Kit.FormGroup at the 108pt inspector label
+  column: Low-priority recipe, Key node and Draw simplified are checkboxes instead of switches;
+  Quality is a pop-up button carrying its badge icon beside the word; the Auto/Fixed rate toggle is
+  a real segmented control; and the module and beacon slots are Kit.PickGrid, with empty slots drawn
+  as a plus glyph, a click on an option equipping it into the selected slot, Delete clearing a
+  filled one, and Return moving focus to the option grid below it. A building with no module slots
+  no longer shows an empty Modules group. Solving no longer rebuilds every pick grid from scratch -
+  only the slots whose content actually changed update, so a focused grid keeps its focus and
+  selection through a solve. Building, Beacon and Fuel stay on their existing icon-grid pickers for
+  now, pending a Kit.PickGrid choice mode. The old Recipe/Flow segmented control stays gone (its
+  type moved to the identity row in an earlier pass).
 
 ### Fixed
 

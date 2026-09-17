@@ -9,6 +9,7 @@ using Avalonia.Styling;
 using Foreman.Mac.Kit.Controls;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 
 namespace Foreman.Mac.Kit.Composites {
     //A row (or, given Columns, a wrapped block) of PickCell slots; the grid is the sole tab stop, so arrow/Home/End/Return/Delete are all handled here.
@@ -18,11 +19,20 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<int> ColumnsProperty =
             AvaloniaProperty.Register<PickGrid, int>(nameof(Columns));
 
+        //-1 is the grid's own "nothing selected" state, the default until the user picks a cell.
         public static readonly StyledProperty<int> SelectedIndexProperty =
-            AvaloniaProperty.Register<PickGrid, int>(nameof(SelectedIndex));
+            AvaloniaProperty.Register<PickGrid, int>(nameof(SelectedIndex), -1);
 
         public static readonly StyledProperty<string?> GroupLabelProperty =
             AvaloniaProperty.Register<PickGrid, string?>(nameof(GroupLabel), "Slots");
+
+        //Equipped grids hold fixed positions ("slot"); a catalog/option grid holds none - the host says which by setting this false.
+        public static readonly StyledProperty<bool> NamesSlotsProperty =
+            AvaloniaProperty.Register<PickGrid, bool>(nameof(NamesSlots), true);
+
+        //The empty-cell tooltip's noun, propagated to every PickCell - the kit names none by default.
+        public static readonly StyledProperty<string?> EmptyItemNounProperty =
+            AvaloniaProperty.Register<PickGrid, string?>(nameof(EmptyItemNoun));
 
         public AvaloniaList<PickSlot> Slots { get; }
 
@@ -42,8 +52,22 @@ namespace Foreman.Mac.Kit.Composites {
             set => SetValue(GroupLabelProperty, value);
         }
 
+        public bool NamesSlots {
+            get => GetValue(NamesSlotsProperty);
+            set => SetValue(NamesSlotsProperty, value);
+        }
+
+        public string? EmptyItemNoun {
+            get => GetValue(EmptyItemNounProperty);
+            set => SetValue(EmptyItemNounProperty, value);
+        }
+
         public event EventHandler<int>? ChooseRequested;
         public event EventHandler<int>? Cleared;
+
+        //Fires on a pointer click specifically (never on keyboard/arrow selection) - the app's own equip
+        //flow needs to tell "the user clicked this cell" apart from SelectedIndex simply changing.
+        public event EventHandler<int>? CellClicked;
 
         private Grid? track;
         private readonly List<PickCell> cells = [];
@@ -57,16 +81,21 @@ namespace Foreman.Mac.Kit.Composites {
             ColumnsProperty.Changed.AddClassHandler<PickGrid>((g, _) => g.Rebuild());
             SelectedIndexProperty.Changed.AddClassHandler<PickGrid>((g, e) => g.CoerceAndApplySelection(e));
             GroupLabelProperty.Changed.AddClassHandler<PickGrid>((g, _) => g.ApplyAutomationName());
+            NamesSlotsProperty.Changed.AddClassHandler<PickGrid>((g, _) => g.Rebuild());
+            EmptyItemNounProperty.Changed.AddClassHandler<PickGrid>((g, _) => g.Rebuild());
         }
 
         public PickGrid() {
             Slots = [];
-            Slots.CollectionChanged += (_, _) => Rebuild();
+            Slots.CollectionChanged += OnSlotsChanged;
             GotFocus += (_, e) => {
-                if (e.NavigationMethod is NavigationMethod.Tab or NavigationMethod.Directional) {
-                    hasKeyboardFocus = true;
-                    ApplySelection();
-                }
+                if (e.NavigationMethod == NavigationMethod.Pointer)
+                    return;
+                hasKeyboardFocus = true;
+                //Keyboard entry needs a cell to land on, or the rings draw nothing and Return/Delete aim at nothing.
+                if (SelectedIndex < 0 && Slots.Count > 0)
+                    SetCurrentValue(SelectedIndexProperty, 0);
+                ApplySelection();
             };
             LostFocus += (_, _) => {
                 hasKeyboardFocus = false;
@@ -100,22 +129,22 @@ namespace Foreman.Mac.Kit.Composites {
             int columns = EffectiveColumns();
             switch (e.Key) {
                 case Key.Left:
-                    SetCurrentValue(SelectedIndexProperty, Math.Max(SelectedIndex - 1, 0));
+                    SetCurrentValue(SelectedIndexProperty, SelectedIndex < 0 ? 0 : Math.Max(SelectedIndex - 1, 0));
                     e.Handled = true;
                     break;
                 case Key.Right:
-                    SetCurrentValue(SelectedIndexProperty, Math.Min(SelectedIndex + 1, Slots.Count - 1));
+                    SetCurrentValue(SelectedIndexProperty, SelectedIndex < 0 ? 0 : Math.Min(SelectedIndex + 1, Slots.Count - 1));
                     e.Handled = true;
                     break;
                 case Key.Up: {
-                    int target = SelectedIndex - columns;
+                    int target = SelectedIndex < 0 ? 0 : SelectedIndex - columns;
                     if (target >= 0)
                         SetCurrentValue(SelectedIndexProperty, target);
                     e.Handled = true;
                     break;
                 }
                 case Key.Down: {
-                    int target = SelectedIndex + columns;
+                    int target = SelectedIndex < 0 ? 0 : SelectedIndex + columns;
                     if (target < Slots.Count)
                         SetCurrentValue(SelectedIndexProperty, target);
                     e.Handled = true;
@@ -131,12 +160,16 @@ namespace Foreman.Mac.Kit.Composites {
                     break;
                 case Key.Return:
                 case Key.Space:
-                    ChooseRequested?.Invoke(this, SelectedIndex);
+                    if (SelectedIndex < 0 || ChooseRequested is null)
+                        break;
+                    ChooseRequested.Invoke(this, SelectedIndex);
                     e.Handled = true;
                     break;
                 case Key.Delete:
                 case Key.Back:
-                    Cleared?.Invoke(this, SelectedIndex);
+                    if (SelectedIndex < 0 || Cleared is null)
+                        break;
+                    Cleared.Invoke(this, SelectedIndex);
                     e.Handled = true;
                     break;
             }
@@ -157,8 +190,9 @@ namespace Foreman.Mac.Kit.Composites {
         private int EffectiveColumns() => Columns > 0 ? Math.Min(Columns, Math.Max(Slots.Count, 1)) : Math.Max(Slots.Count, 1);
 
         private void CoerceAndApplySelection(AvaloniaPropertyChangedEventArgs e) {
-            int clamped = Slots.Count == 0 ? 0 : Math.Clamp((int)e.NewValue!, 0, Slots.Count - 1);
-            if (clamped != (int)e.NewValue!) {
+            int requested = (int)e.NewValue!;
+            int clamped = Slots.Count == 0 ? -1 : Math.Clamp(requested, -1, Slots.Count - 1);
+            if (clamped != requested) {
                 SetCurrentValue(SelectedIndexProperty, clamped);
                 return;
             }
@@ -171,6 +205,45 @@ namespace Foreman.Mac.Kit.Composites {
                 cells[i].IsSelected = selected;
                 FocusRing.SetShowAlways(cells[i], selected && hasKeyboardFocus);
             }
+        }
+
+        //Replacing one slot (the common solve-driven case: content changed, count didn't) updates that cell
+        //in place instead of tearing down the whole track - a full Rebuild toggles IsVisible false mid-pass
+        //(see below), which drops keyboard focus on whichever cell held it.
+        private void OnSlotsChanged(object? sender, NotifyCollectionChangedEventArgs e) {
+            if (track is null)
+                return;
+            if (e.Action == NotifyCollectionChangedAction.Replace
+                && e.NewItems?.Count == 1 && e.OldItems?.Count == 1
+                && e.NewStartingIndex < cells.Count) {
+                UpdateCell(e.NewStartingIndex, (PickSlot)e.NewItems[0]!);
+                return;
+            }
+            Rebuild();
+        }
+
+        private void UpdateCell(int index, PickSlot slot) {
+            PickCell cell = cells[index];
+            cell.Icon = slot.Icon;
+            cell.IsEmpty = slot.IsEmpty;
+            cell.IsMissing = slot.IsMissing;
+            cell.IsEnabled = slot.IsEnabled;
+            cell.AccessibleName = slot.Name;
+            ApplyCellAutomation(cell, slot, index);
+        }
+
+        private void ApplyCellAutomation(PickCell cell, PickSlot slot, int index) {
+            string content = slot.IsEmpty ? "Empty" : slot.Name ?? "Empty";
+            string position = NamesSlots ? $"slot {index + 1} of {Slots.Count}" : $"{index + 1} of {Slots.Count}";
+            AutomationProperties.SetName(cell, $"{content}, {position}");
+            AutomationProperties.SetHelpText(cell, BuildCellHelpText());
+        }
+
+        private string BuildCellHelpText() {
+            string help = ChooseRequested is not null ? "Return chooses this item." : "";
+            if (Cleared is not null)
+                help += (help.Length > 0 ? " " : "") + "Delete removes it.";
+            return help;
         }
 
         private void Rebuild() {
@@ -203,6 +276,7 @@ namespace Foreman.Mac.Kit.Composites {
                     IsMissing = slot.IsMissing,
                     IsEnabled = slot.IsEnabled,
                     AccessibleName = slot.Name,
+                    EmptyItemNoun = EmptyItemNoun,
                     Margin = gap,
                 };
                 if (pickCellTheme is not null)
@@ -213,13 +287,12 @@ namespace Foreman.Mac.Kit.Composites {
                     if (args.InitialPressMouseButton == MouseButton.Left) {
                         SetCurrentValue(SelectedIndexProperty, index);
                         Focus(NavigationMethod.Pointer);
+                        CellClicked?.Invoke(this, index);
                     }
                 };
                 cell.Invoked += (_, _) => ChooseRequested?.Invoke(this, index);
 
-                string content = slot.IsEmpty ? "Empty" : slot.Name ?? "Empty";
-                AutomationProperties.SetName(cell, $"{content}, slot {i + 1} of {Slots.Count}");
-                AutomationProperties.SetHelpText(cell, "Return chooses a module. Delete removes it.");
+                ApplyCellAutomation(cell, slot, i);
 
                 Grid.SetRow(cell, i / columns);
                 Grid.SetColumn(cell, i % columns);
@@ -233,7 +306,8 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void ApplyAutomationName() {
             int count = Slots.Count;
-            AutomationProperties.SetName(this, $"{GroupLabel ?? "Slots"}, {count} slot{(count == 1 ? "" : "s")}");
+            string unit = NamesSlots ? "slot" : "item";
+            AutomationProperties.SetName(this, $"{GroupLabel ?? "Slots"}, {count} {unit}{(count == 1 ? "" : "s")}");
         }
 
         private sealed class PickGridAutomationPeer(PickGrid owner) : ControlAutomationPeer(owner) {

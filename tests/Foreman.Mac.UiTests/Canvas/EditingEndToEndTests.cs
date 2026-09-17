@@ -12,6 +12,7 @@ using Foreman.Mac;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
@@ -202,8 +203,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Contains(supplier, window.GraphCanvas.Viewer.SelectedNodes);
 
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
-            view.FindControl<RadioButton>("RateFixed")!.IsChecked = true;
-            view.FindControl<CompactStepper>("RateValue")!.Value = 12.5;
+            view.FindControl<Segmented>("RateMode")!.SelectedIndex = 1;
+            view.FindControl<Stepper>("RateValue")!.Value = 12.5;
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(RateType.Manual, supplier.ViewModel.RateType);

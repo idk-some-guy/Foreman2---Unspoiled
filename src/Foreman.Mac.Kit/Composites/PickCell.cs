@@ -28,6 +28,11 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<string?> AccessibleNameProperty =
             AvaloniaProperty.Register<PickCell, string?>(nameof(AccessibleName));
 
+        //The empty-slot tooltip's noun ("module", "beacon", ...) - the kit itself names no consumer's
+        //vocabulary, so a grid without one set reads as a plain "press Return to choose".
+        public static readonly StyledProperty<string?> EmptyItemNounProperty =
+            AvaloniaProperty.Register<PickCell, string?>(nameof(EmptyItemNoun));
+
         internal static readonly StyledProperty<IBrush?> RingBrushProperty =
             AvaloniaProperty.Register<PickCell, IBrush?>(nameof(RingBrush), Brushes.Transparent);
 
@@ -56,6 +61,11 @@ namespace Foreman.Mac.Kit.Composites {
             set => SetValue(AccessibleNameProperty, value);
         }
 
+        public string? EmptyItemNoun {
+            get => GetValue(EmptyItemNounProperty);
+            set => SetValue(EmptyItemNounProperty, value);
+        }
+
         internal IBrush? RingBrush {
             get => GetValue(RingBrushProperty);
             set => SetValue(RingBrushProperty, value);
@@ -71,6 +81,7 @@ namespace Foreman.Mac.Kit.Composites {
             IsMissingProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
             IconProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
             AccessibleNameProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyTooltip());
+            EmptyItemNounProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyTooltip());
         }
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
@@ -95,10 +106,14 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void ApplyTooltip() {
             string? tip = IsMissing ? AccessibleName
-                : IsEmpty ? "Empty slot — press Return to choose a module"
-                : null;
+                : IsEmpty ? EmptyTooltip()
+                : AccessibleName;
             ToolTip.SetTip(this, tip);
         }
+
+        private string EmptyTooltip() => string.IsNullOrEmpty(EmptyItemNoun)
+            ? "Empty slot — press Return to choose"
+            : $"Empty slot — press Return to choose a {EmptyItemNoun}";
 
         private sealed class PickCellAutomationPeer(PickCell owner) : ControlAutomationPeer(owner), IInvokeProvider {
             private PickCell Cell => (PickCell)Owner;

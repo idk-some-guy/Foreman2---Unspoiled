@@ -61,16 +61,22 @@ namespace Foreman.Mac.ViewModels {
         public IReadOnlyList<PickGridItem> FuelOptions { get; private set; } = [];
 
         public string ModulesTitle { get; private set; } = "";
+        public int ModuleSlotCount { get; private set; }
+        public bool HasModuleSlots { get; private set; }
+        public string ModulesHelpText { get; private set; } = "";
         public IReadOnlyList<PickGridItem> EquippedModules { get; private set; } = [];
         public IReadOnlyList<PickGridItem> ModuleOptions { get; private set; } = [];
+        public bool HasModuleOptions { get; private set; }
 
         public bool HasBeacon { get; private set; }
         public string BeaconName { get; private set; } = "-none-";
         public PickGridItem? SelectedBeacon { get; private set; }
         public IImage? SelectedBeaconIcon { get; private set; }
         public IReadOnlyList<PickGridItem> BeaconOptions { get; private set; } = [];
+        public int BeaconModuleSlotCount { get; private set; }
         public IReadOnlyList<PickGridItem> EquippedBeaconModules { get; private set; } = [];
         public IReadOnlyList<PickGridItem> BeaconModuleOptions { get; private set; } = [];
+        public bool HasBeaconModuleOptions { get; private set; }
 
         public bool ShowsQuality { get; private set; }
         public IReadOnlyList<PickGridItem> QualityOptions { get; private set; } = [];
@@ -177,6 +183,14 @@ namespace Foreman.Mac.ViewModels {
             IAssembler assembler = node.SelectedAssembler.Assembler;
             ModulesTitle = $"Modules ({node.AssemblerModules.Count}/{assembler.ModuleSlots})";
             OnPropertyChanged(nameof(ModulesTitle));
+            ModuleSlotCount = assembler.ModuleSlots;
+            OnPropertyChanged(nameof(ModuleSlotCount));
+            HasModuleSlots = assembler.ModuleSlots > 0;
+            OnPropertyChanged(nameof(HasModuleSlots));
+            ModulesHelpText = assembler.ModuleSlots > 0
+                ? $"{node.AssemblerModules.Count} of {assembler.ModuleSlots} slots filled. Select a slot and press Delete to empty it, or Return to choose a module."
+                : "";
+            OnPropertyChanged(nameof(ModulesHelpText));
 
             List<IModule> eligible = GetAssemblerModuleOptions();
             EquippedModules = [.. node.AssemblerModules.Select((pair, i) => BuildItem(pair.Module, pair.Icon, isSelected: false,
@@ -187,6 +201,8 @@ namespace Foreman.Mac.ViewModels {
                 new ModuleQualityPair(module, node.SelectedAssembler.Quality).Icon, isSelected: false,
                 isAvailable: module.Available && !module.IsMissing))];
             OnPropertyChanged(nameof(ModuleOptions));
+            HasModuleOptions = ModuleOptions.Count > 0;
+            OnPropertyChanged(nameof(HasModuleOptions));
         }
 
         //Recipe's own assembler-module list intersected with what the current assembler actually accepts.
@@ -199,6 +215,22 @@ namespace Foreman.Mac.ViewModels {
             if (item.Key is not IModule module || node.AssemblerModules.Count >= node.SelectedAssembler.Assembler.ModuleSlots)
                 return;
             controller.AddAssemblerModule(new ModuleQualityPair(module, node.SelectedAssembler.Quality));
+            viewer.Graph.UpdateNodeValues();
+            RefreshComputed();
+            requestRedraw?.Invoke();
+        }
+
+        //Mouse path: clicking an option equips it into the currently selected equipped slot - a filled slot
+        //is replaced in place (the other slots keep their positions); no real selection (the grid's own
+        //-1) or a selection past the last filled slot behaves like AddModule, filling the first empty one.
+        public void EquipModuleAt(PickGridItem item, int equippedSlotIndex) {
+            if (item.Key is not IModule module || node.SelectedAssembler.Assembler.ModuleSlots == 0)
+                return;
+            if (equippedSlotIndex < 0 || equippedSlotIndex >= node.AssemblerModules.Count) {
+                AddModule(item);
+                return;
+            }
+            controller.ReplaceAssemblerModule(equippedSlotIndex, new ModuleQualityPair(module, node.SelectedAssembler.Quality));
             viewer.Graph.UpdateNodeValues();
             RefreshComputed();
             requestRedraw?.Invoke();
@@ -236,6 +268,8 @@ namespace Foreman.Mac.ViewModels {
 
             List<IModule> eligible = GetBeaconModuleOptions();
             int slots = selected.Beacon is IBeacon beaconForSlots ? beaconForSlots.ModuleSlots : 0;
+            BeaconModuleSlotCount = slots;
+            OnPropertyChanged(nameof(BeaconModuleSlotCount));
             EquippedBeaconModules = [.. node.BeaconModules.Select((pair, i) => BuildItem(pair.Module, pair.Icon, isSelected: false,
                 isAvailable: !pair.Module.IsMissing && pair.Module.Available && pair.Module.Enabled && eligible.Contains(pair.Module) && i < slots))];
             OnPropertyChanged(nameof(EquippedBeaconModules));
@@ -244,6 +278,8 @@ namespace Foreman.Mac.ViewModels {
                 new ModuleQualityPair(module, node.SelectedAssembler.Quality).Icon, isSelected: false,
                 isAvailable: module.Available && !module.IsMissing))];
             OnPropertyChanged(nameof(BeaconModuleOptions));
+            HasBeaconModuleOptions = BeaconModuleOptions.Count > 0;
+            OnPropertyChanged(nameof(HasBeaconModuleOptions));
         }
 
         private IReadOnlyList<PickGridItem> BuildBeaconOptions() {
@@ -278,6 +314,20 @@ namespace Foreman.Mac.ViewModels {
             controller.ClearBeacon();
             viewer.Graph.UpdateNodeValues();
             Refresh();
+            requestRedraw?.Invoke();
+        }
+
+        //Same replace-in-place-or-append shape as EquipModuleAt, for the beacon's own module slots.
+        public void EquipBeaconModuleAt(PickGridItem item, int equippedSlotIndex) {
+            if (item.Key is not IModule module || node.SelectedBeacon.Beacon is not IBeacon beacon || beacon.ModuleSlots == 0)
+                return;
+            if (equippedSlotIndex < 0 || equippedSlotIndex >= node.BeaconModules.Count) {
+                AddBeaconModule(item);
+                return;
+            }
+            controller.ReplaceBeaconModule(equippedSlotIndex, new ModuleQualityPair(module, node.SelectedAssembler.Quality));
+            viewer.Graph.UpdateNodeValues();
+            RefreshComputed();
             requestRedraw?.Invoke();
         }
 

@@ -15,7 +15,6 @@ using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
-using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
@@ -112,7 +111,7 @@ namespace Foreman.Mac.UiTests.Views {
             var window = new GalleryWindow(cache, new AppSettings());
 
             Assert.Equal(
-                ["QualityPicker", "Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows",
+                ["Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows",
                  "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)",
                  "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)",
                  "Checkbox", "Radio group", "Switch — Settings only (A16)", "Checkbox, Radio group & Switch (150%)",
@@ -156,7 +155,6 @@ namespace Foreman.Mac.UiTests.Views {
 
             string[] captions = [.. window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
 
-            Assert.Contains("QualityPicker", captions);
             Assert.Contains("Type ramp", captions);
             Assert.Contains("Glyphs", captions);
             Assert.Contains("Type ramp & Glyphs (150%)", captions);
@@ -365,21 +363,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(new Thickness(-3.5), scaledRing.Margin);
         }
 
-        //The QualityPicker tile must show the way it actually renders in the real app - floating in its own
-        //dark chrome bubble, which has to stay a fixed dark color to read against either window theme.
-        [AvaloniaFact]
-        public void QualityPickerTile_HasNonTransparentChromeBackground() {
-            DataCache cache = NewFixtureCache();
-            var settings = new AppSettings();
-
-            var window = new GalleryWindow(cache, settings);
-            window.Show();
-
-            QualityPicker picker = window.GetVisualDescendants().OfType<QualityPicker>().Single(p => p.Parent is Border);
-            Border chrome = picker.GetVisualAncestors().OfType<Border>().First();
-            Assert.Equal(Colors.Black, Assert.IsAssignableFrom<ISolidColorBrush>(chrome.Background).Color);
-        }
-
         //Bug fix: the window used to fill from a one-shot GalleryCanvasBackdrop token pinned to white in
         //both variants, making every kit tile impossible to judge against its own background. It now binds
         //the same live WindowBackground every other window does, re-resolved by RefreshTheme on every flip.
@@ -524,6 +507,23 @@ namespace Foreman.Mac.UiTests.Views {
 
             SplitDivider divider = tile.GetVisualDescendants().OfType<SplitDivider>().First();
             Assert.Equal(5, divider.Bounds.Width);
+        }
+
+        //Addendum §03's grid figure draws the first module slot selected; the tile says so itself rather
+        //than leaning on a default SelectedIndex the grid no longer has.
+        [AvaloniaFact]
+        public void PickGridTile_DrawsTheFiguresSelectedCell() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Pick grid — module slots & beacon row");
+            PickGrid modules = tile.GetVisualDescendants().OfType<PickGrid>().First();
+            PickCell[] cells = [.. modules.GetVisualDescendants().OfType<PickCell>()];
+
+            Assert.Equal(0, modules.SelectedIndex);
+            Assert.True(cells[0].IsSelected);
+            Assert.Equal(1, cells.Count(c => c.IsSelected));
         }
 
         [AvaloniaFact]

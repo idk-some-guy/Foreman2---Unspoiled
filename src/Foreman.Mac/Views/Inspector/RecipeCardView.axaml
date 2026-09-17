@@ -1,9 +1,12 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Foreman.Mac.ViewModels"
+             xmlns:kit="using:Foreman.Mac.Kit.Controls"
              x:Class="Foreman.Mac.Views.Inspector.RecipeCardView"
              x:DataType="vm:RecipeCardViewModel">
-  <Border Classes="foreman-recipe-card">
+  <Border Margin="12,2,12,4" Padding="11,10" CornerRadius="{DynamicResource Foreman.Radius.Card}"
+          Background="{DynamicResource Foreman.Color.WellBackground}"
+          BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1">
     <StackPanel Spacing="8">
       <ItemsControl Name="FlowItems" ItemsSource="{Binding Flow}">
         <ItemsControl.ItemsPanel>
@@ -13,19 +16,21 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate DataType="vm:RecipeCardFlowItem">
-            <StackPanel Orientation="Horizontal" Spacing="4" Classes="foreman-recipe-card-flow-item">
-              <TextBlock Text="{Binding Text}" Classes="foreman-recipe-card-arrow" IsVisible="{Binding IsArrow}" />
-              <Border Classes="foreman-recipe-card-icon" IsVisible="{Binding !IsArrow}">
+            <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,6,4">
+              <TextBlock Theme="{StaticResource Kit.Text}" Classes="body tertiary" Text="{Binding Text}" IsVisible="{Binding IsArrow}" />
+              <Border Width="20" Height="20" CornerRadius="4" IsVisible="{Binding !IsArrow}"
+                      Background="{DynamicResource Foreman.Color.ControlBackground}"
+                      BorderBrush="{DynamicResource Foreman.Color.BorderStrong}" BorderThickness="1">
                 <Image Source="{Binding Icon}" Stretch="Uniform" />
               </Border>
-              <TextBlock Text="{Binding Text}" Classes="foreman-recipe-card-flow-text" IsVisible="{Binding !IsArrow}" />
+              <TextBlock Theme="{StaticResource Kit.Text}" Classes="body" Text="{Binding Text}" IsVisible="{Binding !IsArrow}" />
             </StackPanel>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Grid.Column="0" Name="CraftingTimeText" Text="{Binding CraftingTimeText}" Classes="foreman-caption" />
-        <TextBlock Grid.Column="1" Name="BaseRateText" Text="{Binding BaseRateText}" Classes="foreman-caption" />
+        <TextBlock Grid.Column="0" Name="CraftingTimeText" Theme="{StaticResource Kit.Text}" Classes="caption tertiary" Text="{Binding CraftingTimeText}" />
+        <TextBlock Grid.Column="1" Name="BaseRateText" Theme="{StaticResource Kit.Text}" Classes="caption tertiary" Text="{Binding BaseRateText}" />
       </Grid>
     </StackPanel>
   </Border>

@@ -1,21 +1,23 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
+using CommunityToolkit.Mvvm.Input;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows.Input;
 
 namespace Foreman.Mac.Views.Inspector {
@@ -25,10 +27,9 @@ namespace Foreman.Mac.Views.Inspector {
         private readonly Image identityIcon;
         private readonly TextBlock identityName;
         private readonly TextBlock identitySubtitle;
-        private readonly Button qualityMiniSelect;
-        private readonly Image qualityMiniSelectIcon;
-        private readonly TextBlock qualityMiniSelectLabel;
-        private readonly PickGrid qualityGrid;
+        private readonly StackPanel qualityRow;
+        private readonly Image qualityIcon;
+        private readonly PopUp qualityMiniSelect;
         private readonly ContentControl segmentHost;
         private readonly StatePanel emptyState;
         private readonly SplitDivider widthDivider;
@@ -59,10 +60,10 @@ namespace Foreman.Mac.Views.Inspector {
             identityIcon = this.FindControl<Image>("IdentityIcon")!;
             identityName = this.FindControl<TextBlock>("IdentityName")!;
             identitySubtitle = this.FindControl<TextBlock>("IdentitySubtitle")!;
-            qualityMiniSelect = this.FindControl<Button>("QualityMiniSelect")!;
-            qualityMiniSelectIcon = this.FindControl<Image>("QualityMiniSelectIcon")!;
-            qualityMiniSelectLabel = this.FindControl<TextBlock>("QualityMiniSelectLabel")!;
-            qualityGrid = this.FindControl<PickGrid>("QualityGrid")!;
+            qualityRow = this.FindControl<StackPanel>("QualityRow")!;
+            qualityIcon = this.FindControl<Image>("QualityIcon")!;
+            qualityMiniSelect = this.FindControl<PopUp>("QualityMiniSelect")!;
+            qualityMiniSelect.Command = new RelayCommand<string>(PickQualityByName);
             segmentHost = this.FindControl<ContentControl>("SegmentHost")!;
             emptyState = this.FindControl<StatePanel>("EmptyState")!;
             widthDivider = this.FindControl<SplitDivider>("WidthDivider")!;
@@ -85,10 +86,9 @@ namespace Foreman.Mac.Views.Inspector {
             scope.Register("IdentityIcon", identityIcon);
             scope.Register("IdentityName", identityName);
             scope.Register("IdentitySubtitle", identitySubtitle);
+            scope.Register("QualityRow", qualityRow);
+            scope.Register("QualityIcon", qualityIcon);
             scope.Register("QualityMiniSelect", qualityMiniSelect);
-            scope.Register("QualityMiniSelectIcon", qualityMiniSelectIcon);
-            scope.Register("QualityMiniSelectLabel", qualityMiniSelectLabel);
-            scope.Register("QualityGrid", qualityGrid);
             scope.Register("SegmentHost", segmentHost);
             scope.Register("EmptyState", emptyState);
             scope.Register("InspectorScroller", this.FindControl<Control>("InspectorScroller")!);
@@ -96,7 +96,6 @@ namespace Foreman.Mac.Views.Inspector {
             scope.Register("RecipeSegment", recipeSegmentView);
             NameScope.SetNameScope(this, scope);
 
-            qualityGrid.ItemActivated += QualityGrid_ItemActivated;
             DataContextChanged += (_, _) => BindViewModel();
             DetachedFromVisualTree += (_, _) => DisposeBakedIcons();
             BindViewModel();
@@ -169,24 +168,32 @@ namespace Foreman.Mac.Views.Inspector {
             }
         }
 
+        //Kit.PopUp has no leading-icon slot of its own, so the badge sits beside it as a plain Image
+        //here - the shipped means, ported as-is from before the PopUp migration.
         private void SetQualityMiniSelect(RecipeSegmentViewModel? recipeViewModel) {
-            qualityMiniSelect.IsVisible = recipeViewModel?.ShowsQuality ?? false;
-            qualityMiniSelectLabel.Text = recipeViewModel?.CurrentQualityName ?? "";
-            qualityGrid.Items = recipeViewModel?.QualityOptions ?? [];
-
-            SKBitmap? icon = recipeViewModel?.CurrentQualityIcon;
-            qualityMiniSelectIcon.Source = icon is null ? null : IconBaker.GetOrBake(qualityIconCache, icon, QualityIconSize);
-            qualityMiniSelectLabel.ClearValue(TextBlock.ForegroundProperty);
-            if (icon is not null && IconTint.DominantSaturatedColor(icon) is Color tint)
-                qualityMiniSelectLabel.Foreground = new SolidColorBrush(tint);
+            bool shows = recipeViewModel?.ShowsQuality ?? false;
+            qualityRow.IsVisible = shows;
+            qualityMiniSelect.IsVisible = shows;
+            qualityMiniSelect.Items.Clear();
+            if (recipeViewModel is null) {
+                qualityIcon.Source = null;
+                return;
+            }
+            foreach (PickGridItem option in recipeViewModel.QualityOptions)
+                qualityMiniSelect.Items.Add(option.Name);
+            qualityMiniSelect.SelectedItem = recipeViewModel.CurrentQualityName;
+            SKBitmap? icon = recipeViewModel.CurrentQualityIcon;
+            qualityIcon.Source = icon is null ? null : IconBaker.GetOrBake(qualityIconCache, icon, QualityIconSize);
         }
 
         //Picking a quality re-quals the node's assembler directly (RecipeSegmentViewModel.PickQuality), so
-        //the identity subtitle and the grid's own selection highlight both need a fresh Refresh() here.
-        private void QualityGrid_ItemActivated(object? sender, PickGridItem item) {
-            recipeSegmentView.ViewModel?.PickQuality(item);
+        //the identity subtitle and the mini-select's own label both need a fresh Refresh() here.
+        private void PickQualityByName(string? name) {
+            PickGridItem? item = recipeSegmentView.ViewModel?.QualityOptions.FirstOrDefault(i => i.Name == name);
+            if (item is null)
+                return;
+            recipeSegmentView.ViewModel!.PickQuality(item);
             Refresh();
-            qualityMiniSelect.Flyout?.Hide();
         }
 
         //Forwarded from MainWindow's two rate-unit change paths (MenuSetRateUnit, the View Options

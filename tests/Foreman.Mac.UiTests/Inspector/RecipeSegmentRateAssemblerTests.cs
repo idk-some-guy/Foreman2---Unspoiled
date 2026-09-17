@@ -10,6 +10,7 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
@@ -246,12 +247,12 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(13);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<RadioButton>("RateFixed")!.IsChecked = true;
+            view.FindControl<Segmented>("RateMode")!.SelectedIndex = 1;
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(oracle.Resolved);
             Assert.Equal(RateType.Manual, node.RateType);
-            Assert.True(view.FindControl<CompactStepper>("AssemblerCountValue")!.IsEnabled);
+            Assert.True(view.FindControl<Stepper>("AssemblerCountValue")!.IsEnabled);
         }
 
         [AvaloniaFact]
@@ -265,13 +266,13 @@ namespace Foreman.Mac.UiTests.Inspector {
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
-            Assert.True(view.FindControl<RadioButton>("RateFixed")!.IsChecked);
+            Assert.Equal(1, view.FindControl<Segmented>("RateMode")!.SelectedIndex);
 
             Oracle oracle = NewOracle(rf.Fx);
             oracle.GoStale(27);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<CompactStepper>("AssemblerCountValue")!.Value = 5;
+            view.FindControl<Stepper>("AssemblerCountValue")!.Value = 5;
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(oracle.Resolved);
@@ -293,7 +294,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(31);
             Assert.False(oracle.Resolved);
 
-            CompactStepper assemblerCount = view.FindControl<CompactStepper>("AssemblerCountValue")!;
+            Stepper assemblerCount = view.FindControl<Stepper>("AssemblerCountValue")!;
             assemblerCount.Value = assemblerCount.Value;
             Dispatcher.UIThread.RunJobs();
 
@@ -441,7 +442,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(23);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<ToggleSwitch>("KeyNode")!.IsChecked = true;
+            view.FindControl<CheckBox>("KeyNode")!.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(oracle.Resolved);
@@ -462,7 +463,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(5);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<ToggleSwitch>("LowPriority")!.IsChecked = true;
+            view.FindControl<CheckBox>("LowPriority")!.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(oracle.Resolved);
@@ -479,13 +480,13 @@ namespace Foreman.Mac.UiTests.Inspector {
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
-            Assert.True(view.FindControl<CompactStepper>("AvgNeighboursValue")!.IsVisible); //reactor selected -> field shown
+            Assert.True(view.FindControl<Stepper>("AvgNeighboursValue")!.IsVisible); //reactor selected -> field shown
 
             Oracle oracle = NewOracle(rf.Fx);
             oracle.GoStale(6);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<CompactStepper>("AvgNeighboursValue")!.Value = 2;
+            view.FindControl<Stepper>("AvgNeighboursValue")!.Value = 2;
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(oracle.Resolved);
@@ -506,7 +507,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
             Assert.True(view.ViewModel!.ShowsNeighbours);
-            Assert.True(view.FindControl<CompactStepper>("AvgNeighboursValue")!.IsVisible);
+            Assert.True(view.FindControl<Stepper>("AvgNeighboursValue")!.IsVisible);
         }
 
         [AvaloniaFact]
@@ -519,7 +520,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
             Assert.False(view.ViewModel!.ShowsNeighbours);
-            Assert.False(view.FindControl<CompactStepper>("AvgNeighboursValue")!.IsVisible);
+            Assert.False(view.FindControl<Stepper>("AvgNeighboursValue")!.IsVisible);
         }
 
         [AvaloniaFact]
@@ -532,7 +533,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
             Assert.False(view.ViewModel!.ShowsExtraProductivity);
-            Assert.False(view.FindControl<CompactStepper>("ExtraProductivityValue")!.IsVisible);
+            Assert.False(view.FindControl<Stepper>("ExtraProductivityValue")!.IsVisible);
         }
 
         [AvaloniaFact]
@@ -546,7 +547,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
             Assert.True(view.ViewModel!.ShowsExtraProductivity);
-            Assert.True(view.FindControl<CompactStepper>("ExtraProductivityValue")!.IsVisible);
+            Assert.True(view.FindControl<Stepper>("ExtraProductivityValue")!.IsVisible);
         }
 
         [AvaloniaFact]
@@ -560,7 +561,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
             Assert.True(view.ViewModel!.ShowsExtraProductivity);
-            Assert.True(view.FindControl<CompactStepper>("ExtraProductivityValue")!.IsVisible);
+            Assert.True(view.FindControl<Stepper>("ExtraProductivityValue")!.IsVisible);
         }
 
         //Neither gate is a one-way latch: the inspector keeps the same view model across many assembler
@@ -575,7 +576,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
             (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
-            CompactStepper neighboursValue = view.FindControl<CompactStepper>("AvgNeighboursValue")!;
+            Stepper neighboursValue = view.FindControl<Stepper>("AvgNeighboursValue")!;
             PickGrid assemblerGrid = view.FindControl<PickGrid>("AssemblerGrid")!;
             Assert.False(neighboursValue.IsVisible);
 
@@ -596,7 +597,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
             (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
-            CompactStepper extraProductivityValue = view.FindControl<CompactStepper>("ExtraProductivityValue")!;
+            Stepper extraProductivityValue = view.FindControl<Stepper>("ExtraProductivityValue")!;
             PickGrid assemblerGrid = view.FindControl<PickGrid>("AssemblerGrid")!;
             Assert.False(extraProductivityValue.IsVisible);
 
@@ -620,7 +621,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(8);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<CompactStepper>("ExtraProductivityValue")!.Value = 20;
+            view.FindControl<Stepper>("ExtraProductivityValue")!.Value = 20;
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(oracle.Resolved);
@@ -717,7 +718,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(ButtonRowRole.Default, ButtonRow.GetRole(buttons[1]));
 
             //The other groups stay live - not swapped for the error panel, not disabled.
-            Assert.True(view.FindControl<RadioButton>("RateAuto")!.IsEnabled);
+            Assert.True(view.FindControl<Segmented>("RateMode")!.IsEnabled);
             Assert.True(view.FindControl<PickGrid>("AssemblerGrid")!.IsEnabled);
         }
 
@@ -763,7 +764,7 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             window.Inspector.RefreshSegment();
 
-            Assert.Equal(4, view.FindControl<CompactStepper>("AssemblerCountValue")!.Value);
+            Assert.Equal(4, view.FindControl<Stepper>("AssemblerCountValue")!.Value);
         }
 
         [AvaloniaFact]
@@ -776,7 +777,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorTestSupport.Select(window, node);
             var view = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
 
-            view.FindControl<ToggleSwitch>("LowPriority")!.IsChecked = true;
+            view.FindControl<CheckBox>("LowPriority")!.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(redrawCount > 0);

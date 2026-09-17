@@ -1,8 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Foreman.Mac.ViewModels"
-             xmlns:insp="using:Foreman.Mac.Views.Inspector"
              xmlns:composites="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
              x:Class="Foreman.Mac.Views.Inspector.InspectorView"
              x:DataType="vm:InspectorViewModel">
   <!-- IsVisible is driven from MainWindow.axaml.cs (ViewModel.IsInspectorVisible), not a binding here -
@@ -32,21 +32,10 @@
                          TextTrimming="CharacterEllipsis" />
               <TextBlock Name="IdentitySubtitle" Theme="{StaticResource Kit.Text}" Classes="caption tertiary"
                          TextTrimming="CharacterEllipsis" />
-              <Button Name="QualityMiniSelect" Classes="foreman-mini-select" IsVisible="False"
-                      HorizontalAlignment="Left" Margin="0,4,0,0">
-                <Grid ColumnDefinitions="Auto,*,Auto">
-                  <Image Grid.Column="0" Name="QualityMiniSelectIcon" Width="16" Height="16" Margin="0,0,6,0" />
-                  <TextBlock Grid.Column="1" Name="QualityMiniSelectLabel" Classes="foreman-mini-select-text"
-                             TextTrimming="CharacterEllipsis" />
-                  <Path Grid.Column="2" Classes="foreman-chevron" Data="{StaticResource Foreman.Icon.Chevron}"
-                        Width="8" Height="5" Margin="6,0,0,0" />
-                </Grid>
-                <Button.Flyout>
-                  <Flyout Placement="Bottom">
-                    <insp:PickGrid Name="QualityGrid" />
-                  </Flyout>
-                </Button.Flyout>
-              </Button>
+              <StackPanel Name="QualityRow" Orientation="Horizontal" Spacing="4" IsVisible="False" Margin="0,4,0,0">
+                <Image Name="QualityIcon" Width="16" Height="16" />
+                <ctrl:PopUp Name="QualityMiniSelect" Theme="{StaticResource Kit.PopUp}" HorizontalAlignment="Left" />
+              </StackPanel>
             </StackPanel>
           </Grid>
         </Border>

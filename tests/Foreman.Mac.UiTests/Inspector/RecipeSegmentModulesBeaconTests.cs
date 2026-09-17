@@ -10,17 +10,22 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
+using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
-using InspectorGroup = Foreman.Mac.Kit.Composites.InspectorGroup;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Reflection;
 using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
+using KitPickGrid = Foreman.Mac.Kit.Composites.PickGrid;
+using AppPickGrid = Foreman.Mac.Views.Inspector.PickGrid;
 
 namespace Foreman.Mac.UiTests.Inspector {
     //Module/beacon coverage for RecipeSegmentView's Modules and Beacon groups.
@@ -205,7 +210,30 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
         }
 
-        private static Button GridCellFor(AvaloniaWindow window, PickGrid grid, object key) {
+        //Kit.PickGrid's slots are a plain rebuilt list (no per-item Button to click); choosing a slot is
+        //select-then-Return, clearing it is select-then-Delete, matching the grid's own tested keyboard path.
+        private static int IndexOf(IReadOnlyList<PickGridItem> items, object key) {
+            for (int i = 0; i < items.Count; i++)
+                if (Equals(items[i].Key, key))
+                    return i;
+            return -1;
+        }
+
+        private static void ChooseSlot(KitPickGrid grid, int index) {
+            grid.SelectedIndex = index;
+            CanvasKeys.KeyDownOn(grid, Key.Return);
+        }
+
+        private static void ClearSlot(KitPickGrid grid, int index) {
+            grid.SelectedIndex = index;
+            CanvasKeys.KeyDownOn(grid, Key.Delete);
+        }
+
+        //A PickGrid whose ItemsSource was just reset (e.g. by a NodeValuesUpdated-driven Refresh() elsewhere
+        //on the graph, not just this test's own edits) needs one more layout pass before its new containers
+        //are real visual children - GetVisualDescendants would otherwise walk right past the still-empty
+        //ContentPresenters mid-realization.
+        private static Button GridCellFor(AvaloniaWindow window, AppPickGrid grid, object key) {
             Dispatcher.UIThread.RunJobs();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
             return grid.GetVisualDescendants().OfType<Button>().Single(b => Equals((b.DataContext as PickGridItem)?.Key, key));
@@ -215,6 +243,12 @@ namespace Foreman.Mac.UiTests.Inspector {
         //unambiguously even though every InspectorGroup names its header the same "PART_HeaderRow".
         private static Border GroupHeaderOf(InspectorGroup group) =>
             group.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_HeaderRow");
+
+        private static PickCell KitCellAt(KitPickGrid grid, int index) =>
+            grid.GetVisualDescendants().OfType<PickCell>().ElementAt(index);
+
+        private static PickCell[] CellsOf(KitPickGrid grid) =>
+            [.. grid.GetVisualDescendants().OfType<PickCell>()];
 
         //---- Modules: add fills the next slot, tap-to-remove, incompatible modules excluded ----
 
@@ -227,11 +261,11 @@ namespace Foreman.Mac.UiTests.Inspector {
             controller.RemoveAssemblerModules();
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
-            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
             Assert.Equal("Modules (0/2)", view.ViewModel!.ModulesTitle);
 
-            PickGrid optionsGrid = view.FindControl<PickGrid>("ModuleOptionsGrid")!;
-            Click(host, GridCellFor(host, optionsGrid, rf.Module));
+            KitPickGrid optionsGrid = view.FindControl<KitPickGrid>("ModuleOptionsGrid")!;
+            ChooseSlot(optionsGrid, IndexOf(view.ViewModel!.ModuleOptions, rf.Module));
 
             Assert.Equal("Modules (1/2)", view.ViewModel!.ModulesTitle);
             Assert.Single(node.AssemblerModules);
@@ -247,11 +281,11 @@ namespace Foreman.Mac.UiTests.Inspector {
             controller.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
-            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
             Assert.Equal("Modules (1/2)", view.ViewModel!.ModulesTitle);
 
-            PickGrid equippedGrid = view.FindControl<PickGrid>("EquippedGrid")!;
-            Click(host, GridCellFor(host, equippedGrid, rf.Module));
+            KitPickGrid equippedGrid = view.FindControl<KitPickGrid>("EquippedGrid")!;
+            ClearSlot(equippedGrid, IndexOf(view.ViewModel!.EquippedModules, rf.Module));
 
             Assert.Equal("Modules (0/2)", view.ViewModel!.ModulesTitle);
             Assert.Empty(node.AssemblerModules);
@@ -267,6 +301,289 @@ namespace Foreman.Mac.UiTests.Inspector {
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
             Assert.Empty(view.ViewModel!.ModuleOptions);
+        }
+
+        //A25: a building with no module slots at all draws no grid and no row - the group is removed, not
+        //shown with "0 slots" (burner-assembler never set ModuleSlots, so it defaults to 0).
+        [AvaloniaFact]
+        public void AssemblerWithZeroModuleSlots_HidesTheModulesGroupEntirely() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Burner, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+
+            Assert.False(view.ViewModel!.HasModuleSlots);
+            InspectorGroup modulesGroup = view.FindControl<InspectorGroup>("ModulesGroup")!;
+            Assert.False(modulesGroup.IsVisible);
+        }
+
+        //---- Mouse path: clicking an option equips it, clicking an equipped slot only selects it ----
+
+        [AvaloniaFact]
+        public void ClickingAModuleOption_EquipsItIntoTheFirstEmptySlot_WhenNoFilledSlotIsSelected() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.RemoveAssemblerModules();
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            KitPickGrid optionsGrid = view.FindControl<KitPickGrid>("ModuleOptionsGrid")!;
+            int optionIndex = IndexOf(view.ViewModel!.ModuleOptions, rf.Module);
+
+            Click(host, KitCellAt(optionsGrid, optionIndex));
+
+            Assert.Single(node.AssemblerModules);
+            Assert.Equal(rf.Module, node.AssemblerModules[0].Module);
+        }
+
+        [AvaloniaFact]
+        public void ClickingAModuleOption_WithAFilledEquippedSlotSelected_ReplacesThatSlot() {
+            RecipeFixture rf = NewRecipeFixture();
+            ModulePrototype other = NewModule(rf.Fx, "efficiency-module");
+            rf.Electric.ModulesInternal.Add(other);
+            rf.Recipe.AssemblerModulesInternal.Add(other);
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.RemoveAssemblerModules();
+            controller.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            KitPickGrid equippedGrid = view.FindControl<KitPickGrid>("EquippedGrid")!;
+            KitPickGrid optionsGrid = view.FindControl<KitPickGrid>("ModuleOptionsGrid")!;
+            equippedGrid.SelectedIndex = IndexOf(view.ViewModel!.EquippedModules, rf.Module);
+
+            Click(host, KitCellAt(optionsGrid, IndexOf(view.ViewModel!.ModuleOptions, other)));
+
+            Assert.Single(node.AssemblerModules);
+            Assert.Equal(other, node.AssemblerModules[0].Module);
+        }
+
+        //Selecting a cell on click is kit-tested (ClickingACell_SelectsItAndFocusesTheGrid); this covers only
+        //the app-level half - a click on an equipped slot never itself mutates the node.
+        [AvaloniaFact]
+        public void ClickingAnEquippedSlot_DoesNotMutateTheNode() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.RemoveAssemblerModules();
+            controller.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            KitPickGrid equippedGrid = view.FindControl<KitPickGrid>("EquippedGrid")!;
+            int index = IndexOf(view.ViewModel!.EquippedModules, rf.Module);
+
+            Click(host, KitCellAt(equippedGrid, index));
+
+            Assert.Single(node.AssemblerModules);
+            Assert.Equal(rf.Module, node.AssemblerModules[0].Module);
+        }
+
+        //Regression: the grid's SelectedIndex used to default to 0, so an untouched equipped grid read as
+        //"slot 0 selected" and a click destroyed the first equipped module instead of doing nothing.
+        [AvaloniaFact]
+        public void ClickingAModuleOption_OnAFullyEquippedGridWithNoSelection_DoesNothing() {
+            RecipeFixture rf = NewRecipeFixture();
+            ModulePrototype other = NewModule(rf.Fx, "efficiency-module");
+            rf.Electric.ModulesInternal.Add(other);
+            rf.Recipe.AssemblerModulesInternal.Add(other);
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.RemoveAssemblerModules();
+            controller.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+            controller.AddAssemblerModule(new ModuleQualityPair(other, rf.Fx.Normal)); //fills both of Electric's two slots
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            KitPickGrid optionsGrid = view.FindControl<KitPickGrid>("ModuleOptionsGrid")!;
+
+            Click(host, KitCellAt(optionsGrid, IndexOf(view.ViewModel!.ModuleOptions, rf.Module)));
+
+            Assert.Equal(2, node.AssemblerModules.Count);
+            Assert.Equal(rf.Module, node.AssemblerModules[0].Module);
+            Assert.Equal(other, node.AssemblerModules[1].Module);
+        }
+
+        [AvaloniaFact]
+        public void ClickingAModuleOption_WithAMiddleSlotSelected_ReplacesOnlyThatSlot_KeepingOrder() {
+            RecipeFixture rf = NewRecipeFixture();
+            rf.Electric.ModuleSlots = 3;
+            ModulePrototype second = NewModule(rf.Fx, "efficiency-module");
+            ModulePrototype third = NewModule(rf.Fx, "productivity-module");
+            ModulePrototype replacement = NewModule(rf.Fx, "speed-module-2");
+            foreach (ModulePrototype m in new[] { second, third, replacement }) {
+                rf.Electric.ModulesInternal.Add(m);
+                rf.Recipe.AssemblerModulesInternal.Add(m);
+            }
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.RemoveAssemblerModules();
+            controller.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+            controller.AddAssemblerModule(new ModuleQualityPair(second, rf.Fx.Normal));
+            controller.AddAssemblerModule(new ModuleQualityPair(third, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            KitPickGrid equippedGrid = view.FindControl<KitPickGrid>("EquippedGrid")!;
+            KitPickGrid optionsGrid = view.FindControl<KitPickGrid>("ModuleOptionsGrid")!;
+            equippedGrid.SelectedIndex = IndexOf(view.ViewModel!.EquippedModules, second);
+
+            Click(host, KitCellAt(optionsGrid, IndexOf(view.ViewModel!.ModuleOptions, replacement)));
+
+            Assert.Equal(3, node.AssemblerModules.Count);
+            Assert.Equal(rf.Module, node.AssemblerModules[0].Module);
+            Assert.Equal(replacement, node.AssemblerModules[1].Module);
+            Assert.Equal(third, node.AssemblerModules[2].Module);
+        }
+
+        [AvaloniaFact]
+        public void ClickingABeaconModuleOption_WithASlotSelected_ReplacesThatSlot_KeepingOrder() {
+            RecipeFixture rf = NewRecipeFixture();
+            ModulePrototype other = NewModule(rf.Fx, "efficiency-module");
+            ModulePrototype replacement = NewModule(rf.Fx, "speed-module-2");
+            foreach (ModulePrototype m in new[] { other, replacement }) {
+                rf.Beacon.ModulesInternal.Add(m);
+                rf.Recipe.BeaconModulesInternal.Add(m);
+            }
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.SetBeacon(new BeaconQualityPair(rf.Beacon, rf.Fx.Normal));
+            controller.AddBeaconModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+            controller.AddBeaconModule(new ModuleQualityPair(other, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            KitPickGrid equippedBeaconGrid = view.FindControl<KitPickGrid>("EquippedBeaconGrid")!;
+            KitPickGrid beaconOptionsGrid = view.FindControl<KitPickGrid>("BeaconModuleOptionsGrid")!;
+            equippedBeaconGrid.SelectedIndex = IndexOf(view.ViewModel!.EquippedBeaconModules, rf.Module);
+
+            Click(host, KitCellAt(beaconOptionsGrid, IndexOf(view.ViewModel!.BeaconModuleOptions, replacement)));
+
+            Assert.Equal(2, node.BeaconModules.Count);
+            Assert.Equal(replacement, node.BeaconModules[0].Module);
+            Assert.Equal(other, node.BeaconModules[1].Module);
+        }
+
+        //---- Solve storm: SyncSlots diffs by index instead of Slots.Clear() + rebuild ----
+
+        [AvaloniaFact]
+        public void SolveStormWithUnchangedModulesAndBeacons_RecreatesNoPickCells() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.RemoveAssemblerModules();
+            controller.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+            controller.SetBeacon(new BeaconQualityPair(rf.Beacon, rf.Fx.Normal));
+            controller.AddBeaconModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            KitPickGrid equippedGrid = view.FindControl<KitPickGrid>("EquippedGrid")!;
+            KitPickGrid optionsGrid = view.FindControl<KitPickGrid>("ModuleOptionsGrid")!;
+            KitPickGrid equippedBeaconGrid = view.FindControl<KitPickGrid>("EquippedBeaconGrid")!;
+            KitPickGrid beaconOptionsGrid = view.FindControl<KitPickGrid>("BeaconModuleOptionsGrid")!;
+
+            PickCell[] equippedBefore = CellsOf(equippedGrid);
+            PickCell[] optionsBefore = CellsOf(optionsGrid);
+            PickCell[] equippedBeaconBefore = CellsOf(equippedBeaconGrid);
+            PickCell[] beaconOptionsBefore = CellsOf(beaconOptionsGrid);
+
+            for (int i = 0; i < 30; i++) {
+                rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            Assert.Equal(equippedBefore, CellsOf(equippedGrid));
+            Assert.Equal(optionsBefore, CellsOf(optionsGrid));
+            Assert.Equal(equippedBeaconBefore, CellsOf(equippedBeaconGrid));
+            Assert.Equal(beaconOptionsBefore, CellsOf(beaconOptionsGrid));
+        }
+
+        //Cell identity across a positional replace is kit-tested (ReplacingASlot_UpdatesTheExistingCellInPlace);
+        //this covers only the app's own step on top of that - SyncSlots' diff-by-index actually reaching the cell.
+        [AvaloniaFact]
+        public void SolveThatSwapsOneEquippedModule_UpdatesTheCellContent() {
+            RecipeFixture rf = NewRecipeFixture();
+            ModulePrototype other = NewModule(rf.Fx, "efficiency-module");
+            rf.Electric.ModulesInternal.Add(other);
+            rf.Recipe.AssemblerModulesInternal.Add(other);
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.RemoveAssemblerModules();
+            controller.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            KitPickGrid equippedGrid = view.FindControl<KitPickGrid>("EquippedGrid")!;
+
+            controller.RemoveAssemblerModule(0);
+            controller.AddAssemblerModule(new ModuleQualityPair(other, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(other.FriendlyName, CellsOf(equippedGrid)[0].AccessibleName);
+        }
+
+        [AvaloniaFact]
+        public void EquippedGrid_KeepsKeyboardFocus_ThroughASolveThatDoesNotChangeItsSlots() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.RemoveAssemblerModules();
+            controller.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            KitPickGrid equippedGrid = view.FindControl<KitPickGrid>("EquippedGrid")!;
+            equippedGrid.Focus();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(equippedGrid.IsFocused);
+
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(equippedGrid.IsFocused);
+        }
+
+        //Pumping (K3 addendum): a notification storm where nothing actually changed must trigger zero
+        //PickGrid rebuilds - SyncSlots only ever writes to Slots when a slot's content differs, so
+        //Slots.CollectionChanged is the direct proxy for "did the grid rebuild" (an unbounded
+        //Slots.Clear()+rebuild on every solve, which this replaced, fires that event on every iteration).
+        [AvaloniaFact]
+        public void SolveStormWithUnchangedModules_TriggersNoSlotRebuildsOnTheEquippedGrid() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.RemoveAssemblerModules();
+            controller.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            KitPickGrid equippedGrid = view.FindControl<KitPickGrid>("EquippedGrid")!;
+
+            int rebuilds = 0;
+            equippedGrid.Slots.CollectionChanged += (_, _) => rebuilds++;
+
+            for (int i = 0; i < 30; i++) {
+                rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            Assert.Equal(0, rebuilds);
         }
 
         //---- Beacon: the outer group starts collapsed with no beacon, pick shows its module grid, clear hides it ----
@@ -285,7 +602,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Click(host, GroupHeaderOf(beaconGroup));
             Assert.True(beaconGroup.IsExpanded);
 
-            PickGrid beaconOptions = view.FindControl<PickGrid>("BeaconOptions")!;
+            AppPickGrid beaconOptions = view.FindControl<AppPickGrid>("BeaconOptions")!;
             Click(host, GridCellFor(host, beaconOptions, rf.Beacon));
 
             Assert.True(beaconGroup.IsExpanded);
@@ -379,7 +696,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorGroup beaconGroup = view.FindControl<InspectorGroup>("BeaconGroup")!;
             Click(host, GroupHeaderOf(beaconGroup)); //collapsed by default - expand to reach the picker
 
-            PickGrid beaconOptions = view.FindControl<PickGrid>("BeaconOptions")!;
+            AppPickGrid beaconOptions = view.FindControl<AppPickGrid>("BeaconOptions")!;
             Click(host, GridCellFor(host, beaconOptions, rf.Beacon));
 
             Assert.True(oracle.Resolved);
@@ -424,7 +741,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(11);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<CompactStepper>("BeaconCountValue")!.Value = 3;
+            view.FindControl<Stepper>("BeaconCountValue")!.Value = 3;
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(oracle.Resolved);
@@ -445,7 +762,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(11);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<CompactStepper>("BeaconsPerAssemblerValue")!.Value = 2;
+            view.FindControl<Stepper>("BeaconsPerAssemblerValue")!.Value = 2;
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(oracle.Resolved);
@@ -466,42 +783,106 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(11);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<CompactStepper>("BeaconsTotalValue")!.Value = 4;
+            view.FindControl<Stepper>("BeaconsTotalValue")!.Value = 4;
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(oracle.Resolved);
             Assert.Equal(4, node.BeaconsConst, 3);
         }
 
-        //Deliberate WinForms-parity divergence, not chrome: BeaconCountValue keeps a bare-integer display
-        //for whole counts (dropping the trailing ".00") while the other two beacon fields stay at their own
-        //two-decimal display, matching the deleted EditRecipePanel's own explicit split between "0.##" and
-        //"N2"-equivalent formatting.
+        //Kit.PickGrid's own keyboard contract (K3 addendum §03): Delete empties a filled slot, Return
+        //opens the chooser for the focused slot - here that's the options grid right below the equipped
+        //one, so Return moves focus onto it rather than acting on the slot itself.
         [AvaloniaFact]
-        public void BeaconCountInput_WholeValue_DisplaysBareInteger() {
+        public void EquippedModuleSlot_DeleteEmptiesIt_AndReturnFocusesTheOptionsChooser() {
             RecipeFixture rf = NewRecipeFixture();
             IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
             RecipeNodeController controller = ControllerFor(rf.Fx, node);
             controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.RemoveAssemblerModules();
+            controller.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            KitPickGrid equippedGrid = view.FindControl<KitPickGrid>("EquippedGrid")!;
+            KitPickGrid optionsGrid = view.FindControl<KitPickGrid>("ModuleOptionsGrid")!;
+            int index = IndexOf(view.ViewModel!.EquippedModules, rf.Module);
+
+            equippedGrid.SelectedIndex = index;
+            CanvasKeys.KeyDownOn(equippedGrid, Key.Return);
+            Assert.True(optionsGrid.IsFocused);
+
+            ClearSlot(equippedGrid, index);
+            Assert.Empty(node.AssemblerModules);
+        }
+
+        //---- Rebind: InspectorView re-points one view instance at each selected node ----
+
+        //Regression: the equipped grid's selection used to survive the switch, so the first option click on
+        //the newly selected node replaced a slot the user had never selected on it.
+        [AvaloniaFact]
+        public void RebindingToAnotherNode_ClearsEveryGridsSelection_SoTheNextOptionClickFillsTheFirstEmptySlot() {
+            RecipeFixture rf = NewRecipeFixture();
+            ModulePrototype other = NewModule(rf.Fx, "efficiency-module");
+            rf.Electric.ModulesInternal.Add(other);
+            rf.Recipe.AssemblerModulesInternal.Add(other);
+
+            IRecipeNodeViewModel first = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController firstController = ControllerFor(rf.Fx, first);
+            firstController.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            firstController.RemoveAssemblerModules();
+            firstController.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+
+            IRecipeNodeViewModel second = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(200, 0));
+            RecipeNodeController secondController = ControllerFor(rf.Fx, second);
+            secondController.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            secondController.RemoveAssemblerModules();
+            secondController.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, first);
+            KitPickGrid equippedGrid = view.FindControl<KitPickGrid>("EquippedGrid")!;
+            KitPickGrid optionsGrid = view.FindControl<KitPickGrid>("ModuleOptionsGrid")!;
+            equippedGrid.SelectedIndex = 0;
+            optionsGrid.SelectedIndex = 0;
+
+            view.Bind(second, rf.Fx.Control.Viewer, rf.Fx.Cache);
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+            Assert.Equal(-1, equippedGrid.SelectedIndex);
+            Assert.Equal(-1, optionsGrid.SelectedIndex);
+            Assert.Equal(-1, view.FindControl<KitPickGrid>("EquippedBeaconGrid")!.SelectedIndex);
+            Assert.Equal(-1, view.FindControl<KitPickGrid>("BeaconModuleOptionsGrid")!.SelectedIndex);
+
+            Click(host, KitCellAt(optionsGrid, IndexOf(view.ViewModel!.ModuleOptions, other)));
+
+            Assert.Equal(2, second.AssemblerModules.Count);
+            Assert.Equal(rf.Module, second.AssemblerModules[0].Module);
+            Assert.Equal(other, second.AssemblerModules[1].Module);
+            Assert.Single(first.AssemblerModules);
+        }
+
+        //The kit owns the grid -> cell hop; this owns the app's own wording - all four grids name the module
+        //noun, so an empty slot reads the §03 string rather than the kit's nounless default.
+        [AvaloniaFact]
+        public void EmptyModuleSlots_ReadTheRatifiedModuleTooltip_OnEveryPickGrid() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.RemoveAssemblerModules();
             controller.SetBeacon(new BeaconQualityPair(rf.Beacon, rf.Fx.Normal));
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
-            CompactStepper beaconCount = view.FindControl<CompactStepper>("BeaconCountValue")!;
-            CompactStepper beaconsPerAssembler = view.FindControl<CompactStepper>("BeaconsPerAssemblerValue")!;
-            CompactStepper beaconsTotal = view.FindControl<CompactStepper>("BeaconsTotalValue")!;
 
-            beaconCount.Value = 1;
-            Assert.Equal("1", beaconCount.Text);
+            foreach (string name in new[] { "EquippedGrid", "ModuleOptionsGrid", "EquippedBeaconGrid", "BeaconModuleOptionsGrid" })
+                Assert.Equal("module", view.FindControl<KitPickGrid>(name)!.EmptyItemNoun);
 
-            beaconCount.Value = 1.5;
-            Assert.Equal("1.5", beaconCount.Text);
-
-            beaconsPerAssembler.Value = 2;
-            Assert.Equal("2.00", beaconsPerAssembler.Text);
-
-            beaconsTotal.Value = 3;
-            Assert.Equal("3.00", beaconsTotal.Text);
+            foreach (string name in new[] { "EquippedGrid", "EquippedBeaconGrid" })
+                Assert.All(CellsOf(view.FindControl<KitPickGrid>(name)!),
+                    cell => Assert.Equal("Empty slot — press Return to choose a module", ToolTip.GetTip(cell)));
         }
     }
 }

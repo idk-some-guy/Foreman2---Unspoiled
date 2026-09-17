@@ -14,6 +14,8 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
@@ -246,7 +248,9 @@ namespace Foreman.Mac.UiTests.Inspector {
         public void QualityMiniSelect_ListsQualitiesAndPickQuality_WritesThroughAndUpdatesSubtitleAndLabel() {
             DataCache cache = new(filterRecipes: true);
             var normal = new QualityPrototype(cache, "normal", "Normal", "a");
+            normal.SetIconAndColor(new IconColorPair(new SKBitmap(4, 4), System.Drawing.Color.White));
             var legendary = new QualityPrototype(cache, "legendary", "Legendary", "b") { Level = 1 };
+            legendary.SetIconAndColor(new IconColorPair(new SKBitmap(4, 4), System.Drawing.Color.Orange));
             FieldInfo storeField = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
             var store = (DataCacheStore)storeField.GetValue(cache)!;
             store.Qualities[normal.Name] = normal;
@@ -292,27 +296,23 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             InspectorTestSupport.Select(window, node);
 
-            Button qualityMiniSelect = window.Inspector.FindControl<Button>("QualityMiniSelect")!;
+            PopUp qualityMiniSelect = window.Inspector.FindControl<PopUp>("QualityMiniSelect")!;
             Assert.True(qualityMiniSelect.IsVisible);
-            Assert.Equal(normal.FriendlyName, window.Inspector.FindControl<TextBlock>("QualityMiniSelectLabel")!.Text);
-            PickGrid qualityGrid = window.Inspector.FindControl<PickGrid>("QualityGrid")!;
-            Assert.Equal(2, qualityGrid.Items.Count);
+            Assert.Equal(normal.FriendlyName, qualityMiniSelect.SelectedItem);
+            Assert.Equal(2, qualityMiniSelect.Items.Count);
 
-            qualityMiniSelect.Flyout!.ShowAt(qualityMiniSelect);
-            Dispatcher.UIThread.RunJobs();
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Image qualityIcon = window.Inspector.FindControl<Image>("QualityIcon")!;
+            Assert.True(qualityIcon.IsVisible);
+            object? normalSource = qualityIcon.Source;
+            Assert.NotNull(normalSource);
 
-            Button legendaryCell = qualityGrid.GetVisualDescendants().OfType<Button>()
-                .Single(b => Equals((b.DataContext as PickGridItem)?.Key, legendary));
-            Point center = new(legendaryCell.Bounds.Width / 2, legendaryCell.Bounds.Height / 2);
-            Point screen = legendaryCell.TranslatePoint(center, window) ?? center;
-            window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
-            window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
+            qualityMiniSelect.Command!.Execute(legendary.FriendlyName);
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(legendary, node.SelectedAssembler.Quality);
             Assert.Equal($"Recipe node · {electric.FriendlyName}", window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text);
-            Assert.Equal(legendary.FriendlyName, window.Inspector.FindControl<TextBlock>("QualityMiniSelectLabel")!.Text);
+            Assert.Equal(legendary.FriendlyName, qualityMiniSelect.SelectedItem);
+            Assert.NotSame(normalSource, qualityIcon.Source);
         }
 
         [AvaloniaFact]
@@ -641,7 +641,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorGroup beaconGroup = recipeView.FindControl<InspectorGroup>("BeaconGroup")!;
             Assert.False(beaconGroup.IsExpanded);
 
-            PickGrid beaconOptions = recipeView.FindControl<PickGrid>("BeaconOptions")!;
+            Foreman.Mac.Views.Inspector.PickGrid beaconOptions = recipeView.FindControl<Foreman.Mac.Views.Inspector.PickGrid>("BeaconOptions")!;
             Assert.DoesNotContain(beaconOptions, beaconGroup.GetVisualDescendants());
         }
 
@@ -739,6 +739,122 @@ namespace Foreman.Mac.UiTests.Inspector {
             string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             Directory.CreateDirectory(dir);
             return dir;
+        }
+
+        //One app-level layout pin - the rest of §03's form grammar (label column width, gutter, control
+        //edge, no per-row hairline) is Kit.FormRow's own tested contract.
+        [AvaloniaFact]
+        public async Task Inspector_LabelColumnIs108_AndEveryControlSharesOneEdge_WithNoBorderBetweenRows() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+
+            var recipeView = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
+            List<FormRow> rows = [.. recipeView.GetVisualDescendants().OfType<FormRow>().Where(r => r.IsVisible)];
+            Assert.NotEmpty(rows);
+            Assert.All(rows, r => Assert.Equal(FormRowLabelColumn.Inspector, r.LabelColumn));
+
+            Assert.True(Application.Current!.TryGetResource("Foreman.Size.FormLabelColumnInspector", Application.Current.ActualThemeVariant, out object? widthResource));
+            Assert.Equal(108d, (double)widthResource!);
+
+            double? sharedControlEdge = null;
+            foreach (FormRow row in rows) {
+                Control control = Assert.IsAssignableFrom<Control>(row.Content);
+                double leading = control.TranslatePoint(new Point(0, 0), window)!.Value.X;
+                sharedControlEdge ??= leading;
+                Assert.True(Math.Abs(leading - sharedControlEdge.Value) <= 1, $"control leading edge {leading} != shared edge {sharedControlEdge}");
+            }
+
+            //No divider Border between rows within a group - each FormGroup's own Items are FormRows only.
+            Assert.All(recipeView.GetVisualDescendants().OfType<FormGroup>(),
+                group => Assert.All(group.Items, item => Assert.IsType<FormRow>(item)));
+        }
+
+        //A15/A16: independent booleans are checkboxes, never switches, and write through on Space - the
+        //keyboard path the addendum calls out by name.
+        [AvaloniaFact]
+        public async Task Inspector_LowPriorityKeyNodeAndSimplify_AreCheckboxes_WritingThroughOnSpace() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            var recipe = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.NodeElements.First().ViewModel;
+            InspectorTestSupport.Select(window, recipe);
+            var recipeView = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
+            Assert.Empty(recipeView.GetVisualDescendants().OfType<ToggleSwitch>());
+
+            CheckBox lowPriority = recipeView.FindControl<CheckBox>("LowPriority")!;
+            Assert.False(lowPriority.IsChecked);
+            PressSpace(window, lowPriority);
+            Assert.True(lowPriority.IsChecked);
+            Assert.True(recipe.LowPriority);
+
+            CheckBox keyNode = recipeView.FindControl<CheckBox>("KeyNode")!;
+            PressSpace(window, keyNode);
+            Assert.True(keyNode.IsChecked);
+            Assert.True(recipe.KeyNode);
+
+            (MainWindow flowWindow, INodeViewModel passthrough) = await InspectorTestSupport.OpenWithPassthroughAsync();
+            InspectorTestSupport.Select(flowWindow, passthrough);
+            var flowView = flowWindow.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
+            Assert.Empty(flowView.GetVisualDescendants().OfType<ToggleSwitch>());
+
+            CheckBox simplify = flowView.FindControl<CheckBox>("Simplify")!;
+            PressSpace(flowWindow, simplify);
+            Assert.True(simplify.IsChecked);
+            Assert.True(((IPassthroughNodeViewModel)passthrough).SimpleDraw);
+        }
+
+        private static void PressSpace(MainWindow window, CheckBox checkBox) {
+            checkBox.Focus(NavigationMethod.Tab);
+            Dispatcher.UIThread.RunJobs();
+            checkBox.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Space });
+            Dispatcher.UIThread.RunJobs();
+            checkBox.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = Key.Space });
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        //A22: Quality and the already-shipped View Options Rate unit are pop-ups, each listing every value
+        //the underlying option set has. Building/Beacon/Fuel stay on the app's own PickGrid pending a
+        //Kit.PickGrid choice mode (a designer ruling on 2026-09-17 defers their pop-up move to a
+        //follow-up round - see the report's deviations).
+        [AvaloniaFact]
+        public async Task Inspector_QualityBuildingAndRateUnit_ArePopUps_ListingEveryValue() {
+            //Vanilla ships no qualities at all (see GetSpaceAgeCacheAsync's own comment above) - the
+            //Quality pop-up needs the DLC preset to have anything to list.
+            DataCache cache = await InspectorTestSupport.GetSpaceAgeCacheAsync();
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.ApplyLoadedSettings();
+            window.GraphCanvas.Viewer.Context.DCache = cache;
+            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
+            var pair = new RecipeQualityPair(cache.Recipes["iron-plate"], cache.DefaultQuality!);
+            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(pair, new System.Drawing.Point(0, 0));
+            Dispatcher.UIThread.RunJobs();
+
+            var node = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.Session.View.Nodes.Single();
+            InspectorTestSupport.Select(window, node);
+            var recipeView = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
+
+            PopUp qualityMiniSelect = window.Inspector.FindControl<PopUp>("QualityMiniSelect")!;
+            Assert.Equal(recipeView.ViewModel!.QualityOptions.Count, qualityMiniSelect.Items.Count);
+            Assert.True(qualityMiniSelect.Items.Count > 0);
+
+            window.ViewModel.ToggleViewOptionsCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            PopUp rateUnit = window.GetVisualDescendants().OfType<PopUp>().Single(p => p.Name == "RateOptionsDropDown");
+            Assert.Equal(MainWindow.RateUnitOptions, rateUnit.Items);
+        }
+
+        //A23: the Recipe/Flow segmented control is gone - the node type moved to the identity row.
+        [AvaloniaFact]
+        public async Task Inspector_NoRecipeFlowSegment_Exists() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+
+            List<Segmented> segments = [.. window.Inspector.GetVisualDescendants().OfType<Segmented>()];
+            Assert.NotEmpty(segments);
+            Assert.All(segments, s => Assert.DoesNotContain("Recipe", s.Items));
+            Assert.All(segments, s => Assert.DoesNotContain("Flow", s.Items));
         }
     }
 }

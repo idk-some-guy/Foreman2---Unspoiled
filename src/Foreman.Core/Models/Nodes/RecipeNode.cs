@@ -386,12 +386,14 @@ namespace Foreman {
         public void BeaconModulesAdd(ModuleQualityPair module) { beaconModules.Add(module); ioUpdateRequired = true; }
         public void BeaconModulesAddRange(IEnumerable<ModuleQualityPair> modules) { beaconModules.AddRange(modules); ioUpdateRequired = true; }
         public void BeaconModulesRemoveAt(int index) { beaconModules.RemoveAt(index); ioUpdateRequired = true; }
+        public void BeaconModulesReplaceAt(int index, ModuleQualityPair module) { beaconModules[index] = module; ioUpdateRequired = true; }
         public void BeaconModulesRemoveAll(ModuleQualityPair module) { beaconModules.RemoveAll(m => m == module); ioUpdateRequired = true; }
         public void BeaconModulesClear() { beaconModules.Clear(); ioUpdateRequired = true; }
 
         public void AssemblerModulesAdd(ModuleQualityPair module) { assemblerModules.Add(module); ioUpdateRequired = true; }
         public void AssemblerModulesAddRange(IEnumerable<ModuleQualityPair> modules) { assemblerModules.AddRange(modules); ioUpdateRequired = true; }
         public void AssemblerModulesRemoveAt(int index) { assemblerModules.RemoveAt(index); ioUpdateRequired = true; }
+        public void AssemblerModulesReplaceAt(int index, ModuleQualityPair module) { assemblerModules[index] = module; ioUpdateRequired = true; }
         public void AssemblerModulesRemoveAll(ModuleQualityPair module) { assemblerModules.RemoveAll(m => m == module); ioUpdateRequired = true; }
         public void AssemblerModulesClear() { assemblerModules.Clear(); ioUpdateRequired = true; }
 
@@ -749,6 +751,16 @@ namespace Foreman {
             MyNode.UpdateState();
         }
 
+        //Positional swap: keeps the module's slot order instead of a remove-then-append, which would
+        //shift every module after it up one slot.
+        public void ReplaceAssemblerModule(int index, ModuleQualityPair module) {
+            if (index >= 0 && index < MyNode.AssemblerModules.Count) {
+                MyNode.AssemblerModulesReplaceAt(index, module);
+                Mutated();
+            }
+            MyNode.UpdateState();
+        }
+
         public void RemoveAssemblerModules(ModuleQualityPair module) {
             MyNode.AssemblerModulesRemoveAll(module);
             MyNode.UpdateState();
@@ -816,6 +828,15 @@ namespace Foreman {
         public void RemoveBeaconModule(int index) {
             if (index >= 0 && index < MyNode.BeaconModules.Count) {
                 MyNode.BeaconModulesRemoveAt(index);
+                Mutated();
+            }
+            MyNode.UpdateState();
+        }
+
+        //Same positional swap as ReplaceAssemblerModule, for the beacon's own module slots.
+        public void ReplaceBeaconModule(int index, ModuleQualityPair module) {
+            if (index >= 0 && index < MyNode.BeaconModules.Count) {
+                MyNode.BeaconModulesReplaceAt(index, module);
                 Mutated();
             }
             MyNode.UpdateState();

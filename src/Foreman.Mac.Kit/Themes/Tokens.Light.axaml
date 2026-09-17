@@ -129,7 +129,6 @@
   <x:Double x:Key="Foreman.Type.Legacy.Browser.Row.FontSize">12.5</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.Kbd.FontSize">9.5</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.SearchField.FontSize">12.5</x:Double>
-  <x:Double x:Key="Foreman.Type.Legacy.Toolbar.Label.FontSize">11.5</x:Double>
   <!-- Kit.ToolbarItem's icon+label caption; hig-critique ruling keeps it legacy at 9.5, not folded into the ramp. -->
   <x:Double x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontSize">9.5</x:Double>
   <FontWeight x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontWeight">500</FontWeight>
@@ -266,8 +265,8 @@
   <!-- Canvas node card shadow; cards carry no shadow in dark, so Dark's alpha is zero. -->
   <BoxShadows x:Key="Foreman.Shadow.Card">0 2 8 0 #12000000</BoxShadows>
 
-  <!-- GalleryWindow's QualityPicker chrome bubble mimics a floating panel's fixed dark chrome, which
-       doesn't follow the app theme either. -->
+  <!-- Last consumer: GalleryWindow.Tile's caption text (every gallery tile header) - fixed dark chrome
+       that doesn't follow the app theme either. -->
   <Color x:Key="Foreman.Color.GalleryChrome">#000000</Color>
 
   <!-- Sheet widths (K3 composites addendum §12.9): replaces the shipped 340/348/360/460/780. -->

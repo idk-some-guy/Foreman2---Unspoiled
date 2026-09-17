@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
@@ -9,6 +10,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
 using System.Linq;
 using Xunit;
@@ -224,6 +226,116 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void UntouchedGrid_DefaultsToNoSelection_NoCellIsMarkedSelected() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(-1, grid.SelectedIndex);
+            Assert.All(Cells(grid), c => Assert.False(c.IsSelected));
+        }
+
+        [AvaloniaFact]
+        public void ArrowKeys_FromNoSelection_LandOnTheFirstCell() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots(columns: 2);
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            foreach (Key key in new[] { Key.Left, Key.Right, Key.Up, Key.Down }) {
+                grid.SelectedIndex = -1;
+                fixture.StateOf(grid).KeyDown(key);
+                Assert.Equal(0, grid.SelectedIndex);
+            }
+        }
+
+        [AvaloniaFact]
+        public void ReturnOrSpace_WithNoSelection_DoesNothing() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            grid.SelectedIndex = -1;
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            int? chosen = null;
+            grid.ChooseRequested += (_, index) => chosen = index;
+
+            var returnEvent = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Return };
+            grid.RaiseEvent(returnEvent);
+            var spaceEvent = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Space };
+            grid.RaiseEvent(spaceEvent);
+
+            Assert.Null(chosen);
+            Assert.False(returnEvent.Handled);
+            Assert.False(spaceEvent.Handled);
+        }
+
+        //Keyboard entry needs a cell to land on: with nothing selected the grid takes the first one, so
+        //the selection and focus rings both draw and Return/Delete have a target (addendum §03).
+        [AvaloniaFact]
+        public void KeyboardFocus_WithNoSelection_TakesTheFirstCell_SoTheRingsShowAndReturnChooses() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            int? chosen = null;
+            grid.ChooseRequested += (_, index) => chosen = index;
+            fixture.StateOf(grid).Focus();
+
+            Assert.Equal(0, grid.SelectedIndex);
+            Assert.True(Cells(grid)[0].IsSelected);
+            Assert.Equal(1, Cells(grid).Count(FocusRing.GetShowAlways));
+
+            var returnEvent = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Return };
+            grid.RaiseEvent(returnEvent);
+
+            Assert.True(returnEvent.Handled);
+            Assert.Equal(0, chosen);
+        }
+
+        [AvaloniaFact]
+        public void PointerFocus_WithNoSelection_SelectsNothing_UntilACellIsClicked() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            grid.Focus(NavigationMethod.Pointer);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(-1, grid.SelectedIndex);
+            Assert.All(Cells(grid), c => Assert.False(FocusRing.GetShowAlways(c)));
+
+            fixture.StateOf(Cells(grid)[2]).Click();
+
+            Assert.Equal(2, grid.SelectedIndex);
+        }
+
+        //The cell's own EmptyItemNoun is covered in KitPickCellTests; this pins the hop from the grid.
+        [AvaloniaFact]
+        public void EmptyItemNoun_ReachesTheEmptyCellsTooltip() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            grid.EmptyItemNoun = "module";
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("Empty slot — press Return to choose a module", ToolTip.GetTip(Cells(grid)[2]));
+        }
+
+        [AvaloniaFact]
+        public void NeitherChooseRequestedNorClearedSubscribed_CellHelpTextNamesNoCommand() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("", AutomationProperties.GetHelpText(Cells(grid)[0]));
+        }
+
+        [AvaloniaFact]
         public void ZeroSlots_TheGridDrawsNothing() {
             using var fixture = new KitFixture();
             var grid = new PickGrid { Theme = KitPickGridTheme() };
@@ -279,11 +391,112 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void VoiceOver_CellHelpTextNamesTheRemoveCommand() {
             using var fixture = new KitFixture();
             PickGrid grid = FourSlots();
+            grid.ChooseRequested += (_, _) => { };
+            grid.Cleared += (_, _) => { };
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(Cells(grid)[0]);
-            Assert.Equal("Return chooses a module. Delete removes it.", peer.GetHelpText());
+            Assert.Equal("Return chooses this item. Delete removes it.", peer.GetHelpText());
+        }
+
+        [AvaloniaFact]
+        public void NoClearedSubscriber_CellHelpTextNamesOnlyChoose_AndDeleteIsUnhandled() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            grid.SelectedIndex = 0;
+            grid.ChooseRequested += (_, _) => { };
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(Cells(grid)[0]);
+            Assert.Equal("Return chooses this item.", peer.GetHelpText());
+
+            var e = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Delete };
+            grid.RaiseEvent(e);
+            Assert.False(e.Handled);
+        }
+
+        [AvaloniaFact]
+        public void NoChooseRequestedSubscriber_ReturnIsUnhandled() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            grid.SelectedIndex = 0;
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            var e = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Return };
+            grid.RaiseEvent(e);
+            Assert.False(e.Handled);
+        }
+
+        [AvaloniaFact]
+        public void NamesSlotsFalse_CellsAndGroupNameCarryNoSlotWording() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            grid.NamesSlots = false;
+            grid.GroupLabel = "Available modules";
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer cellPeer = ControlAutomationPeer.CreatePeerForElement(Cells(grid)[0]);
+            Assert.Equal("Productivity Module 3, 1 of 4", cellPeer.GetName());
+
+            AutomationPeer groupPeer = ControlAutomationPeer.CreatePeerForElement(grid);
+            Assert.Equal("Available modules, 4 items", groupPeer.GetName());
+        }
+
+        [AvaloniaFact]
+        public void ClickingACell_RaisesCellClicked_ButArrowNavigationDoesNot() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            int? clicked = null;
+            grid.CellClicked += (_, index) => clicked = index;
+
+            fixture.StateOf(Cells(grid)[2]).Click();
+            Assert.Equal(2, clicked);
+
+            clicked = null;
+            fixture.StateOf(grid).KeyDown(Key.Left);
+            Assert.Null(clicked);
+        }
+
+        [AvaloniaFact]
+        public void ReplacingASlot_UpdatesTheExistingCellInPlace_WithoutRebuildingOtherCells() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            PickCell[] before = Cells(grid);
+            grid.Slots[1] = new PickSlot { Name = "Efficiency Module 1" };
+            Dispatcher.UIThread.RunJobs();
+
+            PickCell[] after = Cells(grid);
+            Assert.Equal(before.Length, after.Length);
+            for (int i = 0; i < before.Length; i++)
+                Assert.Same(before[i], after[i]);
+            Assert.Equal("Efficiency Module 1", after[1].AccessibleName);
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(after[1]);
+            Assert.Equal("Efficiency Module 1, slot 2 of 4", peer.GetName());
+        }
+
+        [AvaloniaFact]
+        public void ReplacingASlotWithIdenticalContent_StillUpdatesInPlace_NoCellRecreated() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            PickCell before = Cells(grid)[0];
+            grid.Slots[0] = new PickSlot { Name = "Productivity Module 3" };
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(before, Cells(grid)[0]);
         }
 
         [AvaloniaFact]
