@@ -60,6 +60,18 @@
                   Width="12" Height="12"
                   Stretch="None" />
           </Viewbox>
+          <Viewbox x:Name="PART_NoneBox"
+                   Width="{DynamicResource Foreman.Size.GlyphMicro}"
+                   Height="{DynamicResource Foreman.Size.GlyphMicro}"
+                   Stretch="Uniform" StretchDirection="Both"
+                   IsHitTestVisible="False"
+                   IsVisible="False">
+            <Path Theme="{StaticResource Kit.Glyph}"
+                  Data="{StaticResource Kit.Glyph.NoneSlash.12}"
+                  Stroke="{DynamicResource Foreman.Color.TextTertiary}"
+                  Width="12" Height="12"
+                  Stretch="None" />
+          </Viewbox>
         </Panel>
       </ControlTemplate>
     </Setter>
@@ -81,8 +93,15 @@
     <Style Selector="^:missing /template/ Viewbox#PART_AlertBox">
       <Setter Property="IsVisible" Value="True" />
     </Style>
+    <Style Selector="^:none /template/ Viewbox#PART_NoneBox">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
     <Style Selector="^:disabled">
       <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+    <!-- Opacity means "unavailable", never "inert" (A22 amended): the cell stays enabled/hit-testable. -->
+    <Style Selector="^:unavailable">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Unavailable}" />
     </Style>
   </ControlTheme>
 

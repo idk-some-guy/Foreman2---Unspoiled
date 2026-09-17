@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -195,6 +196,133 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Same(KitMenuPanelTheme(), panel.Theme);
             Assert.Single(ItemsPanel(panel).Children);
             Assert.True(panel.Bounds.Width > 0 && panel.Bounds.Height > 0);
+        }
+    }
+
+    //Pop-up menu rows with a leading item icon (2026-09-17 ruling amending the building-picker page): the
+    //checkmark column is never displaced - NSMenuItem's own state/image/title slot order, check first.
+    public sealed class KitMenuRowIconTests {
+        private static ControlTheme KitMenuPanelTheme() {
+            Assert.True(Application.Current!.TryGetResource("Kit.MenuPanel", null, out object? theme));
+            return Assert.IsType<ControlTheme>(theme);
+        }
+
+        private static StackPanel ItemsPanel(MenuPanel panel) =>
+            panel.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_Items");
+
+        private static Border[] Rows(MenuPanel panel) => [.. ItemsPanel(panel).Children.OfType<Border>()];
+
+        private static Border ItemRow(MenuPanel panel, int index) => Rows(panel).Where(r => r.Child is not null).ElementAt(index);
+
+        private static double LabelXFromPanelEdge(MenuPanel panel, TextBlock label) =>
+            Avalonia.VisualExtensions.TranslatePoint(label, new Point(0, 0), ItemsPanel(panel))!.Value.X;
+
+        [AvaloniaFact]
+        public void RowWithIcon_ChildOrderIsCheckThenImageThenLabel_AndLabelXIs58() {
+            using var fixture = new KitFixture();
+            var icon = new RenderTargetBitmap(new PixelSize(4, 4));
+            var panel = new MenuPanel { Theme = KitMenuPanelTheme() };
+            panel.Items.Add(new MenuRow { Text = "Rare", IsChecked = false, Icon = icon });
+            fixture.Window.Content = panel;
+            Dispatcher.UIThread.RunJobs();
+
+            var content = (StackPanel)ItemRow(panel, 0).Child!;
+            Assert.Equal(3, content.Children.Count);
+            var checkSlot = Assert.IsType<Panel>(content.Children[0]);
+            var iconFrame = Assert.IsType<Border>(content.Children[1]);
+            var label = Assert.IsType<TextBlock>(content.Children[2]);
+
+            Assert.Equal(16, checkSlot.Width);
+            Assert.Equal(16, iconFrame.Width);
+            Assert.Equal(16, iconFrame.Height);
+            Assert.Equal(new CornerRadius(3), iconFrame.CornerRadius);
+            Assert.Equal(58, LabelXFromPanelEdge(panel, label), 1);
+        }
+
+        [AvaloniaFact]
+        public void RowWithIconUnchecked_KeepsTheSlot_SoIconAndLabelXMatchTheCheckedRow() {
+            using var fixture = new KitFixture();
+            var icon = new RenderTargetBitmap(new PixelSize(4, 4));
+            var panel = new MenuPanel { Theme = KitMenuPanelTheme() };
+            panel.Items.Add(new MenuRow { Text = "Normal", IsChecked = true, Icon = icon });
+            panel.Items.Add(new MenuRow { Text = "Rare", IsChecked = false, Icon = icon });
+            fixture.Window.Content = panel;
+            Dispatcher.UIThread.RunJobs();
+
+            var checkedContent = (StackPanel)ItemRow(panel, 0).Child!;
+            var uncheckedContent = (StackPanel)ItemRow(panel, 1).Child!;
+            var checkedLabel = (TextBlock)checkedContent.Children[2];
+            var uncheckedLabel = (TextBlock)uncheckedContent.Children[2];
+
+            Assert.Equal(LabelXFromPanelEdge(panel, checkedLabel), LabelXFromPanelEdge(panel, uncheckedLabel));
+            Assert.Equal(16, ((Panel)uncheckedContent.Children[0]).Width);
+        }
+
+        [AvaloniaFact]
+        public void CheckedRow_GlyphSitsInTheSlot_NotTheIcon() {
+            using var fixture = new KitFixture();
+            var icon = new RenderTargetBitmap(new PixelSize(4, 4));
+            var panel = new MenuPanel { Theme = KitMenuPanelTheme() };
+            panel.Items.Add(new MenuRow { Text = "Normal", IsChecked = true, Icon = icon });
+            fixture.Window.Content = panel;
+            Dispatcher.UIThread.RunJobs();
+
+            var content = (StackPanel)ItemRow(panel, 0).Child!;
+            var checkSlot = (Panel)content.Children[0];
+            var iconFrame = (Border)content.Children[1];
+
+            Path check = Assert.Single(checkSlot.Children.OfType<Path>());
+            Assert.True(check.IsVisible);
+            Assert.Empty(iconFrame.GetVisualDescendants().OfType<Path>());
+        }
+
+        [AvaloniaFact]
+        public void MenuWithNoIcons_MatchesTheK2Baseline_LabelXIs34_NoIconChild() {
+            using var fixture = new KitFixture();
+            var panel = new MenuPanel { Theme = KitMenuPanelTheme() };
+            panel.Items.Add(new MenuRow { Text = "Show hidden objects", IsChecked = true });
+            fixture.Window.Content = panel;
+            Dispatcher.UIThread.RunJobs();
+
+            var content = (StackPanel)ItemRow(panel, 0).Child!;
+            Assert.Equal(2, content.Children.Count);
+            var label = Assert.IsType<TextBlock>(content.Children[1]);
+            Assert.Equal(34, LabelXFromPanelEdge(panel, label), 1);
+        }
+
+        [AvaloniaFact]
+        public void Highlighting_ChangesTheCheckmarkAndLabelBrushes_ButLeavesTheIconUntouched() {
+            using var fixture = new KitFixture();
+            var icon = new RenderTargetBitmap(new PixelSize(4, 4));
+            var panel = new MenuPanel { Theme = KitMenuPanelTheme() };
+            panel.Items.Add(new MenuRow { Text = "Rare", IsChecked = true, Icon = icon });
+            fixture.Window.Content = panel;
+            panel.HighlightedIndex = 0;
+            Dispatcher.UIThread.RunJobs();
+
+            var content = (StackPanel)ItemRow(panel, 0).Child!;
+            var checkSlot = (Panel)content.Children[0];
+            var iconFrame = (Border)content.Children[1];
+            Path check = Assert.Single(checkSlot.Children.OfType<Path>());
+            var label = content.Children.OfType<TextBlock>().Single();
+            var image = Assert.IsType<Image>(iconFrame.Child);
+
+            Assert.Equal(fixture.Brush("Foreman.Color.TextOnAccent").ToImmutable(), check.Stroke?.ToImmutable());
+            Assert.Equal(fixture.Brush("Foreman.Color.TextOnAccent").ToImmutable(), label.Foreground?.ToImmutable());
+            Assert.Same(icon, image.Source);
+            Assert.Null(iconFrame.Background);
+        }
+
+        [AvaloniaFact]
+        public void RowHeight_Stays22WithAnIconPresent() {
+            using var fixture = new KitFixture();
+            var icon = new RenderTargetBitmap(new PixelSize(4, 4));
+            var panel = new MenuPanel { Theme = KitMenuPanelTheme() };
+            panel.Items.Add(new MenuRow { Text = "Rare", Icon = icon });
+            fixture.Window.Content = panel;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(22, ItemRow(panel, 0).Height);
         }
     }
 

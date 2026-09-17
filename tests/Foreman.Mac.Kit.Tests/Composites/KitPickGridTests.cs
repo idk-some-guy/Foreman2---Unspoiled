@@ -345,6 +345,23 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.False(grid.IsVisible);
         }
 
+        //A host never writes IsVisible to bootstrap a grid: a grid still waiting for its first layout pass
+        //(so never templated) derives visibility from Slots on its own, in both directions.
+        [AvaloniaFact]
+        public void UntemplatedGrid_DerivesIsVisibleFromItsSlots() {
+            using var fixture = new KitFixture();
+            var grid = new PickGrid { Theme = KitPickGridTheme() };
+
+            grid.Slots.Add(new PickSlot { IsEmpty = true });
+            Assert.True(grid.IsVisible);
+
+            grid.Slots.Clear();
+            Assert.False(grid.IsVisible);
+
+            grid.Slots.Add(new PickSlot { IsEmpty = true });
+            Assert.True(grid.IsVisible);
+        }
+
         [AvaloniaFact]
         public void VoiceOver_GroupNameNamesTheSlotCount() {
             using var fixture = new KitFixture();
@@ -512,6 +529,38 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Viewbox alertBox = cell.GetVisualDescendants().OfType<Viewbox>().Single(v => v.Name == "PART_AlertBox");
             Assert.False(plusBox.IsVisible);
             Assert.False(alertBox.IsVisible);
+        }
+
+        //A stale index >= the shrunk count defeats the keyboard-entry guard (GotFocus only takes the first
+        //cell when SelectedIndex is < 0), so a shrink must clamp it itself.
+        [AvaloniaFact]
+        public void SlotsShrink_ClampsAStaleSelectedIndex_ToTheNewLastSlot() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            grid.SelectedIndex = 3;
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            grid.Slots.RemoveAt(3);
+            grid.Slots.RemoveAt(2);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(1, grid.SelectedIndex);
+            Assert.True(Cells(grid)[1].IsSelected);
+        }
+
+        [AvaloniaFact]
+        public void AllSlotsRemoved_ClampsSelectedIndexToNoSelection() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            grid.SelectedIndex = 2;
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            grid.Slots.Clear();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(-1, grid.SelectedIndex);
         }
 
         [AvaloniaFact]

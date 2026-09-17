@@ -1,4 +1,6 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -301,9 +303,9 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(normal.FriendlyName, qualityMiniSelect.SelectedItem);
             Assert.Equal(2, qualityMiniSelect.Items.Count);
 
-            Image qualityIcon = window.Inspector.FindControl<Image>("QualityIcon")!;
-            Assert.True(qualityIcon.IsVisible);
-            object? normalSource = qualityIcon.Source;
+            //Quality's leading icon rides on the pop-up itself now (2026-09-17 building-picker ruling §05),
+            //not a separate Image beside it.
+            object? normalSource = qualityMiniSelect.Icon;
             Assert.NotNull(normalSource);
 
             qualityMiniSelect.Command!.Execute(legendary.FriendlyName);
@@ -312,7 +314,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(legendary, node.SelectedAssembler.Quality);
             Assert.Equal($"Recipe node · {electric.FriendlyName}", window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text);
             Assert.Equal(legendary.FriendlyName, qualityMiniSelect.SelectedItem);
-            Assert.NotSame(normalSource, qualityIcon.Source);
+            Assert.NotSame(normalSource, qualityMiniSelect.Icon);
         }
 
         [AvaloniaFact]
@@ -641,8 +643,8 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorGroup beaconGroup = recipeView.FindControl<InspectorGroup>("BeaconGroup")!;
             Assert.False(beaconGroup.IsExpanded);
 
-            Foreman.Mac.Views.Inspector.PickGrid beaconOptions = recipeView.FindControl<Foreman.Mac.Views.Inspector.PickGrid>("BeaconOptions")!;
-            Assert.DoesNotContain(beaconOptions, beaconGroup.GetVisualDescendants());
+            Foreman.Mac.Kit.Composites.PickGrid beaconChoiceGrid = recipeView.FindControl<Foreman.Mac.Kit.Composites.PickGrid>("BeaconChoiceGrid")!;
+            Assert.DoesNotContain(beaconChoiceGrid, beaconGroup.GetVisualDescendants());
         }
 
         [AvaloniaFact]
@@ -653,6 +655,66 @@ namespace Foreman.Mac.UiTests.Inspector {
             string subtitle = window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text!;
             Assert.Equal("Passthrough node", subtitle);
             Assert.DoesNotContain("·", subtitle);
+        }
+
+        //Identity row building line (2026-09-17 building-picker ruling §05): "{type} · {building}", now
+        //load-bearing (the choice grid has no visible label of its own); it gains " (quality)" only when
+        //the selected quality is not the base tier, and its tooltip carries the same, untruncated, string.
+        [AvaloniaFact]
+        public async Task Inspector_IdentitySubtitle_CarriesTheBuildingLine_AndAppendsQualityWhenNotBase() {
+            DataCache cache = await InspectorTestSupport.GetSpaceAgeCacheAsync();
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.ApplyLoadedSettings();
+            window.GraphCanvas.Viewer.Context.DCache = cache;
+            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
+            var pair = new RecipeQualityPair(cache.Recipes["iron-plate"], cache.DefaultQuality!);
+            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(pair, new System.Drawing.Point(0, 0));
+            Dispatcher.UIThread.RunJobs();
+
+            var node = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.Session.View.Nodes.Single();
+            InspectorTestSupport.Select(window, node);
+
+            TextBlock subtitle = window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!;
+            string building = node.SelectedAssembler.Assembler.FriendlyName;
+            Assert.Equal($"Recipe node · {building}", subtitle.Text);
+            Assert.Equal(Avalonia.Media.TextTrimming.CharacterEllipsis, subtitle.TextTrimming);
+            Assert.Equal(subtitle.Text, ToolTip.GetTip(subtitle));
+
+            IQuality? higher = cache.DefaultQuality!.NextQuality;
+            Assert.NotNull(higher);
+            PopUp qualityMiniSelect = window.Inspector.FindControl<PopUp>("QualityMiniSelect")!;
+            qualityMiniSelect.Command!.Execute(higher!.FriendlyName);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal($"Recipe node · {building} ({higher!.FriendlyName})", subtitle.Text);
+            Assert.Equal(subtitle.Text, ToolTip.GetTip(subtitle));
+        }
+
+        //The grid deliberately has no visible label (2026-09-17 building-picker ruling) - the building is
+        //spoken on focus of the identity row itself, without the user hunting for the grid.
+        [AvaloniaFact]
+        public async Task IdentityRow_AutomationPeer_IsAGroupNamedAfterTheNode_WithTheSubtitleAsItsValue() {
+            DataCache cache = await InspectorTestSupport.GetSpaceAgeCacheAsync();
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.ApplyLoadedSettings();
+            window.GraphCanvas.Viewer.Context.DCache = cache;
+            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
+            var pair = new RecipeQualityPair(cache.Recipes["iron-plate"], cache.DefaultQuality!);
+            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(pair, new System.Drawing.Point(0, 0));
+            Dispatcher.UIThread.RunJobs();
+
+            var node = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.Session.View.Nodes.Single();
+            InspectorTestSupport.Select(window, node);
+
+            IdentityRow identityRow = window.Inspector.FindControl<IdentityRow>("IdentityRow")!;
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(identityRow);
+            Assert.Equal(AutomationControlType.Group, peer.GetAutomationControlType());
+            Assert.Equal(node.BaseRecipe.FriendlyName, peer.GetName());
+            Assert.Equal($"Recipe node · {node.SelectedAssembler.Assembler.FriendlyName}", peer.GetProvider<IValueProvider>()?.Value);
         }
 
         [AvaloniaFact]

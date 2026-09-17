@@ -1,6 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using CommunityToolkit.Mvvm.Input;
+using Foreman;
+using Foreman.Mac;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Kit.Controls;
@@ -14,9 +17,14 @@ namespace Foreman.Mac.Views.Inspector {
     public partial class FlowSegmentView : UserControl {
         private readonly Segmented rateMode;
         private readonly Stepper rateValue;
+        private readonly PopUp rateUnitPopUp;
         private GraphViewer? boundViewer;
 
         public FlowSegmentViewModel? ViewModel { get; private set; }
+
+        //Rate unit is a graph-level setting shared with View Options and the View menu radios - see
+        //RecipeSegmentView's own RateUnitChanged for the mirror this feeds.
+        public event EventHandler<ProductionGraph.RateUnit>? RateUnitChanged;
 
         public FlowSegmentView() {
             InitializeComponent();
@@ -24,7 +32,11 @@ namespace Foreman.Mac.Views.Inspector {
             rateMode.Items.Add("Auto");
             rateMode.Items.Add("Fixed");
             rateValue = this.FindControl<Stepper>("RateValue")!;
+            rateUnitPopUp = this.FindControl<PopUp>("RateUnitPopUp")!;
+            foreach (string option in MainWindow.RateUnitOptions)
+                rateUnitPopUp.Items.Add(option);
             rateMode.PropertyChanged += RateMode_PropertyChanged;
+            rateUnitPopUp.Command = new RelayCommand<string>(PickRateUnitByName);
             DetachedFromVisualTree += (_, _) => Detach();
         }
 
@@ -37,6 +49,7 @@ namespace Foreman.Mac.Views.Inspector {
             DataContext = ViewModel;
             rateValue.Maximum = node.MaxDesiredSetValue * viewer.Graph.GetRateMultipler();
             rateMode.SelectedIndex = ViewModel.IsFixedRate ? 1 : 0;
+            rateUnitPopUp.SelectedItem = MainWindow.RateUnitOptions[(int)viewer.Graph.SelectedRateUnit];
             viewer.Session.NodeValuesUpdated += OnNodeValuesUpdated;
         }
 
@@ -45,13 +58,26 @@ namespace Foreman.Mac.Views.Inspector {
         //resyncs the stepper, but RateMode isn't bound (see the class comment) so it needs its own nudge here.
         internal void Refresh() {
             ViewModel?.Refresh();
-            if (ViewModel is not null)
-                rateMode.SelectedIndex = ViewModel.IsFixedRate ? 1 : 0;
+            if (ViewModel is null)
+                return;
+            rateMode.SelectedIndex = ViewModel.IsFixedRate ? 1 : 0;
+            if (boundViewer is not null)
+                rateUnitPopUp.SelectedItem = MainWindow.RateUnitOptions[(int)boundViewer.Graph.SelectedRateUnit];
         }
 
         private void RateMode_PropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e) {
             if (e.Property == Segmented.SelectedIndexProperty && ViewModel is not null)
                 ViewModel.IsFixedRate = rateMode.SelectedIndex == 1;
+        }
+
+        //Reports the pick and writes nothing - see RecipeSegmentView's own PickRateUnitByName.
+        private void PickRateUnitByName(string? name) {
+            if (boundViewer is null || name is null)
+                return;
+            int index = Array.IndexOf(MainWindow.RateUnitOptions, name);
+            if (index < 0)
+                return;
+            RateUnitChanged?.Invoke(this, (ProductionGraph.RateUnit)index);
         }
 
         private void OnNodeValuesUpdated(object? sender, EventArgs e) => Refresh();

@@ -23,15 +23,27 @@
                   CornerRadius="{TemplateBinding CornerRadius}"
                   Padding="{TemplateBinding Padding}">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Foreman.Size.ControlGlyphGap}">
-              <TextBlock x:Name="PART_Label"
-                         Grid.Column="0"
-                         Text="{TemplateBinding DisplayText}"
-                         FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
-                         FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
-                         Foreground="{DynamicResource Foreman.Color.Text}"
-                         TextTrimming="CharacterEllipsis"
-                         VerticalAlignment="Center" />
-              <StackPanel Grid.Column="1"
+              <Grid x:Name="PART_LeadingGrid" Grid.Column="0" ColumnDefinitions="Auto,*" ColumnSpacing="0">
+                <Border x:Name="PART_IconFrame"
+                        Grid.Column="0"
+                        Width="{DynamicResource Foreman.Size.PopUpLeadingIcon}"
+                        Height="{DynamicResource Foreman.Size.PopUpLeadingIcon}"
+                        CornerRadius="{DynamicResource Foreman.Radius.PopUpLeadingIcon}"
+                        ClipToBounds="True"
+                        IsVisible="False">
+                  <Image x:Name="PART_Icon" Source="{TemplateBinding Icon}" Stretch="Uniform" />
+                </Border>
+                <TextBlock x:Name="PART_Label"
+                           Grid.Column="1"
+                           Text="{TemplateBinding DisplayText}"
+                           FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
+                           FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
+                           Foreground="{DynamicResource Foreman.Color.Text}"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" />
+              </Grid>
+              <StackPanel x:Name="PART_TrailingColumn"
+                          Grid.Column="1"
                           Orientation="Horizontal"
                           Spacing="{DynamicResource Foreman.Size.ControlGlyphGap}">
                 <Border x:Name="PART_Indicator"
@@ -81,6 +93,16 @@
     </Style>
     <Style Selector="^:pulldown">
       <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.PopUpPulldownPadding}" />
+    </Style>
+
+    <Style Selector="^:hasicon">
+      <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.PopUpIconPadding}" />
+    </Style>
+    <Style Selector="^:hasicon /template/ Border#PART_IconFrame">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:hasicon /template/ Grid#PART_LeadingGrid">
+      <Setter Property="ColumnSpacing" Value="{DynamicResource Foreman.Size.ControlGlyphGap}" />
     </Style>
 
     <Style Selector="^:pointerover /template/ Border#PART_Frame">

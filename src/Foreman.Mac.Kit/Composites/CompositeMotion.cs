@@ -44,19 +44,21 @@ namespace Foreman.Mac.Kit.Composites {
             Dispatcher.UIThread.Post(() => _ = RunReflow(host, oldHeight, newHeightAfterMeasure, cancellation, onSettled), DispatcherPriority.Loaded);
         }
 
+        internal static Animation BuildReflowAnimation(double oldHeight, double newHeight) => new() {
+            Duration = Motion.InspectorReflowDuration,
+            Easing = Motion.EntranceEasing,
+            Children = {
+                new KeyFrame { Cue = new Cue(0), Setters = { new Setter(Layoutable.HeightProperty, oldHeight) } },
+                new KeyFrame { Cue = new Cue(1), Setters = { new Setter(Layoutable.HeightProperty, newHeight) } },
+            },
+        };
+
         private static async Task RunReflow(Control host, double oldHeight, Func<double> newHeightAfterMeasure, CancellationTokenSource cancellation, Action onSettled) {
             CancellationToken token = cancellation.Token;
             if (token.IsCancellationRequested)
                 return;
             double newHeight = newHeightAfterMeasure();
-
-            var reflow = new Animation {
-                Duration = Motion.InspectorReflowDuration,
-                Children = {
-                    new KeyFrame { Cue = new Cue(0), Setters = { new Setter(Layoutable.HeightProperty, oldHeight) } },
-                    new KeyFrame { Cue = new Cue(1), Setters = { new Setter(Layoutable.HeightProperty, newHeight) } },
-                },
-            };
+            Animation reflow = BuildReflowAnimation(oldHeight, newHeight);
 
             try {
                 await reflow.RunAsync(host, token);

@@ -3,6 +3,7 @@
              xmlns:vm="using:Foreman.Mac.ViewModels"
              xmlns:composites="using:Foreman.Mac.Kit.Composites"
              xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+             xmlns:insp="using:Foreman.Mac.Views.Inspector"
              x:Class="Foreman.Mac.Views.Inspector.InspectorView"
              x:DataType="vm:InspectorViewModel">
   <!-- IsVisible is driven from MainWindow.axaml.cs (ViewModel.IsInspectorVisible), not a binding here -
@@ -18,7 +19,7 @@
       <composites:SplitDivider Grid.Column="0" Name="WidthDivider" Theme="{StaticResource Kit.SplitDivider}"
                                 Anchor="Trailing" Value="{Binding Width, Mode=TwoWay}" />
       <Grid Grid.Column="1" RowDefinitions="Auto,*">
-        <Border Grid.Row="0" Name="IdentityRow" Padding="12,11" IsVisible="{Binding HasNode}"
+        <insp:IdentityRow Grid.Row="0" Name="IdentityRow" Padding="12,11" IsVisible="{Binding HasNode}"
                 BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,0,0,1">
           <Grid ColumnDefinitions="Auto,10,*">
             <Border Grid.Column="0" Width="32" Height="32" CornerRadius="7"
@@ -33,12 +34,11 @@
               <TextBlock Name="IdentitySubtitle" Theme="{StaticResource Kit.Text}" Classes="caption tertiary"
                          TextTrimming="CharacterEllipsis" />
               <StackPanel Name="QualityRow" Orientation="Horizontal" Spacing="4" IsVisible="False" Margin="0,4,0,0">
-                <Image Name="QualityIcon" Width="16" Height="16" />
                 <ctrl:PopUp Name="QualityMiniSelect" Theme="{StaticResource Kit.PopUp}" HorizontalAlignment="Left" />
               </StackPanel>
             </StackPanel>
           </Grid>
-        </Border>
+        </insp:IdentityRow>
 
         <!-- Only the body scrolls - the identity header above stays pinned. Named so tests can find this
              specific ScrollViewer, not one buried in a TextBox's own template part. -->

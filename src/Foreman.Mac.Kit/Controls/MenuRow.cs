@@ -1,3 +1,4 @@
+using Avalonia.Media;
 using System;
 
 namespace Foreman.Mac.Kit.Controls {
@@ -10,6 +11,8 @@ namespace Foreman.Mac.Kit.Controls {
         public bool IsEnabled { get; init; } = true;
         public bool KeepOpenOnActivate { get; init; }
         public Action? Activate { get; init; }
+        //PopUp's optional leading icon (2026-09-17 building-picker ruling): the same slot leads the button and every menu item.
+        public IImage? Icon { get; init; }
 
         public static MenuRow Separator() => new() { Text = "", IsSeparator = true, HasCheckSlot = false, IsEnabled = false };
     }

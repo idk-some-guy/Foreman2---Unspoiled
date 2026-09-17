@@ -25,6 +25,14 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<bool> IsMissingProperty =
             AvaloniaProperty.Register<PickCell, bool>(nameof(IsMissing));
 
+        //Choice mode: enabled in the preset but not researched in this save (A22 amended) - dims, stays choosable.
+        public static readonly StyledProperty<bool> IsUnavailableProperty =
+            AvaloniaProperty.Register<PickCell, bool>(nameof(IsUnavailable));
+
+        //Choice mode: the leading "None" cell (Beacon) - a real member of the set, not an empty slot.
+        public static readonly StyledProperty<bool> IsNoneProperty =
+            AvaloniaProperty.Register<PickCell, bool>(nameof(IsNone));
+
         public static readonly StyledProperty<string?> AccessibleNameProperty =
             AvaloniaProperty.Register<PickCell, string?>(nameof(AccessibleName));
 
@@ -56,6 +64,20 @@ namespace Foreman.Mac.Kit.Composites {
             set => SetValue(IsMissingProperty, value);
         }
 
+        public bool IsUnavailable {
+            get => GetValue(IsUnavailableProperty);
+            set => SetValue(IsUnavailableProperty, value);
+        }
+
+        public bool IsNone {
+            get => GetValue(IsNoneProperty);
+            set => SetValue(IsNoneProperty, value);
+        }
+
+        //Choice mode: set by the owning PickGrid so this cell's automation peer reports RadioButton/IsSelected
+        //instead of the slot grid's plain Button - not an AvaloniaProperty, since nothing visual reads it.
+        internal bool IsChoiceItem { get; set; }
+
         public string? AccessibleName {
             get => GetValue(AccessibleNameProperty);
             set => SetValue(AccessibleNameProperty, value);
@@ -79,6 +101,8 @@ namespace Foreman.Mac.Kit.Composites {
             IsSelectedProperty.Changed.AddClassHandler<PickCell>((c, _) => c.PseudoClasses.Set(":selected", c.IsSelected));
             IsEmptyProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
             IsMissingProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
+            IsUnavailableProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
+            IsNoneProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
             IconProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
             AccessibleNameProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyTooltip());
             EmptyItemNounProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyTooltip());
@@ -95,18 +119,22 @@ namespace Foreman.Mac.Kit.Composites {
         internal void RaiseInvoked() => Invoked?.Invoke(this, EventArgs.Empty);
 
         private void ApplyContentState() {
-            PseudoClasses.Set(":empty", IsEmpty && !IsMissing);
+            PseudoClasses.Set(":empty", IsEmpty && !IsMissing && !IsNone);
             PseudoClasses.Set(":missing", IsMissing);
+            PseudoClasses.Set(":unavailable", IsUnavailable);
+            PseudoClasses.Set(":none", IsNone);
             if (icon is not null) {
                 icon.Source = Icon;
-                icon.Opacity = IsEmpty || IsMissing ? 0 : 1;
+                icon.Opacity = (IsEmpty && !IsNone) || IsMissing ? 0 : 1;
             }
             ApplyTooltip();
         }
 
         private void ApplyTooltip() {
             string? tip = IsMissing ? AccessibleName
+                : IsNone ? AccessibleName
                 : IsEmpty ? EmptyTooltip()
+                : IsUnavailable && !string.IsNullOrEmpty(AccessibleName) ? $"{AccessibleName} — not available in this save"
                 : AccessibleName;
             ToolTip.SetTip(this, tip);
         }
@@ -115,17 +143,24 @@ namespace Foreman.Mac.Kit.Composites {
             ? "Empty slot — press Return to choose"
             : $"Empty slot — press Return to choose a {EmptyItemNoun}";
 
-        private sealed class PickCellAutomationPeer(PickCell owner) : ControlAutomationPeer(owner), IInvokeProvider {
+        private sealed class PickCellAutomationPeer(PickCell owner) : ControlAutomationPeer(owner), IInvokeProvider, ISelectionItemProvider {
             private PickCell Cell => (PickCell)Owner;
 
-            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Button;
+            protected override AutomationControlType GetAutomationControlTypeCore() =>
+                Cell.IsChoiceItem ? AutomationControlType.RadioButton : AutomationControlType.Button;
 
             protected override string? GetNameCore() {
                 string? name = base.GetNameCore();
-                return string.IsNullOrEmpty(name) ? (Cell.IsEmpty ? "Empty" : Cell.AccessibleName) : name;
+                return string.IsNullOrEmpty(name) ? (Cell.IsEmpty && !Cell.IsNone ? "Empty" : Cell.AccessibleName) : name;
             }
 
             void IInvokeProvider.Invoke() => Cell.RaiseInvoked();
+
+            bool ISelectionItemProvider.IsSelected => Cell.IsSelected;
+            ISelectionProvider? ISelectionItemProvider.SelectionContainer => null;
+            void ISelectionItemProvider.Select() { if (Cell.IsChoiceItem) Cell.RaiseInvoked(); }
+            void ISelectionItemProvider.AddToSelection() { if (Cell.IsChoiceItem) Cell.RaiseInvoked(); }
+            void ISelectionItemProvider.RemoveFromSelection() { }
         }
     }
 }

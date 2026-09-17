@@ -3,6 +3,7 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Media;
 using System;
 using System.Collections.Specialized;
 using System.Linq;
@@ -26,6 +27,10 @@ namespace Foreman.Mac.Kit.Controls {
 
         public static readonly StyledProperty<bool> IsOpenProperty =
             AvaloniaProperty.Register<PopUp, bool>(nameof(IsOpen));
+
+        //Optional 16pt leading icon (2026-09-17 building-picker ruling): present only when the consumer supplies one.
+        public static readonly StyledProperty<IImage?> IconProperty =
+            AvaloniaProperty.Register<PopUp, IImage?>(nameof(Icon));
 
         public static readonly DirectProperty<PopUp, MenuPanel> MenuProperty =
             AvaloniaProperty.RegisterDirect<PopUp, MenuPanel>(nameof(Menu), o => o.Menu);
@@ -62,9 +67,17 @@ namespace Foreman.Mac.Kit.Controls {
             set => SetValue(IsOpenProperty, value);
         }
 
+        public IImage? Icon {
+            get => GetValue(IconProperty);
+            set => SetValue(IconProperty, value);
+        }
+
         public string? DisplayText => displayText;
 
         public AvaloniaList<string> Items { get; } = [];
+
+        //Parallel to Items, matched by index - the per-item icon (Quality's badge). Unset for an iconless pop-up.
+        public AvaloniaList<IImage?> ItemIcons { get; } = [];
 
         public MenuPanel Menu { get; } = new();
 
@@ -72,6 +85,7 @@ namespace Foreman.Mac.Kit.Controls {
             FocusableProperty.OverrideDefaultValue<PopUp>(true);
             IsPullDownProperty.Changed.AddClassHandler<PopUp>((p, _) => p.PseudoClasses.Set(":pulldown", p.IsPullDown));
             IsOpenProperty.Changed.AddClassHandler<PopUp>((p, e) => p.OnIsOpenChanged((bool)e.NewValue!));
+            IconProperty.Changed.AddClassHandler<PopUp>((p, _) => p.PseudoClasses.Set(":hasicon", p.Icon is not null));
             LabelProperty.Changed.AddClassHandler<PopUp>((p, _) => p.UpdateDisplayText());
             SelectedItemProperty.Changed.AddClassHandler<PopUp>((p, _) => p.UpdateDisplayText());
         }
@@ -79,6 +93,7 @@ namespace Foreman.Mac.Kit.Controls {
         public PopUp() {
             Menu.RequestClose += (_, _) => IsOpen = false;
             Items.CollectionChanged += OnItemsChanged;
+            ItemIcons.CollectionChanged += OnItemsChanged;
             UpdateDisplayText();
         }
 
@@ -115,11 +130,12 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void RebuildMenu() {
             Menu.Items.Clear();
-            foreach (string item in Items) {
-                string captured = item;
+            for (int i = 0; i < Items.Count; i++) {
+                string captured = Items[i];
                 Menu.Items.Add(new MenuRow {
-                    Text = item,
-                    IsChecked = item == SelectedItem,
+                    Text = captured,
+                    IsChecked = captured == SelectedItem,
+                    Icon = i < ItemIcons.Count ? ItemIcons[i] : null,
                     Activate = () => Commit(captured),
                 });
             }

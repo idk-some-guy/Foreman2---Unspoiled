@@ -33,6 +33,24 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<string?> UnitProperty =
             AvaloniaProperty.Register<FormRow, string?>(nameof(Unit));
 
+        //A choice grid's selected-name note is a value, not help copy (2026-09-17 building-picker ruling:
+        //TextSecondary, not Tertiary) - orthogonal to Note itself so ordinary help notes elsewhere are untouched.
+        public static readonly StyledProperty<bool> NoteIsValueProperty =
+            AvaloniaProperty.Register<FormRow, bool>(nameof(NoteIsValue));
+
+        //A second TextTertiary run after the note, separated by " · " (the Assembler row's stats readout).
+        public static readonly StyledProperty<string?> NoteSuffixProperty =
+            AvaloniaProperty.Register<FormRow, string?>(nameof(NoteSuffix));
+
+        //The zero-candidate row is "not researched", not "invalid input" - amber, not red (2026-09-17 ruling).
+        public static readonly StyledProperty<bool> ErrorIsWarningProperty =
+            AvaloniaProperty.Register<FormRow, bool>(nameof(ErrorIsWarning));
+
+        //A choice grid's value line turns Warning-coloured when the armed selection is missing from the
+        //preset (A25 error state) - the grid itself stays visible, so this rides the Note row, not Error.
+        public static readonly StyledProperty<bool> NoteIsWarningProperty =
+            AvaloniaProperty.Register<FormRow, bool>(nameof(NoteIsWarning));
+
         public static readonly StyledProperty<FormRowLabelColumn> LabelColumnProperty =
             AvaloniaProperty.Register<FormRow, FormRowLabelColumn>(nameof(LabelColumn));
 
@@ -61,9 +79,30 @@ namespace Foreman.Mac.Kit.Composites {
             set => SetValue(LabelColumnProperty, value);
         }
 
+        public bool NoteIsValue {
+            get => GetValue(NoteIsValueProperty);
+            set => SetValue(NoteIsValueProperty, value);
+        }
+
+        public string? NoteSuffix {
+            get => GetValue(NoteSuffixProperty);
+            set => SetValue(NoteSuffixProperty, value);
+        }
+
+        public bool ErrorIsWarning {
+            get => GetValue(ErrorIsWarningProperty);
+            set => SetValue(ErrorIsWarningProperty, value);
+        }
+
+        public bool NoteIsWarning {
+            get => GetValue(NoteIsWarningProperty);
+            set => SetValue(NoteIsWarningProperty, value);
+        }
+
         private Grid? grid;
         private TextBlock? label;
         private TextBlock? noteText;
+        private TextBlock? noteSuffixText;
         private double windowLabelWidth = 132;
         private double inspectorLabelWidth = 108;
         private double popoverLabelWidth = 86;
@@ -80,6 +119,10 @@ namespace Foreman.Mac.Kit.Composites {
             LabelProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyAccessibility());
             ContentProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyAccessibility(); });
             LabelColumnProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyLabelColumnWidth());
+            NoteIsValueProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
+            ErrorIsWarningProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
+            NoteIsWarningProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
+            NoteSuffixProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyNoteSuffixText(); });
         }
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
@@ -90,6 +133,7 @@ namespace Foreman.Mac.Kit.Composites {
             grid = e.NameScope.Find<Grid>("PART_Grid");
             label = e.NameScope.Find<TextBlock>("PART_Label");
             noteText = e.NameScope.Find<TextBlock>("PART_Note");
+            noteSuffixText = e.NameScope.Find<TextBlock>("PART_NoteSuffix");
 
             if (label is not null) {
                 labelPressed = OnLabelPressed;
@@ -101,6 +145,7 @@ namespace Foreman.Mac.Kit.Composites {
             ApplyRowMinHeight();
             ApplyRowState();
             ApplyNoteLineHeight();
+            ApplyNoteSuffixText();
             ApplyAccessibility();
         }
 
@@ -281,6 +326,17 @@ namespace Foreman.Mac.Kit.Composites {
             bool hasError = !string.IsNullOrEmpty(Error);
             PseudoClasses.Set(":error", hasError);
             PseudoClasses.Set(":note", !hasError && !string.IsNullOrEmpty(Note));
+            PseudoClasses.Set(":value", NoteIsValue);
+            PseudoClasses.Set(":warning", ErrorIsWarning);
+            PseudoClasses.Set(":note-warning", NoteIsWarning);
+        }
+
+        private void ApplyNoteSuffixText() {
+            if (noteSuffixText is null)
+                return;
+            bool hasSuffix = !string.IsNullOrEmpty(NoteSuffix);
+            noteSuffixText.IsVisible = hasSuffix;
+            noteSuffixText.Text = hasSuffix ? $" · {NoteSuffix}" : "";
         }
     }
 }

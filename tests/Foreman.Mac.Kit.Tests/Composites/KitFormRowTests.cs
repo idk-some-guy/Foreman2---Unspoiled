@@ -16,6 +16,7 @@ using Foreman.Mac.Kit;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Tests.support;
+using System;
 using System.Linq;
 using System.Threading;
 using Xunit;
@@ -406,6 +407,82 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void NoteIsValue_RendersTextSecondary_NotTertiary() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Building");
+            row.NoteIsValue = true;
+            row.Note = "Assembling machine 3";
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+            Assert.Equal(fixture.Brush("Foreman.Color.TextSecondary").ToImmutable(), note.Foreground?.ToImmutable());
+        }
+
+        [AvaloniaFact]
+        public void NoteSuffix_RendersAsASecondTextTertiaryRunAfterAMiddleDot() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Building");
+            row.NoteIsValue = true;
+            row.Note = "Assembling machine 3";
+            row.NoteSuffix = "Speed 125 % · Prod 10 % · Pollution 2.4/m";
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+            TextBlock suffix = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_NoteSuffix");
+            Assert.Equal("Assembling machine 3", note.Text);
+            Assert.Equal(fixture.Brush("Foreman.Color.TextSecondary").ToImmutable(), note.Foreground?.ToImmutable());
+            Assert.True(suffix.IsVisible);
+            Assert.Equal(" · Speed 125 % · Prod 10 % · Pollution 2.4/m", suffix.Text);
+            Assert.Equal(fixture.Brush("Foreman.Color.TextTertiary").ToImmutable(), suffix.Foreground?.ToImmutable());
+        }
+
+        [AvaloniaFact]
+        public void NoErrorIsWarning_ErrorRendersInErrorColour_Unchanged() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Beacon count");
+            row.Error = "Must be 0 or more.";
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock errorText = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_ErrorText");
+            Path errorGlyph = row.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_ErrorGlyph");
+            Assert.Equal(fixture.Brush("Foreman.Color.Error").ToImmutable(), errorText.Foreground?.ToImmutable());
+            Assert.Equal(fixture.Brush("Foreman.Color.Error").ToImmutable(), errorGlyph.Stroke?.ToImmutable());
+        }
+
+        [AvaloniaFact]
+        public void ErrorIsWarning_RendersInWarningColour_NotError() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Building");
+            row.ErrorIsWarning = true;
+            row.Error = "No enabled building crafts this recipe.";
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock errorText = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_ErrorText");
+            Path errorGlyph = row.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_ErrorGlyph");
+            Assert.Equal(fixture.Brush("Foreman.Color.Warning").ToImmutable(), errorText.Foreground?.ToImmutable());
+            Assert.Equal(fixture.Brush("Foreman.Color.Warning").ToImmutable(), errorGlyph.Stroke?.ToImmutable());
+            Assert.Equal(Application.Current!.FindResource("Kit.Glyph.Alert.12"), errorGlyph.Data);
+        }
+
+        [AvaloniaFact]
+        public void NoteIsWarning_OverridesValue_RendersInWarningColour() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Building");
+            row.NoteIsValue = true;
+            row.NoteIsWarning = true;
+            row.Note = "Assembling machine 2";
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+            Assert.Equal(fixture.Brush("Foreman.Color.Warning").ToImmutable(), note.Foreground?.ToImmutable());
+        }
+
+        [AvaloniaFact]
         public void TwoRowsInTheSameShape_ResolveTheSameControlColumnX() {
             using var fixture = new KitFixture();
             FormRow first = Themed("Node width");
@@ -541,6 +618,23 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
             Assert.True(double.IsNaN(host.Height));
             Assert.True(host.Bounds.Height >= before);
+        }
+
+        //The page names Motion.EntranceEasing for the grid<->pop-up reflow. Sampling the running animation
+        //off the render clock cannot tell one curve from another under headless jitter, so the curve itself
+        //is sampled: a cubic ease-out stands at 0.578125 a quarter in and 0.984375 three quarters in, where
+        //a linear tween stands at 0.25 and 0.75.
+        [AvaloniaFact]
+        public void ReflowAnimation_RunsTheEntranceCurve_NotALinearTween() {
+            using var fixture = new KitFixture();
+
+            Animation reflow = CompositeMotion.BuildReflowAnimation(40, 80);
+
+            Assert.Equal(Motion.InspectorReflowDuration, reflow.Duration);
+            Assert.Equal(0.578125, reflow.Easing.Ease(0.25), 6);
+            Assert.Equal(0.984375, reflow.Easing.Ease(0.75), 6);
+            Assert.Equal(Motion.EntranceEasing.Ease(0.25), reflow.Easing.Ease(0.25), 6);
+            Assert.Equal(Motion.EntranceEasing.Ease(0.75), reflow.Easing.Ease(0.75), 6);
         }
 
         //FormRow and PalettePanel both inlined this exact block in their detach handlers; the reflow

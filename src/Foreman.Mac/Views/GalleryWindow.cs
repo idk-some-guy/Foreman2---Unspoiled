@@ -171,6 +171,7 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Inspector group & Split divider (150%)", "150%", BuildInspectorAndDividerScaledTile));
             registry.Register(new GalleryTile("Kit", "Pick cell — filled and empty, five states each", "Default", BuildPickCellStatesTile));
             registry.Register(new GalleryTile("Kit", "Pick grid — module slots & beacon row", "Default", BuildPickGridTile));
+            registry.Register(new GalleryTile("Kit", "Pick grid — choice mode, building & beacon", "Default", BuildPickGridChoiceTile));
             registry.Register(new GalleryTile("Kit", "Pick cell & Pick grid (150%)", "150%", BuildPickCompositesScaledTile));
             registry.Register(new GalleryTile("Kit", "Chooser cell — five states", "Default", BuildChooserCellStatesTile));
             registry.Register(new GalleryTile("Kit", "Chooser grid — search results, two headings", "Default", BuildChooserGridTile));
@@ -575,10 +576,19 @@ namespace Foreman.Mac.Views {
             PopUp menuSource = KitPopUp(false, "Items / s", "Belts / s", "Power / s");
             var openRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { openExample, menuSource.Menu } };
 
+            //Optional leading icon (2026-09-17 building-picker ruling §05): Quality's badge, one colour per tier.
+            PopUp withIcon = KitPopUp(false, "Normal", "Rare", "Epic");
+            withIcon.SelectedItem = "Rare";
+            withIcon.ItemIcons.Add(PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.TextTertiary", Colors.Gray)));
+            withIcon.ItemIcons.Add(PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Success", Colors.SeaGreen)));
+            withIcon.ItemIcons.Add(PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue)));
+            withIcon.Icon = withIcon.ItemIcons[1];
+
             return new StackPanel {
                 Spacing = 8,
                 Children = {
                     KitText("Pop-up", "caption", "tertiary"), popup,
+                    KitText("Pop-up — leading icon", "caption", "tertiary"), withIcon,
                     KitText("Pull-down", "caption", "tertiary"), pulldown,
                     KitText("Open (menu panel)", "caption", "tertiary"), openRow,
                 },
@@ -1369,6 +1379,38 @@ namespace Foreman.Mac.Views {
             return new StackPanel { Spacing = 8, Children = { KitText("Pick grid", "caption", "tertiary"), stack } };
         }
 
+        //Choice mode (2026-09-17 building-picker ruling): a radio group of icon cells - four buildings, one
+        //unavailable and dimmed but still choosable, the third selected; a beacon row with its leading None
+        //cell selected. Matches the building-picker mock's own §02/§03 figures.
+        private static StackPanel BuildPickGridChoiceTile() {
+            IImage a1 = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue));
+            IImage a2 = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Warning", Colors.Orange));
+            IImage a3 = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Success", Colors.SeaGreen));
+            IImage a4 = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Error", Colors.IndianRed));
+
+            var building = new PickGrid { Theme = KitTheme("Kit.PickGrid"), IsChoiceMode = true, NamesSlots = false, GroupLabel = "Building" };
+            building.Slots.Add(new PickSlot { Icon = a1, Name = "Assembling machine 1" });
+            building.Slots.Add(new PickSlot { Icon = a2, Name = "Assembling machine 2" });
+            building.Slots.Add(new PickSlot { Icon = a3, Name = "Assembling machine 3" });
+            building.Slots.Add(new PickSlot { Icon = a4, Name = "Assembling machine 4", IsUnavailable = true });
+            building.SelectedIndex = 2;
+
+            var beacon = new PickGrid { Theme = KitTheme("Kit.PickGrid"), IsChoiceMode = true, NamesSlots = false, GroupLabel = "Beacon" };
+            beacon.Slots.Add(new PickSlot { Name = "No beacon", IsNone = true });
+            beacon.Slots.Add(new PickSlot { Icon = a3, Name = "Beacon" });
+            beacon.SelectedIndex = 1;
+
+            var stack = new StackPanel {
+                Width = 276,
+                Spacing = 8,
+                Children = {
+                    KitFormRow("Building", building, inspector: true, note: "Assembling machine 3"),
+                    KitFormRow("Beacon", beacon, inspector: true, note: "Beacon"),
+                },
+            };
+            return new StackPanel { Spacing = 8, Children = { KitText("Pick grid — choice mode", "caption", "tertiary"), stack } };
+        }
+
         private static readonly string[] PickCompositesScaledSizeKeys = [
             "Foreman.Size.PickCell", "Foreman.Size.PickCellIcon", "Foreman.Size.GlyphMicro",
             "Foreman.Size.FormLabelColumnInspector", "Foreman.Size.ControlHeightRegular", "Foreman.Type.Callout.FontSize",
@@ -1384,6 +1426,7 @@ namespace Foreman.Mac.Views {
 
             container.Children.Add(BuildPickCellStatesTile());
             container.Children.Add(BuildPickGridTile());
+            container.Children.Add(BuildPickGridChoiceTile());
             return container;
         }
 

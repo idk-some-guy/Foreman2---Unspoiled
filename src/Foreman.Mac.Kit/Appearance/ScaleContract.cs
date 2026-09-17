@@ -66,6 +66,7 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.SwitchKnobInset",
             "Foreman.Size.ControlGlyphGap",
             "Foreman.Size.PopUpIndicator",
+            "Foreman.Size.PopUpLeadingIcon",
             "Foreman.Size.Glyph10",
             "Foreman.Size.GlyphMicro",
             "Foreman.Size.GlyphSmall",

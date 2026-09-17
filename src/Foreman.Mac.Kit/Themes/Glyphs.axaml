@@ -212,6 +212,10 @@
   <!-- State panel glyph (K3 composites addendum §07/§10), same 20pt master scaled by 32/20. -->
   <StreamGeometry x:Key="Kit.Glyph.Alert.32">M16,5.76 L28.16,25.92 A1.92,1.92 0 0,1 26.56,28.48 H5.44 A1.92,1.92 0 0,1 3.84,25.92 Z M16,13.44 V19.04 M16,23.04 h0.016</StreamGeometry>
 
+  <!-- Beacon's "None" pick cell (2026-09-17 building-picker ruling §06): 20pt master
+       M10 3a7 7 0 1 1 0 14 7 7 0 1 1 0-14 M5.05 14.95 14.95 5.05, scaled by 12/20. -->
+  <StreamGeometry x:Key="Kit.Glyph.NoneSlash.12">M6,1.8 a4.2,4.2 0 1 1 0,8.4 a4.2,4.2 0 1 1 0,-8.4 M3.03,8.97 L8.97,3.03</StreamGeometry>
+
   <!-- State panel's .empty/.no-results glyphs (K3 composites addendum §10): 20pt masters
        M4,3.4 H8 A1.2,1.2 0 0,1 9.2,4.6 V6.6 A1.2,1.2 0 0,1 8,7.8 H4 A1.2,1.2 0 0,1 2.8,6.6 V4.6 A1.2,1.2 0 0,1 4,3.4 Z
        M12,12.2 H16 A1.2,1.2 0 0,1 17.2,13.4 V15.4 A1.2,1.2 0 0,1 16,16.6 H12 A1.2,1.2 0 0,1 10.8,15.4 V13.4 A1.2,1.2 0 0,1 12,12.2 Z

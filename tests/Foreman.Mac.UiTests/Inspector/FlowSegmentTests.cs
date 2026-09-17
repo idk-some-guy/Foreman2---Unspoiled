@@ -247,6 +247,30 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(120, view.FindControl<Stepper>("RateValue")!.Value); //2/sec * 60
         }
 
+        //The passthrough Rate group's own Rate unit row (2026-09-17 building-picker ruling): a Kit.PopUp on
+        //the same graph-level setting View Options' pop-up writes, listing all six values.
+        [AvaloniaFact]
+        public async Task RateUnitPopUp_ListsAllSixValues_AndWritesThroughToTheGraph() {
+            MainWindow window = await InspectorTestSupport.OpenEmptyWindowAsync();
+            DataCache cache = window.DataCache!;
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId supplierId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new Point(0, 0));
+            window.GraphCanvas.Viewer.Session.View.TryGetNode(supplierId, out INodeViewModel? supplier);
+            Dispatcher.UIThread.RunJobs();
+
+            InspectorTestSupport.Select(window, supplier!);
+            var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
+            PopUp rateUnitPopUp = view.FindControl<PopUp>("RateUnitPopUp")!;
+            Assert.Equal(MainWindow.RateUnitOptions, rateUnitPopUp.Items);
+            Assert.Equal("per second", rateUnitPopUp.SelectedItem);
+
+            rateUnitPopUp.Command!.Execute("per minute");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(ProductionGraph.RateUnit.Per1Min, window.GraphCanvas.Viewer.Graph.SelectedRateUnit);
+            Assert.Equal("per minute", rateUnitPopUp.SelectedItem);
+        }
+
         //Mirrors NativeMenuTests.cs's own TopMenu/SubMenu helpers (not shared - private to that file) to
         //drive MenuSetRateUnit the same way a real View > Rate Unit click does.
         private static void SetRateUnitViaMenu(MainWindow window, string header) {

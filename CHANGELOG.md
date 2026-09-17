@@ -160,12 +160,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   filled one, and Return moving focus to the option grid below it. A building with no module slots
   no longer shows an empty Modules group. Solving no longer rebuilds every pick grid from scratch -
   only the slots whose content actually changed update, so a focused grid keeps its focus and
-  selection through a solve. Building, Beacon and Fuel stay on their existing icon-grid pickers for
-  now, pending a Kit.PickGrid choice mode. The old Recipe/Flow segmented control stays gone (its
-  type moved to the identity row in an earlier pass).
+  selection through a solve. The old Recipe/Flow segmented control stays gone (its type moved to
+  the identity row in an earlier pass).
+- Building, Beacon and Fuel are now Kit.PickGrid in a new choice mode - a radio group of icon cells
+  with one candidate shown as a plain icon-and-name line reading "The only building that crafts this
+  recipe.", none enabled shown dimmed with a warning,
+  and more than nine candidates falling back to a pop-up; Beacon's set carries a leading "None" cell
+  and its old Clear button is gone. Quality's pop-up now carries its badge as a real leading-icon
+  slot instead of a separate image beside it. The identity row's building line now appends the
+  quality in parentheses when it is not the base tier. The Rate group on both the Recipe and Flow
+  segments gained a Rate unit pop-up reading and writing the graph's own rate unit.
 
 ### Fixed
 
+- The Building/Fuel/Beacon choice grids' value line now reads in the right ink: a selected name in
+  secondary text, a "not researched" warning in amber rather than red, and the Building row's stats
+  readout back beside the name after a middle dot. A selection the current preset no longer enables
+  still shows one selected (missing) cell instead of none. The identity row speaks the building on
+  VoiceOver focus, and committing a choice announces the new value; a lone candidate never auto-picks
+  itself on a refresh. A pop-up menu's leading item icon now sits after the checkmark column rather
+  than displacing it. A rate unit picked on any of the three surfaces - the inspector's own row, View
+  Options' pop-up and the View menu's radios - now mirrors into the other two and is saved to disk on
+  the pick; View Options and the menu used to write the setting in memory and lose it unless the
+  window closed cleanly.
 - Kit.ToolbarItem's hover, pressed and on fill now covers the whole item instead of stopping short at
   the padded content; the gallery's 150% chooser, state-panel and sheet tiles scope every scaled type
   key they resolve, so cell labels, sentence line boxes and the alert's icon and its column track the

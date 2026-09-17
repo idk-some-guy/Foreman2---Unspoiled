@@ -54,6 +54,8 @@
   <Color x:Key="Foreman.Color.TitlebarMaterial">#323234</Color>
 
   <x:Double x:Key="Foreman.Opacity.Disabled">0.38</x:Double>
+  <!-- "Choosable but not researched" (2026-09-17 building-picker ruling), lighter than Opacity.Disabled. -->
+  <x:Double x:Key="Foreman.Opacity.Unavailable">0.55</x:Double>
 
   <!-- PickCellSelected mirrors AccentSoft's value rather than referencing it, kept independent on purpose. -->
   <Color x:Key="Foreman.Color.PickCellSelected">#290A84FF</Color>
@@ -195,6 +197,13 @@
   <CornerRadius x:Key="Foreman.Radius.PopUpIndicator">3</CornerRadius>
   <Thickness x:Key="Foreman.Thickness.PopUpPadding">10,0,3,0</Thickness>
   <Thickness x:Key="Foreman.Thickness.PopUpPulldownPadding">10,0,8,0</Thickness>
+  <!-- PopUp's optional leading icon (2026-09-17 building-picker ruling §05): leading inset drops 10 -> 6 with an icon. -->
+  <x:Double x:Key="Foreman.Size.PopUpLeadingIcon">16</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.PopUpLeadingIcon">3</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.PopUpIconPadding">6,0,3,0</Thickness>
+
+  <!-- Choice-mode pick grid cap (2026-09-17 building-picker ruling §01/§05): a plain count, not a length - does not scale. -->
+  <x:Double x:Key="Foreman.Metrics.PickChoiceMax">9</x:Double>
 
   <!-- Menu panel/item (addendum §02, §08 ladder extension). -->
   <x:Double x:Key="Foreman.Size.GlyphMicro">12</x:Double>

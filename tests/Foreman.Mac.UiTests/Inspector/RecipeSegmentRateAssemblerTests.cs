@@ -10,7 +10,10 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Kit;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Controls;
+using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
@@ -26,6 +29,10 @@ using StatePanel = Foreman.Mac.Kit.Composites.StatePanel;
 using StatePanelShape = Foreman.Mac.Kit.Composites.StatePanelShape;
 using ButtonRow = Foreman.Mac.Kit.Composites.ButtonRow;
 using ButtonRowRole = Foreman.Mac.Kit.Composites.ButtonRowRole;
+using KitPickGrid = Foreman.Mac.Kit.Composites.PickGrid;
+using PickCell = Foreman.Mac.Kit.Composites.PickCell;
+using FormRow = Foreman.Mac.Kit.Composites.FormRow;
+using InspectorGroup = Foreman.Mac.Kit.Composites.InspectorGroup;
 
 namespace Foreman.Mac.UiTests.Inspector {
     //Rate/Assembler/Fuel/priority/key-node coverage for the docked RecipeSegmentView (Task 5, part 1).
@@ -214,22 +221,21 @@ namespace Foreman.Mac.UiTests.Inspector {
             return (host, view);
         }
 
-        private static void Click(AvaloniaWindow window, Button button) {
-            Avalonia.Point center = new(button.Bounds.Width / 2, button.Bounds.Height / 2);
-            Avalonia.Point screen = Avalonia.VisualExtensions.TranslatePoint(button, center, window) ?? center;
+        private static void Click(AvaloniaWindow window, Control control) {
+            Avalonia.Point center = new(control.Bounds.Width / 2, control.Bounds.Height / 2);
+            Avalonia.Point screen = Avalonia.VisualExtensions.TranslatePoint(control, center, window) ?? center;
             window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
             window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
             Dispatcher.UIThread.RunJobs();
         }
 
-        //A PickGrid whose ItemsSource was just reset (e.g. by a NodeValuesUpdated-driven Refresh() elsewhere
-        //on the graph, not just this test's own edits) needs one more layout pass before its new containers
-        //are real visual children - GetVisualDescendants would otherwise walk right past the still-empty
-        //ContentPresenters mid-realization.
-        private static Button GridCellFor(AvaloniaWindow window, PickGrid grid, object key) {
+        //A choice grid whose Slots were just rebuilt (e.g. by a NodeValuesUpdated-driven Refresh() elsewhere
+        //on the graph, not just this test's own edits) needs one more layout pass before its new cells
+        //are real visual children - GetVisualDescendants would otherwise walk right past the stale tree.
+        private static PickCell ChoiceCellFor(AvaloniaWindow window, KitPickGrid grid, string name) {
             Dispatcher.UIThread.RunJobs();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-            return grid.GetVisualDescendants().OfType<Button>().Single(b => Equals((b.DataContext as PickGridItem)?.Key, key));
+            return grid.GetVisualDescendants().OfType<PickCell>().Single(c => c.AccessibleName == name);
         }
 
         //---- Rate row: Auto/Fixed toggle + fixed value ----
@@ -301,6 +307,35 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(oracle.Resolved);
         }
 
+        //---- Rate unit: a Kit.PopUp on the graph's own setting, mirrored with View Options' pop-up ----
+
+        //The segment reports the pick and writes nothing itself - MainWindow's one rate-unit method is the
+        //only writer, so a pick here costs exactly one solve (NativeMenuTests pins the three surfaces).
+        [AvaloniaFact]
+        public void RateUnitPopUp_ListsAllSixValues_AndReportsThePickInsteadOfWritingTheGraph() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            PopUp rateUnitPopUp = view.FindControl<PopUp>("RateUnitPopUp")!;
+            Assert.Equal(MainWindow.RateUnitOptions, rateUnitPopUp.Items);
+            Assert.Equal("per second", rateUnitPopUp.SelectedItem);
+
+            ProductionGraph.RateUnit? reported = null;
+            int solves = 0;
+            view.RateUnitChanged += (_, unit) => reported = unit;
+            rf.Fx.Control.Viewer.Session.NodeValuesUpdated += (_, _) => solves++;
+
+            rateUnitPopUp.Command!.Execute("per minute");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(ProductionGraph.RateUnit.Per1Min, reported);
+            Assert.Equal(ProductionGraph.RateUnit.Per1Sec, rf.Fx.Control.Viewer.Graph.SelectedRateUnit);
+            Assert.Equal(0, solves);
+        }
+
         //---- Assembler picker: ordering / filtering / availability ----
 
         [AvaloniaFact]
@@ -314,19 +349,18 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.DoesNotContain(rf.Disabled, view.ViewModel!.AssemblerOptions.Select(i => i.Key));
         }
 
+        //Cell-level unavailable styling (opacity, still choosable) is a KitPickGridChoiceTests/KitPickCellTests
+        //fidelity pin now - this keeps only the app-level wiring: an unavailable assembler still reaches the
+        //view model's own options list with IsAvailable false.
         [AvaloniaFact]
-        public void AssemblerOptions_ColorUnavailableAssemblerAsError() {
+        public void AssemblerOptions_MarksAnUnavailableAssembler_IsAvailableFalse() {
             RecipeFixture rf = NewRecipeFixture();
             rf.Burner.Available = false;
             IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
-            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
 
             PickGridItem burnerItem = view.ViewModel!.AssemblerOptions.Single(i => Equals(i.Key, rf.Burner));
             Assert.False(burnerItem.IsAvailable);
-
-            PickGrid assemblerGrid = view.FindControl<PickGrid>("AssemblerGrid")!;
-            Button burnerButton = GridCellFor(host, assemblerGrid, rf.Burner);
-            Assert.Contains("unavailable", burnerButton.Classes);
         }
 
         //Gate fix 4, item 2: SelectedAssembler.Icon/.Name bind through a nullable two-hop path (same shape
@@ -343,8 +377,8 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(view.ViewModel!.SelectedAssembler!.Icon, view.ViewModel!.SelectedAssemblerIcon);
             Assert.Equal(view.ViewModel!.SelectedAssembler!.Name, view.ViewModel!.SelectedAssemblerName);
 
-            PickGrid assemblerGrid = view.FindControl<PickGrid>("AssemblerGrid")!;
-            Click(host, GridCellFor(host, assemblerGrid, rf.Burner));
+            KitPickGrid assemblerGrid = view.FindControl<KitPickGrid>("AssemblerChoiceGrid")!;
+            Click(host, ChoiceCellFor(host, assemblerGrid, rf.Burner.FriendlyName));
 
             Assert.Equal(view.ViewModel!.SelectedAssembler!.Icon, view.ViewModel!.SelectedAssemblerIcon);
             Assert.Equal(view.ViewModel!.SelectedAssembler!.Name, view.ViewModel!.SelectedAssemblerName);
@@ -365,8 +399,8 @@ namespace Foreman.Mac.UiTests.Inspector {
             oracle.GoStale(42);
             Assert.False(oracle.Resolved);
 
-            PickGrid assemblerGrid = view.FindControl<PickGrid>("AssemblerGrid")!;
-            Click(host, GridCellFor(host, assemblerGrid, rf.Burner));
+            KitPickGrid assemblerGrid = view.FindControl<KitPickGrid>("AssemblerChoiceGrid")!;
+            Click(host, ChoiceCellFor(host, assemblerGrid, rf.Burner.FriendlyName));
 
             Assert.True(oracle.Resolved);
             Assert.Equal(rf.Burner, node.SelectedAssembler.Assembler);
@@ -374,27 +408,70 @@ namespace Foreman.Mac.UiTests.Inspector {
 
         //---- Fuel picker: visible only for burner assemblers, resolves ----
 
+        //One candidate is a degenerate case (2026-09-17 building-picker ruling): no control to click, so the
+        //row renders the value line only - a refresh never mutates the graph on its own.
         [AvaloniaFact]
-        public void BurnerAssembler_ShowsFuelGroup_AndPickingFuelResolves() {
+        public void BurnerAssembler_SingleFuel_ShowsValueLineOnly_AndARefreshDoesNotAutoCommitOrResolve() {
             RecipeFixture rf = NewRecipeFixture();
             IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
             RecipeNodeController controller = ControllerFor(rf.Fx, node);
             controller.SetAssembler(new AssemblerQualityPair(rf.Burner, rf.Fx.Normal));
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+            IItem? fuelBefore = node.Fuel;
 
-            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
             Assert.True(view.ViewModel!.ShowsFuel);
             Assert.Single(view.ViewModel!.FuelOptions);
+            Assert.False(view.FindControl<KitPickGrid>("FuelChoiceGrid")!.IsVisible);
+            StackPanel valueLine = view.FindControl<StackPanel>("FuelValueLine")!;
+            Assert.True(valueLine.IsVisible);
+            Assert.Equal(rf.Coal.FriendlyName, view.FindControl<TextBlock>("FuelValueLineText")!.Text);
+            //The page gives no equivalent sentence for a one-candidate Fuel row, so the note slot stays empty.
+            Assert.Null(view.FindControl<FormRow>("FuelRow")!.Note);
 
             Oracle oracle = NewOracle(rf.Fx);
-            oracle.GoStale(17);
+            oracle.GoStale(19);
+
+            view.Refresh();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(fuelBefore, node.Fuel);
+            Assert.False(oracle.Resolved);
+        }
+
+        //Fuel is one of the three rows the 2026-09-17 building-picker ruling moves to a choice grid - same
+        //shape as the Building row, with a real resolve on commit.
+        [AvaloniaFact]
+        public void BurnerAssembler_MultipleFuels_ChoosingAFuelCell_SetsFuelAndResolves() {
+            RecipeFixture rf = NewRecipeFixture();
+            ItemPrototype gas = NewItem(rf.Fx, "gas");
+            rf.Burner.FuelsInternal.Add(gas);
+            var mineGas = new RecipePrototype(rf.Fx.Cache, "mine-gas", "Mine Gas", rf.Fx.Subgroup, "a") { Available = true };
+            mineGas.InternalOneWayAddProduct(gas, 1, 0);
+            gas.ProductionRecipesInternal.Add(mineGas);
+            LinkAssembler(mineGas, rf.Electric);
+            Store(rf.Fx.Cache).Recipes[mineGas.Name] = mineGas;
+
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Burner, rf.Fx.Normal));
+            controller.SetFuel(rf.Coal);
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.Equal(2, view.ViewModel!.FuelOptions.Count);
+            KitPickGrid fuelGrid = view.FindControl<KitPickGrid>("FuelChoiceGrid")!;
+            Assert.True(fuelGrid.IsVisible);
+
+            Oracle oracle = NewOracle(rf.Fx);
+            oracle.GoStale(37);
             Assert.False(oracle.Resolved);
 
-            PickGrid fuelGrid = view.FindControl<PickGrid>("FuelGrid")!;
-            Click(host, GridCellFor(host, fuelGrid, rf.Coal));
+            Click(host, ChoiceCellFor(host, fuelGrid, gas.FriendlyName));
 
             Assert.True(oracle.Resolved);
-            Assert.Equal(rf.Coal, node.Fuel);
+            Assert.Equal(gas, node.Fuel);
+            Assert.Equal(gas.FriendlyName, view.FindControl<FormRow>("FuelRow")!.Note);
         }
 
         [AvaloniaFact]
@@ -408,6 +485,291 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             Assert.False(view.ViewModel!.ShowsFuel);
             Assert.Empty(view.ViewModel!.FuelOptions);
+        }
+
+        //Designer ratification, 2026-09-17: a burner with no producible fuel renders the zero-candidate
+        //warning line with the ratified copy - "burns", not the Building row's "crafts".
+        [AvaloniaFact]
+        public void BurnerAssembler_NoProducibleFuel_ShowsWarningLine_WithTheRatifiedCopy() {
+            RecipeFixture rf = NewRecipeFixture();
+            ItemPrototype deadFuel = NewItem(rf.Fx, "dead-fuel");
+            AssemblerPrototype starvedBurner = NewAssembler(rf.Fx, "starved-burner", EnergySource.Burner);
+            starvedBurner.FuelsInternal.Add(deadFuel);
+            LinkAssembler(rf.Recipe, starvedBurner);
+
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(starvedBurner, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.True(view.ViewModel!.ShowsFuel);
+            Assert.Empty(view.ViewModel!.FuelOptions);
+
+            Assert.False(view.FindControl<KitPickGrid>("FuelChoiceGrid")!.IsVisible);
+            FormRow row = view.FindControl<FormRow>("FuelRow")!;
+            TextBlock errorText = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_ErrorText");
+            Assert.Equal("No enabled fuel burns in this building.", errorText.Text);
+            Assert.True(row.ErrorIsWarning);
+        }
+
+        //---- Building row (2026-09-17 building-picker ruling): choice grid, and its three degenerate cases ----
+
+        [AvaloniaFact]
+        public void Building_FourCandidates_IsAChoiceGridOfFourCells() {
+            RecipeFixture rf = NewRecipeFixture();
+            AssemblerPrototype third = NewAssembler(rf.Fx, "third-assembler", EnergySource.Electric);
+            AssemblerPrototype fourth = NewAssembler(rf.Fx, "fourth-assembler", EnergySource.Electric);
+            LinkAssembler(rf.Recipe, third);
+            LinkAssembler(rf.Recipe, fourth);
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.Equal(4, view.ViewModel!.AssemblerOptions.Count);
+
+            KitPickGrid assemblerGrid = view.FindControl<KitPickGrid>("AssemblerChoiceGrid")!;
+            Assert.True(assemblerGrid.IsVisible);
+            Assert.True(assemblerGrid.IsChoiceMode);
+            Assert.Equal(4, assemblerGrid.GetVisualDescendants().OfType<PickCell>().Count());
+            Assert.False(view.FindControl<StackPanel>("AssemblerValueLine")!.IsVisible);
+            Assert.False(view.FindControl<PopUp>("AssemblerFallbackPopUp")!.IsVisible);
+        }
+
+        //The ratified one-candidate sentence rides the note slot, with the stats readout after the middle dot.
+        [AvaloniaFact]
+        public void Building_OneCandidate_ShowsAnIconAndNameValueLine_NotAControl() {
+            RecipeFixture rf = NewRecipeFixture();
+            RecipePrototype soloRecipe = NewRecipe(rf.Fx, "solo-smelt", NewItem(rf.Fx, "solo-ore"), NewItem(rf.Fx, "solo-plate"));
+            LinkAssembler(soloRecipe, rf.Electric);
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, soloRecipe, rf.Fx.Normal, new Point(0, 0));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.Single(view.ViewModel!.AssemblerOptions);
+            string expectedStats = view.ViewModel!.AssemblerStats;
+            Assert.False(string.IsNullOrEmpty(expectedStats));
+
+            Assert.False(view.FindControl<KitPickGrid>("AssemblerChoiceGrid")!.IsVisible);
+            Assert.False(view.FindControl<PopUp>("AssemblerFallbackPopUp")!.IsVisible);
+            StackPanel valueLine = view.FindControl<StackPanel>("AssemblerValueLine")!;
+            Assert.True(valueLine.IsVisible);
+            TextBlock text = view.FindControl<TextBlock>("AssemblerValueLineText")!;
+            Assert.Equal(rf.Electric.FriendlyName, text.Text);
+            Assert.NotNull(view.FindControl<Image>("AssemblerValueLineIcon")!.Source);
+
+            FormRow row = view.FindControl<FormRow>("AssemblerRow")!;
+            TextBlock note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+            TextBlock suffix = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_NoteSuffix");
+            Assert.Equal("The only building that crafts this recipe.", note.Text);
+            Assert.True(suffix.IsVisible);
+            Assert.Equal($" · {expectedStats}", suffix.Text);
+        }
+
+        //The app never writes grid.IsVisible - dropping to one candidate clears the grid's Slots, so a later
+        //token re-emission (scale, theme) can't rebuild it back into a stale grid.
+        [AvaloniaFact]
+        public void Building_DroppingToOneCandidate_ClearsTheGrid_AndATokenReemissionCannotResurrectIt() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            KitPickGrid grid = view.FindControl<KitPickGrid>("AssemblerChoiceGrid")!;
+            Assert.True(grid.IsVisible);
+            Assert.Equal(2, grid.Slots.Count);
+
+            rf.Burner.Enabled = false;
+            view.Refresh();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(grid.IsVisible);
+            Assert.Empty(grid.Slots);
+
+            try {
+                ScaleContract.Apply(1.5);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.False(grid.IsVisible);
+                Assert.Empty(grid.Slots);
+            } finally {
+                ScaleContract.Apply(1.0);
+            }
+        }
+
+        [AvaloniaFact]
+        public void Building_ZeroEnabledCandidates_DimsTheSelectedValueLine_AndShowsAWarningLine() {
+            RecipeFixture rf = NewRecipeFixture();
+            RecipePrototype soloRecipe = NewRecipe(rf.Fx, "disabled-only-smelt", NewItem(rf.Fx, "d-ore"), NewItem(rf.Fx, "d-plate"));
+            LinkAssembler(soloRecipe, rf.Disabled);
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, soloRecipe, rf.Fx.Normal, new Point(0, 0));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.Empty(view.ViewModel!.AssemblerOptions);
+
+            Assert.False(view.FindControl<KitPickGrid>("AssemblerChoiceGrid")!.IsVisible);
+            StackPanel valueLine = view.FindControl<StackPanel>("AssemblerValueLine")!;
+            Assert.True(valueLine.IsVisible);
+            Avalonia.Application.Current!.TryGetResource("Foreman.Opacity.Unavailable", Avalonia.Application.Current.ActualThemeVariant, out object? unavailable);
+            Assert.Equal(Assert.IsType<double>(unavailable), valueLine.Opacity);
+            Assert.Equal(rf.Disabled.FriendlyName, view.FindControl<TextBlock>("AssemblerValueLineText")!.Text);
+
+            FormRow row = view.FindControl<FormRow>("AssemblerRow")!;
+            Assert.Equal("No enabled building crafts this recipe.", row.Error);
+            Assert.True(row.ErrorIsWarning);
+        }
+
+        //A25 Error state (2026-09-17 building-picker ruling): a node loaded with an armed selection the
+        //preset no longer enables must still show exactly one selected cell (Arity), not zero.
+        [AvaloniaFact]
+        public void Building_SelectedAssemblerNotAmongTheEnabledOptions_AppendsAMissingCellSelected_AndWarns() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Disabled, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.Equal(2, view.ViewModel!.AssemblerOptions.Count); //Electric and Burner only - Disabled is excluded
+
+            KitPickGrid grid = view.FindControl<KitPickGrid>("AssemblerChoiceGrid")!;
+            Assert.True(grid.IsVisible);
+            PickCell[] cells = [.. grid.GetVisualDescendants().OfType<PickCell>()];
+            Assert.Equal(3, cells.Length);
+            PickCell selected = Assert.Single(cells, c => c.IsSelected);
+            Assert.True(selected.IsMissing);
+
+            FormRow row = view.FindControl<FormRow>("AssemblerRow")!;
+            Assert.True(row.NoteIsWarning);
+            Assert.Contains(rf.Disabled.FriendlyName, row.Note);
+        }
+
+        //The Beacon row's leading None cell means its candidate total is never 0, but it is 1 whenever the
+        //preset enables no beacon: the ruling's fidelity list puts the "None" value line on screen there,
+        //with no note sentence and no warning.
+        [AvaloniaFact]
+        public void Beacon_NoEnabledBeacon_ShowsTheNoneValueLine_WithNoNoteAndNoWarning() {
+            RecipeFixture rf = NewRecipeFixture();
+            rf.Electric.AllowBeacons = true;
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.Empty(view.ViewModel!.BeaconOptions);
+
+            view.FindControl<InspectorGroup>("BeaconGroup")!.IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+            Assert.False(view.FindControl<KitPickGrid>("BeaconChoiceGrid")!.IsVisible);
+            Assert.False(view.FindControl<PopUp>("BeaconFallbackPopUp")!.IsVisible);
+            StackPanel valueLine = view.FindControl<StackPanel>("BeaconValueLine")!;
+            Assert.True(valueLine.IsVisible);
+            Assert.Equal("No beacon", view.FindControl<TextBlock>("BeaconValueLineText")!.Text);
+            Assert.Null(view.FindControl<Image>("BeaconValueLineIcon")!.Source);
+
+            FormRow row = view.FindControl<FormRow>("BeaconRow")!;
+            TextBlock note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+            Assert.True(string.IsNullOrEmpty(note.Text));
+            Assert.False(row.GetVisualDescendants().OfType<StackPanel>().Single(x => x.Name == "PART_NoteRow").IsVisible);
+            Assert.False(row.GetVisualDescendants().OfType<StackPanel>().Single(x => x.Name == "PART_ErrorRow").IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void Building_TenCandidates_FallsBackToAPopUpCarryingA16ptImage() {
+            RecipeFixture rf = NewRecipeFixture();
+            for (int i = 0; i < 8; i++)
+                LinkAssembler(rf.Recipe, NewAssembler(rf.Fx, $"extra-assembler-{i}", EnergySource.Electric));
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.Equal(10, view.ViewModel!.AssemblerOptions.Count);
+            string expectedStats = view.ViewModel!.AssemblerStats;
+            Assert.False(string.IsNullOrEmpty(expectedStats));
+
+            Assert.False(view.FindControl<KitPickGrid>("AssemblerChoiceGrid")!.IsVisible);
+            Assert.False(view.FindControl<StackPanel>("AssemblerValueLine")!.IsVisible);
+            PopUp fallback = view.FindControl<PopUp>("AssemblerFallbackPopUp")!;
+            Assert.True(fallback.IsVisible);
+            Assert.NotNull(fallback.Icon);
+            Assert.Equal(10, fallback.Items.Count);
+            Assert.Equal(rf.Electric.FriendlyName, fallback.SelectedItem);
+
+            //The pop-up's own label already carries the name, so the note here is the stats caption alone,
+            //in the tertiary ink the page gives a stats caption rather than the value ink a name takes.
+            FormRow row = view.FindControl<FormRow>("AssemblerRow")!;
+            TextBlock note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+            Assert.Equal(expectedStats, note.Text);
+            Avalonia.Application.Current!.TryGetResource("Foreman.Color.TextTertiary", Avalonia.Application.Current.ActualThemeVariant, out object? tertiary);
+            Assert.Equal(Assert.IsType<Avalonia.Media.Color>(tertiary),
+                Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(note.Foreground).Color);
+
+            Dispatcher.UIThread.RunJobs();
+            Border iconFrame = fallback.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_IconFrame");
+            Avalonia.Application.Current!.TryGetResource("Foreman.Size.PopUpLeadingIcon", Avalonia.Application.Current.ActualThemeVariant, out object? iconSize);
+            Assert.Equal(Assert.IsType<double>(iconSize), iconFrame.Bounds.Width);
+            Assert.Equal(Assert.IsType<double>(iconSize), iconFrame.Bounds.Height);
+        }
+
+        //Crossing the nine-candidate boundary swaps the grid for the pop-up fallback (2026-09-17 ruling) -
+        //the row's own height reflow is Kit.FormRow's pinned-then-animated mechanism (kit-tested), wired
+        //here through the Note change the swap always causes; this proves the wiring fires, not the mechanism.
+        [AvaloniaFact]
+        public void Building_CrossingTheChoiceCap_AnimatesTheRowHeight() {
+            RecipeFixture rf = NewRecipeFixture();
+            for (int i = 0; i < 7; i++)
+                LinkAssembler(rf.Recipe, NewAssembler(rf.Fx, $"cap-assembler-{i}", EnergySource.Electric));
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.Equal(9, view.ViewModel!.AssemblerOptions.Count);
+            FormRow row = view.FindControl<FormRow>("AssemblerRow")!;
+            Assert.True(view.FindControl<KitPickGrid>("AssemblerChoiceGrid")!.IsVisible);
+            //The row's own initial bind already pins-then-settles its height once (Note null -> a name) -
+            //let that first reflow finish before watching for the one the cap crossing causes.
+            AnimationClock.Settle((int)Motion.InspectorReflowDuration.TotalMilliseconds + 100);
+            Assert.True(double.IsNaN(row.Height));
+
+            LinkAssembler(rf.Recipe, NewAssembler(rf.Fx, "tenth-assembler", EnergySource.Electric));
+            view.Refresh();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(view.FindControl<PopUp>("AssemblerFallbackPopUp")!.IsVisible);
+            Assert.False(double.IsNaN(row.Height));
+
+            AnimationClock.Settle((int)Motion.InspectorReflowDuration.TotalMilliseconds + 100);
+            Assert.True(double.IsNaN(row.Height));
+        }
+
+        [AvaloniaFact]
+        public void Building_CrossingTheChoiceCap_ReduceMotion_HeightChangeIsInstant() {
+            Motion.ReduceMotion = true;
+            try {
+                RecipeFixture rf = NewRecipeFixture();
+                for (int i = 0; i < 7; i++)
+                    LinkAssembler(rf.Recipe, NewAssembler(rf.Fx, $"cap-assembler-{i}", EnergySource.Electric));
+                IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+                ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+                rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+                (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+                FormRow row = view.FindControl<FormRow>("AssemblerRow")!;
+
+                LinkAssembler(rf.Recipe, NewAssembler(rf.Fx, "tenth-assembler", EnergySource.Electric));
+                view.Refresh();
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.True(view.FindControl<PopUp>("AssemblerFallbackPopUp")!.IsVisible);
+                Assert.True(double.IsNaN(row.Height));
+            } finally {
+                Motion.ReduceMotion = false;
+            }
         }
 
         //---- Key node fields: never resolve ----
@@ -577,13 +939,13 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
             Stepper neighboursValue = view.FindControl<Stepper>("AvgNeighboursValue")!;
-            PickGrid assemblerGrid = view.FindControl<PickGrid>("AssemblerGrid")!;
+            KitPickGrid assemblerGrid = view.FindControl<KitPickGrid>("AssemblerChoiceGrid")!;
             Assert.False(neighboursValue.IsVisible);
 
-            Click(host, GridCellFor(host, assemblerGrid, reactor));
+            Click(host, ChoiceCellFor(host, assemblerGrid, reactor.FriendlyName));
             Assert.True(neighboursValue.IsVisible);
 
-            Click(host, GridCellFor(host, assemblerGrid, rf.Electric));
+            Click(host, ChoiceCellFor(host, assemblerGrid, rf.Electric.FriendlyName));
             Assert.False(neighboursValue.IsVisible);
         }
 
@@ -598,13 +960,13 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
             Stepper extraProductivityValue = view.FindControl<Stepper>("ExtraProductivityValue")!;
-            PickGrid assemblerGrid = view.FindControl<PickGrid>("AssemblerGrid")!;
+            KitPickGrid assemblerGrid = view.FindControl<KitPickGrid>("AssemblerChoiceGrid")!;
             Assert.False(extraProductivityValue.IsVisible);
 
-            Click(host, GridCellFor(host, assemblerGrid, miner));
+            Click(host, ChoiceCellFor(host, assemblerGrid, miner.FriendlyName));
             Assert.True(extraProductivityValue.IsVisible);
 
-            Click(host, GridCellFor(host, assemblerGrid, rf.Electric));
+            Click(host, ChoiceCellFor(host, assemblerGrid, rf.Electric.FriendlyName));
             Assert.False(extraProductivityValue.IsVisible);
         }
 
@@ -626,6 +988,43 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             Assert.True(oracle.Resolved);
             Assert.Equal(0.2, node.ExtraProductivity, 3);
+        }
+
+        //Rendered text, not the view-model string (the note slot is what the user actually sees): the
+        //Building row's note is two runs - the selected name, then the stats readout after a middle dot
+        //(colour is Kit.FormRow's own concern, kit-pinned); the Fuel row's grid carries the name alone.
+        [AvaloniaFact]
+        public void AssemblerRow_RenderedNoteCarriesNameThenStats_FuelRowCarriesNameAlone() {
+            RecipeFixture rf = NewRecipeFixture();
+            ItemPrototype gas = NewItem(rf.Fx, "gas");
+            rf.Burner.FuelsInternal.Add(gas);
+            var mineGas = new RecipePrototype(rf.Fx.Cache, "mine-gas", "Mine Gas", rf.Fx.Subgroup, "a") { Available = true };
+            mineGas.InternalOneWayAddProduct(gas, 1, 0);
+            gas.ProductionRecipesInternal.Add(mineGas);
+            LinkAssembler(mineGas, rf.Electric);
+            Store(rf.Fx.Cache).Recipes[mineGas.Name] = mineGas;
+
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Burner, rf.Fx.Normal));
+            controller.SetFuel(rf.Coal);
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.Equal(2, view.ViewModel!.AssemblerOptions.Count);
+            string expectedStats = view.ViewModel!.AssemblerStats;
+            Assert.False(string.IsNullOrEmpty(expectedStats));
+
+            FormRow assemblerRow = view.FindControl<FormRow>("AssemblerRow")!;
+            TextBlock note = assemblerRow.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+            TextBlock suffix = assemblerRow.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_NoteSuffix");
+            Assert.Equal(rf.Burner.FriendlyName, note.Text);
+            Assert.True(suffix.IsVisible);
+            Assert.Equal($" · {expectedStats}", suffix.Text);
+
+            FormRow fuelRow = view.FindControl<FormRow>("FuelRow")!;
+            Assert.Equal(rf.Coal.FriendlyName, fuelRow.Note);
+            Assert.Null(fuelRow.NoteSuffix);
         }
 
         //---- Stat readout: hand-derived from a known configuration ----
@@ -688,6 +1087,15 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Contains("100-500°c  (optimal: 500°c)", stats);
             Assert.Contains(1.0.ToString("P0", DisplayCulture.Format), stats);
             Assert.Contains(GraphicsStuff.DoubleToEnergy(1_000_000.0, "W"), stats);
+
+            //A generator node is the common one-candidate case, so the readout is read off the screen here
+            //rather than off ViewModel.AssemblerStats.
+            FormRow row = view.FindControl<FormRow>("AssemblerRow")!;
+            TextBlock note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+            TextBlock suffix = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_NoteSuffix");
+            Assert.Equal("The only building that crafts this recipe.", note.Text);
+            Assert.True(suffix.IsVisible);
+            Assert.Equal($" · {stats}", suffix.Text);
         }
 
         //---- Recipe group error state (A25 .error, Recipe.IsMissing) ----
@@ -719,7 +1127,7 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             //The other groups stay live - not swapped for the error panel, not disabled.
             Assert.True(view.FindControl<Segmented>("RateMode")!.IsEnabled);
-            Assert.True(view.FindControl<PickGrid>("AssemblerGrid")!.IsEnabled);
+            Assert.True(view.FindControl<KitPickGrid>("AssemblerChoiceGrid")!.IsEnabled);
         }
 
         [AvaloniaFact]

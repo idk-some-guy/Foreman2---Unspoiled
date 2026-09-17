@@ -23,6 +23,9 @@
 
     <kit:InspectorGroup Header="Rate" Theme="{StaticResource Kit.InspectorGroup}">
       <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Rate unit" LabelColumn="Inspector">
+          <ctrl:PopUp Name="RateUnitPopUp" Theme="{StaticResource Kit.PopUp}" />
+        </kit:FormRow>
         <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Mode" LabelColumn="Inspector">
           <ctrl:Segmented Name="RateMode" Theme="{StaticResource Kit.Segmented}" Classes="mini" />
         </kit:FormRow>
@@ -48,17 +51,21 @@
 
     <kit:InspectorGroup Header="Assembler" Theme="{StaticResource Kit.InspectorGroup}">
       <StackPanel Spacing="0">
-        <StackPanel Orientation="Horizontal" Classes="foreman-picker-row">
-          <Border Classes="foreman-picker-icon">
-            <Image Name="SelectedAssemblerIcon" Source="{Binding SelectedAssemblerIcon}" Stretch="Uniform" />
-          </Border>
-          <StackPanel VerticalAlignment="Center">
-            <TextBlock Name="SelectedAssemblerName" Text="{Binding SelectedAssemblerName}" Classes="foreman-picker-name" />
-            <TextBlock Name="AssemblerStatsText" Text="{Binding AssemblerStats}" Classes="foreman-caption" TextWrapping="Wrap" />
-          </StackPanel>
-        </StackPanel>
-        <insp:PickGrid Name="AssemblerGrid" Items="{Binding AssemblerOptions}" Margin="0,0,0,4" />
         <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+          <kit:FormRow Name="AssemblerRow" Theme="{StaticResource Kit.FormRow}" Label="Building" LabelColumn="Inspector">
+            <Panel>
+              <kit:PickGrid Name="AssemblerChoiceGrid" Theme="{StaticResource Kit.PickGrid}" IsChoiceMode="True"
+                            NamesSlots="False" GroupLabel="Building" />
+              <StackPanel Name="AssemblerValueLine" Orientation="Horizontal" Spacing="7" IsVisible="False">
+                <Image Name="AssemblerValueLineIcon" Width="18" Height="18" Stretch="Uniform" />
+                <TextBlock Name="AssemblerValueLineText"
+                           FontSize="{DynamicResource Foreman.Type.Body.FontSize}"
+                           FontWeight="{DynamicResource Foreman.Type.Body.FontWeight}"
+                           Foreground="{DynamicResource Foreman.Color.Text}" />
+              </StackPanel>
+              <ctrl:PopUp Name="AssemblerFallbackPopUp" Theme="{StaticResource Kit.PopUp}" IsVisible="False" />
+            </Panel>
+          </kit:FormRow>
           <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Neighbours" LabelColumn="Inspector"
                        IsVisible="{Binding ShowsNeighbours}">
             <ctrl:Stepper Name="AvgNeighboursValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="100" Increment="0.05" Decimals="2"
@@ -76,7 +83,22 @@
     <Border Classes="foreman-inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
 
     <kit:InspectorGroup Header="Fuel" IsVisible="{Binding ShowsFuel}" Theme="{StaticResource Kit.InspectorGroup}">
-      <insp:PickGrid Name="FuelGrid" Items="{Binding FuelOptions}" />
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+        <kit:FormRow Name="FuelRow" Theme="{StaticResource Kit.FormRow}" Label="Fuel" LabelColumn="Inspector">
+          <Panel>
+            <kit:PickGrid Name="FuelChoiceGrid" Theme="{StaticResource Kit.PickGrid}" IsChoiceMode="True"
+                          NamesSlots="False" GroupLabel="Fuel" />
+            <StackPanel Name="FuelValueLine" Orientation="Horizontal" Spacing="7" IsVisible="False">
+              <Image Name="FuelValueLineIcon" Width="18" Height="18" Stretch="Uniform" />
+              <TextBlock Name="FuelValueLineText"
+                         FontSize="{DynamicResource Foreman.Type.Body.FontSize}"
+                         FontWeight="{DynamicResource Foreman.Type.Body.FontWeight}"
+                         Foreground="{DynamicResource Foreman.Color.Text}" />
+            </StackPanel>
+            <ctrl:PopUp Name="FuelFallbackPopUp" Theme="{StaticResource Kit.PopUp}" IsVisible="False" />
+          </Panel>
+        </kit:FormRow>
+      </kit:FormGroup>
     </kit:InspectorGroup>
     <Border Classes="foreman-inspector-group-rule" Height="1" IsVisible="{Binding ShowsFuel}"
             Background="{DynamicResource Foreman.Color.Border}" />
@@ -99,17 +121,22 @@
 
     <kit:InspectorGroup Name="BeaconGroup" Header="Beacon" Theme="{StaticResource Kit.InspectorGroup}">
       <StackPanel Spacing="0">
-        <StackPanel Orientation="Horizontal" Classes="foreman-picker-row">
-          <Border Classes="foreman-picker-icon">
-            <Image Name="SelectedBeaconIcon" Source="{Binding SelectedBeaconIcon}" Stretch="Uniform" />
-          </Border>
-          <StackPanel VerticalAlignment="Center">
-            <TextBlock Name="BeaconNameText" Text="{Binding BeaconName}" Classes="foreman-picker-name" />
-            <TextBlock Text="Tap to choose a beacon" Classes="foreman-caption" IsVisible="{Binding !HasBeacon}" />
-          </StackPanel>
-          <Button Name="ClearBeaconButton" Content="Clear" IsVisible="{Binding HasBeacon}" />
-        </StackPanel>
-        <insp:PickGrid Name="BeaconOptions" Items="{Binding BeaconOptions}" Margin="0,0,0,4" />
+        <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+          <kit:FormRow Name="BeaconRow" Theme="{StaticResource Kit.FormRow}" Label="Beacon" LabelColumn="Inspector">
+            <Panel>
+              <kit:PickGrid Name="BeaconChoiceGrid" Theme="{StaticResource Kit.PickGrid}" IsChoiceMode="True"
+                            NamesSlots="False" GroupLabel="Beacon" />
+              <StackPanel Name="BeaconValueLine" Orientation="Horizontal" Spacing="7" IsVisible="False">
+                <Image Name="BeaconValueLineIcon" Width="18" Height="18" Stretch="Uniform" />
+                <TextBlock Name="BeaconValueLineText"
+                           FontSize="{DynamicResource Foreman.Type.Body.FontSize}"
+                           FontWeight="{DynamicResource Foreman.Type.Body.FontWeight}"
+                           Foreground="{DynamicResource Foreman.Color.Text}" />
+              </StackPanel>
+              <ctrl:PopUp Name="BeaconFallbackPopUp" Theme="{StaticResource Kit.PopUp}" IsVisible="False" />
+            </Panel>
+          </kit:FormRow>
+        </kit:FormGroup>
 
         <StackPanel Name="BeaconDetail" Spacing="{StaticResource Foreman.Space.Space2}" IsVisible="{Binding HasBeacon}">
           <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">

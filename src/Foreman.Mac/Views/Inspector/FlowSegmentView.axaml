@@ -8,6 +8,9 @@
   <StackPanel Spacing="0">
     <kit:InspectorGroup Header="Rate" Theme="{StaticResource Kit.InspectorGroup}">
       <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Rate unit" LabelColumn="Inspector">
+          <ctrl:PopUp Name="RateUnitPopUp" Theme="{StaticResource Kit.PopUp}" />
+        </kit:FormRow>
         <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Mode" LabelColumn="Inspector">
           <ctrl:Segmented Name="RateMode" Theme="{StaticResource Kit.Segmented}" Classes="mini" />
         </kit:FormRow>

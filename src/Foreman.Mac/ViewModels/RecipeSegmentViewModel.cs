@@ -58,6 +58,7 @@ namespace Foreman.Mac.ViewModels {
         public string AssemblerStats { get; private set; } = "";
         public IReadOnlyList<PickGridItem> AssemblerOptions { get; private set; } = [];
         public bool ShowsFuel { get; private set; }
+        public PickGridItem? SelectedFuel { get; private set; }
         public IReadOnlyList<PickGridItem> FuelOptions { get; private set; } = [];
 
         public string ModulesTitle { get; private set; } = "";
@@ -154,6 +155,10 @@ namespace Foreman.Mac.ViewModels {
             OnPropertyChanged(nameof(ShowsFuel));
             FuelOptions = ShowsFuel ? BuildFuelOptions() : [];
             OnPropertyChanged(nameof(FuelOptions));
+            SelectedFuel = ShowsFuel && node.Fuel is IItem currentFuel
+                ? BuildItem(currentFuel, currentFuel.Icon, isSelected: true, isAvailable: currentFuel.Available, isMissing: currentFuel.IsMissing)
+                : null;
+            OnPropertyChanged(nameof(SelectedFuel));
 
             //See the declaration comment above for why this is a pure recompute, not a one-way latch.
             ShowsNeighbours = node.SelectedAssembler.Assembler.EntityType == EntityType.Reactor;
@@ -291,7 +296,7 @@ namespace Foreman.Mac.ViewModels {
                     var pair = new BeaconQualityPair(beacon, node.SelectedAssembler.Quality);
                     bool isSelected = node.SelectedBeacon is { Beacon: IBeacon selectedBeacon }
                         && selectedBeacon == beacon && node.SelectedBeacon.Quality == node.SelectedAssembler.Quality;
-                    return BuildItem(beacon, pair.Icon, isSelected, isAvailable: beacon.Available && !beacon.IsMissing);
+                    return BuildItem(beacon, pair.Icon, isSelected, isAvailable: beacon.Available, isMissing: beacon.IsMissing);
                 })];
         }
 
@@ -504,7 +509,7 @@ namespace Foreman.Mac.ViewModels {
             return [.. recipe.Assemblers.Where(a => a.Enabled).Select(assembler => BuildItem(
                 assembler, new AssemblerQualityPair(assembler, quality).Icon,
                 isSelected: assembler == selected,
-                isAvailable: assembler.Available && !assembler.IsMissing))];
+                isAvailable: assembler.Available, isMissing: assembler.IsMissing))];
         }
 
         private IReadOnlyList<PickGridItem> BuildFuelOptions() {
@@ -513,11 +518,12 @@ namespace Foreman.Mac.ViewModels {
             return [.. assembler.Fuels
                 .Where(f => f.ProductionRecipes.Any(r => r.Enabled && r.Assemblers.Any(a => a.Enabled)))
                 .Select(fuel => BuildItem(fuel, fuel.Icon, isSelected: fuel == selected,
-                    isAvailable: fuel.Available && !fuel.IsMissing && fuel.ProductionRecipes.Any(r => r.Available && r.Assemblers.Any(a => a.Available))))];
+                    isAvailable: fuel.Available && fuel.ProductionRecipes.Any(r => r.Available && r.Assemblers.Any(a => a.Available)),
+                    isMissing: fuel.IsMissing))];
         }
 
-        private PickGridItem BuildItem(IDataObjectBase dataObject, SKBitmap? icon, bool isSelected, bool isAvailable) =>
-            new(dataObject, dataObject.FriendlyName, "", icon is null ? null : IconBaker.GetOrBake(iconCache, icon, PickIconSize), isSelected, isAvailable);
+        private PickGridItem BuildItem(IDataObjectBase dataObject, SKBitmap? icon, bool isSelected, bool isAvailable, bool isMissing = false) =>
+            new(dataObject, dataObject.FriendlyName, "", icon is null ? null : IconBaker.GetOrBake(iconCache, icon, PickIconSize), isSelected, isAvailable, isMissing);
 
         private string BuildStats() {
             EntityType entityType = node.SelectedAssembler.Assembler.EntityType;

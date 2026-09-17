@@ -191,6 +191,40 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void Unavailable_DimsToOpacityUnavailable_ButStaysHitTestableAndEnabled() {
+            using var fixture = new KitFixture();
+            PickCell cell = Themed();
+            cell.IsUnavailable = true;
+            cell.AccessibleName = "Assembling machine 3";
+            fixture.Window.Content = cell;
+            Dispatcher.UIThread.RunJobs();
+
+            Application.Current!.TryGetResource("Foreman.Opacity.Unavailable", Application.Current.ActualThemeVariant, out object? unavailable);
+            Assert.Equal(Assert.IsType<double>(unavailable), cell.Opacity);
+            Assert.True(cell.IsEnabled);
+            Assert.True(cell.IsHitTestVisible);
+            Assert.Equal("Assembling machine 3 — not available in this save", ToolTip.GetTip(cell));
+        }
+
+        [AvaloniaFact]
+        public void None_ShowsTheNoneSlashGlyphInTextTertiary_OnThePlainCellFill() {
+            using var fixture = new KitFixture();
+            PickCell cell = Themed();
+            cell.IsNone = true;
+            cell.AccessibleName = "No beacon";
+            fixture.Window.Content = cell;
+            Dispatcher.UIThread.RunJobs();
+
+            Viewbox noneBox = cell.GetVisualDescendants().OfType<Viewbox>().Single(v => v.Name == "PART_NoneBox");
+            Assert.True(noneBox.IsVisible);
+            Path glyph = Assert.IsType<Path>(noneBox.Child);
+            Assert.Equal(Application.Current!.FindResource("Kit.Glyph.NoneSlash.12"), glyph.Data);
+            Assert.Equal(fixture.Brush("Foreman.Color.TextTertiary").ToImmutable(), glyph.Stroke?.ToImmutable());
+            Assert.Equal("No beacon", ToolTip.GetTip(cell));
+            Assert.False(PlusBox(cell).IsVisible);
+        }
+
+        [AvaloniaFact]
         public void VoiceOver_InvokeRaisesInvoked() {
             using var fixture = new KitFixture();
             PickCell cell = Themed();

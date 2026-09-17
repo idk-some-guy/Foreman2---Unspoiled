@@ -126,6 +126,7 @@ namespace Foreman.Mac.UiTests.Views {
                  "Inspector group — expanded, collapsed, hovered, focused", "Split divider — rest, hovered, dragging, focused",
                  "Inspector group & Split divider (150%)",
                  "Pick cell — filled and empty, five states each", "Pick grid — module slots & beacon row",
+                 "Pick grid — choice mode, building & beacon",
                  "Pick cell & Pick grid (150%)",
                  "Chooser cell — five states", "Chooser grid — search results, two headings",
                  "Chooser cell & Chooser grid (150%)",
@@ -169,6 +170,8 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains("Checkbox, Radio group & Switch (150%)", captions);
             Assert.Contains("Segmented", captions);
             Assert.Contains("Pop-up buttons", captions);
+            Assert.Contains("Pop-up — leading icon", captions);
+            Assert.Contains("Pick grid — choice mode, building & beacon", captions);
             Assert.Contains("Menu button", captions);
             Assert.Contains("Segmented, Pop-up buttons & Menu button (150%)", captions);
             Assert.Contains("Text field", captions);
@@ -526,6 +529,48 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(1, cells.Count(c => c.IsSelected));
         }
 
+        //Quality's own shape: a leading badge riding beside the word, one colour per tier in the menu too.
+        [AvaloniaFact]
+        public void PopUpButtonsTile_TheLeadingIconExampleCarriesAnIconAndPerItemMenuIcons() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Pop-up buttons");
+            PopUp withIcon = tile.GetVisualDescendants().OfType<PopUp>().Single(p => p.Icon is not null);
+
+            Assert.Equal("Rare", withIcon.SelectedItem);
+            Assert.Equal(3, withIcon.ItemIcons.Count);
+            Assert.All(withIcon.ItemIcons, Assert.NotNull);
+        }
+
+        //The building-picker mock's own §02 figure: four candidates, the fourth dimmed but still a real
+        //cell, the third selected; the beacon row's first cell is the None member.
+        [AvaloniaFact]
+        public void PickGridChoiceTile_DrawsTheFiguresSelectedCellAndUnavailableCandidate() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Pick grid — choice mode, building & beacon");
+            PickGrid[] grids = [.. tile.GetVisualDescendants().OfType<PickGrid>()];
+            Assert.Equal(2, grids.Length);
+            Assert.All(grids, g => Assert.True(g.IsChoiceMode));
+
+            PickGrid building = grids[0];
+            PickCell[] buildingCells = [.. building.GetVisualDescendants().OfType<PickCell>()];
+            Assert.Equal(4, buildingCells.Length);
+            Assert.Equal(2, building.SelectedIndex);
+            Assert.True(buildingCells[2].IsSelected);
+            Assert.True(buildingCells[3].IsUnavailable);
+
+            PickGrid beacon = grids[1];
+            PickCell[] beaconCells = [.. beacon.GetVisualDescendants().OfType<PickCell>()];
+            Assert.True(beaconCells[0].IsNone);
+        }
+
+        //The choice grid's own 150% scaling (cell size, gap non-multiplication, wrap recompute) is
+        //KitPickGridChoiceScaleTests now - this tile keeps only the registration/tile-presence assertion.
         [AvaloniaFact]
         public void PickCompositesScaledTile_CellScalesButGapStaysAtTwoPointFive() {
             DataCache cache = NewFixtureCache();

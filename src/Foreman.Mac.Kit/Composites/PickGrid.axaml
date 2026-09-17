@@ -7,7 +7,10 @@
     <Setter Property="VerticalAlignment" Value="Top" />
     <Setter Property="Template">
       <ControlTemplate>
-        <Grid x:Name="PART_Grid" />
+        <Panel>
+          <Grid x:Name="PART_Grid" />
+          <WrapPanel x:Name="PART_Wrap" Orientation="Horizontal" IsVisible="False" />
+        </Panel>
       </ControlTemplate>
     </Setter>
   </ControlTheme>

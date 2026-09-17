@@ -25,7 +25,6 @@ using System.Reflection;
 using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
 using KitPickGrid = Foreman.Mac.Kit.Composites.PickGrid;
-using AppPickGrid = Foreman.Mac.Views.Inspector.PickGrid;
 
 namespace Foreman.Mac.UiTests.Inspector {
     //Module/beacon coverage for RecipeSegmentView's Modules and Beacon groups.
@@ -229,14 +228,13 @@ namespace Foreman.Mac.UiTests.Inspector {
             CanvasKeys.KeyDownOn(grid, Key.Delete);
         }
 
-        //A PickGrid whose ItemsSource was just reset (e.g. by a NodeValuesUpdated-driven Refresh() elsewhere
-        //on the graph, not just this test's own edits) needs one more layout pass before its new containers
-        //are real visual children - GetVisualDescendants would otherwise walk right past the still-empty
-        //ContentPresenters mid-realization.
-        private static Button GridCellFor(AvaloniaWindow window, AppPickGrid grid, object key) {
+        //A choice grid whose Slots were just rebuilt (e.g. by a NodeValuesUpdated-driven Refresh() elsewhere
+        //on the graph, not just this test's own edits) needs one more layout pass before its new cells
+        //are real visual children - GetVisualDescendants would otherwise walk right past the stale tree.
+        private static PickCell ChoiceCellFor(AvaloniaWindow window, KitPickGrid grid, string name) {
             Dispatcher.UIThread.RunJobs();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-            return grid.GetVisualDescendants().OfType<Button>().Single(b => Equals((b.DataContext as PickGridItem)?.Key, key));
+            return grid.GetVisualDescendants().OfType<PickCell>().Single(c => c.AccessibleName == name);
         }
 
         //InspectorGroup's title row - scoped inside `group` so each group's own header resolves
@@ -602,8 +600,8 @@ namespace Foreman.Mac.UiTests.Inspector {
             Click(host, GroupHeaderOf(beaconGroup));
             Assert.True(beaconGroup.IsExpanded);
 
-            AppPickGrid beaconOptions = view.FindControl<AppPickGrid>("BeaconOptions")!;
-            Click(host, GridCellFor(host, beaconOptions, rf.Beacon));
+            KitPickGrid beaconChoiceGrid = view.FindControl<KitPickGrid>("BeaconChoiceGrid")!;
+            Click(host, ChoiceCellFor(host, beaconChoiceGrid, rf.Beacon.FriendlyName));
 
             Assert.True(beaconGroup.IsExpanded);
         }
@@ -696,8 +694,8 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorGroup beaconGroup = view.FindControl<InspectorGroup>("BeaconGroup")!;
             Click(host, GroupHeaderOf(beaconGroup)); //collapsed by default - expand to reach the picker
 
-            AppPickGrid beaconOptions = view.FindControl<AppPickGrid>("BeaconOptions")!;
-            Click(host, GridCellFor(host, beaconOptions, rf.Beacon));
+            KitPickGrid beaconChoiceGrid = view.FindControl<KitPickGrid>("BeaconChoiceGrid")!;
+            Click(host, ChoiceCellFor(host, beaconChoiceGrid, rf.Beacon.FriendlyName));
 
             Assert.True(oracle.Resolved);
             Assert.True(view.ViewModel!.HasBeacon);
@@ -705,8 +703,10 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Single(view.ViewModel!.BeaconModuleOptions);
         }
 
+        //ClearBeaconButton is gone (2026-09-17 ruling: "none" is a member of the choice set, not a command) -
+        //clearing is choosing the grid's own leading None cell.
         [AvaloniaFact]
-        public void ClearBeacon_HidesModuleGrid_AndCallsController() {
+        public void PickingTheNoneCell_HidesModuleGrid_AndCallsController() {
             RecipeFixture rf = NewRecipeFixture();
             IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
             RecipeNodeController controller = ControllerFor(rf.Fx, node);
@@ -717,12 +717,64 @@ namespace Foreman.Mac.UiTests.Inspector {
             (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
             Assert.True(view.ViewModel!.HasBeacon);
 
-            Button clearButton = view.FindControl<Button>("ClearBeaconButton")!;
-            Click(host, clearButton);
+            KitPickGrid beaconChoiceGrid = view.FindControl<KitPickGrid>("BeaconChoiceGrid")!;
+            Click(host, ChoiceCellFor(host, beaconChoiceGrid, "No beacon"));
 
             Assert.False(view.ViewModel!.HasBeacon);
             Assert.False(node.SelectedBeacon);
             Assert.Empty(view.ViewModel!.BeaconModuleOptions);
+        }
+
+        //---- Beacon row (2026-09-17 building-picker ruling): the leading None cell and its two directions ----
+
+        [AvaloniaFact]
+        public void BeaconRow_TheFirstCellIsNone_SelectedIffHasBeaconIsFalse() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.False(view.ViewModel!.HasBeacon);
+
+            InspectorGroup beaconGroup = view.FindControl<InspectorGroup>("BeaconGroup")!;
+            Click(host, GroupHeaderOf(beaconGroup)); //collapsed by default - expand to reach the row
+
+            KitPickGrid beaconChoiceGrid = view.FindControl<KitPickGrid>("BeaconChoiceGrid")!;
+            PickCell first = CellsOf(beaconChoiceGrid)[0];
+            Assert.Equal("No beacon", first.AccessibleName);
+            Assert.True(first.IsSelected);
+        }
+
+        [AvaloniaFact]
+        public void NoControlNamedClearBeaconButton_ExistsAnywhereInTheTree() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<Control>(), c => c.Name == "ClearBeaconButton");
+        }
+
+        [AvaloniaFact]
+        public void BeaconRow_ChoosingNone_ClearsTheBeacon_AndHidesTheDetailRows() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+            RecipeNodeController controller = ControllerFor(rf.Fx, node);
+            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
+            controller.SetBeacon(new BeaconQualityPair(rf.Beacon, rf.Fx.Normal));
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
+
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            StackPanel beaconDetail = view.FindControl<StackPanel>("BeaconDetail")!;
+            Assert.True(beaconDetail.IsVisible);
+
+            KitPickGrid beaconChoiceGrid = view.FindControl<KitPickGrid>("BeaconChoiceGrid")!;
+            Click(host, ChoiceCellFor(host, beaconChoiceGrid, "No beacon"));
+
+            Assert.False(view.ViewModel!.HasBeacon);
+            Assert.False(beaconDetail.IsVisible);
         }
 
         //---- Beacon steppers: only the count re-solves the graph ----

@@ -158,11 +158,12 @@ namespace Foreman.Mac.UiTests.Canvas {
             var view = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
             Dispatcher.UIThread.RunJobs();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-            var assemblerGrid = view.FindControl<PickGrid>("AssemblerGrid")!;
-            Button alternateAssemblerButton = assemblerGrid.GetVisualDescendants().OfType<Button>()
-                .First(b => !Equals((b.DataContext as PickGridItem)?.Key, originalAssembler));
-            var alternateAssembler = (IAssembler)((PickGridItem)alternateAssemblerButton.DataContext!).Key!;
-            ClickThroughWindow(window, alternateAssemblerButton);
+            var assemblerGrid = view.FindControl<Foreman.Mac.Kit.Composites.PickGrid>("AssemblerChoiceGrid")!;
+            PickGridItem alternateOption = view.ViewModel!.AssemblerOptions.First(i => !Equals(i.Key, originalAssembler));
+            Foreman.Mac.Kit.Composites.PickCell alternateAssemblerCell = assemblerGrid.GetVisualDescendants()
+                .OfType<Foreman.Mac.Kit.Composites.PickCell>().Single(c => c.AccessibleName == alternateOption.Name);
+            var alternateAssembler = (IAssembler)alternateOption.Key!;
+            ClickThroughWindow(window, alternateAssemblerCell);
             Assert.Equal(alternateAssembler, recipeViewModel.SelectedAssembler.Assembler);
 
             var document = new GraphViewerSaveDocument {

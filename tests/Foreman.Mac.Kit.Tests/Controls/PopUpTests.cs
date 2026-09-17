@@ -5,6 +5,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -36,7 +37,9 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         private static Border Indicator(PopUp popup) => popup.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Indicator");
         private static Path Chevron(PopUp popup) => popup.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_PulldownChevron");
         private static TextBlock Label(PopUp popup) => popup.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Label");
-        private static StackPanel TrailingColumn(PopUp popup) => popup.GetVisualDescendants().OfType<StackPanel>().Single();
+        private static StackPanel TrailingColumn(PopUp popup) => popup.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_TrailingColumn");
+        private static Border IconFrame(PopUp popup) => popup.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_IconFrame");
+        private static Image IconImage(PopUp popup) => popup.GetVisualDescendants().OfType<Image>().Single(i => i.Name == "PART_Icon");
 
         private sealed class TestCommand : ICommand {
             public object? Parameter;
@@ -152,6 +155,68 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Border indicator = Indicator(popup);
             Point indicatorRight = Avalonia.VisualExtensions.TranslatePoint(indicator, new Point(indicator.Bounds.Width, 0), popup)!.Value;
             Assert.Equal(popup.Bounds.Width - popup.BorderThickness.Right - 3, indicatorRight.X, 3);
+        }
+
+        [AvaloniaFact]
+        public void NoIcon_IconFrameIsHidden_AndTheLeadingInsetIsTheK2Baseline() {
+            using var fixture = new KitFixture();
+            PopUp popup = Themed("Items / s");
+            popup.Width = 200;
+            fixture.Window.Content = popup;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(IconFrame(popup).IsVisible);
+            double labelLeft = Avalonia.VisualExtensions.TranslatePoint(Label(popup), new Point(0, 0), popup)!.Value.X;
+            Assert.Equal(popup.BorderThickness.Left + 10, labelLeft, 3);
+        }
+
+        [AvaloniaFact]
+        public void WithIcon_LeadingInsetDropsTo6_IconIs16AtRadius3_GapIs6() {
+            using var fixture = new KitFixture();
+            PopUp popup = Themed("Rare");
+            popup.Icon = new RenderTargetBitmap(new PixelSize(4, 4));
+            popup.Width = 200;
+            fixture.Window.Content = popup;
+            Dispatcher.UIThread.RunJobs();
+
+            Border iconFrame = IconFrame(popup);
+            Assert.True(iconFrame.IsVisible);
+            Application.Current!.TryGetResource("Foreman.Size.PopUpLeadingIcon", Application.Current.ActualThemeVariant, out object? iconSize);
+            Application.Current!.TryGetResource("Foreman.Radius.PopUpLeadingIcon", Application.Current.ActualThemeVariant, out object? iconRadius);
+            Assert.Equal(Assert.IsType<double>(iconSize), iconFrame.Bounds.Width);
+            Assert.Equal(Assert.IsType<double>(iconSize), iconFrame.Bounds.Height);
+            Assert.Equal(Assert.IsType<CornerRadius>(iconRadius), iconFrame.CornerRadius);
+            Assert.Same(popup.Icon, IconImage(popup).Source);
+
+            double iconLeft = Avalonia.VisualExtensions.TranslatePoint(iconFrame, new Point(0, 0), popup)!.Value.X;
+            Assert.Equal(popup.BorderThickness.Left + 6, iconLeft, 3);
+
+            Application.Current!.TryGetResource("Foreman.Size.ControlGlyphGap", Application.Current.ActualThemeVariant, out object? gap);
+            double iconRight = Avalonia.VisualExtensions.TranslatePoint(iconFrame, new Point(iconFrame.Bounds.Width, 0), popup)!.Value.X;
+            double labelLeft = Avalonia.VisualExtensions.TranslatePoint(Label(popup), new Point(0, 0), popup)!.Value.X;
+            Assert.Equal(iconRight + (double)gap!, labelLeft, 2);
+
+            Border indicator = Indicator(popup);
+            Application.Current!.TryGetResource("Foreman.Size.PopUpIndicator", Application.Current.ActualThemeVariant, out object? indicatorSize);
+            Application.Current!.TryGetResource("Foreman.Radius.PopUpIndicator", Application.Current.ActualThemeVariant, out object? indicatorRadius);
+            Assert.Equal(Assert.IsType<double>(indicatorSize), indicator.Bounds.Width);
+            Assert.Equal(Assert.IsType<CornerRadius>(indicatorRadius), indicator.CornerRadius);
+        }
+
+        [AvaloniaFact]
+        public void MenuItems_CarryTheSameLeadingIconAtTheMenusOwnInset() {
+            using var fixture = new KitFixture();
+            var normalIcon = new RenderTargetBitmap(new PixelSize(4, 4));
+            var rareIcon = new RenderTargetBitmap(new PixelSize(4, 4));
+            PopUp popup = Themed("Normal", "Rare");
+            popup.Icon = normalIcon;
+            popup.ItemIcons.Add(normalIcon);
+            popup.ItemIcons.Add(rareIcon);
+            fixture.Window.Content = popup;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(normalIcon, popup.Menu.Items[0].Icon);
+            Assert.Equal(rareIcon, popup.Menu.Items[1].Icon);
         }
 
         [AvaloniaFact]

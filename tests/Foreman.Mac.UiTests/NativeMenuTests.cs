@@ -467,6 +467,90 @@ namespace Foreman.Mac.UiTests {
             Assert.All(items, i => Assert.Equal(MenuItemToggleType.Radio, i.ToggleType));
         }
 
+        //2026-09-17 building-picker ruling: one MainWindow method serves the inspector's own Rate unit row,
+        //View Options' pop-up and the View menu radios - a pick from any of the three mirrors into the other
+        //two, saves immediately, and costs exactly one solve, with one Save per pick.
+        [AvaloniaFact]
+        public async Task RateUnitPickedFromAnySurface_PersistsTheDefaultThroughSettingsService() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenWindowWithGraphAsync();
+            var settingsService = new SettingsService(NewTempDir());
+            window.SettingsService = settingsService;
+            window.Settings = new AppSettings();
+            Foreman.Graph.INodeViewModel node = window.GraphCanvas.Viewer.Session.View.Nodes.Single();
+            Inspector.InspectorTestSupport.Select(window, node);
+
+            var recipeView = window.Inspector.FindControl<Foreman.Mac.Views.Inspector.RecipeSegmentView>("RecipeSegment")!;
+            PopUp inspectorRateUnit = recipeView.FindControl<PopUp>("RateUnitPopUp")!;
+            OpenViewOptions(window);
+            PopUp dropdown = window.GetVisualDescendants().OfType<PopUp>().Single(c => c.Name == "RateOptionsDropDown");
+            NativeMenu rateUnitSubmenu = SubMenu(SubMenu(TopMenu(window), "View"), "Rate Unit");
+            int solves = 0;
+            window.GraphCanvas.Viewer.Session.NodeValuesUpdated += (_, _) => solves++;
+
+            //Surface 1: the inspector's own Rate unit pop-up.
+            inspectorRateUnit.Command!.Execute("per 5 minutes");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(ProductionGraph.RateUnit.Per5Min, window.GraphCanvas.Viewer.Graph.SelectedRateUnit);
+            Assert.Equal(ProductionGraph.RateUnit.Per5Min, ((AppSettings)window.Settings!).DefaultRateUnit);
+            Assert.Equal("per 5 minutes", dropdown.SelectedItem);
+            Assert.True(rateUnitSubmenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "5 min").IsChecked);
+            Assert.Equal(1, settingsService.SaveCallCount);
+            Assert.Equal(1, solves);
+
+            //Surface 2: View Options' own pop-up - mirrors back into the inspector and the menu radio.
+            dropdown.Command!.Execute("per 10 minutes");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(ProductionGraph.RateUnit.Per10Min, window.GraphCanvas.Viewer.Graph.SelectedRateUnit);
+            Assert.Equal(ProductionGraph.RateUnit.Per10Min, ((AppSettings)window.Settings!).DefaultRateUnit);
+            Assert.Equal("per 10 minutes", inspectorRateUnit.SelectedItem);
+            Assert.True(rateUnitSubmenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "10 min").IsChecked);
+            Assert.Equal(2, settingsService.SaveCallCount);
+            Assert.Equal(2, solves);
+
+            //Surface 3: the View menu's own radio - mirrors back into the inspector and the dropdown.
+            NativeMenuItem oneHour = rateUnitSubmenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "1 hour");
+            oneHour.Command!.Execute(oneHour.CommandParameter);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(ProductionGraph.RateUnit.Per1Hour, window.GraphCanvas.Viewer.Graph.SelectedRateUnit);
+            Assert.Equal(ProductionGraph.RateUnit.Per1Hour, ((AppSettings)window.Settings!).DefaultRateUnit);
+            Assert.Equal("per hour", inspectorRateUnit.SelectedItem);
+            Assert.Equal("per hour", dropdown.SelectedItem);
+            Assert.Equal(3, settingsService.SaveCallCount);
+            Assert.Equal(3, solves);
+        }
+
+        //The reverse direction: a pick made on View Options must reach a bound Flow segment's own Rate unit
+        //row too, not just the Recipe segment RateUnitPickedFromAnySurface covers.
+        [AvaloniaFact]
+        public async Task RateUnitPickedFromViewOptions_MirrorsIntoTheFlowSegmentsOwnPopUp() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
+            DataCache cache = window.DataCache!;
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            Foreman.Graph.NodeId supplierId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            window.GraphCanvas.Viewer.Session.View.TryGetNode(supplierId, out Foreman.Graph.INodeViewModel? supplier);
+            Dispatcher.UIThread.RunJobs();
+            Inspector.InspectorTestSupport.Select(window, supplier!);
+
+            var flowView = window.Inspector.FindControl<Foreman.Mac.Views.Inspector.FlowSegmentView>("FlowSegment")!;
+            PopUp flowRateUnit = flowView.FindControl<PopUp>("RateUnitPopUp")!;
+
+            OpenViewOptions(window);
+            PopUp dropdown = window.GetVisualDescendants().OfType<PopUp>().Single(c => c.Name == "RateOptionsDropDown");
+            dropdown.Command!.Execute("per 30 minutes");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("per 30 minutes", flowRateUnit.SelectedItem);
+        }
+
+        private static string NewTempDir() {
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "foreman-mac-tests", Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(dir);
+            return dir;
+        }
+
         [AvaloniaFact]
         public void ViewMenu_RateUnit_ClickSetsTheDropdownSelection() {
             var window = new MainWindow();

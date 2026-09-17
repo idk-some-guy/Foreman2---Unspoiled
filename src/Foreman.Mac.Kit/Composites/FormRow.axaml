@@ -64,6 +64,12 @@
                        Foreground="{DynamicResource Foreman.Color.TextTertiary}"
                        Text="{TemplateBinding Note}"
                        TextWrapping="Wrap" />
+            <TextBlock x:Name="PART_NoteSuffix"
+                       Theme="{StaticResource Kit.Text}"
+                       Classes="caption"
+                       Foreground="{DynamicResource Foreman.Color.TextTertiary}"
+                       TextWrapping="Wrap"
+                       IsVisible="False" />
           </StackPanel>
 
           <StackPanel x:Name="PART_ErrorRow"
@@ -102,6 +108,27 @@
 
     <Style Selector="^:error /template/ Border#PART_ControlBorder">
       <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Error}" />
+    </Style>
+
+    <!-- A choice grid's selected-name note is a value, not help copy (2026-09-17 building-picker ruling). -->
+    <Style Selector="^:value /template/ TextBlock#PART_Note">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    </Style>
+
+    <!-- The armed selection is missing from the preset (A25 error state): wins over :value below it. -->
+    <Style Selector="^:note-warning /template/ TextBlock#PART_Note">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Warning}" />
+    </Style>
+
+    <!-- The zero-candidate row is "not researched", not "invalid input" - amber, not red. -->
+    <Style Selector="^:error:warning /template/ Path#PART_ErrorGlyph">
+      <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.Warning}" />
+    </Style>
+    <Style Selector="^:error:warning /template/ TextBlock#PART_ErrorText">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Warning}" />
+    </Style>
+    <Style Selector="^:error:warning /template/ Border#PART_ControlBorder">
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Warning}" />
     </Style>
 
     <Style Selector="^:disabled">

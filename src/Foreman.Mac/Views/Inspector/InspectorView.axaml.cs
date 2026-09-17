@@ -1,4 +1,7 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
@@ -6,6 +9,7 @@ using Avalonia.Platform;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.Input;
 using Foreman.DataCaching;
+using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Kit.Appearance;
@@ -24,11 +28,11 @@ namespace Foreman.Mac.Views.Inspector {
     public partial class InspectorView : UserControl {
         private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
         private readonly Dictionary<SKBitmap, Bitmap> qualityIconCache = [];
+        private readonly IdentityRow identityRow;
         private readonly Image identityIcon;
         private readonly TextBlock identityName;
         private readonly TextBlock identitySubtitle;
         private readonly StackPanel qualityRow;
-        private readonly Image qualityIcon;
         private readonly PopUp qualityMiniSelect;
         private readonly ContentControl segmentHost;
         private readonly StatePanel emptyState;
@@ -55,13 +59,17 @@ namespace Foreman.Mac.Views.Inspector {
         public event EventHandler? OpenPresetsRequested;
         public event EventHandler<IRecipeNodeViewModel>? PickAnotherRecipeRequested;
 
+        //Forwarded from whichever segment's Rate unit row was just picked - MainWindow applies it and
+        //mirrors it into its View Options pop-up, the View menu radios and AppSettings.DefaultRateUnit.
+        public event EventHandler<ProductionGraph.RateUnit>? RateUnitChanged;
+
         public InspectorView() {
             InitializeComponent();
+            identityRow = this.FindControl<IdentityRow>("IdentityRow")!;
             identityIcon = this.FindControl<Image>("IdentityIcon")!;
             identityName = this.FindControl<TextBlock>("IdentityName")!;
             identitySubtitle = this.FindControl<TextBlock>("IdentitySubtitle")!;
             qualityRow = this.FindControl<StackPanel>("QualityRow")!;
-            qualityIcon = this.FindControl<Image>("QualityIcon")!;
             qualityMiniSelect = this.FindControl<PopUp>("QualityMiniSelect")!;
             qualityMiniSelect.Command = new RelayCommand<string>(PickQualityByName);
             segmentHost = this.FindControl<ContentControl>("SegmentHost")!;
@@ -82,12 +90,14 @@ namespace Foreman.Mac.Views.Inspector {
             recipeSegmentView = new RecipeSegmentView { Name = "RecipeSegment" };
             recipeSegmentView.OpenPresetsRequested += (_, _) => OpenPresetsRequested?.Invoke(this, EventArgs.Empty);
             recipeSegmentView.PickAnotherRecipeRequested += (_, node) => PickAnotherRecipeRequested?.Invoke(this, node);
+            recipeSegmentView.RateUnitChanged += (_, unit) => RateUnitChanged?.Invoke(this, unit);
+            flowSegmentView.RateUnitChanged += (_, unit) => RateUnitChanged?.Invoke(this, unit);
             var scope = new NameScope();
+            scope.Register("IdentityRow", identityRow);
             scope.Register("IdentityIcon", identityIcon);
             scope.Register("IdentityName", identityName);
             scope.Register("IdentitySubtitle", identitySubtitle);
             scope.Register("QualityRow", qualityRow);
-            scope.Register("QualityIcon", qualityIcon);
             scope.Register("QualityMiniSelect", qualityMiniSelect);
             scope.Register("SegmentHost", segmentHost);
             scope.Register("EmptyState", emptyState);
@@ -141,13 +151,21 @@ namespace Foreman.Mac.Views.Inspector {
                 identitySubtitle.Text = "";
                 segmentHost.Content = null;
                 SetQualityMiniSelect(null);
+                AutomationProperties.SetName(identityRow, null);
+                identityRow.AccessibleValue = null;
                 return;
             }
 
             (string name, string subtitle, SKBitmap? icon) = Describe(node);
             identityName.Text = name;
             identitySubtitle.Text = subtitle;
+            ToolTip.SetTip(identitySubtitle, subtitle);
             identityIcon.Source = icon is null ? null : GetOrBakeIcon(icon);
+            //The grid deliberately has no visible label (2026-09-17 building-picker ruling) - the building
+            //is spoken on focus of this row instead, without the user hunting for the grid. The sub-line is
+            //the row's AXValue, not its help text, so it isn't read twice.
+            AutomationProperties.SetName(identityRow, name);
+            identityRow.AccessibleValue = subtitle;
 
             bool recipeActive = boundViewModel!.Segment == InspectorSegment.Recipe;
 
@@ -168,22 +186,25 @@ namespace Foreman.Mac.Views.Inspector {
             }
         }
 
-        //Kit.PopUp has no leading-icon slot of its own, so the badge sits beside it as a plain Image
-        //here - the shipped means, ported as-is from before the PopUp migration.
+        //Kit.PopUp's own 16pt leading-icon slot (2026-09-17 building-picker ruling): the badge rides beside
+        //the word in the button and in every menu item, one icon per quality tier.
         private void SetQualityMiniSelect(RecipeSegmentViewModel? recipeViewModel) {
             bool shows = recipeViewModel?.ShowsQuality ?? false;
             qualityRow.IsVisible = shows;
             qualityMiniSelect.IsVisible = shows;
             qualityMiniSelect.Items.Clear();
+            qualityMiniSelect.ItemIcons.Clear();
             if (recipeViewModel is null) {
-                qualityIcon.Source = null;
+                qualityMiniSelect.Icon = null;
                 return;
             }
-            foreach (PickGridItem option in recipeViewModel.QualityOptions)
+            foreach (PickGridItem option in recipeViewModel.QualityOptions) {
                 qualityMiniSelect.Items.Add(option.Name);
+                qualityMiniSelect.ItemIcons.Add(option.Icon);
+            }
             qualityMiniSelect.SelectedItem = recipeViewModel.CurrentQualityName;
             SKBitmap? icon = recipeViewModel.CurrentQualityIcon;
-            qualityIcon.Source = icon is null ? null : IconBaker.GetOrBake(qualityIconCache, icon, QualityIconSize);
+            qualityMiniSelect.Icon = icon is null ? null : IconBaker.GetOrBake(qualityIconCache, icon, QualityIconSize);
         }
 
         //Picking a quality re-quals the node's assembler directly (RecipeSegmentViewModel.PickQuality), so
@@ -206,11 +227,13 @@ namespace Foreman.Mac.Views.Inspector {
                 recipeSegmentView.Refresh();
         }
 
-        //A23: sub-line names the node type then the building; quality lives in the mini-select instead.
+        //A23/2026-09-17 building-picker ruling §05: sub-line names the node type then the building - the
+        //pinned, always-visible text form of what the Building grid selects - and carries the quality in
+        //parentheses when it isn't the base tier (PrevQuality null).
         private static (string Name, string Subtitle, SKBitmap? Icon) Describe(INodeViewModel node) => node switch {
             IRecipeNodeViewModel recipe => (
                 recipe.BaseRecipe.FriendlyName ?? "",
-                $"Recipe node · {recipe.SelectedAssembler.Assembler.FriendlyName}",
+                $"Recipe node · {recipe.SelectedAssembler.Assembler.FriendlyName}{QualitySuffix(recipe.SelectedAssembler.Quality)}",
                 recipe.BaseRecipe.Icon),
             ISupplierNodeViewModel supplier => (supplier.SuppliedItem.FriendlyName ?? "", "Supplier node", supplier.SuppliedItem.Icon),
             IConsumerNodeViewModel consumer => (consumer.ConsumedItem.FriendlyName ?? "", "Consumer node", consumer.ConsumedItem.Icon),
@@ -220,6 +243,9 @@ namespace Foreman.Mac.Views.Inspector {
             _ => ("", "", null),
         };
 
+        private static string QualitySuffix(IQuality quality) =>
+            quality.PrevQuality is null ? "" : $" ({quality.FriendlyName})";
+
         private const int IdentityIconSize = 17;
         private const int QualityIconSize = 16;
 
@@ -228,6 +254,27 @@ namespace Foreman.Mac.Views.Inspector {
         private static ControlTheme KitTheme(string key) {
             Application.Current!.TryGetResource(key, null, out object? theme);
             return theme as ControlTheme ?? throw new InvalidOperationException($"InspectorView: kit theme '{key}' not found.");
+        }
+    }
+
+    //A named Border subclass so the row's own automation peer can be a Group carrying a value pattern - a
+    //stock Border's peer is neither (2026-09-17 building-picker ruling §05).
+    internal sealed class IdentityRow : Border {
+        public static readonly StyledProperty<string?> AccessibleValueProperty =
+            AvaloniaProperty.Register<IdentityRow, string?>(nameof(AccessibleValue));
+
+        public string? AccessibleValue {
+            get => GetValue(AccessibleValueProperty);
+            set => SetValue(AccessibleValueProperty, value);
+        }
+
+        protected override AutomationPeer OnCreateAutomationPeer() => new IdentityRowAutomationPeer(this);
+
+        private sealed class IdentityRowAutomationPeer(IdentityRow owner) : ControlAutomationPeer(owner), IValueProvider {
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Group;
+            bool IValueProvider.IsReadOnly => true;
+            string? IValueProvider.Value => owner.AccessibleValue;
+            void IValueProvider.SetValue(string? value) { }
         }
     }
 }

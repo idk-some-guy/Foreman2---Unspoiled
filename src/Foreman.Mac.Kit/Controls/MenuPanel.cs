@@ -11,6 +11,7 @@ using Avalonia.Styling;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Linq;
 
 namespace Foreman.Mac.Kit.Controls {
     public class MenuPanel : TemplatedControl {
@@ -41,6 +42,8 @@ namespace Foreman.Mac.Kit.Controls {
         private double itemHeight = 22;
         private double checkColumn = 16;
         private double glyphMicro = 12;
+        private double leadingIconSize = 16;
+        private CornerRadius leadingIconRadius = new(3);
         private double fontSize = 12;
         private FontWeight fontWeight = FontWeight.Normal;
         private Geometry? checkGeometry;
@@ -87,6 +90,8 @@ namespace Foreman.Mac.Kit.Controls {
             subs.Add(this.GetResourceObservable("Foreman.Size.MenuItemHeight").Subscribe(new ResourceSinks.DoubleSink(v => { itemHeight = v; Rebuild(); }, itemHeight)));
             subs.Add(this.GetResourceObservable("Foreman.Size.MenuCheckColumn").Subscribe(new ResourceSinks.DoubleSink(v => { checkColumn = v; Rebuild(); }, checkColumn)));
             subs.Add(this.GetResourceObservable("Foreman.Size.GlyphMicro").Subscribe(new ResourceSinks.DoubleSink(v => { glyphMicro = v; Rebuild(); }, glyphMicro)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.PopUpLeadingIcon").Subscribe(new ResourceSinks.DoubleSink(v => { leadingIconSize = v; Rebuild(); }, leadingIconSize)));
+            subs.Add(this.GetResourceObservable("Foreman.Radius.PopUpLeadingIcon").Subscribe(new ResourceSinks.RadiusSink(v => { leadingIconRadius = v; Rebuild(); }, leadingIconRadius)));
             subs.Add(this.GetResourceObservable("Foreman.Type.Callout.FontSize").Subscribe(new ResourceSinks.DoubleSink(v => { fontSize = v; Rebuild(); }, fontSize)));
             subs.Add(this.GetResourceObservable("Foreman.Type.Callout.FontWeight").Subscribe(new ResourceSinks.WeightSink(v => { fontWeight = v; Rebuild(); }, fontWeight)));
             subs.Add(this.GetResourceObservable("Kit.Glyph.Checkmark.12").Subscribe(new ResourceSinks.Sink<Geometry?>(v => { checkGeometry = v; Rebuild(); }, checkGeometry)));
@@ -110,6 +115,10 @@ namespace Foreman.Mac.Kit.Controls {
             itemsPanel.Children.Clear();
             rows.Clear();
 
+            //Icon reservation is all-or-nothing per menu (2026-09-17 ruling): once any row carries one,
+            //every row keeps the 16+8 slot so labels never shift within the menu.
+            bool anyIcon = Items.Any(i => !i.IsSeparator && i.Icon is not null);
+
             foreach (MenuRow item in Items) {
                 if (item.IsSeparator) {
                     var separator = new Border { Height = 1, Margin = sepMargin, Background = border };
@@ -120,6 +129,8 @@ namespace Foreman.Mac.Kit.Controls {
 
                 var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
 
+                //NSMenuItem's own leading-to-trailing slots: state (check), image, title (2026-09-17 ruling)
+                //- the checkmark column is never displaced by an item icon.
                 Path? check = null;
                 if (item.HasCheckSlot) {
                     check = new Path {
@@ -135,6 +146,17 @@ namespace Foreman.Mac.Kit.Controls {
                     };
                     var slot = new Panel { Width = checkColumn, Children = { check } };
                     content.Children.Add(slot);
+                }
+
+                if (anyIcon) {
+                    var iconFrame = new Border {
+                        Width = leadingIconSize,
+                        Height = leadingIconSize,
+                        CornerRadius = leadingIconRadius,
+                        ClipToBounds = true,
+                        Child = item.Icon is not null ? new Image { Source = item.Icon, Stretch = Stretch.Uniform } : null,
+                    };
+                    content.Children.Add(iconFrame);
                 }
 
                 var text = new TextBlock {

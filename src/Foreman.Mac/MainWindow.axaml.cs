@@ -178,6 +178,7 @@ namespace Foreman.Mac {
             Inspector.OpenPresetsRequested += (_, _) => ShowSettings(selectPresetsPane: true);
             Inspector.PickAnotherRecipeRequested += (_, node) =>
                 OpenBrowser(new AddRequest(node.Location, AddScope.Recipes, SeedText: node.BaseRecipe.FriendlyName ?? ""));
+            Inspector.RateUnitChanged += (_, unit) => SetRateUnit(unit);
             //Task 7: keeps AlignSelectionCommand's CanExecute in step with the canvas's live selection -
             //GraphViewer.SelectionChanged is the aggregate signal every selection-mutating method raises.
             GraphCanvas.Viewer.SelectionChanged += (_, _) => Commands.AlignSelectionCommand.NotifyCanExecuteChanged();
@@ -794,14 +795,21 @@ namespace Foreman.Mac {
         private void OnRateOptionsCommitted(string? item) {
             if (item is null)
                 return;
-            var unit = (ProductionGraph.RateUnit)Array.IndexOf(RateUnitOptions, item);
+            SetRateUnit((ProductionGraph.RateUnit)Array.IndexOf(RateUnitOptions, item));
+        }
+
+        //Rate unit is a graph-level setting shared by the inspector's own pop-up, View Options' pop-up and
+        //the View menu radios (2026-09-17 building-picker ruling) - one method serves every entry point, so
+        //a pick from any of them mirrors into the other two and persists immediately rather than waiting on
+        //the window-close flush.
+        private void SetRateUnit(ProductionGraph.RateUnit unit) {
             GraphCanvas.Viewer.Graph.SelectedRateUnit = unit;
-            if (Settings is AppSettings settings)
-                settings.DefaultRateUnit = unit;
             GraphCanvas.Viewer.Graph.UpdateNodeValues();
-            ResyncNativeMenuCheckedStates();
-            GraphCanvas.InvalidateVisual();
+            ResyncRateOptionsDropDown();
             Inspector.RefreshSegment();
+            GraphCanvas.InvalidateVisual();
+            if (Settings is AppSettings settings)
+                SettingsService?.Save(settings);
         }
 
         //Ports ApplyLoadedGraphUiState's dropdown resync (upstream MainForm.cs:227-231, first thing it does
@@ -1604,17 +1612,7 @@ namespace Foreman.Mac {
             GraphCanvas.InvalidateVisual();
         }
 
-        private void MenuSetRateUnit(int index) {
-            rateOptionsPopUp.SelectedItem = RateUnitOptions[index];
-            var unit = (ProductionGraph.RateUnit)index;
-            GraphCanvas.Viewer.Graph.SelectedRateUnit = unit;
-            if (Settings is AppSettings settings)
-                settings.DefaultRateUnit = unit;
-            GraphCanvas.Viewer.Graph.UpdateNodeValues();
-            ResyncNativeMenuCheckedStates();
-            GraphCanvas.InvalidateVisual();
-            Inspector.RefreshSegment();
-        }
+        private void MenuSetRateUnit(int index) => SetRateUnit((ProductionGraph.RateUnit)index);
 
         //Single-window app: hiding the main window is the whole of what "hide this app" means here. Hide
         //Others/Show All would need to enumerate and retarget other applications' windows, which has no
