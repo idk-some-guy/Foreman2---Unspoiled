@@ -156,11 +156,17 @@ namespace Foreman.Mac.Views.Inspector {
 
             equippedGrid.ChooseRequested += (_, _) => moduleOptionsGrid.Focus();
             equippedGrid.Cleared += EquippedGrid_Cleared;
-            moduleOptionsGrid.ChooseRequested += ModuleOptionsGrid_ChooseRequested;
+            equippedGrid.PropertyChanged += (_, e) => {
+                if (e.Property == KitPickGrid.SelectedIndexProperty)
+                    UpdateOptionsAvailability(equippedGrid, moduleOptionsGrid);
+            };
             moduleOptionsGrid.CellClicked += ModuleOptionsGrid_CellClicked;
             equippedBeaconGrid.ChooseRequested += (_, _) => beaconModuleOptionsGrid.Focus();
             equippedBeaconGrid.Cleared += EquippedBeaconGrid_Cleared;
-            beaconModuleOptionsGrid.ChooseRequested += BeaconModuleOptionsGrid_ChooseRequested;
+            equippedBeaconGrid.PropertyChanged += (_, e) => {
+                if (e.Property == KitPickGrid.SelectedIndexProperty)
+                    UpdateOptionsAvailability(equippedBeaconGrid, beaconModuleOptionsGrid);
+            };
             beaconModuleOptionsGrid.CellClicked += BeaconModuleOptionsGrid_CellClicked;
 
             DetachedFromVisualTree += (_, _) => Detach();
@@ -182,13 +188,19 @@ namespace Foreman.Mac.Views.Inspector {
             //Every grid is re-pointed at a different node below, so nothing it held for the old one may
             //survive: a stale SelectedIndex would aim the next option click at a slot never picked here.
             equippedGrid.SelectedIndex = -1;
+            equippedGrid.FocusedIndex = -1;
             moduleOptionsGrid.SelectedIndex = -1;
+            moduleOptionsGrid.FocusedIndex = -1;
             equippedBeaconGrid.SelectedIndex = -1;
+            equippedBeaconGrid.FocusedIndex = -1;
             beaconModuleOptionsGrid.SelectedIndex = -1;
+            beaconModuleOptionsGrid.FocusedIndex = -1;
             SyncSlots(equippedGrid, ViewModel.EquippedModules, ViewModel.ModuleSlotCount);
             SyncSlots(moduleOptionsGrid, ViewModel.ModuleOptions, ViewModel.ModuleOptions.Count);
             SyncSlots(equippedBeaconGrid, ViewModel.EquippedBeaconModules, ViewModel.BeaconModuleSlotCount);
             SyncSlots(beaconModuleOptionsGrid, ViewModel.BeaconModuleOptions, ViewModel.BeaconModuleOptions.Count);
+            UpdateOptionsAvailability(equippedGrid, moduleOptionsGrid);
+            UpdateOptionsAvailability(equippedBeaconGrid, beaconModuleOptionsGrid);
             UpdateChoiceRows();
             ViewModel.PropertyChanged += OnRecipeViewModelPropertyChanged;
             viewer.Session.NodeValuesUpdated += OnNodeValuesUpdated;
@@ -223,38 +235,49 @@ namespace Foreman.Mac.Views.Inspector {
             if (ViewModel is null || index < 0 || index >= ViewModel.EquippedModules.Count)
                 return;
             ViewModel.RemoveEquippedModule(ViewModel.EquippedModules[index]);
+            RetargetArmAfterDelete(equippedGrid);
         }
 
-        private void ModuleOptionsGrid_ChooseRequested(object? sender, int index) {
-            if (ViewModel is null || index < 0 || index >= ViewModel.ModuleOptions.Count)
-                return;
-            ViewModel.AddModule(ViewModel.ModuleOptions[index]);
-        }
-
-        //A click on an option cell equips it into whatever's selected in the equipped grid - a filled
-        //slot is replaced, an empty one behaves like a plain append.
+        //The equip path for a click and for an option cell's Space/Return alike; the equip itself disarms.
         private void ModuleOptionsGrid_CellClicked(object? sender, int index) {
             if (ViewModel is null || index < 0 || index >= ViewModel.ModuleOptions.Count)
                 return;
             ViewModel.EquipModuleAt(ViewModel.ModuleOptions[index], equippedGrid.SelectedIndex);
+            equippedGrid.SelectedIndex = -1;
         }
 
         private void EquippedBeaconGrid_Cleared(object? sender, int index) {
             if (ViewModel is null || index < 0 || index >= ViewModel.EquippedBeaconModules.Count)
                 return;
             ViewModel.RemoveEquippedBeaconModule(ViewModel.EquippedBeaconModules[index]);
-        }
-
-        private void BeaconModuleOptionsGrid_ChooseRequested(object? sender, int index) {
-            if (ViewModel is null || index < 0 || index >= ViewModel.BeaconModuleOptions.Count)
-                return;
-            ViewModel.AddBeaconModule(ViewModel.BeaconModuleOptions[index]);
+            RetargetArmAfterDelete(equippedBeaconGrid);
         }
 
         private void BeaconModuleOptionsGrid_CellClicked(object? sender, int index) {
             if (ViewModel is null || index < 0 || index >= ViewModel.BeaconModuleOptions.Count)
                 return;
             ViewModel.EquipBeaconModuleAt(ViewModel.BeaconModuleOptions[index], equippedBeaconGrid.SelectedIndex);
+            equippedBeaconGrid.SelectedIndex = -1;
+        }
+
+        //Feeds the kit the target an option click would hit, so it can dim and explain the full-and-unarmed state.
+        private static void UpdateOptionsAvailability(KitPickGrid equipped, KitPickGrid options) {
+            int firstEmpty = FirstEmptySlotIndex(equipped);
+            options.TargetIsReplace = equipped.SelectedIndex >= 0;
+            options.TargetSlot = equipped.Slots.Count == 0 ? null
+                : equipped.SelectedIndex >= 0 ? equipped.SelectedIndex + 1
+                : firstEmpty >= 0 ? firstEmpty + 1
+                : 0; //full and unarmed: no target
+        }
+
+        //Core's module list compacts on removal, so the arm belongs on the first empty slot, not the hole Delete made.
+        private static void RetargetArmAfterDelete(KitPickGrid grid) => grid.ArmAfterClear(FirstEmptySlotIndex(grid));
+
+        private static int FirstEmptySlotIndex(KitPickGrid grid) {
+            for (int i = 0; i < grid.Slots.Count; i++)
+                if (grid.Slots[i].IsEmpty)
+                    return i;
+            return -1;
         }
 
         //HasBeacon flipping is the only trigger for a code-driven IsExpanded change - a plain re-solve with
@@ -266,6 +289,8 @@ namespace Foreman.Mac.Views.Inspector {
                 SyncSlots(moduleOptionsGrid, ViewModel.ModuleOptions, ViewModel.ModuleOptions.Count);
                 SyncSlots(equippedBeaconGrid, ViewModel.EquippedBeaconModules, ViewModel.BeaconModuleSlotCount);
                 SyncSlots(beaconModuleOptionsGrid, ViewModel.BeaconModuleOptions, ViewModel.BeaconModuleOptions.Count);
+                UpdateOptionsAvailability(equippedGrid, moduleOptionsGrid);
+                UpdateOptionsAvailability(equippedBeaconGrid, beaconModuleOptionsGrid);
                 UpdateChoiceRows();
             }
             if (e.PropertyName != nameof(RecipeSegmentViewModel.HasBeacon) || ViewModel is null || ViewModel.HasBeacon == lastHasBeacon)

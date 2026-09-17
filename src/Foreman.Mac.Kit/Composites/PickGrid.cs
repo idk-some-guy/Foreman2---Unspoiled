@@ -24,9 +24,13 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<int> ColumnsProperty =
             AvaloniaProperty.Register<PickGrid, int>(nameof(Columns));
 
-        //-1 is the grid's own "nothing selected" state, the default until the user picks a cell.
+        //-1 is the grid's own "nothing armed" state, the default until a click/Space/Return arms a cell.
         public static readonly StyledProperty<int> SelectedIndexProperty =
             AvaloniaProperty.Register<PickGrid, int>(nameof(SelectedIndex), -1);
+
+        //The keyboard cursor: Tab/arrows move this and never touch SelectedIndex, and it survives a blur.
+        public static readonly StyledProperty<int> FocusedIndexProperty =
+            AvaloniaProperty.Register<PickGrid, int>(nameof(FocusedIndex), -1);
 
         public static readonly StyledProperty<string?> GroupLabelProperty =
             AvaloniaProperty.Register<PickGrid, string?>(nameof(GroupLabel), "Slots");
@@ -44,6 +48,17 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<bool> IsChoiceModeProperty =
             AvaloniaProperty.Register<PickGrid, bool>(nameof(IsChoiceMode));
 
+        //Options role, host-fed: null keeps the legacy help text, 0 is "no target", N>=1 is the 1-based slot a commit hits.
+        public static readonly StyledProperty<int?> TargetSlotProperty =
+            AvaloniaProperty.Register<PickGrid, int?>(nameof(TargetSlot));
+
+        public static readonly StyledProperty<bool> TargetIsReplaceProperty =
+            AvaloniaProperty.Register<PickGrid, bool>(nameof(TargetIsReplace));
+
+        //The equipped role's arming state in words, for a host to bind a note slot to; empty in the other two roles.
+        public static readonly DirectProperty<PickGrid, string> ArmingNoteProperty =
+            AvaloniaProperty.RegisterDirect<PickGrid, string>(nameof(ArmingNote), g => g.armingNote);
+
         public AvaloniaList<PickSlot> Slots { get; }
 
         //0 = natural width, one row sized to the slot count (addendum §03: "the grid's natural width is its cell count").
@@ -55,6 +70,11 @@ namespace Foreman.Mac.Kit.Composites {
         public int SelectedIndex {
             get => GetValue(SelectedIndexProperty);
             set => SetValue(SelectedIndexProperty, value);
+        }
+
+        public int FocusedIndex {
+            get => GetValue(FocusedIndexProperty);
+            set => SetValue(FocusedIndexProperty, value);
         }
 
         public string? GroupLabel {
@@ -77,6 +97,21 @@ namespace Foreman.Mac.Kit.Composites {
             set => SetValue(IsChoiceModeProperty, value);
         }
 
+        public int? TargetSlot {
+            get => GetValue(TargetSlotProperty);
+            set => SetValue(TargetSlotProperty, value);
+        }
+
+        public bool TargetIsReplace {
+            get => GetValue(TargetIsReplaceProperty);
+            set => SetValue(TargetIsReplaceProperty, value);
+        }
+
+        public string ArmingNote {
+            get => armingNote;
+            private set => SetAndRaise(ArmingNoteProperty, ref armingNote, value);
+        }
+
         public event EventHandler<int>? ChooseRequested;
         public event EventHandler<int>? Cleared;
 
@@ -84,15 +119,20 @@ namespace Foreman.Mac.Kit.Composites {
         //flow needs to tell "the user clicked this cell" apart from SelectedIndex simply changing.
         public event EventHandler<int>? CellClicked;
 
+        //For a Cleared handler whose model compacts: the host names the arm target, so the grid leaves the positional hole alone.
+        public void ArmAfterClear(int index) {
+            hostArmedAfterClear = true;
+            SetCurrentValue(SelectedIndexProperty, index >= 0 && index < Slots.Count ? index : -1);
+        }
+
         private Grid? track;
         private WrapPanel? wrap;
         private readonly List<PickCell> cells = [];
         private ControlTheme? pickCellTheme;
         private Thickness gap = new(2.5);
         private bool hasKeyboardFocus;
-        //Choice mode only: the cell arrows move, kept apart from SelectedIndex (the armed/committed value) -
-        //arrows never re-solve the graph, only Space/Return does. -1 means "follow SelectedIndex".
-        private int focusIndex = -1;
+        private bool hostArmedAfterClear;
+        private string armingNote = "";
         private string typeBuffer = "";
         private long lastTypeTicks;
         private readonly List<IDisposable> subs = [];
@@ -101,6 +141,7 @@ namespace Foreman.Mac.Kit.Composites {
             FocusableProperty.OverrideDefaultValue<PickGrid>(true);
             ColumnsProperty.Changed.AddClassHandler<PickGrid>((g, _) => g.Rebuild());
             SelectedIndexProperty.Changed.AddClassHandler<PickGrid>((g, e) => g.CoerceAndApplySelection(e));
+            FocusedIndexProperty.Changed.AddClassHandler<PickGrid>((g, e) => g.CoerceAndApplyFocus(e));
             GroupLabelProperty.Changed.AddClassHandler<PickGrid>((g, _) => g.ApplyAutomationName());
             NamesSlotsProperty.Changed.AddClassHandler<PickGrid>((g, _) => g.Rebuild());
             EmptyItemNounProperty.Changed.AddClassHandler<PickGrid>((g, _) => g.Rebuild());
@@ -108,6 +149,8 @@ namespace Foreman.Mac.Kit.Composites {
                 g.PseudoClasses.Set(":choice", g.IsChoiceMode);
                 g.Rebuild();
             });
+            TargetSlotProperty.Changed.AddClassHandler<PickGrid>((g, _) => g.RefreshOptionCellState());
+            TargetIsReplaceProperty.Changed.AddClassHandler<PickGrid>((g, _) => g.RefreshOptionCellState());
         }
 
         public PickGrid() {
@@ -118,16 +161,18 @@ namespace Foreman.Mac.Kit.Composites {
                     return;
                 hasKeyboardFocus = true;
                 if (IsChoiceMode) {
-                    focusIndex = SelectedIndex >= 0 ? SelectedIndex : (Slots.Count > 0 ? 0 : -1);
-                } else if (SelectedIndex < 0 && Slots.Count > 0) {
-                    //Keyboard entry needs a cell to land on, or the rings draw nothing and Return/Delete aim at nothing.
-                    SetCurrentValue(SelectedIndexProperty, 0);
+                    SetCurrentValue(FocusedIndexProperty, SelectedIndex >= 0 ? SelectedIndex : (Slots.Count > 0 ? 0 : -1));
+                } else {
+                    //Tab never arms: the cursor lands where it last was, slot 0 on first entry.
+                    int candidate = FocusedIndex >= 0 && FocusedIndex < Slots.Count ? FocusedIndex : (Slots.Count > 0 ? 0 : -1);
+                    SetCurrentValue(FocusedIndexProperty, candidate);
                 }
                 ApplySelection();
             };
             LostFocus += (_, _) => {
                 hasKeyboardFocus = false;
-                focusIndex = -1;
+                if (IsChoiceMode)
+                    SetCurrentValue(FocusedIndexProperty, -1);
                 ApplySelection();
             };
         }
@@ -151,18 +196,10 @@ namespace Foreman.Mac.Kit.Composites {
 
         protected override AutomationPeer OnCreateAutomationPeer() => new PickGridAutomationPeer(this);
 
-        //The armed value while navigating - SelectedIndex normally, but in choice mode arrows move this
-        //instead so a re-solve only happens on commit (Space/Return), never on a plain traversal.
-        private int NavIndex => IsChoiceMode ? (focusIndex >= 0 ? focusIndex : SelectedIndex) : SelectedIndex;
+        //Arrows/Home/End move the cursor only; a re-solve or an arm happens on commit, never on traversal.
+        private int NavIndex => FocusedIndex;
 
-        private void SetNavIndex(int index) {
-            if (IsChoiceMode) {
-                focusIndex = index;
-                ApplySelection();
-            } else {
-                SetCurrentValue(SelectedIndexProperty, index);
-            }
-        }
+        private void SetNavIndex(int index) => SetCurrentValue(FocusedIndexProperty, index);
 
         protected override void OnKeyDown(KeyEventArgs e) {
             base.OnKeyDown(e);
@@ -208,21 +245,66 @@ namespace Foreman.Mac.Kit.Composites {
                     break;
                 case Key.Return:
                 case Key.Space:
-                    if (nav < 0 || ChooseRequested is null)
-                        break;
-                    ChooseRequested.Invoke(this, nav);
-                    AnnounceCommit(nav);
-                    e.Handled = true;
+                    HandleCommitKey(e, nav);
                     break;
                 case Key.Delete:
                 case Key.Back:
                     //Choice mode: nothing to empty, so Delete/Backspace do nothing (2026-09-17 ruling).
-                    if (IsChoiceMode || SelectedIndex < 0 || Cleared is null)
+                    if (IsChoiceMode || nav < 0 || Cleared is null)
                         break;
-                    Cleared.Invoke(this, SelectedIndex);
+                    hostArmedAfterClear = false;
+                    Cleared.Invoke(this, nav);
+                    //Only an ArmAfterClear call counts as the host naming its own target; equal values never do.
+                    if (NamesSlots && !hostArmedAfterClear)
+                        SetCurrentValue(SelectedIndexProperty, nav); //the hole just made is the target
+                    e.Handled = true;
+                    break;
+                case Key.Escape:
+                    //Only the equipped role arms, so only it defines an Escape (2026-09-17 ruling).
+                    if (IsChoiceMode || !NamesSlots)
+                        break;
+                    if (SelectedIndex >= 0) {
+                        SetCurrentValue(SelectedIndexProperty, -1);
+                    } else {
+                        TopLevel.GetTopLevel(this)?.FocusManager?.Focus(null, NavigationMethod.Unspecified);
+                    }
                     e.Handled = true;
                     break;
             }
+        }
+
+        //Three ways by role: choice commits, the equipped role arms (Return also hands focus on), options echo a click.
+        private void HandleCommitKey(KeyEventArgs e, int nav) {
+            if (IsChoiceMode) {
+                if (nav < 0 || ChooseRequested is null)
+                    return;
+                ChooseRequested.Invoke(this, nav);
+                AnnounceCommit(nav);
+                e.Handled = true;
+                return;
+            }
+            if (nav < 0)
+                return;
+            if (NamesSlots) {
+                if (e.Key == Key.Space) {
+                    SetCurrentValue(SelectedIndexProperty, SelectedIndex == nav ? -1 : nav);
+                } else {
+                    SetCurrentValue(SelectedIndexProperty, nav);
+                    ChooseRequested?.Invoke(this, nav);
+                }
+            } else {
+                CommitOptionCell(nav);
+            }
+            e.Handled = true;
+        }
+
+        //Options role: Return/Space equal a click (A22 §5), so a second Return equips into the next empty slot.
+        private void CommitOptionCell(int index) {
+            if (TargetSlot == 0)
+                return; //full and unarmed: a click or Return here is a no-op
+            SetCurrentValue(SelectedIndexProperty, index);
+            SetCurrentValue(FocusedIndexProperty, index);
+            CellClicked?.Invoke(this, index);
         }
 
         //Type-to-select by entity name (choice mode only, 2026-09-17 ruling): moves focus, never commits.
@@ -290,14 +372,74 @@ namespace Foreman.Mac.Kit.Composites {
             ApplySelection();
         }
 
-        private void ApplySelection() {
-            int focus = IsChoiceMode ? (focusIndex >= 0 ? focusIndex : SelectedIndex) : SelectedIndex;
-            for (int i = 0; i < cells.Count; i++) {
-                bool selected = i == SelectedIndex;
-                cells[i].IsSelected = selected;
-                FocusRing.SetShowAlways(cells[i], hasKeyboardFocus && i == focus);
+        private void CoerceAndApplyFocus(AvaloniaPropertyChangedEventArgs e) {
+            int requested = (int)e.NewValue!;
+            int clamped = Slots.Count == 0 ? -1 : Math.Clamp(requested, -1, Slots.Count - 1);
+            if (clamped != requested) {
+                SetCurrentValue(FocusedIndexProperty, clamped);
+                return;
             }
+            ApplySelection();
         }
+
+        private void ApplySelection() {
+            for (int i = 0; i < cells.Count; i++) {
+                cells[i].IsSelected = i == SelectedIndex;
+                FocusRing.SetShowAlways(cells[i], hasKeyboardFocus && i == FocusedIndex);
+            }
+            UpdateArmingNote();
+        }
+
+        //The equipped role's four ruled strings, served as its AXValue and posted politely whenever the line changes.
+        private void UpdateArmingNote() {
+            string previous = armingNote;
+            if (IsChoiceMode || !NamesSlots || Slots.Count == 0) {
+                ArmingNote = "";
+            } else {
+                string noun = string.IsNullOrEmpty(EmptyItemNoun) ? "item" : EmptyItemNoun;
+                int slotCount = Slots.Count;
+                int filled = Slots.Count(s => !s.IsEmpty);
+                if (SelectedIndex >= 0)
+                    ArmingNote = $"Replacing slot {SelectedIndex + 1}. Press Escape to cancel.";
+                else if (filled == 0)
+                    ArmingNote = $"No {noun}s. The next {noun} fills slot 1.";
+                else if (filled >= slotCount)
+                    ArmingNote = $"All {slotCount} slots full. Select a slot to replace.";
+                else
+                    //A hole can sit anywhere, so the next target is the first empty index, not the filled count.
+                    ArmingNote = $"{filled} of {slotCount} slots filled. The next {noun} fills slot {FirstEmptyIndex() + 1}.";
+            }
+            if (!IsChoiceMode && NamesSlots)
+                AutomationProperties.SetHelpText(this, armingNote);
+            if (armingNote != previous)
+                AnnounceArmingNote();
+        }
+
+        private int FirstEmptyIndex() {
+            for (int i = 0; i < Slots.Count; i++)
+                if (Slots[i].IsEmpty)
+                    return i;
+            return -1;
+        }
+
+        private void AnnounceArmingNote() {
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(this);
+            peer.RaisePropertyChangedEvent(AutomationElementIdentifiers.HelpTextProperty, null, armingNote);
+        }
+
+        //Options role: refreshes every cell's AXHelp/tooltip once the host changes what a commit would target.
+        private void RefreshOptionCellState() {
+            if (IsChoiceMode || NamesSlots)
+                return;
+            for (int i = 0; i < cells.Count && i < Slots.Count; i++)
+                ApplyCellAutomation(cells[i], Slots[i], i);
+        }
+
+        private string BuildOptionCellHelpText() => TargetSlot switch {
+            null => BuildCellHelpText(),
+            0 => PickCell.FullAndUnarmedMessage,
+            int slot => TargetIsReplace ? $"Replaces slot {slot}" : $"Fills slot {slot}",
+        };
 
         //Replacing one slot (the common solve-driven case: content changed, count didn't) updates that cell
         //in place instead of tearing down the whole track - a full Rebuild toggles IsVisible false mid-pass
@@ -327,6 +469,7 @@ namespace Foreman.Mac.Kit.Composites {
             cell.IsEnabled = slot.IsEnabled;
             cell.AccessibleName = slot.Name;
             ApplyCellAutomation(cell, slot, index);
+            UpdateArmingNote();
         }
 
         private void ApplyCellAutomation(PickCell cell, PickSlot slot, int index) {
@@ -334,7 +477,11 @@ namespace Foreman.Mac.Kit.Composites {
             //A choice grid is never a set of slots by definition, regardless of NamesSlots' default.
             string position = !IsChoiceMode && NamesSlots ? $"slot {index + 1} of {Slots.Count}" : $"{index + 1} of {Slots.Count}";
             AutomationProperties.SetName(cell, $"{content}, {position}");
-            AutomationProperties.SetHelpText(cell, IsChoiceMode ? BuildChoiceCellHelpText(slot) : BuildCellHelpText());
+            AutomationProperties.SetHelpText(cell, IsChoiceMode ? BuildChoiceCellHelpText(slot)
+                : !NamesSlots ? BuildOptionCellHelpText()
+                : BuildCellHelpText());
+            if (!IsChoiceMode && !NamesSlots)
+                cell.IsFullAndUnarmed = TargetSlot == 0;
         }
 
         private string BuildCellHelpText() {
@@ -357,7 +504,7 @@ namespace Foreman.Mac.Kit.Composites {
             track?.RowDefinitions.Clear();
             wrap?.Children.Clear();
             cells.Clear();
-            focusIndex = -1;
+            SetCurrentValue(FocusedIndexProperty, -1);
 
             IsVisible = Slots.Count > 0;
             if (track is not null)
@@ -368,6 +515,7 @@ namespace Foreman.Mac.Kit.Composites {
             if (Slots.Count == 0) {
                 if (SelectedIndex >= 0)
                     SetCurrentValue(SelectedIndexProperty, -1);
+                UpdateArmingNote();
                 ApplyAutomationName();
                 return;
             }
@@ -402,16 +550,34 @@ namespace Foreman.Mac.Kit.Composites {
                 cell.PointerReleased += (_, args) => {
                     if (args.InitialPressMouseButton != MouseButton.Left)
                         return;
-                    SetCurrentValue(SelectedIndexProperty, index);
-                    Focus(NavigationMethod.Pointer);
-                    CellClicked?.Invoke(this, index);
                     if (IsChoiceMode) {
-                        focusIndex = index;
+                        SetCurrentValue(SelectedIndexProperty, index);
+                        SetCurrentValue(FocusedIndexProperty, index);
+                        Focus(NavigationMethod.Pointer);
+                        CellClicked?.Invoke(this, index);
                         ChooseRequested?.Invoke(this, index);
                         AnnounceCommit(index);
+                    } else if (NamesSlots) {
+                        //Equipped role: a click arms the slot, or disarms it if already armed (2026-09-17 ruling).
+                        SetCurrentValue(SelectedIndexProperty, SelectedIndex == index ? -1 : index);
+                        SetCurrentValue(FocusedIndexProperty, index);
+                        Focus(NavigationMethod.Pointer);
+                        CellClicked?.Invoke(this, index);
+                    } else {
+                        Focus(NavigationMethod.Pointer);
+                        CommitOptionCell(index);
                     }
                 };
-                cell.Invoked += (_, _) => ChooseRequested?.Invoke(this, index);
+                cell.Invoked += (_, _) => {
+                    if (IsChoiceMode) {
+                        ChooseRequested?.Invoke(this, index);
+                    } else if (NamesSlots) {
+                        SetCurrentValue(SelectedIndexProperty, index);
+                        ChooseRequested?.Invoke(this, index);
+                    } else {
+                        CommitOptionCell(index);
+                    }
+                };
 
                 ApplyCellAutomation(cell, slot, i);
 
@@ -454,7 +620,7 @@ namespace Foreman.Mac.Kit.Composites {
             AutomationProperties.SetName(this, $"{GroupLabel ?? "Slots"}, {count} {unit}{(count == 1 ? "" : "s")}");
         }
 
-        private sealed class PickGridAutomationPeer(PickGrid owner) : ControlAutomationPeer(owner), ISelectionProvider {
+        private sealed class PickGridAutomationPeer(PickGrid owner) : ControlAutomationPeer(owner), ISelectionProvider, IValueProvider {
             private PickGrid Grid => (PickGrid)Owner;
 
             protected override AutomationControlType GetAutomationControlTypeCore() =>
@@ -468,6 +634,11 @@ namespace Foreman.Mac.Kit.Composites {
                     return [];
                 return [ControlAutomationPeer.CreatePeerForElement(Grid.cells[Grid.SelectedIndex])];
             }
+
+            //The equipped role's AXValue is its own arming note (ruling row 4); empty elsewhere.
+            bool IValueProvider.IsReadOnly => true;
+            string? IValueProvider.Value => Grid.ArmingNote;
+            void IValueProvider.SetValue(string? value) { }
         }
     }
 }

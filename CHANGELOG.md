@@ -191,6 +191,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   appearance hub through PlatformAppearance alone, so the painters no longer walk twice for one OS
   event; ThemeService dropped its own dormant colour-source subscription, since the single-refresh
   guarantee was already AppearanceHub and TokenBridge's alone.
+- Tabbing into a module or beacon-module grid no longer arms a slot for replacement: arriving on a
+  cell by keyboard only moves the focus ring, and a click, Space or Return is what arms it. Return
+  also hands focus to the grid of options below, Delete empties the focused slot and arms the hole it
+  left, and Escape backs out one step at a time - first clearing the arm, then leaving the grid. An
+  option's Space or Return now equips exactly like a click would. Deleting a filled slot no longer arms
+  the wrong module for replacement once the list closes the gap, whichever slot was armed at the time;
+  the arm lands on the freed slot at the end. The row under each equipped grid reads the arm state in
+  words instead of the old static slot count, and speaks it on VoiceOver as the grid's own value,
+  announcing every change without moving focus. A full, unarmed options grid dims to show it has
+  nowhere left to put a click, and names why on its tooltip and VoiceOver help text; otherwise each
+  option names which slot it would fill or replace. The beacon's own module row gets the same
+  treatment as the assembler's.
 - Kit.SheetFrame now handles ⌘. and ⌘⌫ itself, so they work no matter which control inside the
   sheet has focus; Return in a destructive alert raises Cancelled instead of Closed; a sheet that
   has never been opened lets clicks pass through to whatever sits behind it; going busy no longer

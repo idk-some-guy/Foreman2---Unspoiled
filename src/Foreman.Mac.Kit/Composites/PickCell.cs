@@ -33,6 +33,10 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<bool> IsNoneProperty =
             AvaloniaProperty.Register<PickCell, bool>(nameof(IsNone));
 
+        //Options role: the paired equipped grid is full and unarmed, so a click here is a no-op at :unavailable opacity.
+        public static readonly StyledProperty<bool> IsFullAndUnarmedProperty =
+            AvaloniaProperty.Register<PickCell, bool>(nameof(IsFullAndUnarmed));
+
         public static readonly StyledProperty<string?> AccessibleNameProperty =
             AvaloniaProperty.Register<PickCell, string?>(nameof(AccessibleName));
 
@@ -74,6 +78,13 @@ namespace Foreman.Mac.Kit.Composites {
             set => SetValue(IsNoneProperty, value);
         }
 
+        public bool IsFullAndUnarmed {
+            get => GetValue(IsFullAndUnarmedProperty);
+            set => SetValue(IsFullAndUnarmedProperty, value);
+        }
+
+        internal const string FullAndUnarmedMessage = "All slots full — select a slot to replace";
+
         //Choice mode: set by the owning PickGrid so this cell's automation peer reports RadioButton/IsSelected
         //instead of the slot grid's plain Button - not an AvaloniaProperty, since nothing visual reads it.
         internal bool IsChoiceItem { get; set; }
@@ -103,6 +114,7 @@ namespace Foreman.Mac.Kit.Composites {
             IsMissingProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
             IsUnavailableProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
             IsNoneProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
+            IsFullAndUnarmedProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
             IconProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
             AccessibleNameProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyTooltip());
             EmptyItemNounProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyTooltip());
@@ -121,7 +133,7 @@ namespace Foreman.Mac.Kit.Composites {
         private void ApplyContentState() {
             PseudoClasses.Set(":empty", IsEmpty && !IsMissing && !IsNone);
             PseudoClasses.Set(":missing", IsMissing);
-            PseudoClasses.Set(":unavailable", IsUnavailable);
+            PseudoClasses.Set(":unavailable", IsUnavailable || IsFullAndUnarmed);
             PseudoClasses.Set(":none", IsNone);
             if (icon is not null) {
                 icon.Source = Icon;
@@ -131,7 +143,8 @@ namespace Foreman.Mac.Kit.Composites {
         }
 
         private void ApplyTooltip() {
-            string? tip = IsMissing ? AccessibleName
+            string? tip = IsFullAndUnarmed ? FullAndUnarmedMessage
+                : IsMissing ? AccessibleName
                 : IsNone ? AccessibleName
                 : IsEmpty ? EmptyTooltip()
                 : IsUnavailable && !string.IsNullOrEmpty(AccessibleName) ? $"{AccessibleName} — not available in this save"

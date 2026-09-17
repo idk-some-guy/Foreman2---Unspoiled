@@ -105,8 +105,8 @@
 
     <kit:InspectorGroup Name="ModulesGroup" Header="{Binding ModulesTitle}" IsVisible="{Binding HasModuleSlots}" Theme="{StaticResource Kit.InspectorGroup}">
       <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
-        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Equipped" LabelColumn="Inspector"
-                     Note="{Binding ModulesHelpText}">
+        <kit:FormRow Name="ModulesEquippedRow" Theme="{StaticResource Kit.FormRow}" Label="Equipped" LabelColumn="Inspector"
+                     Note="{Binding #EquippedGrid.ArmingNote}">
           <kit:PickGrid Name="EquippedGrid" Theme="{StaticResource Kit.PickGrid}" GroupLabel="Module slots" EmptyItemNoun="module" />
         </kit:FormRow>
         <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Add" LabelColumn="Inspector"
@@ -140,7 +140,8 @@
 
         <StackPanel Name="BeaconDetail" Spacing="{StaticResource Foreman.Space.Space2}" IsVisible="{Binding HasBeacon}">
           <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
-            <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Equipped" LabelColumn="Inspector">
+            <kit:FormRow Name="BeaconModulesEquippedRow" Theme="{StaticResource Kit.FormRow}" Label="Equipped" LabelColumn="Inspector"
+                         Note="{Binding #EquippedBeaconGrid.ArmingNote}">
               <kit:PickGrid Name="EquippedBeaconGrid" Theme="{StaticResource Kit.PickGrid}" GroupLabel="Beacon module slots" EmptyItemNoun="module" />
             </kit:FormRow>
             <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Add" LabelColumn="Inspector"

@@ -64,7 +64,6 @@ namespace Foreman.Mac.ViewModels {
         public string ModulesTitle { get; private set; } = "";
         public int ModuleSlotCount { get; private set; }
         public bool HasModuleSlots { get; private set; }
-        public string ModulesHelpText { get; private set; } = "";
         public IReadOnlyList<PickGridItem> EquippedModules { get; private set; } = [];
         public IReadOnlyList<PickGridItem> ModuleOptions { get; private set; } = [];
         public bool HasModuleOptions { get; private set; }
@@ -192,10 +191,6 @@ namespace Foreman.Mac.ViewModels {
             OnPropertyChanged(nameof(ModuleSlotCount));
             HasModuleSlots = assembler.ModuleSlots > 0;
             OnPropertyChanged(nameof(HasModuleSlots));
-            ModulesHelpText = assembler.ModuleSlots > 0
-                ? $"{node.AssemblerModules.Count} of {assembler.ModuleSlots} slots filled. Select a slot and press Delete to empty it, or Return to choose a module."
-                : "";
-            OnPropertyChanged(nameof(ModulesHelpText));
 
             List<IModule> eligible = GetAssemblerModuleOptions();
             EquippedModules = [.. node.AssemblerModules.Select((pair, i) => BuildItem(pair.Module, pair.Icon, isSelected: false,

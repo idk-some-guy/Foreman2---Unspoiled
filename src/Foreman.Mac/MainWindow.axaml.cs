@@ -222,10 +222,7 @@ namespace Foreman.Mac {
             this.FindControl<Grid>("TitleBarRow")!.Children.Add(searchAnnouncer);
             toolbar.Title = ViewModel.DocumentTitle;
             GraphCanvas.KeyDown += OnGraphCanvasKeyDown;
-            //Fix round 1: mouse-wheel zoom is the one ViewScale-changing path that bypasses every
-            //ResyncZoomLabel call site below (MenuZoomIn/Out/ActualSize/FitToGraph, ApplyLoadedGraphUiState),
-            //so the stepper's readout went stale until the next click. Same resync, wired through the
-            //control's own signal instead of a fifth call site inside those methods.
+            //Mouse-wheel zoom bypasses every other ResyncZoomLabel call site, so it gets its own via this signal.
             GraphCanvas.ViewScaleChanged += (_, _) => ResyncZoomLabel();
             NativeMenu.SetMenu(this, BuildNativeMenu());
             Opened += (_, _) => MostRecentlyOpened = this;
@@ -1534,10 +1531,7 @@ namespace Foreman.Mac {
             GraphCanvas.RequestRedraw();
         }
 
-        //Task 7: the stepper's percentage readout - Viewport.ViewScale isn't itself bindable, so this is an
-        //imperative resync called from every zoom action above (all four production zoom entry points),
-        //from ApplyLoadedGraphUiState (a load restores the save's own ViewScale), and from the constructor's
-        //GraphCanvas.ViewScaleChanged subscription for mouse-wheel zoom (fix round 1).
+        //Viewport.ViewScale isn't bindable, so every zoom entry point resyncs the stepper's readout by calling this.
         private void ResyncZoomLabel() =>
             toolbar.ZoomStepper.Value = Math.Round(GraphCanvas.Viewport.ViewScale * 100);
 
