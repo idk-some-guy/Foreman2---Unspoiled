@@ -109,7 +109,7 @@ namespace Foreman.Mac.Kit.Composites {
                 var groupPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = GroupItemGap };
                 AutomationProperties.SetName(groupPanel, GroupNames.GetValueOrDefault(group.Role, group.Role.ToString()));
                 foreach (ToolbarItem item in group.Items) {
-                    AutomationProperties.SetName(item, item.Label);
+                    ApplyTheme("Kit.ToolbarItem", item);
                     groupPanel.Children.Add(item);
                 }
                 groupPanels.Add(groupPanel);

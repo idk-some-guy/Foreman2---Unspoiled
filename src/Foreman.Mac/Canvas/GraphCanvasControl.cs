@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -25,12 +26,14 @@ using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AvaloniaCanvas = Avalonia.Controls.Canvas;
 using AvaloniaPoint = Avalonia.Point;
 using DrawingPoint = System.Drawing.Point;
 using DrawingRectangle = System.Drawing.Rectangle;
 using DrawingSize = System.Drawing.Size;
+using KitMotion = Foreman.Mac.Kit.Motion;
 
 namespace Foreman.Mac.Canvas {
     //Ports upstream's NewNodeType (reference §3/§10's AddNewNode/AddItem call sites).
@@ -96,6 +99,10 @@ namespace Foreman.Mac.Canvas {
         private DrawingPoint viewDragOriginGraphPoint;
         private DrawingPoint selectionZoneOriginGraphPoint;
         private AvaloniaPoint? hoverScreenPoint;
+
+        static GraphCanvasControl() {
+            PanProgressProperty.Changed.AddClassHandler<GraphCanvasControl>((c, e) => c.OnPanProgress(e.GetNewValue<double>()));
+        }
 
         public GraphCanvasControl() {
             Viewport = new Viewport(Bounds.Width, Bounds.Height);
@@ -367,6 +374,62 @@ namespace Foreman.Mac.Canvas {
             LastContextMenu.Open(this);
         }
 
+        //Find node ruling §02: the pan tweens ViewOffset through a transition-driven progress value, never a wall-clock timer.
+        internal static readonly StyledProperty<double> PanProgressProperty =
+            AvaloniaProperty.Register<GraphCanvasControl, double>("PanProgress");
+
+        private DrawingPoint panOrigin;
+        private DrawingPoint panTarget;
+        private CancellationTokenSource? panCancellation;
+
+        //Reduce Motion drops the tween and applies the same destination in one step.
+        internal void PanIntoView(DrawingRectangle nodeBounds, double margin) {
+            if (Viewport.PanIntoViewTarget(nodeBounds, margin) is not DrawingPoint target)
+                return;
+
+            panCancellation?.Cancel();
+            panCancellation = null;
+            if (KitMotion.ReduceMotion) {
+                Viewport.PanIntoView(nodeBounds, margin);
+                RequestRedraw();
+                return;
+            }
+
+            panOrigin = Viewport.ViewOffset;
+            panTarget = target;
+            var cancellation = new CancellationTokenSource();
+            panCancellation = cancellation;
+            _ = RunPan(cancellation.Token);
+        }
+
+        private async Task RunPan(CancellationToken token) {
+            var pan = new Animation {
+                Duration = KitMotion.EntranceDuration,
+                Easing = KitMotion.EntranceEasing,
+                Children = {
+                    new KeyFrame { Cue = new Cue(0), Setters = { new Avalonia.Styling.Setter(PanProgressProperty, 0d) } },
+                    new KeyFrame { Cue = new Cue(1), Setters = { new Avalonia.Styling.Setter(PanProgressProperty, 1d) } },
+                },
+            };
+            try {
+                await pan.RunAsync(this, token);
+            } catch (OperationCanceledException) {
+                return;
+            }
+
+            //RunAsync does not leave the last keyframe applied once it completes - pin the destination.
+            if (!token.IsCancellationRequested)
+                SetCurrentValue(PanProgressProperty, 1d);
+        }
+
+        private void OnPanProgress(double progress) {
+            Viewport.ViewOffset = new DrawingPoint(
+                panOrigin.X + (int)Math.Round((panTarget.X - panOrigin.X) * progress),
+                panOrigin.Y + (int)Math.Round((panTarget.Y - panOrigin.Y) * progress));
+            Viewport.UpdateGraphBounds();
+            RequestRedraw();
+        }
+
         protected override void OnSizeChanged(SizeChangedEventArgs e) {
             base.OnSizeChanged(e);
             Viewport.SetSize(e.NewSize.Width, e.NewSize.Height, Viewer.Graph.Bounds);
@@ -385,6 +448,8 @@ namespace Foreman.Mac.Canvas {
             base.OnDetachedFromVisualTree(e);
             KitSkia.TokenBridge.Changed -= OnCanvasTokensChanged;
             FloatingPanelHost.CancelPendingCloseTransition();
+            panCancellation?.Cancel();
+            panCancellation = null;
             Viewer.Dispose();
             foreach (Bitmap bitmap in addIconCache.Values)
                 bitmap.Dispose();

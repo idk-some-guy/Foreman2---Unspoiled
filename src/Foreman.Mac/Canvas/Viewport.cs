@@ -96,6 +96,31 @@ namespace Foreman.Mac.Canvas {
             UpdateGraphBounds(limitToGraphBounds);
         }
 
+        //margin is in screen points, converted to graph units by ViewScale; ViewScale itself never changes.
+        public void PanIntoView(Rectangle nodeBounds, double margin = 0) {
+            if (PanIntoViewTarget(nodeBounds, margin) is not Point target)
+                return;
+
+            ViewOffset = target;
+            UpdateGraphBounds();
+        }
+
+        //The ViewOffset that brings nodeBounds inside the inset rect, or null while it already is.
+        public Point? PanIntoViewTarget(Rectangle nodeBounds, double margin = 0) {
+            int marginGraph = ViewScale > 0 ? (int)Math.Round(margin / ViewScale) : (int)margin;
+            Rectangle inset = Rectangle.Inflate(VisibleGraphBounds, -marginGraph, -marginGraph);
+            int dx = 0, dy = 0;
+            if (nodeBounds.Left < inset.Left)
+                dx = inset.Left - nodeBounds.Left;
+            else if (nodeBounds.Right > inset.Right)
+                dx = inset.Right - nodeBounds.Right;
+            if (nodeBounds.Top < inset.Top)
+                dy = inset.Top - nodeBounds.Top;
+            else if (nodeBounds.Bottom > inset.Bottom)
+                dy = inset.Bottom - nodeBounds.Bottom;
+            return dx == 0 && dy == 0 ? null : new Point(ViewOffset.X + dx, ViewOffset.Y + dy);
+        }
+
         public void UpdateGraphBounds(Rectangle? limitToGraphBounds = null) {
             if (limitToGraphBounds is Rectangle bounds) {
                 if (bounds.Width == 0 || bounds.Height == 0) {

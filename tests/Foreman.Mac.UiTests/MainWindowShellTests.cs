@@ -1,11 +1,14 @@
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Platform;
 using ShapePath = Avalonia.Controls.Shapes.Path;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -20,7 +23,11 @@ using Foreman.Graph;
 using Foreman.Models;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Converters;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
+using KitSpinner = Foreman.Mac.Kit.Controls.Spinner;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
@@ -37,13 +44,12 @@ using Xunit;
 
 namespace Foreman.Mac.UiTests {
     public class MainWindowShellTests {
-        //Task 4 (contract #toolbar): the unified titlebar toolbar keeps the ten highest-frequency commands
-        //as buttons; Save As/Import Graph/Help move to menu-bar-only (BuildNativeMenu already wires all
-        //three - see NativeMenu_FileNewSaveImportAndExportAreEnabled below and the Help menu item).
+        //v2 §02 "Spec - toolbar": ten items across document, add, arrange and share/view, each named by its full command name rather than its visible label.
         private static readonly string[] ExpectedButtonNames = [
-            "New Graph", "Load", "Save", "Export Image",
-            "Add Item", "Add Recipe", "Autoconnect", "Settings",
-            "Graph Summary", "Align Selected",
+            "New Graph", "Load", "Save",
+            "Add Item", "Add Recipe",
+            "Autoconnect", "Align Selected",
+            "Export Image", "Graph Summary", "View Options",
         ];
 
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
@@ -83,6 +89,21 @@ namespace Foreman.Mac.UiTests {
                 Assert.Contains(expected, names);
         }
 
+        //The toolbar's glyph keys resolve through the real App resources - a renamed or dropped kit master would ship a glyph-less toolbar with a green suite otherwise; every item also gets a Theme and arranges to non-zero bounds.
+        [AvaloniaFact]
+        public void ToolbarItems_AllHaveAGlyphAndATheme_AndArrangeToNonZeroBounds() {
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            ToolbarItem[] items = [.. window.Toolbar.Groups.SelectMany(g => g.Items)];
+            Assert.NotEmpty(items);
+            Assert.All(items, item => Assert.NotNull(item.Glyph));
+            Assert.All(items, item => Assert.NotNull(item.Theme));
+            Assert.All(items, item => Assert.NotEqual(0, item.Bounds.Width));
+            Assert.All(items, item => Assert.NotEqual(0, item.Bounds.Height));
+        }
+
         //Task 4 (phase 9 toolbar rebuild): Help's toolbar button was retired along with Save As/Import Graph
         //(menu-bar-only now), so every remaining toolbar button is a wired, enabled command. Align Selected
         //is excluded here since task 7 gives it a selection-driven CanExecute (contract #toolbar's
@@ -102,28 +123,43 @@ namespace Foreman.Mac.UiTests {
                 Assert.True(buttons[name], name);
         }
 
-        //Task 4 new: the contract retires Save As/Import Graph/Help from the toolbar, but every one of the
-        //13 ShellViewModel commands must still be reachable from somewhere - the toolbar's 10 buttons plus
-        //BuildNativeMenu's own bindings for the other 3 (Save As, Import, Help all already wired there).
+        //A reflection sweep over ShellViewModel's 13 IRelayCommand properties: each must be reachable from the toolbar or a native menu. Settings only reaches the app-level menu (built once, before any window exists) as a closure, not the live command instance, so its reachability is proven by executing the real menu item rather than by an instance comparison.
         [AvaloniaFact]
         public void AllThirteenCommands_AreReachableFromToolbarOrNativeMenu() {
             var window = new MainWindow();
             window.Show();
-
-            var commandsByProperty = typeof(ShellViewModel).GetProperties()
-                .Where(p => typeof(IRelayCommand).IsAssignableFrom(p.PropertyType))
-                .ToDictionary(p => p.Name, p => (IRelayCommand)p.GetValue(window.Commands)!);
-            Assert.Equal(13, commandsByProperty.Count);
+            Dispatcher.UIThread.RunJobs();
+            window.DataCache = MinimalCacheWithDefaultQuality();
+            window.Settings = new AppSettings();
+            window.PresetResolver = new PresetResolver(NewTempDir());
+            window.SettingsService = new SettingsService(NewTempDir());
 
             var toolbarCommands = window.GetVisualDescendants().OfType<Button>()
                 .Select(b => b.Command).OfType<IRelayCommand>().ToHashSet();
+
             //C1 wraps every menu item's Command in DeferredMenuCommand; unwrap to compare against the raw instances.
             var menuCommands = AllNativeMenuItems(NativeMenu.GetMenu(window)!)
                 .Select(i => i.Command).OfType<MainWindow.DeferredMenuCommand>()
                 .Select(d => d.Inner).OfType<IRelayCommand>().ToHashSet();
 
+            NativeMenuItem settingsItem = AllNativeMenuItems(NativeMenu.GetMenu(Application.Current!)!).Single(i => i.Header == "Settings");
+            Assert.Equal(new KeyGesture(Key.OemComma, PlatformModifiers.Primary), settingsItem.Gesture);
+            bool settingsOpened = false;
+            window.SettingsDialogStub = _ => settingsOpened = true;
+            //DeferredMenuCommand posts to the dispatcher (C1) rather than executing inline.
+            settingsItem.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(settingsOpened);
+
+            var reachableCommands = toolbarCommands.Concat(menuCommands).Append(window.Commands.SettingsCommand).ToHashSet();
+
+            var commandsByProperty = typeof(ShellViewModel).GetProperties()
+                .Where(p => typeof(IRelayCommand).IsAssignableFrom(p.PropertyType))
+                .ToDictionary(p => p.Name, p => (IRelayCommand)p.GetValue(window.Commands)!);
+
+            Assert.Equal(13, commandsByProperty.Count);
             foreach ((string name, IRelayCommand command) in commandsByProperty)
-                Assert.True(toolbarCommands.Contains(command) || menuCommands.Contains(command), name);
+                Assert.Contains(command, reachableCommands);
         }
 
         private static IEnumerable<NativeMenuItem> AllNativeMenuItems(NativeMenu menu) {
@@ -135,28 +171,33 @@ namespace Foreman.Mac.UiTests {
             }
         }
 
-        //Task 4: the empty titlebar background is the drag region; a button sitting on top of it must
-        //intercept its own click first (macos-design: buttons stay clickable, not draggable).
+        //The groups run past the window's horizontal centre at full width, so the only empty drag region is the flex gap right before the search field.
+        private static Avalonia.Point EmptyTitleBarPoint(MainWindow window) {
+            Foreman.Mac.Kit.Controls.SearchField searchField = window.Toolbar.SearchField;
+            Avalonia.Point searchLeft = searchField.TranslatePoint(new Avalonia.Point(0, searchField.Bounds.Height / 2), window)!.Value;
+            Button lastItem = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "View Options");
+            Avalonia.Point lastItemRight = lastItem.TranslatePoint(new Avalonia.Point(lastItem.Bounds.Width, lastItem.Bounds.Height / 2), window)!.Value;
+            return new Avalonia.Point((searchLeft.X + lastItemRight.X) / 2, searchLeft.Y);
+        }
+
         [AvaloniaFact]
         public void TitleBar_EmptyBackgroundPress_RequestsMoveDrag_ButtonPress_DoesNot() {
             var window = new MainWindow();
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            var titleBar = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "TitleBarRow");
-            Avalonia.Point emptyPoint = WindowCenterOf(titleBar, window); //center of the titlebar's flexible middle column - empty of buttons, and the title TextBlock there has no Background so pointer events pass through to the Grid
+            Avalonia.Point emptyPoint = EmptyTitleBarPoint(window);
             window.MouseDown(emptyPoint, MouseButton.Left, RawInputModifiers.None);
             window.MouseUp(emptyPoint, MouseButton.Left, RawInputModifiers.None);
 
             Assert.Equal(1, window.TitleBarDragRequestCount);
 
-            RealClick(window, "Settings");
+            RealClick(window, "Save");
 
             Assert.Equal(1, window.TitleBarDragRequestCount);
         }
 
-        //Task 4: double-clicking the empty titlebar toggles maximize, same as a native macOS titlebar
-        //(macos-design: preserve system window behaviors, including zoom).
+        //Double-clicking the empty titlebar toggles maximize, same as a native macOS titlebar.
         [AvaloniaFact]
         public void TitleBar_EmptyBackgroundDoubleClick_TogglesMaximizedState() {
             var window = new MainWindow();
@@ -164,8 +205,7 @@ namespace Foreman.Mac.UiTests {
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(WindowState.Maximized, window.WindowState);
 
-            var titleBar = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "TitleBarRow");
-            Avalonia.Point emptyPoint = WindowCenterOf(titleBar, window); //center of the titlebar's flexible middle column - empty of buttons, and the title TextBlock there has no Background so pointer events pass through to the Grid
+            Avalonia.Point emptyPoint = EmptyTitleBarPoint(window);
             window.MouseDown(emptyPoint, MouseButton.Left, RawInputModifiers.None);
             window.MouseUp(emptyPoint, MouseButton.Left, RawInputModifiers.None);
             window.MouseDown(emptyPoint, MouseButton.Left, RawInputModifiers.None);
@@ -174,123 +214,462 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(WindowState.Normal, window.WindowState);
         }
 
-        //Task 4: contract #toolbar groups New/Load/Save first, then Add Item/Add Recipe/Autoconnect/Align
-        //Selected, then Export Image/Graph Summary/View Options - proven here by X-position ordering rather
-        //than assuming Avalonia enumerates visual children left-to-right.
+        //v2 §02/A21: IsDirty shows on the close button's dot, never as an " - Edited" suffix in the title.
         [AvaloniaFact]
-        public void Toolbar_ButtonsAreOrderedPerContractGroups() {
-            var window = new MainWindow();
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-
-            string[] expectedOrder = [
-                "New Graph", "Load", "Save",
-                "Add Item", "Add Recipe", "Autoconnect", "Align Selected",
-                "Export Image", "Graph Summary", "View Options",
-            ];
-            double[] positions = [.. expectedOrder
-                .Select(name => window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == name))
-                .Select(b => WindowCenterOf(b, window).X)];
-
-            for (int i = 1; i < positions.Length; i++)
-                Assert.True(positions[i] > positions[i - 1], $"{expectedOrder[i]} should sit right of {expectedOrder[i - 1]}");
-        }
-
-        //Task 4: both-theme render sanity on the titlebar surface (phase 5b ContrastAssert pattern) - the
-        //title text and toolbar glyphs must resolve different, legible colors in light vs dark.
-        [AvaloniaFact]
-        public void TitleBar_ThemedAcrossLightAndDark_ResolvesDifferentColors() {
-            var app = (App)Application.Current!;
-
-            app.ApplyTheme(ThemeMode.Light);
-            var lightWindow = new MainWindow();
-            lightWindow.Show();
-            Color lightTitlebar = TitleBarBackgroundColor(lightWindow);
-            Color lightGlyph = ToolbarGlyphColor(lightWindow, "New Graph");
-
-            app.ApplyTheme(ThemeMode.Dark);
-            var darkWindow = new MainWindow();
-            darkWindow.Show();
-            Color darkTitlebar = TitleBarBackgroundColor(darkWindow);
-            Color darkGlyph = ToolbarGlyphColor(darkWindow, "New Graph");
-
-            Assert.NotEqual(lightTitlebar, darkTitlebar);
-            Assert.NotEqual(lightGlyph, darkGlyph);
-        }
-
-        private static Color TitleBarBackgroundColor(MainWindow window) {
-            var titleBar = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "TitleBarRow");
-            return Assert.IsAssignableFrom<ISolidColorBrush>(titleBar.Background).Color;
-        }
-
-        private static Color ToolbarGlyphColor(MainWindow window, string buttonAutomationName) {
-            var button = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == buttonAutomationName);
-            var glyph = button.GetVisualDescendants().OfType<ShapePath>().Single(p => p.Classes.Contains("foreman-toolbar-glyph"));
-            return Assert.IsAssignableFrom<ISolidColorBrush>(glyph.Stroke).Color;
-        }
-
-        //Task 8 (contract #toolbar, §05 B): every action button is icon+label now - a vector Path (lifted
-        //from the mock's own SVGs) plus a text label, never one without the other.
-        [AvaloniaFact]
-        public void Toolbar_EveryActionButton_HasPathIconAndLabel() {
-            var window = new MainWindow();
-            window.Show();
-
-            foreach (string name in ExpectedButtonNames.Append("View Options")) {
-                var button = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == name);
-                Assert.True(button.Classes.Contains("foreman-toolbar-wide"), name);
-                Assert.Contains(button.GetVisualDescendants().OfType<ShapePath>(), p => p.Classes.Contains("foreman-toolbar-glyph"));
-                var label = button.GetVisualDescendants().OfType<TextBlock>().SingleOrDefault(t => t.Classes.Contains("foreman-toolbar-label"));
-                Assert.False(string.IsNullOrWhiteSpace(label?.Text), name);
-            }
-        }
-
-        //Task 8 (contract #05 B "Toolbar action labels", ratified): the exact short label text per button.
-        [AvaloniaFact]
-        public void Toolbar_ActionButtons_ShowRatifiedLabelText() {
-            var window = new MainWindow();
-            window.Show();
-
-            var expectedLabels = new Dictionary<string, string> {
-                ["New Graph"] = "New",
-                ["Load"] = "Load",
-                ["Save"] = "Save",
-                ["Add Item"] = "Item",
-                ["Add Recipe"] = "Recipe",
-                ["Autoconnect"] = "Autoconnect",
-                ["Align Selected"] = "Align",
-                ["Export Image"] = "Export",
-                ["Graph Summary"] = "Summary",
-                ["View Options"] = "View Options",
-                ["Settings"] = "Settings",
-            };
-
-            foreach ((string automationName, string expectedLabel) in expectedLabels) {
-                var button = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == automationName);
-                var label = button.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Classes.Contains("foreman-toolbar-label"));
-                Assert.Equal(expectedLabel, label.Text);
-            }
-        }
-
-        //Task 8 (contract #toolbar's document title, ratified "Iron Plate Line — Edited"): two Runs so the
-        //suffix can carry its own weight/color, live-tracking IsDirty without rebuilding the TextBlock.
-        [AvaloniaFact]
-        public void TitleBarTitle_TwoRuns_TrackIsDirtyLive() {
+        public void Title_TracksIsDirty_ThroughTheCloseButtonDot_NotTitleText() {
             var window = new MainWindow();
             window.Show();
             window.ViewModel.CurrentFileName = "Iron Plate Line.fjson";
             Dispatcher.UIThread.RunJobs();
 
-            var title = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Classes.Contains("foreman-window-title"));
-            var runs = title.Inlines!.OfType<Avalonia.Controls.Documents.Run>().ToList();
-            Assert.Equal(2, runs.Count);
-            Assert.Equal("Iron Plate Line", runs[0].Text);
-            Assert.Equal("", runs[1].Text);
+            Assert.Equal("Iron Plate Line", window.Toolbar.Title);
+            Assert.False(window.DocumentEdited);
 
             window.ViewModel.IsDirty = true;
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(" — Edited", runs[1].Text);
+            Assert.Equal("Iron Plate Line", window.Toolbar.Title);
+            Assert.True(window.DocumentEdited);
+        }
+
+        //v2 §14 ruling 5: no Settings gear on the toolbar - only the app-level menu's ⌘, reaches it.
+        [AvaloniaFact]
+        public void SettingsGear_IsAbsentFromTheToolbar_AndCmdCommaStillOpensSettings() {
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = MinimalCacheWithDefaultQuality();
+            window.Settings = new AppSettings();
+            window.PresetResolver = new PresetResolver(NewTempDir());
+            window.SettingsService = new SettingsService(NewTempDir());
+
+            Assert.DoesNotContain(window.GetVisualDescendants().OfType<Button>(), b => AutomationProperties.GetName(b) == "Settings");
+
+            bool opened = false;
+            window.SettingsDialogStub = _ => opened = true;
+            window.Commands.SettingsCommand.Execute(null);
+
+            Assert.True(opened);
+        }
+
+        //§14 ruling 4: ⌘. is cancel-in-flight; no async LP-solve/cancel plumbing exists yet, so this only proves the seam, not that a real solve gets cancelled.
+        [AvaloniaFact]
+        public void ZoomStepper_IsSolving_IsClearedByCmdPeriod() {
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            window.Toolbar.ZoomStepper.IsSolving = true;
+
+            CanvasKeys.KeyDownOn(window, Key.OemPeriod, PlatformModifiers.Primary);
+
+            Assert.False(window.Toolbar.ZoomStepper.IsSolving);
+        }
+
+        //v2 §02's search field: ⌘F reaches it from any focus, ⌘G/⇧⌘G cycle, and ruling §03 row 1 has typing alone select the first match before any ⌘G.
+        [AvaloniaFact]
+        public async Task SearchField_CmdF_FocusesIt_AndCmdG_StepsMatches() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId firstId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            NodeId secondId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(200, 0));
+            foreach ((NodeId id, string title) in new[] { (firstId, "Iron Feed A"), (secondId, "Iron Feed B") }) {
+                var controller = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(id)!;
+                controller.SetKeyNode(true);
+                controller.SetKeyNodeTitle(title);
+            }
+            Dispatcher.UIThread.RunJobs();
+
+            CanvasKeys.KeyDownOn(window, Key.F, PlatformModifiers.Primary);
+            Assert.True(window.Toolbar.SearchField.IsFocused);
+
+            window.Toolbar.SearchField.Text = "Iron Feed";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(firstId, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            Assert.Equal(secondId, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            Assert.Equal(firstId, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary | KeyModifiers.Shift);
+            Assert.Equal(secondId, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+        }
+
+        //Order is centre Y, then centre X, then id; ⌘G/⇧⌘G wrap both ways silently.
+        [AvaloniaFact]
+        public async Task SearchField_OrdersByCentreYThenCentreX_AndWrapsBothWays() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId lowY = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(200, 0));
+            NodeId lowYLeft = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            NodeId highY = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 100));
+            foreach (NodeId id in new[] { lowY, lowYLeft, highY }) {
+                var controller = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(id)!;
+                controller.SetKeyNode(true);
+                controller.SetKeyNodeTitle("Order Test");
+            }
+            Dispatcher.UIThread.RunJobs();
+            window.Toolbar.SearchField.Focus();
+            window.Toolbar.SearchField.Text = "Order Test";
+            Dispatcher.UIThread.RunJobs();
+
+            NodeId SelectedId() => Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id;
+
+            Assert.Equal(lowYLeft, SelectedId()); //typing alone anchors to Y=0, X=0: lowest Y, then lowest X
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            Assert.Equal(lowY, SelectedId()); //Y=0, X=200
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            Assert.Equal(highY, SelectedId()); //Y=100
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            Assert.Equal(lowYLeft, SelectedId()); //forward wrap, silently back to the first match
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary | KeyModifiers.Shift);
+            Assert.Equal(highY, SelectedId()); //backward wrap, silently to the last match
+        }
+
+        //Ruling §03 rows 1-2: a selection already made is the anchor, and a still-matching current node survives an edit that renumbers the run.
+        [AvaloniaFact]
+        public async Task SearchField_TypingWithASelectionAlreadyMade_AnchorsImmediately_AndStaysCurrentAsTheQueryIsEdited() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId first = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            NodeId second = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(200, 0));
+            NodeId third = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(400, 0));
+            foreach ((NodeId id, string title) in new[] { (first, "Anchor One"), (second, "Anchor Two"), (third, "Anchor Three") }) {
+                var controller = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(id)!;
+                controller.SetKeyNode(true);
+                controller.SetKeyNodeTitle(title);
+            }
+            Dispatcher.UIThread.RunJobs();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElementDictionary[second]]);
+            window.Toolbar.SearchField.Focus();
+
+            window.Toolbar.SearchField.Text = "Anchor";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(second, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+            Assert.Equal("2 of 3", window.Toolbar.SearchField.MatchStatus);
+
+            //A canvas click moves the selection off the current match, so the anchor rule would now pick "third".
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElementDictionary[third]]);
+            window.Toolbar.SearchField.Text = "Anchor T"; //drops "Anchor One" from the run; "second" still matches
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(second, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+            Assert.Equal("1 of 2", window.Toolbar.SearchField.MatchStatus);
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            Assert.Equal(third, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+        }
+
+        //Find node ruling §01: the query is trimmed, and an all-whitespace query is treated as empty.
+        [AvaloniaFact]
+        public async Task SearchField_QueryIsTrimmed_AndAnAllWhitespaceQueryMatchesNothing() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId id = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            var controller = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(id)!;
+            controller.SetKeyNode(true);
+            controller.SetKeyNodeTitle("Trim Test");
+            Dispatcher.UIThread.RunJobs();
+            window.Toolbar.SearchField.Focus();
+
+            window.Toolbar.SearchField.Text = "   ";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(window.Toolbar.SearchField.MatchStatus);
+            Assert.Empty(window.GraphCanvas.Viewer.SelectedNodes);
+
+            window.Toolbar.SearchField.Text = " Trim Test ";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("1 of 1", window.Toolbar.SearchField.MatchStatus);
+            Assert.Equal(id, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+        }
+
+        //Ruling §05: the step announcement answers the step, so a pending debounced query summary must not land on top of it.
+        [AvaloniaFact]
+        public async Task SearchField_SteppingBeforeTheDebounceElapses_KeepsTheStepAnnouncement() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId first = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            NodeId second = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(200, 0));
+            foreach (NodeId id in new[] { first, second }) {
+                var controller = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(id)!;
+                controller.SetKeyNode(true);
+                controller.SetKeyNodeTitle("Overwrite Test");
+            }
+            Dispatcher.UIThread.RunJobs();
+            TextBlock announcer = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "SearchAnnouncer");
+            window.Toolbar.SearchField.Focus();
+
+            window.Toolbar.SearchField.Text = "Overwrite Test";
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            Assert.Equal("2 of 2, Iron plate", AutomationProperties.GetName(announcer));
+
+            AnimationClock.Settle(400);
+
+            Assert.Equal("2 of 2, Iron plate", AutomationProperties.GetName(announcer));
+        }
+
+        //Ruling §05 Field row: role search field, AXLabel "Find node", AXValue the query - the hidden live region is a separate element and never carries the field's name.
+        [AvaloniaFact]
+        public void SearchField_AccessibleName_IsFindNode_AndItsValueIsTheQuery() {
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.Toolbar.SearchField.Text = "iron";
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer fieldPeer = ControlAutomationPeer.CreatePeerForElement(window.Toolbar.SearchField);
+            TextBlock announcer = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "SearchAnnouncer");
+
+            Assert.Equal("Find node", fieldPeer.GetName());
+            Assert.Equal("iron", fieldPeer.GetProvider<IValueProvider>()?.Value);
+            Assert.NotEqual("Find node", ControlAutomationPeer.CreatePeerForElement(announcer).GetName());
+        }
+
+        //Ruling §03 "Graph changes mid-find": deleting the current match recomputes the run, so the index steps to the next match and the count never outlives its nodes.
+        [AvaloniaFact]
+        public async Task SearchField_DeletingTheCurrentMatch_StepsTheIndex_AndTheCountFollowsTheGraph() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId first = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            NodeId second = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(200, 0));
+            NodeId third = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(400, 0));
+            foreach (NodeId id in new[] { first, second, third }) {
+                var controller = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(id)!;
+                controller.SetKeyNode(true);
+                controller.SetKeyNodeTitle("Mid Find");
+            }
+            Dispatcher.UIThread.RunJobs();
+            window.Toolbar.SearchField.Focus();
+            window.Toolbar.SearchField.Text = "Mid Find";
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            Assert.Equal("2 of 3", window.Toolbar.SearchField.MatchStatus);
+            Assert.Equal(second, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+
+            window.GraphCanvas.Viewer.Session.Editor.DeleteNode(second);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("2 of 2", window.Toolbar.SearchField.MatchStatus);
+            Assert.Equal(third, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+        }
+
+        //Ruling §03: a node added or renamed mid-find recomputes the run without retyping - a still-matching current node keeps its place, renumbered.
+        [AvaloniaFact]
+        public async Task SearchField_AddingAndRenamingNodes_RecomputeTheRun_WithoutRetyping() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId first = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            NodeId second = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(200, 0));
+            foreach (NodeId id in new[] { first, second }) {
+                var controller = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(id)!;
+                controller.SetKeyNode(true);
+                controller.SetKeyNodeTitle("Live Find");
+            }
+            Dispatcher.UIThread.RunJobs();
+            window.Toolbar.SearchField.Focus();
+            window.Toolbar.SearchField.Text = "Live Find";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("1 of 2", window.Toolbar.SearchField.MatchStatus);
+            Assert.Equal(first, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+
+            NodeId added = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, -100));
+            var addedController = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(added)!;
+            addedController.SetKeyNode(true);
+            addedController.SetKeyNodeTitle("Live Find");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("2 of 3", window.Toolbar.SearchField.MatchStatus);
+            Assert.Equal(first, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+
+            window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(first)!.SetKeyNodeTitle("Renamed Away");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("2 of 2", window.Toolbar.SearchField.MatchStatus);
+            Assert.Equal(second, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+        }
+
+        //Find node ruling §05: Return/⇧Return step exactly like ⌘G/⇧⌘G, and leave focus and the caret in the field.
+        [AvaloniaFact]
+        public async Task SearchField_ReturnAndShiftReturn_StepForwardAndBackward_WithoutMovingFocus() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId first = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            NodeId second = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(200, 0));
+            foreach (NodeId id in new[] { first, second }) {
+                var controller = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(id)!;
+                controller.SetKeyNode(true);
+                controller.SetKeyNodeTitle("Return Test");
+            }
+            Dispatcher.UIThread.RunJobs();
+            window.Toolbar.SearchField.Focus();
+            window.Toolbar.SearchField.Text = "Return Test";
+            Dispatcher.UIThread.RunJobs();
+
+            CanvasKeys.KeyDownOn(window.Toolbar.SearchField, Key.Return);
+            Assert.Equal(second, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+            Assert.True(window.Toolbar.SearchField.IsFocused);
+
+            CanvasKeys.KeyDownOn(window.Toolbar.SearchField, Key.Return, KeyModifiers.Shift);
+            Assert.Equal(first, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+            Assert.True(window.Toolbar.SearchField.IsFocused);
+        }
+
+        //The canvas pans only when the current match is off-screen, and never changes ViewScale.
+        [AvaloniaFact]
+        public async Task SearchField_Step_PansOnlyWhenTheMatchIsOffScreen_AndNeverZooms() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            window.DataCache = cache;
+            window.ApplyLoadedSettings();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId onScreen = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            var onScreenController = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(onScreen)!;
+            onScreenController.SetKeyNode(true);
+            onScreenController.SetKeyNodeTitle("Visible Match");
+            Dispatcher.UIThread.RunJobs();
+
+            float scaleBefore = window.GraphCanvas.Viewport.ViewScale;
+            System.Drawing.Point offsetBefore = window.GraphCanvas.Viewport.ViewOffset;
+
+            window.Toolbar.SearchField.Focus();
+            window.Toolbar.SearchField.Text = "Visible Match";
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            AnimationClock.Settle(400); //prove no pan started, not just that one hasn't finished yet
+
+            Assert.Equal(offsetBefore, window.GraphCanvas.Viewport.ViewOffset); //already on-screen: no pan
+            Assert.Equal(scaleBefore, window.GraphCanvas.Viewport.ViewScale);
+
+            NodeId offScreen = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(20000, 20000));
+            var offScreenController = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(offScreen)!;
+            offScreenController.SetKeyNode(true);
+            offScreenController.SetKeyNodeTitle("Distant Match");
+            Dispatcher.UIThread.RunJobs();
+
+            window.Toolbar.SearchField.Text = "Distant Match";
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            AnimationClock.Settle(400); //the pan is a 200ms tween, not an immediate offset write
+
+            Assert.NotEqual(offsetBefore, window.GraphCanvas.Viewport.ViewOffset); //off-screen: pans into view
+            Assert.Equal(scaleBefore, window.GraphCanvas.Viewport.ViewScale); //never zooms
+            Assert.Equal(offScreen, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+        }
+
+        //Find node ruling §04: the field's readout covers all three states in the same slot; typing alone already reads "n of N".
+        [AvaloniaFact]
+        public async Task SearchField_MatchStatus_ReflectsEmptyNoMatchesAndStep() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId first = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            NodeId second = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(200, 0));
+            foreach (NodeId id in new[] { first, second }) {
+                var controller = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(id)!;
+                controller.SetKeyNode(true);
+                controller.SetKeyNodeTitle("Status Test");
+            }
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Null(window.Toolbar.SearchField.MatchStatus);
+
+            window.Toolbar.SearchField.Focus();
+            window.Toolbar.SearchField.Text = "nothing matches this";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("No matches", window.Toolbar.SearchField.MatchStatus);
+
+            window.Toolbar.SearchField.Text = "Status Test";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("1 of 2", window.Toolbar.SearchField.MatchStatus);
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            Assert.Equal("2 of 2", window.Toolbar.SearchField.MatchStatus);
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            Assert.Equal("1 of 2", window.Toolbar.SearchField.MatchStatus);
+        }
+
+        //Ruling §05: a debounced summary on typing, "N of M, <name>" on a step, and the direction-naming prefix on a wrap.
+        [AvaloniaFact]
+        public async Task SearchField_Announces_ResultSetThenStepsThenWraps_BothDirections() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId first = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            NodeId second = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(200, 0));
+            foreach (NodeId id in new[] { first, second }) {
+                var controller = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(id)!;
+                controller.SetKeyNode(true);
+                controller.SetKeyNodeTitle("Voice Test");
+            }
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock announcer = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "SearchAnnouncer");
+
+            window.Toolbar.SearchField.Focus();
+            window.Toolbar.SearchField.Text = "Voice Test";
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle(400);
+            Assert.Equal("2 matches", AutomationProperties.GetName(announcer));
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            Assert.Equal("2 of 2, Iron plate", AutomationProperties.GetName(announcer));
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
+            Assert.Equal("Wrapped to first match. 1 of 2, Iron plate", AutomationProperties.GetName(announcer));
+
+            CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary | KeyModifiers.Shift);
+            Assert.Equal("Wrapped to last match. 2 of 2, Iron plate", AutomationProperties.GetName(announcer));
+        }
+
+        //Ruling §05: the query announcement is debounced to the end of typing, one per burst rather than one per character.
+        [AvaloniaFact]
+        public async Task SearchField_Announces_DebouncesABurstOfKeystrokes_ToOneAnnouncement() {
+            var window = new MainWindow();
+            window.Show();
+            DataCache cache = await GetCacheAsync();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId id = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            var controller = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(id)!;
+            controller.SetKeyNode(true);
+            controller.SetKeyNodeTitle("Debounce Test");
+            Dispatcher.UIThread.RunJobs();
+
+            TextBlock announcer = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "SearchAnnouncer");
+            window.Toolbar.SearchField.Focus();
+
+            foreach (char c in "Debounce Test") {
+                window.Toolbar.SearchField.Text += c;
+                Dispatcher.UIThread.RunJobs();
+            }
+            Assert.Null(AutomationProperties.GetName(announcer)); //nothing announced mid-burst
+
+            AnimationClock.Settle(400);
+            Assert.Equal("1 match", AutomationProperties.GetName(announcer));
         }
 
         //Fix round 1 (popover redo, contract #decisions §1 mockup): View Options is a Popup anchored under
@@ -996,18 +1375,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.GraphCanvas.Viewport.ViewScale < before);
         }
 
-        [AvaloniaFact]
-        public void ZoomStepper_ValueLabel_TracksViewScaleAfterZoomInClick() {
-            var window = new MainWindow();
-            window.Show();
-
-            RealClick(window, "Zoom In");
-
-            var valueLabel = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "ZoomValueLabel");
-            int expectedPercent = (int)Math.Round(window.GraphCanvas.Viewport.ViewScale * 100);
-            Assert.Equal($"{expectedPercent}%", valueLabel.Text);
-        }
-
         //Fix round 1: mouse-wheel zoom went through GraphCanvasControl.OnPointerWheelChanged directly,
         //bypassing every one of ResyncZoomLabel's four call sites, so the readout went stale on a wheel-zoom
         //session until the next stepper/menu click. Exercises the real input pipeline (MouseWheel, not a
@@ -1020,21 +1387,19 @@ namespace Foreman.Mac.UiTests {
 
             window.MouseWheel(new Point(750, 400), new Vector(0, 1));
 
-            var valueLabel = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "ZoomValueLabel");
-            int expectedPercent = (int)Math.Round(window.GraphCanvas.Viewport.ViewScale * 100);
-            Assert.Equal($"{expectedPercent}%", valueLabel.Text);
+            double expectedPercent = Math.Round(window.GraphCanvas.Viewport.ViewScale * 100);
+            Assert.Equal(expectedPercent, window.Toolbar.ZoomStepper.Value);
         }
 
+        //No gear on the toolbar, so the command is driven directly; the early-return guard keeps it from opening a real window.
         [AvaloniaFact]
-        public void SettingsButton_RealClick_ClosesOpenFloatingPanel() {
+        public void SettingsCommand_Execute_ClosesOpenFloatingPanel() {
             var window = new MainWindow();
             window.Show();
             window.GraphCanvas.FloatingPanelHost.Show(new Border { Width = 50, Height = 50, Focusable = true }, new System.Drawing.Point(0, 0));
             Assert.True(window.GraphCanvas.FloatingPanelHost.IsOpen);
 
-            //No DataCache/Settings wired up: ShowSettings' own early-return guard fires right after the
-            //close, so this never risks opening a real (unstubbed) Settings window.
-            RealClick(window, "Settings");
+            window.Commands.SettingsCommand.Execute(null);
 
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
         }
@@ -1163,6 +1528,19 @@ namespace Foreman.Mac.UiTests {
             Assert.True(items["Export Image"]);
         }
 
+        //v2 §14 ruling 4: ⌘. is cancel-in-flight, command-only, and bound to no menu item; Pause All Calculations moves to ⌥⌘P so the two chords never double-book.
+        [AvaloniaFact]
+        public void PauseAllCalculations_UsesOptionCmdP_AndNoMenuItemClaimsCmdPeriod() {
+            var window = new MainWindow();
+            window.Show();
+
+            NativeMenuItem[] allItems = [.. AllNativeMenuItems(NativeMenu.GetMenu(window)!)];
+            NativeMenuItem pauseItem = allItems.Single(i => i.Header == "Pause All Calculations");
+
+            Assert.Equal(new KeyGesture(Key.P, PlatformModifiers.Primary | KeyModifiers.Alt), pauseItem.Gesture);
+            Assert.DoesNotContain(allItems, i => i.Gesture == new KeyGesture(Key.OemPeriod, PlatformModifiers.Primary));
+        }
+
         [AvaloniaFact]
         public void Constructor_SetsWindowStateMaximized() {
             var window = new MainWindow();
@@ -1204,6 +1582,91 @@ namespace Foreman.Mac.UiTests {
         private static Color GroupBoxBorderColor(MainWindow window, string borderName) {
             var border = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == borderName);
             return Assert.IsAssignableFrom<ISolidColorBrush>(border.BorderBrush).Color;
+        }
+
+        //v2 §02 "Material" row: the traffic-light strip sits left of the row's Margin inset, so the titlebar Grid is the only thing that can paint it.
+        [AvaloniaFact]
+        public void TitleBarRow_Background_MatchesTheToolbarRowsMaterial_InLightAndDark() {
+            var app = (App)Application.Current!;
+
+            app.ApplyTheme(ThemeMode.Light);
+            Color lightStrip = ArrangedTrafficLightStrip(out Grid lightTitleBar);
+            Assert.Equal(ThemeColor("Foreman.Color.TitlebarMaterial"), lightStrip);
+            Assert.Equal(ThemeColor("Foreman.Color.TitlebarMaterial"), TitleBarRowColor(lightTitleBar));
+
+            app.ApplyTheme(ThemeMode.Dark);
+            Color darkStrip = ArrangedTrafficLightStrip(out Grid darkTitleBar);
+            Assert.Equal(ThemeColor("Foreman.Color.TitlebarMaterial"), darkStrip);
+            Assert.Equal(ThemeColor("Foreman.Color.TitlebarMaterial"), TitleBarRowColor(darkTitleBar));
+
+            Assert.NotEqual(lightStrip, darkStrip);
+        }
+
+        //v2 §02 "Material" row: the shipped material and its opaque token carry identical hex, so a colour comparison between them proves nothing - this scopes a deliberately distinct opaque value and asserts the row resolves through the hub's override, then loses it when the flag clears.
+        [AvaloniaFact]
+        public void TitleBarRow_Strip_FollowsTitlebarMaterialOpaque_UnderReduceTransparency() {
+            var app = (App)Application.Current!;
+            app.ApplyTheme(ThemeMode.Light);
+            Color shippedMaterial = ThemeColor("Foreman.Color.TitlebarMaterial");
+            Color scopedOpaque = Color.Parse("#FF34C759");
+            Assert.NotEqual(shippedMaterial, scopedOpaque);
+            AppearanceHub? realHub = AppearanceHub.Current;
+            app.Resources["Foreman.Color.TitlebarMaterialOpaque"] = scopedOpaque;
+            var reducedHub = new AppearanceHub(app, new FakeAppearance { ReduceTransparency = true });
+            AppearanceHub.Current = reducedHub;
+            try {
+                Color reduced = ArrangedTrafficLightStrip(out Grid reducedTitleBar);
+                Assert.Equal(scopedOpaque, reduced);
+                Assert.Equal(scopedOpaque, TitleBarRowColor(reducedTitleBar));
+
+                reducedHub.Dispose();
+                var plainHub = new AppearanceHub(app, new FakeAppearance { ReduceTransparency = false });
+                AppearanceHub.Current = plainHub;
+                try {
+                    Color plain = ArrangedTrafficLightStrip(out Grid plainTitleBar);
+                    Assert.Equal(shippedMaterial, plain);
+                    Assert.Equal(shippedMaterial, TitleBarRowColor(plainTitleBar));
+                } finally {
+                    plainHub.Dispose();
+                }
+            } finally {
+                app.Resources.Remove("Foreman.Color.TitlebarMaterialOpaque");
+                AppearanceHub.Current = realHub;
+                realHub?.Refresh();
+            }
+        }
+
+        //Headless never reports a nonzero WindowDecorationMargin, so the inset TrafficLightInsetConverter would produce is set by hand before arranging.
+        private static Color ArrangedTrafficLightStrip(out Grid titleBar) {
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.Toolbar.Margin = new Thickness(TrafficLightInsetConverter.TrafficLightInsetWidth, 0, 0, 0);
+            Dispatcher.UIThread.RunJobs();
+
+            titleBar = window.FindControl<Grid>("TitleBarRow")!;
+            Assert.Equal(TrafficLightInsetConverter.TrafficLightInsetWidth, window.Toolbar.Bounds.Left);
+            Assert.Equal(0, titleBar.Bounds.Left);
+            Assert.True(titleBar.Bounds.Width >= window.Toolbar.Bounds.Right);
+            return TitleBarRowColor(titleBar);
+        }
+
+        private static Color ThemeColor(string key) {
+            Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? value);
+            return Assert.IsType<Color>(value);
+        }
+
+        private static Color TitleBarRowColor(Grid titleBar) =>
+            Assert.IsAssignableFrom<ISolidColorBrush>(titleBar.Background).Color;
+
+        private sealed class FakeAppearance : IPlatformAppearance {
+            private EventHandler? changed;
+            public Color? AccentColor { get; set; }
+            public ColorContrastPreference ContrastPreference { get; set; } = ColorContrastPreference.NoPreference;
+            public bool ReduceTransparency { get; set; }
+            public bool ReduceMotion { get; set; }
+            public PlatformThemeVariant ThemeVariant { get; set; } = PlatformThemeVariant.Light;
+            public event EventHandler? Changed { add => changed += value; remove => changed -= value; }
         }
 
         //---- Task 8: GraphMutated replaces the five-event dirty wiring ------------------------------------

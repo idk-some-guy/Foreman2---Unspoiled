@@ -1,15 +1,11 @@
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
-using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
-using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Models;
 using System;
@@ -19,7 +15,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
-using AvColor = Avalonia.Media.Color;
 
 namespace Foreman.Mac.UiTests {
     //Task 7 (contract #toolbar): MainWindowViewModel.IsDirty is a cheap UI-hint flag, not the authoritative
@@ -112,69 +107,25 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.ViewModel.IsDirty);
         }
 
-        //---- Save button's dirty tint (contract #toolbar's Save .on state) --------------------------------
+        //Save's dirty tint is Kit.ToolbarItem's own :on styling; this file keeps only the app-level wiring that drives IsOn.
 
-        private static Button SaveButton(MainWindow window) =>
-            window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "SaveButton");
+        private static ToolbarItem SaveToolbarItem(MainWindow window) =>
+            window.GetVisualDescendants().OfType<ToolbarItem>().Single(i => i.Label == "Save");
 
-        //Reads the live Foreman.Color.AccentSoft token rather than a hardcoded hex: the token follows the
-        //platform accent (headless reports its own stand-in accent), so a literal expected color would
-        //drift out from under it.
-        private static AvColor ResolveAccentSoft() {
-            Application.Current!.TryGetResource("Foreman.Color.AccentSoft", Application.Current.ActualThemeVariant, out object? resolved);
-            return Assert.IsType<AvColor>(resolved);
-        }
-
-        [AvaloniaTheory]
-        [InlineData(ThemeMode.Dark)]
-        [InlineData(ThemeMode.Light)]
-        public void SaveButton_Dirty_BackgroundUsesAccentSoftToken(ThemeMode mode) {
-            ((App)Application.Current!).ApplyTheme(mode);
+        [AvaloniaFact]
+        public void SaveToolbarItem_IsOn_TracksIsDirty() {
             var window = new MainWindow();
             window.Show();
+            ToolbarItem save = SaveToolbarItem(window);
+            Assert.False(save.IsOn);
 
             window.ViewModel.IsDirty = true;
             Dispatcher.UIThread.RunJobs();
+            Assert.True(save.IsOn);
 
-            var background = Assert.IsType<ImmutableSolidColorBrush>(SaveButton(window).Background);
-            Assert.Equal(ResolveAccentSoft(), background.Color);
-        }
-
-        [AvaloniaFact]
-        public void SaveButton_Clean_DoesNotUseAccentSoftBackground() {
-            ((App)Application.Current!).ApplyTheme(ThemeMode.Dark);
-            var window = new MainWindow();
-            window.Show();
-
+            window.ViewModel.IsDirty = false;
             Dispatcher.UIThread.RunJobs();
-
-            AvColor accentSoft = ResolveAccentSoft();
-            bool isTinted = SaveButton(window).Background is ImmutableSolidColorBrush { } brush && brush.Color == accentSoft;
-            Assert.False(isTinted);
-        }
-
-        //M-5 (final fix wave): the plain :pointerover style sets ContentPresenter.Background directly,
-        //which used to outrank .on's Background setter on the Button itself (the template's ContentPresenter
-        //only inherits that one via TemplateBinding) - hovering a dirty Save button swapped the accent tint
-        //for the generic hover gray. Reads the ContentPresenter's own resolved Background, not the Button's,
-        //since that's the property the bug actually lived on.
-        [AvaloniaFact]
-        public void SaveButton_DirtyAndPointerOver_ContentPresenterKeepsAccentBackground() {
-            ((App)Application.Current!).ApplyTheme(ThemeMode.Dark);
-            var window = new MainWindow();
-            window.Show();
-            window.ViewModel.IsDirty = true;
-            Dispatcher.UIThread.RunJobs();
-
-            Button save = SaveButton(window);
-            Point center = save.TranslatePoint(new Point(save.Bounds.Width / 2, save.Bounds.Height / 2), window)!.Value;
-            window.MouseMove(center);
-            Dispatcher.UIThread.RunJobs();
-
-            Assert.True(save.IsPointerOver);
-            var presenter = save.GetVisualDescendants().OfType<ContentPresenter>().Single();
-            var background = Assert.IsType<ImmutableSolidColorBrush>(presenter.Background);
-            Assert.Equal(ResolveAccentSoft(), background.Color);
+            Assert.False(save.IsOn);
         }
     }
 }

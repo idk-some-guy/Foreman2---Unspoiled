@@ -1,8 +1,13 @@
+using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Kit;
+using Foreman.Mac.UiTests.support;
 using System;
 using System.Drawing;
 using Xunit;
 using AvaloniaPoint = Avalonia.Point;
+using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Canvas {
     public class ViewportTests {
@@ -176,6 +181,99 @@ namespace Foreman.Mac.UiTests.Canvas {
             viewport.FitToBounds(new Rectangle(0, 0, 1, 1));
 
             Assert.Equal(Viewport.MaxViewScale, viewport.ViewScale);
+        }
+
+        //Find node ruling §02: a match inside the raw visible bounds but within the margin of its edge still pans.
+        [Fact]
+        public void PanIntoView_MatchWithinTheMarginOfAnEdge_PansTheShortestDistance() {
+            var viewport = new Viewport(800, 600); //VisibleGraphBounds = (-400,-300,800,600)
+            var nodeBounds = new Rectangle(300, -50, 40, 40); //right edge at 340: inside 400, outside the 80pt inset (320)
+
+            viewport.PanIntoView(nodeBounds, margin: 80);
+
+            Assert.Equal(new Point(-20, 0), viewport.ViewOffset);
+            Rectangle inset = Rectangle.Inflate(viewport.VisibleGraphBounds, -80, -80);
+            Assert.True(inset.Contains(nodeBounds));
+        }
+
+        [Fact]
+        public void PanIntoView_MatchFullyInsideTheMarginInset_DoesNotPan() {
+            var viewport = new Viewport(800, 600);
+            Point offsetBefore = viewport.ViewOffset;
+
+            viewport.PanIntoView(new Rectangle(-100, -100, 50, 50), margin: 80);
+
+            Assert.Equal(offsetBefore, viewport.ViewOffset);
+        }
+
+        //Ruling §02 "Motion": the canvas tweens the offset over Motion.EntranceDuration rather than jumping to it.
+        [AvaloniaFact]
+        public void PanIntoView_OnTheCanvas_AnimatesTheOffset_AndSettlesOnTheRuledTarget() {
+            bool wasReduced = Motion.ReduceMotion;
+            Motion.ReduceMotion = false;
+            try {
+                GraphCanvasControl control = ShownCanvas();
+                var nodeBounds = new Rectangle(control.Viewport.VisibleGraphBounds.Right - 60, -20, 40, 40);
+                Point start = control.Viewport.ViewOffset;
+                Point target = Assert.IsType<Point>(control.Viewport.PanIntoViewTarget(nodeBounds, 80));
+                Assert.NotEqual(start, target);
+
+                control.PanIntoView(nodeBounds, 80);
+
+                Assert.Equal(start, control.Viewport.ViewOffset);
+                AnimationClock.Settle(400);
+                Assert.Equal(target, control.Viewport.ViewOffset);
+            } finally {
+                Motion.ReduceMotion = wasReduced;
+            }
+        }
+
+        //Ruling §02 "Motion": under Reduce Motion the same destination is applied in one step, and clearing the flag brings the tween back.
+        [AvaloniaFact]
+        public void PanIntoView_UnderReduceMotion_JumpsInOneStep_AndTweensAgainWhenTheFlagClears() {
+            bool wasReduced = Motion.ReduceMotion;
+            try {
+                GraphCanvasControl control = ShownCanvas();
+                Motion.ReduceMotion = true;
+                var rightEdge = new Rectangle(control.Viewport.VisibleGraphBounds.Right - 60, -20, 40, 40);
+                Point jumpTarget = Assert.IsType<Point>(control.Viewport.PanIntoViewTarget(rightEdge, 80));
+
+                control.PanIntoView(rightEdge, 80);
+
+                Assert.Equal(jumpTarget, control.Viewport.ViewOffset);
+
+                Motion.ReduceMotion = false;
+                var leftEdge = new Rectangle(control.Viewport.VisibleGraphBounds.Left + 20, -20, 40, 40);
+                Point start = control.Viewport.ViewOffset;
+                Point tweenTarget = Assert.IsType<Point>(control.Viewport.PanIntoViewTarget(leftEdge, 80));
+
+                control.PanIntoView(leftEdge, 80);
+
+                Assert.Equal(start, control.Viewport.ViewOffset);
+                AnimationClock.Settle(400);
+                Assert.Equal(tweenTarget, control.Viewport.ViewOffset);
+            } finally {
+                Motion.ReduceMotion = wasReduced;
+            }
+        }
+
+        private static GraphCanvasControl ShownCanvas() {
+            var control = new GraphCanvasControl();
+            var window = new AvaloniaWindow { Width = 800, Height = 600, Content = control };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            return control;
+        }
+
+        [Fact]
+        public void PanIntoView_MarginScalesWithViewScale() {
+            var viewport = new Viewport(800, 600);
+            SetScaleAndOffset(viewport, 2f, new Point(0, 0)); //VisibleGraphBounds halves to (-200,-150,400,300)
+
+            //80 screen points at 2x scale is 40 graph units, so the inset's right edge sits at 160.
+            viewport.PanIntoView(new Rectangle(150, -20, 20, 20), margin: 80);
+
+            Assert.Equal(new Point(-10, 0), viewport.ViewOffset);
         }
     }
 }

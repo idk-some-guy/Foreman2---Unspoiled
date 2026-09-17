@@ -132,6 +132,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Kit.SkiaBridge now carries the canvas painters' tab, chip and error border colors as theme tokens
   (formerly the #696969/#B8860B/#8B0000 literals) alongside its existing metrics, re-resolved on every
   theme, scale or contrast change and republished to the painters only when a value moved.
+- The titlebar toolbar now composes Kit.ToolbarRow: the document title sits leading, right after the
+  traffic lights, with unsaved state shown as the close button's dot instead of trailing "- Edited"
+  text; a "Find node" search field sits between the toolbar and the zoom stepper (⌘F focuses it, ⌘G
+  and ⇧⌘G step through matches on a node's drawn name or key title); and Settings is gone from the
+  toolbar row entirely, reachable only from the app menu's ⌘,.
 
 ### Fixed
 
@@ -156,6 +161,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   folds into it; the search field keeps its own stop for ⌘F. Item hover now fills over a brush
   transition and the icon-only label swap cross-fades instead of cutting, and the zoom stepper's
   Zoom Out, readout and Zoom In report as named children to VoiceOver.
+- The titlebar's own material now covers the traffic-light strip instead of showing the plain
+  window background there; Kit.ToolbarRow applies Kit.ToolbarItem to every group item itself, so a
+  consumer can no longer forget it and end up with a zero-size button; New Graph, Add Item, Add
+  Recipe, Align Selected, Export Image and Graph Summary read their full command name to VoiceOver
+  instead of a truncated label, and the Save item's on state, every item's shortcut, and
+  Return/Space activation all reach the accessibility tree. Pause All Calculations moves to ⌥⌘P so
+  it no longer shares ⌘. with the toolbar's own cancel-in-flight shortcut. Find node now matches a
+  node's drawn name (not only its key title), trims its query, orders results by position, anchors
+  the current match the moment typing produces one, wraps ⌘G/Return and ⇧⌘G/⇧Return silently, pans
+  the canvas into view without zooming (never inside an 80pt margin of the viewport edge, over a
+  200ms ease, and as a single jump under Reduce Motion), and shows a "1 of 3"/"No matches" readout with
+  VoiceOver announcements for the result set and each step. The field reports as "Find node" to
+  VoiceOver, the run recomputes when nodes are added, deleted or renamed mid-find, and the count
+  slot hides below a floor that tracks the display scale.
 - The search field's placeholder now hides the moment typed text is non-empty instead of
   overlaying it; the stepper's value field fills the remaining width when no unit is set, with the
   arrows flush at the control's trailing edge; text and search fields show an accent-soft

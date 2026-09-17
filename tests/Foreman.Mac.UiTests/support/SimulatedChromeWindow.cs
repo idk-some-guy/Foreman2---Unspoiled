@@ -20,26 +20,17 @@ namespace Foreman.Mac.UiTests.support {
 
         public Grid TitleBarRow { get; }
         public StackPanel LeadingGroup { get; }
-        public Button IconButton { get; }
-        public Button WideButton { get; }
-        public Border CanvasHost { get; }
 
         public SimulatedChromeWindow() {
             Width = 1200;
             Height = 700;
             ExtendClientAreaTitleBarHeightHint = 52;
 
-            IconButton = new Button { Width = 28, Height = 26 };
-            var separator = new Border { Width = 1, Height = 20 };
-            WideButton = new Button { Height = 26, Content = "Item" };
             LeadingGroup = new StackPanel {
                 Orientation = Orientation.Horizontal,
                 VerticalAlignment = VerticalAlignment.Center,
                 Spacing = 4,
             };
-            LeadingGroup.Children.Add(IconButton);
-            LeadingGroup.Children.Add(separator);
-            LeadingGroup.Children.Add(WideButton);
             Grid.SetColumn(LeadingGroup, 0);
 
             TitleBarRow = new Grid {
@@ -51,12 +42,12 @@ namespace Foreman.Mac.UiTests.support {
             TitleBarRow.Children.Add(LeadingGroup);
             Grid.SetRow(TitleBarRow, 0);
 
-            CanvasHost = new Border();
-            Grid.SetRow(CanvasHost, 1);
+            var canvasHost = new Border();
+            Grid.SetRow(canvasHost, 1);
 
             var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
             root.Children.Add(TitleBarRow);
-            root.Children.Add(CanvasHost);
+            root.Children.Add(canvasHost);
             Content = root;
 
             RefreshMargin();

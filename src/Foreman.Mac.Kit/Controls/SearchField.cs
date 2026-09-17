@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -16,6 +17,12 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<bool> IsLoadingProperty =
             AvaloniaProperty.Register<SearchField, bool>(nameof(IsLoading));
 
+        //Find node's "N of M"/"No matches" readout; null hides the slot, same as an empty string.
+        public static readonly StyledProperty<string?> MatchStatusProperty =
+            AvaloniaProperty.Register<SearchField, string?>(nameof(MatchStatus));
+
+        private const string NoMatchesText = "No matches";
+
         public ICommand? ClearCommand {
             get => GetValue(ClearCommandProperty);
             set => SetValue(ClearCommandProperty, value);
@@ -27,18 +34,30 @@ namespace Foreman.Mac.Kit.Controls {
             set => SetValue(IsLoadingProperty, value);
         }
 
+        public string? MatchStatus {
+            get => GetValue(MatchStatusProperty);
+            set => SetValue(MatchStatusProperty, value);
+        }
+
         public event EventHandler? MoveDownRequested;
         public event EventHandler? SearchCommitted;
+        //Shift+Return - the backward twin of SearchCommitted (⇧⌘G's Return equivalent).
+        public event EventHandler? SearchCommittedBackward;
 
         private Button? clearButton;
         private Viewbox? leadingGlyphBox;
         private Spinner? loadingSpinner;
+        private TextBlock? matchStatusText;
         private IDisposable? loadingRevealSub;
         private IDisposable? loadingHideSub;
+        private IDisposable? countFloorSub;
+        //Foreman.Metrics.SearchFieldCountFloor's own resolved value; the ruled 168 fallback until the observable delivers.
+        private double countFloor = 168;
 
         static SearchField() {
             PlaceholderTextProperty.OverrideDefaultValue<SearchField>("Search");
             IsLoadingProperty.Changed.AddClassHandler<SearchField>((f, _) => f.ApplyLoadingState());
+            MatchStatusProperty.Changed.AddClassHandler<SearchField>((f, _) => f.ApplyMatchStatus());
         }
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
@@ -51,7 +70,36 @@ namespace Foreman.Mac.Kit.Controls {
 
             leadingGlyphBox = e.NameScope.Find<Viewbox>("PART_LeadingGlyphBox");
             loadingSpinner = e.NameScope.Find<Spinner>("PART_LoadingSpinner");
+            matchStatusText = e.NameScope.Find<TextBlock>("PART_MatchStatus");
             ApplyLoadingState();
+            ApplyMatchStatus();
+        }
+
+        protected override Size ArrangeOverride(Size finalSize) {
+            Size result = base.ArrangeOverride(finalSize);
+            bool hidden = finalSize.Width < countFloor;
+            if (hidden != PseudoClasses.Contains(":match-status-hidden")) {
+                PseudoClasses.Set(":match-status-hidden", hidden);
+                ApplyMatchStatus();
+            }
+            return result;
+        }
+
+        //Only the drawn slot respects the count floor - AXHelp and the tooltip carry the status at every width (ruling §04/§05).
+        private void ApplyMatchStatus() {
+            PseudoClasses.Set(":match-status-none", MatchStatus == NoMatchesText);
+            AutomationProperties.SetHelpText(this, MatchStatus);
+            ToolTip.SetTip(this, MatchStatus);
+            if (matchStatusText is null)
+                return;
+            matchStatusText.Text = MatchStatus;
+            matchStatusText.IsVisible = !string.IsNullOrEmpty(MatchStatus) && !PseudoClasses.Contains(":match-status-hidden");
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
+            base.OnAttachedToVisualTree(e);
+            countFloorSub = this.GetResourceObservable("Foreman.Metrics.SearchFieldCountFloor", ToCountFloor)
+                .Subscribe(new ResourceSinks.DoubleSink(v => { countFloor = v; InvalidateArrange(); }, countFloor));
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
@@ -60,7 +108,11 @@ namespace Foreman.Mac.Kit.Controls {
             loadingRevealSub = null;
             loadingHideSub?.Dispose();
             loadingHideSub = null;
+            countFloorSub?.Dispose();
+            countFloorSub = null;
         }
+
+        private static object ToCountFloor(object? value) => value is double d ? d : 168.0;
 
         //Delayed reveal via a held-then-animated Opacity transition (ZoomStepper.cs's idiom), never a wall-clock timer:
         //IsLoading clearing before the grace elapses cancels the pending reveal without a flash.
@@ -122,7 +174,10 @@ namespace Foreman.Mac.Kit.Controls {
                     e.Handled = true;
                     return;
                 case Key.Return:
-                    SearchCommitted?.Invoke(this, EventArgs.Empty);
+                    if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+                        SearchCommittedBackward?.Invoke(this, EventArgs.Empty);
+                    else
+                        SearchCommitted?.Invoke(this, EventArgs.Empty);
                     e.Handled = true;
                     return;
             }

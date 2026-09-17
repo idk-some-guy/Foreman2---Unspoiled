@@ -128,7 +128,6 @@ namespace Foreman.Mac.Views {
         private static GalleryRegistry BuildRegistry(DataCache cache) {
             var registry = new GalleryRegistry();
             registry.Register(new GalleryTile("Canvas", "QualityPicker", "Default", () => ChromeWrap(BuildQualityPicker(cache))));
-            registry.Register(new GalleryTile("Theme", "Toolbar / Titlebar", "Default", BuildToolbarShowcaseTile));
             registry.Register(new GalleryTile("Theme", "View Options popover", "Default", BuildViewOptionsShowcaseTile));
             registry.Register(new GalleryTile("Theme", "Graph Summary rows", "Default", BuildSummaryRowsShowcaseTile));
             registry.Register(new GalleryTile("Theme", "Preset Comparator rows", "Default", BuildComparatorRowsShowcaseTile));
@@ -375,9 +374,10 @@ namespace Foreman.Mac.Views {
             ("On", GalleryButtonState.Normal, true),
         ];
 
+        //No Theme here: a row-hosted item picks up Kit.ToolbarItem from ToolbarRow.Rebuild's own guarded apply.
         private static ToolbarItem KitToolbarItem(string glyphName, string label) {
             Application.Current!.TryGetResource($"Kit.Glyph.{glyphName}.17", null, out object? geometry);
-            return new ToolbarItem { Theme = KitTheme("Kit.ToolbarItem"), Glyph = geometry as Geometry, Label = label };
+            return new ToolbarItem { Glyph = geometry as Geometry, Label = label };
         }
 
         private static Grid BuildToolbarItemsTile() {
@@ -395,6 +395,7 @@ namespace Foreman.Mac.Views {
 
                 (string _, GalleryButtonState state, bool on) = ToolbarItemStates[c];
                 ToolbarItem item = KitToolbarItem("Recipe", "Recipe");
+                item.Theme = KitTheme("Kit.ToolbarItem");
                 ApplyGalleryState(item, state);
                 item.IsOn = on;
                 Grid.SetRow(item, 1);
@@ -2079,43 +2080,6 @@ namespace Foreman.Mac.Views {
             box.Bind(Viewbox.WidthProperty, scaledSize);
             box.Bind(Viewbox.HeightProperty, scaledSize);
             return box;
-        }
-
-        //Reuses the real foreman-toolbar-* style classes (contract #toolbar) instead of hand-picking colors -
-        //everything but the bar's own background comes straight from Foreman.Styles.axaml's DynamicResource
-        //setters, so this tile updates for free on every theme toggle.
-        private static Border BuildToolbarShowcaseTile() {
-            var newGlyph = new TextBlock { Text = "✚" };
-            newGlyph.Classes.Add("foreman-toolbar-glyph");
-            var newButton = new Button { Content = newGlyph };
-            newButton.Classes.Add("foreman-toolbar-icon");
-
-            var dirtyGlyph = new TextBlock { Text = "⇩" };
-            dirtyGlyph.Classes.Add("foreman-toolbar-glyph");
-            var dirtySaveButton = new Button { Content = dirtyGlyph };
-            dirtySaveButton.Classes.Add("foreman-toolbar-icon");
-            dirtySaveButton.Classes.Add("on");
-
-            var addItemGlyph = new TextBlock { Text = "▢" };
-            addItemGlyph.Classes.Add("foreman-toolbar-glyph");
-            var addItemLabel = new TextBlock { Text = "Item" };
-            addItemLabel.Classes.Add("foreman-toolbar-label");
-            var addItemButton = new Button {
-                Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Children = { addItemGlyph, addItemLabel } },
-            };
-            addItemButton.Classes.Add("foreman-toolbar-wide");
-
-            var bar = new StackPanel {
-                Orientation = Orientation.Horizontal,
-                Spacing = 4,
-                Margin = new Thickness(8),
-                Children = { newButton, dirtySaveButton, addItemButton },
-            };
-
-            return new Border {
-                Background = ThemeResources.ResolveBrush("Foreman.Color.TitlebarBackground", Color.FromRgb(0xE7, 0xE7, 0xEA)),
-                Child = bar,
-            };
         }
 
         //Mirrors MainWindow.axaml's ViewOptionsCard/GridLinesGroupBox structure (contract #decisions §1) -

@@ -436,8 +436,9 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(MenuItemToggleType.CheckBox, iconView.ToggleType);
             Assert.Null(iconView.Gesture);
             Assert.Equal(MenuItemToggleType.CheckBox, pause.ToggleType);
-            Assert.Equal(Key.OemPeriod, pause.Gesture!.Key);
-            Assert.Equal(KeyModifiers.Meta, pause.Gesture.KeyModifiers);
+            //v2 §14 ruling 4: ⌥⌘P, not ⌘. - ⌘. is the toolbar's own command-only cancel-in-flight shortcut.
+            Assert.Equal(Key.P, pause.Gesture!.Key);
+            Assert.Equal(KeyModifiers.Meta | KeyModifiers.Alt, pause.Gesture.KeyModifiers);
         }
 
         [AvaloniaFact]

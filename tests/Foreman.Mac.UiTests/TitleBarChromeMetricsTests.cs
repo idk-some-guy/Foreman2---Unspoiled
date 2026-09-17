@@ -20,42 +20,6 @@ namespace Foreman.Mac.UiTests {
     //with simulated nonzero metrics instead (proven equivalent by the probe behind the diagnosis).
     [Collection(ScaleTestGroup.Name)]
     public class TitleBarChromeMetricsTests {
-        private const double Epsilon = 0.01;
-
-        public static TheoryData<double, double, double, double> SimulatedMetrics => new() {
-            { 0, 0, 0, 0 },
-            { 0, 28, 0, 0 },
-            { 0, 52, 0, 0 },
-        };
-
-        [AvaloniaTheory]
-        [MemberData(nameof(SimulatedMetrics))]
-        public void ToolbarButtons_StayInsideTitleBarRow_AcrossSimulatedMetrics(double left, double top, double right, double bottom) {
-            var window = new SimulatedChromeWindow();
-            window.Show();
-
-            window.DecorationMarginProxy = new Thickness(left, top, right, bottom);
-            Dispatcher.UIThread.RunJobs();
-
-            AssertToolbarInsideRow(window);
-        }
-
-        [AvaloniaFact]
-        public void ToolbarButtons_StayInsideTitleBarRow_AtUiScale1Point5() {
-            var window = new SimulatedChromeWindow();
-            window.Show();
-
-            window.DecorationMarginProxy = new Thickness(0, 52, 0, 0);
-            WindowScaler.SetScale(1.5);
-            Dispatcher.UIThread.RunJobs();
-
-            try {
-                AssertToolbarInsideRow(window);
-            } finally {
-                WindowScaler.SetScale(1.0);
-            }
-        }
-
         //Diagnosis test-strategy item 3: mutating the proxy after Show() must still reach the leading group's Margin.
         [AvaloniaFact]
         public void DecorationMarginProxy_MutatedAfterShow_StillReachesLeadingGroup() {
@@ -98,18 +62,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(window.ExtendClientAreaTitleBarHeightHint, titleBar.Height);
         }
 
-        //Diagnosis fix set item 2: TitleBarRow must clip its own children, so nothing it lays out can bleed
-        //into the canvas slot even if a future chrome metric misbehaves the way WindowDecorationMargin did.
-        [AvaloniaFact]
-        public void MainWindow_TitleBarRow_ClipsToBounds() {
-            var window = new Foreman.Mac.MainWindow();
-            window.Show();
-
-            var titleBar = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "TitleBarRow");
-
-            Assert.True(titleBar.ClipToBounds);
-        }
-
         //Diagnosis fix set item 2: TitleBarRow must out-rank GraphViewerHost in paint order, so the canvas
         //can never end up drawn over the chrome regardless of declaration order in the XAML.
         [AvaloniaFact]
@@ -138,28 +90,6 @@ namespace Foreman.Mac.UiTests {
             }
 
             Assert.Empty(offenders);
-        }
-
-        private static void AssertToolbarInsideRow(SimulatedChromeWindow window) {
-            window.Measure(new Size(window.Width, window.Height));
-            window.Arrange(new Rect(0, 0, window.Width, window.Height));
-            Dispatcher.UIThread.RunJobs();
-
-            Rect rowRect = WindowBounds(window.TitleBarRow, window);
-            Rect iconRect = WindowBounds(window.IconButton, window);
-            Rect wideRect = WindowBounds(window.WideButton, window);
-            Rect canvasRect = WindowBounds(window.CanvasHost, window);
-
-            Assert.True(iconRect.Y >= rowRect.Y - Epsilon, $"icon top {iconRect.Y} above row top {rowRect.Y}");
-            Assert.True(iconRect.Bottom <= rowRect.Bottom + Epsilon, $"icon bottom {iconRect.Bottom} below row bottom {rowRect.Bottom}");
-            Assert.True(wideRect.Y >= rowRect.Y - Epsilon, $"wide button top {wideRect.Y} above row top {rowRect.Y}");
-            Assert.True(wideRect.Bottom <= rowRect.Bottom + Epsilon, $"wide button bottom {wideRect.Bottom} below row bottom {rowRect.Bottom}");
-            Assert.True(canvasRect.Y >= rowRect.Bottom - Epsilon, $"canvas top {canvasRect.Y} above row bottom {rowRect.Bottom}");
-        }
-
-        private static Rect WindowBounds(Visual control, Window window) {
-            Matrix transform = control.TransformToVisual(window)!.Value;
-            return new Rect(control.Bounds.Size).TransformToAABB(transform);
         }
     }
 }

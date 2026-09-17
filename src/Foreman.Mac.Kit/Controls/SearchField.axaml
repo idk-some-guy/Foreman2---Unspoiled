@@ -57,7 +57,7 @@
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="{TemplateBinding CornerRadius}" />
-          <Grid ColumnDefinitions="Auto,*,Auto" Margin="{TemplateBinding Padding}">
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="{TemplateBinding Padding}">
             <Panel Grid.Column="0">
               <Viewbox x:Name="PART_LeadingGlyphBox"
                        Width="{DynamicResource Foreman.Size.SearchFieldGlyph}"
@@ -102,7 +102,17 @@
                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
               </ScrollViewer>
             </Panel>
-            <Button Grid.Column="2"
+            <TextBlock Grid.Column="2"
+                       x:Name="PART_MatchStatus"
+                       Foreground="{DynamicResource Foreman.Color.TextTertiary}"
+                       FontSize="{DynamicResource Foreman.Type.Caption.FontSize}"
+                       FontWeight="{DynamicResource Foreman.Type.Caption.FontWeight}"
+                       FontFeatures="tnum"
+                       Margin="6,0,2,0"
+                       VerticalAlignment="Center"
+                       IsHitTestVisible="False"
+                       IsVisible="False" />
+            <Button Grid.Column="3"
                     x:Name="PART_Clear"
                     Theme="{StaticResource Kit.SearchFieldClearButton}"
                     Width="{DynamicResource Foreman.Size.Glyph16}"
@@ -123,6 +133,11 @@
 
     <Style Selector="^:not(:empty) /template/ TextBlock#PART_Placeholder">
       <Setter Property="IsVisible" Value="False" />
+    </Style>
+
+    <!-- Find node ruling §04: "No matches" reads one step brighter, the answer rather than an index. -->
+    <Style Selector="^:match-status-none /template/ TextBlock#PART_MatchStatus">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
     </Style>
 
     <Style Selector="^:pointerover:not(.flush) /template/ Border#PART_BorderElement">

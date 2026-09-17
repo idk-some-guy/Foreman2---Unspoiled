@@ -38,7 +38,17 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Empty(onlyInLight);
             Assert.Empty(onlyInDark);
-            Assert.Equal(275, lightKeys.Count);
+            Assert.Equal(276, lightKeys.Count);
+        }
+
+        //Ruling §06 token 1: the find ring is Accent at 55 % dark / 50 % light, never NodeSelected amber or the 16 % AccentSoft fill.
+        [AvaloniaFact]
+        public void FindMatchRing_CarriesTheRuledHexInBothThemes() {
+            var light = LoadThemeFile("Tokens.Light.axaml");
+            var dark = LoadThemeFile("Tokens.Dark.axaml");
+
+            Assert.Equal(Color.Parse("#80007AFF"), Assert.IsType<Color>(light["Foreman.Color.FindMatchRing"]));
+            Assert.Equal(Color.Parse("#8C0A84FF"), Assert.IsType<Color>(dark["Foreman.Color.FindMatchRing"]));
         }
 
         //The semantic rebind adds these on top of the existing 25 colour keys, and renames Selection to

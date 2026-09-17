@@ -87,10 +87,9 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         }
 
         [AvaloniaFact]
-        public void Apply_AtOneFifty_MultipliesToolbarItemHeightAndTheCanvasBridgeTokens() {
+        public void Apply_AtOneFifty_MultipliesTheCanvasBridgeTokens() {
             ScaleContract.Apply(1.5);
 
-            Assert.Equal(39.0, ResourceDouble("Foreman.Size.ToolbarItem"));
             Assert.Equal(12.0, ResourceDouble("Foreman.Size.NodePadding"));
             Assert.Equal(15.0, ResourceDouble("Foreman.Type.Canvas.FontSize"));
         }
@@ -103,6 +102,15 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             Assert.Equal(25.5, ResourceDouble("Foreman.Size.Glyph17"));
             Assert.Equal(27.0, ResourceDouble("Foreman.Size.Glyph18"));
             Assert.Equal(30.0, ResourceDouble("Foreman.Size.Glyph20"));
+        }
+
+        //The count floor is the third stop on the search field's own width ramp and the pan inset is in the same screen points, so both ride the scale with it.
+        [AvaloniaFact]
+        public void Apply_AtOneFifty_MultipliesTheFindNodeMetrics() {
+            ScaleContract.Apply(1.5);
+
+            Assert.Equal(252.0, ResourceDouble("Foreman.Metrics.SearchFieldCountFloor"));
+            Assert.Equal(120.0, ResourceDouble("Foreman.Metrics.FindPanMargin"));
         }
 
         [AvaloniaFact]

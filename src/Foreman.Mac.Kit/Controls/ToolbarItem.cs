@@ -1,4 +1,7 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Media;
@@ -17,6 +20,10 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<bool> IsOnProperty =
             AvaloniaProperty.Register<ToolbarItem, bool>(nameof(IsOn));
 
+        //Full command name for VoiceOver, separate from the (possibly truncated) visible Label; falls back to Label.
+        public static readonly StyledProperty<string?> AutomationNameProperty =
+            AvaloniaProperty.Register<ToolbarItem, string?>(nameof(AutomationName));
+
         private TextBlock? label;
         private IDisposable? labelOpacitySub;
         private NotifyCollectionChangedEventHandler? classesChanged;
@@ -27,6 +34,8 @@ namespace Foreman.Mac.Kit.Controls {
 
         static ToolbarItem() {
             IsOnProperty.Changed.AddClassHandler<ToolbarItem>((item, e) => item.PseudoClasses.Set(":on", (bool)e.NewValue!));
+            AutomationNameProperty.Changed.AddClassHandler<ToolbarItem>((item, _) => item.SyncAutomationName());
+            LabelProperty.Changed.AddClassHandler<ToolbarItem>((item, _) => item.SyncAutomationName());
         }
 
         public Geometry? Glyph {
@@ -42,6 +51,28 @@ namespace Foreman.Mac.Kit.Controls {
         public bool IsOn {
             get => GetValue(IsOnProperty);
             set => SetValue(IsOnProperty, value);
+        }
+
+        public string? AutomationName {
+            get => GetValue(AutomationNameProperty);
+            set => SetValue(AutomationNameProperty, value);
+        }
+
+        private void SyncAutomationName() => AutomationProperties.SetName(this, AutomationName ?? Label);
+
+        internal void PerformClick() => OnClick();
+
+        protected override AutomationPeer OnCreateAutomationPeer() => new ToolbarItemAutomationPeer(this);
+
+        private sealed class ToolbarItemAutomationPeer(ToolbarItem owner) : ControlAutomationPeer(owner), IInvokeProvider, IToggleProvider {
+            private ToolbarItem Item => (ToolbarItem)Owner;
+
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Button;
+
+            void IInvokeProvider.Invoke() => Item.PerformClick();
+
+            ToggleState IToggleProvider.ToggleState => Item.IsOn ? ToggleState.On : ToggleState.Off;
+            void IToggleProvider.Toggle() { }
         }
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {

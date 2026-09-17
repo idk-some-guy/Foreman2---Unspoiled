@@ -88,6 +88,21 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(typeof(ToolbarRow), KitToolbarRowTheme().TargetType);
         }
 
+        //Rebuild applies Kit.ToolbarItem itself, so a consumer that forgets Theme doesn't fall back to the stock Fluent Button template and arrange at 0x0.
+        [AvaloniaFact]
+        public void Rebuild_AppliesKitToolbarItemTheme_ToUnthemedItems() {
+            using var fixture = new KitFixture();
+            var row = new ToolbarRow { Theme = KitToolbarRowTheme(), Title = "Untitled graph" };
+            var unthemed = new ToolbarItem { Label = "New" };
+            row.Groups.Add(new ToolbarGroup { Role = ToolbarGroupRole.Document, Items = [unthemed] });
+            Shown(row, 900);
+
+            Assert.Same(KitToolbarItemTheme(), unthemed.Theme);
+            Application.Current!.TryGetResource("Foreman.Size.ToolbarItemHeight", Application.Current.ActualThemeVariant, out object? height);
+            Assert.Equal(Assert.IsType<double>(height), unthemed.Bounds.Height);
+            Assert.NotEqual(0, unthemed.Bounds.Width);
+        }
+
         [AvaloniaFact]
         public void Height_ResolvesToolbarRowHeight() {
             using var fixture = new KitFixture();

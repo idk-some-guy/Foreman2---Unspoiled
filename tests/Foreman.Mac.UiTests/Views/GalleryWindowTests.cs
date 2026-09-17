@@ -112,7 +112,7 @@ namespace Foreman.Mac.UiTests.Views {
             var window = new GalleryWindow(cache, new AppSettings());
 
             Assert.Equal(
-                ["QualityPicker", "Toolbar / Titlebar", "View Options popover", "Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows",
+                ["QualityPicker", "View Options popover", "Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows",
                  "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)",
                  "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)",
                  "Checkbox", "Radio group", "Switch — Settings only (A16)", "Checkbox, Radio group & Switch (150%)",
@@ -445,14 +445,10 @@ namespace Foreman.Mac.UiTests.Views {
             window.Show();
 
             string[] captions = [.. window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
-            Assert.Contains("Toolbar / Titlebar", captions);
             Assert.Contains("View Options popover", captions);
             Assert.Contains("Graph Summary rows", captions);
             Assert.Contains("Preset Comparator rows", captions);
             Assert.Contains("Enabled Objects rows", captions);
-
-            Assert.Contains(window.GetVisualDescendants().OfType<Button>(), b => b.Classes.Contains("foreman-toolbar-icon"));
-            Assert.Contains(window.GetVisualDescendants().OfType<Button>(), b => b.Classes.Contains("foreman-toolbar-wide"));
         }
 
         //The toggle is the gate tool's whole point (task-6-brief: "genuinely useful for eyeballing both

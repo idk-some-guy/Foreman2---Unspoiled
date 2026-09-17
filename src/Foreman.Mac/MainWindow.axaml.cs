@@ -1,9 +1,14 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -15,6 +20,8 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
@@ -27,6 +34,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
@@ -41,6 +49,8 @@ namespace Foreman.Mac {
         //toolbar and the native menu (see Bind/MenuItem below).
         public IRelayCommand ZoomInCommand { get; }
         public IRelayCommand ZoomOutCommand { get; }
+        //The readout-click command (contract #toolbar's zoom stepper), shared the same way ZoomIn/Out are.
+        public IRelayCommand ActualSizeCommand { get; }
         public ContentControl GraphViewerHost { get; }
         public GraphCanvasControl GraphCanvas { get; }
         public InspectorView Inspector { get; }
@@ -50,6 +60,17 @@ namespace Foreman.Mac {
         public SettingsService? SettingsService { get; set; }
 
         private readonly WindowMinSizeScale minSizeScale;
+        private readonly ToolbarRow toolbar;
+        private ToolbarItem viewOptionsItem = null!;
+        private ToolbarItem saveItem = null!;
+        private bool documentEdited;
+        private int searchMatchIndex = -1;
+        private List<BaseNodeElement> searchMatches = [];
+        private readonly SearchAnnouncer searchAnnouncer = new() { Name = "SearchAnnouncer", Opacity = 0, Width = 0, Height = 0, IsHitTestVisible = false };
+
+        //Test-only seam: the built toolbar row, its search field and zoom stepper.
+        internal ToolbarRow Toolbar => toolbar;
+        internal bool DocumentEdited => documentEdited;
 
         //One "Add to Graph" browser for the window's lifetime; BrowseRequested reopens/reseeds it.
         private AddBrowserWindow? browser;
@@ -127,8 +148,10 @@ namespace Foreman.Mac {
             Inspector = this.FindControl<InspectorView>("Inspector")!;
             Inspector.Viewer = GraphCanvas.Viewer;
             Inspector.RequestRedraw = () => GraphCanvas.InvalidateVisual();
+            toolbar = this.FindControl<ToolbarRow>("Toolbar")!;
             ZoomInCommand = new RelayCommand(MenuZoomIn);
             ZoomOutCommand = new RelayCommand(MenuZoomOut);
+            ActualSizeCommand = new RelayCommand(MenuActualSize);
             Commands = new ShellViewModel(
                 onNew: () => Async.Fire(NewGraphAsync(), nameof(NewGraphAsync)),
                 onLoad: () => Async.Fire(LoadGraphAsync(), nameof(LoadGraphAsync)),
@@ -159,6 +182,12 @@ namespace Foreman.Mac {
             ViewModel.PropertyChanged += (_, e) => {
                 if (e.PropertyName == nameof(MainWindowViewModel.IsInspectorVisible))
                     Inspector.IsVisible = ViewModel.IsInspectorVisible;
+                else if (e.PropertyName == nameof(MainWindowViewModel.DocumentTitle))
+                    toolbar.Title = ViewModel.DocumentTitle;
+                else if (e.PropertyName == nameof(MainWindowViewModel.IsDirty)) {
+                    saveItem.IsOn = ViewModel.IsDirty;
+                    ApplyDocumentEditedState(ViewModel.IsDirty);
+                }
             };
 
             //Task 8 (contract #toolbar's Save .on dirty-tint state): one genuine graph-mutated signal -
@@ -167,7 +196,9 @@ namespace Foreman.Mac {
             //solve too, so Save lit up with nothing to save - a UI hint only, never the close-confirmation gate.
             GraphCanvas.Viewer.Session.GraphMutated += (_, _) => ViewModel.IsDirty = true;
 
-            BindToolbarButtons();
+            BuildToolbarRow();
+            this.FindControl<Grid>("TitleBarRow")!.Children.Add(searchAnnouncer);
+            toolbar.Title = ViewModel.DocumentTitle;
             GraphCanvas.KeyDown += OnGraphCanvasKeyDown;
             //Fix round 1: mouse-wheel zoom is the one ViewScale-changing path that bypasses every
             //ResyncZoomLabel call site below (MenuZoomIn/Out/ActualSize/FitToGraph, ApplyLoadedGraphUiState),
@@ -191,6 +222,282 @@ namespace Foreman.Mac {
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+        //v2 §02: document -> add -> arrange -> share/view; Settings stays app-menu-only (no gear).
+        private void BuildToolbarRow() {
+            saveItem = ToolbarButton("SaveButton", "Save", "Save", Commands.SaveCommand, acceleratorKey: "⌘S");
+            toolbar.Groups.Add(new ToolbarGroup {
+                Role = ToolbarGroupRole.Document,
+                Items = [
+                    ToolbarButton("NewGraphButton", "New", "New", Commands.NewCommand, automationName: "New Graph", acceleratorKey: "⌘N"),
+                    ToolbarButton("LoadGraphButton", "Open", "Load", Commands.LoadCommand, acceleratorKey: "⌘O"),
+                    saveItem,
+                ],
+            });
+            toolbar.Groups.Add(new ToolbarGroup {
+                Role = ToolbarGroupRole.Add,
+                Items = [
+                    ToolbarButton("AddItemButton", "Item", "Item", Commands.AddItemCommand, automationName: "Add Item"),
+                    ToolbarButton("AddRecipeButton", "Recipe", "Recipe", Commands.AddRecipeCommand, automationName: "Add Recipe"),
+                ],
+            });
+            toolbar.Groups.Add(new ToolbarGroup {
+                Role = ToolbarGroupRole.Arrange,
+                Items = [
+                    ToolbarButton("AutoconnectButton", "Connect", "Autoconnect", Commands.AutoconnectCommand),
+                    ToolbarButton("AlignSelectionButton", "Align", "Align", Commands.AlignSelectionCommand, automationName: "Align Selected"),
+                ],
+            });
+            viewOptionsItem = ToolbarButton("ViewOptionsButton", "View", "View Options", ViewModel.ToggleViewOptionsCommand);
+            toolbar.Groups.Add(new ToolbarGroup {
+                Role = ToolbarGroupRole.ShareView,
+                Items = [
+                    ToolbarButton("ExportImageButton", "Export", "Export", Commands.ExportImageCommand, automationName: "Export Image", acceleratorKey: "⇧⌘E"),
+                    ToolbarButton("GraphSummaryButton", "Summary", "Summary", Commands.GraphSummaryCommand, automationName: "Graph Summary"),
+                    viewOptionsItem,
+                ],
+            });
+
+            toolbar.SearchField.PlaceholderText = "Find node";
+            AutomationProperties.SetName(toolbar.SearchField, "Find node");
+            toolbar.SearchField.TextChanged += (_, _) => ResetSearchMatches();
+            GraphCanvas.Viewer.Session.GraphMutated += (_, _) => RecomputeSearchMatchesOnGraphChange();
+            toolbar.SearchField.SearchCommitted += (_, _) => StepSearchMatch(forward: true);
+            toolbar.SearchField.SearchCommittedBackward += (_, _) => StepSearchMatch(forward: false);
+            toolbar.ZoomStepper.ActualSizeCommand = ActualSizeCommand;
+            toolbar.ZoomStepper.ZoomInCommand = ZoomInCommand;
+            toolbar.ZoomStepper.ZoomOutCommand = ZoomOutCommand;
+
+            this.FindControl<Popup>("ViewOptionsPopover")!.PlacementTarget = viewOptionsItem;
+        }
+
+        //AutomationName carries the full command name for VoiceOver; acceleratorKey is the command's own menu-bar shortcut, when it has one.
+        private static ToolbarItem ToolbarButton(string name, string glyphName, string label, IRelayCommand command, string? automationName = null, string? acceleratorKey = null) {
+            var item = new ToolbarItem { Name = name, Glyph = ToolbarGlyph(glyphName), Label = label, AutomationName = automationName, Command = command, IsEnabled = command.CanExecute(null) };
+            if (acceleratorKey is not null)
+                AutomationProperties.SetAcceleratorKey(item, acceleratorKey);
+            command.CanExecuteChanged += (_, _) => item.IsEnabled = command.CanExecute(null);
+            return item;
+        }
+
+        private static Geometry? ToolbarGlyph(string name) =>
+            Application.Current?.TryGetResource($"Kit.Glyph.{name}.17", null, out object? geometry) == true ? geometry as Geometry : null;
+
+        //Best-effort real AppKit affordance for A21 (unsaved state is the close button's dot, never title text).
+        private void ApplyDocumentEditedState(bool isDirty) {
+            documentEdited = isDirty;
+            if (OperatingSystem.IsMacOS() && TryGetPlatformHandle() is { HandleDescriptor: "NSWindow" } handle)
+                NativeWindowChrome.SetDocumentEdited(handle.Handle, isDirty);
+        }
+
+        //Raw P/Invoke, not LibraryImport: CA2101's source-generated marshalling needs AllowUnsafeBlocks project-wide.
+        private static class NativeWindowChrome {
+            [DllImport("/usr/lib/libobjc.dylib")]
+            private static extern IntPtr sel_registerName(IntPtr name);
+
+            [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+            private static extern void SendBool(IntPtr receiver, IntPtr selector, bool value);
+
+            internal static void SetDocumentEdited(IntPtr nsWindow, bool edited) {
+                IntPtr selector = Marshal.StringToHGlobalAnsi("setDocumentEdited:");
+                try {
+                    SendBool(nsWindow, sel_registerName(selector), edited);
+                } finally {
+                    Marshal.FreeHGlobal(selector);
+                }
+            }
+        }
+
+        //⌘F/⌘G/⇧⌘G reach the search field regardless of focus (v2 §02); ⌘. is command-only cancel-in-flight, no LP-solve producer wired yet (§14 ruling 4).
+        protected override void OnKeyDown(KeyEventArgs e) {
+            if (e.Key == Key.F && e.KeyModifiers == PlatformModifiers.Primary) {
+                toolbar.SearchField.Focus();
+                toolbar.SearchField.SelectAll();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.G && e.KeyModifiers == PlatformModifiers.Primary) {
+                StepSearchMatch(forward: true);
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.G && e.KeyModifiers == (PlatformModifiers.Primary | KeyModifiers.Shift)) {
+                StepSearchMatch(forward: false);
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.OemPeriod && e.KeyModifiers == PlatformModifiers.Primary && toolbar.ZoomStepper.IsSolving) {
+                toolbar.ZoomStepper.IsSolving = false;
+                e.Handled = true;
+                return;
+            }
+            base.OnKeyDown(e);
+        }
+
+        //Find node ruling §01: matches each node's drawn name (recipe/item FriendlyName, or "<name> Spoilage"/"<name> Planting") plus KeyNodeTitle on key nodes; type banners, assembler/module names, item tabs and annotations are never in NodeElements, so they're excluded for free.
+        internal static string? DrawnName(BaseNodeElement node) => node.ViewModel switch {
+            IRecipeNodeViewModel r => r.BaseRecipe.FriendlyName,
+            ISupplierNodeViewModel s => s.SuppliedItem.FriendlyName,
+            IConsumerNodeViewModel c => c.ConsumedItem.FriendlyName,
+            IPassthroughNodeViewModel p => p.PassthroughItem.FriendlyName,
+            ISpoilNodeViewModel sp => sp.InputItem.FriendlyName is string n ? n + " Spoilage" : null,
+            IPlantNodeViewModel pl => pl.Seed.FriendlyName is string n ? n + " Planting" : null,
+            _ => null,
+        };
+
+        //Trimmed, substring, culture-aware case-insensitive per §01; an all-whitespace query matches nothing.
+        internal static bool MatchesSearchQuery(BaseNodeElement node, string query) {
+            string trimmed = query.Trim();
+            if (trimmed.Length == 0)
+                return false;
+            return (DrawnName(node) is string name && name.Contains(trimmed, StringComparison.CurrentCultureIgnoreCase)) ||
+                (node.ViewModel.KeyNode && node.ViewModel.KeyNodeTitle.Contains(trimmed, StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        //Order (centre Y, centre X, id): a node's own Location is already its centre, so no extra bounds math is needed to rank matches.
+        private List<BaseNodeElement> OrderedSearchMatches(string query) =>
+            [.. GraphCanvas.Viewer.NodeElements
+                .Where(n => MatchesSearchQuery(n, query))
+                .OrderBy(n => n.Location.Y).ThenBy(n => n.Location.X).ThenBy(n => n.ViewModel.Id.Value)];
+
+        private static System.Drawing.Rectangle WorldBounds(BaseNodeElement node) =>
+            new(node.Location.X - node.Width / 2, node.Location.Y - node.Height / 2, node.Width, node.Height);
+
+        //The first match at or after a graph point, in the same (Y, X) order OrderedSearchMatches ranks by.
+        private int FirstSearchMatchIndexAtOrAfter(System.Drawing.Point point) {
+            for (int i = 0; i < searchMatches.Count; i++) {
+                System.Drawing.Point at = searchMatches[i].Location;
+                if (at.Y > point.Y || (at.Y == point.Y && at.X >= point.X))
+                    return i;
+            }
+            return -1;
+        }
+
+        //Find node ruling §03 row 1: the current selection, else the viewport centre, else the first match.
+        private int AnchorSearchMatchIndex() {
+            if (searchMatches.Count == 0)
+                return -1;
+            if (GraphCanvas.Viewer.SelectedNodes.Count == 1) {
+                int atSelection = FirstSearchMatchIndexAtOrAfter(GraphCanvas.Viewer.SelectedNodes.First().Location);
+                if (atSelection >= 0)
+                    return atSelection;
+            }
+            System.Drawing.Point centre = GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2));
+            int atCentre = FirstSearchMatchIndexAtOrAfter(centre);
+            return atCentre >= 0 ? atCentre : 0;
+        }
+
+        private static double FindPanMarginPoints() =>
+            Application.Current?.TryGetResource("Foreman.Metrics.FindPanMargin", null, out object? value) == true && value is double d ? d : 80;
+
+        //Find node ruling §02: the current match is the canvas selection, panned into view only if needed, never zoomed.
+        private void SelectCurrentSearchMatch() {
+            BaseNodeElement match = searchMatches[searchMatchIndex];
+            GraphCanvas.Viewer.SetSelection([match]);
+            GraphCanvas.PanIntoView(WorldBounds(match), FindPanMarginPoints());
+            GraphCanvas.RequestRedraw();
+        }
+
+        //Find node ruling §03 rows 1-2: the current match is set the moment the query first produces matches, never a silent reset to 1; a node that is still current after an edit stays current, renumbered.
+        private void ResetSearchMatches() {
+            string query = toolbar.SearchField.Text ?? "";
+            BaseNodeElement? wasCurrent = searchMatchIndex >= 0 && searchMatchIndex < searchMatches.Count ? searchMatches[searchMatchIndex] : null;
+
+            searchMatches = string.IsNullOrWhiteSpace(query) ? [] : OrderedSearchMatches(query);
+            int stillCurrent = wasCurrent is null ? -1 : searchMatches.IndexOf(wasCurrent);
+            searchMatchIndex = searchMatches.Count == 0 ? -1 : stillCurrent >= 0 ? stillCurrent : AnchorSearchMatchIndex();
+
+            if (searchMatchIndex >= 0)
+                SelectCurrentSearchMatch();
+            UpdateSearchMatchStatus();
+            ScheduleSearchResultAnnouncement(query);
+        }
+
+        //Find node ruling §03 "Graph changes mid-find": a node added, deleted or renamed recomputes the run, so the count never outlives its nodes; the index only re-selects when the node it pointed at is gone.
+        private void RecomputeSearchMatchesOnGraphChange() {
+            string query = toolbar.SearchField.Text ?? "";
+            if (string.IsNullOrWhiteSpace(query))
+                return;
+
+            BaseNodeElement? wasCurrent = searchMatchIndex >= 0 && searchMatchIndex < searchMatches.Count ? searchMatches[searchMatchIndex] : null;
+            int wasIndex = searchMatchIndex;
+            searchMatches = OrderedSearchMatches(query);
+            int stillCurrent = wasCurrent is null ? -1 : searchMatches.IndexOf(wasCurrent);
+            searchMatchIndex = searchMatches.Count == 0 ? -1
+                : stillCurrent >= 0 ? stillCurrent
+                : wasIndex < 0 || wasIndex >= searchMatches.Count ? 0
+                : wasIndex;
+
+            if (searchMatchIndex >= 0 && stillCurrent < 0)
+                SelectCurrentSearchMatch();
+            UpdateSearchMatchStatus();
+        }
+
+        //⌘G/Return and ⇧⌘G/⇧Return wrap both ways silently; the count going from "3 of 3" to "1 of 3" is the only feedback.
+        private void StepSearchMatch(bool forward) {
+            if (searchMatches.Count == 0)
+                return;
+
+            //The step is the answer to the step: the query's pending summary would otherwise land on top of it.
+            searchAnnounceTimer?.Stop();
+            int next = searchMatchIndex + (forward ? 1 : -1);
+            bool wrapped = next < 0 || next >= searchMatches.Count;
+            searchMatchIndex = ((next % searchMatches.Count) + searchMatches.Count) % searchMatches.Count;
+
+            SelectCurrentSearchMatch();
+            UpdateSearchMatchStatus();
+            AnnounceSearchStep(searchMatches[searchMatchIndex], wrapped, forward);
+        }
+
+        //Find node ruling §04: the field's only three states are empty, "No matches", and "n of N".
+        private void UpdateSearchMatchStatus() {
+            string query = toolbar.SearchField.Text ?? "";
+            toolbar.SearchField.MatchStatus = string.IsNullOrWhiteSpace(query) ? null
+                : searchMatches.Count == 0 ? "No matches"
+                : string.Create(DisplayCulture.Format, $"{searchMatchIndex + 1} of {searchMatches.Count}");
+        }
+
+        private static string MatchCountLabel(int count) => count == 1 ? "1 match" : string.Create(DisplayCulture.Format, $"{count} matches");
+
+        //Find node ruling §05: DispatcherTimer, not Task.Delay - a delay outliving its window fires on another test's UI thread.
+        private static readonly TimeSpan SearchAnnounceDebounce = TimeSpan.FromMilliseconds(300);
+        private DispatcherTimer? searchAnnounceTimer;
+
+        private void ScheduleSearchResultAnnouncement(string query) {
+            searchAnnounceTimer?.Stop();
+            if (string.IsNullOrWhiteSpace(query))
+                return;
+            searchAnnounceTimer = RestartTimer(searchAnnounceTimer, (_, _) => Announce(searchMatches.Count == 0 ? "No matches" : MatchCountLabel(searchMatches.Count)));
+        }
+
+        private static DispatcherTimer RestartTimer(DispatcherTimer? timer, EventHandler onElapsed) {
+            if (timer is null) {
+                timer = new DispatcherTimer { Interval = SearchAnnounceDebounce };
+                timer.Tick += onElapsed;
+            }
+            timer.Stop();
+            timer.Start();
+            return timer;
+        }
+
+        //Find node ruling §05: the wrap announcement names the direction, the only place wrap is signalled to VoiceOver.
+        private void AnnounceSearchStep(BaseNodeElement match, bool wrapped, bool forward) {
+            string name = DrawnName(match) ?? match.ViewModel.KeyNodeTitle;
+            string text = string.Create(DisplayCulture.Format, $"{searchMatchIndex + 1} of {searchMatches.Count}, {name}");
+            Announce(wrapped ? (forward ? "Wrapped to first match. " : "Wrapped to last match. ") + text : text);
+        }
+
+        private void Announce(string text) => AutomationProperties.SetName(searchAnnouncer, text);
+
+        //Visually hidden live region for search-result announcements, separate from the field's own accessible name ("Find node").
+        private sealed class SearchAnnouncer : TextBlock {
+            protected override AutomationPeer OnCreateAutomationPeer() => new AnnouncerAutomationPeer(this);
+
+            private sealed class AnnouncerAutomationPeer(SearchAnnouncer owner) : ControlAutomationPeer(owner) {
+                protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Text;
+                protected override AutomationLiveSetting GetLiveSettingCore() => AutomationLiveSetting.Polite;
+            }
+        }
 
         //The canvas has no DynamicResource of its own to pick up a live theme (System mode's OS flip),
         //accent, contrast, or scale change, so it re-seeds here on every AppearanceHub notification.
@@ -1055,23 +1362,6 @@ namespace Foreman.Mac {
             GraphCanvas.RequestRedraw();
         }
 
-        //Task 4: Save As/Import Graph/Help move to menu-bar-only per contract #toolbar's action mapping
-        //(BuildNativeMenu already wires all three) - the toolbar keeps the ten highest-frequency commands.
-        private void BindToolbarButtons() {
-            Bind("NewGraphButton", Commands.NewCommand);
-            Bind("LoadGraphButton", Commands.LoadCommand);
-            Bind("SaveButton", Commands.SaveCommand);
-            Bind("ExportImageButton", Commands.ExportImageCommand);
-            Bind("AddItemButton", Commands.AddItemCommand);
-            Bind("AddRecipeButton", Commands.AddRecipeCommand);
-            Bind("AutoconnectButton", Commands.AutoconnectCommand);
-            Bind("SettingsButton", Commands.SettingsCommand);
-            Bind("GraphSummaryButton", Commands.GraphSummaryCommand);
-            Bind("AlignSelectionButton", Commands.AlignSelectionCommand);
-            Bind("ZoomOutButton", ZoomOutCommand);
-            Bind("ZoomInButton", ZoomInCommand);
-        }
-
         //Ports GraphViewer_KeyDown's Space handler (reference §7): a separate subscription on the canvas
         //control's own KeyDown event, alongside (not inside) GraphCanvasControl's own OnKeyDown override -
         //mirrors upstream attaching this as MainForm's own delegate rather than folding it into
@@ -1089,15 +1379,6 @@ namespace Foreman.Mac {
             this.FindControl<CheckBox>("GridlinesCheckbox")!.IsChecked = GraphCanvas.Grid.ShowGrid;
             GraphCanvas.InvalidateVisual();
             e.Handled = true;
-        }
-
-        private void Bind(string buttonName, IRelayCommand command) {
-            var button = this.FindControl<Button>(buttonName)!;
-            button.Command = command;
-            button.IsEnabled = command.CanExecute(null);
-            //Task 7: Align Selected is the first of these ten with a CanExecute that actually changes at
-            //runtime (selection-driven) - Button.Command alone doesn't keep IsEnabled live, so this does.
-            command.CanExecuteChanged += (_, _) => button.IsEnabled = command.CanExecute(null);
         }
 
         //Test-only seam: counts genuine BeginMoveDrag requests raised by OnTitleBarPointerPressed below, so
@@ -1156,10 +1437,7 @@ namespace Foreman.Mac {
                 items[i].IsChecked = i == selectedIndex;
         }
 
-        //Native menu action handlers backing the items BuildNativeMenu wires below (contract #menubar). Kept
-        //as plain methods rather than new ShellViewModel commands so ShellViewModel's own 13-command surface
-        //(Task 4's AllThirteenCommands_AreReachableFromToolbarOrNativeMenu) stays untouched - none of these
-        //are toolbar-shared the way the existing 13 are.
+        //Native menu action handlers (contract #menubar), plain methods rather than ShellViewModel commands since none of them is toolbar-shared.
         private void MenuCut() { GraphCanvas.CutSelection(); GraphCanvas.RequestRedraw(); }
 
         private void MenuCopy() => GraphCanvas.CopySelection();
@@ -1200,7 +1478,7 @@ namespace Foreman.Mac {
         //from ApplyLoadedGraphUiState (a load restores the save's own ViewScale), and from the constructor's
         //GraphCanvas.ViewScaleChanged subscription for mouse-wheel zoom (fix round 1).
         private void ResyncZoomLabel() =>
-            this.FindControl<TextBlock>("ZoomValueLabel")!.Text = $"{(int)Math.Round(GraphCanvas.Viewport.ViewScale * 100)}%";
+            toolbar.ZoomStepper.Value = Math.Round(GraphCanvas.Viewport.ViewScale * 100);
 
         //Mirrors OnGraphCanvasKeyDown's own Space handler (reference §7): mutates Grid/Viewer/Settings and the
         //popover control's displayed value directly, rather than only flipping the control and trusting
@@ -1374,7 +1652,7 @@ namespace Foreman.Mac {
             pauseCalculationsMenuItem = new NativeMenuItem("Pause All Calculations") {
                 ToggleType = MenuItemToggleType.CheckBox,
                 IsChecked = this.FindControl<CheckBox>("PauseUpdatesCheckbox")!.IsChecked == true,
-                Gesture = new KeyGesture(Key.OemPeriod, PlatformModifiers.Primary),
+                Gesture = new KeyGesture(Key.P, PlatformModifiers.Primary | KeyModifiers.Alt),
                 Command = new DeferredMenuCommand(new RelayCommand(MenuTogglePauseCalculations)),
             };
             showInspectorMenuItem = new NativeMenuItem("Show Inspector") {

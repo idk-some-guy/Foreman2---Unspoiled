@@ -2,29 +2,6 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <!-- Merged into Application.Resources via App.axaml's ResourceInclude, not a StyleInclude here - StaticResource can't cross a StyleInclude boundary to reach MainWindow.axaml. -->
 
-  <StreamGeometry x:Key="Foreman.Icon.New">M5.5,2.5 L14.5,2.5 A1.5,1.5 0 0,1 16,4 L16,16 A1.5,1.5 0 0,1 14.5,17.5 L5.5,17.5 A1.5,1.5 0 0,1 4,16 L4,4 A1.5,1.5 0 0,1 5.5,2.5 Z M7,13 h3 M12.5,10.5 v5</StreamGeometry>
-
-  <StreamGeometry x:Key="Foreman.Icon.Load">M3,6.5 a1.5,1.5 0 0,1 1.5,-1.5 h3 l1.5,1.7 H16 a1.5,1.5 0 0,1 1.5,1.5 v6.3 A1.5,1.5 0 0,1 16,16 H4.5 A1.5,1.5 0 0,1 3,14.5 Z</StreamGeometry>
-
-  <StreamGeometry x:Key="Foreman.Icon.Save">M4,3.5 h9 L17,6.7 v9.8 a1,1 0 0,1 -1,1 H4 a1,1 0 0,1 -1,-1 v-12 a1,1 0 0,1 1,-1 Z M6.5,3.5 V8 h6 V3.5 M6.5,16 v-4 h7 v4</StreamGeometry>
-
-  <StreamGeometry x:Key="Foreman.Icon.AddItem">M4.5,6 L11.5,6 A1.5,1.5 0 0,1 13,7.5 L13,14.5 A1.5,1.5 0 0,1 11.5,16 L4.5,16 A1.5,1.5 0 0,1 3,14.5 L3,7.5 A1.5,1.5 0 0,1 4.5,6 Z M15,9 v6 M12,12 h6</StreamGeometry>
-
-  <StreamGeometry x:Key="Foreman.Icon.AddRecipe">M2.8,10 A5.2,5.2 0 1,0 13.2,10 A5.2,5.2 0 1,0 2.8,10 Z M15,9 v6 M12,12 h6</StreamGeometry>
-
-  <StreamGeometry x:Key="Foreman.Icon.Autoconnect">M3,6 h5 l3,3 M11,9 l3,3 h3 M3,14 h5 l3,-3</StreamGeometry>
-
-  <StreamGeometry x:Key="Foreman.Icon.AlignSelected">M3,4 v12 M7,6 h9 M7,10 h6 M7,14 h9</StreamGeometry>
-
-  <StreamGeometry x:Key="Foreman.Icon.ExportImage">M10,3 v9 M6.5,8.5 L10,12 L13.5,8.5 M4,14.5 v1 a1,1 0 0,0 1,1 h10 a1,1 0 0,0 1,-1 v-1</StreamGeometry>
-
-  <StreamGeometry x:Key="Foreman.Icon.GraphSummary">M4,15.5 V9 M9,15.5 V4 M14,15.5 v-7</StreamGeometry>
-
-  <StreamGeometry x:Key="Foreman.Icon.ViewOptions">M4,5 h12 M4,10 h12 M4,15 h12</StreamGeometry>
-  <StreamGeometry x:Key="Foreman.Icon.ViewOptions.Fill">M6.6,5 A1.4,1.4 0 1,0 9.4,5 A1.4,1.4 0 1,0 6.6,5 Z M11.6,10 A1.4,1.4 0 1,0 14.4,10 A1.4,1.4 0 1,0 11.6,10 Z M5.6,15 A1.4,1.4 0 1,0 8.4,15 A1.4,1.4 0 1,0 5.6,15 Z</StreamGeometry>
-
-  <StreamGeometry x:Key="Foreman.Icon.Settings">M7.4,10 A2.6,2.6 0 1,0 12.6,10 A2.6,2.6 0 1,0 7.4,10 Z M10,3.5 v2 M10,14.5 v2 M3.5,10 h2 M14.5,10 h2 M5.6,5.6 l1.4,1.4 M13,13 l1.4,1.4 M5.6,14.4 L7,13 M13,7 l1.4,-1.4</StreamGeometry>
-
   <!-- Down-pointing chevron ribbon; every inspector disclosure/dropdown/stepper arrow rotates this one shape. -->
   <StreamGeometry x:Key="Foreman.Icon.Chevron">M1,1 L6,6 L11,1 L11,3.4 L6,8.4 L1,3.4 Z</StreamGeometry>
 

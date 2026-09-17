@@ -1,5 +1,8 @@
 using Avalonia;
 using Avalonia.Animation;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
@@ -15,6 +18,7 @@ using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
 using System;
 using System.Linq;
+using System.Windows.Input;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Controls {
@@ -431,6 +435,81 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             Assert.Equal(26, box.Bounds.Width);
             Assert.Equal(17, path.Bounds.Width);
+        }
+
+        [AvaloniaFact]
+        public void AutomationName_FallsBackToLabel_WhenUnset() {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("Item");
+            fixture.Window.Content = item;
+
+            Assert.Equal("Item", AutomationProperties.GetName(item));
+        }
+
+        [AvaloniaFact]
+        public void AutomationName_OverridesLabel_ForTheAccessibleName() {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("Item");
+            item.AutomationName = "Add Item";
+            fixture.Window.Content = item;
+
+            Assert.Equal("Add Item", AutomationProperties.GetName(item));
+        }
+
+        [AvaloniaFact]
+        public void AutomationPeer_ReportsToggledState_WhenIsOnIsTrue() {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("Save");
+            item.IsOn = true;
+            fixture.Window.Content = item;
+
+            var peer = (IToggleProvider)ControlAutomationPeer.CreatePeerForElement(item);
+
+            Assert.Equal(ToggleState.On, peer.ToggleState);
+        }
+
+        [AvaloniaFact]
+        public void AutomationPeer_ReportsOffState_WhenIsOnIsFalse() {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("Save");
+            fixture.Window.Content = item;
+
+            var peer = (IToggleProvider)ControlAutomationPeer.CreatePeerForElement(item);
+
+            Assert.Equal(ToggleState.Off, peer.ToggleState);
+        }
+
+        [AvaloniaFact]
+        public void AutomationPeer_Invoke_ExecutesTheCommand() {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("New");
+            var command = new RecordingCommand();
+            item.Command = command;
+            fixture.Window.Content = item;
+
+            var peer = (IInvokeProvider)ControlAutomationPeer.CreatePeerForElement(item);
+            peer.Invoke();
+
+            Assert.Equal(1, command.ExecuteCount);
+        }
+
+        private sealed class RecordingCommand : ICommand {
+            public int ExecuteCount { get; private set; }
+            public event EventHandler? CanExecuteChanged { add { } remove { } }
+            public bool CanExecute(object? parameter) => true;
+            public void Execute(object? parameter) => ExecuteCount++;
+        }
+
+        [AvaloniaFact]
+        public void AcceleratorKey_ReadsThroughTheAttachedProperty() {
+            using var fixture = new KitFixture();
+            ToolbarItem item = Themed("New");
+            AutomationProperties.SetAcceleratorKey(item, "⌘N");
+            fixture.Window.Content = item;
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(item);
+
+            Assert.Equal("⌘N", peer.GetAcceleratorKey());
         }
     }
 }
