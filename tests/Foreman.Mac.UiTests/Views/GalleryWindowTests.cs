@@ -112,7 +112,7 @@ namespace Foreman.Mac.UiTests.Views {
             var window = new GalleryWindow(cache, new AppSettings());
 
             Assert.Equal(
-                ["QualityPicker", "View Options popover", "Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows",
+                ["QualityPicker", "Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows",
                  "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)",
                  "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)",
                  "Checkbox", "Radio group", "Switch — Settings only (A16)", "Checkbox, Radio group & Switch (150%)",
@@ -436,8 +436,7 @@ namespace Foreman.Mac.UiTests.Views {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //Task 6 gate tool (task-6-brief): the Design language section shows every retokened surface this
-        //plan touched - toolbar/titlebar, the View Options popover, and the three status-colored row kinds.
+        //The Design language section shows every retokened surface still in the gallery: the three status-colored row kinds (View Options retired into Kit.PopoverFrame).
         [AvaloniaFact]
         public void ThemeShowcase_BuildsATilePerRetokenedSurface() {
             DataCache cache = NewFixtureCache();
@@ -445,7 +444,6 @@ namespace Foreman.Mac.UiTests.Views {
             window.Show();
 
             string[] captions = [.. window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
-            Assert.Contains("View Options popover", captions);
             Assert.Contains("Graph Summary rows", captions);
             Assert.Contains("Preset Comparator rows", captions);
             Assert.Contains("Enabled Objects rows", captions);
@@ -493,7 +491,7 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public void FormCompositesScaledTile_LabelColumnsResolveTo198And162() {
+        public void FormCompositesScaledTile_LabelColumnsResolveTo198And162And129() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
             window.Show();
@@ -501,13 +499,16 @@ namespace Foreman.Mac.UiTests.Views {
             StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Form group & Form rows (150%)");
             FormRow[] rows = [.. tile.GetVisualDescendants().OfType<FormRow>()];
 
-            FormRow windowShaped = rows.First(r => !r.IsInspector);
-            FormRow inspectorShaped = rows.First(r => r.IsInspector);
+            FormRow windowShaped = rows.First(r => r.LabelColumn == FormRowLabelColumn.Window);
+            FormRow inspectorShaped = rows.First(r => r.LabelColumn == FormRowLabelColumn.Inspector);
+            FormRow popoverShaped = rows.First(r => r.LabelColumn == FormRowLabelColumn.Popover);
 
             Grid windowGrid = windowShaped.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Grid");
             Grid inspectorGrid = inspectorShaped.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Grid");
+            Grid popoverGrid = popoverShaped.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Grid");
             Assert.Equal(198, windowGrid.ColumnDefinitions[0].Width.Value);
             Assert.Equal(162, inspectorGrid.ColumnDefinitions[0].Width.Value);
+            Assert.Equal(129, popoverGrid.ColumnDefinitions[0].Width.Value);
         }
 
         [AvaloniaFact]

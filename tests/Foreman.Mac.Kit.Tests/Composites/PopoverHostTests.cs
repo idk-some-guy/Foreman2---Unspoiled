@@ -6,6 +6,8 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Foreman.Mac.Kit.Composites;
+using System;
+using System.Reflection;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Composites {
@@ -104,6 +106,38 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Null(host.Background);
             window.MouseDown(new Point(200, 150), MouseButton.Left, RawInputModifiers.None);
             Assert.Equal(1, presses);
+        }
+
+        //macOS resigns key on the whole window, not a click point, so this drives Deactivated directly -
+        //the headless platform never raises window activation events at all.
+        [AvaloniaFact]
+        public void TopLevelDeactivating_ClosesTheOpenFrame_AndReturnsFocusToTheAnchor() {
+            var anchor = new Button { Width = 80, Height = 22 };
+            var host = new PopoverHost();
+            host.Surface.Children.Add(anchor);
+            var popover = new PopoverFrame { Anchor = anchor, Content = new TextBlock { Text = "probe" } };
+            host.Surface.Children.Add(popover);
+
+            var window = new Window { Width = 400, Height = 300, Content = host };
+            window.Show();
+            popover.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+
+            RaiseDeactivated(window);
+
+            Assert.False(popover.IsOpen);
+            Assert.True(anchor.IsFocused);
+        }
+
+        private static void RaiseDeactivated(Window window) {
+            for (Type? t = window.GetType(); t is not null; t = t.BaseType) {
+                FieldInfo? field = t.GetField("Deactivated", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+                if (field is null)
+                    continue;
+                ((EventHandler?)field.GetValue(window))?.Invoke(window, EventArgs.Empty);
+                return;
+            }
+            throw new InvalidOperationException("Window.Deactivated backing field not found.");
         }
     }
 }

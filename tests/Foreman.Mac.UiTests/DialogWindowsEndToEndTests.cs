@@ -11,6 +11,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
@@ -521,11 +522,14 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Viewer.Graph.NodeValuesUpdated += (_, _) => solveCount++;
 
             //Fix round 1 (popover redo): RateOptionsDropDown lives inside the View Options popover now, not a
-            //visual descendant of the window until it's open.
+            //visual descendant of the window until it's open. A real commit (not a plain SelectedItem write)
+            //is what fires Kit.PopUp's Command, so this mirrors PopUp.Commit's own two-step write.
             window.ViewModel.ToggleViewOptionsCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
-            var rateOptions = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "RateOptionsDropDown");
-            rateOptions.SelectedIndex = (rateOptions.SelectedIndex + 1) % rateOptions.ItemCount;
+            var rateOptions = window.GetVisualDescendants().OfType<PopUp>().Single(c => c.Name == "RateOptionsDropDown");
+            string nextRateUnit = MainWindow.RateUnitOptions[(Array.IndexOf(MainWindow.RateUnitOptions, rateOptions.SelectedItem) + 1) % MainWindow.RateUnitOptions.Length];
+            rateOptions.SelectedItem = nextRateUnit;
+            rateOptions.Command?.Execute(nextRateUnit);
 
             Assert.Equal(1, solveCount);
         }

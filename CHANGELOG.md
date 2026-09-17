@@ -137,6 +137,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   text; a "Find node" search field sits between the toolbar and the zoom stepper (⌘F focuses it, ⌘G
   and ⇧⌘G step through matches on a node's drawn name or key title); and Settings is gone from the
   toolbar row entirely, reachable only from the app menu's ⌘,.
+- The View Options popover now composes Kit.PopoverFrame anchored to its toolbar item, replacing the
+  old floating panel and its two group boxes: Kit.FormGroup and Kit.FormRow lay out the Gridlines and
+  Graph groups at a new 86pt popover label column, Minor Gridlines, Major Gridlines and Rate Unit are
+  pop-up buttons listing every value instead of a scrolling row, and Show Gridlines, Icon View and
+  Pause All Calculations stay checkboxes.
 
 ### Fixed
 

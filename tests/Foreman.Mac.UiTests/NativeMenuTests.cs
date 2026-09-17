@@ -8,6 +8,7 @@ using Foreman;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Models;
 using System;
@@ -397,14 +398,14 @@ namespace Foreman.Mac.UiTests {
             var window = new MainWindow();
             window.Show();
             OpenViewOptions(window);
-            var dropdown = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "MinorGridlinesDropDown");
+            var dropdown = window.GetVisualDescendants().OfType<PopUp>().Single(c => c.Name == "MinorGridlinesDropDown");
             NativeMenu minorSubmenu = SubMenu(SubMenu(TopMenu(window), "View"), "Minor Gridlines");
             NativeMenuItem eight = minorSubmenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "8");
 
             eight.Command!.Execute(eight.CommandParameter);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(4, dropdown.SelectedIndex); //index 4 = "8"
+            Assert.Equal("8", dropdown.SelectedItem);
         }
 
         //B: NativeMenuItem only recomputes IsEnabled when its Command is (re)assigned, so Command must be set after CommandParameter.
@@ -471,14 +472,14 @@ namespace Foreman.Mac.UiTests {
             var window = new MainWindow();
             window.Show();
             OpenViewOptions(window);
-            var dropdown = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "RateOptionsDropDown");
+            var dropdown = window.GetVisualDescendants().OfType<PopUp>().Single(c => c.Name == "RateOptionsDropDown");
             NativeMenu rateUnitSubmenu = SubMenu(SubMenu(TopMenu(window), "View"), "Rate Unit");
             NativeMenuItem fiveMin = rateUnitSubmenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "5 min");
 
             fiveMin.Command!.Execute(fiveMin.CommandParameter);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(2, dropdown.SelectedIndex);
+            Assert.Equal("per 5 minutes", dropdown.SelectedItem);
         }
 
         //Task 5: after ApplyLoadedSettings, every menu checkmark/radio-selection must reflect the settings

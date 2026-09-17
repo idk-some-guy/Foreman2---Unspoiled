@@ -672,12 +672,17 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal("1 match", AutomationProperties.GetName(announcer));
         }
 
-        //Fix round 1 (popover redo, contract #decisions §1 mockup): View Options is a Popup anchored under
-        //its toolbar button now, not a docked Grid.Row strip - opens it first via the same command the
-        //button click drives, the open-then-locate shape DialogWindowsEndToEndTests already uses elsewhere.
+        //View Options is a popover anchored under its toolbar button, opened via the same command the
+        //button click drives - the open-then-locate shape DialogWindowsEndToEndTests already uses elsewhere.
         private static void OpenViewOptions(MainWindow window) {
             window.ViewModel.ToggleViewOptionsCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
+        }
+
+        //Mirrors PopUp.Commit's write-then-invoke without a real pointer click into the control's own floating menu.
+        private static void CommitPopUp(PopUp popUp, string item) {
+            popUp.SelectedItem = item;
+            popUp.Command?.Execute(item);
         }
 
         [AvaloniaFact]
@@ -685,39 +690,24 @@ namespace Foreman.Mac.UiTests {
             var window = new MainWindow();
             window.Show();
 
-            var popover = window.GetVisualDescendants().OfType<Popup>().Single(p => p.Name == "ViewOptionsPopover");
+            var popover = window.GetVisualDescendants().OfType<PopoverFrame>().Single(p => p.Name == "ViewOptionsPopover");
 
             Assert.False(popover.IsOpen);
         }
 
+        //The peer is a named pane, not an unlabelled one, using the toolbar item's own ratified copy.
         [AvaloniaFact]
         public void ViewOptionsButton_RealClick_OpensThenClosesThePopover() {
             var window = new MainWindow();
             window.Show();
-            var popover = window.GetVisualDescendants().OfType<Popup>().Single(p => p.Name == "ViewOptionsPopover");
+            var popover = window.GetVisualDescendants().OfType<PopoverFrame>().Single(p => p.Name == "ViewOptionsPopover");
 
             RealClick(window, "View Options");
             Assert.True(popover.IsOpen);
+            Assert.Equal("View Options", AutomationProperties.GetName(popover));
 
             RealClick(window, "View Options");
             Assert.False(popover.IsOpen);
-        }
-
-        //Fix round 2 (Jozef's live finding): a macOS popover light-dismisses on an outside click rather
-        //than waiting for its own button to be pressed again.
-        [AvaloniaFact]
-        public void ViewOptionsPopover_PointerPressOutside_ClosesIt() {
-            var window = new MainWindow();
-            window.Show();
-            OpenViewOptions(window);
-            var popover = window.GetVisualDescendants().OfType<Popup>().Single(p => p.Name == "ViewOptionsPopover");
-
-            Avalonia.Point outsidePoint = WindowCenterOf(window.GraphCanvas, window);
-            window.MouseDown(outsidePoint, MouseButton.Left, RawInputModifiers.None);
-            Dispatcher.UIThread.RunJobs();
-
-            Assert.False(popover.IsOpen);
-            Assert.False(window.ViewModel.IsViewOptionsOpen);
         }
 
         //The dismissing press must be consumed, not passed through to the button underneath - otherwise
@@ -727,7 +717,7 @@ namespace Foreman.Mac.UiTests {
             var window = new MainWindow();
             window.Show();
             OpenViewOptions(window);
-            var popover = window.GetVisualDescendants().OfType<Popup>().Single(p => p.Name == "ViewOptionsPopover");
+            var popover = window.GetVisualDescendants().OfType<PopoverFrame>().Single(p => p.Name == "ViewOptionsPopover");
 
             RealClick(window, "View Options");
             Dispatcher.UIThread.RunJobs();
@@ -736,31 +726,40 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.ViewModel.IsViewOptionsOpen);
         }
 
-        //Contract #decisions §1: "anchored under the button", not a full-width docked strip.
+        //Click-outside dismiss swallows the press and returns focus to the toolbar item that opened it.
         [AvaloniaFact]
-        public void ViewOptionsPopover_AnchoredUnderViewOptionsButton() {
-            var window = new MainWindow();
-            window.Show();
-            var button = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "View Options");
-            var popover = window.GetVisualDescendants().OfType<Popup>().Single(p => p.Name == "ViewOptionsPopover");
-
-            Assert.Same(button, popover.PlacementTarget);
-            Assert.Equal(PlacementMode.Bottom, popover.Placement);
-        }
-
-        //Contract #decisions §1: a compact rounded card, not the old full-width Grid.Row strip.
-        [AvaloniaFact]
-        public void ViewOptionsPopover_WhenOpen_CardIsCompactNotFullWindowWidth() {
+        public void ViewOptions_LightDismiss_SwallowsTheDismissingClick_AndReturnsFocusToTheToolbarItem() {
             var window = new MainWindow();
             window.Show();
             OpenViewOptions(window);
+            var popover = window.GetVisualDescendants().OfType<PopoverFrame>().Single(p => p.Name == "ViewOptionsPopover");
+            var button = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "View Options");
+            int canvasPresses = 0;
+            window.GraphCanvas.PointerPressed += (_, _) => canvasPresses++;
 
-            var card = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "ViewOptionsCard");
+            Avalonia.Point outsidePoint = WindowCenterOf(window.GraphCanvas, window);
+            window.MouseDown(outsidePoint, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
 
-            Assert.True(card.Bounds.Width < window.Width / 2,
-                $"expected a compact card, got width {card.Bounds.Width} against window width {window.Width}");
+            Assert.False(popover.IsOpen);
+            Assert.False(window.ViewModel.IsViewOptionsOpen);
+            Assert.True(button.IsFocused);
+            Assert.False(window.GraphCanvas.IsFocused);
+            Assert.Equal(0, canvasPresses);
+
+            OpenViewOptions(window);
+            var saveButton = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "Save");
+            Avalonia.Point savePoint = WindowCenterOf(saveButton, window);
+            window.MouseDown(savePoint, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(savePoint, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(popover.IsOpen);
+            Assert.True(button.IsFocused);
+            Assert.False(saveButton.IsFocused);
         }
 
+        //The popover's five rows resolve the popover label column from the token, not a literal.
         [AvaloniaFact]
         public void GridlinesAndGraphOptionsControls_AreEnabled() {
             var window = new MainWindow();
@@ -768,9 +767,85 @@ namespace Foreman.Mac.UiTests {
             OpenViewOptions(window);
 
             foreach (string name in new[] { "MinorGridlinesDropDown", "MajorGridlinesDropDown", "RateOptionsDropDown" })
-                Assert.True(window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == name).IsEnabled);
+                Assert.True(window.GetVisualDescendants().OfType<PopUp>().Single(c => c.Name == name).IsEnabled);
             foreach (string name in new[] { "GridlinesCheckbox", "IconViewCheckBox", "PauseUpdatesCheckbox" })
                 Assert.True(window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == name).IsEnabled);
+
+            var popover = window.GetVisualDescendants().OfType<PopoverFrame>().Single(p => p.Name == "ViewOptionsPopover");
+            FormRow[] rows = [.. popover.GetVisualDescendants().OfType<FormRow>()];
+            Assert.Equal(5, rows.Length);
+            Application.Current!.TryGetResource("Foreman.Size.FormLabelColumnPopover", Application.Current.ActualThemeVariant, out object? resolved);
+            foreach (FormRow row in rows) {
+                Assert.Equal(FormRowLabelColumn.Popover, row.LabelColumn);
+                Grid grid = row.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Grid");
+                Assert.Equal((double)resolved!, grid.ColumnDefinitions[0].Width.Value);
+            }
+        }
+
+        //A22: Rate Unit is a pop-up showing all six values (v1's scrolling segmented row hid two of them).
+        [AvaloniaFact]
+        public void ViewOptions_RateUnitPopUp_ListsAllSixValues() {
+            var window = new MainWindow();
+            window.Show();
+            OpenViewOptions(window);
+
+            var rateOptions = window.GetVisualDescendants().OfType<PopUp>().Single(p => p.Name == "RateOptionsDropDown");
+
+            Assert.Equal(MainWindow.RateUnitOptions, rateOptions.Items);
+        }
+
+        //Each popover control writes through AppSettings/GraphCanvas and mirrors the View menu's own
+        //checked/radio state, whichever surface last changed it.
+        [AvaloniaFact]
+        public void ViewOptions_CheckboxesAndPopUps_WriteThroughToSettings_AndMirrorTheViewMenu() {
+            var window = new MainWindow();
+            window.Show();
+            window.Settings = new AppSettings();
+            window.ApplyLoadedSettings();
+            OpenViewOptions(window);
+
+            NativeMenuItem[] allItems = [.. AllNativeMenuItems(NativeMenu.GetMenu(window)!)];
+            NativeMenuItem showGridlinesItem = allItems.Single(i => i.Header == "Show Gridlines");
+            NativeMenuItem iconViewItem = allItems.Single(i => i.Header == "Icon View");
+            NativeMenuItem pauseItem = allItems.Single(i => i.Header == "Pause All Calculations");
+            NativeMenuItem minorSubmenu = allItems.Single(i => i.Header == "Minor Gridlines");
+            NativeMenuItem rateSubmenu = allItems.Single(i => i.Header == "Rate Unit");
+
+            var gridlinesCheckbox = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "GridlinesCheckbox");
+            gridlinesCheckbox.IsChecked = false;
+            Assert.False(window.Settings!.AltGridlines);
+            Assert.False(showGridlinesItem.IsChecked);
+
+            var iconViewCheckbox = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "IconViewCheckBox");
+            iconViewCheckbox.IsChecked = true;
+            Assert.True(window.Settings!.IconsOnlyView);
+            Assert.True(iconViewItem.IsChecked);
+
+            var pauseCheckbox = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "PauseUpdatesCheckbox");
+            pauseCheckbox.IsChecked = true;
+            Assert.True(window.GraphCanvas.Viewer.Graph.PauseUpdates);
+            Assert.True(pauseItem.IsChecked);
+
+            var minorPopUp = window.GetVisualDescendants().OfType<PopUp>().Single(p => p.Name == "MinorGridlinesDropDown");
+            CommitPopUp(minorPopUp, "64");
+            Assert.Equal(Array.IndexOf(MainWindow.GridlineLabels, "64"), window.Settings!.MinorGridlines);
+            NativeMenuItem checkedMinor = minorSubmenu.Menu!.Items.OfType<NativeMenuItem>().Single(i => i.IsChecked);
+            Assert.Equal("64", checkedMinor.Header);
+
+            NativeMenuItem majorSubmenu = allItems.Single(i => i.Header == "Major Gridlines");
+            var majorPopUp = window.GetVisualDescendants().OfType<PopUp>().Single(p => p.Name == "MajorGridlinesDropDown");
+            CommitPopUp(majorPopUp, "128");
+            Assert.Equal(Array.IndexOf(MainWindow.GridlineLabels, "128"), window.Settings!.MajorGridlines);
+            Assert.Equal(768, window.GraphCanvas.Grid.CurrentMajorGridUnit); //GridUnitFromIndex("128"): 6 * 2^(8-1)
+            NativeMenuItem checkedMajor = majorSubmenu.Menu!.Items.OfType<NativeMenuItem>().Single(i => i.IsChecked);
+            Assert.Equal("128", checkedMajor.Header);
+            Assert.Equal(Array.IndexOf(MainWindow.GridlineLabels, "64"), window.Settings!.MinorGridlines);
+
+            var rateOptions = window.GetVisualDescendants().OfType<PopUp>().Single(p => p.Name == "RateOptionsDropDown");
+            CommitPopUp(rateOptions, "per hour");
+            Assert.Equal(ProductionGraph.RateUnit.Per1Hour, window.Settings!.DefaultRateUnit);
+            NativeMenuItem checkedRate = rateSubmenu.Menu!.Items.OfType<NativeMenuItem>().Single(i => i.IsChecked);
+            Assert.Equal("1 hour", checkedRate.Header);
         }
 
         //Ports GraphViewer_KeyDown's Space handler (reference §7): wired as a separate KeyDown subscription
@@ -1128,10 +1203,10 @@ namespace Foreman.Mac.UiTests {
             window.ResyncRateOptionsDropDown();
 
             OpenViewOptions(window);
-            var rateOptions = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "RateOptionsDropDown");
-            Assert.Equal((int)expectedUnit, rateOptions.SelectedIndex);
+            var rateOptions = window.GetVisualDescendants().OfType<PopUp>().Single(c => c.Name == "RateOptionsDropDown");
+            Assert.Equal(MainWindow.RateUnitOptions[(int)expectedUnit], rateOptions.SelectedItem);
             Assert.Equal(expectedUnit, window.Settings!.DefaultRateUnit);
-            Assert.Equal(0, solveCount); //setting the dropdown's index alone must not re-trigger UpdateNodeValues
+            Assert.Equal(0, solveCount); //resyncing the pop-up's display value alone must not re-trigger UpdateNodeValues
         }
 
         //Regression: BindViewOptionControls subscribed its six control event handlers with += on every call,
@@ -1160,8 +1235,9 @@ namespace Foreman.Mac.UiTests {
 
         //Minor#4 (final fix wave): BindViewOptionControls wrote rateOptions.SelectedIndex directly, with the
         //handler already subscribed after the first bind - a second ApplyLoadedSettings call (e.g. a preset-
-        //switching Confirm) that also changed settings.DefaultRateUnit fired OnRateOptionsSelectionChanged
-        //and re-solved, on top of the apply-tail's own explicit solve.
+        //switching Confirm) that also changed settings.DefaultRateUnit re-solved on top of the apply-tail's
+        //own explicit solve. Kit.PopUp's Command only fires on a real user commit, so this is now moot for
+        //the pop-up itself, but the test still proves a second bind never double-solves.
         [AvaloniaFact]
         public void ApplyLoadedSettings_CalledTwiceWithChangedRateUnit_ResyncsWithoutExtraSolve() {
             var window = new MainWindow();
@@ -1177,8 +1253,8 @@ namespace Foreman.Mac.UiTests {
             window.ApplyLoadedSettings();
 
             OpenViewOptions(window);
-            var rateOptions = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "RateOptionsDropDown");
-            Assert.Equal((int)ProductionGraph.RateUnit.Per1Hour, rateOptions.SelectedIndex);
+            var rateOptions = window.GetVisualDescendants().OfType<PopUp>().Single(c => c.Name == "RateOptionsDropDown");
+            Assert.Equal(MainWindow.RateUnitOptions[(int)ProductionGraph.RateUnit.Per1Hour], rateOptions.SelectedItem);
             Assert.Equal(0, solveCount);
         }
 
@@ -1558,31 +1634,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
         }
 
-        //Fix round 1: GridLinesGroupBox now lives inside the View Options popover - opened first on both
-        //windows before the color lookup, same as every other repointed lookup above.
-        [AvaloniaFact]
-        public void GroupBoxBorders_ThemedAcrossLightAndDark_ResolveDifferentColors() {
-            var app = (App)Application.Current!;
-
-            app.ApplyTheme(ThemeMode.Light);
-            var lightWindow = new MainWindow();
-            lightWindow.Show();
-            OpenViewOptions(lightWindow);
-            var lightColor = GroupBoxBorderColor(lightWindow, "GridLinesGroupBox");
-
-            app.ApplyTheme(ThemeMode.Dark);
-            var darkWindow = new MainWindow();
-            darkWindow.Show();
-            OpenViewOptions(darkWindow);
-            var darkColor = GroupBoxBorderColor(darkWindow, "GridLinesGroupBox");
-
-            Assert.NotEqual(lightColor, darkColor);
-        }
-
-        private static Color GroupBoxBorderColor(MainWindow window, string borderName) {
-            var border = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == borderName);
-            return Assert.IsAssignableFrom<ISolidColorBrush>(border.BorderBrush).Color;
-        }
 
         //v2 §02 "Material" row: the traffic-light strip sits left of the row's Margin inset, so the titlebar Grid is the only thing that can paint it.
         [AvaloniaFact]
@@ -1772,18 +1823,18 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.ViewModel.IsDirty);
         }
 
+        //The host spans the whole window, titlebar included, so a light-dismiss press on any toolbar item reaches it first.
         [AvaloniaFact]
-        public void PopoverHost_IsMountedOnce_AndSpansTheContentArea() {
+        public void PopoverHost_IsMountedOnce_AndSpansTheWholeWindow() {
             var window = new MainWindow();
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
             var host = Assert.Single(window.GetVisualDescendants().OfType<PopoverHost>());
             var rootGrid = (Grid)window.Content!;
-            var titleBarRow = window.FindControl<Grid>("TitleBarRow")!;
 
             Assert.Equal(rootGrid.Bounds.Width, host.Bounds.Width, 1);
-            Assert.Equal(rootGrid.Bounds.Height - titleBarRow.Bounds.Height, host.Bounds.Height, 1);
+            Assert.Equal(rootGrid.Bounds.Height, host.Bounds.Height, 1);
         }
 
         //Regression: the mounted host is a full-bleed sibling above the canvas in z-order - with nothing
@@ -1810,34 +1861,5 @@ namespace Foreman.Mac.UiTests {
             Assert.Contains(element, window.GraphCanvas.Viewer.SelectedNodes);
         }
 
-        //A consumer adding and opening a popover into the mounted host, then closing and removing it, must
-        //not leave the host laying out on its own once settled (K3's PopoverHost defers mutations that land
-        //mid-layout - a leak here would show as ongoing layout passes with nothing left open).
-        [AvaloniaFact]
-        public void PopoverHost_OpenThenCloseCycle_SettlesWithZeroLayoutGrowth() {
-            var window = new MainWindow();
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-
-            var host = window.GetVisualDescendants().OfType<PopoverHost>().Single();
-            var anchor = new Border { Width = 20, Height = 20 };
-            host.Surface.Children.Add(anchor);
-            var popover = new PopoverFrame { Anchor = anchor, Content = new TextBlock { Text = "probe" } };
-            host.Surface.Children.Add(popover);
-
-            popover.IsOpen = true;
-            AnimationClock.Settle();
-            popover.IsOpen = false;
-            AnimationClock.Settle();
-            host.Surface.Children.Remove(popover);
-            host.Surface.Children.Remove(anchor);
-            AnimationClock.Settle();
-
-            int layouts = 0;
-            host.LayoutUpdated += (_, _) => layouts++;
-            AnimationClock.Settle(300);
-
-            Assert.Equal(0, layouts);
-        }
     }
 }

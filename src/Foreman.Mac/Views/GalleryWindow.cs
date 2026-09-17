@@ -128,7 +128,6 @@ namespace Foreman.Mac.Views {
         private static GalleryRegistry BuildRegistry(DataCache cache) {
             var registry = new GalleryRegistry();
             registry.Register(new GalleryTile("Canvas", "QualityPicker", "Default", () => ChromeWrap(BuildQualityPicker(cache))));
-            registry.Register(new GalleryTile("Theme", "View Options popover", "Default", BuildViewOptionsShowcaseTile));
             registry.Register(new GalleryTile("Theme", "Graph Summary rows", "Default", BuildSummaryRowsShowcaseTile));
             registry.Register(new GalleryTile("Theme", "Preset Comparator rows", "Default", BuildComparatorRowsShowcaseTile));
             registry.Register(new GalleryTile("Theme", "Enabled Objects rows", "Default", () => BuildEnabledObjectsRowsShowcaseTile(cache)));
@@ -1082,7 +1081,7 @@ namespace Foreman.Mac.Views {
         }
 
         private static FormRow KitFormRow(string label, Control content, bool inspector = false, string? note = null, string? error = null) {
-            var row = new FormRow { Theme = KitTheme("Kit.FormRow"), Label = label, Content = content, IsInspector = inspector };
+            var row = new FormRow { Theme = KitTheme("Kit.FormRow"), Label = label, Content = content, LabelColumn = inspector ? FormRowLabelColumn.Inspector : FormRowLabelColumn.Window };
             if (note is not null)
                 row.Note = note;
             if (error is not null)
@@ -1129,6 +1128,15 @@ namespace Foreman.Mac.Views {
             return new StackPanel {
                 Spacing = 8,
                 Children = { KitText("Inspector shape, 108 pt label column", "caption", "tertiary"), stack },
+            };
+        }
+
+        //Popover shape (contract §06.1): plain rows at the 86 pt popover label column.
+        private static StackPanel BuildFormRowPopoverTile() {
+            FormRow show = new() { Theme = KitTheme("Kit.FormRow"), Label = "Show", LabelColumn = FormRowLabelColumn.Popover, Content = new CheckBox { Theme = KitTheme("Kit.CheckBox") } };
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("Popover shape, 86 pt label column", "caption", "tertiary"), show },
             };
         }
 
@@ -1181,7 +1189,7 @@ namespace Foreman.Mac.Views {
         }
 
         private static readonly string[] FormCompositesScaledSizeKeys = [
-            "Foreman.Size.FormLabelColumn", "Foreman.Size.FormLabelColumnInspector", "Foreman.Size.ControlHeightRegular",
+            "Foreman.Size.FormLabelColumn", "Foreman.Size.FormLabelColumnInspector", "Foreman.Size.FormLabelColumnPopover", "Foreman.Size.ControlHeightRegular",
             "Foreman.Type.Callout.FontSize", "Foreman.Type.Caption.FontSize", "Foreman.Type.SectionHeader.FontSize",
             "Foreman.Size.StepperFieldWidth", "Foreman.Size.StepperArrowColumn",
             "Foreman.Size.SliderTrack", "Foreman.Size.SliderThumbNormal", "Foreman.Size.SliderHeight",
@@ -1202,6 +1210,7 @@ namespace Foreman.Mac.Views {
 
             container.Children.Add(BuildFormGroupBoxedTile());
             container.Children.Add(BuildFormRowsInspectorTile());
+            container.Children.Add(BuildFormRowPopoverTile());
             container.Children.Add(BuildFormRowNotesAndErrorsTile());
             container.Children.Add(BuildFormRowSearchAndChipTile());
             return container;
@@ -2080,35 +2089,6 @@ namespace Foreman.Mac.Views {
             box.Bind(Viewbox.WidthProperty, scaledSize);
             box.Bind(Viewbox.HeightProperty, scaledSize);
             return box;
-        }
-
-        //Mirrors MainWindow.axaml's ViewOptionsCard/GridLinesGroupBox structure (contract #decisions §1) -
-        //same Radius/Thickness resources this task added, same border/background tokens.
-        private static Border BuildViewOptionsShowcaseTile() {
-            IBrush border = ThemeResources.ResolveBrush("Foreman.Color.Border", Color.FromArgb(0x17, 0, 0, 0));
-
-            var gridlinesGroup = new Border {
-                BorderBrush = border,
-                BorderThickness = new Thickness(1),
-                CornerRadius = Resource<CornerRadius>("Foreman.Radius.Control"),
-                Padding = Resource<Thickness>("Foreman.Thickness.Space2"),
-                Child = new StackPanel {
-                    Spacing = 4,
-                    Children = {
-                        new TextBlock { Text = "Gridlines (2n scaling)", FontWeight = FontWeight.Bold },
-                        new CheckBox { Content = "Show Gridlines" },
-                    },
-                },
-            };
-
-            return new Border {
-                Background = ThemeResources.ResolveBrush("Foreman.Color.ControlBackground", Colors.White),
-                BorderBrush = border,
-                BorderThickness = new Thickness(1),
-                CornerRadius = Resource<CornerRadius>("Foreman.Radius.Card"),
-                Padding = Resource<Thickness>("Foreman.Thickness.Space3"),
-                Child = gridlinesGroup,
-            };
         }
 
         //Two GraphSummarySheet.BuildingRow/ItemRow instances (available + unavailable) - the same row DTOs

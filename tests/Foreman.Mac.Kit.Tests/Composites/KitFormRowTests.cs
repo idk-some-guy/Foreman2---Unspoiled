@@ -67,12 +67,24 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void ColumnWidths_InspectorShape_SwapsLabelTo108() {
             using var fixture = new KitFixture();
             FormRow row = Themed("Quality");
-            row.IsInspector = true;
+            row.LabelColumn = FormRowLabelColumn.Inspector;
             fixture.Window.Content = row;
             Dispatcher.UIThread.RunJobs();
 
             Grid grid = FrameGrid(row);
             Assert.Equal(108, grid.ColumnDefinitions[0].Width.Value);
+        }
+
+        [AvaloniaFact]
+        public void ColumnWidths_PopoverShape_SwapsLabelTo86() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Show");
+            row.LabelColumn = FormRowLabelColumn.Popover;
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Grid grid = FrameGrid(row);
+            Assert.Equal(86, grid.ColumnDefinitions[0].Width.Value);
         }
 
         [AvaloniaFact]
@@ -701,7 +713,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void InspectorLabelColumn_TracksScaleContract() {
             using var fixture = new KitFixture();
             Assert.True(Application.Current!.TryGetResource("Kit.FormRow", null, out object? theme));
-            var row = new FormRow { Theme = (ControlTheme)theme!, Label = "Quality", IsInspector = true, Content = new TextBlock { Text = "value" } };
+            var row = new FormRow { Theme = (ControlTheme)theme!, Label = "Quality", LabelColumn = FormRowLabelColumn.Inspector, Content = new TextBlock { Text = "value" } };
             fixture.Window.Content = row;
             Dispatcher.UIThread.RunJobs();
 
@@ -712,6 +724,23 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(162, grid.ColumnDefinitions[0].Width.Value);
+        }
+
+        [AvaloniaFact]
+        public void PopoverLabelColumn_TracksScaleContract() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.FormRow", null, out object? theme));
+            var row = new FormRow { Theme = (ControlTheme)theme!, Label = "Show", LabelColumn = FormRowLabelColumn.Popover, Content = new TextBlock { Text = "value" } };
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+
+            Grid grid = FrameGrid(row);
+            Assert.Equal(86, grid.ColumnDefinitions[0].Width.Value);
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(129, grid.ColumnDefinitions[0].Width.Value);
         }
 
         [AvaloniaFact]

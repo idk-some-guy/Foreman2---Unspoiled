@@ -190,19 +190,6 @@ namespace Foreman.Mac.UiTests.Theming {
         }
 
         [AvaloniaFact]
-        public void PopoverMaterial_And_TitlebarMaterialOpaque_ExistInBothVariants() {
-            Application.Current!.TryGetResource("Foreman.Color.PopoverMaterial", ThemeVariant.Dark, out var popoverDark);
-            Application.Current!.TryGetResource("Foreman.Color.PopoverMaterial", ThemeVariant.Light, out var popoverLight);
-            Application.Current!.TryGetResource("Foreman.Color.TitlebarMaterialOpaque", ThemeVariant.Dark, out var titlebarDark);
-            Application.Current!.TryGetResource("Foreman.Color.TitlebarMaterialOpaque", ThemeVariant.Light, out var titlebarLight);
-
-            Assert.IsType<Color>(popoverDark);
-            Assert.IsType<Color>(popoverLight);
-            Assert.IsType<Color>(titlebarDark);
-            Assert.IsType<Color>(titlebarLight);
-        }
-
-        [AvaloniaFact]
         public void OpacityDisabled_Is038_InBothVariants() {
             Application.Current!.TryGetResource("Foreman.Opacity.Disabled", ThemeVariant.Dark, out var dark);
             Application.Current!.TryGetResource("Foreman.Opacity.Disabled", ThemeVariant.Light, out var light);

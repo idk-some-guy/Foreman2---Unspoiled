@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.Mac.Canvas.KitSkia;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views;
@@ -80,7 +81,7 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(33.0, probe.Width);
         }
 
-        //A Popup's content sits outside Window.Content's visual tree; DynamicResource reaches it anyway.
+        //Kit.PopoverFrame renders directly in PopoverHost's Canvas, so DynamicResource reaches it live with no LayoutTransformControl needed anywhere in its ancestry.
         [AvaloniaFact]
         public void SetScale_ViewOptionsPopoverContent_FollowsWithoutAnyLayoutTransform() {
             var window = new MainWindow();
@@ -89,15 +90,29 @@ namespace Foreman.Mac.UiTests.Theming {
             window.ViewModel.ToggleViewOptionsCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
 
-            var label = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Gridlines (2n scaling)");
-            var card = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "ViewOptionsCard");
-            Assert.False(card.Parent is LayoutTransformControl);
-            Assert.Equal(13.0, label.FontSize);
+            var label = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Gridlines");
+            var popover = window.GetVisualDescendants().OfType<PopoverFrame>().Single(p => p.Name == "ViewOptionsPopover");
+            var panel = popover.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Panel");
+            Assert.DoesNotContain(popover.GetVisualAncestors(), a => a is LayoutTransformControl);
+            Assert.Equal(11.0, label.FontSize);
+            Assert.Equal(272, panel.Bounds.Width);
+
+            //The trailing group owns no bottom margin, so the panel's own padding is the last row's only gap below it.
+            FormRow lastRow = popover.GetVisualDescendants().OfType<FormRow>().Last();
+            double panelContentBottom = panel.TranslatePoint(new Point(0, panel.Bounds.Height), window)!.Value.Y - panel.BorderThickness.Bottom;
+            double rowBottom = lastRow.TranslatePoint(new Point(0, lastRow.Bounds.Height), window)!.Value.Y;
+            Assert.Equal(panel.Padding.Bottom, panelContentBottom - rowBottom, 1);
+
+            FormGroup[] groups = [.. popover.GetVisualDescendants().OfType<FormGroup>()];
+            double gridlinesBottom = groups[0].TranslatePoint(new Point(0, groups[0].Bounds.Height), window)!.Value.Y;
+            double graphTop = groups[1].TranslatePoint(new Point(0, 0), window)!.Value.Y;
+            Assert.Equal(16, graphTop - gridlinesBottom, 1);
 
             WindowScaler.SetScale(1.5);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(19.5, label.FontSize);
+            Assert.Equal(16.5, label.FontSize);
+            Assert.Equal(408, panel.Bounds.Width);
         }
 
         [AvaloniaFact]

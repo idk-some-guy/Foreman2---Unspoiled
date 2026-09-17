@@ -20,16 +20,6 @@
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
   </Style>
 
-  <Style Selector="TextBlock.foreman-body">
-    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Body.FontSize}" />
-    <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.Body.FontWeight}" />
-  </Style>
-
-  <Style Selector="TextBlock.foreman-emphasized-body">
-    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.EmphasizedBody.FontSize}" />
-    <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.EmphasizedBody.FontWeight}" />
-  </Style>
-
   <Style Selector="TextBlock.foreman-caption">
     <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Caption.FontSize}" />
     <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.Caption.FontWeight}" />

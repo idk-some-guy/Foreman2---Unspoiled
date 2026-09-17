@@ -25,89 +25,6 @@
                               Margin="{Binding #RootWindow.WindowDecorationMargin, Converter={x:Static conv:TrafficLightInsetConverter.Instance}}" />
     </Grid>
 
-    <!-- View Options popover (contract #decisions §1 mockup: Gridlines + Graph Options group boxes fold
-         into a compact rounded card anchored under ViewOptionsButton, not a full-width docked strip). A
-         Popup's content isn't a Window visual descendant while closed - BindViewOptionControls and
-         ResyncRateOptionsDropDown still find these controls unaffected (this.FindControl resolves through
-         the compiled NameScope, which is populated at construction regardless of visual attachment); tests
-         that walk the visual tree open the popover first. Fix round 2: light-dismiss like a real macOS
-         popover - TwoWay so a light-dismiss close writes back to IsViewOptionsOpen instead of just the
-         Popup's local value. -->
-    <!-- PlacementTarget is set from code (MainWindow.axaml.cs): the View Options item is a Kit.ToolbarItem built in code-behind, not a compiled x:Name. -->
-    <Popup Name="ViewOptionsPopover" Placement="Bottom"
-           IsOpen="{Binding IsViewOptionsOpen, Mode=TwoWay}" IsLightDismissEnabled="True">
-      <!-- A Popup's content renders in its own popup root, outside Window.Content - but every size here
-           is DynamicResource-bound, so it follows ScaleContract's token re-push on its own, with no
-           popup-specific transform or registration needed. -->
-      <Border Name="ViewOptionsCard" Background="{DynamicResource Foreman.Color.ControlBackground}"
-              BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
-              CornerRadius="{StaticResource Foreman.Radius.Card}" Padding="{StaticResource Foreman.Thickness.Space3}">
-        <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space4}">
-          <Border Name="GridLinesGroupBox" BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
-                  CornerRadius="{StaticResource Foreman.Radius.Control}" Padding="{StaticResource Foreman.Thickness.Space2}">
-            <StackPanel Spacing="{StaticResource Foreman.Space.Space1}">
-              <TextBlock Text="Gridlines (2n scaling)" Classes="foreman-emphasized-body" />
-              <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
-                <TextBlock Text="Minor Gridlines:" VerticalAlignment="Center" Classes="foreman-body" />
-                <ComboBox Name="MinorGridlinesDropDown">
-                  <ComboBoxItem>none</ComboBoxItem>
-                  <ComboBoxItem>1</ComboBoxItem>
-                  <ComboBoxItem>2</ComboBoxItem>
-                  <ComboBoxItem>4</ComboBoxItem>
-                  <ComboBoxItem>8</ComboBoxItem>
-                  <ComboBoxItem>16</ComboBoxItem>
-                  <ComboBoxItem>32</ComboBoxItem>
-                  <ComboBoxItem>64</ComboBoxItem>
-                  <ComboBoxItem>128</ComboBoxItem>
-                  <ComboBoxItem>256</ComboBoxItem>
-                  <ComboBoxItem>512</ComboBoxItem>
-                  <ComboBoxItem>1024</ComboBoxItem>
-                </ComboBox>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
-                <TextBlock Text="Major Gridlines:" VerticalAlignment="Center" Classes="foreman-body" />
-                <ComboBox Name="MajorGridlinesDropDown">
-                  <ComboBoxItem>None</ComboBoxItem>
-                  <ComboBoxItem>1</ComboBoxItem>
-                  <ComboBoxItem>2</ComboBoxItem>
-                  <ComboBoxItem>4</ComboBoxItem>
-                  <ComboBoxItem>8</ComboBoxItem>
-                  <ComboBoxItem>16</ComboBoxItem>
-                  <ComboBoxItem>32</ComboBoxItem>
-                  <ComboBoxItem>64</ComboBoxItem>
-                  <ComboBoxItem>128</ComboBoxItem>
-                  <ComboBoxItem>256</ComboBoxItem>
-                  <ComboBoxItem>512</ComboBoxItem>
-                  <ComboBoxItem>1024</ComboBoxItem>
-                </ComboBox>
-              </StackPanel>
-              <CheckBox Name="GridlinesCheckbox" Content="Show Gridlines" />
-            </StackPanel>
-          </Border>
-
-          <Border Name="ProductionGroupBox" BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
-                  CornerRadius="{StaticResource Foreman.Radius.Control}" Padding="{StaticResource Foreman.Thickness.Space2}">
-            <StackPanel Spacing="{StaticResource Foreman.Space.Space1}">
-              <TextBlock Text="Graph Options" Classes="foreman-emphasized-body" />
-              <StackPanel Orientation="Horizontal" Spacing="{StaticResource Foreman.Space.Space1}">
-                <TextBlock Text="Rate Unit:" VerticalAlignment="Center" Classes="foreman-body" />
-                <ComboBox Name="RateOptionsDropDown">
-                  <ComboBoxItem>1 sec</ComboBoxItem>
-                  <ComboBoxItem>1 min</ComboBoxItem>
-                  <ComboBoxItem>5 min</ComboBoxItem>
-                  <ComboBoxItem>10 min</ComboBoxItem>
-                  <ComboBoxItem>30 min</ComboBoxItem>
-                  <ComboBoxItem>1 hour</ComboBoxItem>
-                </ComboBox>
-              </StackPanel>
-              <CheckBox Name="IconViewCheckBox" Content="Icon View" />
-              <CheckBox Name="PauseUpdatesCheckbox" Content="Pause all calculations" />
-            </StackPanel>
-          </Border>
-        </StackPanel>
-      </Border>
-    </Popup>
-
     <!-- Inspector's IsVisible is set from MainWindow.axaml.cs, not bound here. Overlay, not a column
          (contract §03, Jozef's live-gate ruling over the mock's own sidebar-as-column reading): the canvas
          fills the whole row, and the sidebar sits in the same cell, right-aligned and above it in z-order -
@@ -116,8 +33,9 @@
       <ContentControl Name="GraphViewerHost" />
       <inspector:InspectorView Name="Inspector" DataContext="{Binding Inspector}"
                                 HorizontalAlignment="Right" ZIndex="1" />
-      <!-- PopoverFrame throws without a PopoverHost ancestor - this spans the row so every future consumer reaches it. -->
-      <composites:PopoverHost Name="ContentPopoverHost" ZIndex="2" />
     </Grid>
+
+    <!-- PopoverFrame requires a PopoverHost ancestor; this one spans both rows so a press anywhere - the titlebar/toolbar strip included - dismisses an open popover rather than also acting on whatever it hit. -->
+    <composites:PopoverHost Name="ContentPopoverHost" Grid.Row="0" Grid.RowSpan="2" ZIndex="2" />
   </Grid>
 </Window>

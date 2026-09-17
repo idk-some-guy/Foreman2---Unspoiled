@@ -16,6 +16,7 @@ namespace Foreman.Mac.Kit.Composites {
         private int layoutDepth;
         private bool isDetaching;
         private readonly List<Action> pendingMutations = [];
+        private Window? topLevelWindow;
 
         static PopoverHost() {
             PopoverFrame.IsOpenProperty.Changed.AddClassHandler<PopoverFrame>((frame, e) => {
@@ -56,12 +57,24 @@ namespace Foreman.Mac.Kit.Composites {
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnAttachedToVisualTree(e);
             isDetaching = false;
+            topLevelWindow = TopLevel.GetTopLevel(this) as Window;
+            if (topLevelWindow is not null)
+                topLevelWindow.Deactivated += OnTopLevelDeactivated;
         }
 
         //Set before the base call recurses into children, so a hosted control's own detach handler defers instead of mutating the Surface mid-cascade.
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             isDetaching = true;
+            if (topLevelWindow is not null)
+                topLevelWindow.Deactivated -= OnTopLevelDeactivated;
+            topLevelWindow = null;
             base.OnDetachedFromVisualTree(e);
+        }
+
+        //macOS dismisses an open popover when its window resigns key - closing every open frame here mirrors that.
+        private void OnTopLevelDeactivated(object? sender, EventArgs e) {
+            foreach (PopoverFrame frame in Surface.Children.OfType<PopoverFrame>().Where(f => f.IsOpen).ToList())
+                frame.Close();
         }
 
         protected override Size MeasureOverride(Size availableSize) {

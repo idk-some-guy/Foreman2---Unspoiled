@@ -15,6 +15,9 @@ using System.Linq;
 using System.Threading;
 
 namespace Foreman.Mac.Kit.Composites {
+    //Window is the 132pt document-form shape; Inspector and Popover are the two narrower sidebar/chrome shapes.
+    public enum FormRowLabelColumn { Window, Inspector, Popover }
+
     public class FormRow : ContentControl {
         protected override Type StyleKeyOverride => typeof(FormRow);
 
@@ -30,8 +33,8 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<string?> UnitProperty =
             AvaloniaProperty.Register<FormRow, string?>(nameof(Unit));
 
-        public static readonly StyledProperty<bool> IsInspectorProperty =
-            AvaloniaProperty.Register<FormRow, bool>(nameof(IsInspector));
+        public static readonly StyledProperty<FormRowLabelColumn> LabelColumnProperty =
+            AvaloniaProperty.Register<FormRow, FormRowLabelColumn>(nameof(LabelColumn));
 
         public string? Label {
             get => GetValue(LabelProperty);
@@ -53,9 +56,9 @@ namespace Foreman.Mac.Kit.Composites {
             set => SetValue(UnitProperty, value);
         }
 
-        public bool IsInspector {
-            get => GetValue(IsInspectorProperty);
-            set => SetValue(IsInspectorProperty, value);
+        public FormRowLabelColumn LabelColumn {
+            get => GetValue(LabelColumnProperty);
+            set => SetValue(LabelColumnProperty, value);
         }
 
         private Grid? grid;
@@ -63,6 +66,7 @@ namespace Foreman.Mac.Kit.Composites {
         private TextBlock? noteText;
         private double windowLabelWidth = 132;
         private double inspectorLabelWidth = 108;
+        private double popoverLabelWidth = 86;
         private double gutterWidth = 12;
         private double rowMinHeight = 22;
         private double captionFontSize = 11;
@@ -75,7 +79,7 @@ namespace Foreman.Mac.Kit.Composites {
             ErrorProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyRowState(); r.ApplyAccessibility(); });
             LabelProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyAccessibility());
             ContentProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyAccessibility(); });
-            IsInspectorProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyLabelColumnWidth());
+            LabelColumnProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyLabelColumnWidth());
         }
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
@@ -141,6 +145,10 @@ namespace Foreman.Mac.Kit.Composites {
                 inspectorLabelWidth = v;
                 ApplyLabelColumnWidth();
             }, inspectorLabelWidth)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.FormLabelColumnPopover").Subscribe(new ResourceSinks.DoubleSink(v => {
+                popoverLabelWidth = v;
+                ApplyLabelColumnWidth();
+            }, popoverLabelWidth)));
             subs.Add(this.GetResourceObservable("Foreman.Space.Space3").Subscribe(new ResourceSinks.DoubleSink(v => {
                 gutterWidth = v;
                 ApplyGutterWidth();
@@ -164,7 +172,11 @@ namespace Foreman.Mac.Kit.Composites {
         private void ApplyLabelColumnWidth() {
             if (grid is null)
                 return;
-            grid.ColumnDefinitions[0].Width = new GridLength(IsInspector ? inspectorLabelWidth : windowLabelWidth);
+            grid.ColumnDefinitions[0].Width = new GridLength(LabelColumn switch {
+                FormRowLabelColumn.Inspector => inspectorLabelWidth,
+                FormRowLabelColumn.Popover => popoverLabelWidth,
+                _ => windowLabelWidth,
+            });
         }
 
         private void ApplyGutterWidth() {

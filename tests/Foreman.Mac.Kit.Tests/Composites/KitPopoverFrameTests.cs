@@ -89,6 +89,35 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(radius, Panel(popover).CornerRadius);
         }
 
+        //No PanelWidth set: the panel sizes to its content plus its own padding and border, never a kit-wide default.
+        [AvaloniaFact]
+        public void PanelWidth_Default_SizesToContent() {
+            using var fixture = new KitFixture();
+            (_, _, _, PopoverFrame popover) = ShownTiny(windowWidth: 400, windowHeight: 300, anchorX: 150, anchorY: 40);
+
+            Assert.Equal(40, Panel(popover).Bounds.Width);
+        }
+
+        //A consumer that wants a fixed width (e.g. the View Options popover) sets PanelWidth itself.
+        [AvaloniaFact]
+        public void PanelWidth_WhenSet_ArrangesThePanelToIt() {
+            using var fixture = new KitFixture();
+            var anchor = new Button { Width = 80, Height = 22 };
+            var host = new PopoverHost { Width = 400, Height = 300 };
+            Canvas.SetLeft(anchor, 150);
+            Canvas.SetTop(anchor, 100);
+            host.Surface.Children.Add(anchor);
+            PopoverFrame popover = Themed(anchor);
+            popover.PanelWidth = 272;
+            host.Surface.Children.Add(popover);
+            var window = new Window { Width = 400, Height = 300, Content = host };
+            window.Show();
+            popover.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(272, Panel(popover).Bounds.Width);
+        }
+
         [AvaloniaFact]
         public void Background_ResolvesToPopoverMaterial() {
             using var fixture = new KitFixture();

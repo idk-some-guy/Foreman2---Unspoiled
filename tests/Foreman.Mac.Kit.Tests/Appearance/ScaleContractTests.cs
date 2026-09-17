@@ -87,6 +87,13 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         }
 
         [AvaloniaFact]
+        public void Apply_AtOneFifty_MultipliesTheFormLabelColumnPopover() {
+            ScaleContract.Apply(1.5);
+
+            Assert.Equal(129.0, ResourceDouble("Foreman.Size.FormLabelColumnPopover"));
+        }
+
+        [AvaloniaFact]
         public void Apply_AtOneFifty_MultipliesTheCanvasBridgeTokens() {
             ScaleContract.Apply(1.5);
 

@@ -6,6 +6,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -63,6 +64,13 @@ namespace Foreman.Mac {
         private readonly ToolbarRow toolbar;
         private ToolbarItem viewOptionsItem = null!;
         private ToolbarItem saveItem = null!;
+        private PopoverFrame viewOptionsPopover = null!;
+        private PopUp minorGridlinesPopUp = null!;
+        private PopUp majorGridlinesPopUp = null!;
+        private CheckBox gridlinesCheckBox = null!;
+        private PopUp rateOptionsPopUp = null!;
+        private CheckBox iconViewCheckBox = null!;
+        private CheckBox pauseUpdatesCheckBox = null!;
         private bool documentEdited;
         private int searchMatchIndex = -1;
         private List<BaseNodeElement> searchMatches = [];
@@ -187,7 +195,8 @@ namespace Foreman.Mac {
                 else if (e.PropertyName == nameof(MainWindowViewModel.IsDirty)) {
                     saveItem.IsOn = ViewModel.IsDirty;
                     ApplyDocumentEditedState(ViewModel.IsDirty);
-                }
+                } else if (e.PropertyName == nameof(MainWindowViewModel.IsViewOptionsOpen))
+                    viewOptionsPopover.IsOpen = ViewModel.IsViewOptionsOpen;
             };
 
             //Task 8 (contract #toolbar's Save .on dirty-tint state): one genuine graph-mutated signal -
@@ -197,6 +206,7 @@ namespace Foreman.Mac {
             GraphCanvas.Viewer.Session.GraphMutated += (_, _) => ViewModel.IsDirty = true;
 
             BuildToolbarRow();
+            BuildViewOptionsPopover();
             this.FindControl<Grid>("TitleBarRow")!.Children.Add(searchAnnouncer);
             toolbar.Title = ViewModel.DocumentTitle;
             GraphCanvas.KeyDown += OnGraphCanvasKeyDown;
@@ -267,8 +277,56 @@ namespace Foreman.Mac {
             toolbar.ZoomStepper.ActualSizeCommand = ActualSizeCommand;
             toolbar.ZoomStepper.ZoomInCommand = ZoomInCommand;
             toolbar.ZoomStepper.ZoomOutCommand = ZoomOutCommand;
+        }
 
-            this.FindControl<Popup>("ViewOptionsPopover")!.PlacementTarget = viewOptionsItem;
+        private static ControlTheme KitTheme(string key) {
+            Application.Current!.TryGetResource(key, null, out object? theme);
+            return theme as ControlTheme ?? throw new InvalidOperationException($"MainWindow: kit theme '{key}' not found.");
+        }
+
+        //Label copy is the ratified mock's own (v2 §06.1, A16/A22/A26): "Show"/"Minor"/"Major" under "Gridlines", "Rate unit"/"Display" under "Graph".
+        private void BuildViewOptionsPopover() {
+            minorGridlinesPopUp = new PopUp { Name = "MinorGridlinesDropDown", Theme = KitTheme("Kit.PopUp") };
+            majorGridlinesPopUp = new PopUp { Name = "MajorGridlinesDropDown", Theme = KitTheme("Kit.PopUp") };
+            foreach (string item in GridlineLabels) {
+                minorGridlinesPopUp.Items.Add(item);
+                majorGridlinesPopUp.Items.Add(item);
+            }
+            minorGridlinesPopUp.SelectedItem = GridlineLabels[0];
+            majorGridlinesPopUp.SelectedItem = GridlineLabels[0];
+            minorGridlinesPopUp.Command = new RelayCommand<string>(item => OnGridlineCommitted(isMinor: true, item));
+            majorGridlinesPopUp.Command = new RelayCommand<string>(item => OnGridlineCommitted(isMinor: false, item));
+
+            gridlinesCheckBox = new CheckBox { Name = "GridlinesCheckbox", Theme = KitTheme("Kit.CheckBox"), Content = "Show gridlines" };
+
+            rateOptionsPopUp = new PopUp { Name = "RateOptionsDropDown", Theme = KitTheme("Kit.PopUp") };
+            foreach (string item in RateUnitOptions)
+                rateOptionsPopUp.Items.Add(item);
+            rateOptionsPopUp.SelectedItem = RateUnitOptions[0];
+            rateOptionsPopUp.Command = new RelayCommand<string>(OnRateOptionsCommitted);
+
+            iconViewCheckBox = new CheckBox { Name = "IconViewCheckBox", Theme = KitTheme("Kit.CheckBox"), Content = "Icon view" };
+            pauseUpdatesCheckBox = new CheckBox { Name = "PauseUpdatesCheckbox", Theme = KitTheme("Kit.CheckBox"), Content = "Pause all calculations" };
+
+            var gridlinesGroup = new FormGroup { Theme = KitTheme("Kit.FormGroup"), Title = "Gridlines" };
+            gridlinesGroup.Items.Add(new FormRow { Theme = KitTheme("Kit.FormRow"), Label = "Show", LabelColumn = FormRowLabelColumn.Popover, Content = gridlinesCheckBox });
+            gridlinesGroup.Items.Add(new FormRow { Theme = KitTheme("Kit.FormRow"), Label = "Minor", LabelColumn = FormRowLabelColumn.Popover, Content = minorGridlinesPopUp });
+            gridlinesGroup.Items.Add(new FormRow { Theme = KitTheme("Kit.FormRow"), Label = "Major", LabelColumn = FormRowLabelColumn.Popover, Content = majorGridlinesPopUp });
+
+            var display = new StackPanel { Spacing = 6, Children = { iconViewCheckBox, pauseUpdatesCheckBox } };
+            var graphGroup = new FormGroup { Theme = KitTheme("Kit.FormGroup"), Title = "Graph", TrailingGap = 0 };
+            graphGroup.Items.Add(new FormRow { Theme = KitTheme("Kit.FormRow"), Label = "Rate unit", LabelColumn = FormRowLabelColumn.Popover, Content = rateOptionsPopUp });
+            graphGroup.Items.Add(new FormRow { Theme = KitTheme("Kit.FormRow"), Label = "Display", LabelColumn = FormRowLabelColumn.Popover, Content = display });
+
+            var content = new StackPanel { Spacing = 0, Children = { gridlinesGroup, graphGroup } };
+            AutomationProperties.SetName(content, "View Options");
+            viewOptionsPopover = new PopoverFrame {
+                Name = "ViewOptionsPopover", Theme = KitTheme("Kit.PopoverFrame"), Content = content, Anchor = viewOptionsItem,
+            };
+            viewOptionsPopover.Bind(PopoverFrame.PanelWidthProperty, new DynamicResourceExtension("Foreman.Size.PopoverWidth"));
+            viewOptionsPopover.Closed += (_, _) => ViewModel.IsViewOptionsOpen = false;
+
+            this.FindControl<PopoverHost>("ContentPopoverHost")!.Surface.Children.Add(viewOptionsPopover);
         }
 
         //AutomationName carries the full command name for VoiceOver; acceleratorKey is the command's own menu-bar shortcut, when it has one.
@@ -652,83 +710,49 @@ namespace Foreman.Mac {
             GraphCanvas.RequestRedraw();
         }
 
-        //Called from boot, ReloadForPresetAsync, and every OpenSettingsAsync Confirm (twice on a preset-
-        //switching Confirm - once from ReloadForPresetAsync's own ApplyLoadedSettings call, once more from
-        //OpenSettingsAsync's own call after it). The value/enable resync below is idempotent and safe to
-        //replay on every call; the six event subscriptions are not, so they're guarded to run exactly once
-        //(same fix shape as ResyncRateOptionsDropDown's unsubscribe-before-subscribe, applied at the source
-        //instead - a construction-time subscribe would need these controls looked up a second time). The
-        //handlers themselves read the live Settings property rather than closing over this call's settings
-        //parameter, since Settings can be swapped to a different AppSettings instance between calls.
+        //The value/enable resync below replays safely on every call; the checkbox subscriptions are guarded to wire exactly once.
         private bool viewOptionControlsBound;
 
         private void BindViewOptionControls(AppSettings settings) {
-            var minorGridlines = this.FindControl<ComboBox>("MinorGridlinesDropDown")!;
-            var majorGridlines = this.FindControl<ComboBox>("MajorGridlinesDropDown")!;
-            var gridlinesCheckbox = this.FindControl<CheckBox>("GridlinesCheckbox")!;
-            var rateOptions = this.FindControl<ComboBox>("RateOptionsDropDown")!;
-            var iconView = this.FindControl<CheckBox>("IconViewCheckBox")!;
-            var pauseUpdates = this.FindControl<CheckBox>("PauseUpdatesCheckbox")!;
-
-            minorGridlines.SelectedIndex = settings.MinorGridlines;
-            majorGridlines.SelectedIndex = settings.MajorGridlines;
-            gridlinesCheckbox.IsChecked = settings.AltGridlines;
-            //Minor#4 (final fix wave): routes through the same unsubscribe-before-write idiom
-            //ResyncRateOptionsDropDown uses below, rather than writing SelectedIndex directly - a repeat
-            //call (preset-switching Confirm) with the handler already subscribed would otherwise fire
-            //OnRateOptionsSelectionChanged and re-solve on top of this call's own apply-tail solve.
+            minorGridlinesPopUp.SelectedItem = GridlineLabels[Math.Clamp(settings.MinorGridlines, 0, GridlineLabels.Length - 1)];
+            majorGridlinesPopUp.SelectedItem = GridlineLabels[Math.Clamp(settings.MajorGridlines, 0, GridlineLabels.Length - 1)];
+            gridlinesCheckBox.IsChecked = settings.AltGridlines;
             ResyncRateOptionsDropDown();
-            iconView.IsChecked = GraphCanvas.Viewer.IconsOnly;
-            pauseUpdates.IsChecked = GraphCanvas.Viewer.Graph.PauseUpdates;
+            iconViewCheckBox.IsChecked = GraphCanvas.Viewer.IconsOnly;
+            pauseUpdatesCheckBox.IsChecked = GraphCanvas.Viewer.Graph.PauseUpdates;
 
-            GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(minorGridlines.SelectedIndex);
-            GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(majorGridlines.SelectedIndex);
-            GraphCanvas.Grid.ShowGrid = gridlinesCheckbox.IsChecked == true;
+            GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(Array.IndexOf(GridlineLabels, minorGridlinesPopUp.SelectedItem));
+            GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(Array.IndexOf(GridlineLabels, majorGridlinesPopUp.SelectedItem));
+            GraphCanvas.Grid.ShowGrid = gridlinesCheckBox.IsChecked == true;
             ResyncNativeMenuCheckedStates();
 
-            minorGridlines.IsEnabled = true;
-            majorGridlines.IsEnabled = true;
-            gridlinesCheckbox.IsEnabled = true;
-            rateOptions.IsEnabled = true;
-            iconView.IsEnabled = true;
-            pauseUpdates.IsEnabled = true;
+            minorGridlinesPopUp.IsEnabled = true;
+            majorGridlinesPopUp.IsEnabled = true;
+            gridlinesCheckBox.IsEnabled = true;
+            rateOptionsPopUp.IsEnabled = true;
+            iconViewCheckBox.IsEnabled = true;
+            pauseUpdatesCheckBox.IsEnabled = true;
 
             if (viewOptionControlsBound)
                 return;
             viewOptionControlsBound = true;
 
-            minorGridlines.SelectionChanged += (_, _) => {
-                GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(minorGridlines.SelectedIndex);
+            gridlinesCheckBox.IsCheckedChanged += (_, _) => {
+                GraphCanvas.Grid.ShowGrid = gridlinesCheckBox.IsChecked == true;
                 if (Settings is AppSettings current)
-                    current.MinorGridlines = minorGridlines.SelectedIndex;
+                    current.AltGridlines = gridlinesCheckBox.IsChecked == true;
                 ResyncNativeMenuCheckedStates();
                 GraphCanvas.InvalidateVisual();
             };
-            majorGridlines.SelectionChanged += (_, _) => {
-                GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(majorGridlines.SelectedIndex);
+            iconViewCheckBox.IsCheckedChanged += (_, _) => {
+                GraphCanvas.Viewer.IconsOnly = iconViewCheckBox.IsChecked == true;
                 if (Settings is AppSettings current)
-                    current.MajorGridlines = majorGridlines.SelectedIndex;
+                    current.IconsOnlyView = iconViewCheckBox.IsChecked == true;
                 ResyncNativeMenuCheckedStates();
                 GraphCanvas.InvalidateVisual();
             };
-            gridlinesCheckbox.IsCheckedChanged += (_, _) => {
-                GraphCanvas.Grid.ShowGrid = gridlinesCheckbox.IsChecked == true;
-                if (Settings is AppSettings current)
-                    current.AltGridlines = gridlinesCheckbox.IsChecked == true;
-                ResyncNativeMenuCheckedStates();
-                GraphCanvas.InvalidateVisual();
-            };
-            //No rateOptions.SelectionChanged += here: ResyncRateOptionsDropDown's own unsubscribe-before-
-            //subscribe write above already owns that handler's lifecycle, on every call.
-            iconView.IsCheckedChanged += (_, _) => {
-                GraphCanvas.Viewer.IconsOnly = iconView.IsChecked == true;
-                if (Settings is AppSettings current)
-                    current.IconsOnlyView = iconView.IsChecked == true;
-                ResyncNativeMenuCheckedStates();
-                GraphCanvas.InvalidateVisual();
-            };
-            pauseUpdates.IsCheckedChanged += (_, _) => {
-                GraphCanvas.Viewer.Graph.PauseUpdates = pauseUpdates.IsChecked == true;
+            pauseUpdatesCheckBox.IsCheckedChanged += (_, _) => {
+                GraphCanvas.Viewer.Graph.PauseUpdates = pauseUpdatesCheckBox.IsChecked == true;
                 if (!GraphCanvas.Viewer.Graph.PauseUpdates)
                     GraphCanvas.Viewer.Graph.UpdateNodeValues();
                 ResyncNativeMenuCheckedStates();
@@ -736,9 +760,29 @@ namespace Foreman.Mac {
             };
         }
 
-        private void OnRateOptionsSelectionChanged(object? sender, SelectionChangedEventArgs e) {
-            var rateOptions = (ComboBox)sender!;
-            var unit = (ProductionGraph.RateUnit)rateOptions.SelectedIndex;
+        //Kit.PopUp.Command fires only on a real user commit, never on a SelectedItem write.
+        private void OnGridlineCommitted(bool isMinor, string? item) {
+            if (item is null)
+                return;
+            int index = Array.IndexOf(GridlineLabels, item);
+            if (isMinor)
+                GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(index);
+            else
+                GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(index);
+            if (Settings is AppSettings current) {
+                if (isMinor)
+                    current.MinorGridlines = index;
+                else
+                    current.MajorGridlines = index;
+            }
+            ResyncNativeMenuCheckedStates();
+            GraphCanvas.InvalidateVisual();
+        }
+
+        private void OnRateOptionsCommitted(string? item) {
+            if (item is null)
+                return;
+            var unit = (ProductionGraph.RateUnit)Array.IndexOf(RateUnitOptions, item);
             GraphCanvas.Viewer.Graph.SelectedRateUnit = unit;
             if (Settings is AppSettings settings)
                 settings.DefaultRateUnit = unit;
@@ -750,22 +794,17 @@ namespace Foreman.Mac {
 
         //Ports ApplyLoadedGraphUiState's dropdown resync (upstream MainForm.cs:227-231, first thing it does
         //after a load): LoadDocument already applies the save's rate unit to Graph.SelectedRateUnit, but
-        //nothing kept RateOptionsDropDown or Settings in step with it. Unsubscribing around the index write
-        //avoids re-running OnRateOptionsSelectionChanged's own GraphCanvas.Viewer.Graph.UpdateNodeValues()
-        //call, since LoadDocument already solved the freshly loaded graph once.
+        //nothing kept RateOptionsDropDown or Settings in step with it. A plain SelectedItem write never
+        //invokes Command (only a real user commit does), so this needs no unsubscribe-before-write guard.
         internal void ResyncRateOptionsDropDown() {
-            var rateOptions = this.FindControl<ComboBox>("RateOptionsDropDown")!;
-            rateOptions.SelectionChanged -= OnRateOptionsSelectionChanged;
-            rateOptions.SelectedIndex = (int)GraphCanvas.Viewer.Graph.SelectedRateUnit;
-            rateOptions.SelectionChanged += OnRateOptionsSelectionChanged;
+            ProductionGraph.RateUnit unit = GraphCanvas.Viewer.Graph.SelectedRateUnit;
+            rateOptionsPopUp.SelectedItem = RateUnitOptions[(int)unit];
 
             if (Settings is AppSettings settings)
-                settings.DefaultRateUnit = GraphCanvas.Viewer.Graph.SelectedRateUnit;
+                settings.DefaultRateUnit = unit;
 
-            //The write above bypasses OnRateOptionsSelectionChanged's own resync call by design (see that
-            //handler's comment) - a plain file Load reaches this method directly (ApplyLoadedGraphUiState),
-            //not through BindViewOptionControls, so the Rate Unit submenu's checkmark needs its own resync
-            //here too.
+            //A plain file Load reaches this method directly (ApplyLoadedGraphUiState), not through
+            //BindViewOptionControls, so the Rate Unit submenu's checkmark needs its own resync here too.
             ResyncNativeMenuCheckedStates();
         }
 
@@ -1376,7 +1415,7 @@ namespace Foreman.Mac {
                 return;
 
             GraphCanvas.Grid.ShowGrid = !GraphCanvas.Grid.ShowGrid;
-            this.FindControl<CheckBox>("GridlinesCheckbox")!.IsChecked = GraphCanvas.Grid.ShowGrid;
+            gridlinesCheckBox.IsChecked = GraphCanvas.Grid.ShowGrid;
             GraphCanvas.InvalidateVisual();
             e.Handled = true;
         }
@@ -1418,18 +1457,18 @@ namespace Foreman.Mac {
 
         //Keeps the View menu's checkmarks/radio selections in step with the popover controls they mirror -
         //called from BindViewOptionControls' own resync tail (boot, preset switch, every Settings Confirm),
-        //ResyncRateOptionsDropDown (the plain-file-Load path that bypasses OnRateOptionsSelectionChanged by
-        //design), and each of BindViewOptionControls' own IsCheckedChanged/SelectionChanged subscriptions (a
-        //popover- or Space-driven change), so no trigger source ever leaves the menu stale.
+        //ResyncRateOptionsDropDown (the plain-file-Load path that bypasses OnRateOptionsCommitted by design),
+        //and each of the popover's own commit/IsCheckedChanged handlers (a popover- or Space-driven change),
+        //so no trigger source ever leaves the menu stale.
         private void ResyncNativeMenuCheckedStates() {
-            showGridlinesMenuItem.IsChecked = this.FindControl<CheckBox>("GridlinesCheckbox")!.IsChecked == true;
-            iconViewMenuItem.IsChecked = this.FindControl<CheckBox>("IconViewCheckBox")!.IsChecked == true;
-            pauseCalculationsMenuItem.IsChecked = this.FindControl<CheckBox>("PauseUpdatesCheckbox")!.IsChecked == true;
+            showGridlinesMenuItem.IsChecked = gridlinesCheckBox.IsChecked == true;
+            iconViewMenuItem.IsChecked = iconViewCheckBox.IsChecked == true;
+            pauseCalculationsMenuItem.IsChecked = pauseUpdatesCheckBox.IsChecked == true;
             showInspectorMenuItem.IsChecked = ViewModel.Inspector.ShowOverride;
             pinInspectorMenuItem.IsChecked = ViewModel.Inspector.IsPinned;
-            ResyncRadioChecks(minorGridlinesMenuItems, this.FindControl<ComboBox>("MinorGridlinesDropDown")!.SelectedIndex);
-            ResyncRadioChecks(majorGridlinesMenuItems, this.FindControl<ComboBox>("MajorGridlinesDropDown")!.SelectedIndex);
-            ResyncRadioChecks(rateUnitMenuItems, this.FindControl<ComboBox>("RateOptionsDropDown")!.SelectedIndex);
+            ResyncRadioChecks(minorGridlinesMenuItems, Array.IndexOf(GridlineLabels, minorGridlinesPopUp.SelectedItem));
+            ResyncRadioChecks(majorGridlinesMenuItems, Array.IndexOf(GridlineLabels, majorGridlinesPopUp.SelectedItem));
+            ResyncRadioChecks(rateUnitMenuItems, Array.IndexOf(RateUnitOptions, rateOptionsPopUp.SelectedItem));
         }
 
         private static void ResyncRadioChecks(NativeMenuItem[] items, int selectedIndex) {
@@ -1489,7 +1528,7 @@ namespace Foreman.Mac {
         //runs, its re-write of the same values is redundant but harmless.
         private void MenuToggleShowGridlines() {
             GraphCanvas.Grid.ShowGrid = !GraphCanvas.Grid.ShowGrid;
-            this.FindControl<CheckBox>("GridlinesCheckbox")!.IsChecked = GraphCanvas.Grid.ShowGrid;
+            gridlinesCheckBox.IsChecked = GraphCanvas.Grid.ShowGrid;
             if (Settings is AppSettings settings)
                 settings.AltGridlines = GraphCanvas.Grid.ShowGrid;
             ResyncNativeMenuCheckedStates();
@@ -1498,7 +1537,7 @@ namespace Foreman.Mac {
 
         private void MenuToggleIconView() {
             GraphCanvas.Viewer.IconsOnly = !GraphCanvas.Viewer.IconsOnly;
-            this.FindControl<CheckBox>("IconViewCheckBox")!.IsChecked = GraphCanvas.Viewer.IconsOnly;
+            iconViewCheckBox.IsChecked = GraphCanvas.Viewer.IconsOnly;
             if (Settings is AppSettings settings)
                 settings.IconsOnlyView = GraphCanvas.Viewer.IconsOnly;
             ResyncNativeMenuCheckedStates();
@@ -1509,7 +1548,7 @@ namespace Foreman.Mac {
             GraphCanvas.Viewer.Graph.PauseUpdates = !GraphCanvas.Viewer.Graph.PauseUpdates;
             if (!GraphCanvas.Viewer.Graph.PauseUpdates)
                 GraphCanvas.Viewer.Graph.UpdateNodeValues();
-            this.FindControl<CheckBox>("PauseUpdatesCheckbox")!.IsChecked = GraphCanvas.Viewer.Graph.PauseUpdates;
+            pauseUpdatesCheckBox.IsChecked = GraphCanvas.Viewer.Graph.PauseUpdates;
             ResyncNativeMenuCheckedStates();
             GraphCanvas.InvalidateVisual();
         }
@@ -1534,7 +1573,7 @@ namespace Foreman.Mac {
         }
 
         private void MenuSetMinorGridlines(int index) {
-            this.FindControl<ComboBox>("MinorGridlinesDropDown")!.SelectedIndex = index;
+            minorGridlinesPopUp.SelectedItem = GridlineLabels[index];
             GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(index);
             if (Settings is AppSettings settings)
                 settings.MinorGridlines = index;
@@ -1543,7 +1582,7 @@ namespace Foreman.Mac {
         }
 
         private void MenuSetMajorGridlines(int index) {
-            this.FindControl<ComboBox>("MajorGridlinesDropDown")!.SelectedIndex = index;
+            majorGridlinesPopUp.SelectedItem = GridlineLabels[index];
             GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(index);
             if (Settings is AppSettings settings)
                 settings.MajorGridlines = index;
@@ -1552,7 +1591,7 @@ namespace Foreman.Mac {
         }
 
         private void MenuSetRateUnit(int index) {
-            this.FindControl<ComboBox>("RateOptionsDropDown")!.SelectedIndex = index;
+            rateOptionsPopUp.SelectedItem = RateUnitOptions[index];
             var unit = (ProductionGraph.RateUnit)index;
             GraphCanvas.Viewer.Graph.SelectedRateUnit = unit;
             if (Settings is AppSettings settings)
@@ -1574,11 +1613,11 @@ namespace Foreman.Mac {
 
         private void MenuBringAllToFront() => Activate();
 
-        //Contract #menubar's 12-item gridline vocabulary (mirrors MinorGridlinesDropDown/MajorGridlinesDropDown
-        //exactly - GridUnitFromIndex maps both the same way) and the 6-item rate vocabulary (mirrors
-        //RateOptionsDropDown/ProductionGraph.RateUnit exactly).
-        private static readonly string[] GridlineLabels = ["None", "1", "2", "4", "8", "16", "32", "64", "128", "256", "512", "1024"];
+        //Also seeds the popover's MinorGridlinesDropDown/MajorGridlinesDropDown pop-ups - one list either way.
+        internal static readonly string[] GridlineLabels = ["None", "1", "2", "4", "8", "16", "32", "64", "128", "256", "512", "1024"];
         private static readonly string[] RateUnitLabels = ["1 sec", "1 min", "5 min", "10 min", "30 min", "1 hour"];
+        //v2 §06.1's own popover copy (A22): the long-form values, distinct from the View menu's abbreviated RateUnitLabels above.
+        internal static readonly string[] RateUnitOptions = ["per second", "per minute", "per 5 minutes", "per 10 minutes", "per 30 minutes", "per hour"];
 
         //A (contract #menubar): lives on Application.Current, not the window - see App.Initialize's call site.
         internal static NativeMenu BuildAppMenu() =>
@@ -1632,26 +1671,26 @@ namespace Foreman.Mac {
                 },
             };
 
-            minorGridlinesMenuItems = RadioItems(GridlineLabels, MenuSetMinorGridlines, this.FindControl<ComboBox>("MinorGridlinesDropDown")!.SelectedIndex);
-            majorGridlinesMenuItems = RadioItems(GridlineLabels, MenuSetMajorGridlines, this.FindControl<ComboBox>("MajorGridlinesDropDown")!.SelectedIndex);
-            rateUnitMenuItems = RadioItems(RateUnitLabels, MenuSetRateUnit, this.FindControl<ComboBox>("RateOptionsDropDown")!.SelectedIndex);
+            minorGridlinesMenuItems = RadioItems(GridlineLabels, MenuSetMinorGridlines, Array.IndexOf(GridlineLabels, minorGridlinesPopUp.SelectedItem));
+            majorGridlinesMenuItems = RadioItems(GridlineLabels, MenuSetMajorGridlines, Array.IndexOf(GridlineLabels, majorGridlinesPopUp.SelectedItem));
+            rateUnitMenuItems = RadioItems(RateUnitLabels, MenuSetRateUnit, Array.IndexOf(RateUnitOptions, rateOptionsPopUp.SelectedItem));
 
             //⌥⌘G, not upstream's bare Space (contract #menubar conflict 2): a global NativeMenu gesture on an
             //unmodified key would fire even while a text field has focus, swallowing every space typed there.
             showGridlinesMenuItem = new NativeMenuItem("Show Gridlines") {
                 ToggleType = MenuItemToggleType.CheckBox,
-                IsChecked = this.FindControl<CheckBox>("GridlinesCheckbox")!.IsChecked == true,
+                IsChecked = gridlinesCheckBox.IsChecked == true,
                 Gesture = new KeyGesture(Key.G, PlatformModifiers.Primary | KeyModifiers.Alt),
                 Command = new DeferredMenuCommand(new RelayCommand(MenuToggleShowGridlines)),
             };
             iconViewMenuItem = new NativeMenuItem("Icon View") {
                 ToggleType = MenuItemToggleType.CheckBox,
-                IsChecked = this.FindControl<CheckBox>("IconViewCheckBox")!.IsChecked == true,
+                IsChecked = iconViewCheckBox.IsChecked == true,
                 Command = new DeferredMenuCommand(new RelayCommand(MenuToggleIconView)),
             };
             pauseCalculationsMenuItem = new NativeMenuItem("Pause All Calculations") {
                 ToggleType = MenuItemToggleType.CheckBox,
-                IsChecked = this.FindControl<CheckBox>("PauseUpdatesCheckbox")!.IsChecked == true,
+                IsChecked = pauseUpdatesCheckBox.IsChecked == true,
                 Gesture = new KeyGesture(Key.P, PlatformModifiers.Primary | KeyModifiers.Alt),
                 Command = new DeferredMenuCommand(new RelayCommand(MenuTogglePauseCalculations)),
             };

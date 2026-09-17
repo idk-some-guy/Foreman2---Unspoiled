@@ -27,8 +27,13 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly DirectProperty<PopoverFrame, PopoverEdge> ResolvedPlacementProperty =
             AvaloniaProperty.RegisterDirect<PopoverFrame, PopoverEdge>(nameof(ResolvedPlacement), o => o.resolvedPlacement);
 
+        //NaN sizes the panel to its content; a consumer that wants a fixed width (e.g. View Options) sets this.
+        public static readonly StyledProperty<double> PanelWidthProperty =
+            AvaloniaProperty.Register<PopoverFrame, double>(nameof(PanelWidth), double.NaN);
+
         public Control? Anchor { get => GetValue(AnchorProperty); set => SetValue(AnchorProperty, value); }
         public bool IsOpen { get => GetValue(IsOpenProperty); set => SetValue(IsOpenProperty, value); }
+        public double PanelWidth { get => GetValue(PanelWidthProperty); set => SetValue(PanelWidthProperty, value); }
         public PopoverEdge ResolvedPlacement => resolvedPlacement;
 
         public event EventHandler? Closed;

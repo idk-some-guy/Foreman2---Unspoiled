@@ -12,6 +12,7 @@
                   BorderThickness="1"
                   CornerRadius="{DynamicResource Foreman.Radius.Popover}"
                   BoxShadow="{DynamicResource Foreman.Shadow.Popover}"
+                  Width="{TemplateBinding PanelWidth}"
                   Padding="14,10,14,14"
                   HorizontalAlignment="Left"
                   VerticalAlignment="Top"
