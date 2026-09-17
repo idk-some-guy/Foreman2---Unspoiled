@@ -4,16 +4,19 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Styling;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Windows.Input;
 
 namespace Foreman.Mac.Views.Inspector {
     public partial class InspectorView : UserControl {
@@ -27,6 +30,8 @@ namespace Foreman.Mac.Views.Inspector {
         private readonly TextBlock qualityMiniSelectLabel;
         private readonly PickGrid qualityGrid;
         private readonly ContentControl segmentHost;
+        private readonly StatePanel emptyState;
+        private readonly SplitDivider widthDivider;
         private readonly FlowSegmentView flowSegmentView;
         private readonly RecipeSegmentView recipeSegmentView;
         private InspectorViewModel? boundViewModel;
@@ -39,6 +44,16 @@ namespace Foreman.Mac.Views.Inspector {
         //ported here since the floating panel it used to thread that through no longer exists.
         public Action? RequestRedraw { get; set; }
 
+        //Set by MainWindow to Commands.AddRecipeCommand - the no-selection state panel's own action.
+        public ICommand? AddRecipeCommand { get; set; }
+
+        //Fires once per resize gesture (SplitDivider.ValueCommitted) - the seam MainWindow saves through.
+        public event EventHandler<double>? WidthCommitted;
+
+        //Forwarded from the Recipe segment's error panel (A25 .error) - MainWindow wires these to ShowSettings/OpenBrowser.
+        public event EventHandler? OpenPresetsRequested;
+        public event EventHandler<IRecipeNodeViewModel>? PickAnotherRecipeRequested;
+
         public InspectorView() {
             InitializeComponent();
             identityIcon = this.FindControl<Image>("IdentityIcon")!;
@@ -49,6 +64,13 @@ namespace Foreman.Mac.Views.Inspector {
             qualityMiniSelectLabel = this.FindControl<TextBlock>("QualityMiniSelectLabel")!;
             qualityGrid = this.FindControl<PickGrid>("QualityGrid")!;
             segmentHost = this.FindControl<ContentControl>("SegmentHost")!;
+            emptyState = this.FindControl<StatePanel>("EmptyState")!;
+            widthDivider = this.FindControl<SplitDivider>("WidthDivider")!;
+            widthDivider.ValueCommitted += (_, value) => WidthCommitted?.Invoke(this, value);
+            var addRecipeButton = new Button { Content = "Add Recipe…", Theme = KitTheme("Kit.Button") };
+            ButtonRow.SetRole(addRecipeButton, ButtonRowRole.Default);
+            addRecipeButton.Click += (_, _) => AddRecipeCommand?.Execute(null);
+            emptyState.Buttons = new ButtonRow { Theme = KitTheme("Kit.ButtonRow"), Items = { addRecipeButton } };
 
             //The compiled XAML name scope is sealed right after InitializeComponent runs (Avalonia calls
             //INameScope.Complete once loading finishes), so a control built later in code - FlowSegmentView/
@@ -57,6 +79,8 @@ namespace Foreman.Mac.Views.Inspector {
             //instances Refresh() reuses, so FindControl keeps working for both old and new names.
             flowSegmentView = new FlowSegmentView { Name = "FlowSegment" };
             recipeSegmentView = new RecipeSegmentView { Name = "RecipeSegment" };
+            recipeSegmentView.OpenPresetsRequested += (_, _) => OpenPresetsRequested?.Invoke(this, EventArgs.Empty);
+            recipeSegmentView.PickAnotherRecipeRequested += (_, node) => PickAnotherRecipeRequested?.Invoke(this, node);
             var scope = new NameScope();
             scope.Register("IdentityIcon", identityIcon);
             scope.Register("IdentityName", identityName);
@@ -66,7 +90,7 @@ namespace Foreman.Mac.Views.Inspector {
             scope.Register("QualityMiniSelectLabel", qualityMiniSelectLabel);
             scope.Register("QualityGrid", qualityGrid);
             scope.Register("SegmentHost", segmentHost);
-            scope.Register("EmptyState", this.FindControl<Control>("EmptyState")!);
+            scope.Register("EmptyState", emptyState);
             scope.Register("InspectorScroller", this.FindControl<Control>("InspectorScroller")!);
             scope.Register("FlowSegment", flowSegmentView);
             scope.Register("RecipeSegment", recipeSegmentView);
@@ -175,10 +199,11 @@ namespace Foreman.Mac.Views.Inspector {
                 recipeSegmentView.Refresh();
         }
 
+        //A23: sub-line names the node type then the building; quality lives in the mini-select instead.
         private static (string Name, string Subtitle, SKBitmap? Icon) Describe(INodeViewModel node) => node switch {
             IRecipeNodeViewModel recipe => (
                 recipe.BaseRecipe.FriendlyName ?? "",
-                $"{recipe.SelectedAssembler.Assembler.FriendlyName} · {recipe.SelectedAssembler.Quality.FriendlyName}",
+                $"Recipe node · {recipe.SelectedAssembler.Assembler.FriendlyName}",
                 recipe.BaseRecipe.Icon),
             ISupplierNodeViewModel supplier => (supplier.SuppliedItem.FriendlyName ?? "", "Supplier node", supplier.SuppliedItem.Icon),
             IConsumerNodeViewModel consumer => (consumer.ConsumedItem.FriendlyName ?? "", "Consumer node", consumer.ConsumedItem.Icon),
@@ -188,9 +213,14 @@ namespace Foreman.Mac.Views.Inspector {
             _ => ("", "", null),
         };
 
-        private const int IdentityIconSize = 18;
+        private const int IdentityIconSize = 17;
         private const int QualityIconSize = 16;
 
         private Bitmap GetOrBakeIcon(SKBitmap icon) => IconBaker.GetOrBake(bakedIconCache, icon, IdentityIconSize);
+
+        private static ControlTheme KitTheme(string key) {
+            Application.Current!.TryGetResource(key, null, out object? theme);
+            return theme as ControlTheme ?? throw new InvalidOperationException($"InspectorView: kit theme '{key}' not found.");
+        }
     }
 }

@@ -12,6 +12,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
+using InspectorGroup = Foreman.Mac.Kit.Composites.InspectorGroup;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;
@@ -196,9 +197,9 @@ namespace Foreman.Mac.UiTests.Inspector {
             return (host, view);
         }
 
-        private static void Click(AvaloniaWindow window, Button button) {
-            Avalonia.Point center = new(button.Bounds.Width / 2, button.Bounds.Height / 2);
-            Avalonia.Point screen = Avalonia.VisualExtensions.TranslatePoint(button, center, window) ?? center;
+        private static void Click(AvaloniaWindow window, Control control) {
+            Avalonia.Point center = new(control.Bounds.Width / 2, control.Bounds.Height / 2);
+            Avalonia.Point screen = Avalonia.VisualExtensions.TranslatePoint(control, center, window) ?? center;
             window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
             window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
             Dispatcher.UIThread.RunJobs();
@@ -210,10 +211,10 @@ namespace Foreman.Mac.UiTests.Inspector {
             return grid.GetVisualDescendants().OfType<Button>().Single(b => Equals((b.DataContext as PickGridItem)?.Key, key));
         }
 
-        //InspectorGroup's title row (Task 6) - scoped inside `group` so each group's own header resolves
-        //unambiguously even though every InspectorGroup names its header the same "GroupHeader".
-        private static Button GroupHeaderOf(InspectorGroup group) =>
-            group.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "GroupHeader");
+        //InspectorGroup's title row - scoped inside `group` so each group's own header resolves
+        //unambiguously even though every InspectorGroup names its header the same "PART_HeaderRow".
+        private static Border GroupHeaderOf(InspectorGroup group) =>
+            group.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_HeaderRow");
 
         //---- Modules: add fills the next slot, tap-to-remove, incompatible modules excluded ----
 

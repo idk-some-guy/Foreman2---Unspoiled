@@ -4,12 +4,11 @@ using Xunit;
 namespace Foreman.Mac.UiTests.Inspector {
     public class InspectorViewModelTests {
         [Fact]
-        public void EmptySelection_HidesAndShowsNoSelectionText() {
+        public void EmptySelection_HasNoNodeAndIsHidden() {
             var vm = new InspectorViewModel();
             vm.SetSelection([]);
             Assert.False(vm.HasNode);
             Assert.False(vm.IsVisible);
-            Assert.Equal("No selection", vm.EmptyStateText);
         }
 
         [Fact]
@@ -29,11 +28,10 @@ namespace Foreman.Mac.UiTests.Inspector {
         }
 
         [Fact]
-        public void MultiSelection_ShowsCountAndEditsNothing() {
+        public void MultiSelection_HasNoSingleNode_ButStaysVisible() {
             var vm = new InspectorViewModel();
             vm.SetSelection([FakeNodes.Recipe(), FakeNodes.Passthrough(), FakeNodes.Recipe()]);
             Assert.Null(vm.Node);
-            Assert.Equal("3 nodes selected", vm.EmptyStateText);
             Assert.True(vm.IsVisible);
         }
 

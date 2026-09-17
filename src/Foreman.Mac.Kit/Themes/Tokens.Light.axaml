@@ -75,7 +75,6 @@
 
   <!-- Thickness twins of Space.Space05,3: CornerRadius and Thickness (Margin/Padding) reject a boxed x:Double resource at style-application time. -->
   <Thickness x:Key="Foreman.Thickness.Space05">2</Thickness>
-  <Thickness x:Key="Foreman.Thickness.Space3">12</Thickness>
   <CornerRadius x:Key="Foreman.Radius.Control">6</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Card">9</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Window">11</CornerRadius>
@@ -138,9 +137,6 @@
   <!-- Forwarders read only by src/Foreman.Mac/Themes/Foreman.Styles.axaml; K4 deletes each as its surface migrates. -->
   <StaticResource x:Key="Foreman.Type.WindowTitle.FontSize" ResourceKey="Foreman.Type.EmphasizedBody.FontSize" />
   <StaticResource x:Key="Foreman.Type.WindowTitle.FontWeight" ResourceKey="Foreman.Type.EmphasizedBody.FontWeight" />
-  <StaticResource x:Key="Foreman.Type.InspectorTitle.FontSize" ResourceKey="Foreman.Type.EmphasizedBody.FontSize" />
-  <StaticResource x:Key="Foreman.Type.InspectorTitle.FontWeight" ResourceKey="Foreman.Type.EmphasizedBody.FontWeight" />
-  <StaticResource x:Key="Foreman.Type.InspectorSubtitle.FontSize" ResourceKey="Foreman.Type.Caption.FontSize" />
   <StaticResource x:Key="Foreman.Type.Browser.Subhead.FontSize" ResourceKey="Foreman.Type.Caption.FontSize" />
   <StaticResource x:Key="Foreman.Type.SmallBody.FontSize" ResourceKey="Foreman.Type.Callout.FontSize" />
 

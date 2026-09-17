@@ -182,6 +182,9 @@ namespace Foreman.Mac.Views {
             tabBody.Content = tabControls[index];
         }
 
+        //MainWindow's "Open Presets…" seam (A25 .error) - brings an already-open instance back to its first tab.
+        internal void SelectPresetsPane() => SelectTab(0);
+
         //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
         internal IReadOnlyList<Button> TabButtonControls => tabButtons;
         internal int ActiveTabIndex => activeTabIndex;

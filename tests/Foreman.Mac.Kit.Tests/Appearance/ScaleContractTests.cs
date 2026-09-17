@@ -133,7 +133,6 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             ScaleContract.Apply(1.5);
 
             Assert.Equal(19.5, ResourceDouble("Foreman.Type.WindowTitle.FontSize"));
-            Assert.Equal(16.5, ResourceDouble("Foreman.Type.InspectorSubtitle.FontSize"));
         }
 
         [AvaloniaFact]

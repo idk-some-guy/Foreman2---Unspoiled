@@ -171,9 +171,13 @@ namespace Foreman.Mac {
                 onAddRecipe: () => GraphCanvas.AddRecipeAsync(GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2))),
                 onAutoconnect: () => { GraphCanvas.FloatingPanelHost.Close(); GraphCanvas.Viewer.AutoconnectDisconnectedInputs(); GraphCanvas.RequestRedraw(); },
                 onAlignSelection: () => { GraphCanvas.FloatingPanelHost.Close(); GraphCanvas.Viewer.AlignSelected(); GraphCanvas.RequestRedraw(); },
-                onSettings: ShowSettings,
+                onSettings: () => ShowSettings(),
                 onGraphSummary: () => Async.Fire(OpenGraphSummaryAsync(), nameof(OpenGraphSummaryAsync)),
                 canExecuteAlignSelection: () => GraphCanvas.Viewer.SelectedNodes.Count > 0);
+            Inspector.AddRecipeCommand = Commands.AddRecipeCommand;
+            Inspector.OpenPresetsRequested += (_, _) => ShowSettings(selectPresetsPane: true);
+            Inspector.PickAnotherRecipeRequested += (_, node) =>
+                OpenBrowser(new AddRequest(node.Location, AddScope.Recipes, SeedText: node.BaseRecipe.FriendlyName ?? ""));
             //Task 7: keeps AlignSelectionCommand's CanExecute in step with the canvas's live selection -
             //GraphViewer.SelectionChanged is the aggregate signal every selection-mutating method raises.
             GraphCanvas.Viewer.SelectionChanged += (_, _) => Commands.AlignSelectionCommand.NotifyCanExecuteChanged();
@@ -187,6 +191,13 @@ namespace Foreman.Mac {
             GraphCanvas.Viewer.SelectionChanged += (_, _) =>
                 ViewModel.Inspector.SetSelection([.. GraphCanvas.Viewer.SelectedNodes.Select(n => n.ViewModel)]);
             Inspector.IsVisible = ViewModel.IsInspectorVisible;
+            //Commits once per resize gesture; converts the rendered (scaled) pixel value back to InspectorWidth's logical units before saving.
+            Inspector.WidthCommitted += (_, value) => {
+                if (Settings is AppSettings inspectorSettings) {
+                    inspectorSettings.InspectorWidth = Math.Clamp(value / WindowScaler.CurrentScale, 260, 380);
+                    SettingsService?.Save(inspectorSettings);
+                }
+            };
             ViewModel.PropertyChanged += (_, e) => {
                 if (e.PropertyName == nameof(MainWindowViewModel.IsInspectorVisible))
                     Inspector.IsVisible = ViewModel.IsInspectorVisible;
@@ -650,6 +661,7 @@ namespace Foreman.Mac {
             //Phase 9 C2a Task 3: seeds the pin the same way UiScale/theme are seeded above - boot, preset
             //reload, and every Settings Confirm all replay through this one seam.
             ViewModel.Inspector.IsPinned = settings.InspectorPinned;
+            ViewModel.Inspector.Width = Math.Clamp(settings.InspectorWidth, 260, 380) * WindowScaler.CurrentScale;
 
             //Ports the SmartNodeDirection/DefaultNodeDirection cold-start read (reference §8): wired here
             //rather than at construction since GraphCanvasControl has no settings reference of its own.
@@ -1195,7 +1207,7 @@ namespace Foreman.Mac {
         //persisting settings.json - matching upstream's presetReloaded branch and its unconditional
         //Properties.Settings.Default.Save() at the end of ApplySettingsDialogChanges. Tasks 2/3 extend the
         //non-preset-reload branch as their tabs' widgets gain something to apply.
-        internal void ShowSettings() {
+        internal void ShowSettings(bool selectPresetsPane = false) {
             //Toolbar/native-menu clicks never reach GraphCanvasControl.OnPointerPressed's own click-outside-
             //closes-panel guard (they're not canvas pointer events at all), so a panel left open under this
             //window stayed stale once it closed. Closes first, matching NewGraphAsync/LoadDocument's own
@@ -1205,6 +1217,8 @@ namespace Foreman.Mac {
 
             //R5/⌘, - one instance for the app's lifetime; a second invocation just brings it forward.
             if (settingsWindow is { } existing) {
+                if (selectPresetsPane)
+                    existing.SelectPresetsPane();
                 if (SettingsDialogStub is null)
                     existing.Show(this);
                 existing.Activate();

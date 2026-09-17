@@ -142,6 +142,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   Graph groups at a new 86pt popover label column, Minor Gridlines, Major Gridlines and Rate Unit are
   pop-up buttons listing every value instead of a scrolling row, and Show Gridlines, Icon View and
   Pause All Calculations stay checkboxes.
+- The inspector's shell now composes Kit.InspectorGroup, Kit.SplitDivider and Kit.StatePanel: every
+  group carries the same disclosure header, is separated from the next by a single 1pt rule, and
+  renders collapsed on first layout with no flash; the sidebar's leading edge is a real divider (drag
+  toward the canvas to widen, arrow keys, Home/End, Return reset) clamped 260-380pt and scaling with
+  the display factor like the rest of the sidebar; no selection shows a proper empty state with an
+  Add Recipe button instead of a line of plain text. The identity row's sub-line now names the node
+  type before the building, and quality lives only in its own mini-select.
+- The inspector's Recipe group now shows its own header, and when the node's recipe is missing from
+  the current preset it swaps its card for Kit.StatePanel.error with Open Presets and Pick Another
+  Recipe buttons, while the Rate, Assembler, Fuel, Modules and Beacon groups stay live.
 
 ### Fixed
 

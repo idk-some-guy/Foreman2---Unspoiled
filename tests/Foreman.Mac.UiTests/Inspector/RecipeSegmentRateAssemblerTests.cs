@@ -21,6 +21,10 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
+using StatePanel = Foreman.Mac.Kit.Composites.StatePanel;
+using StatePanelShape = Foreman.Mac.Kit.Composites.StatePanelShape;
+using ButtonRow = Foreman.Mac.Kit.Composites.ButtonRow;
+using ButtonRowRole = Foreman.Mac.Kit.Composites.ButtonRowRole;
 
 namespace Foreman.Mac.UiTests.Inspector {
     //Rate/Assembler/Fuel/priority/key-node coverage for the docked RecipeSegmentView (Task 5, part 1).
@@ -683,6 +687,50 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Contains("100-500°c  (optimal: 500°c)", stats);
             Assert.Contains(1.0.ToString("P0", DisplayCulture.Format), stats);
             Assert.Contains(GraphicsStuff.DoubleToEnergy(1_000_000.0, "W"), stats);
+        }
+
+        //---- Recipe group error state (A25 .error, Recipe.IsMissing) ----
+
+        [AvaloniaFact]
+        public void MissingRecipe_ShowsStatePanelError_WithVerbatimCopyAndTwoButtons_AndCardHidden() {
+            RecipeFixture rf = NewRecipeFixture();
+            var missingRecipe = new RecipePrototype(rf.Fx.Cache, "missing-recipe", "Missing Recipe", rf.Fx.Subgroup, "a", isMissing: true) { Available = true };
+            LinkAssembler(missingRecipe, rf.Electric);
+            Store(rf.Fx.Cache).Recipes[missingRecipe.Name] = missingRecipe;
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, missingRecipe, rf.Fx.Normal, new Point(0, 0));
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+
+            Assert.True(view.ViewModel!.HasRecipeError);
+            Assert.False(view.ViewModel!.HasCard);
+
+            StatePanel errorPanel = view.FindControl<StatePanel>("RecipeErrorPanel")!;
+            Assert.True(errorPanel.IsVisible);
+            Assert.Equal(StatePanelShape.Error, errorPanel.Shape);
+            Assert.Equal("Recipe missing from this preset", errorPanel.Headline);
+            Assert.Equal("The current preset has no recipe by this name, so this node cannot be solved.", errorPanel.Sentence);
+
+            var buttons = errorPanel.Buttons!.Items.OfType<Button>().ToList();
+            Assert.Equal(2, buttons.Count);
+            Assert.Equal("Open Presets…", buttons[0].Content);
+            Assert.Equal("Pick Another Recipe…", buttons[1].Content);
+            Assert.Equal(ButtonRowRole.Default, ButtonRow.GetRole(buttons[1]));
+
+            //The other groups stay live - not swapped for the error panel, not disabled.
+            Assert.True(view.FindControl<RadioButton>("RateAuto")!.IsEnabled);
+            Assert.True(view.FindControl<PickGrid>("AssemblerGrid")!.IsEnabled);
+        }
+
+        [AvaloniaFact]
+        public void NormalRecipe_HidesStatePanelError_AndShowsCard() {
+            RecipeFixture rf = NewRecipeFixture();
+            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
+
+            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+
+            Assert.False(view.ViewModel!.HasRecipeError);
+            Assert.True(view.ViewModel!.HasCard);
+            Assert.False(view.FindControl<StatePanel>("RecipeErrorPanel")!.IsVisible);
         }
     }
 

@@ -494,6 +494,66 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void Error_TwoButtonsWiderThanTheHost_WrapInsteadOfOverflowing() {
+            using var fixture = new KitFixture();
+            var row = new ButtonRow { Theme = KitButtonRowTheme() };
+            row.Items.Add(Btn("Open Presets…", ButtonRowRole.Other));
+            row.Items.Add(Btn("Pick Another Recipe…", ButtonRowRole.Default));
+            StatePanel panel = NewPanel(StatePanelShape.Error, buttons: row);
+            //280pt: above Kit.StatePanel's 260pt full-layout floor, wide enough per-button but forcing the cluster to wrap.
+            Shown(panel, width: 280, height: 200);
+
+            Assert.False(panel.IsCompact);
+            AssertRowWrappedInsideHost(panel, row);
+        }
+
+        [AvaloniaFact]
+        public void Error_TwoButtonsWiderThanTheHost_At150Percent_WrapInsteadOfOverflowing() {
+            using var fixture = new KitFixture();
+            Foreman.Mac.Kit.Appearance.ScaleContract.Apply(1.5);
+            try {
+                var row = new ButtonRow { Theme = KitButtonRowTheme() };
+                row.Items.Add(Btn("Open Presets…", ButtonRowRole.Other));
+                row.Items.Add(Btn("Pick Another Recipe…", ButtonRowRole.Default));
+                StatePanel panel = NewPanel(StatePanelShape.Error, buttons: row);
+                Shown(panel, width: 390, height: 300);
+
+                Assert.False(panel.IsCompact);
+                AssertRowWrappedInsideHost(panel, row);
+            } finally {
+                Foreman.Mac.Kit.Appearance.ScaleContract.Apply(1.0);
+            }
+        }
+
+        private static void AssertRowWrappedInsideHost(StatePanel panel, ButtonRow row) {
+            Button[] buttons = [.. row.Items.OfType<Button>()];
+            foreach (Button b in buttons) {
+                Point topLeft = b.TranslatePoint(new Point(0, 0), panel) ?? default;
+                Assert.True(topLeft.X >= 0, $"{b.Content}: left edge clipped at {topLeft.X}");
+                Assert.True(topLeft.X + b.Bounds.Width <= panel.Bounds.Width + 0.5,
+                    $"{b.Content}: right edge at {topLeft.X + b.Bounds.Width} overflows panel width {panel.Bounds.Width}");
+                Assert.Equal(b.DesiredSize.Width, b.Bounds.Width, 0.5);
+                double expectedX = (panel.Bounds.Width - b.Bounds.Width) / 2;
+                Assert.True(System.Math.Abs(topLeft.X - expectedX) < 1,
+                    $"{b.Content}: not centred on its line, expected X~{expectedX}, got {topLeft.X}");
+            }
+
+            Button def = Assert.Single(buttons, b => ButtonRow.GetRole(b) == ButtonRowRole.Default);
+            Assert.True(buttons.Where(b => b != def).All(b => b.Bounds.Y < def.Bounds.Y),
+                $"default button ({def.Content}) did not keep the last line");
+
+            double controlHeight = ResolveDouble("Foreman.Size.ControlHeightRegular");
+            double gap = ResolveDouble("Foreman.Space.Space2");
+            Assert.True(row.Bounds.Height >= 2 * controlHeight + gap - 0.5,
+                $"expected the row to wrap to two lines, got height {row.Bounds.Height}");
+        }
+
+        private static double ResolveDouble(string key) {
+            Assert.True(Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? value));
+            return Assert.IsType<double>(value);
+        }
+
+        [AvaloniaFact]
         public void Compact_ShowsOnlyThePrimaryButton_StyledPlain_NotTheWholeRow() {
             using var fixture = new KitFixture();
             var row = new ButtonRow { Theme = KitButtonRowTheme() };

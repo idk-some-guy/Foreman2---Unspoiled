@@ -37,51 +37,11 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
 
             ScrollViewer scroller = window.Inspector.FindControl<ScrollViewer>("InspectorScroller")!;
-            Border identityRow = window.Inspector.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("foreman-identity-row"));
+            Border identityRow = window.Inspector.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "IdentityRow");
 
             Assert.DoesNotContain(identityRow, scroller.GetVisualDescendants());
             ContentControl segmentHost = window.Inspector.FindControl<ContentControl>("SegmentHost")!;
             Assert.Contains(segmentHost, scroller.GetVisualDescendants());
-        }
-
-        [AvaloniaFact]
-        public async Task RecipeGroups_TitlesRenderUppercase() {
-            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
-            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
-            Dispatcher.UIThread.RunJobs();
-
-            InspectorGroup rateGroup = window.Inspector.GetVisualDescendants().OfType<InspectorGroup>().Single(g => g.Title == "Rate");
-            TextBlock headerTitle = rateGroup.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("foreman-section-header"));
-
-            Assert.Equal("RATE", headerTitle.Text);
-        }
-
-        [AvaloniaFact]
-        public async Task RateAndFuelGroups_AreNonCollapsible() {
-            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
-            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
-            Dispatcher.UIThread.RunJobs();
-
-            var groups = window.Inspector.GetVisualDescendants().OfType<InspectorGroup>().ToList();
-            InspectorGroup rateGroup = groups.Single(g => g.Title == "Rate");
-
-            Assert.False(rateGroup.IsCollapsible);
-            Assert.True(rateGroup.IsExpanded);
-
-            Button header = rateGroup.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "GroupHeader");
-            Assert.False(header.IsHitTestVisible);
-        }
-
-        [AvaloniaFact]
-        public async Task AssemblerModulesAndBeaconGroups_AreCollapsible() {
-            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
-            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
-            Dispatcher.UIThread.RunJobs();
-
-            var groups = window.Inspector.GetVisualDescendants().OfType<InspectorGroup>().ToList();
-            Assert.True(groups.Single(g => g.Title == "Assembler").IsCollapsible);
-            Assert.True(groups.Single(g => g.Title!.StartsWith("Modules", System.StringComparison.Ordinal)).IsCollapsible);
-            Assert.True(groups.Single(g => g.Title == "Beacon").IsCollapsible);
         }
 
         [AvaloniaFact]
@@ -268,34 +228,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
 
             Assert.NotEqual(normalTextColor, ((ISolidColorBrush)label.Foreground!).Color);
-        }
-
-        //Pins the Path-based chevron's vertical centering everywhere it replaced a text glyph.
-        [AvaloniaFact]
-        public async Task MiniSelectChevron_IsVerticallyCenteredInItsRow() {
-            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
-            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
-            Dispatcher.UIThread.RunJobs();
-
-            Button miniSelect = window.Inspector.FindControl<Button>("QualityMiniSelect")!;
-            Path chevron = miniSelect.GetVisualDescendants().OfType<Path>().Single(p => p.Classes.Contains("foreman-chevron"));
-
-            AssertVerticallyCentered(window, chevron, miniSelect);
-        }
-
-        [AvaloniaFact]
-        public async Task GroupHeaderChevrons_AreVerticallyCenteredInTheirHeader() {
-            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
-            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
-            Dispatcher.UIThread.RunJobs();
-
-            var collapsibleGroups = window.Inspector.GetVisualDescendants().OfType<InspectorGroup>().Where(g => g.IsCollapsible).ToList();
-            Assert.NotEmpty(collapsibleGroups);
-            foreach (InspectorGroup group in collapsibleGroups) {
-                Button header = group.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "GroupHeader");
-                Path chevron = header.GetVisualDescendants().OfType<Path>().Single(p => p.Name == "DisclosureGlyph");
-                AssertVerticallyCentered(window, chevron, header);
-            }
         }
 
         [AvaloniaFact]

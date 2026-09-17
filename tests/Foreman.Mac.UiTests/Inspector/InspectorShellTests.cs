@@ -7,14 +7,22 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
+using Foreman.Graph;
+using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
+using Foreman.Mac.Views;
 using Foreman.Mac.Views.Inspector;
+using InspectorGroup = Foreman.Mac.Kit.Composites.InspectorGroup;
+using SplitDivider = Foreman.Mac.Kit.Composites.SplitDivider;
+using StatePanel = Foreman.Mac.Kit.Composites.StatePanel;
+using StatePanelShape = Foreman.Mac.Kit.Composites.StatePanelShape;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using SkiaSharp;
@@ -48,8 +56,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(recipe.BaseRecipe.FriendlyName, window.Inspector.FindControl<TextBlock>("IdentityName")!.Text);
         }
 
-        //Task 9 (contract §03, Jozef's live-gate ruling): the sidebar overlays the canvas instead of
-        //pushing it - showing or hiding it must never resize the canvas underneath.
+        // Sidebar overlays canvas without resizing it (contract §03).
         [AvaloniaFact]
         public async Task SelectingAndClearingSelection_CanvasWidthNeverChanges() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -86,23 +93,22 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(window.Inspector.IsVisible);
-            Assert.Equal("No selection", window.Inspector.FindControl<TextBlock>("EmptyState")!.Text);
+            Assert.Equal("No node selected", window.Inspector.FindControl<StatePanel>("EmptyState")!.Headline);
         }
 
         [AvaloniaFact]
-        public async Task SelectedRecipeNode_SubtitleShowsAssemblerAndQuality() {
+        public async Task SelectedRecipeNode_SubtitleShowsNodeTypeThenBuilding() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
             var recipe = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.NodeElements.First().ViewModel;
 
             window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
             Dispatcher.UIThread.RunJobs();
 
-            string expected = $"{recipe.SelectedAssembler.Assembler.FriendlyName} · {recipe.SelectedAssembler.Quality.FriendlyName}";
+            string expected = $"Recipe node · {recipe.SelectedAssembler.Assembler.FriendlyName}";
             Assert.Equal(expected, window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text);
         }
 
-        //Task 7: the paired floating recipe editor and its standalone recipe card are retired - a real click
-        //on a recipe node now only selects it, and the inspector's own Recipe segment takes over.
+        // Floating recipe panels retired; in-inspector Recipe segment handles selection (Task 7).
         [AvaloniaFact]
         public async Task ClickingRecipeNode_SelectsAndShowsRecipeSegment_NoFloatingPanel() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -166,8 +172,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.True(visibilityTransitions[0]);
         }
 
-        //Gate fix 3: MouseDown's own SetSelection and MouseUp's EditNode->SetSelection both fired for a
-        //plain click, doubling every Refresh (segment rebind + tint recompute) behind it.
+        // MouseDown and MouseUp both trigger SetSelection; requires deduplication (Gate fix 3).
         [AvaloniaFact]
         public async Task ClickingBetweenNodes_RaisesSelectionChangedExactlyOncePerClick() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -306,7 +311,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(legendary, node.SelectedAssembler.Quality);
-            Assert.Equal($"{electric.FriendlyName} · {legendary.FriendlyName}", window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text);
+            Assert.Equal($"Recipe node · {electric.FriendlyName}", window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text);
             Assert.Equal(legendary.FriendlyName, window.Inspector.FindControl<TextBlock>("QualityMiniSelectLabel")!.Text);
         }
 
@@ -329,37 +334,325 @@ namespace Foreman.Mac.UiTests.Inspector {
         }
 
         [AvaloniaFact]
-        public void InspectorTokens_ResolveInBothThemes() {
-            foreach (ThemeVariant variant in new[] { ThemeVariant.Light, ThemeVariant.Dark }) {
-                Application.Current!.RequestedThemeVariant = variant;
-                foreach (string key in new[] {
-                    "Foreman.Size.InspectorWidth", "Foreman.Color.InspectorBackground",
-                    "Foreman.Type.InspectorTitle.FontSize", "Foreman.Type.InspectorTitle.FontWeight",
-                    "Foreman.Type.InspectorSubtitle.FontSize",
-                    "Foreman.Color.SidebarBackground", "Foreman.Color.WellBackground",
-                    "Foreman.Type.SmallBody.FontSize",
-                    "Foreman.Shadow.Sidebar", "Foreman.Shadow.PickSelectedRing",
-                })
-                    Assert.True(Application.Current.TryGetResource(key, variant, out _), key);
-            }
+        public async Task Inspector_Width_DefaultsTo300_ClampsTo260And380() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.Settings = new AppSettings();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(300, window.Inspector.Bounds.Width, 1);
+
+            SplitDivider divider = window.Inspector.GetVisualDescendants().OfType<SplitDivider>().Single();
+
+            divider.Value = 1000;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(380, window.Inspector.Bounds.Width, 1);
+
+            divider.Value = 0;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(260, window.Inspector.Bounds.Width, 1);
+        }
+
+        //Right-anchored sidebar: dragging toward the canvas (leftward) is the direction that widens it.
+        [AvaloniaFact]
+        public async Task Inspector_DividerDrag_TowardTheCanvasWidens_EscapeRestores() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(300, window.Inspector.Bounds.Width, 1);
+
+            SplitDivider divider = window.Inspector.GetVisualDescendants().OfType<SplitDivider>().Single();
+            Point start = divider.TranslatePoint(new Point(divider.Bounds.Width / 2, divider.Bounds.Height / 2), window) ?? default;
+
+            window.MouseDown(start, MouseButton.Left, RawInputModifiers.None);
+            Point towardCanvas = new(start.X - 40, start.Y);
+            window.MouseMove(towardCanvas, RawInputModifiers.LeftMouseButton);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(340, window.Inspector.Bounds.Width, 1);
+
+            CanvasKeys.KeyDownOn(divider, Key.Escape);
+            Assert.Equal(300, window.Inspector.Bounds.Width, 1);
+            window.MouseUp(towardCanvas, MouseButton.Left, RawInputModifiers.None);
+        }
+
+        //Right-anchored sidebar: dragging toward the window edge (rightward) is the direction that narrows it.
+        [AvaloniaFact]
+        public async Task Inspector_DividerDrag_TowardTheWindowEdgeNarrows() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(300, window.Inspector.Bounds.Width, 1);
+
+            SplitDivider divider = window.Inspector.GetVisualDescendants().OfType<SplitDivider>().Single();
+            Point start = divider.TranslatePoint(new Point(divider.Bounds.Width / 2, divider.Bounds.Height / 2), window) ?? default;
+
+            window.MouseDown(start, MouseButton.Left, RawInputModifiers.None);
+            Point towardWindowEdge = new(start.X + 40, start.Y);
+            window.MouseMove(towardWindowEdge, RawInputModifiers.LeftMouseButton);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(260, window.Inspector.Bounds.Width, 1);
+            window.MouseUp(towardWindowEdge, MouseButton.Left, RawInputModifiers.None);
         }
 
         [AvaloniaFact]
-        public async Task Scale1_5_InspectorTransformedWidthIs450() {
+        public async Task Inspector_DividerDrag_SavesSettingsOnceOnPointerRelease_NotPerMouseMove_NorOnBoot() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            var settingsService = new SettingsService(NewTempDir());
+            window.SettingsService = settingsService;
+            window.Settings = new AppSettings();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+
+            window.ApplyLoadedSettings();
+            Assert.Equal(0, settingsService.SaveCallCount);
+
+            SplitDivider divider = window.Inspector.GetVisualDescendants().OfType<SplitDivider>().Single();
+            Point start = divider.TranslatePoint(new Point(divider.Bounds.Width / 2, divider.Bounds.Height / 2), window) ?? default;
+            window.MouseDown(start, MouseButton.Left, RawInputModifiers.None);
+            for (int step = 1; step <= 4; step++) {
+                window.MouseMove(new Point(start.X - (step * 10), start.Y), RawInputModifiers.LeftMouseButton);
+                Dispatcher.UIThread.RunJobs();
+            }
+            Assert.Equal(0, settingsService.SaveCallCount);
+
+            window.MouseUp(new Point(start.X - 40, start.Y), MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(1, settingsService.SaveCallCount);
+        }
+
+        //InspectorWidth's DB column lands separately; this checks the two halves the migration itself owns - the commit reaching AppSettings in memory, and ApplyLoadedSettings seeding the view model back from it.
+        [AvaloniaFact]
+        public async Task Inspector_WidthCommitted_UpdatesSettingsInMemory_AndApplyLoadedSettingsSeedsTheViewModel() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.Settings = new AppSettings();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+
+            SplitDivider divider = window.Inspector.GetVisualDescendants().OfType<SplitDivider>().Single();
+            Point start = divider.TranslatePoint(new Point(divider.Bounds.Width / 2, divider.Bounds.Height / 2), window) ?? default;
+            Point towardCanvas = new(start.X - 40, start.Y);
+            window.MouseDown(start, MouseButton.Left, RawInputModifiers.None);
+            window.MouseMove(towardCanvas, RawInputModifiers.LeftMouseButton);
+            Dispatcher.UIThread.RunJobs();
+            window.MouseUp(towardCanvas, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(340, window.Settings.InspectorWidth);
+
+            window.Settings = new AppSettings { InspectorWidth = 340 };
+            window.ApplyLoadedSettings();
+
+            Assert.Equal(340, window.ViewModel.Inspector.Width);
+        }
+
+        //The sidebar itself scales with the display factor, but what gets persisted stays logical.
+        [AvaloniaFact]
+        public async Task Inspector_WidthScalesWithDisplayFactor_ButPersistsLogicalWidth() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.Settings = new AppSettings();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(300, window.Inspector.Bounds.Width, 1);
+
+            window.Settings.UiScale = 1.5;
+            window.ApplyLoadedSettings();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(450, window.Inspector.Bounds.Width, 1);
+
+            SplitDivider divider = window.Inspector.GetVisualDescendants().OfType<SplitDivider>().Single();
+            Point start = divider.TranslatePoint(new Point(divider.Bounds.Width / 2, divider.Bounds.Height / 2), window) ?? default;
+            window.MouseDown(start, MouseButton.Left, RawInputModifiers.None);
+            window.MouseMove(new Point(start.X - 60, start.Y), RawInputModifiers.LeftMouseButton);
+            Dispatcher.UIThread.RunJobs();
+            window.MouseUp(new Point(start.X - 60, start.Y), MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.InRange(window.Settings.InspectorWidth, 260, 380);
+
+            window.Settings.UiScale = 1.0;
+            window.ApplyLoadedSettings();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(window.Settings.InspectorWidth, window.Inspector.Bounds.Width, 1);
+        }
+
+        [AvaloniaFact]
+        public async Task Inspector_GroupsAreSeparatedByASingleOnePointRule_NotPerRow() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
             window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
             Dispatcher.UIThread.RunJobs();
 
-            WindowScaler.SetScale(1.5);
-            Dispatcher.UIThread.RunJobs();
+            var recipeView = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
+            var groups = recipeView.GetVisualDescendants().OfType<InspectorGroup>().Where(g => g.IsVisible).ToList();
+            var rules = recipeView.GetVisualDescendants().OfType<Border>()
+                .Where(b => b.Classes.Contains("foreman-inspector-group-rule") && b.IsVisible).ToList();
 
-            Assert.Equal(450, TransformedWidth(window.Inspector, window), 1);
+            Assert.Equal(groups.Count - 1, rules.Count);
+            Assert.All(rules, r => Assert.Equal(1, r.Bounds.Height));
+
+            InspectorGroup assemblerGroup = groups.Single(g => Equals(g.Header, "Assembler"));
+            bool hairlineInsideBody = assemblerGroup.GetVisualDescendants().OfType<Border>()
+                .Any(b => b.Bounds.Height == 1 && b.Bounds.Width >= assemblerGroup.Bounds.Width - 1);
+            Assert.False(hairlineInsideBody);
         }
 
-        private static double TransformedWidth(Control control, Window window) {
-            Point topLeft = control.TranslatePoint(new Point(0, 0), window)!.Value;
-            Point topRight = control.TranslatePoint(new Point(control.Bounds.Width, 0), window)!.Value;
-            return topRight.X - topLeft.X;
+        [AvaloniaFact]
+        public async Task Inspector_NoSelection_ShowsTheStatePanelEmptyShape_WithItsButton() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            int calls = 0;
+            window.Inspector.AddRecipeCommand = new RelayCommand(() => calls++);
+            window.ViewModel.Inspector.IsPinned = true;
+            Dispatcher.UIThread.RunJobs();
+
+            StatePanel emptyState = window.Inspector.FindControl<StatePanel>("EmptyState")!;
+            Assert.True(emptyState.IsVisible);
+            Assert.Equal(StatePanelShape.Empty, emptyState.Shape);
+            Assert.Equal("No node selected", emptyState.Headline);
+            Button addRecipe = Assert.Single(emptyState.Buttons!.Items.OfType<Button>());
+            Assert.Equal("Add Recipe…", addRecipe.Content);
+
+            Point center = addRecipe.TranslatePoint(new Point(addRecipe.Bounds.Width / 2, addRecipe.Bounds.Height / 2), window) ?? default;
+            window.MouseDown(center, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(center, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(1, calls);
+        }
+
+        [AvaloniaFact]
+        public async Task RecipeErrorPanel_OpenPresetsButton_ReselectsThePresetsPaneOnAReusedSettingsWindow() {
+            (MainWindow window, _) = await OpenWithMissingRecipeAsync();
+            window.PresetResolver = new PresetResolver(userPresetsDirectoryOverride: NewTempDir());
+            window.SettingsService = new SettingsService(NewTempDir());
+            SettingsWindow? captured = null;
+            int constructions = 0;
+            window.SettingsDialogStub = w => { captured = w; constructions++; };
+
+            //Opens once and moves off the Presets pane, so the click below has to reselect it rather than
+            //land there for free via the constructor's own SelectTab(0). ShowSettings clears the inspector's
+            //own node selection, so the node is reselected afterward to bring the error panel back on screen.
+            window.ShowSettings();
+            Dispatcher.UIThread.RunJobs();
+            Assert.NotNull(captured);
+            captured!.SimulateTabClick(3);
+            Assert.Equal(3, captured.ActiveTabIndex);
+
+            //ShowSettings only clears the inspector's own selection copy, not GraphViewer.SelectedNodes, so
+            //re-driving SetSelection with the (unchanged) same element is a no-op; go through the inspector's
+            //own SetSelection directly, the same call its SelectionChanged handler would have made.
+            window.ViewModel.Inspector.SetSelection([window.GraphCanvas.Viewer.NodeElements.First().ViewModel]);
+            Dispatcher.UIThread.RunJobs();
+
+            var recipeView = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
+            StatePanel errorPanel = recipeView.FindControl<StatePanel>("RecipeErrorPanel")!;
+            Button openPresets = errorPanel.Buttons!.Items.OfType<Button>().First();
+            Assert.Equal("Open Presets…", openPresets.Content);
+
+            Point center = openPresets.TranslatePoint(new Point(openPresets.Bounds.Width / 2, openPresets.Bounds.Height / 2), window) ?? default;
+            window.MouseDown(center, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(center, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            //Same instance reused, not a second window built from scratch.
+            Assert.Equal(1, constructions);
+            Assert.Equal(0, captured!.ActiveTabIndex);
+        }
+
+        [AvaloniaFact]
+        public async Task RecipeErrorPanel_PickAnotherRecipeButton_OpensTheBrowserSeededForTheNode() {
+            (MainWindow window, IRecipeNodeViewModel node) = await OpenWithMissingRecipeAsync();
+
+            var recipeView = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
+            StatePanel errorPanel = recipeView.FindControl<StatePanel>("RecipeErrorPanel")!;
+            Button pickAnotherRecipe = errorPanel.Buttons!.Items.OfType<Button>().Last();
+            Assert.Equal("Pick Another Recipe…", pickAnotherRecipe.Content);
+
+            Point center = pickAnotherRecipe.TranslatePoint(new Point(pickAnotherRecipe.Bounds.Width / 2, pickAnotherRecipe.Bounds.Height / 2), window) ?? default;
+            window.MouseDown(center, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(center, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.NotNull(window.BrowserWindow);
+            Assert.True(window.BrowserWindow!.IsVisible);
+            Assert.Equal(AddScope.Recipes, window.BrowserRequest!.Scope);
+            Assert.Equal(node.BaseRecipe.FriendlyName, window.BrowserRequest!.SeedText);
+        }
+
+        //260pt is the inspector's own resizable minimum, but the SplitDivider column and the group's own
+        //chrome eat ~9pt before the recipe error panel ever sees it, so the panel itself only crosses
+        //Kit.StatePanel's 260pt full-layout floor once the inspector is dragged out a little further -
+        //280pt is the narrowest width at which the panel leaves .compact and both buttons are on screen.
+        [AvaloniaFact]
+        public async Task RecipeErrorPanel_NearTheInspectorsNarrowEnd_BothButtonsStayInsideTheInspector() {
+            (MainWindow window, _) = await OpenWithMissingRecipeAsync();
+            window.ViewModel.Inspector.Width = 280;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(280, window.Inspector.Bounds.Width, 1);
+
+            var recipeView = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
+            StatePanel errorPanel = recipeView.FindControl<StatePanel>("RecipeErrorPanel")!;
+            Assert.False(errorPanel.IsCompact);
+
+            foreach (Button b in errorPanel.Buttons!.Items.OfType<Button>()) {
+                Point topLeft = b.TranslatePoint(new Point(0, 0), window.Inspector) ?? default;
+                Assert.True(topLeft.X >= -0.5, $"{b.Content}: left edge clipped at {topLeft.X}");
+                Assert.True(topLeft.X + b.Bounds.Width <= window.Inspector.Bounds.Width + 0.5,
+                    $"{b.Content}: right edge at {topLeft.X + b.Bounds.Width} overflows the inspector's width {window.Inspector.Bounds.Width}");
+            }
+        }
+
+        //A private recipe on the shared vanilla cache, marked missing and linked to a real assembler, so the Recipe group's error state has a genuine node to react to.
+        private static async Task<(MainWindow Window, IRecipeNodeViewModel Node)> OpenWithMissingRecipeAsync() {
+            MainWindow window = await InspectorTestSupport.OpenEmptyWindowAsync();
+            window.Settings = new AppSettings();
+            DataCache cache = window.DataCache!;
+            var ironPlate = (RecipePrototype)cache.Recipes["iron-plate"];
+            var assembler = (AssemblerPrototype)ironPlate.Assemblers.First();
+            var missingRecipe = new RecipePrototype(cache, "inspector-shell-tests-missing-recipe", "Missing Recipe",
+                ironPlate.MySubgroupInternal, "a", isMissing: true) { Available = true };
+            missingRecipe.AssemblersInternal.Add(assembler);
+            assembler.RecipesInternal.Add(missingRecipe);
+
+            FieldInfo storeField = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var store = (DataCacheStore)storeField.GetValue(cache)!;
+            store.Recipes[missingRecipe.Name] = missingRecipe;
+
+            var pair = new RecipeQualityPair(missingRecipe, cache.DefaultQuality!);
+            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(pair, new System.Drawing.Point(0, 0));
+            Dispatcher.UIThread.RunJobs();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+
+            return (window, (IRecipeNodeViewModel)window.GraphCanvas.Viewer.NodeElements.First().ViewModel);
+        }
+
+        //Beacon starts collapsed on a fresh node - proves the fix in the app, not just the kit primitive.
+        [AvaloniaFact]
+        public async Task Inspector_GroupPersistedCollapsed_RendersCollapsedOnFirstLayout_BodyNeverMeasuredExpanded() {
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
+            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
+            Dispatcher.UIThread.RunJobs();
+
+            var recipeView = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
+            InspectorGroup beaconGroup = recipeView.FindControl<InspectorGroup>("BeaconGroup")!;
+            Assert.False(beaconGroup.IsExpanded);
+
+            PickGrid beaconOptions = recipeView.FindControl<PickGrid>("BeaconOptions")!;
+            Assert.DoesNotContain(beaconOptions, beaconGroup.GetVisualDescendants());
+        }
+
+        [AvaloniaFact]
+        public async Task Inspector_IdentitySubtitle_NamesTheNodeTypeThenTheBuilding() {
+            (MainWindow window, INodeViewModel node) = await InspectorTestSupport.OpenWithPassthroughAsync();
+            InspectorTestSupport.Select(window, node);
+
+            string subtitle = window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text!;
+            Assert.Equal("Passthrough node", subtitle);
+            Assert.DoesNotContain("·", subtitle);
         }
 
         [AvaloniaFact]

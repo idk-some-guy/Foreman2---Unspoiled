@@ -92,9 +92,16 @@ namespace Foreman.Mac.Services {
                 : Math.Clamp(settings.LowPriorityPower, 1m, 6m);
             settings.PullConsumerNodesPower = Math.Clamp(settings.PullConsumerNodesPower, 0m, 5m);
             settings.UiScale = Math.Clamp(settings.UiScale, 1.0, 2.0);
+            settings.InspectorWidth = Math.Clamp(settings.InspectorWidth, 260, 380);
         }
 
-        public void Save(AppSettings settings) => SaveToDb(settings);
+        public void Save(AppSettings settings) {
+            SaveCallCount++;
+            SaveToDb(settings);
+        }
+
+        //Test-only seam: nothing outside Foreman.Mac.UiTests reads this.
+        internal int SaveCallCount { get; private set; }
 
         private SettingsRow? TryFindRow() {
             try {

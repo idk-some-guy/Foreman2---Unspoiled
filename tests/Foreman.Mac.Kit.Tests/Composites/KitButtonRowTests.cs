@@ -188,6 +188,76 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(8, gap);
         }
 
+        private static ButtonRow LayoutCentered(double width, params Button[] buttons) {
+            ButtonRow row = Row(width, buttons);
+            row.IsCentered = true;
+            var window = new Window { Width = width + 40, Height = 100, Content = row };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            return row;
+        }
+
+        [AvaloniaFact]
+        public void Centered_TwoButtonsThatFit_StayOnOneLine() {
+            using var fixture = new KitFixture();
+            Button other = Btn("Open Presets…", ButtonRowRole.Other);
+            Button def = Btn("Pick Another Recipe…", ButtonRowRole.Default);
+            ButtonRow row = LayoutCentered(500, other, def);
+
+            Assert.Equal(other.Bounds.Y, def.Bounds.Y);
+            Assert.True(other.Bounds.X < def.Bounds.X);
+            Assert.Equal(22, row.Bounds.Height);
+        }
+
+        [AvaloniaFact]
+        public void Centered_TwoButtonsThatDoNotFit_WrapToTwoCenteredLines_NothingClips() {
+            using var fixture = new KitFixture();
+            Button other = Btn("Open Presets…", ButtonRowRole.Other);
+            Button def = Btn("Pick Another Recipe…", ButtonRowRole.Default);
+            //280pt: the cluster overflows and forces the wrap, but each button's own desired width fits alone on its line.
+            ButtonRow row = LayoutCentered(280, other, def);
+
+            Assert.NotEqual(other.Bounds.Y, def.Bounds.Y);
+            //§05: the default button keeps the last (bottom-most) line when the cluster wraps.
+            Assert.True(other.Bounds.Y < def.Bounds.Y);
+
+            foreach (Button b in new[] { other, def }) {
+                Assert.True(b.Bounds.X >= 0, $"{b.Content}: left edge clipped at {b.Bounds.X}");
+                Assert.True(b.Bounds.X + b.Bounds.Width <= row.Bounds.Width + 0.5,
+                    $"{b.Content}: right edge at {b.Bounds.X + b.Bounds.Width} overflows row width {row.Bounds.Width}");
+                Assert.True(b.Bounds.Width >= b.DesiredSize.Width - 0.5, $"{b.Content}: shrank below its desired width");
+                double expectedX = (row.Bounds.Width - b.Bounds.Width) / 2;
+                Assert.True(System.Math.Abs(b.Bounds.X - expectedX) < 1,
+                    $"{b.Content}: not centred on its line, expected X~{expectedX}, got {b.Bounds.X}");
+            }
+        }
+
+        [AvaloniaFact]
+        public void Centered_TwoButtonsThatDoNotFitAt150Percent_WrapToTwoCenteredLines_NothingClips() {
+            using var fixture = new KitFixture();
+            Foreman.Mac.Kit.Appearance.ScaleContract.Apply(1.5);
+            try {
+                Button other = Btn("Open Presets…", ButtonRowRole.Other);
+                Button def = Btn("Pick Another Recipe…", ButtonRowRole.Default);
+                ButtonRow row = LayoutCentered(390, other, def);
+
+                Assert.NotEqual(other.Bounds.Y, def.Bounds.Y);
+                Assert.True(other.Bounds.Y < def.Bounds.Y);
+
+                foreach (Button b in new[] { other, def }) {
+                    Assert.True(b.Bounds.X >= 0, $"{b.Content}: left edge clipped at {b.Bounds.X}");
+                    Assert.True(b.Bounds.X + b.Bounds.Width <= row.Bounds.Width + 0.5,
+                        $"{b.Content}: right edge at {b.Bounds.X + b.Bounds.Width} overflows row width {row.Bounds.Width}");
+                    Assert.True(b.Bounds.Width >= b.DesiredSize.Width - 0.5, $"{b.Content}: shrank below its desired width");
+                    double expectedX = (row.Bounds.Width - b.Bounds.Width) / 2;
+                    Assert.True(System.Math.Abs(b.Bounds.X - expectedX) < 1,
+                        $"{b.Content}: not centred on its line, expected X~{expectedX}, got {b.Bounds.X}");
+                }
+            } finally {
+                Foreman.Mac.Kit.Appearance.ScaleContract.Apply(1.0);
+            }
+        }
+
         [AvaloniaFact]
         public void Centered_ChangesOnlyAlignment_NotOrder() {
             using var fixture = new KitFixture();

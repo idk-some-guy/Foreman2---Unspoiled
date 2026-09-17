@@ -14,8 +14,6 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Type.Caption.FontSize",
             "Foreman.Type.Caption.LineHeight",
             "Foreman.Type.WindowTitle.FontSize",
-            "Foreman.Type.InspectorTitle.FontSize",
-            "Foreman.Type.InspectorSubtitle.FontSize",
             "Foreman.Type.Browser.Subhead.FontSize",
             "Foreman.Type.SmallBody.FontSize",
             "Foreman.Type.Legacy.About.Name.FontSize",

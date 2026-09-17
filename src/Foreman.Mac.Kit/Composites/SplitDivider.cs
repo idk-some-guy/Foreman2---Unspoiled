@@ -11,6 +11,8 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Kit.Composites {
+    public enum SplitDividerAnchor { Leading, Trailing }
+
     public class SplitDivider : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(SplitDivider);
 
@@ -27,6 +29,9 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<double> ValueProperty =
             AvaloniaProperty.Register<SplitDivider, double>(nameof(Value), DefaultValue, coerce: CoerceValue);
 
+        public static readonly StyledProperty<SplitDividerAnchor> AnchorProperty =
+            AvaloniaProperty.Register<SplitDivider, SplitDividerAnchor>(nameof(Anchor));
+
         public double Minimum {
             get => GetValue(MinimumProperty);
             set => SetValue(MinimumProperty, value);
@@ -42,7 +47,16 @@ namespace Foreman.Mac.Kit.Composites {
             set => SetValue(ValueProperty, value);
         }
 
+        //Which edge the driven pane grows toward - Trailing toward the pane's far edge, the opposite of Leading.
+        public SplitDividerAnchor Anchor {
+            get => GetValue(AnchorProperty);
+            set => SetValue(AnchorProperty, value);
+        }
+
         public event EventHandler<double>? ValueChanged;
+
+        //Fires once per resize gesture (drag release, keyboard step, reset settling), not per intermediate write.
+        public event EventHandler<double>? ValueCommitted;
 
         private bool isDragging;
         private double dragStartPointerX;
@@ -107,7 +121,10 @@ namespace Foreman.Mac.Kit.Composites {
             if (!isDragging)
                 return;
             double currentX = e.GetCurrentPoint(null).Position.X;
-            SetCurrentValue(ValueProperty, dragStartValue + (currentX - dragStartPointerX));
+            double delta = currentX - dragStartPointerX;
+            if (Anchor == SplitDividerAnchor.Trailing)
+                delta = -delta;
+            SetCurrentValue(ValueProperty, dragStartValue + delta);
             e.Handled = true;
         }
 
@@ -136,18 +153,22 @@ namespace Foreman.Mac.Kit.Composites {
             switch (e.Key) {
                 case Key.Left:
                     SetCurrentValue(ValueProperty, Value - (e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? LargeStep : SmallStep));
+                    CommitValue();
                     e.Handled = true;
                     break;
                 case Key.Right:
                     SetCurrentValue(ValueProperty, Value + (e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? LargeStep : SmallStep));
+                    CommitValue();
                     e.Handled = true;
                     break;
                 case Key.Home:
                     SetCurrentValue(ValueProperty, Minimum);
+                    CommitValue();
                     e.Handled = true;
                     break;
                 case Key.End:
                     SetCurrentValue(ValueProperty, Maximum);
+                    CommitValue();
                     e.Handled = true;
                     break;
                 case Key.Enter:
@@ -162,12 +183,16 @@ namespace Foreman.Mac.Kit.Composites {
             PseudoClasses.Set(":dragging", false);
             capturedPointer?.Capture(null);
             capturedPointer = null;
+            CommitValue();
         }
+
+        private void CommitValue() => ValueCommitted?.Invoke(this, Value);
 
         private void ResetToDefault() {
             double target = Math.Clamp(DefaultValue, Minimum, Maximum);
             if (Motion.ReduceMotion || VisualRoot is null) {
                 SetCurrentValue(ValueProperty, target);
+                CommitValue();
                 return;
             }
 
@@ -194,8 +219,10 @@ namespace Foreman.Mac.Kit.Composites {
             }
 
             //Animation.RunAsync does not leave the last keyframe applied once it completes - pin the real value.
-            if (!token.IsCancellationRequested)
+            if (!token.IsCancellationRequested) {
                 SetCurrentValue(ValueProperty, target);
+                CommitValue();
+            }
         }
 
         private void ApplyCursor() {
@@ -204,9 +231,10 @@ namespace Foreman.Mac.Kit.Composites {
                 Cursor = target;
         }
 
+        //Minimum/Maximum land through separate resource notifications during a scale cascade, so one can briefly sit above the other; clamp against the widest bound each side allows instead of throwing.
         private static double CoerceValue(AvaloniaObject sender, double value) {
             var divider = (SplitDivider)sender;
-            return Math.Clamp(value, divider.Minimum, divider.Maximum);
+            return Math.Min(Math.Max(value, divider.Minimum), Math.Max(divider.Minimum, divider.Maximum));
         }
 
         private sealed class SplitDividerAutomationPeer(SplitDivider owner) : ControlAutomationPeer(owner), IRangeValueProvider {

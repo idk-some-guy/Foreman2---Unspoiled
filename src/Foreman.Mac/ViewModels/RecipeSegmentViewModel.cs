@@ -21,6 +21,7 @@ namespace Foreman.Mac.ViewModels {
         private const int PickIconSize = 28;
 
         private readonly IRecipeNodeViewModel node;
+        public IRecipeNodeViewModel Node => node;
         private readonly GraphViewer viewer;
         private readonly RecipeNodeController controller;
 
@@ -80,6 +81,9 @@ namespace Foreman.Mac.ViewModels {
         //from the same recipe data RecipePainter used - null for a recipe with no base recipe resolved.
         public RecipeCardViewModel? Card { get; private set; }
         public bool HasCard => Card is not null;
+
+        //A25 .error: the Recipe group swaps the card for Kit.StatePanel.error when the recipe is missing from the preset - the other groups stay live.
+        public bool HasRecipeError { get; private set; }
 
         [ObservableProperty]
         private double beaconCount;
@@ -155,7 +159,10 @@ namespace Foreman.Mac.ViewModels {
                 || viewer.Graph.EnableExtraProductivityForNonMiners;
             OnPropertyChanged(nameof(ShowsExtraProductivity));
 
-            Card = node.BaseRecipe is { Recipe: IRecipe cardRecipe } ? RecipeCardViewModel.Build(cardRecipe, cardIconCache) : null;
+            HasRecipeError = node.BaseRecipe.Recipe?.IsMissing == true;
+            OnPropertyChanged(nameof(HasRecipeError));
+
+            Card = !HasRecipeError && node.BaseRecipe is { Recipe: IRecipe cardRecipe } ? RecipeCardViewModel.Build(cardRecipe, cardIconCache) : null;
             OnPropertyChanged(nameof(Card));
             OnPropertyChanged(nameof(HasCard));
 

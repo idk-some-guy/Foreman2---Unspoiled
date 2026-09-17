@@ -2,54 +2,65 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Foreman.Mac.ViewModels"
              xmlns:insp="using:Foreman.Mac.Views.Inspector"
+             xmlns:composites="using:Foreman.Mac.Kit.Composites"
              x:Class="Foreman.Mac.Views.Inspector.InspectorView"
              x:DataType="vm:InspectorViewModel">
   <!-- IsVisible is driven from MainWindow.axaml.cs (ViewModel.IsInspectorVisible), not a binding here -
        InspectorView's own DataContext is the nested Inspector view model, not MainWindowViewModel, and
        compiled bindings can't cross that boundary from a XAML attribute on this same element. Overlay,
-       not a column (Task 9, contract §03): MainWindow sits this Border in the same grid cell as the
-       canvas, right-aligned above it - this Border owns its own left border and soft left shadow instead
-       of relying on a reserved column to separate it from the canvas. -->
-  <Border Width="{DynamicResource Foreman.Size.InspectorWidth}"
+       not a column (contract §03): MainWindow sits this Border in the same grid cell as the
+       canvas, right-aligned above it - this Border owns its own soft left shadow instead of relying on
+       a reserved column to separate it from the canvas; the split divider draws the boundary hairline. -->
+  <Border Width="{Binding Width}"
           Background="{DynamicResource Foreman.Color.InspectorBackground}"
-          BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1,0,0,0"
           BoxShadow="{DynamicResource Foreman.Shadow.Sidebar}">
-    <Grid RowDefinitions="Auto,*">
-      <Border Grid.Row="0" Classes="foreman-identity-row" IsVisible="{Binding HasNode}">
-        <Grid ColumnDefinitions="Auto,*">
-          <Border Grid.Column="0" Classes="foreman-identity-icon">
-            <Image Name="IdentityIcon" Width="18" Height="18" />
-          </Border>
-          <StackPanel Grid.Column="1" Spacing="2" Margin="10,0,0,0" VerticalAlignment="Center">
-            <TextBlock Name="IdentityName" Classes="foreman-inspector-title" />
-            <TextBlock Name="IdentitySubtitle" Classes="foreman-inspector-subtitle" />
-            <Button Name="QualityMiniSelect" Classes="foreman-mini-select" IsVisible="False"
-                    HorizontalAlignment="Left" Margin="0,4,0,0">
-              <Grid ColumnDefinitions="Auto,*,Auto">
-                <Image Grid.Column="0" Name="QualityMiniSelectIcon" Width="16" Height="16" Margin="0,0,6,0" />
-                <TextBlock Grid.Column="1" Name="QualityMiniSelectLabel" Classes="foreman-mini-select-text"
-                           TextTrimming="CharacterEllipsis" />
-                <Path Grid.Column="2" Classes="foreman-chevron" Data="{StaticResource Foreman.Icon.Chevron}"
-                      Width="8" Height="5" Margin="6,0,0,0" />
-              </Grid>
-              <Button.Flyout>
-                <Flyout Placement="Bottom">
-                  <insp:PickGrid Name="QualityGrid" />
-                </Flyout>
-              </Button.Flyout>
-            </Button>
-          </StackPanel>
-        </Grid>
-      </Border>
+    <Grid ColumnDefinitions="Auto,*">
+      <composites:SplitDivider Grid.Column="0" Name="WidthDivider" Theme="{StaticResource Kit.SplitDivider}"
+                                Anchor="Trailing" Value="{Binding Width, Mode=TwoWay}" />
+      <Grid Grid.Column="1" RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Name="IdentityRow" Padding="12,11" IsVisible="{Binding HasNode}"
+                BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="Auto,10,*">
+            <Border Grid.Column="0" Width="32" Height="32" CornerRadius="7"
+                    Background="{DynamicResource Foreman.Color.ControlBackground}"
+                    BorderBrush="{DynamicResource Foreman.Color.BorderStrong}" BorderThickness="1"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Image Name="IdentityIcon" Width="17" Height="17" />
+            </Border>
+            <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
+              <TextBlock Name="IdentityName" Theme="{StaticResource Kit.Text}" Classes="headline"
+                         TextTrimming="CharacterEllipsis" />
+              <TextBlock Name="IdentitySubtitle" Theme="{StaticResource Kit.Text}" Classes="caption tertiary"
+                         TextTrimming="CharacterEllipsis" />
+              <Button Name="QualityMiniSelect" Classes="foreman-mini-select" IsVisible="False"
+                      HorizontalAlignment="Left" Margin="0,4,0,0">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                  <Image Grid.Column="0" Name="QualityMiniSelectIcon" Width="16" Height="16" Margin="0,0,6,0" />
+                  <TextBlock Grid.Column="1" Name="QualityMiniSelectLabel" Classes="foreman-mini-select-text"
+                             TextTrimming="CharacterEllipsis" />
+                  <Path Grid.Column="2" Classes="foreman-chevron" Data="{StaticResource Foreman.Icon.Chevron}"
+                        Width="8" Height="5" Margin="6,0,0,0" />
+                </Grid>
+                <Button.Flyout>
+                  <Flyout Placement="Bottom">
+                    <insp:PickGrid Name="QualityGrid" />
+                  </Flyout>
+                </Button.Flyout>
+              </Button>
+            </StackPanel>
+          </Grid>
+        </Border>
 
-      <!-- Only the body scrolls - the identity header above stays pinned. Named so tests can find this
-           specific ScrollViewer, not one buried in a TextBox's own template part. -->
-      <ScrollViewer Grid.Row="1" Name="InspectorScroller">
-        <ContentControl Name="SegmentHost" IsVisible="{Binding HasNode}" />
-      </ScrollViewer>
-      <TextBlock Grid.Row="1" Name="EmptyState" Text="{Binding EmptyStateText}" IsVisible="{Binding !HasNode}"
-                 HorizontalAlignment="Center" VerticalAlignment="Center"
-                 Foreground="{DynamicResource Foreman.Color.TextTertiary}" />
+        <!-- Only the body scrolls - the identity header above stays pinned. Named so tests can find this
+             specific ScrollViewer, not one buried in a TextBox's own template part. -->
+        <ScrollViewer Grid.Row="1" Name="InspectorScroller">
+          <ContentControl Name="SegmentHost" IsVisible="{Binding HasNode}" />
+        </ScrollViewer>
+        <composites:StatePanel Grid.Row="1" Name="EmptyState" Theme="{StaticResource Kit.StatePanel}"
+                                Shape="Empty" Headline="No node selected"
+                                Sentence="Select a node on the canvas to edit its recipe, building and modules."
+                                IsVisible="{Binding !HasNode}" />
+      </Grid>
     </Grid>
   </Border>
 </UserControl>

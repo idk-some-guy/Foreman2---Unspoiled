@@ -64,43 +64,23 @@ namespace Foreman.Mac.Kit.Composites {
             double avail = availableSize.Width;
             double rowHeight = Children.Count == 0 ? 0 : Children.Max(c => c.DesiredSize.Height);
 
-            if (IsCentered) {
-                (Control? helper, List<Control> cluster) = Groups();
-                List<Control> all = helper is not null ? [helper, .. cluster] : cluster;
-                double width = LineWidth(all, gap);
-                return new Size(double.IsInfinity(avail) ? width : avail, rowHeight);
-            }
+            //Wrap decision is the same regardless of alignment - only Arrange differs on IsCentered.
+            (Control? helper, List<Control> cluster) = Groups();
+            double clusterWidth = LineWidth(cluster, gap);
+            double helperWidth = helper?.DesiredSize.Width ?? 0;
+            double combined = helperWidth + (helper is not null && cluster.Count > 0 ? gap : 0) + clusterWidth;
 
-            {
-                (Control? helper, List<Control> cluster) = Groups();
-                double clusterWidth = LineWidth(cluster, gap);
-                double helperWidth = helper?.DesiredSize.Width ?? 0;
-                double combined = helperWidth + (helper is not null && cluster.Count > 0 ? gap : 0) + clusterWidth;
+            if (double.IsInfinity(avail) || combined <= avail)
+                return new Size(double.IsInfinity(avail) ? combined : avail, rowHeight);
 
-                if (double.IsInfinity(avail) || combined <= avail)
-                    return new Size(double.IsInfinity(avail) ? combined : avail, rowHeight);
-
-                List<List<Control>> lines = WrapCluster(cluster, avail, gap);
-                double height = (helper is not null ? rowHeight + gap : 0) + (lines.Count * rowHeight) + (Math.Max(0, lines.Count - 1) * gap);
-                return new Size(avail, height);
-            }
+            List<List<Control>> lines = WrapCluster(cluster, avail, gap);
+            double height = (helper is not null ? rowHeight + gap : 0) + (lines.Count * rowHeight) + (Math.Max(0, lines.Count - 1) * gap);
+            return new Size(avail, height);
         }
 
         protected override Size ArrangeOverride(Size finalSize) {
             double rowHeight = Children.Count == 0 ? 0 : Children.Max(c => c.DesiredSize.Height);
-
-            if (IsCentered) {
-                (Control? helper, List<Control> cluster) = Groups();
-                List<Control> all = helper is not null ? [helper, .. cluster] : cluster;
-                double w = LineWidth(all, gap);
-                double x = Math.Max(0, (finalSize.Width - w) / 2);
-                double y = (finalSize.Height - rowHeight) / 2;
-                foreach (Control c in all) {
-                    c.Arrange(new Rect(x, y, c.DesiredSize.Width, rowHeight));
-                    x += c.DesiredSize.Width + gap;
-                }
-                return finalSize;
-            }
+            bool centered = IsCentered;
 
             (Control? h, List<Control> clu) = Groups();
             double clusterWidth = LineWidth(clu, gap);
@@ -109,19 +89,30 @@ namespace Foreman.Mac.Kit.Composites {
 
             if (combined <= finalSize.Width) {
                 double y = (finalSize.Height - rowHeight) / 2;
-                if (h is not null)
-                    h.Arrange(new Rect(0, y, h.DesiredSize.Width, rowHeight));
-                ArrangeTrailing(clu, finalSize.Width, y, rowHeight, gap);
+                if (centered) {
+                    List<Control> all = h is not null ? [h, .. clu] : clu;
+                    ArrangeCentered(all, finalSize.Width, y, rowHeight, gap);
+                } else {
+                    if (h is not null)
+                        h.Arrange(new Rect(0, y, h.DesiredSize.Width, rowHeight));
+                    ArrangeTrailing(clu, finalSize.Width, y, rowHeight, gap);
+                }
                 return finalSize;
             }
 
             double top = 0;
             if (h is not null) {
-                h.Arrange(new Rect(0, 0, h.DesiredSize.Width, rowHeight));
+                if (centered)
+                    ArrangeCentered([h], finalSize.Width, top, rowHeight, gap);
+                else
+                    h.Arrange(new Rect(0, top, h.DesiredSize.Width, rowHeight));
                 top = rowHeight + gap;
             }
             foreach (List<Control> line in WrapCluster(clu, finalSize.Width, gap)) {
-                ArrangeTrailing(line, finalSize.Width, top, rowHeight, gap);
+                if (centered)
+                    ArrangeCentered(line, finalSize.Width, top, rowHeight, gap);
+                else
+                    ArrangeTrailing(line, finalSize.Width, top, rowHeight, gap);
                 top += rowHeight + gap;
             }
             return finalSize;
@@ -129,6 +120,14 @@ namespace Foreman.Mac.Kit.Composites {
 
         private static void ArrangeTrailing(List<Control> line, double totalWidth, double y, double rowHeight, double gap) {
             double x = Math.Max(0, totalWidth - LineWidth(line, gap));
+            foreach (Control c in line) {
+                c.Arrange(new Rect(x, y, c.DesiredSize.Width, rowHeight));
+                x += c.DesiredSize.Width + gap;
+            }
+        }
+
+        private static void ArrangeCentered(List<Control> line, double totalWidth, double y, double rowHeight, double gap) {
+            double x = Math.Max(0, (totalWidth - LineWidth(line, gap)) / 2);
             foreach (Control c in line) {
                 c.Arrange(new Rect(x, y, c.DesiredSize.Width, rowHeight));
                 x += c.DesiredSize.Width + gap;

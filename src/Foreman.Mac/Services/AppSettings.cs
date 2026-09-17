@@ -67,5 +67,8 @@ namespace Foreman.Mac.Services {
         //Phase 9 C2a Task 3 - the View menu's Pin Inspector item writes here; ApplyLoadedSettings seeds
         //InspectorViewModel.IsPinned from it at boot.
         public bool InspectorPinned { get; set; }
+
+        //Logical units, independent of UiScale; clamped 260-380 on read (SettingsService.HealLoadedDefaults).
+        public double InspectorWidth { get; set; } = 300;
     }
 }

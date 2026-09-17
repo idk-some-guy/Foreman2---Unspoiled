@@ -1,9 +1,12 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.ViewModels;
 using System;
 using System.ComponentModel;
@@ -24,10 +27,15 @@ namespace Foreman.Mac.Views.Inspector {
         private readonly PickGrid beaconModuleOptionsGrid;
         private readonly Button clearBeaconButton;
         private readonly InspectorGroup beaconGroup;
+        private readonly StatePanel recipeErrorPanel;
         private GraphViewer? boundViewer;
         private bool lastHasBeacon;
 
         public RecipeSegmentViewModel? ViewModel { get; private set; }
+
+        //A25 .error's two buttons - the host (InspectorView) fills these in, same seam shape as EmptyState's AddRecipeCommand.
+        public event EventHandler? OpenPresetsRequested;
+        public event EventHandler<IRecipeNodeViewModel>? PickAnotherRecipeRequested;
 
         public RecipeSegmentView() {
             InitializeComponent();
@@ -41,6 +49,14 @@ namespace Foreman.Mac.Views.Inspector {
             beaconModuleOptionsGrid = this.FindControl<PickGrid>("BeaconModuleOptionsGrid")!;
             clearBeaconButton = this.FindControl<Button>("ClearBeaconButton")!;
             beaconGroup = this.FindControl<InspectorGroup>("BeaconGroup")!;
+            recipeErrorPanel = this.FindControl<StatePanel>("RecipeErrorPanel")!;
+            var openPresetsButton = new Button { Content = "Open Presets…", Theme = KitTheme("Kit.Button") };
+            ButtonRow.SetRole(openPresetsButton, ButtonRowRole.Other);
+            openPresetsButton.Click += (_, _) => OpenPresetsRequested?.Invoke(this, EventArgs.Empty);
+            var pickAnotherRecipeButton = new Button { Content = "Pick Another Recipe…", Theme = KitTheme("Kit.Button") };
+            ButtonRow.SetRole(pickAnotherRecipeButton, ButtonRowRole.Default);
+            pickAnotherRecipeButton.Click += (_, _) => { if (ViewModel is not null) PickAnotherRecipeRequested?.Invoke(this, ViewModel.Node); };
+            recipeErrorPanel.Buttons = new ButtonRow { Theme = KitTheme("Kit.ButtonRow"), Items = { openPresetsButton, pickAnotherRecipeButton } };
             rateAuto.IsCheckedChanged += RateAuto_IsCheckedChanged;
             assemblerGrid.ItemActivated += (_, item) => ViewModel?.PickAssembler(item);
             fuelGrid.ItemActivated += (_, item) => ViewModel?.PickFuel(item);
@@ -96,6 +112,11 @@ namespace Foreman.Mac.Views.Inspector {
             boundViewer = null;
             if (ViewModel is not null)
                 ViewModel.PropertyChanged -= OnRecipeViewModelPropertyChanged;
+        }
+
+        private static ControlTheme KitTheme(string key) {
+            Application.Current!.TryGetResource(key, null, out object? theme);
+            return theme as ControlTheme ?? throw new InvalidOperationException($"RecipeSegmentView: kit theme '{key}' not found.");
         }
     }
 }

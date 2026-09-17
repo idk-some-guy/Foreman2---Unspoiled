@@ -319,6 +319,83 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void Anchor_DefaultsToLeading() {
+            using var fixture = new KitFixture();
+            SplitDivider divider = Themed();
+            Assert.Equal(SplitDividerAnchor.Leading, divider.Anchor);
+        }
+
+        [AvaloniaFact]
+        public void TrailingAnchor_DragTowardTheFarEdge_GrowsValue() {
+            using var fixture = new KitFixture();
+            SplitDivider divider = Themed();
+            divider.Anchor = SplitDividerAnchor.Trailing;
+            fixture.Window.Content = divider;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.StateOf(divider).Drag(new Point(2, 100), new Point(-38, 100));
+
+            Assert.Equal(340, divider.Value);
+        }
+
+        [AvaloniaFact]
+        public void TrailingAnchor_DragTowardTheWindowEdge_ShrinksValue() {
+            using var fixture = new KitFixture();
+            SplitDivider divider = Themed();
+            divider.Anchor = SplitDividerAnchor.Trailing;
+            fixture.Window.Content = divider;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.StateOf(divider).Drag(new Point(2, 100), new Point(42, 100));
+
+            Assert.Equal(260, divider.Value);
+        }
+
+        [AvaloniaFact]
+        public void ValueCommitted_FiresOnceAfterADrag_NotPerPointerMove() {
+            using var fixture = new KitFixture();
+            SplitDivider divider = Themed();
+            fixture.Window.Content = divider;
+            Dispatcher.UIThread.RunJobs();
+
+            int commits = 0;
+            divider.ValueCommitted += (_, _) => commits++;
+
+            Point pressPoint = divider.TranslatePoint(new Point(2, divider.Bounds.Height / 2), fixture.Window)!.Value;
+            fixture.Window.MouseDown(pressPoint, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Point current = pressPoint;
+            for (int step = 0; step < 4; step++) {
+                current = new Point(current.X + 10, current.Y);
+                fixture.Window.MouseMove(current, RawInputModifiers.LeftMouseButton);
+                Dispatcher.UIThread.RunJobs();
+            }
+            Assert.Equal(0, commits);
+
+            fixture.Window.MouseUp(current, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(1, commits);
+        }
+
+        [AvaloniaFact]
+        public void ValueCommitted_FiresOnEachKeyboardStep() {
+            using var fixture = new KitFixture();
+            SplitDivider divider = Themed();
+            fixture.Window.Content = divider;
+            Dispatcher.UIThread.RunJobs();
+
+            int commits = 0;
+            divider.ValueCommitted += (_, _) => commits++;
+
+            fixture.StateOf(divider).Focus();
+            fixture.StateOf(divider).KeyDown(Key.Right);
+
+            Assert.Equal(1, commits);
+        }
+
+        [AvaloniaFact]
         public void AutomationPeer_RoleIsSplitterWithMinMaxValuePopulated() {
             using var fixture = new KitFixture();
             SplitDivider divider = Themed();
@@ -352,6 +429,55 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(5, divider.Bounds.Width);
+
+            ScaleContract.Apply(1.0);
+        }
+
+        //The cascade sets Minimum and Maximum through two separate resource notifications; CoerceValue must tolerate the transient crossing either way.
+        [AvaloniaFact]
+        public void MinimumAndMaximum_TrackTheTokensAcrossAScaleCrossing_AndNeverThrow() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.SplitDivider", null, out object? theme));
+            var divider = new SplitDivider { Theme = (ControlTheme)theme! };
+            fixture.Window.Content = divider;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(260, divider.Minimum);
+            Assert.Equal(380, divider.Maximum);
+            Assert.Equal(300, divider.Value);
+
+            try {
+                ScaleContract.Apply(1.5);
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(390, divider.Minimum);
+                Assert.Equal(570, divider.Maximum);
+                Assert.InRange(divider.Value, divider.Minimum, divider.Maximum);
+
+                ScaleContract.Apply(1.0);
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(260, divider.Minimum);
+                Assert.Equal(380, divider.Maximum);
+                Assert.InRange(divider.Value, divider.Minimum, divider.Maximum);
+
+                ScaleContract.Apply(2.0);
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(520, divider.Minimum);
+                Assert.Equal(760, divider.Maximum);
+                Assert.InRange(divider.Value, divider.Minimum, divider.Maximum);
+            } finally {
+                ScaleContract.Apply(1.0);
+            }
+        }
+
+        [AvaloniaFact]
+        public void CoerceValue_ToleratesATransientMinimumAboveMaximum() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.SplitDivider", null, out object? theme));
+            var divider = new SplitDivider { Theme = (ControlTheme)theme!, Maximum = 380 };
+
+            divider.Minimum = 390;
+
+            Assert.Equal(390, divider.Value);
         }
     }
 }

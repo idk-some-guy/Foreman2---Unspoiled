@@ -105,6 +105,7 @@ namespace Foreman.Mac.UiTests {
             Assert.False(settings.PullConsumerNodes);
             Assert.Equal(1m, settings.PullConsumerNodesPower);
             Assert.Equal(1.0, settings.UiScale);
+            Assert.Equal(300, settings.InspectorWidth);
         }
 
         [Theory]

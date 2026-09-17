@@ -14,11 +14,14 @@ namespace Foreman.Mac.ViewModels {
         [NotifyPropertyChangedFor(nameof(IsVisible))]
         private bool showOverride;
 
+        //Rendered (scaled) pixels; MainWindow converts to and from AppSettings.InspectorWidth's logical units.
+        [ObservableProperty]
+        private double width = 300;
+
         public IReadOnlyList<INodeViewModel> Selection { get; private set; } = [];
         public INodeViewModel? Node => Selection.Count == 1 ? Selection[0] : null;
         public bool HasNode => Node is not null;
         public InspectorSegment Segment => Node is IRecipeNodeViewModel ? InspectorSegment.Recipe : InspectorSegment.Flow;
-        public string EmptyStateText => Selection.Count > 1 ? $"{Selection.Count} nodes selected" : "No selection";
         public bool IsVisible => IsPinned || ShowOverride || Selection.Count > 0;
 
         public void SetSelection(IReadOnlyList<INodeViewModel> nodes) {
@@ -28,7 +31,6 @@ namespace Foreman.Mac.ViewModels {
             OnPropertyChanged(nameof(Node));
             OnPropertyChanged(nameof(HasNode));
             OnPropertyChanged(nameof(Segment));
-            OnPropertyChanged(nameof(EmptyStateText));
             if (wasVisible != IsVisible)
                 OnPropertyChanged(nameof(IsVisible));
         }
