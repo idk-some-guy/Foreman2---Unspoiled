@@ -170,6 +170,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   slot instead of a separate image beside it. The identity row's building line now appends the
   quality in parentheses when it is not the base tier. The Rate group on both the Recipe and Flow
   segments gained a Rate unit pop-up reading and writing the graph's own rate unit.
+- Sheets now open in Kit.SheetFrame and alerts in Kit.AlertFrame. Every sheet shows its title as a
+  headline, slides 12pt down from under the toolbar (opacity only under Reduce Motion), and leaves the
+  toolbar usable while it is open. Alerts are 300pt wide with the app icon beside a full-sentence
+  headline. The save prompt reads Don't Save · Cancel · Save with Save on Return and Don't Save on ⌘D
+  or ⌘⌫; discarding an unsaved graph and deleting a preset are destructive alerts where Return cancels
+  and ⌘⌫ confirms. A sheet can report work in progress (default disabled, Cancel live, a spinner or a
+  full-width progress bar under a sentence of up to three lines, whose fill eases to each new value and
+  reads its percent to VoiceOver) or a failure (the default becomes Try Again) in a strip above its
+  buttons, keeping its fields on screen.
 
 ### Fixed
 

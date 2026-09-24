@@ -4,13 +4,38 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using System;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Kit.Composites {
     //Shared reflow/fade-out idioms FormRow, PalettePanel and ChooserGrid otherwise duplicated byte-for-byte.
     internal static class CompositeMotion {
+        private static readonly ConditionalWeakTable<Control, StrongBox<int>> reflowsInFlight = [];
+        private static event Action? ReflowEnded;
+
+        //Scoped to one visual root: a reflow whose clock stopped with another root's session must not hold this one up.
+        internal static Task ReflowsSettled(Visual root) {
+            if (!IsReflowing(root))
+                return Task.CompletedTask;
+            var settled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Check() {
+                if (IsReflowing(root))
+                    return;
+                ReflowEnded -= Check;
+                settled.TrySetResult();
+            }
+            ReflowEnded += Check;
+            return settled.Task;
+        }
+
+        private static bool IsReflowing(Visual root) =>
+            root.GetSelfAndVisualDescendants().OfType<Control>()
+                .Any(c => reflowsInFlight.TryGetValue(c, out StrongBox<int>? count) && count.Value > 0);
+
         //FormRow and PalettePanel both drop back to auto height the same way: on detach, and once a reflow
         //settles. Cancels any in-flight reflow so its continuation never fires after the field is cleared.
         internal static void ClearExplicitHeight(Control host, ref CancellationTokenSource? reflowCancellation) {
@@ -41,6 +66,7 @@ namespace Foreman.Mac.Kit.Composites {
             reflowCancellation?.Cancel();
             var cancellation = new CancellationTokenSource();
             reflowCancellation = cancellation;
+            reflowsInFlight.GetOrCreateValue(host).Value++;
             Dispatcher.UIThread.Post(() => _ = RunReflow(host, oldHeight, newHeightAfterMeasure, cancellation, onSettled), DispatcherPriority.Loaded);
         }
 
@@ -54,21 +80,27 @@ namespace Foreman.Mac.Kit.Composites {
         };
 
         private static async Task RunReflow(Control host, double oldHeight, Func<double> newHeightAfterMeasure, CancellationTokenSource cancellation, Action onSettled) {
-            CancellationToken token = cancellation.Token;
-            if (token.IsCancellationRequested)
-                return;
-            double newHeight = newHeightAfterMeasure();
-            Animation reflow = BuildReflowAnimation(oldHeight, newHeight);
-
             try {
-                await reflow.RunAsync(host, token);
-            } catch (OperationCanceledException) {
-                return;
-            }
+                CancellationToken token = cancellation.Token;
+                if (token.IsCancellationRequested)
+                    return;
+                double newHeight = newHeightAfterMeasure();
+                Animation reflow = BuildReflowAnimation(oldHeight, newHeight);
 
-            if (token.IsCancellationRequested)
-                return;
-            onSettled();
+                try {
+                    await reflow.RunAsync(host, token);
+                } catch (OperationCanceledException) {
+                    return;
+                }
+
+                if (token.IsCancellationRequested)
+                    return;
+                onSettled();
+            } finally {
+                if (reflowsInFlight.TryGetValue(host, out StrongBox<int>? count))
+                    count.Value--;
+                ReflowEnded?.Invoke();
+            }
         }
 
         //A leaving cell/row gets its own throwaway wrap so it keeps rendering while it fades, then is removed.

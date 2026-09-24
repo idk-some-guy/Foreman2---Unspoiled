@@ -282,6 +282,8 @@
   <x:Double x:Key="Foreman.Metrics.SheetWidthAlert">300</x:Double>
   <x:Double x:Key="Foreman.Metrics.SheetWidthStandard">360</x:Double>
   <x:Double x:Key="Foreman.Metrics.SheetWidthWide">460</x:Double>
+  <!-- Kit.SheetFrame (v2 §04 Motion): the closed panel sits this far above its place and slides down on open. -->
+  <x:Double x:Key="Foreman.Metrics.SheetSlide">12</x:Double>
 
   <!-- Kit.ButtonRow (K3 composites addendum §05): a button never shrinks below this. -->
   <x:Double x:Key="Foreman.Metrics.ButtonMinWidth">64</x:Double>

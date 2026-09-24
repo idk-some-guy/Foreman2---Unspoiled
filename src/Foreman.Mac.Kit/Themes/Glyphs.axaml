@@ -209,6 +209,8 @@
 
   <!-- Form row's error mark (K3 composites addendum §10): 20pt master M10,3.6 L17.6,16.2 A1.2,1.2 0 0,1 16.6,17.8 H3.4 A1.2,1.2 0 0,1 2.4,16.2 Z M10,8.4 V11.9 M10,14.4 h0.01 scaled by 12/20. -->
   <StreamGeometry x:Key="Kit.Glyph.Alert.12">M6,2.16 L10.56,9.72 A0.72,0.72 0 0,1 9.96,10.68 H2.04 A0.72,0.72 0 0,1 1.44,9.72 Z M6,5.04 V7.14 M6,8.64 h0.006</StreamGeometry>
+  <!-- Compact state panel's failure mark (sheet-progress ruling 2026-09-24), same 20pt master scaled by 16/20. -->
+  <StreamGeometry x:Key="Kit.Glyph.Alert.16">M8,2.88 L14.08,12.96 A0.96,0.96 0 0,1 13.28,14.24 H2.72 A0.96,0.96 0 0,1 1.92,12.96 Z M8,6.72 V9.52 M8,11.52 h0.008</StreamGeometry>
   <!-- State panel glyph (K3 composites addendum §07/§10), same 20pt master scaled by 32/20. -->
   <StreamGeometry x:Key="Kit.Glyph.Alert.32">M16,5.76 L28.16,25.92 A1.92,1.92 0 0,1 26.56,28.48 H5.44 A1.92,1.92 0 0,1 3.84,25.92 Z M16,13.44 V19.04 M16,23.04 h0.016</StreamGeometry>
 

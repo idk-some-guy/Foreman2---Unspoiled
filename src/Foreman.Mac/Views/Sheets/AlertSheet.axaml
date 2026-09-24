@@ -1,13 +1,10 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
              x:Class="Foreman.Mac.Views.Sheets.AlertSheet">
-  <StackPanel Spacing="16">
-    <TextBlock Name="TitleTextBlock" FontWeight="Bold" TextWrapping="Wrap" />
-    <TextBlock Name="MessageTextBlock" TextWrapping="Wrap" />
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-      <Button Name="CancelButton" Content="Cancel" />
-      <Button Name="NoButton" Content="No" />
-      <Button Name="YesButton" Content="Yes" />
-    </StackPanel>
-  </StackPanel>
+  <kit:AlertFrame Name="Frame" Theme="{StaticResource Kit.AlertFrame}">
+    <kit:AlertFrame.Buttons>
+      <kit:ButtonRow Name="Row" Theme="{StaticResource Kit.ButtonRow}" />
+    </kit:AlertFrame.Buttons>
+  </kit:AlertFrame>
 </UserControl>

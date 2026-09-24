@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Foreman.Mac.Views.Sheets;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac {
@@ -29,9 +30,26 @@ namespace Foreman.Mac {
             return choice == ConfirmChoice.Yes;
         }
 
-        //Minimal UserMessages.Show(..., MessageBoxButtons.YesNoCancel) substitution, for
-        //TestGraphSavedStatus's "graph has been modified" prompt (reference io-reference.md §2).
-        public static Task<ConfirmChoice> ShowYesNoCancelAsync(Window owner, string title, string message) =>
-            SheetHost.For(owner).ShowStackedAsync(new AlertSheet(title, message, AlertButtons.YesNoCancel));
+        //Destructive confirms (discard a graph, delete a preset): the verb is never the default, so Return cancels.
+        public static async Task<bool> ShowDestructiveConfirmAsync(Window owner, string headline, string message, string verb) {
+            ConfirmChoice choice = await SheetHost.For(owner).ShowStackedAsync(new AlertSheet(headline, message, AlertButtons.Destructive, verb)).ConfigureAwait(true);
+            return choice == ConfirmChoice.Yes;
+        }
+
+        //NSDocument's save prompt: Save → Yes, Don't Save → No, Cancel → Cancel.
+        public static Task<ConfirmChoice> ShowSaveChangesAsync(Window owner, string path) =>
+            SheetHost.For(owner).ShowStackedAsync(new AlertSheet(
+                $"Do you want to save the changes you made to “{DocumentName(path)}”?",
+                "Your changes will be lost if you don’t save them.",
+                AlertButtons.YesNoCancel));
+
+        public static string DocumentName(string path) => MiddleTruncate(Path.GetFileNameWithoutExtension(path));
+
+        public static string MiddleTruncate(string text, int max = 40) {
+            if (text.Length <= max)
+                return text;
+            int head = max / 2;
+            return text[..head] + "…" + text[^(max - head - 1)..];
+        }
     }
 }

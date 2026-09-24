@@ -1,9 +1,15 @@
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using Foreman.Serialization;
 using System;
@@ -131,24 +137,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(result);
         }
 
-        [AvaloniaFact]
-        public async Task TestGraphSavedStatusAsync_NonEmptyUntitledGraph_PromptsAndHonorsCancel() {
-            DataCache cache = await GetCacheAsync();
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = cache;
-            window.ApplyLoadedSettings();
-            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
-            window.GraphCanvas.Viewer.Graph.CreateSupplierNode(pair, System.Drawing.Point.Empty);
-            window.DiscardUnsavedGraphConfirmStub = () => Task.FromResult(false);
-
-            Assert.False(await window.TestGraphSavedStatusAsync());
-
-            window.DiscardUnsavedGraphConfirmStub = () => Task.FromResult(true);
-
-            Assert.True(await window.TestGraphSavedStatusAsync());
-        }
-
         //---- TestGraphSavedStatus: re-serialize diff against the save baseline --------------------------
 
         [AvaloniaFact]
@@ -198,6 +186,106 @@ namespace Foreman.Mac.UiTests {
             } finally {
                 File.Delete(path);
             }
+        }
+
+        //---- The alerts the real dialogs raise: ruled copy, rendered, resolved by their keys ------------
+
+        private static AlertSheet ShownAlert(MainWindow window) {
+            Dispatcher.UIThread.RunJobs();
+            return Assert.IsType<AlertSheet>(SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>().Last());
+        }
+
+        private static string[] Rendered(AlertSheet alert) => [
+            alert.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Headline").Text ?? "",
+            alert.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Informative").Text ?? "",
+            .. alert.Buttons!.Items.Cast<Button>().Select(b => b.Content as string ?? ""),
+        ];
+
+        [AvaloniaFact]
+        public async Task TestGraphSavedStatusAsync_RealAlerts_RenderTheRuledCopy_AndResolveByTheirKeys() {
+            DataCache cache = await GetCacheAsync();
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.ApplyLoadedSettings();
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            window.GraphCanvas.Viewer.Graph.CreateSupplierNode(pair, System.Drawing.Point.Empty);
+
+            Task<bool> untitled = window.TestGraphSavedStatusAsync();
+            AlertSheet discard = ShownAlert(window);
+            Assert.Equal(["Discard this unsaved graph?", "This graph has never been saved. You can’t undo this action.", "Discard", "Cancel"], Rendered(discard));
+            Assert.Contains("destructive", discard.YesButtonControl.Classes);
+            CanvasKeys.KeyDownOn(discard.YesButtonControl, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(untitled.IsCompleted);
+            Assert.False(await untitled);
+            AnimationClock.Settle();
+
+            string path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName(), "Iron smelting.fjson");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            try {
+                Assert.True(await window.SaveGraphAsync(path));
+                window.GraphCanvas.Viewer.Graph.CreateSupplierNode(pair, new System.Drawing.Point(200, 0));
+
+                Task<bool> modified = window.TestGraphSavedStatusAsync();
+                AlertSheet save = ShownAlert(window);
+                Assert.Equal(["Do you want to save the changes you made to “Iron smelting”?", "Your changes will be lost if you don’t save them.",
+                    "Don’t Save", "Cancel", "Save"], Rendered(save));
+                CanvasKeys.KeyDownOn(save.YesButtonControl, Key.Escape);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(modified.IsCompleted);
+                Assert.False(await modified);
+                AnimationClock.Settle();
+
+                File.Delete(path);
+                Task<bool> gone = window.TestGraphSavedStatusAsync();
+                AlertSheet vanished = ShownAlert(window);
+                Assert.Equal(["Discard this unsaved graph?", "Its file “Iron smelting” is no longer where it was saved. You can’t undo this action.",
+                    "Discard", "Cancel"], Rendered(vanished));
+                CanvasKeys.KeyDownOn(vanished.NoButtonControl, Key.Back, KeyModifiers.Meta);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(gone.IsCompleted);
+                Assert.True(await gone);
+            } finally {
+                Directory.Delete(Path.GetDirectoryName(path)!, recursive: true);
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task FailedOpenImportAndSave_RaiseOKAlerts_WithTheRuledCopy() {
+            DataCache cache = await GetCacheAsync();
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.Settings = new AppSettings();
+            window.ApplyLoadedSettings();
+
+            Task opened = window.LoadGraphJsonAsync("{}", "/tmp/graphs/Iron smelting.fjson");
+            AlertSheet open = ShownAlert(window);
+            Assert.Equal(["Couldn’t open “Iron smelting”.",
+                "The file is too old or damaged to read. Open it in the previous Foreman release, save it again, then open the new copy here.", "OK"], Rendered(open));
+            CanvasKeys.KeyDownOn(open.YesButtonControl, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(opened.IsCompleted);
+            await opened;
+            AnimationClock.Settle();
+
+            Task imported = window.ImportGraphJsonAsync("{}", "/tmp/graphs/Copper wire.fjson");
+            AlertSheet import = ShownAlert(window);
+            Assert.Equal(["Couldn’t import “Copper wire”.", "Foreman couldn’t read it as a graph. The details are in Foreman’s log.", "OK"], Rendered(import));
+            CanvasKeys.KeyDownOn(import.YesButtonControl, Key.Escape);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(imported.IsCompleted);
+            await imported;
+            AnimationClock.Settle();
+
+            Task<bool> saved = window.SaveGraphAsync(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName(), "Green circuits.fjson"));
+            AlertSheet save = ShownAlert(window);
+            Assert.Equal(["Couldn’t save “Green circuits”.", "Your graph is still open and unchanged. The details are in Foreman’s log.", "OK"], Rendered(save));
+            CanvasKeys.KeyDownOn(save.YesButtonControl, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(saved.IsCompleted);
+            Assert.False(await saved);
         }
 
         //---- New calls TestGraphSavedStatus first -------------------------------------------------------

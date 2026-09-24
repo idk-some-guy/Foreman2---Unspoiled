@@ -105,7 +105,7 @@ namespace Foreman.Mac.Views.Sheets {
             this.rateString = rateString;
             SheetWidth = 780;
             SheetHeight = 540;
-            Title = "Factory summary:";
+            Title = "Factory summary";
 
             mainTabControl = this.FindControl<TabControl>("MainTabControl")!;
             itemsFluidsTabItem = this.FindControl<TabItem>("ItemsFluidsTabItem")!;

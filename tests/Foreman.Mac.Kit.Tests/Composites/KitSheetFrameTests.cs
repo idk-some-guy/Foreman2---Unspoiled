@@ -552,5 +552,70 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
             Assert.Equal(0, layouts);
         }
+
+        private static double Token(Control scope, string key) {
+            Assert.True(scope.TryFindResource(key, scope.ActualThemeVariant, out object? value));
+            return Assert.IsType<double>(value);
+        }
+
+        private static double TranslateY(Border panel) => panel.RenderTransform?.Value.M32 ?? 0;
+
+        [AvaloniaFact]
+        public void ClosedPanel_SitsSheetSlideAboveItsPlace_OpenPanelAtIdentity() {
+            using var fixture = new KitFixture();
+            SheetFrame sheet = Themed();
+            Shown(sheet);
+            Border panel = Panel(sheet);
+
+            Assert.Equal(12, Token(sheet, "Foreman.Metrics.SheetSlide"));
+            Assert.Equal(-12, TranslateY(panel), 3);
+
+            sheet.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+            Assert.Equal(0, TranslateY(panel), 3);
+
+            sheet.IsOpen = false;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+            Assert.Equal(-12, TranslateY(panel), 3);
+        }
+
+        [AvaloniaFact]
+        public void ReduceMotion_ToggledWhileOpen_CloseIsOpacityOnlyInPlace_AndTogglingBackRestoresTheSlide() {
+            using var fixture = new KitFixture();
+            SheetFrame sheet = Themed();
+            Shown(sheet);
+            Border panel = Panel(sheet);
+            sheet.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+            double openTop = panel.TranslatePoint(new Point(0, 0), sheet)!.Value.Y;
+
+            Motion.ReduceMotion = true;
+            sheet.IsOpen = false;
+            Dispatcher.UIThread.RunJobs();
+
+            var closeOpacity = Assert.Single(panel.Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
+            Assert.Equal(Motion.SheetCloseDuration, closeOpacity.Duration);
+            Assert.DoesNotContain(panel.Transitions!, t => t is TransformOperationsTransition);
+            Assert.Equal(openTop, panel.TranslatePoint(new Point(0, 0), sheet)!.Value.Y, 3);
+            AnimationClock.Settle();
+            Assert.Equal(openTop, panel.TranslatePoint(new Point(0, 0), sheet)!.Value.Y, 3);
+
+            Motion.ReduceMotion = false;
+            sheet.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains(panel.Transitions!, t => t is TransformOperationsTransition);
+            Assert.True(panel.TranslatePoint(new Point(0, 0), sheet)!.Value.Y < openTop - 1);
+            AnimationClock.Settle();
+            Assert.Equal(openTop, panel.TranslatePoint(new Point(0, 0), sheet)!.Value.Y, 3);
+
+            sheet.IsOpen = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains(panel.Transitions!, t => t is TransformOperationsTransition);
+            AnimationClock.Settle();
+            Assert.Equal(openTop - 12, panel.TranslatePoint(new Point(0, 0), sheet)!.Value.Y, 3);
+        }
     }
 }

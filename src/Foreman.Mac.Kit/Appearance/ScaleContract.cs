@@ -130,6 +130,7 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Metrics.SheetWidthAlert",
             "Foreman.Metrics.SheetWidthStandard",
             "Foreman.Metrics.SheetWidthWide",
+            "Foreman.Metrics.SheetSlide",
         ];
 
         //Remove-then-resolve (AppearanceHub.ApplyFocusRing's idiom) keeps repeated calls from compounding.

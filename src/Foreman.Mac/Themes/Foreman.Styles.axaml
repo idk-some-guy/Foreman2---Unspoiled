@@ -487,45 +487,4 @@
     <Setter Property="HorizontalContentAlignment" Value="Center" />
   </Style>
 
-  <!-- Sheet overlay (C2c #modals): .entering is the pre-attach start state. SheetHost.cs sets
-       Transitions itself, in code, from Motion.Transition (open on Present/PushLayer, closing in
-       BeginDismiss/BeginDismissLayer) so a live Reduce Motion toggle reaches it. -->
-  <Style Selector="Border.foreman-sheet-scrim">
-    <Setter Property="Background" Value="{DynamicResource Foreman.Color.SheetScrim}" />
-    <Setter Property="Opacity" Value="1" />
-  </Style>
-
-  <Style Selector="Border.foreman-sheet-scrim.entering">
-    <Setter Property="Opacity" Value="0" />
-  </Style>
-
-  <Style Selector="Border.foreman-sheet-scrim.closing">
-    <Setter Property="Opacity" Value="0" />
-  </Style>
-
-  <Style Selector="Border.foreman-sheet-panel">
-    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackground}" />
-    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.SheetBottom}" />
-    <Setter Property="BoxShadow" Value="{DynamicResource Foreman.Shadow.Sheet}" />
-    <Setter Property="Padding" Value="18,16,18,18" />
-    <Setter Property="HorizontalAlignment" Value="Center" />
-    <Setter Property="VerticalAlignment" Value="Top" />
-    <Setter Property="Opacity" Value="1" />
-    <Setter Property="RenderTransform" Value="none" />
-  </Style>
-
-  <Style Selector="Border.foreman-sheet-panel.entering">
-    <Setter Property="Opacity" Value="0" />
-    <Setter Property="RenderTransform" Value="translateY(-12px)" />
-  </Style>
-
-  <Style Selector="Border.foreman-sheet-panel.dimmed">
-    <Setter Property="Opacity" Value="0.55" />
-  </Style>
-
-  <Style Selector="Border.foreman-sheet-panel.closing">
-    <Setter Property="Opacity" Value="0" />
-    <Setter Property="RenderTransform" Value="translateY(-12px)" />
-  </Style>
-
 </Styles>

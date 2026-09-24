@@ -1759,7 +1759,7 @@ namespace Foreman.Mac.Views {
         //A .compact instance is forced by giving it a region under RegionMinHeight (196pt) - the panel's own MeasureOverride decision.
         private static StackPanel BuildStatePanelLoadingTile() {
             StatePanel full = KitStatePanel(StatePanelShape.Loading, "Loading Factorio data",
-                "Reading Space Age — mod 3 of 7.", KitButtonRow(KitRowButton("Cancel", ButtonRowRole.Cancel)), progress: 42);
+                "Reading Space Age — mod 3 of 7.", KitButtonRow(KitRowButton("Cancel", ButtonRowRole.Cancel)), progress: 0.42);
             StatePanel compact = KitStatePanel(StatePanelShape.Loading, "Solving", "Solving — 62 %",
                 KitButtonRow(KitRowButton("Cancel", ButtonRowRole.Cancel)));
 

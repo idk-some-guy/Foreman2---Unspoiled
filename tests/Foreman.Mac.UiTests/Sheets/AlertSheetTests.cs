@@ -1,153 +1,174 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Foreman.Mac;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Sheets;
+using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Sheets {
-    //Covers AlertSheet's own wiring (C2c Task 3, replaces MessageDialog/ConfirmDialog/YesNoCancelDialog on
-    //a window that has a SheetHost - Dialogs.cs's own tests cover the routing/fallback decision): button
-    //visibility per mode, the affirmative default button, and Escape mapping to the "dismissed without
-    //confirming" choice for each mode.
+    //Routing lives in Dialogs.cs's tests; AlertFrame's geometry and keys are pinned in the kit suite.
     public class AlertSheetTests {
         [AvaloniaFact]
-        public void SheetWidth_Is360() {
-            var sheet = new AlertSheet("", "message", AlertButtons.Ok);
+        public void Message_ShowsVerbatim_AsTheHeadlineWhenUntitled_AndAsInformativeTextUnderATitle() {
+            var untitled = new AlertSheet("", "This preset name is already in use.", AlertButtons.Ok);
+            var titled = new AlertSheet("Couldn’t open “Iron smelting”.", "The file is too old or damaged to read.", AlertButtons.Ok);
 
-            Assert.Equal(360, sheet.SheetWidth);
+            Assert.Equal("This preset name is already in use.", untitled.FrameControl.Headline);
+            Assert.Null(untitled.FrameControl.InformativeText);
+            Assert.Equal("Couldn’t open “Iron smelting”.", titled.FrameControl.Headline);
+            Assert.Equal("The file is too old or damaged to read.", titled.FrameControl.InformativeText);
         }
 
         [AvaloniaFact]
-        public void EmptyTitle_HidesTheTitleTextBlock() {
-            var sheet = new AlertSheet("", "message", AlertButtons.Ok);
+        public void AlertSheet_Width_IsSheetWidthAlert() {
+            var window = new Window { Width = 800, Height = 600 };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+            var sheet = new AlertSheet("Cannot load save", "message", AlertButtons.Ok);
 
-            Assert.False(sheet.TitleTextBlockControl.IsVisible);
+            _ = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(Application.Current!.TryGetResource("Foreman.Metrics.SheetWidthAlert", Application.Current.ActualThemeVariant, out object? width));
+            Border panel = sheet.FrameControl.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Panel");
+            Assert.Equal(Assert.IsType<double>(width), panel.Bounds.Width, 0.5);
+            Assert.Same(sheet, host.Children.OfType<AlertSheet>().Single());
         }
 
-        [AvaloniaFact]
-        public void NonEmptyTitle_ShowsItVerbatim() {
-            var sheet = new AlertSheet("Confirm Delete", "message", AlertButtons.Ok);
-
-            Assert.True(sheet.TitleTextBlockControl.IsVisible);
-            Assert.Equal("Confirm Delete", sheet.TitleTextBlockControl.Text);
-        }
-
-        [AvaloniaFact]
-        public void MessageTextBlock_ShowsTheMessageVerbatim() {
-            var sheet = new AlertSheet("", "This preset name is already in use.", AlertButtons.Ok);
-
-            Assert.Equal("This preset name is already in use.", sheet.MessageTextBlockControl.Text);
-        }
-
-        //---- Ok: one button, labeled OK, the sheet's own default -----------------------------------------
-
-        [AvaloniaFact]
-        public void OkMode_OnlyYesButtonVisible_LabeledOK() {
-            var sheet = new AlertSheet("", "message", AlertButtons.Ok);
-
-            Assert.False(sheet.CancelButtonControl.IsVisible);
-            Assert.False(sheet.NoButtonControl.IsVisible);
-            Assert.True(sheet.YesButtonControl.IsVisible);
-            Assert.Equal("OK", sheet.YesButtonControl.Content);
-            Assert.Same(sheet.YesButtonControl, sheet.DefaultButton);
-        }
-
-        [AvaloniaFact]
-        public async Task OkMode_Escape_ResolvesYes() {
+        private static (SheetHost Host, Task<ConfirmChoice> Task) Present(AlertSheet sheet) {
             var window = new Window { Width = 500, Height = 400 };
             window.Show();
             SheetHost host = SheetHost.For(window);
-            var sheet = new AlertSheet("", "message", AlertButtons.Ok);
-
             Task<ConfirmChoice> task = host.ShowAsync(sheet);
             Dispatcher.UIThread.RunJobs();
+            return (host, task);
+        }
+
+        private static string[] Labels(AlertSheet sheet) => [.. sheet.Buttons!.Items.Cast<Button>().Select(b => (string)b.Content!)];
+
+        //---- Ok: one button, labeled OK, the sheet's own default; Escape completes it --------------------
+
+        [AvaloniaFact]
+        public async Task OkMode_OneOKButton_TheDefault_AndEscapeResolvesYes() {
+            var sheet = new AlertSheet("Couldn’t open “Iron smelting”.", "The file is too old or damaged to read.", AlertButtons.Ok);
+            Assert.Equal(["OK"], Labels(sheet));
+            Assert.Same(sheet.YesButtonControl, sheet.DefaultButton);
+
+            (_, Task<ConfirmChoice> task) = Present(sheet);
             CanvasKeys.KeyDownOn(sheet.YesButtonControl, Key.Escape);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(task.IsCompleted);
 
             Assert.Equal(ConfirmChoice.Yes, await task);
         }
 
-        //---- YesNo: Cancel hidden, Yes is the default, Escape resolves No --------------------------------
+        //---- YesNo: the plain confirm the sheets still raise; Yes is the default, Escape and No resolve No
 
         [AvaloniaFact]
-        public void YesNoMode_CancelHidden_YesAndNoVisible_YesLabeled() {
+        public async Task YesNoMode_YesIsTheDefault_EscapeAndTheNoButtonResolveNo() {
             var sheet = new AlertSheet("", "message", AlertButtons.YesNo);
-
-            Assert.False(sheet.CancelButtonControl.IsVisible);
-            Assert.True(sheet.NoButtonControl.IsVisible);
-            Assert.True(sheet.YesButtonControl.IsVisible);
+            Assert.Equal([sheet.NoButtonControl, sheet.YesButtonControl], sheet.Buttons!.Items.Cast<Button>());
             Assert.Equal("Yes", sheet.YesButtonControl.Content);
             Assert.Same(sheet.YesButtonControl, sheet.DefaultButton);
-        }
 
-        [AvaloniaFact]
-        public async Task YesNoMode_Escape_ResolvesNo() {
-            var window = new Window { Width = 500, Height = 400 };
-            window.Show();
-            SheetHost host = SheetHost.For(window);
-            var sheet = new AlertSheet("", "message", AlertButtons.YesNo);
-
-            Task<ConfirmChoice> task = host.ShowAsync(sheet);
-            Dispatcher.UIThread.RunJobs();
+            (SheetHost host, Task<ConfirmChoice> escaped) = Present(sheet);
             CanvasKeys.KeyDownOn(sheet.YesButtonControl, Key.Escape);
-
-            Assert.Equal(ConfirmChoice.No, await task);
-        }
-
-        [AvaloniaFact]
-        public async Task YesNoMode_NoButtonClick_ResolvesNo() {
-            var window = new Window { Width = 500, Height = 400 };
-            window.Show();
-            SheetHost host = SheetHost.For(window);
-            var sheet = new AlertSheet("", "message", AlertButtons.YesNo);
-
-            Task<ConfirmChoice> task = host.ShowAsync(sheet);
             Dispatcher.UIThread.RunJobs();
-            sheet.NoButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Assert.True(escaped.IsCompleted);
+            Assert.Equal(ConfirmChoice.No, await escaped);
+            AnimationClock.Settle();
 
+            var clicked = new AlertSheet("", "message", AlertButtons.YesNo);
+            Task<ConfirmChoice> task = host.ShowAsync(clicked);
+            Dispatcher.UIThread.RunJobs();
+            clicked.NoButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(task.IsCompleted);
             Assert.Equal(ConfirmChoice.No, await task);
         }
 
-        //---- YesNoCancel: three buttons, Yes is the default, Escape resolves Cancel ----------------------
+        //---- YesNoCancel: the save prompt - Don't Save · Cancel · Save, Save the default -------------------
 
         [AvaloniaFact]
-        public void YesNoCancelMode_AllThreeButtonsVisible_YesIsTheDefault() {
-            var sheet = new AlertSheet("", "message", AlertButtons.YesNoCancel);
-
-            Assert.True(sheet.CancelButtonControl.IsVisible);
-            Assert.True(sheet.NoButtonControl.IsVisible);
-            Assert.True(sheet.YesButtonControl.IsVisible);
+        public async Task SaveAlert_DontSaveCancelSave_SaveIsTheDefault_ReturnSaves_EscapeAndCmdPeriodCancel() {
+            var sheet = new AlertSheet("Do you want to save?", "message", AlertButtons.YesNoCancel);
+            Assert.Equal([sheet.NoButtonControl, sheet.CancelButtonControl, sheet.YesButtonControl], sheet.Buttons!.Items.Cast<Button>());
+            Assert.Equal(["Don’t Save", "Cancel", "Save"], Labels(sheet));
+            Assert.Equal(ButtonRowRole.Other, ButtonRow.GetRole(sheet.NoButtonControl));
             Assert.Same(sheet.YesButtonControl, sheet.DefaultButton);
+
+            (SheetHost host, Task<ConfirmChoice> returned) = Present(sheet);
+            Assert.Contains("primary", sheet.YesButtonControl.Classes);
+            Assert.DoesNotContain(sheet.Buttons!.Items.Cast<Button>(), b => b.Classes.Contains("destructive"));
+            Assert.DoesNotContain(sheet.Buttons!.Items.Cast<Button>(), b => b != sheet.YesButtonControl && b.Classes.Contains("primary"));
+            CanvasKeys.KeyDownOn(sheet.NoButtonControl, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(returned.IsCompleted);
+            Assert.Equal(ConfirmChoice.Yes, await returned);
+
+            foreach ((Key key, KeyModifiers modifiers) in new[] { (Key.Escape, KeyModifiers.None), (Key.OemPeriod, KeyModifiers.Meta) }) {
+                AnimationClock.Settle();
+                var cancelled = new AlertSheet("Do you want to save?", "message", AlertButtons.YesNoCancel);
+                Task<ConfirmChoice> task = host.ShowAsync(cancelled);
+                Dispatcher.UIThread.RunJobs();
+                CanvasKeys.KeyDownOn(cancelled.YesButtonControl, key, modifiers);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(task.IsCompleted);
+                Assert.Equal(ConfirmChoice.Cancel, await task);
+            }
         }
 
         [AvaloniaFact]
-        public async Task YesNoCancelMode_Escape_ResolvesCancel() {
+        public async Task SaveAlert_CmdDAndCmdBackspace_FireDontSave() {
             var window = new Window { Width = 500, Height = 400 };
             window.Show();
             SheetHost host = SheetHost.For(window);
-            var sheet = new AlertSheet("", "message", AlertButtons.YesNoCancel);
 
-            Task<ConfirmChoice> task = host.ShowAsync(sheet);
-            Dispatcher.UIThread.RunJobs();
-            CanvasKeys.KeyDownOn(sheet.YesButtonControl, Key.Escape);
-
-            Assert.Equal(ConfirmChoice.Cancel, await task);
+            foreach (Key key in new[] { Key.D, Key.Back }) {
+                var sheet = new AlertSheet("Do you want to save?", "message", AlertButtons.YesNoCancel);
+                Task<ConfirmChoice> task = host.ShowAsync(sheet);
+                Dispatcher.UIThread.RunJobs();
+                CanvasKeys.KeyDownOn(sheet.YesButtonControl, key, KeyModifiers.Meta);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(task.IsCompleted);
+                Assert.Equal(ConfirmChoice.No, await task);
+                AnimationClock.Settle();
+            }
         }
 
-        [AvaloniaFact]
-        public async Task YesNoCancelMode_Enter_ResolvesYes() {
-            var window = new Window { Width = 500, Height = 400 };
-            window.Show();
-            SheetHost host = SheetHost.For(window);
-            var sheet = new AlertSheet("", "message", AlertButtons.YesNoCancel);
+        //---- Destructive: the verb is destructive and never the default; Cancel keeps Return -------------
 
-            Task<ConfirmChoice> task = host.ShowAsync(sheet);
-            Dispatcher.UIThread.RunJobs();
+        [AvaloniaFact]
+        public async Task DestructiveAlert_VerbThenCancel_ReturnCancels_CmdBackspaceConfirms() {
+            var sheet = new AlertSheet("Discard this unsaved graph?", "message", AlertButtons.Destructive, "Discard");
+            Assert.Equal([sheet.YesButtonControl, sheet.NoButtonControl], sheet.Buttons!.Items.Cast<Button>());
+            Assert.Equal(["Discard", "Cancel"], Labels(sheet));
+            Assert.Equal(ButtonRowRole.Destructive, ButtonRow.GetRole(sheet.YesButtonControl));
+            Assert.Equal(ButtonRowRole.Cancel, ButtonRow.GetRole(sheet.NoButtonControl));
+
+            (SheetHost host, Task<ConfirmChoice> returned) = Present(sheet);
+            Assert.Same(sheet.NoButtonControl, sheet.Buttons!.ResolveDefaultButton());
+            Assert.Contains("primary", sheet.NoButtonControl.Classes);
+            Assert.Contains("destructive", sheet.YesButtonControl.Classes);
             CanvasKeys.KeyDownOn(sheet.YesButtonControl, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(returned.IsCompleted);
+            Assert.Equal(ConfirmChoice.No, await returned);
+            AnimationClock.Settle();
 
+            var confirmed = new AlertSheet("Discard this unsaved graph?", "message", AlertButtons.Destructive, "Discard");
+            Task<ConfirmChoice> task = host.ShowAsync(confirmed);
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(confirmed.NoButtonControl, Key.Back, KeyModifiers.Meta);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(task.IsCompleted);
             Assert.Equal(ConfirmChoice.Yes, await task);
         }
     }

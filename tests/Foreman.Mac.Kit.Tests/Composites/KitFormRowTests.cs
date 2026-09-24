@@ -752,6 +752,42 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
             Assert.Equal("Invalid value.", peer.GetHelpText());
         }
+
+        [AvaloniaFact]
+        public void ReflowsSettled_StaysPendingWhileANoteReflowRuns_AndCompletesOnceTheRowIsBackToAutoHeight() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Assembler");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+            fixture.Window.UpdateLayout();
+
+            row.Note = "Used for every new node until you change it.";
+            Assert.False(double.IsNaN(row.Height));
+            Assert.False(Motion.ReflowsSettled(fixture.Window).IsCompleted);
+
+            AnimationClock.UntilReflowsSettled(fixture.Window);
+
+            Assert.True(Motion.ReflowsSettled(fixture.Window).IsCompleted);
+            Assert.True(double.IsNaN(row.Height));
+        }
+
+        [AvaloniaFact]
+        public void ReflowsSettled_Completes_WhenTheReflowingRowDetachesMidReflow() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Assembler");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+            fixture.Window.UpdateLayout();
+
+            row.Note = "Used for every new node until you change it.";
+            Assert.False(Motion.ReflowsSettled(row).IsCompleted);
+
+            fixture.Window.Content = null;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(Motion.ReflowsSettled(row).IsCompleted);
+            Assert.True(double.IsNaN(row.Height));
+        }
     }
 
     [Collection(KitScaleGroup.Name)]
@@ -855,5 +891,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Application.Current!.TryGetResource("Foreman.Type.Caption.FontSize", Application.Current.ActualThemeVariant, out object? scaledSize);
             Assert.Equal((double)scaledSize! * 1.35, note.LineHeight);
         }
+    
     }
 }

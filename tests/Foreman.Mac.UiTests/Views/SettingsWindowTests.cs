@@ -337,13 +337,29 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public async Task DeletePresetMenuItem_Declined_KeepsPresetInList() {
+        public async Task DeletePresetMenuItem_RealAlert_RendersTheRuledCopy_AndReturnDeclines_KeepingThePreset() {
             var current = new Preset(VanillaPresetName, true, true);
             var spared = new Preset("Nonexistent Test Preset", false, false);
             var options = NewOptions(await GetCacheAsync(), [current, spared]);
-            var window = new SettingsWindow(options) { DeleteConfirmationStub = _ => Task.FromResult(false) };
+            var window = new SettingsWindow(options);
+            window.Show();
 
-            await window.SimulateDeletePresetMenuItemClickAsync(spared);
+            Task deleting = window.SimulateDeletePresetMenuItemClickAsync(spared);
+            Dispatcher.UIThread.RunJobs();
+            AlertSheet alert = Assert.IsType<AlertSheet>(SheetHost.For(window).Content);
+            string[] rendered = [
+                alert.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Headline").Text ?? "",
+                alert.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Informative").Text ?? "",
+                .. alert.Buttons!.Items.Cast<Button>().Select(b => b.Content as string ?? ""),
+            ];
+            Assert.Equal(["Delete the preset “Nonexistent Test Preset”?",
+                "Its items, recipes, and icons are removed from Foreman. You can’t undo this action.", "Delete", "Cancel"], rendered);
+            Assert.Contains("destructive", alert.YesButtonControl.Classes);
+
+            CanvasKeys.KeyDownOn(alert.YesButtonControl, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(deleting.IsCompleted);
+            await deleting;
 
             Assert.Contains(spared, options.Presets!);
         }

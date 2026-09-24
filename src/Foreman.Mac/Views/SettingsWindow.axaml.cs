@@ -350,8 +350,8 @@ namespace Foreman.Mac.Views {
         }
 
         private Task<bool> ConfirmDeleteAsync(Preset preset) =>
-            DeleteConfirmationStub?.Invoke(preset) ?? Dialogs.ShowConfirmAsync(this, "Confirm Delete",
-                "Are you sure you wish to delete the \"" + preset.Name + "\" preset? This is irreversible.");
+            DeleteConfirmationStub?.Invoke(preset) ?? Dialogs.ShowDestructiveConfirmAsync(this, $"Delete the preset “{Dialogs.MiddleTruncate(preset.Name)}”?",
+                "Its items, recipes, and icons are removed from Foreman. You can’t undo this action.", "Delete");
 
         //Test-only seam: lets a test capture a warning dialog's title/message without a real modal window.
         internal Func<string, string, Task>? WarningDialogStub { get; set; }

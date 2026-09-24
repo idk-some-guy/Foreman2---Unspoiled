@@ -112,8 +112,7 @@ namespace Foreman.Mac {
         //(mirrors GraphSummaryWindow's own SaveFilePathStub).
         internal Func<Task<string?>>? SaveFilePathStub { get; set; }
 
-        //Test-only seams for TestGraphSavedStatus's two prompts (OK/Cancel discard, Yes/No/Cancel save-and-
-        //continue) - same stub-or-real pattern as SettingsDialogStub above.
+        //Test-only seams for TestGraphSavedStatus's discard and save prompts.
         internal Func<Task<bool>>? DiscardUnsavedGraphConfirmStub { get; set; }
         internal Func<Task<ConfirmChoice>>? SaveBeforeContinuingChoiceStub { get; set; }
 
@@ -866,8 +865,7 @@ namespace Foreman.Mac {
 
             GraphViewerSaveDocument? document = GraphSaveCodec.ReadViewer(json);
             if (document is null) {
-                await Dialogs.ShowWarningAsync(this, "Cannot load save",
-                    "This save file is too old or corrupt. Try opening it in the previous Foreman release and saving it again, then open the new file here.").ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(this, $"Couldn’t open “{Dialogs.DocumentName(path)}”.", UnreadableGraphSentence).ConfigureAwait(true);
                 return;
             }
 
@@ -886,7 +884,7 @@ namespace Foreman.Mac {
             ViewModel.Inspector.SetSelection([]);
             GraphLoadResult result = GraphCanvas.LoadDocument(cache, document);
             if (!result.Success)
-                await Dialogs.ShowWarningAsync(this, "Cannot load save", result.ErrorMessage ?? "This save file is too old or corrupt.").ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(this, $"Couldn’t open “{Dialogs.DocumentName(path)}”.", result.ErrorMessage ?? UnreadableGraphSentence).ConfigureAwait(true);
             else
                 ApplyLoadedGraphUiState(path);
 
@@ -1067,7 +1065,8 @@ namespace Foreman.Mac {
                 GraphCanvas.Viewer.ImportNodesFromDocument(cache, document, origin, applySolverSettings: true);
                 GraphCanvas.RequestRedraw();
             } catch (Exception exception) {
-                await Dialogs.ShowWarningAsync(this, "", "Could not import this file. See log for more details.").ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(this, $"Couldn’t import “{Dialogs.DocumentName(path)}”.",
+                    "Foreman couldn’t read it as a graph. The details are in Foreman’s log.").ConfigureAwait(true);
                 Foreman.DataCaching.ErrorLogging.LogException(exception, $"Error importing from file '{path}'");
             }
         }
@@ -1126,7 +1125,8 @@ namespace Foreman.Mac {
                 UpdateTitleBar();
                 return true;
             } catch (Exception exception) {
-                await Dialogs.ShowWarningAsync(this, "", "Could not save this file. See log for more details").ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(this, $"Couldn’t save “{Dialogs.DocumentName(path)}”.",
+                    "Your graph is still open and unchanged. The details are in Foreman’s log.").ConfigureAwait(true);
                 Foreman.DataCaching.ErrorLogging.LogException(exception, $"Error saving file '{path}'");
                 return false;
             }
@@ -1140,29 +1140,25 @@ namespace Foreman.Mac {
             savefileBaselineJson = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, cache), writeIndented: true);
         }
 
-        //Ports TestGraphSavedStatus (reference: upstream MainForm.cs:298-321, io-reference.md §2 "Dirty
-        //tracking"): an untitled empty graph never prompts; an untitled non-empty graph gets the OK/Cancel
-        //discard prompt; a titled graph re-serializes and diffs against the save baseline, prompting Yes/No/
-        //Cancel only when they differ. Called from New/Load, never from Save/SaveAs/Import.
+        //Called from New/Load only; a titled graph prompts only when its serialization differs from the save baseline.
         internal async Task<bool> TestGraphSavedStatusAsync() {
-            const string exitMsg = "The current graph hasn't been saved!\nIf you continue, you will lose it forever!";
-            const string exitTitle = "Are you sure?";
-
             if (DataCache is not Foreman.DataCaching.DataCache cache)
                 return true;
 
             if (savefilePath is null)
-                return !GraphCanvas.Viewer.Graph.Nodes.Any() || await ShowDiscardUnsavedGraphConfirmAsync(exitTitle, exitMsg).ConfigureAwait(true);
+                return !GraphCanvas.Viewer.Graph.Nodes.Any()
+                    || await ShowDiscardUnsavedGraphConfirmAsync("This graph has never been saved. You can’t undo this action.").ConfigureAwait(true);
 
             if (!File.Exists(savefilePath))
-                return await ShowDiscardUnsavedGraphConfirmAsync(exitTitle, exitMsg).ConfigureAwait(true);
+                return await ShowDiscardUnsavedGraphConfirmAsync(
+                    $"Its file “{Dialogs.DocumentName(savefilePath)}” is no longer where it was saved. You can’t undo this action.").ConfigureAwait(true);
 
             GraphCanvas.Viewer.Graph.SerializeNodeIdSet = null;
             string currentSaveJson = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, cache), writeIndented: true);
             string savedJson = savefileBaselineJson ?? Utf8File.ReadAllText(savefilePath);
 
             if (savedJson != currentSaveJson) {
-                ConfirmChoice choice = await ShowSaveBeforeContinuingChoiceAsync(exitTitle, "The current graph has been modified!\nDo you wish to save before continuing?").ConfigureAwait(true);
+                ConfirmChoice choice = await ShowSaveBeforeContinuingChoiceAsync(savefilePath).ConfigureAwait(true);
                 if (choice == ConfirmChoice.Cancel)
                     return false;
                 if (choice == ConfirmChoice.Yes)
@@ -1171,11 +1167,14 @@ namespace Foreman.Mac {
             return true;
         }
 
-        private Task<bool> ShowDiscardUnsavedGraphConfirmAsync(string title, string message) =>
-            DiscardUnsavedGraphConfirmStub?.Invoke() ?? Dialogs.ShowConfirmAsync(this, title, message);
+        private const string UnreadableGraphSentence =
+            "The file is too old or damaged to read. Open it in the previous Foreman release, save it again, then open the new copy here.";
 
-        private Task<ConfirmChoice> ShowSaveBeforeContinuingChoiceAsync(string title, string message) =>
-            SaveBeforeContinuingChoiceStub?.Invoke() ?? Dialogs.ShowYesNoCancelAsync(this, title, message);
+        private Task<bool> ShowDiscardUnsavedGraphConfirmAsync(string message) =>
+            DiscardUnsavedGraphConfirmStub?.Invoke() ?? Dialogs.ShowDestructiveConfirmAsync(this, "Discard this unsaved graph?", message, "Discard");
+
+        private Task<ConfirmChoice> ShowSaveBeforeContinuingChoiceAsync(string path) =>
+            SaveBeforeContinuingChoiceStub?.Invoke() ?? Dialogs.ShowSaveChangesAsync(this, path);
 
         private bool closeConfirmed;
 
@@ -1413,7 +1412,7 @@ namespace Foreman.Mac {
 
             GraphLoadResult result = GraphCanvas.LoadDocument(newCache, graphJson, setEnablesFromJson: false);
             if (!result.Success)
-                await Dialogs.ShowWarningAsync(this, "Cannot load save", result.ErrorMessage ?? "This save file is too old or corrupt.").ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(this, $"Couldn’t open “{Dialogs.MiddleTruncate(ViewModel.DocumentTitle)}”.", result.ErrorMessage ?? UnreadableGraphSentence).ConfigureAwait(true);
 
             ApplyLoadedSettings();
             UpdateTitleBar();

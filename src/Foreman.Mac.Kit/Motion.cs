@@ -4,6 +4,7 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using System;
+using System.Threading.Tasks;
 
 namespace Foreman.Mac.Kit {
     public enum TransitionKind { Fade, SlideFade, Scale, CrossFade, Reflow, Size }
@@ -42,6 +43,9 @@ namespace Foreman.Mac.Kit {
         //Set by AppearanceHub from the platform's Reduce Motion flag; an already-open site only picks up a
         //live change if it re-pushes its own Transitions on RefreshTheme (SheetHost and RadialMenu do).
         public static bool ReduceMotion { get; set; }
+
+        //Completes once no FormRow/PalettePanel height reflow under root is still easing, cancelled and detached ones included.
+        public static Task ReflowsSettled(Visual root) => Composites.CompositeMotion.ReflowsSettled(root);
 
         public static Transitions ButtonTransitions => Transition(TransitionKind.Fade, ButtonStateDuration);
         public static Transitions SwitchTransitions => Transition(TransitionKind.SlideFade, SwitchKnobDuration);

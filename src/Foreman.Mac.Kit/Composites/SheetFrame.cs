@@ -7,10 +7,12 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media.Transformation;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace Foreman.Mac.Kit.Composites {
@@ -69,6 +71,8 @@ namespace Foreman.Mac.Kit.Composites {
         private double contentSpace5 = 24;
         private double titleBottomSpace3 = 12;
         private double footerTopSpace4 = 16;
+        private double slide = 12;
+        private bool closedInPlace;
 
         private bool? priorDefaultEnabled;
 
@@ -105,6 +109,8 @@ namespace Foreman.Mac.Kit.Composites {
             ApplyContentMargin();
             ApplyTitleSpacing();
             ApplyFooterSpacing();
+            closedInPlace = Motion.ReduceMotion;
+            SnapPanel(IsOpen || closedInPlace ? 0 : -slide);
             PseudoClasses.Set(":open", IsOpen);
             IsHitTestVisible = IsOpen;
         }
@@ -136,6 +142,23 @@ namespace Foreman.Mac.Kit.Composites {
                 footerTopSpace4 = v;
                 ApplyFooterSpacing();
             }, footerTopSpace4)));
+            tokenSubs.Add(this.GetResourceObservable("Foreman.Metrics.SheetSlide").Subscribe(new ResourceSinks.DoubleSink(v => {
+                slide = v;
+                if (!IsOpen && !closedInPlace)
+                    SnapPanel(-slide);
+            }, slide)));
+        }
+
+        private static TransformOperations TranslateY(double y) =>
+            TransformOperations.Parse($"translateY({y.ToString(CultureInfo.InvariantCulture)}px)");
+
+        private void SnapPanel(double y) {
+            if (panel is null)
+                return;
+            var transitions = panel.Transitions;
+            panel.Transitions = null;
+            panel.RenderTransform = TranslateY(y);
+            panel.Transitions = transitions;
         }
 
         private void Unsubscribe() {
@@ -244,11 +267,18 @@ namespace Foreman.Mac.Kit.Composites {
             return base.ArrangeOverride(finalSize);
         }
 
+        //Reduce Motion is read at each open and close, so a live toggle takes effect on the next one; under it the panel never moves.
         private void ApplyOpenState(bool open) {
             TimeSpan duration = open ? Motion.SheetOpenDuration : Motion.SheetCloseDuration;
             Avalonia.Animation.Easings.Easing easing = open ? Motion.EntranceEasing : Motion.LeavingEasing;
-            if (panel is not null)
+            bool reduce = Motion.ReduceMotion;
+            if (panel is not null) {
+                if (open && !reduce)
+                    SnapPanel(-slide);
                 panel.Transitions = Motion.Transition(TransitionKind.SlideFade, duration, easing);
+                panel.RenderTransform = TranslateY(open || reduce ? 0 : -slide);
+            }
+            closedInPlace = !open && reduce;
             if (scrim is not null)
                 scrim.Transitions = Motion.Transition(TransitionKind.Fade, duration, easing);
 

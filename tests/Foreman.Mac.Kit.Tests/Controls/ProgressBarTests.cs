@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Animation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
@@ -25,11 +27,11 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         private static ProgressBar Themed() => new() { Theme = KitProgressBarTheme() };
 
         private static Border Indicator(ProgressBar bar) =>
-            bar.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Indicator");
+            bar.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Fill");
 
         private static Style IndicatorStyle(ControlTheme theme, bool reducedMotion) =>
             theme.Children.OfType<Style>()
-                .Single(s => s.Selector!.ToString().Contains("PART_Indicator")
+                .Single(s => s.Selector!.ToString().Contains("PART_Fill")
                     && s.Selector.ToString().Contains(":not(.reduce-motion)") == !reducedMotion);
 
         [AvaloniaFact]
@@ -137,6 +139,59 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             var translate = Assert.Single(group.Children.OfType<TranslateTransform>());
             Assert.True(translate.X > 0);
         }
+
+        private static ProgressBar ShownAt(KitFixture fixture, double value) {
+            ProgressBar bar = Themed();
+            bar.Maximum = 1;
+            bar.Value = value;
+            fixture.Window.Content = bar;
+            Dispatcher.UIThread.RunJobs();
+            return bar;
+        }
+
+        [AvaloniaFact]
+        public void Determinate_AValueChange_EasesTheFill_ThenSettlesOnTheTarget() {
+            using var fixture = new KitFixture();
+            ProgressBar bar = ShownAt(fixture, 0.2);
+            Assert.Equal(140 * 0.2, Indicator(bar).Width, 3);
+
+            bar.Value = 0.8;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(Indicator(bar).Width < 140 * 0.8 - 1);
+
+            AnimationClock.Settle(400);
+            Assert.Equal(140 * 0.8, Indicator(bar).Width, 3);
+        }
+
+        [AvaloniaFact]
+        public void Automation_IsAProgressIndicator_WhoseValueReadsTheRoundedPercent_AndNoneWhileIndeterminate() {
+            using var fixture = new KitFixture();
+            ProgressBar bar = ShownAt(fixture, 0.428);
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(bar);
+
+            Assert.Equal(AutomationControlType.ProgressBar, peer.GetAutomationControlType());
+            var value = Assert.IsAssignableFrom<IValueProvider>(peer);
+            Assert.True(value.IsReadOnly);
+            Assert.Equal("43 %", value.Value);
+
+            bar.Value = 1;
+            Assert.Equal("100 %", value.Value);
+
+            bar.IsIndeterminate = true;
+            Assert.Null(value.Value);
+        }
+
+        [AvaloniaFact]
+        public void Determinate_ReduceMotion_StepsTheFill() {
+            using var fixture = new KitFixture();
+            Motion.ReduceMotion = true;
+            ProgressBar bar = ShownAt(fixture, 0.2);
+
+            bar.Value = 0.8;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(140 * 0.8, Indicator(bar).Width, 3);
+        }
     }
 
     [Collection(KitScaleGroup.Name)]
@@ -173,7 +228,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(150, bar.TravelDistance);
 
             AnimationClock.Settle();
-            var indicator = bar.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Indicator");
+            var indicator = bar.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Fill");
             var group = Assert.IsType<TransformGroup>(indicator.RenderTransform);
             var translate = Assert.Single(group.Children.OfType<TranslateTransform>());
             Assert.True(translate.X > 0);

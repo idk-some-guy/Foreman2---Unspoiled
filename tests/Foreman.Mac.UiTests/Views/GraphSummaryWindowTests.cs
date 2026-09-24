@@ -537,9 +537,26 @@ namespace Foreman.Mac.UiTests.Views {
             _ = host.ShowAsync(sheet);
             Dispatcher.UIThread.RunJobs();
 
-            Border panel = host.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("foreman-sheet-panel"));
+            Border panel = host.GetVisualDescendants().OfType<Border>().First(b => b.Name == "PART_Panel");
             Assert.True(panel.Bounds.Width <= 376.5, $"expected width <= 376.5, was {panel.Bounds.Width}");
             Assert.True(panel.Bounds.Height <= 276.5, $"expected height <= 276.5, was {panel.Bounds.Height}");
+        }
+
+        //The one sheet outside the three named widths: it keeps 780 until it moves to its own window, rather than snapping to Wide.
+        [AvaloniaFact]
+        public async Task GraphSummarySheet_KeepsItsShippedWidth_PendingItsK5WindowMove_AndHeadlinesFactorySummary() {
+            var fx = NewFixture(await GetCacheAsync());
+            var sheet = NewWindow(fx);
+            var owner = new Window { Width = 1000, Height = 800 };
+            owner.Show();
+            SheetHost host = SheetHost.For(owner);
+
+            _ = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+
+            Border panel = host.GetVisualDescendants().OfType<Border>().First(b => b.Name == "PART_Panel");
+            Assert.Equal(780, panel.Bounds.Width, 0.5);
+            Assert.Equal("Factory summary", host.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Title").Text);
         }
     }
 

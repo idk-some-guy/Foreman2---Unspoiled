@@ -2,86 +2,65 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.Mac.Kit;
 using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Composites;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Views.Sheets {
+    //Each sheet is one Kit.SheetFrame layer (an AlertSheet brings its own Kit.AlertFrame); stacked layers sit above the base one.
     public sealed class SheetHost : Panel {
         private const double ClampMargin = 12;
         private const int TopmostZIndex = 10_000;
+        private const string TryAgainLabel = "Try Again";
 
         private static readonly Dictionary<Window, SheetHost> hostsByWindow = [];
 
-        private sealed class StackedLayer {
-            public required Border Scrim;
-            public required Border Panel;
+        private sealed class Layer {
+            public required Control Root;
             public required Control Content;
-            public Button? DefaultButton;
-            public Action? Cancel;
-            public InputElement? FocusToRestore;
+            public required Action<bool> SetOpen;
+            public required Action Cancel;
+            public ButtonRow? Buttons;
+            public Button? LegacyDefault;
+            public SheetBody? Body;
+            public bool Dismissed;
+            public Button? ActivityDefault;
+            public bool PriorDefaultEnabled;
+            public object? PriorDefaultContent;
         }
 
-        private readonly Border scrim;
-        private readonly Border panelBorder;
         private readonly Queue<TaskCompletionSource<bool>> waitingTurns = new();
-        private readonly List<StackedLayer> stack = [];
+        private readonly List<Layer> layers = [];
 
-        private Window? ownerWindow;
         private Control? topAnchor;
         private IReadOnlyList<Control> blockedSiblings = [];
-        private Control? currentContent;
-        private Control? dismissedContent;
-        private Button? currentDefaultButton;
-        private Action? cancelCurrent;
+        private Layer? baseLayer;
         private DispatcherTimer? closingTimer;
         private bool busy;
 
         public bool IsOpen { get; private set; }
-        public Control? Content => currentContent;
+        public Control? Content => baseLayer?.Content;
 
-        private Border ActivePanel => stack.Count > 0 ? stack[^1].Panel : panelBorder;
-        private Control? ActiveContent => stack.Count > 0 ? stack[^1].Content : currentContent;
-        private Button? ActiveDefaultButton => stack.Count > 0 ? stack[^1].DefaultButton : currentDefaultButton;
-        private Action? ActiveCancel => stack.Count > 0 ? stack[^1].Cancel : cancelCurrent;
+        private Layer? TopLayer => layers.LastOrDefault(l => !l.Dismissed);
 
         private SheetHost() {
             IsVisible = false;
             ZIndex = TopmostZIndex;
-            scrim = new Border { Classes = { "foreman-sheet-scrim" } };
-            panelBorder = new Border { Classes = { "foreman-sheet-panel" } };
-            Children.Add(scrim);
-            Children.Add(panelBorder);
             AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
 
-            //Forwards to whatever sheet is actually showing rather than each sheet subscribing to the hub
-            //itself - the host outlives any one sheet, so this is the one stable subscription. Also
-            //re-pushes each open layer's Transitions so a live Reduce Motion toggle reaches it.
+            //The host outlives any one sheet, so it is the one stable subscription forwarding theme refreshes.
             ThemeAware.Attach(this, () => {
-                if (IsOpen)
-                    SetOpenTransitions(scrim, panelBorder);
-                foreach (StackedLayer layer in stack)
-                    SetOpenTransitions(layer.Scrim, layer.Panel);
-
-                (currentContent as IThemeAware)?.RefreshTheme();
-                foreach (StackedLayer layer in stack)
+                foreach (Layer layer in layers)
                     (layer.Content as IThemeAware)?.RefreshTheme();
             });
-        }
-
-        private static void SetOpenTransitions(Border scrim, Border panel) {
-            scrim.Transitions = Motion.Transition(TransitionKind.Fade, Motion.SheetOpenDuration, Motion.EntranceEasing);
-            panel.Transitions = Motion.Transition(TransitionKind.SlideFade, Motion.SheetOpenDuration, Motion.EntranceEasing);
-        }
-
-        private static void SetCloseTransitions(Border scrim, Border panel) {
-            scrim.Transitions = Motion.Transition(TransitionKind.Fade, Motion.SheetCloseDuration, Motion.LeavingEasing);
-            panel.Transitions = Motion.Transition(TransitionKind.SlideFade, Motion.SheetCloseDuration, Motion.LeavingEasing);
         }
 
         //topAnchor (MainWindow's titlebar/toolbar row) keeps the panel flush under it instead of at y=0 -
@@ -90,7 +69,7 @@ namespace Foreman.Mac.Views.Sheets {
             if (hostsByWindow.TryGetValue(window, out SheetHost? existing))
                 return existing;
 
-            var host = new SheetHost { ownerWindow = window, topAnchor = topAnchor };
+            var host = new SheetHost { topAnchor = topAnchor };
             Attach(window, host);
             window.AddHandler(InputElement.GotFocusEvent, host.OnWindowGotFocus);
             window.Closed += (_, _) => hostsByWindow.Remove(window);
@@ -98,7 +77,7 @@ namespace Foreman.Mac.Views.Sheets {
             return host;
         }
 
-        //blockedSiblings is captured before the host joins the collection so it never blocks itself
+        //blockedSiblings is captured before the host joins the collection so it never blocks itself; the toolbar row stays live (v2 §04).
         private static void Attach(Window window, SheetHost host) {
             switch (window.Content) {
                 case Grid grid:
@@ -106,11 +85,11 @@ namespace Foreman.Mac.Views.Sheets {
                     Grid.SetColumn(host, 0);
                     Grid.SetRowSpan(host, Math.Max(1, grid.RowDefinitions.Count));
                     Grid.SetColumnSpan(host, Math.Max(1, grid.ColumnDefinitions.Count));
-                    host.blockedSiblings = [.. grid.Children];
+                    host.blockedSiblings = [.. grid.Children.Where(c => !ReferenceEquals(c, host.topAnchor))];
                     grid.Children.Add(host);
                     break;
                 case Panel panel:
-                    host.blockedSiblings = [.. panel.Children];
+                    host.blockedSiblings = [.. panel.Children.Where(c => !ReferenceEquals(c, host.topAnchor))];
                     panel.Children.Add(host);
                     break;
                 case Control existing:
@@ -133,7 +112,11 @@ namespace Foreman.Mac.Views.Sheets {
             else
                 busy = true;
 
-            Present(content);
+            baseLayer = PushLayer(content);
+            foreach (Control sibling in blockedSiblings)
+                sibling.IsHitTestVisible = false;
+            IsVisible = true;
+            IsOpen = true;
             try {
                 return await content.Result.ConfigureAwait(true);
             } finally {
@@ -146,7 +129,7 @@ namespace Foreman.Mac.Views.Sheets {
             IsOpen ? ShowOnTopAsync(content) : ShowAsync(content);
 
         private async Task<T?> ShowOnTopAsync<T>(SheetContent<T> content) {
-            StackedLayer layer = PushLayer(content);
+            Layer layer = PushLayer(content);
             try {
                 return await content.Result.ConfigureAwait(true);
             } finally {
@@ -160,113 +143,150 @@ namespace Foreman.Mac.Views.Sheets {
             return tcs.Task;
         }
 
-        private void Present<T>(SheetContent<T> content) {
-            currentContent = content;
-            currentDefaultButton = content.DefaultButton;
-            cancelCurrent = content.Cancel;
+        private Layer PushLayer<T>(SheetContent<T> content) {
+            double topInset = topAnchor?.Bounds.Bottom ?? 0;
+            Layer layer = content is AlertSheet alert ? AlertLayer(alert, topInset) : FrameLayer(content, topInset);
+            content.ActivityChanged += OnActivityChanged;
+            layers.Add(layer);
+            Children.Add(layer.Root);
+            ApplyActivity(layer, content.Activity);
 
-            SetOpenTransitions(scrim, panelBorder);
-            panelBorder.Child = content;
-            panelBorder.Width = content.SheetWidth;
-            panelBorder.Height = content.SheetHeight ?? double.NaN;
-            PositionLayer(scrim, panelBorder);
-
-            foreach (Control sibling in blockedSiblings)
-                sibling.IsHitTestVisible = false;
-
-            IsVisible = true;
-            IsOpen = true;
-            scrim.Classes.Add("entering");
-            panelBorder.Classes.Add("entering");
-            //Deferred: a UserControl's Content isn't realized into the visual tree until its template applies.
+            //Opened once templates are realized, so the kit's open transition runs instead of snapping to :open.
             Dispatcher.UIThread.Post(() => {
-                scrim.Classes.Remove("entering");
-                panelBorder.Classes.Remove("entering");
-                FocusFirstFocusable(content);
+                if (!layer.Dismissed)
+                    layer.SetOpen(true);
             }, DispatcherPriority.Loaded);
-        }
-
-        private StackedLayer PushLayer<T>(SheetContent<T> content) {
-            var layerScrim = new Border { Classes = { "foreman-sheet-scrim" } };
-            var layerPanel = new Border { Classes = { "foreman-sheet-panel" } };
-            var layer = new StackedLayer {
-                Scrim = layerScrim,
-                Panel = layerPanel,
-                Content = content,
-                DefaultButton = content.DefaultButton,
-                Cancel = content.Cancel,
-                FocusToRestore = FindFocused(ActivePanel),
-            };
-            ActivePanel.Classes.Add("dimmed");
-
-            SetOpenTransitions(layerScrim, layerPanel);
-            layerPanel.Child = content;
-            layerPanel.Width = content.SheetWidth;
-            layerPanel.Height = content.SheetHeight ?? double.NaN;
-            PositionLayer(layerScrim, layerPanel);
-
-            Children.Add(layerScrim);
-            Children.Add(layerPanel);
-            stack.Add(layer);
-
-            layerScrim.Classes.Add("entering");
-            layerPanel.Classes.Add("entering");
-            Dispatcher.UIThread.Post(() => {
-                layerScrim.Classes.Remove("entering");
-                layerPanel.Classes.Remove("entering");
-                FocusFirstFocusable(content);
-            }, DispatcherPriority.Loaded);
-
             return layer;
         }
 
-        //offset keeps the scrim/panel below topAnchor (MainWindow's toolbar row) instead of covering it;
-        //plain windows pass no anchor, so offset is 0 and this is a no-op beyond the width/height clamp.
-        private void PositionLayer(Border layerScrim, Border layerPanel) {
-            double offset = topAnchor?.Bounds.Bottom ?? 0;
-            if (offset > 0) {
-                layerScrim.Margin = new Thickness(0, offset, 0, 0);
-                layerPanel.Margin = new Thickness(0, offset, 0, 0);
+        private static Layer AlertLayer(AlertSheet alert, double topInset) {
+            AlertFrame frame = alert.FrameControl;
+            frame.TopInset = topInset;
+            var layer = new Layer {
+                Root = alert,
+                Content = alert,
+                SetOpen = open => frame.IsOpen = open,
+                Cancel = alert.Cancel,
+                Buttons = alert.Buttons,
+            };
+            frame.Cancelled += (_, _) => layer.Cancel();
+            return layer;
+        }
+
+        private static Layer FrameLayer<T>(SheetContent<T> content, double topInset) {
+            var body = new SheetBody(content, content.SheetHeight);
+            var frame = new SheetFrame {
+                Theme = KitTheme("Kit.SheetFrame"),
+                Title = content.Title,
+                WidthClass = content.WidthClass,
+                TopInset = topInset,
+                Buttons = content.Buttons,
+                Content = body,
+            };
+            //A width outside the named three (Graph Summary's 780 until it becomes a window) scopes the class token to this frame.
+            if (content.SheetWidth > 0)
+                frame.Resources[WidthToken(content.WidthClass)] = content.SheetWidth;
+
+            var layer = new Layer {
+                Root = frame,
+                Content = content,
+                SetOpen = open => frame.IsOpen = open,
+                Cancel = content.Cancel,
+                Buttons = content.Buttons,
+                LegacyDefault = content.Buttons is null ? content.DefaultButton : null,
+                Body = body,
+            };
+            frame.Cancelled += (_, _) => layer.Cancel();
+            return layer;
+        }
+
+        private static string WidthToken(SheetWidthClass widthClass) => widthClass switch {
+            SheetWidthClass.Alert => "Foreman.Metrics.SheetWidthAlert",
+            SheetWidthClass.Wide => "Foreman.Metrics.SheetWidthWide",
+            _ => "Foreman.Metrics.SheetWidthStandard",
+        };
+
+        private static ControlTheme KitTheme(string key) {
+            Application.Current!.TryGetResource(key, null, out object? theme);
+            return theme as ControlTheme ?? throw new InvalidOperationException($"SheetHost: kit theme '{key}' not found.");
+        }
+
+        private void OnActivityChanged(object? sender, EventArgs e) {
+            Layer? layer = layers.FirstOrDefault(l => ReferenceEquals(l.Content, sender));
+            if (layer is not null && !layer.Dismissed && sender is ISheetActivitySource source)
+                ApplyActivity(layer, source.Activity);
+        }
+
+        private static void ApplyActivity(Layer layer, SheetActivity? activity) {
+            if (layer.Body is null)
+                return;
+            if (layer.ActivityDefault is { } prior) {
+                prior.IsEnabled = layer.PriorDefaultEnabled;
+                prior.Content = layer.PriorDefaultContent;
+                layer.ActivityDefault = null;
             }
-            if (ownerWindow is not null) {
-                layerPanel.MaxWidth = Math.Max(0, ownerWindow.ClientSize.Width - (ClampMargin * 2));
-                layerPanel.MaxHeight = Math.Max(0, ownerWindow.ClientSize.Height - offset - (ClampMargin * 2));
+            if (activity is null) {
+                layer.Body.Strip = null;
+                return;
             }
+
+            Button? def = layer.Buttons?.ResolveDefaultButton() ?? layer.LegacyDefault;
+            if (def is not null) {
+                layer.ActivityDefault = def;
+                layer.PriorDefaultEnabled = def.IsEnabled;
+                layer.PriorDefaultContent = def.Content;
+                if (activity.Kind == SheetActivityKind.InProgress)
+                    def.IsEnabled = false;
+                else
+                    def.Content = TryAgainLabel;
+            }
+
+            //One strip per operation, updated in place, so it never shrinks or loses its bar mid-operation.
+            if (layer.Body.Strip is not StatePanel panel) {
+                panel = new StatePanel {
+                    Theme = KitTheme("Kit.StatePanel"),
+                    ForceCompact = true,
+                    ExternalButtons = (Control?)layer.Buttons ?? layer.LegacyDefault,
+                };
+                layer.Body.Strip = panel;
+            }
+            panel.Shape = activity.Kind == SheetActivityKind.InProgress ? StatePanelShape.Loading : StatePanelShape.Error;
+            panel.Sentence = activity.Sentence;
+            panel.Progress = activity.Progress;
+        }
+
+        //Mirrors Button.OnClick: Command runs only if nothing handled Click first.
+        private static void Click(Button button) {
+            var click = new RoutedEventArgs(Button.ClickEvent);
+            button.RaiseEvent(click);
+            if (!click.Handled && button.Command is { } command && command.CanExecute(button.CommandParameter))
+                command.Execute(button.CommandParameter);
         }
 
         private void BeginDismiss() {
             IsOpen = false;
-            dismissedContent = currentContent;
-            currentContent = null;
             foreach (Control sibling in blockedSiblings)
                 sibling.IsHitTestVisible = true;
 
-            SetCloseTransitions(scrim, panelBorder);
-            scrim.Classes.Add("closing");
-            panelBorder.Classes.Add("closing");
+            Layer? closing = baseLayer;
+            baseLayer = null;
+            if (closing is not null)
+                Retire(closing);
 
             closingTimer?.Stop();
             closingTimer = new DispatcherTimer { Interval = Motion.SheetCloseDuration };
-            closingTimer.Tick += OnClosingTimerElapsed;
+            closingTimer.Tick += (_, _) => OnClosingTimerElapsed(closing);
             closingTimer.Start();
         }
 
-        private void OnClosingTimerElapsed(object? sender, EventArgs e) {
+        private void OnClosingTimerElapsed(Layer? closed) {
             closingTimer!.Stop();
-            closingTimer.Tick -= OnClosingTimerElapsed;
             closingTimer = null;
 
-            IsVisible = false;
-            scrim.Classes.Remove("closing");
-            panelBorder.Classes.Remove("closing");
-            panelBorder.Child = null;
-            currentDefaultButton = null;
-            cancelCurrent = null;
-
-            //backstop: dispose here on every dismissal path even if the sheet forgot
-            if (dismissedContent is IDisposable disposable)
-                disposable.Dispose();
-            dismissedContent = null;
+            if (closed is not null)
+                Remove(closed);
+            if (layers.Count == 0)
+                IsVisible = false;
 
             busy = false;
             if (waitingTurns.Count > 0) {
@@ -275,66 +295,53 @@ namespace Foreman.Mac.Views.Sheets {
             }
         }
 
-        private void BeginDismissLayer(StackedLayer layer) {
-            stack.Remove(layer);
-            SetCloseTransitions(layer.Scrim, layer.Panel);
-            layer.Scrim.Classes.Add("closing");
-            layer.Panel.Classes.Add("closing");
-
+        private void BeginDismissLayer(Layer layer) {
+            Retire(layer);
             var timer = new DispatcherTimer { Interval = Motion.SheetCloseDuration };
-            timer.Tick += (_, _) => OnLayerClosingTimerElapsed(timer, layer);
+            timer.Tick += (_, _) => {
+                timer.Stop();
+                Remove(layer);
+            };
             timer.Start();
         }
 
-        private void OnLayerClosingTimerElapsed(DispatcherTimer timer, StackedLayer layer) {
-            timer.Stop();
+        //Marked dismissed before closing so the focus the kit hands back lands on the layer now on top.
+        private void Retire(Layer layer) {
+            layer.Dismissed = true;
+            if (layer.Content is ISheetActivitySource source)
+                source.ActivityChanged -= OnActivityChanged;
+            layer.SetOpen(false);
+        }
 
-            Children.Remove(layer.Scrim);
-            Children.Remove(layer.Panel);
-            layer.Panel.Child = null;
+        private void Remove(Layer layer) {
+            layers.Remove(layer);
+            Children.Remove(layer.Root);
+            if (layer.Body is not null)
+                layer.Body.Release();
 
+            //backstop: dispose here on every dismissal path even if the sheet forgot
             if (layer.Content is IDisposable disposable)
                 disposable.Dispose();
-
-            ActivePanel.Classes.Remove("dimmed");
-            if (layer.FocusToRestore is { } restore)
-                restore.Focus();
-            else if (ActiveContent is { } activeContent)
-                FocusFirstFocusable(activeContent);
         }
 
-        //Tunnel so Enter/Escape win over the focused control's own handling (TextBox Enter, Button Space/Enter).
+        //Legacy sheets keep their default button in the body; the kit frame only knows a Kit.ButtonRow.
         private void OnKeyDown(object? sender, KeyEventArgs e) {
-            if (!IsOpen)
+            if (!IsOpen || e.Key != Key.Enter || TopLayer is not { Buttons: null, LegacyDefault: { } button })
                 return;
-
-            if (e.Key == Key.Enter) {
-                if (e.Source is TextBox { AcceptsReturn: true })
-                    return;
-                if (ActiveDefaultButton is { } button) {
-                    e.Handled = true;
-                    //Mirrors Button.OnClick: Command runs only if nothing handled Click first.
-                    var click = new RoutedEventArgs(Button.ClickEvent);
-                    button.RaiseEvent(click);
-                    if (!click.Handled && button.Command is { } command && command.CanExecute(button.CommandParameter))
-                        command.Execute(button.CommandParameter);
-                }
-            } else if (e.Key == Key.Escape) {
-                e.Handled = true;
-                ActiveCancel?.Invoke();
-            }
+            if (e.Source is TextBox { AcceptsReturn: true })
+                return;
+            e.Handled = true;
+            if (button.IsEffectivelyEnabled)
+                Click(button);
         }
 
-        //IsHitTestVisible=false only blocks pointer input, not Tab - this yanks focus back into whichever
-        //layer is topmost.
+        //IsHitTestVisible=false only blocks pointer input; this yanks focus back into whichever layer is topmost.
         private void OnWindowGotFocus(object? sender, RoutedEventArgs e) {
-            if (!IsOpen)
+            if (!IsOpen || TopLayer is not { } top)
                 return;
-            Border activePanel = ActivePanel;
-            if (e.Source is Visual focused && IsInside(activePanel, focused))
+            if (e.Source is Visual focused && IsInside(top.Root, focused))
                 return;
-            if (ActiveContent is Control content)
-                FocusFirstFocusable(content);
+            FocusFirstFocusable(top.Content);
         }
 
         private static bool IsInside(Visual ancestor, Visual visual) {
@@ -350,7 +357,89 @@ namespace Foreman.Mac.Views.Sheets {
             target?.Focus();
         }
 
-        private static InputElement? FindFocused(Border panel) =>
-            panel.GetVisualDescendants().OfType<InputElement>().FirstOrDefault(candidate => candidate.IsFocused);
+        //The kit clamps width only; the unconstrained probe measure gives the frame's chrome, which a constrained one would clip.
+        protected override Size MeasureOverride(Size availableSize) {
+            double width = 0, height = 0;
+            foreach (Control child in Children) {
+                if (!double.IsInfinity(availableSize.Height) && layers.FirstOrDefault(l => ReferenceEquals(l.Root, child))?.Body is { } body) {
+                    child.Measure(new Size(availableSize.Width, double.PositiveInfinity));
+                    double chrome = child.DesiredSize.Height - body.DesiredSize.Height;
+                    if (body.SetLimit(availableSize.Height - (ClampMargin * 2) - chrome))
+                        for (Visual? node = body; node is Layoutable layoutable && !ReferenceEquals(node, this); node = node.GetVisualParent())
+                            layoutable.InvalidateMeasure();
+                }
+                child.Measure(availableSize);
+                width = Math.Max(width, child.DesiredSize.Width);
+                height = Math.Max(height, child.DesiredSize.Height);
+            }
+            return new Size(width, height);
+        }
+
+        //The frame's Content: the sheet's body, then an optional state strip above the button row.
+        private sealed class SheetBody : Panel {
+            public static readonly StyledProperty<double> StripGapProperty =
+                AvaloniaProperty.Register<SheetBody, double>(nameof(StripGap), 16);
+
+            static SheetBody() => AffectsMeasure<SheetBody>(StripGapProperty);
+
+            private readonly Control body;
+            private readonly double? fixedHeight;
+            private Control? strip;
+            private double limit = double.PositiveInfinity;
+
+            public SheetBody(Control body, double? fixedHeight) {
+                this.body = body;
+                this.fixedHeight = fixedHeight;
+                ClipToBounds = true;
+                Children.Add(body);
+                this.Bind(StripGapProperty, this.GetResourceObservable("Foreman.Space.Space4"));
+            }
+
+            public double StripGap => GetValue(StripGapProperty);
+
+            public Control? Strip {
+                get => strip;
+                set {
+                    if (strip is not null)
+                        Children.Remove(strip);
+                    strip = value;
+                    if (strip is not null)
+                        Children.Add(strip);
+                    InvalidateMeasure();
+                }
+            }
+
+            public bool SetLimit(double value) {
+                value = Math.Max(0, value);
+                if (Math.Abs(value - limit) < 0.5)
+                    return false;
+                limit = value;
+                return true;
+            }
+
+            //Detaches the sheet so a caller can re-host the same content instance later.
+            public void Release() => Children.Clear();
+
+            private double StripHeight => strip is null ? 0 : strip.DesiredSize.Height + StripGap;
+
+            protected override Size MeasureOverride(Size availableSize) {
+                strip?.Measure(new Size(availableSize.Width, double.PositiveInfinity));
+                double bodyCap = Math.Max(0, limit - StripHeight);
+                body.Measure(new Size(availableSize.Width, fixedHeight ?? double.PositiveInfinity));
+                double natural = fixedHeight ?? body.DesiredSize.Height;
+                double bodyHeight = Math.Min(natural, bodyCap);
+                if (bodyHeight < natural)
+                    body.Measure(new Size(availableSize.Width, bodyHeight));
+                double width = Math.Max(body.DesiredSize.Width, strip?.DesiredSize.Width ?? 0);
+                return new Size(width, bodyHeight + StripHeight);
+            }
+
+            protected override Size ArrangeOverride(Size finalSize) {
+                double bodyHeight = Math.Max(0, finalSize.Height - StripHeight);
+                body.Arrange(new Rect(0, 0, finalSize.Width, bodyHeight));
+                strip?.Arrange(new Rect(0, bodyHeight + StripGap, finalSize.Width, strip.DesiredSize.Height));
+                return finalSize;
+            }
+        }
     }
 }

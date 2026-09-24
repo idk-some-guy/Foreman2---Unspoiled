@@ -19,8 +19,7 @@
                   HorizontalAlignment="Center"
                   VerticalAlignment="Top"
                   Opacity="0"
-                  RenderTransformOrigin="50%,0%"
-                  RenderTransform="translateY(-16px)">
+                  RenderTransformOrigin="50%,0%">
             <StackPanel>
               <TextBlock x:Name="PART_Title"
                          Theme="{StaticResource Kit.Text}"
@@ -47,7 +46,6 @@
 
     <Style Selector="^:open /template/ Border#PART_Panel">
       <Setter Property="Opacity" Value="1" />
-      <Setter Property="RenderTransform" Value="translateY(0)" />
     </Style>
     <Style Selector="^:open /template/ kit|Scrim#PART_Scrim">
       <Setter Property="Opacity" Value="1" />

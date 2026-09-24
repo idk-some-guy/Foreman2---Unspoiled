@@ -8,18 +8,22 @@
     <Setter Property="HorizontalAlignment" Value="Left" />
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Background="{DynamicResource Foreman.Color.BorderStrong}"
-                CornerRadius="{DynamicResource Foreman.Radius.Pill}"
-                ClipToBounds="True">
-          <Border x:Name="PART_Indicator"
-                  Background="{DynamicResource Foreman.Color.Accent}"
+        <Panel>
+          <Border Background="{DynamicResource Foreman.Color.BorderStrong}"
                   CornerRadius="{DynamicResource Foreman.Radius.Pill}"
-                  HorizontalAlignment="Left" />
-        </Border>
+                  ClipToBounds="True">
+            <Border x:Name="PART_Fill"
+                    Background="{DynamicResource Foreman.Color.Accent}"
+                    CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                    HorizontalAlignment="Left" />
+          </Border>
+          <!-- Avalonia's ProgressBar requires and sizes PART_Indicator itself, which would snap the eased fill; it stays undrawn. -->
+          <Border x:Name="PART_Indicator" IsVisible="False" />
+        </Panel>
       </ControlTemplate>
     </Setter>
 
-    <Style Selector="^:indeterminate.animating:not(.reduce-motion) /template/ Border#PART_Indicator">
+    <Style Selector="^:indeterminate.animating:not(.reduce-motion) /template/ Border#PART_Fill">
       <Style.Animations>
         <Animation IterationCount="Infinite" PlaybackDirection="Alternate" Easing="CubicEaseInOut" Duration="0:0:1.2">
           <KeyFrame Cue="0%">
@@ -31,7 +35,7 @@
         </Animation>
       </Style.Animations>
     </Style>
-    <Style Selector="^:indeterminate.animating.reduce-motion /template/ Border#PART_Indicator">
+    <Style Selector="^:indeterminate.animating.reduce-motion /template/ Border#PART_Fill">
       <Style.Animations>
         <Animation IterationCount="Infinite" PlaybackDirection="Alternate" Easing="CubicEaseInOut" Duration="0:0:1.2">
           <KeyFrame Cue="0%">

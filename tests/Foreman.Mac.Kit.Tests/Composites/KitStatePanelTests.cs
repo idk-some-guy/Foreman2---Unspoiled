@@ -268,13 +268,14 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         [AvaloniaFact]
         public void Progress_Set_ShowsDeterminateBar() {
             using var fixture = new KitFixture();
-            StatePanel panel = NewPanel(StatePanelShape.Loading, progress: 62);
+            StatePanel panel = NewPanel(StatePanelShape.Loading, progress: 0.62);
             Shown(panel);
 
             var bar = panel.GetVisualDescendants().OfType<ProgressBarControl>().Single(b => b.Name == "PART_Progress");
             Assert.True(bar.IsVisible);
             Assert.False(bar.IsIndeterminate);
-            Assert.Equal(62, bar.Value);
+            Assert.Equal(0.62, bar.Value);
+            Assert.Equal(1, bar.Maximum);
         }
 
         [AvaloniaFact]
@@ -352,7 +353,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
-        public void Compact_GlyphUsesGlyph16_ExceptErrorWhichReusesGlyphMicro() {
+        public void Compact_GlyphIsSixteen_ErrorDrawsTheAlertSixteenMaster() {
             using var fixture = new KitFixture();
             StatePanel empty = NewPanel(StatePanelShape.Empty);
             Shown(empty, width: 280, height: 90);
@@ -360,7 +361,11 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
             StatePanel error = NewPanel(StatePanelShape.Error);
             Shown(error, width: 280, height: 90);
-            Assert.Equal(12, Glyph(error, "PART_CompactGlyph").Width);
+            Path glyph = Glyph(error, "PART_CompactGlyph");
+            Assert.Equal(16, glyph.Width);
+            Assert.True(error.TryFindResource("Kit.Glyph.Alert.16", error.ActualThemeVariant, out object? alert16));
+            Assert.Same(alert16, glyph.Data);
+            Assert.Equal(16, GlyphViewbox(error, "PART_CompactGlyphViewbox").Bounds.Width);
         }
 
         [AvaloniaFact]
@@ -578,6 +583,270 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             row.DefaultInvoked += (_, _) => invoked++;
             fixture.StateOf(compactButton).Click();
             Assert.Equal(1, invoked);
+        }
+
+        private static Window ShownInFixture(KitFixture fixture, StatePanel panel, double width, double height) {
+            fixture.Window.Width = width;
+            fixture.Window.Height = height;
+            fixture.Window.Content = panel;
+            Dispatcher.UIThread.RunJobs();
+            return fixture.Window;
+        }
+
+        private static StatePanel HostRowPanel(ButtonRow? hostRow, StatePanelShape shape = StatePanelShape.Error) =>
+            new() {
+                Theme = KitStatePanelTheme(),
+                Shape = shape,
+                Sentence = "Couldn’t save the image — the folder is read-only or no longer there.",
+                ExternalButtons = hostRow,
+            };
+
+        [AvaloniaFact]
+        public void ExternalButtons_ANonEmptyHostRow_SatisfiesTheRequiredButton() {
+            using var fixture = new KitFixture();
+            var hostRow = new ButtonRow { Theme = KitButtonRowTheme(), Items = { Btn("Cancel", ButtonRowRole.Cancel), Btn("Try Again") } };
+            var hostPanel = new StackPanel { Children = { hostRow } };
+            StatePanel panel = HostRowPanel(hostRow);
+            fixture.Window.Content = new StackPanel { Children = { panel, hostPanel } };
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(hostPanel, hostRow.Parent);
+            Assert.False(hostRow.IsCentered);
+        }
+
+        [AvaloniaFact]
+        public void ExternalButtons_AnEmptyHostRow_ThrowsOnBuild() {
+            using var fixture = new KitFixture();
+            StatePanel panel = HostRowPanel(new ButtonRow { Theme = KitButtonRowTheme() });
+
+            Assert.Throws<InvalidOperationException>(() => Shown(panel));
+        }
+
+        [AvaloniaFact]
+        public void ExternalButtons_AHostButton_SatisfiesTheRequiredButton() {
+            using var fixture = new KitFixture();
+            var hostButton = Btn("Try Again");
+            var panel = new StatePanel {
+                Theme = KitStatePanelTheme(),
+                Shape = StatePanelShape.Error,
+                Sentence = "Couldn’t save the image.",
+                ExternalButtons = hostButton,
+            };
+
+            Shown(panel);
+
+            Assert.Empty(panel.GetVisualDescendants().OfType<Button>());
+        }
+
+        [AvaloniaFact]
+        public void ExternalButtons_AndItsOwnRow_Together_ThrowOnBuild() {
+            using var fixture = new KitFixture();
+            StatePanel panel = HostRowPanel(OneButtonRow("Try Again"));
+            panel.Buttons = OneButtonRow("Try Again");
+
+            Assert.Throws<InvalidOperationException>(() => Shown(panel));
+        }
+
+        [AvaloniaFact]
+        public void ExternalButtons_CompactAndFull_DrawNoButtonOfTheirOwn() {
+            using var fixture = new KitFixture();
+            var hostRow = new ButtonRow { Theme = KitButtonRowTheme(), Items = { Btn("Cancel", ButtonRowRole.Cancel), Btn("Try Again") } };
+            StatePanel panel = HostRowPanel(hostRow);
+            panel.Headline = "Couldn’t save the image";
+
+            ShownInFixture(fixture, panel, 400, 90);
+            Assert.True(panel.IsCompact);
+            Assert.Empty(panel.GetVisualDescendants().OfType<Button>());
+
+            ShownInFixture(fixture, panel, 400, 400);
+            Assert.False(panel.IsCompact);
+            Assert.Empty(panel.GetVisualDescendants().OfType<Button>());
+            Assert.Null(hostRow.Parent);
+            Assert.False(hostRow.IsCentered);
+        }
+
+        [AvaloniaFact]
+        public void ForceCompact_KeepsTheCompactShape_InARegionAboveTheMinimum() {
+            using var fixture = new KitFixture();
+            StatePanel panel = NewPanel(StatePanelShape.Loading);
+            panel.ForceCompact = true;
+            Shown(panel, width: 400, height: 400);
+
+            Assert.True(panel.IsCompact);
+
+            panel.ForceCompact = false;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(panel.IsCompact);
+        }
+
+        private static StatePanel CompactStrip(string sentence, double? progress = null, StatePanelShape shape = StatePanelShape.Loading) {
+            StatePanel panel = NewPanel(shape, sentence: sentence, progress: progress);
+            panel.ForceCompact = true;
+            return panel;
+        }
+
+        //The strip sits at the sheet's content width, as the host lays it out.
+        private static Window ShownAsStrip(StatePanel panel, double width = 320) {
+            var window = new Window { Width = width, Height = 400, Content = new StackPanel { Children = { panel } } };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            return window;
+        }
+
+        private static Grid CompactLayout(StatePanel panel) =>
+            panel.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_CompactLayout");
+
+        private static double LeftIn(Visual visual, Visual root) => visual.TranslatePoint(new Point(0, 0), root)!.Value.X;
+        private static double TopIn(Visual visual, Visual root) => visual.TranslatePoint(new Point(0, 0), root)!.Value.Y;
+
+        private const string FourLineSentence =
+            "Importing “Space Age + Krastorio 2 + Bob’s Metals, Chemicals and Plates + Angel’s Refining + Angel’s Smelting + Angel’s Petrochemicals” — fluid boxes, recipe categories, technologies and every module limitation (5 of 7).";
+
+        [AvaloniaFact]
+        public void Compact_Sentence_WrapsToThreeLinesThenEllipsis_FullTextInTheTooltip() {
+            using var fixture = new KitFixture();
+            StatePanel panel = CompactStrip("Couldn’t import “Space Age” — the data dump from Factorio stopped partway through.", shape: StatePanelShape.Empty);
+            ShownAsStrip(panel);
+
+            TextBlock sentence = TextAt(panel, "PART_CompactSentence");
+            Assert.Equal(TextWrapping.Wrap, sentence.TextWrapping);
+            Assert.Equal(TextTrimming.CharacterEllipsis, sentence.TextTrimming);
+            Assert.Equal(3, sentence.MaxLines);
+            Assert.Contains("secondary", sentence.Classes);
+            Assert.True(sentence.TextLayout.TextLines.Count > 1);
+            Assert.True(panel.Bounds.Height > sentence.TextLayout.TextLines[0].Height * 1.5);
+            Assert.Equal(panel.Sentence, ToolTip.GetTip(sentence));
+
+            panel.Sentence = FourLineSentence;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(3, sentence.TextLayout.TextLines.Count);
+            Assert.Equal(FourLineSentence, ToolTip.GetTip(sentence));
+        }
+
+        [AvaloniaFact]
+        public void Compact_WithAKnownTotal_StacksTheSentenceOverAFullWidthBar_AndDropsTheSpinner() {
+            using var fixture = new KitFixture();
+            StatePanel panel = CompactStrip("Rendering the graph — 43 %.", progress: 0.43);
+            ShownAsStrip(panel);
+
+            Grid layout = CompactLayout(panel);
+            Assert.DoesNotContain(layout.GetVisualDescendants(), v => v is SpinnerControl);
+            ProgressBarControl bar = Assert.Single(layout.GetVisualDescendants().OfType<ProgressBarControl>());
+            Assert.False(bar.IsIndeterminate);
+            Assert.Equal(0.43, bar.Value);
+            Assert.Equal(6, bar.Bounds.Height);
+            Assert.Equal(panel.Bounds.Width, bar.Bounds.Width, 0.5);
+            Assert.Equal(320, panel.Bounds.Width, 0.5);
+            Border indicator = bar.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Fill");
+            Assert.Equal(320 * 0.43, indicator.Width, 0.5);
+
+            TextBlock sentence = TextAt(panel, "PART_CompactSentence");
+            Assert.Equal(LeftIn(panel, panel), LeftIn(sentence, panel), 0.5);
+            Assert.Equal(TopIn(sentence, panel) + sentence.Bounds.Height + 8, TopIn(bar, panel), 0.5);
+            Assert.Equal(panel.Sentence, AutomationProperties.GetName(bar));
+        }
+
+        [AvaloniaFact]
+        public void Compact_WithoutATotal_SpinnerInASixteenSlot_AlignedToTheFirstLine_AndNoBar() {
+            using var fixture = new KitFixture();
+            StatePanel panel = CompactStrip("Reading the save — waiting for Factorio to finish writing the mod list before technologies can be read.");
+            ShownAsStrip(panel);
+
+            Grid layout = CompactLayout(panel);
+            Assert.DoesNotContain(layout.GetVisualDescendants(), v => v is ProgressBarControl);
+            SpinnerControl spinner = SpinnerAt(panel, "PART_CompactSpinner");
+            Assert.True(spinner.IsEffectivelyVisible);
+            Assert.Equal(14, spinner.Bounds.Width, 0.5);
+            Panel slot = panel.GetVisualDescendants().OfType<Panel>().Single(p => p.Name == "PART_CompactGlyphBox");
+            Assert.Equal(16, slot.Bounds.Width, 0.5);
+            Assert.Equal(16, slot.Bounds.Height, 0.5);
+
+            TextBlock sentence = TextAt(panel, "PART_CompactSentence");
+            Assert.True(sentence.TextLayout.TextLines.Count > 1);
+            Assert.Equal(24, LeftIn(sentence, panel) - LeftIn(panel, panel), 0.5);
+            Assert.Equal(TopIn(sentence, panel) + 0.5, TopIn(slot, panel), 0.5);
+        }
+
+        [AvaloniaFact]
+        public void Compact_Loading_NeverShrinksWithinOneOperation_AndResetsOnceHidden() {
+            using var fixture = new KitFixture();
+            StatePanel panel = CompactStrip(FourLineSentence, progress: 0.2);
+            var host = new StackPanel { Children = { panel } };
+            var window = new Window { Width = 320, Height = 400, Content = host };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            double tallest = panel.Bounds.Height;
+
+            panel.Sentence = "Importing — recipes (6 of 7).";
+            panel.Progress = 0.9;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(tallest, panel.Bounds.Height, 0.5);
+
+            host.Children.Remove(panel);
+            Dispatcher.UIThread.RunJobs();
+            host.Children.Add(panel);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(panel.Bounds.Height < tallest - 1);
+        }
+
+        [AvaloniaFact]
+        public void Compact_ProgressBackToNullMidOperation_KeepsTheBarAtItsLastValue() {
+            using var fixture = new KitFixture();
+            StatePanel panel = CompactStrip("Importing “Space Age” — recipes (3 of 7).", progress: 0.43);
+            ShownAsStrip(panel);
+
+            panel.Progress = null;
+            Dispatcher.UIThread.RunJobs();
+
+            ProgressBarControl bar = Assert.Single(CompactLayout(panel).GetVisualDescendants().OfType<ProgressBarControl>());
+            Assert.True(bar.IsEffectivelyVisible);
+            Assert.Equal(0.43, bar.Value);
+            Assert.DoesNotContain(CompactLayout(panel).GetVisualDescendants(), v => v is SpinnerControl);
+        }
+
+        private const string OneLineSentence = "Importing — recipes (1 of 7).";
+        private const string TwoLineSentence = "Importing “Space Age” — recipes, technologies and module limits (4 of 7).";
+
+        [AvaloniaTheory]
+        [InlineData(OneLineSentence, TwoLineSentence)]
+        [InlineData(TwoLineSentence, OneLineSentence)]
+        public void Compact_ASentenceChangingItsLineCount_MovesTheBar_WithoutCuttingTheFillEase(string before, string after) {
+            using var fixture = new KitFixture();
+            StatePanel panel = CompactStrip(before, progress: 0.2);
+            ShownAsStrip(panel);
+            ProgressBarControl bar = Assert.Single(CompactLayout(panel).GetVisualDescendants().OfType<ProgressBarControl>());
+            TextBlock sentence = TextAt(panel, "PART_CompactSentence");
+            int linesBefore = sentence.TextLayout.TextLines.Count;
+            double lineHeight = sentence.TextLayout.TextLines[0].Height;
+            double topBefore = TopIn(bar, panel);
+
+            panel.Sentence = after;
+            panel.Progress = 0.8;
+            Dispatcher.UIThread.RunJobs();
+
+            int linesAfter = sentence.TextLayout.TextLines.Count;
+            Assert.Equal(1, Math.Abs(linesAfter - linesBefore));
+            double moved = TopIn(bar, panel) - topBefore;
+            Assert.Equal(linesAfter - linesBefore, Math.Sign(moved));
+            Assert.InRange(Math.Abs(moved), 1, lineHeight + 0.5);
+            Border fill = bar.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Fill");
+            Assert.True(fill.Width < 320 * 0.8 - 1);
+
+            AnimationClock.Settle(400);
+            Assert.Equal(320 * 0.8, fill.Width, 0.5);
+        }
+
+        [AvaloniaFact]
+        public void Compact_ProgressNeverMovesBackwardWithinOneOperation() {
+            using var fixture = new KitFixture();
+            StatePanel panel = CompactStrip("Importing “Space Age” — recipes (3 of 7).", progress: 0.6);
+            ShownAsStrip(panel);
+
+            panel.Progress = 0.4;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(0.6, Assert.Single(CompactLayout(panel).GetVisualDescendants().OfType<ProgressBarControl>()).Value);
         }
     }
 }

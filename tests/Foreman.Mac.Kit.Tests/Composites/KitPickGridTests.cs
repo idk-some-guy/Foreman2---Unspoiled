@@ -228,6 +228,34 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void Delete_WhenTheClearedHandlerCallsArmAfterClear_TheHostsTargetWinsOverTheHole() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+            grid.FocusedIndex = 0;
+            grid.Cleared += (_, _) => grid.ArmAfterClear(3);
+
+            fixture.StateOf(grid).KeyDown(Key.Delete);
+
+            Assert.Equal(3, grid.SelectedIndex);
+        }
+
+        [AvaloniaFact]
+        public void ArmAfterClear_WithAnIndexPastTheSlots_ClampsToNoSelection_AndStillSuppressesTheHole() {
+            using var fixture = new KitFixture();
+            PickGrid grid = FourSlots();
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+            grid.FocusedIndex = 1;
+            grid.Cleared += (_, _) => grid.ArmAfterClear(4);
+
+            fixture.StateOf(grid).KeyDown(Key.Delete);
+
+            Assert.Equal(-1, grid.SelectedIndex);
+        }
+
+        [AvaloniaFact]
         public void UntouchedGrid_DefaultsToNoSelection_NoCellIsMarkedSelected() {
             using var fixture = new KitFixture();
             PickGrid grid = FourSlots();

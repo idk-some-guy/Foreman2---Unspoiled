@@ -202,7 +202,10 @@ namespace Foreman.Mac.UiTests.Inspector {
             return (host, view);
         }
 
+        //Headless MouseDown pumps the render clock before it hit-tests, so a point read mid-reflow misses a target that moves.
         private static void Click(AvaloniaWindow window, Control control) {
+            AnimationClock.UntilReflowsSettled(window);
+            window.UpdateLayout();
             Avalonia.Point center = new(control.Bounds.Width / 2, control.Bounds.Height / 2);
             Avalonia.Point screen = Avalonia.VisualExtensions.TranslatePoint(control, center, window) ?? center;
             window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
@@ -230,9 +233,9 @@ namespace Foreman.Mac.UiTests.Inspector {
             CanvasKeys.KeyDownOn(grid, Key.Delete);
         }
 
-        //A just-rebuilt grid needs another layout pass (and FormRow's own 180 ms reflow) before its cells are real children.
         private static PickCell ChoiceCellFor(AvaloniaWindow window, KitPickGrid grid, string name) {
-            AnimationClock.Settle(250);
+            AnimationClock.UntilReflowsSettled(window);
+            window.UpdateLayout();
             PickCell cell = grid.GetVisualDescendants().OfType<PickCell>().Single(c => c.AccessibleName == name);
             Assert.True(cell.Bounds.Width > 0 && cell.Bounds.Height > 0, $"'{name}' resolved to a zero-size cell - a click would land nowhere.");
             return cell;

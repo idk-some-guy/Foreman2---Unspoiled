@@ -50,16 +50,28 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public async Task ShowYesNoCancelAsync_HostFree_CancelButtonClick_ReturnsCancel() {
+        public async Task ShowSaveChangesAsync_RendersTheSaveCopyWithTheDocumentName_AndCancelReturnsCancel() {
             Window owner = NewOwner();
 
-            Task<Foreman.Mac.ConfirmChoice> task = Dialogs.ShowYesNoCancelAsync(owner, "Save?", "message");
+            Task<Foreman.Mac.ConfirmChoice> task = Dialogs.ShowSaveChangesAsync(owner, "/tmp/graphs/Iron smelting.fjson");
             Dispatcher.UIThread.RunJobs();
 
             var sheet = Assert.IsType<AlertSheet>(SheetHost.For(owner).Content);
+            Assert.Equal("Do you want to save the changes you made to “Iron smelting”?", RenderedText(sheet, "PART_Headline"));
+            Assert.Equal("Your changes will be lost if you don’t save them.", RenderedText(sheet, "PART_Informative"));
             sheet.CancelButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
             Assert.Equal(Foreman.Mac.ConfirmChoice.Cancel, await task);
+        }
+
+        [Fact]
+        public void DocumentName_StripsTheExtension_AndMiddleTruncatesPastFortyCharacters() {
+            Assert.Equal("Iron smelting", Dialogs.DocumentName("/tmp/graphs/Iron smelting.fjson"));
+            Assert.Equal("Space Age", Dialogs.MiddleTruncate("Space Age"));
+
+            string truncated = Dialogs.MiddleTruncate("Space Age + Krastorio 2 + Bob’s Metals, Chemicals and Plates");
+            Assert.Equal("Space Age + Krastori…hemicals and Plates", truncated);
+            Assert.Equal(40, truncated.Length);
         }
 
         [AvaloniaFact]
@@ -70,7 +82,7 @@ namespace Foreman.Mac.UiTests {
             Dispatcher.UIThread.RunJobs();
 
             var sheet = Assert.IsType<AlertSheet>(SheetHost.For(owner).Content);
-            Assert.Equal("Cannot load save", sheet.TitleTextBlockControl.Text);
+            Assert.Equal("Cannot load save", sheet.FrameControl.Headline);
             sheet.YesButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await task;
 
@@ -110,7 +122,7 @@ namespace Foreman.Mac.UiTests {
             Dispatcher.UIThread.RunJobs();
 
             AlertSheet stacked = host.GetVisualDescendants().OfType<AlertSheet>().Single(s => !ReferenceEquals(s, blocking));
-            Assert.Equal("Cannot load save", stacked.TitleTextBlockControl.Text);
+            Assert.Equal("Cannot load save", stacked.FrameControl.Headline);
             stacked.YesButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
             await task;
@@ -118,14 +130,14 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public async Task ShowYesNoCancelAsync_HostBusyWithAnotherSheet_PresentsAStackedAlertSheet() {
+        public async Task ShowSaveChangesAsync_HostBusyWithAnotherSheet_PresentsAStackedAlertSheet() {
             Window owner = NewOwner();
             SheetHost host = SheetHost.For(owner);
             var blocking = new AlertSheet("", "blocking sheet", AlertButtons.Ok);
             _ = host.ShowAsync(blocking);
             Dispatcher.UIThread.RunJobs();
 
-            Task<Foreman.Mac.ConfirmChoice> task = Dialogs.ShowYesNoCancelAsync(owner, "Save?", "message");
+            Task<Foreman.Mac.ConfirmChoice> task = Dialogs.ShowSaveChangesAsync(owner, "/tmp/graphs/Iron smelting.fjson");
             Dispatcher.UIThread.RunJobs();
 
             AlertSheet stacked = host.GetVisualDescendants().OfType<AlertSheet>().Single(s => !ReferenceEquals(s, blocking));
@@ -133,5 +145,8 @@ namespace Foreman.Mac.UiTests {
 
             Assert.Equal(Foreman.Mac.ConfirmChoice.No, await task);
         }
+
+        private static string? RenderedText(AlertSheet sheet, string part) =>
+            sheet.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == part).Text;
     }
 }

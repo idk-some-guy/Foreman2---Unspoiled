@@ -40,6 +40,12 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<double?> ProgressProperty =
             AvaloniaProperty.Register<StatePanel, double?>(nameof(Progress));
 
+        public static readonly StyledProperty<Control?> ExternalButtonsProperty =
+            AvaloniaProperty.Register<StatePanel, Control?>(nameof(ExternalButtons));
+
+        public static readonly StyledProperty<bool> ForceCompactProperty =
+            AvaloniaProperty.Register<StatePanel, bool>(nameof(ForceCompact));
+
         public static readonly StyledProperty<bool> MovesFocusOnAppearProperty =
             AvaloniaProperty.Register<StatePanel, bool>(nameof(MovesFocusOnAppear));
 
@@ -51,6 +57,11 @@ namespace Foreman.Mac.Kit.Composites {
         public string? Sentence { get => GetValue(SentenceProperty); set => SetValue(SentenceProperty, value); }
         public ButtonRow? Buttons { get => GetValue(ButtonsProperty); set => SetValue(ButtonsProperty, value); }
         public double? Progress { get => GetValue(ProgressProperty); set => SetValue(ProgressProperty, value); }
+        //The host's own row (or button) stands in as the required way out; the panel draws no button and never touches it.
+        public Control? ExternalButtons { get => GetValue(ExternalButtonsProperty); set => SetValue(ExternalButtonsProperty, value); }
+
+        //A host strip (a sheet's footer) asks for the compact form whatever the region's size.
+        public bool ForceCompact { get => GetValue(ForceCompactProperty); set => SetValue(ForceCompactProperty, value); }
 
         //Opt-in: moves focus to the primary button on appear; left false, Return still activates it wherever focus already is.
         public bool MovesFocusOnAppear { get => GetValue(MovesFocusOnAppearProperty); set => SetValue(MovesFocusOnAppearProperty, value); }
@@ -60,6 +71,9 @@ namespace Foreman.Mac.Kit.Composites {
 
         private StackPanel? fullLayout;
         private Grid? compactLayout;
+        private Panel? compactGlyphBox;
+        private TextBlock? compactSentence;
+        private ProgressBarControl? compactProgress;
         private Path? glyph;
         private SpinnerControl? spinner;
         private Path? compactGlyph;
@@ -72,6 +86,15 @@ namespace Foreman.Mac.Kit.Composites {
         private bool templateApplied;
         private bool isAttached;
         private readonly List<IDisposable> glyphSubs = [];
+        private readonly List<IDisposable> layoutSubs = [];
+        private double calloutLineHeight = 16.8;
+        private double glyph16 = 16;
+        private double barGap = 8;
+
+        //One operation runs from .loading's first appearance until the shape changes or the panel detaches.
+        private bool barLatched;
+        private double barValue;
+        private double tallestLoading;
 
         static StatePanel() {
             ShapeProperty.Changed.AddClassHandler<StatePanel>((p, _) => p.OnShapeChanged());
@@ -79,6 +102,8 @@ namespace Foreman.Mac.Kit.Composites {
             SentenceProperty.Changed.AddClassHandler<StatePanel>((p, _) => p.ApplySentence());
             ButtonsProperty.Changed.AddClassHandler<StatePanel>((p, _) => p.OnButtonsChanged());
             ProgressProperty.Changed.AddClassHandler<StatePanel>((p, _) => p.ApplyProgress());
+            ExternalButtonsProperty.Changed.AddClassHandler<StatePanel>((p, _) => p.OnButtonsChanged());
+            AffectsMeasure<StatePanel>(ForceCompactProperty);
         }
 
         public StatePanel() => AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
@@ -87,6 +112,9 @@ namespace Foreman.Mac.Kit.Composites {
             base.OnApplyTemplate(e);
             fullLayout = e.NameScope.Find<StackPanel>("PART_FullLayout");
             compactLayout = e.NameScope.Find<Grid>("PART_CompactLayout");
+            compactGlyphBox = e.NameScope.Find<Panel>("PART_CompactGlyphBox");
+            compactSentence = e.NameScope.Find<TextBlock>("PART_CompactSentence");
+            compactProgress = e.NameScope.Find<ProgressBarControl>("PART_CompactProgress");
             glyph = e.NameScope.Find<Path>("PART_Glyph");
             spinner = e.NameScope.Find<SpinnerControl>("PART_Spinner");
             compactGlyph = e.NameScope.Find<Path>("PART_CompactGlyph");
@@ -98,6 +126,7 @@ namespace Foreman.Mac.Kit.Composites {
             compactButtonsHost = e.NameScope.Find<ContentPresenter>("PART_CompactButtonsHost");
 
             templateApplied = true;
+            ApplyCompactGeometry();
             ValidateButtons();
             ApplyShape();
             ApplyHeadline();
@@ -112,6 +141,8 @@ namespace Foreman.Mac.Kit.Composites {
             isAttached = true;
             //Re-creates the glyph geometry/size subscriptions torn down on the previous detach.
             ApplyShape();
+            SubscribeLayoutTokens();
+            ApplyProgress();
             ApplyAppear();
         }
 
@@ -121,16 +152,51 @@ namespace Foreman.Mac.Kit.Composites {
             foreach (IDisposable sub in glyphSubs)
                 sub.Dispose();
             glyphSubs.Clear();
+            foreach (IDisposable sub in layoutSubs)
+                sub.Dispose();
+            layoutSubs.Clear();
+            ResetOperation();
         }
 
+        //The compact .loading strip never shrinks within one operation, so a stage sentence losing a line cannot jolt the sheet.
         protected override Size MeasureOverride(Size availableSize) {
-            bool compact = availableSize.Width < RegionMinWidth || availableSize.Height < RegionMinHeight;
+            bool compact = ForceCompact || availableSize.Width < RegionMinWidth || availableSize.Height < RegionMinHeight;
             if (compact != IsCompact) {
                 IsCompact = compact;
                 ApplyCompactLayout();
                 ApplyButtonsHost();
             }
-            return base.MeasureOverride(availableSize);
+            Size desired = base.MeasureOverride(availableSize);
+            if (!IsCompact || Shape != StatePanelShape.Loading)
+                return desired;
+            tallestLoading = Math.Max(tallestLoading, desired.Height);
+            return new Size(desired.Width, Math.Min(tallestLoading, availableSize.Height));
+        }
+
+        private void SubscribeLayoutTokens() {
+            foreach (IDisposable sub in layoutSubs)
+                sub.Dispose();
+            layoutSubs.Clear();
+            layoutSubs.Add(this.GetResourceObservable("Foreman.Type.Callout.LineHeight").Subscribe(new ResourceSinks.DoubleSink(v => {
+                calloutLineHeight = v;
+                ApplyCompactGeometry();
+            }, calloutLineHeight)));
+            layoutSubs.Add(this.GetResourceObservable("Foreman.Size.Glyph16").Subscribe(new ResourceSinks.DoubleSink(v => {
+                glyph16 = v;
+                ApplyCompactGeometry();
+            }, glyph16)));
+            layoutSubs.Add(this.GetResourceObservable("Foreman.Space.Space2").Subscribe(new ResourceSinks.DoubleSink(v => {
+                barGap = v;
+                ApplyCompactGeometry();
+            }, barGap)));
+        }
+
+        //The leading slot centres on the sentence's first line box, never on the whole wrapped block.
+        private void ApplyCompactGeometry() {
+            if (compactGlyphBox is not null)
+                compactGlyphBox.Margin = new Thickness(0, Math.Max(0, (calloutLineHeight - glyph16) / 2), 0, 0);
+            if (compactProgress is not null)
+                compactProgress.Margin = new Thickness(0, barGap, 0, 0);
         }
 
         protected override AutomationPeer OnCreateAutomationPeer() => new StatePanelAutomationPeer(this);
@@ -149,6 +215,8 @@ namespace Foreman.Mac.Kit.Composites {
 
         //Fires only on an actual Shape change - Loading, the enum default, never fires this on bare construction.
         private void OnShapeChanged() {
+            if (Shape != StatePanelShape.Loading)
+                ResetOperation();
             if (templateApplied)
                 ValidateButtons();
             ApplyShape();
@@ -167,9 +235,16 @@ namespace Foreman.Mac.Kit.Composites {
 
         //A non-loading shape with no button is a build failure, not a lint rule.
         private void ValidateButtons() {
+            if (Buttons is not null && ExternalButtons is not null)
+                throw new InvalidOperationException("Kit.StatePanel: carries either its own button row or the host's, not both.");
             if (Shape == StatePanelShape.Loading)
                 return;
-            if ((Buttons?.Items.Count ?? 0) == 0)
+            bool hostHasOne = ExternalButtons switch {
+                ButtonRow row => row.Items.Count > 0,
+                Button => true,
+                _ => false,
+            };
+            if ((Buttons?.Items.Count ?? 0) == 0 && !hostHasOne)
                 throw new InvalidOperationException($"Kit.StatePanel: .{Shape} refuses to build without a button.");
         }
 
@@ -214,10 +289,10 @@ namespace Foreman.Mac.Kit.Composites {
                 glyphSubs.Add(this.GetResourceObservable(FullGlyphKey()).Subscribe(new ResourceSinks.Sink<Geometry?>(g => glyph.Data = g, null)));
             if (!loading && compactGlyph is not null) {
                 glyphSubs.Add(this.GetResourceObservable(CompactGlyphKey()).Subscribe(new ResourceSinks.Sink<Geometry?>(g => compactGlyph.Data = g, null)));
-                compactGlyph.Width = CompactGlyphMasterSize();
-                compactGlyph.Height = CompactGlyphMasterSize();
+                compactGlyph.Width = 16;
+                compactGlyph.Height = 16;
                 if (compactGlyphViewbox is not null)
-                    glyphSubs.Add(this.GetResourceObservable(CompactGlyphSizeKey()).Subscribe(new ResourceSinks.DoubleSink(v => {
+                    glyphSubs.Add(this.GetResourceObservable("Foreman.Size.Glyph16").Subscribe(new ResourceSinks.DoubleSink(v => {
                         compactGlyphViewbox.Width = v;
                         compactGlyphViewbox.Height = v;
                     }, 0)));
@@ -231,17 +306,12 @@ namespace Foreman.Mac.Kit.Composites {
             _ => "Kit.Glyph.EmptyGraph.32",
         };
 
-        //Alert has no 16pt master (the addendum draws it only at 12/32) - the compact error glyph reuses the existing 12pt asset.
         private string CompactGlyphKey() => Shape switch {
             StatePanelShape.Empty => "Kit.Glyph.EmptyGraph.16",
             StatePanelShape.NoResults => "Kit.Glyph.NoResults.16",
-            StatePanelShape.Error => "Kit.Glyph.Alert.12",
+            StatePanelShape.Error => "Kit.Glyph.Alert.16",
             _ => "Kit.Glyph.EmptyGraph.16",
         };
-
-        private double CompactGlyphMasterSize() => Shape == StatePanelShape.Error ? 12 : 16;
-
-        private string CompactGlyphSizeKey() => Shape == StatePanelShape.Error ? "Foreman.Size.GlyphMicro" : "Foreman.Size.Glyph16";
 
         private void ApplyHeadline() {
             if (headlineText is null)
@@ -250,18 +320,54 @@ namespace Foreman.Mac.Kit.Composites {
             AutomationProperties.SetName(this, Headline);
         }
 
-        private void ApplySentence() => AutomationProperties.SetHelpText(this, Sentence);
+        private void ApplySentence() {
+            AutomationProperties.SetHelpText(this, Sentence);
+            if (compactSentence is not null)
+                ToolTip.SetTip(compactSentence, Sentence);
+            if (compactProgress is not null)
+                AutomationProperties.SetName(compactProgress, Sentence);
+            if (progressBar is not null)
+                AutomationProperties.SetName(progressBar, Sentence);
+        }
 
         //.loading only, and only a determinate bar - an unknown total shows the spinner alone, never an indeterminate bar alongside it.
+        //Once an operation has a bar it keeps it: never bar → spinner, and the value never moves backward.
         private void ApplyProgress() {
-            if (progressBar is null)
-                return;
-            bool show = Shape == StatePanelShape.Loading && Progress.HasValue;
-            progressBar.IsVisible = show;
-            if (show) {
-                progressBar.IsIndeterminate = false;
-                progressBar.Value = Progress!.Value;
+            if (Shape == StatePanelShape.Loading && Progress is double progress) {
+                barValue = barLatched ? Math.Max(barValue, progress) : progress;
+                barLatched = true;
             }
+            bool show = Shape == StatePanelShape.Loading && barLatched;
+            if (progressBar is not null) {
+                progressBar.IsVisible = show;
+                progressBar.IsIndeterminate = false;
+                progressBar.Value = barValue;
+            }
+            ApplyCompactProgress(show);
+        }
+
+        //The determinate strip drops its leading slot and stacks the sentence over the bar; spinner and bar are removed, not hidden.
+        private void ApplyCompactProgress(bool show) {
+            if (compactLayout is null || compactGlyphBox is null || compactProgress is null || compactSpinner is null)
+                return;
+            compactProgress.IsIndeterminate = false;
+            compactProgress.Value = barValue;
+            if (show && compactProgress.Parent is null)
+                compactLayout.Children.Add(compactProgress);
+            else if (!show && compactProgress.Parent is not null)
+                compactLayout.Children.Remove(compactProgress);
+            if (show && compactSpinner.Parent is not null)
+                compactGlyphBox.Children.Remove(compactSpinner);
+            else if (!show && compactSpinner.Parent is null)
+                compactGlyphBox.Children.Insert(0, compactSpinner);
+            compactGlyphBox.IsVisible = !show;
+            PseudoClasses.Set(":determinate", show);
+        }
+
+        private void ResetOperation() {
+            barLatched = false;
+            barValue = 0;
+            tallestLoading = 0;
         }
 
         private void ApplyCompactLayout() {
