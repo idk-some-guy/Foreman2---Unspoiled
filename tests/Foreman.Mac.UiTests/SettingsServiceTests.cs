@@ -103,10 +103,12 @@ namespace Foreman.Mac.UiTests {
         [Fact]
         public void SettingsService_RetiredFields_AreAbsentFromRowIo() {
             string[] retired = ["ShowRecipeToolTip", "RecipeNameOnlyFilter"];
-            string[] settingsFields = [.. typeof(AppSettings).GetProperties().Select(p => p.Name).Order()];
+            string[] sessionOnly = [nameof(AppSettings.ShowToolbar)];
+            string[] settingsFields = [.. typeof(AppSettings).GetProperties().Select(p => p.Name).Except(sessionOnly).Order()];
             string[] rowColumns = [.. typeof(SettingsRow).GetProperties().Select(p => p.Name).Where(n => n != nameof(SettingsRow.Id)).Order()];
 
             Assert.Equal(settingsFields, rowColumns);
+            Assert.Empty(rowColumns.Intersect(sessionOnly));
             Assert.Empty(settingsFields.Intersect(retired));
 
             string home = NewTempHome();

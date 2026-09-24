@@ -467,6 +467,49 @@ Alt staying Alt, exactly as anticipated above. See
 for the settled statement; Cmd+S stays unwired pending `ShellCommands.Save`
 (see that same file's Task 7 keyboard-map entry).
 
+### Menu bar and command shortcuts (Mac port, phase 9)
+
+`MainWindow.BuildNativeMenu` registers these on the native menu. ⌘ below is
+`PlatformModifiers.Primary`, so each chord reads Ctrl on Linux. Cut, Copy,
+Paste and Delete stay gesture-less because the canvas owns those keys.
+
+| Menu | Item | Shortcut | Notes |
+|---|---|---|---|
+| File | Open Recent | | Disabled with an empty list until the graph library (A3) lands in K5 |
+| Edit | Select All | ⌘A | Selects every node; with a text field focused, selects the field's text instead |
+| Edit | Deselect All | ⇧⌘A | Clears the node and annotation selection |
+| Edit ▸ Find | Find Node… | ⌘F | Focuses the toolbar search field (also handled by `MainWindow.OnKeyDown`) |
+| Edit ▸ Find | Find Next / Find Previous | ⌘G / ⇧⌘G | Steps the search matches, wrapping both ways |
+| Edit ▸ Find | Select Next Node | | Disabled until canvas traversal (A14); bare Tab is not registered, since a Tab key equivalent would take Tab from every text field |
+| View | Pause All Calculations | ⌥⌘P | Moved off ⌘. (§14 ruling 4) |
+| View | Link Routing ▸ Rounded / Orthogonal / Clear Waypoints | | Disabled until links are selectable (A10, K5) |
+| View | Show Toolbar | ⌥⌘T | Checkbox. Hidden, the window keeps a 28 pt titlebar with the title centred and the graph held still on screen; ⌘F shows the toolbar until the search field resigns. Session-only (`AppSettings.ShowToolbar`, no settings column yet) |
+| View | Customize Toolbar… | | Disabled until the customization surface exists |
+| View | Enter Full Screen | ⌃⌘F | Toggles full screen and back to the prior window state; no chord on Linux, where ⌃⌘F would fold onto Find Node's Ctrl+F |
+| Window | Welcome to Foreman | ⇧⌘W | Disabled until the welcome window lands in K5 |
+| Window | Preset Comparator | | Opens the comparator on the resolved preset list, one instance; disabled below two presets, the same rule (`PresetComparatorWindow.CanCompare`) as Settings' Compare Presets…, re-checked each time the Window menu opens |
+| Help | Foreman 2 Help | ⌘? | Opens the repository README in the browser |
+| Help | Keyboard Shortcuts | | Opens `docs/keyboard-shortcuts.md` on GitHub |
+| Help | Foreman 2 on GitHub | | Opens the repository |
+| Help | Report an Issue… | | Opens a new issue prefilled with the version, macOS version and chip; if no browser opens, an alert offers Copy Link |
+
+File's items read New Graph, Open…, Save As…, Import Graph… and Export
+Image…, and the app menu's Settings… has its ellipsis. With the canvas
+focused, W, A, S and D pan only without ⌘, so ⌘S, ⌘A, ⇧⌘A, ⌘W and ⇧⌘W
+reach their menu items.
+
+⌘. is bound to no menu item. `MainWindow.OnCancelInFlightKeyDown` (a
+window tunnel handler) cancels a running solve first, else the frontmost
+open popover, else an open canvas panel or radial (Escape's own path), else
+the frontmost sheet. The popover and sheet cases replay the key on the kit
+frame so its own ⌘. handling runs, which also carries Linux's Ctrl+period
+to frames that only recognise ⌘.
+
+With no document open (A25, `MainWindow.IsDocumentOpen`), File's Save, Save
+As, Export Image and Close, all of Edit, and the canvas half of View
+disable; leaving the state restores each item's own prior enablement.
+Show Toolbar, Customize Toolbar… and Enter Full Screen are outside that set.
+
 ## 8. Node auto-placement
 
 - **`SmartNodeDirection`** (viewer bool, set from

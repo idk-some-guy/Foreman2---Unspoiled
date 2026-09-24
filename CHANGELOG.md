@@ -283,6 +283,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   its Canvas group. The settings database moves to version 4: it drops those two columns and
   stores the inspector width, the add browser's size and last categories, and the two resizable
   panes' sizes, so they now survive a restart.
+- The menu bar gains Select All (⌘A) and Deselect All (⇧⌘A) in Edit, with ⌘A still selecting a
+  focused text field's text, and an Edit ▸ Find submenu whose Find Node…, Find Next and Find
+  Previous drive the toolbar search. File gains Open Recent and Window gains Welcome to Foreman
+  (⇧⌘W), both disabled until the graph library and welcome window arrive. View gains a Link
+  Routing submenu, disabled until links can be selected, Show Toolbar (⌥⌘T), a disabled Customize
+  Toolbar… and Enter Full Screen (⌃⌘F). With the toolbar hidden the window keeps a plain 28 pt
+  titlebar with the document title centred, the graph stays put on screen, and ⌘F shows the toolbar
+  until the search field loses focus; the choice lasts for the session. Window gains Preset
+  Comparator, which needs two presets, the same rule as Settings' Compare Presets…. Help has four
+  items that open the project's pages in the browser (Foreman 2 Help ⌘?, Keyboard Shortcuts,
+  Foreman 2 on GitHub, Report an Issue…), with an alert offering Copy Link when no browser opens.
+  Menu titles follow the macOS forms (New Graph, Open…, Save As…, Import Graph…, Export Image…,
+  Settings…), and the disabled Level of Detail item is gone. ⌘. is now cancel-in-flight and belongs
+  to no menu item: it stops a running solve first, then closes the frontmost popover or canvas
+  panel, then dismisses the frontmost sheet, and Ctrl+period does the same on Linux. ⌘-chords on W,
+  A, S and D no longer pan the canvas. With no document open, the save, export and close items, all
+  of Edit and the canvas half of View disable.
 
 ### Fixed
 

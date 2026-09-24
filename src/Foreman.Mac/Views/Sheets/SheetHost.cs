@@ -52,6 +52,11 @@ namespace Foreman.Mac.Views.Sheets {
 
         private Layer? TopLayer => layers.LastOrDefault(l => !l.Dismissed);
 
+        //An alert's ⌘. lives on its button row; a sheet frame's own handler closes the frame's open popover before the sheet.
+        internal InputElement? FrontmostCancelTarget => !IsOpen || TopLayer is not { } top ? null
+            : top.Root is SheetFrame frame ? frame
+            : (InputElement?)top.Buttons ?? top.Root;
+
         private SheetHost() {
             IsVisible = false;
             ZIndex = TopmostZIndex;

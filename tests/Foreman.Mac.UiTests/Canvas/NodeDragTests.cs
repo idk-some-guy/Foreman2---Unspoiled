@@ -293,12 +293,22 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //---- WASD panning (reference §2/§7) ----
 
+        //⌘A, ⇧⌘A, ⌘W and ⇧⌘W are menu key equivalents (Select All, Deselect All, Close, Welcome), so Primary chords never pan.
         [AvaloniaFact]
-        public void WasdKeys_PanTheViewByPanUnit_InEachDirection() {
+        public void WasdKeys_PanTheViewByPanUnit_InEachDirection_AndLeavePrimaryChordsToTheMenu() {
             Fixture fx = NewFixture();
             fx.AddSupplier("iron-ore", new Point(0, 0)); //Graph.Bounds = (-200,-200,400,400), well clear of these small pans
             fx.Control.Focus();
             Point origin = fx.Control.Viewport.ViewOffset;
+
+            foreach (Key key in new[] { Key.A, Key.W, Key.S, Key.D }) {
+                foreach (KeyModifiers modifiers in new[] { PlatformModifiers.Primary, PlatformModifiers.Primary | KeyModifiers.Shift }) {
+                    var chord = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = modifiers };
+                    fx.Control.RaiseEvent(chord);
+                    Assert.False(chord.Handled, $"{modifiers}+{key}");
+                    Assert.Equal(origin, fx.Control.Viewport.ViewOffset);
+                }
+            }
 
             CanvasKeys.PressOnCanvas(fx.Control, Key.W);
             Assert.Equal(new Point(origin.X, origin.Y + 10), fx.Control.Viewport.ViewOffset);

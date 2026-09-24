@@ -85,5 +85,8 @@ namespace Foreman.Mac.Services {
 
         //A10: the routing a new link takes.
         public LinkRouting DefaultLinkRouting { get; set; } = LinkRouting.Rounded;
+
+        //View ▸ Show Toolbar; session-only until the settings schema next moves, so it has no SettingsRow column.
+        public bool ShowToolbar { get; set; } = true;
     }
 }

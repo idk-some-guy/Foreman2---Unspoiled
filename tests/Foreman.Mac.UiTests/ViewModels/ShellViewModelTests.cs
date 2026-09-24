@@ -31,12 +31,5 @@ namespace Foreman.Mac.UiTests.ViewModels {
 
             Assert.Equal(ExpectedHits, hit);
         }
-
-        [Fact]
-        public void HelpCommand_IsDisabledStub() {
-            ShellViewModel vm = NewViewModel([]);
-
-            Assert.False(vm.HelpCommand.CanExecute(null));
-        }
     }
 }

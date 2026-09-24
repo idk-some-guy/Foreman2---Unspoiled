@@ -28,8 +28,8 @@ namespace Foreman.Mac.Views.Sheets {
         public AlertSheet() : this("", "", AlertButtons.Ok) {
         }
 
-        //verb labels the affirmative button: required for Destructive, optional for YesNo (then Cancel · verb).
-        public AlertSheet(string title, string message, AlertButtons buttons, string? verb = null, SheetWidthClass width = SheetWidthClass.Alert) {
+        //verb labels the affirmative button: required for Destructive, optional for YesNo (then Cancel · verb, or secondaryLabel · verb).
+        public AlertSheet(string title, string message, AlertButtons buttons, string? verb = null, SheetWidthClass width = SheetWidthClass.Alert, string? secondaryLabel = null) {
             InitializeComponent();
             this.buttons = buttons;
             WidthClass = width;
@@ -49,7 +49,7 @@ namespace Foreman.Mac.Views.Sheets {
             noButton = RowButton(buttons switch {
                 AlertButtons.YesNoCancel => "Don’t Save",
                 AlertButtons.Destructive => "Cancel",
-                AlertButtons.YesNo when verb is not null => "Cancel",
+                AlertButtons.YesNo when verb is not null => secondaryLabel ?? "Cancel",
                 _ => "No",
             });
             yesButton = RowButton(buttons switch {

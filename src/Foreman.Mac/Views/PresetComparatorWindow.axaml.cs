@@ -82,6 +82,8 @@ namespace Foreman.Mac.Views {
         //SettingsWindow's DeleteConfirmationStub/WarningDialogStub for the established convention).
         internal Func<Preset, Task<DataCache?>>? LoadCacheStub { get; set; }
 
+        internal static bool CanCompare(IReadOnlyCollection<Preset>? presets) => presets is { Count: >= 2 };
+
         public PresetComparatorWindow() : this([]) {
         }
 

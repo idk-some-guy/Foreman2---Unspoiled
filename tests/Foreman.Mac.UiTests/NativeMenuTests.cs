@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
@@ -9,7 +10,10 @@ using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac;
 using Foreman.Mac.Kit.Controls;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using System;
 using System.Collections.Generic;
@@ -61,6 +65,15 @@ namespace Foreman.Mac.UiTests {
 
         private static NativeMenuItem ItemNamed(NativeMenu menu, string header) => RealItems(menu).Single(i => i.Header == header);
 
+        private static IEnumerable<NativeMenuItem> AllItems(NativeMenu menu) {
+            foreach (NativeMenuItem item in RealItems(menu)) {
+                yield return item;
+                if (item.Menu is NativeMenu submenu)
+                    foreach (NativeMenuItem nested in AllItems(submenu))
+                        yield return nested;
+            }
+        }
+
         //The gridline/rate/icon-view popover controls only join the visual tree once ViewOptionsPopover is
         //open (MainWindowShellTests.cs's own OpenViewOptions precedent) - this.FindControl resolves them
         //regardless via the compiled NameScope, which is what BuildNativeMenu itself relies on, but
@@ -70,29 +83,7 @@ namespace Foreman.Mac.UiTests {
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         }
 
-        //---- top-level structure ----
-
-        [AvaloniaFact]
-        public void TopLevel_IsFileEditViewWindowHelpInOrder() {
-            var window = new MainWindow();
-
-            var headers = TopMenu(window).Items.OfType<NativeMenuItem>().Select(i => i.Header).ToList();
-
-            Assert.Equal(["File", "Edit", "View", "Window", "Help"], headers);
-        }
-
         //---- Foreman 2 (app) menu ----
-
-        //A: set on Application.Current, or the ObjC side falls back to Avalonia's own "About Avalonia" app menu.
-        [AvaloniaFact]
-        public void AppMenu_IsSetOnApplicationWithAboutFirstAndExactlyOneQuit() {
-            var window = new MainWindow();
-
-            NativeMenu appMenu = AppMenu();
-
-            Assert.Equal("About Foreman 2", RealItems(appMenu)[0].Header);
-            Assert.Single(RealItems(appMenu), i => i.Header == "Quit Foreman 2");
-        }
 
         //Pins both native structures exactly, item by item, including separators - other tests here only look up items by header.
         [AvaloniaFact]
@@ -103,7 +94,7 @@ namespace Foreman.Mac.UiTests {
             var windowHeaders = TopMenu(window).Items.OfType<NativeMenuItem>().Select(i => i.Header).ToList();
 
             Assert.Equal(
-                ["About Foreman 2", "-", "Settings", "-", "Hide Foreman 2", "Hide Others", "Show All", "-", "Quit Foreman 2"],
+                ["About Foreman 2", "-", "Settings…", "-", "Hide Foreman 2", "Hide Others", "Show All", "-", "Quit Foreman 2"],
                 appHeaders);
             Assert.Equal(["File", "Edit", "View", "Window", "Help"], windowHeaders);
         }
@@ -118,43 +109,16 @@ namespace Foreman.Mac.UiTests {
             Assert.Null(about.Gesture);
         }
 
-        //Show() makes this the ActiveWindow the app menu's action items resolve at click time (see
-        //MainWindow.WindowActionItem) - the app menu itself is Application-scoped and built before any
-        //window exists, so it has no window of its own to close over.
-        [AvaloniaFact]
-        public void AppMenu_About_ClickInvokesTheAboutDialogStub() {
-            var window = new MainWindow();
-            window.Show();
-            bool shown = false;
-            window.AboutDialogStub = () => shown = true;
-            NativeMenuItem about = ItemNamed(AppMenu(), "About Foreman 2");
-
-            about.Command!.Execute(null);
-            Dispatcher.UIThread.RunJobs();
-
-            Assert.True(shown);
-        }
-
         //Proves the real fix: the app menu is readable on Application.Current before any MainWindow is ever
         //constructed - it's built in App.Initialize, at the point AvaloniaNativeMenuExporter's own
-        //Application-target constructor actually reads it (see AppMenu_IsSetOnApplicationWithAboutFirstAndExactlyOneQuit
-        //for the shape check; this test only pins the timing).
+        //Application-target constructor actually reads it (AppMenu_And_WindowMenu_MatchTheContractShapeExactly
+        //pins the full shape).
         [AvaloniaFact]
         public void AppMenu_IsPresentOnApplicationBeforeAnyMainWindowExists() {
             NativeMenu appMenu = AppMenu();
 
             Assert.Equal("About Foreman 2", RealItems(appMenu)[0].Header);
             Assert.Single(RealItems(appMenu), i => i.Header == "Quit Foreman 2");
-        }
-
-        [AvaloniaFact]
-        public void AppMenu_SettingsHasCmdCommaGesture() {
-            var window = new MainWindow();
-
-            NativeMenuItem settings = ItemNamed(AppMenu(), "Settings");
-
-            Assert.Equal(Key.OemComma, settings.Gesture!.Key);
-            Assert.Equal(KeyModifiers.Meta, settings.Gesture.KeyModifiers);
         }
 
         [AvaloniaFact]
@@ -206,7 +170,7 @@ namespace Foreman.Mac.UiTests {
 
             var headers = RealItems(SubMenu(TopMenu(window), "File")).Select(i => i.Header).ToList();
 
-            Assert.Equal(["New", "Open", "Save", "Save As", "Import", "Export Image", "Close"], headers);
+            Assert.Equal(["New Graph", "Open…", "Open Recent", "Save", "Save As…", "Import Graph…", "Export Image…", "Close"], headers);
         }
 
         [AvaloniaFact]
@@ -427,19 +391,25 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public void ViewMenu_IconViewAndPauseAllCalculations_AreCheckboxes() {
+        public void ViewMenu_IconView_IsACheckboxWithNoGesture() {
             var window = new MainWindow();
-            NativeMenu viewMenu = SubMenu(TopMenu(window), "View");
 
-            NativeMenuItem iconView = ItemNamed(viewMenu, "Icon View");
-            NativeMenuItem pause = ItemNamed(viewMenu, "Pause All Calculations");
+            NativeMenuItem iconView = ItemNamed(SubMenu(TopMenu(window), "View"), "Icon View");
 
             Assert.Equal(MenuItemToggleType.CheckBox, iconView.ToggleType);
             Assert.Null(iconView.Gesture);
+        }
+
+        //§14 ruling 4: ⌘. is command-only cancel-in-flight, so no menu item may claim it.
+        [AvaloniaFact]
+        public void PauseAllCalculations_IsBoundToOptCmdP() {
+            var window = new MainWindow();
+
+            NativeMenuItem pause = ItemNamed(SubMenu(TopMenu(window), "View"), "Pause All Calculations");
+
             Assert.Equal(MenuItemToggleType.CheckBox, pause.ToggleType);
-            //v2 §14 ruling 4: ⌥⌘P, not ⌘. - ⌘. is the toolbar's own command-only cancel-in-flight shortcut.
-            Assert.Equal(Key.P, pause.Gesture!.Key);
-            Assert.Equal(KeyModifiers.Meta | KeyModifiers.Alt, pause.Gesture.KeyModifiers);
+            Assert.Equal(new KeyGesture(Key.P, KeyModifiers.Meta | KeyModifiers.Alt), pause.Gesture);
+            Assert.DoesNotContain(AllItems(TopMenu(window)), i => i.Gesture?.Key == Key.OemPeriod);
         }
 
         [AvaloniaFact]
@@ -551,21 +521,6 @@ namespace Foreman.Mac.UiTests {
             return dir;
         }
 
-        [AvaloniaFact]
-        public void ViewMenu_RateUnit_ClickSetsTheDropdownSelection() {
-            var window = new MainWindow();
-            window.Show();
-            OpenViewOptions(window);
-            var dropdown = window.GetVisualDescendants().OfType<PopUp>().Single(c => c.Name == "RateOptionsDropDown");
-            NativeMenu rateUnitSubmenu = SubMenu(SubMenu(TopMenu(window), "View"), "Rate Unit");
-            NativeMenuItem fiveMin = rateUnitSubmenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "5 min");
-
-            fiveMin.Command!.Execute(fiveMin.CommandParameter);
-            Dispatcher.UIThread.RunJobs();
-
-            Assert.Equal("per 5 minutes", dropdown.SelectedItem);
-        }
-
         //Task 5: after ApplyLoadedSettings, every menu checkmark/radio-selection must reflect the settings
         //that were actually loaded, not BuildNativeMenu's construction-time snapshot (taken before Settings
         //is even assigned).
@@ -632,14 +587,25 @@ namespace Foreman.Mac.UiTests {
             Assert.True(pinInspector.IsChecked);
         }
 
-        //Level of Detail: out of phase-9 scope per the table, left disabled exactly as it was before Task 5.
         [AvaloniaFact]
-        public void ViewMenu_LevelOfDetail_StaysDisabled() {
+        public void ViewMenu_ItemsAreInContractOrder_WithShowToolbarAndADisabledCustomizeToolbar() {
             var window = new MainWindow();
+            NativeMenu view = SubMenu(TopMenu(window), "View");
 
-            NativeMenuItem levelOfDetail = ItemNamed(SubMenu(TopMenu(window), "View"), "Level of Detail");
-
-            Assert.False(levelOfDetail.IsEnabled);
+            Assert.Equal(
+                ["Zoom In", "Zoom Out", "Actual Size", "Fit to Graph", "-",
+                    "Show Gridlines", "Minor Gridlines", "Major Gridlines", "Rate Unit", "Link Routing", "Icon View", "Pause All Calculations", "-",
+                    "Show Inspector", "Pin Inspector", "-",
+                    "Show Toolbar", "Customize Toolbar\u2026", "Enter Full Screen"],
+                view.Items.OfType<NativeMenuItem>().Select(i => i.Header));
+            NativeMenuItem showToolbar = ItemNamed(view, "Show Toolbar");
+            Assert.Equal(MenuItemToggleType.CheckBox, showToolbar.ToggleType);
+            Assert.True(showToolbar.IsChecked);
+            Assert.True(showToolbar.IsEnabled);
+            AssertGesture(showToolbar, Key.T, KeyModifiers.Meta | KeyModifiers.Alt);
+            NativeMenuItem customize = ItemNamed(view, "Customize Toolbar\u2026");
+            Assert.False(customize.IsEnabled);
+            Assert.Null(customize.Gesture);
         }
 
         //---- Window menu ----
@@ -650,7 +616,7 @@ namespace Foreman.Mac.UiTests {
 
             var headers = RealItems(SubMenu(TopMenu(window), "Window")).Select(i => i.Header).ToList();
 
-            Assert.Equal(["Minimize", "Zoom", "Bring All to Front"], headers);
+            Assert.Equal(["Minimize", "Zoom", "Welcome to Foreman", "Preset Comparator", "Bring All to Front"], headers);
         }
 
         [AvaloniaFact]
@@ -693,6 +659,309 @@ namespace Foreman.Mac.UiTests {
 
             Assert.True(bringToFront.IsEnabled);
             Assert.Null(bringToFront.Gesture);
+        }
+
+        //---- selection, Find, window commands, ⌘. and the no-document state (v2 §05, §14 ruling 4, A25) ----
+
+        [AvaloniaFact]
+        public async Task EditMenu_SelectAllAndDeselectAll_HaveCmdAAndShiftCmdA_AndActOnTheCanvasSelection() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenWindowWithGraphAsync();
+            DataCache cache = window.DataCache!;
+            window.GraphCanvas.Viewer.Graph.CreateSupplierNode(new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!), new System.Drawing.Point(300, 0));
+            Dispatcher.UIThread.RunJobs();
+            NativeMenu editMenu = SubMenu(TopMenu(window), "Edit");
+            NativeMenuItem selectAll = ItemNamed(editMenu, "Select All");
+            NativeMenuItem deselectAll = ItemNamed(editMenu, "Deselect All");
+
+            AssertGesture(selectAll, Key.A, KeyModifiers.Meta);
+            AssertGesture(deselectAll, Key.A, KeyModifiers.Meta | KeyModifiers.Shift);
+
+            window.GraphCanvas.Focus();
+            System.Drawing.Point offset = window.GraphCanvas.Viewport.ViewOffset;
+            var cmdA = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.A, KeyModifiers = KeyModifiers.Meta };
+            window.GraphCanvas.RaiseEvent(cmdA);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(cmdA.Handled);
+            Assert.Equal(offset, window.GraphCanvas.Viewport.ViewOffset);
+
+            selectAll.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, window.GraphCanvas.Viewer.SelectedNodes.Count);
+
+            deselectAll.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(window.GraphCanvas.Viewer.SelectedNodes);
+        }
+
+        //A menu key equivalent reaches the menu even with a text field focused, so ⌘A must stay the field's own select-all there.
+        [AvaloniaFact]
+        public async Task EditMenu_SelectAll_WithATextFieldFocused_SelectsItsTextInsteadOfTheCanvas() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenWindowWithGraphAsync();
+            SearchField search = window.Toolbar.SearchField;
+            search.Text = "zzz";
+            search.Focus();
+            search.SelectionStart = search.SelectionEnd = 0;
+            Dispatcher.UIThread.RunJobs();
+
+            ItemNamed(SubMenu(TopMenu(window), "Edit"), "Select All").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(0, search.SelectionStart);
+            Assert.Equal(3, search.SelectionEnd);
+            Assert.Empty(window.GraphCanvas.Viewer.SelectedNodes);
+        }
+
+        [AvaloniaFact]
+        public async Task EditMenu_Find_IsAFourItemSubmenu_WhoseItemsDriveTheToolbarSearch() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
+            DataCache cache = window.DataCache!;
+            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
+            NodeId firstId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            NodeId secondId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(200, 0));
+            foreach ((NodeId id, string title) in new[] { (firstId, "Iron Feed A"), (secondId, "Iron Feed B") }) {
+                var controller = window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(id)!;
+                controller.SetKeyNode(true);
+                controller.SetKeyNodeTitle(title);
+            }
+            Dispatcher.UIThread.RunJobs();
+            NativeMenu find = SubMenu(SubMenu(TopMenu(window), "Edit"), "Find");
+
+            Assert.Equal(["Find Node…", "Find Next", "Find Previous", "-", "Select Next Node"], find.Items.OfType<NativeMenuItem>().Select(i => i.Header));
+            AssertGesture(ItemNamed(find, "Find Node…"), Key.F, KeyModifiers.Meta);
+            AssertGesture(ItemNamed(find, "Find Next"), Key.G, KeyModifiers.Meta);
+            AssertGesture(ItemNamed(find, "Find Previous"), Key.G, KeyModifiers.Meta | KeyModifiers.Shift);
+            //Canvas traversal (A14) lands with the canvas; a bare Tab key equivalent would take Tab from every text field.
+            NativeMenuItem selectNext = ItemNamed(find, "Select Next Node");
+            Assert.False(selectNext.IsEnabled);
+            Assert.Null(selectNext.Gesture);
+
+            ItemNamed(find, "Find Node…").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(window.Toolbar.SearchField.IsFocused);
+
+            window.Toolbar.SearchField.Text = "Iron Feed";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(firstId, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+
+            ItemNamed(find, "Find Next").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(secondId, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+
+            ItemNamed(find, "Find Previous").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(firstId, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+        }
+
+        //Neither the graph library (A3) nor the welcome window exists yet, so both items ship disabled rather than absent.
+        [AvaloniaFact]
+        public void OpenRecentAndWelcome_ShipDisabled_UntilTheGraphLibraryLands() {
+            var window = new MainWindow();
+
+            NativeMenuItem openRecent = ItemNamed(SubMenu(TopMenu(window), "File"), "Open Recent");
+            NativeMenuItem welcome = ItemNamed(SubMenu(TopMenu(window), "Window"), "Welcome to Foreman");
+
+            Assert.False(openRecent.IsEnabled);
+            Assert.Empty(openRecent.Menu!.Items);
+            Assert.Null(openRecent.Gesture);
+            Assert.False(welcome.IsEnabled);
+            Assert.Equal(new KeyGesture(Key.W, KeyModifiers.Meta | KeyModifiers.Shift), welcome.Gesture);
+        }
+
+        //Per-link routing and waypoints land with the canvas (A10); the submenu mirrors a selected link, and none can be selected yet.
+        [AvaloniaFact]
+        public void ViewMenu_LinkRouting_IsARadioSubmenuWithClearWaypoints_DisabledUntilLinksAreSelectable() {
+            var window = new MainWindow();
+
+            NativeMenu linkRouting = SubMenu(SubMenu(TopMenu(window), "View"), "Link Routing");
+
+            Assert.Equal(["Rounded", "Orthogonal", "-", "Clear Waypoints"], linkRouting.Items.OfType<NativeMenuItem>().Select(i => i.Header));
+            Assert.Equal(MenuItemToggleType.Radio, ItemNamed(linkRouting, "Rounded").ToggleType);
+            Assert.Equal(MenuItemToggleType.Radio, ItemNamed(linkRouting, "Orthogonal").ToggleType);
+            Assert.All(RealItems(linkRouting), i => Assert.False(i.IsEnabled, i.Header));
+        }
+
+        [AvaloniaFact]
+        public void ViewMenu_EnterFullScreen_HasCtrlCmdF_AndTogglesBackToThePriorState() {
+            var window = new MainWindow();
+            window.Show();
+            NativeMenuItem fullScreen = ItemNamed(SubMenu(TopMenu(window), "View"), "Enter Full Screen");
+
+            AssertGesture(fullScreen, Key.F, KeyModifiers.Meta | KeyModifiers.Control);
+
+            fullScreen.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(WindowState.FullScreen, window.WindowState);
+
+            fullScreen.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(WindowState.Maximized, window.WindowState);
+        }
+
+        //Settings' Compare Presets… and this item share one rule: fewer than two presets disables both.
+        [AvaloniaFact]
+        public void WindowMenu_PresetComparator_NeedsTwoPresets_AndOpensTheComparatorOnTheResolvedPresets() {
+            var window = new MainWindow();
+            window.Show();
+            var settings = new AppSettings { CurrentPresetName = PresetResolver.DefaultPresetName };
+            var presetResolver = new PresetResolver(NewTempDir(), NewTempDir());
+            window.Settings = settings;
+            window.PresetResolver = presetResolver;
+            IReadOnlyList<Preset>? shown = null;
+            window.PresetComparatorDialogStub = presets => shown = presets;
+            NativeMenu windowMenu = SubMenu(TopMenu(window), "Window");
+            NativeMenuItem comparator = ItemNamed(windowMenu, "Preset Comparator");
+            Assert.Null(comparator.Gesture);
+
+            OpenMenu(windowMenu);
+            Assert.False(comparator.IsEnabled);
+            comparator.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(shown);
+
+            settings.CurrentPresetName = "Other";
+            OpenMenu(windowMenu);
+            Assert.True(comparator.IsEnabled);
+
+            comparator.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.NotNull(shown);
+            Assert.Equal(presetResolver.BuildPresetList(settings.CurrentPresetName).Select(p => p.Name), shown!.Select(p => p.Name));
+        }
+
+        //The native exporter raises Opening through an internal bridge interface; headless has no exporter, so we call it the same way.
+        private static void OpenMenu(NativeMenu menu) {
+            Type bridge = typeof(NativeMenu).GetInterfaces().Single(i => i.Name == "INativeMenuExporterEventsImplBridge");
+            bridge.GetMethod("RaiseOpening")!.Invoke(menu, null);
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        //---- Help menu (mac-ui-designer ruling "Help menu items", 2026-09-24) ----
+
+        private const string RepoUrl = "https://github.com/idk-some-guy/Foreman2---Unspoiled";
+
+        private sealed class RecordingLauncher(bool result) : Avalonia.Platform.Storage.ILauncher {
+            public List<Uri> Launched { get; } = [];
+            public Task<bool> LaunchUriAsync(Uri uri) { Launched.Add(uri); return Task.FromResult(result); }
+            public Task<bool> LaunchFileAsync(Avalonia.Platform.Storage.IStorageItem storageItem) => Task.FromResult(false);
+        }
+
+        [AvaloniaFact]
+        public async Task HelpMenu_FourItemsOpenTheirPagesInTheBrowser_AndAFailedOpenOffersCopyLink() {
+            var window = new MainWindow();
+            window.Show();
+            window.IsDocumentOpen = false;
+            var launcher = new RecordingLauncher(result: true);
+            window.LauncherOverride = launcher;
+            NativeMenu help = SubMenu(TopMenu(window), "Help");
+
+            Assert.Equal(["Foreman 2 Help", "Keyboard Shortcuts", "-", "Foreman 2 on GitHub", "Report an Issue\u2026"], help.Items.OfType<NativeMenuItem>().Select(i => i.Header));
+            Assert.All(RealItems(help), i => Assert.True(i.IsEnabled, i.Header));
+            AssertGesture(ItemNamed(help, "Foreman 2 Help"), Key.OemQuestion, KeyModifiers.Meta | KeyModifiers.Shift);
+            Assert.All(RealItems(help).Skip(1), i => Assert.Null(i.Gesture));
+            Assert.DoesNotContain(AllItems(TopMenu(window)), i => i.Header!.Contains("Git repo"));
+
+            string[] expected = [RepoUrl + "#readme", RepoUrl + "/blob/main/docs/keyboard-shortcuts.md", RepoUrl];
+            foreach ((NativeMenuItem item, string url) in RealItems(help).Take(3).Zip(expected)) {
+                launcher.Launched.Clear();
+                item.Command!.Execute(null);
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(url, Assert.Single(launcher.Launched).AbsoluteUri);
+            }
+
+            launcher.Launched.Clear();
+            ItemNamed(help, "Report an Issue\u2026").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Uri issue = Assert.Single(launcher.Launched);
+            Assert.Equal("/idk-some-guy/Foreman2---Unspoiled/issues/new", issue.AbsolutePath);
+            Assert.StartsWith("?body=", issue.Query);
+            Assert.StartsWith("Foreman 2 ", Uri.UnescapeDataString(issue.Query["?body=".Length..]));
+
+            window.LauncherOverride = new RecordingLauncher(result: false);
+            ItemNamed(help, "Foreman 2 on GitHub").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            AlertSheet alert = Assert.IsType<AlertSheet>(SheetHost.For(window).Content);
+            Assert.Equal("Couldn\u2019t open your web browser.", alert.FrameControl.Headline);
+            Assert.Equal(RepoUrl, alert.FrameControl.InformativeText);
+            Assert.Equal(["Copy Link", "OK"], new[] { alert.YesButtonControl, alert.NoButtonControl }.Select(b => (string)b.Content!));
+            Assert.Same(alert.YesButtonControl, alert.DefaultButton);
+
+            alert.YesButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(RepoUrl, await window.Clipboard!.TryGetTextAsync());
+            Assert.False(SheetHost.For(window).IsOpen);
+        }
+
+        //§14 ruling 4: a running solve first, then the frontmost popover or radial (Escape's own order), then the frontmost sheet.
+        [AvaloniaFact]
+        public async Task CmdPeriod_WithASolveInFlight_CancelsTheSolve_AndOtherwiseDismissesTheFrontmostSheet() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
+            OpenViewOptions(window);
+            window.GraphCanvas.AddItemAsync(new System.Drawing.Point(300, 200));
+            Dispatcher.UIThread.RunJobs();
+            var alert = new AlertSheet("Probe", "message", AlertButtons.YesNo);
+            Task<ConfirmChoice> result = SheetHost.For(window).ShowAsync(alert);
+            Dispatcher.UIThread.RunJobs();
+            window.Toolbar.ZoomStepper.IsSolving = true;
+            PopoverFrame viewOptions = window.GetVisualDescendants().OfType<PopoverFrame>().Single(f => f.Name == "ViewOptionsPopover");
+            Assert.True(viewOptions.IsOpen);
+            Assert.NotNull(window.GraphCanvas.OpenPalette);
+
+            CanvasKeys.KeyDownOn(alert.YesButtonControl, Key.OemPeriod, KeyModifiers.Meta);
+            Assert.False(window.Toolbar.ZoomStepper.IsSolving);
+            Assert.True(viewOptions.IsOpen);
+            Assert.False(result.IsCompleted);
+
+            CanvasKeys.KeyDownOn(alert.YesButtonControl, Key.OemPeriod, KeyModifiers.Meta);
+            Assert.False(viewOptions.IsOpen);
+            Assert.NotNull(window.GraphCanvas.OpenPalette);
+            Assert.False(result.IsCompleted);
+
+            CanvasKeys.KeyDownOn(alert.YesButtonControl, Key.OemPeriod, KeyModifiers.Meta);
+            Assert.Null(window.GraphCanvas.OpenPalette);
+            Assert.False(result.IsCompleted);
+
+            CanvasKeys.KeyDownOn(alert.YesButtonControl, Key.OemPeriod, KeyModifiers.Meta);
+            Assert.True(result.IsCompleted);
+            Assert.Equal(ConfirmChoice.No, await result);
+        }
+
+        //A25: with no document the ruled items disable, and leaving that state restores each item's own prior enablement.
+        [AvaloniaFact]
+        public void NoDocument_DisablesTheRuledItems_AndLeavesWindowWelcomeLive() {
+            var window = new MainWindow();
+            NativeMenu file = SubMenu(TopMenu(window), "File");
+            NativeMenu edit = SubMenu(TopMenu(window), "Edit");
+            NativeMenu view = SubMenu(TopMenu(window), "View");
+            NativeMenu windowMenu = SubMenu(TopMenu(window), "Window");
+            string[] canvasHalf = ["Zoom In", "Zoom Out", "Actual Size", "Fit to Graph", "Show Gridlines", "Minor Gridlines", "Major Gridlines",
+                "Rate Unit", "Link Routing", "Icon View", "Pause All Calculations", "Show Inspector", "Pin Inspector"];
+            bool welcomeBefore = ItemNamed(windowMenu, "Welcome to Foreman").IsEnabled;
+            bool comparatorBefore = ItemNamed(windowMenu, "Preset Comparator").IsEnabled;
+
+            window.IsDocumentOpen = false;
+
+            foreach (string header in new[] { "Save", "Save As\u2026", "Export Image\u2026", "Close" })
+                Assert.False(ItemNamed(file, header).IsEnabled, header);
+            foreach (string header in new[] { "New Graph", "Open\u2026", "Import Graph\u2026" })
+                Assert.True(ItemNamed(file, header).IsEnabled, header);
+            Assert.All(AllItems(edit), i => Assert.False(i.IsEnabled, i.Header));
+            foreach (string header in canvasHalf)
+                Assert.False(ItemNamed(view, header).IsEnabled, header);
+            Assert.True(ItemNamed(view, "Enter Full Screen").IsEnabled);
+            Assert.True(ItemNamed(view, "Show Toolbar").IsEnabled);
+            Assert.Equal(welcomeBefore, ItemNamed(windowMenu, "Welcome to Foreman").IsEnabled);
+            Assert.Equal(comparatorBefore, ItemNamed(windowMenu, "Preset Comparator").IsEnabled);
+            Assert.All(RealItems(windowMenu).Where(i => i.Header is not ("Welcome to Foreman" or "Preset Comparator")), i => Assert.True(i.IsEnabled, i.Header));
+
+            window.IsDocumentOpen = true;
+
+            Assert.True(ItemNamed(file, "Save").IsEnabled);
+            Assert.True(ItemNamed(edit, "Select All").IsEnabled);
+            Assert.False(ItemNamed(edit, "Undo").IsEnabled);
+            Assert.True(ItemNamed(view, "Zoom In").IsEnabled);
+            Assert.False(ItemNamed(view, "Customize Toolbar\u2026").IsEnabled);
+            Assert.All(RealItems(SubMenu(view, "Link Routing")), i => Assert.False(i.IsEnabled, i.Header));
         }
 
         //---- C1: menu dispatch deferral ----

@@ -23,6 +23,9 @@
       <composites:ToolbarRow x:Name="Toolbar" Theme="{StaticResource Kit.ToolbarRow}"
                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                               Margin="{Binding #RootWindow.WindowDecorationMargin, Converter={x:Static conv:TrafficLightInsetConverter.Instance}}" />
+      <TextBlock Name="TitleBarTitle" Theme="{StaticResource Kit.Text}" Classes="headline" Text="{Binding WindowTitle}" IsVisible="False"
+                 HorizontalAlignment="Center" VerticalAlignment="Center" Margin="80,0" TextWrapping="NoWrap" TextTrimming="PrefixCharacterEllipsis"
+                 IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
     </Grid>
 
     <!-- Inspector's IsVisible is set from MainWindow.axaml.cs, not bound here. Overlay, not a column

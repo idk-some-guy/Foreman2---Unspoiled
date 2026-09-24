@@ -5,6 +5,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
@@ -57,12 +59,26 @@ namespace Foreman.Mac {
         public GraphCanvasControl GraphCanvas { get; }
         public InspectorView Inspector { get; }
         public Foreman.DataCaching.DataCache? DataCache { get; set; }
-        public AppSettings? Settings { get; set; }
+        public AppSettings? Settings {
+            get => settings;
+            set {
+                settings = value;
+                if (value is not null)
+                    SetShowToolbar(value.ShowToolbar);
+            }
+        }
         public PresetResolver? PresetResolver { get; set; }
         public SettingsService? SettingsService { get; set; }
 
         private readonly WindowMinSizeScale minSizeScale;
         private readonly ToolbarRow toolbar;
+        private readonly TextBlock titleBarTitle;
+        private AppSettings? settings;
+        private bool showToolbar = true;
+        private bool searchRevealsToolbar;
+        private NativeMenuItem? showToolbarMenuItem;
+        private RelayCommand presetComparatorCommand = null!;
+        private readonly PopoverHost contentPopoverHost;
         private ToolbarItem viewOptionsItem = null!;
         private ToolbarItem saveItem = null!;
         private PopoverFrame viewOptionsPopover = null!;
@@ -129,6 +145,10 @@ namespace Foreman.Mac {
         //same shape as GraphSummaryDialogStub above.
         internal Action? AboutDialogStub { get; set; }
 
+        internal Action<IReadOnlyList<Preset>>? PresetComparatorDialogStub { get; set; }
+
+        internal ILauncher? LauncherOverride { get; set; }
+
         //Ports MainForm's savefilePath/savefileBaselineJson fields (reference: upstream MainForm.cs, io-
         //reference.md §2). savefileBaselineJson is the dirty-check baseline: a captured JSON string, not a
         //re-read from disk, refreshed by SaveGraph/ApplyLoadedGraphUiState and cleared by New.
@@ -157,6 +177,9 @@ namespace Foreman.Mac {
             Inspector.Viewer = GraphCanvas.Viewer;
             Inspector.RequestRedraw = () => GraphCanvas.InvalidateVisual();
             toolbar = this.FindControl<ToolbarRow>("Toolbar")!;
+            titleBarTitle = this.FindControl<TextBlock>("TitleBarTitle")!;
+            contentPopoverHost = this.FindControl<PopoverHost>("ContentPopoverHost")!;
+            AddHandler(KeyDownEvent, OnCancelInFlightKeyDown, RoutingStrategies.Tunnel);
             ZoomInCommand = new RelayCommand(MenuZoomIn);
             ZoomOutCommand = new RelayCommand(MenuZoomOut);
             ActualSizeCommand = new RelayCommand(MenuActualSize);
@@ -222,6 +245,12 @@ namespace Foreman.Mac {
             this.FindControl<Grid>("TitleBarRow")!.Children.Add(searchAnnouncer);
             toolbar.Title = ViewModel.DocumentTitle;
             GraphCanvas.KeyDown += OnGraphCanvasKeyDown;
+            toolbar.SearchField.PropertyChanged += (_, e) => {
+                if (e.Property == IsKeyboardFocusWithinProperty && !toolbar.SearchField.IsKeyboardFocusWithin && searchRevealsToolbar) {
+                    searchRevealsToolbar = false;
+                    ApplyToolbarShown();
+                }
+            };
             //Mouse-wheel zoom bypasses every other ResyncZoomLabel call site, so it gets its own via this signal.
             GraphCanvas.ViewScaleChanged += (_, _) => ResyncZoomLabel();
             NativeMenu.SetMenu(this, BuildNativeMenu());
@@ -345,7 +374,7 @@ namespace Foreman.Mac {
             viewOptionsPopover.Bind(PopoverFrame.PanelWidthProperty, new DynamicResourceExtension("Foreman.Size.PopoverWidth"));
             viewOptionsPopover.Closed += (_, _) => ViewModel.IsViewOptionsOpen = false;
 
-            this.FindControl<PopoverHost>("ContentPopoverHost")!.Surface.Children.Add(viewOptionsPopover);
+            contentPopoverHost.Surface.Children.Add(viewOptionsPopover);
         }
 
         //AutomationName carries the full command name for VoiceOver; acceleratorKey is the command's own menu-bar shortcut, when it has one.
@@ -385,11 +414,10 @@ namespace Foreman.Mac {
             }
         }
 
-        //⌘F/⌘G/⇧⌘G reach the search field regardless of focus (v2 §02); ⌘. is command-only cancel-in-flight, no LP-solve producer wired yet (§14 ruling 4).
+        //⌘F/⌘G/⇧⌘G reach the search field regardless of focus (v2 §02).
         protected override void OnKeyDown(KeyEventArgs e) {
             if (e.Key == Key.F && e.KeyModifiers == PlatformModifiers.Primary) {
-                toolbar.SearchField.Focus();
-                toolbar.SearchField.SelectAll();
+                FocusSearchField();
                 e.Handled = true;
                 return;
             }
@@ -403,12 +431,46 @@ namespace Foreman.Mac {
                 e.Handled = true;
                 return;
             }
-            if (e.Key == Key.OemPeriod && e.KeyModifiers == PlatformModifiers.Primary && toolbar.ZoomStepper.IsSolving) {
+            base.OnKeyDown(e);
+        }
+
+        private void FocusSearchField() {
+            if (!showToolbar && !searchRevealsToolbar) {
+                searchRevealsToolbar = true;
+                ApplyToolbarShown();
+            }
+            toolbar.SearchField.Focus();
+            toolbar.SearchField.SelectAll();
+        }
+
+        private bool replayingCancelKey;
+
+        private void OnCancelInFlightKeyDown(object? sender, KeyEventArgs e) {
+            if (replayingCancelKey || e.Key != Key.OemPeriod || e.KeyModifiers != PlatformModifiers.Primary)
+                return;
+            if (toolbar.ZoomStepper.IsSolving) {
                 toolbar.ZoomStepper.IsSolving = false;
                 e.Handled = true;
-                return;
+            } else if (contentPopoverHost.Surface.Children.OfType<PopoverFrame>().LastOrDefault(f => f.IsOpen) is { } popover) {
+                e.Handled = ReplayCancelKey(popover);
+            } else if (GraphCanvas.IsPanelOpen) {
+                GraphCanvas.ClosePanels();
+                e.Handled = true;
+            } else if (SheetHost.For(this).FrontmostCancelTarget is { } sheet) {
+                e.Handled = ReplayCancelKey(sheet);
             }
-            base.OnKeyDown(e);
+        }
+
+        //The kit frames own their ⌘. behaviour (a sheet closes its own open popover first) and only recognise Meta, so Linux's Ctrl+period reaches them as ⌘.
+        private bool ReplayCancelKey(InputElement target) {
+            var replay = new KeyEventArgs { RoutedEvent = KeyDownEvent, Key = Key.OemPeriod, KeyModifiers = KeyModifiers.Meta };
+            replayingCancelKey = true;
+            try {
+                target.RaiseEvent(replay);
+            } finally {
+                replayingCancelKey = false;
+            }
+            return replay.Handled;
         }
 
         //Find node ruling §01: matches each node's drawn name (recipe/item FriendlyName, or "<name> Spoilage"/"<name> Planting") plus KeyNodeTitle on key nodes; type banners, assembler/module names, item tabs and annotations are never in NodeElements, so they're excluded for free.
@@ -1528,6 +1590,18 @@ namespace Foreman.Mac {
 
         private void MenuDelete() { GraphCanvas.DeleteSelection(); GraphCanvas.RequestRedraw(); }
 
+        //A menu key equivalent fires even while a text field has focus, so the field keeps ⌘A as its own select-all.
+        private void MenuSelectAll() {
+            if (FocusManager?.GetFocusedElement() is TextBox field) {
+                field.SelectAll();
+                return;
+            }
+            GraphCanvas.Viewer.SetSelection(GraphCanvas.Viewer.NodeElements);
+            GraphCanvas.RequestRedraw();
+        }
+
+        private void MenuDeselectAll() { GraphCanvas.Viewer.ClearSelection(); GraphCanvas.RequestRedraw(); }
+
         private void MenuZoomIn() {
             var center = new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2);
             GraphCanvas.Viewport.ZoomAt(center, zoomIn: true, GraphCanvas.Viewer.Graph.Bounds);
@@ -1643,6 +1717,103 @@ namespace Foreman.Mac {
 
         private void MenuBringAllToFront() => Activate();
 
+        private const string RepositoryUrl = "https://github.com/idk-some-guy/Foreman2---Unspoiled";
+
+        internal static string ReportIssueUrl() {
+            string body = $"Foreman 2 {AppVersion.ShortSemVer} · macOS {Environment.OSVersion.Version} · {RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant()}\n\n";
+            return $"{RepositoryUrl}/issues/new?body={Uri.EscapeDataString(body)}";
+        }
+
+        private void OpenInBrowser(string url) => Async.Fire(OpenInBrowserAsync(url), nameof(OpenInBrowserAsync));
+
+        private async Task OpenInBrowserAsync(string url) {
+            if (await (LauncherOverride ?? Launcher).LaunchUriAsync(new Uri(url)).ConfigureAwait(true))
+                return;
+            var alert = new AlertSheet("Couldn’t open your web browser.", url, AlertButtons.YesNo, verb: "Copy Link", secondaryLabel: "OK");
+            if (await SheetHost.For(this).ShowAsync(alert).ConfigureAwait(true) == ConfirmChoice.Yes && Clipboard is { } clipboard)
+                await clipboard.SetTextAsync(url).ConfigureAwait(true);
+        }
+
+        private void MenuToggleShowToolbar() {
+            searchRevealsToolbar = false;
+            SetShowToolbar(!showToolbar);
+        }
+
+        private void SetShowToolbar(bool value) {
+            showToolbar = value;
+            if (Settings is AppSettings current)
+                current.ShowToolbar = value;
+            if (showToolbarMenuItem is not null)
+                showToolbarMenuItem.IsChecked = value;
+            ApplyToolbarShown();
+        }
+
+        private const double ToolbarTitleBarHeight = 52;
+        private const double PlainTitleBarHeight = 28;
+
+        private void ApplyToolbarShown() {
+            bool shown = showToolbar || searchRevealsToolbar;
+            double height = shown ? ToolbarTitleBarHeight : PlainTitleBarHeight;
+            double growth = ExtendClientAreaTitleBarHeightHint - height;
+            //The viewport keeps its centre through a resize, so the offset takes half the canvas growth to hold the graph still on screen.
+            if (growth != 0 && GraphCanvas.Bounds.Height > 0) {
+                Viewport viewport = GraphCanvas.Viewport;
+                viewport.ViewOffset = new System.Drawing.Point(viewport.ViewOffset.X, viewport.ViewOffset.Y + (int)Math.Round(growth / 2 / viewport.ViewScale));
+                GraphCanvas.RequestRedraw();
+            }
+            ExtendClientAreaTitleBarHeightHint = height;
+            toolbar.IsVisible = shown;
+            titleBarTitle.IsVisible = !shown;
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
+            base.OnPropertyChanged(change);
+            if (change.Property == IsActiveProperty)
+                titleBarTitle?.Classes.Set("secondary", !IsActive);
+        }
+
+        private WindowState stateBeforeFullScreen = WindowState.Maximized;
+
+        private void MenuToggleFullScreen() {
+            if (WindowState == WindowState.FullScreen) {
+                WindowState = stateBeforeFullScreen;
+                return;
+            }
+            stateBeforeFullScreen = WindowState;
+            WindowState = WindowState.FullScreen;
+        }
+
+        private PresetComparatorWindow? presetComparatorWindow;
+
+        private List<Preset>? ComparablePresets() =>
+            Settings is AppSettings current && PresetResolver is Services.PresetResolver presetResolver
+                && presetResolver.BuildPresetList(current.CurrentPresetName) is { } presets && PresetComparatorWindow.CanCompare(presets)
+                ? presets : null;
+
+        private void ShowPresetComparator() {
+            if (ComparablePresets() is not { } presets)
+                return;
+            if (PresetComparatorDialogStub is { } stub) {
+                stub(presets);
+                return;
+            }
+            if (presetComparatorWindow is { } existing) {
+                existing.Show(this);
+                existing.Activate();
+                return;
+            }
+            var window = new PresetComparatorWindow(presets) {
+                WindowStartupLocation = WindowStartupLocation.Manual,
+                Position = Position + new PixelPoint(50, 50),
+            };
+            window.Closed += (_, _) => {
+                if (ReferenceEquals(presetComparatorWindow, window))
+                    presetComparatorWindow = null;
+            };
+            presetComparatorWindow = window;
+            window.Show(this);
+        }
+
         //Also seeds the popover's MinorGridlinesDropDown/MajorGridlinesDropDown pop-ups - one list either way.
         internal static readonly string[] GridlineLabels = ["None", "1", "2", "4", "8", "16", "32", "64", "128", "256", "512", "1024"];
         private static readonly string[] RateUnitLabels = ["1 sec", "1 min", "5 min", "10 min", "30 min", "1 hour"];
@@ -1655,7 +1826,7 @@ namespace Foreman.Mac {
                 Items = {
                     WindowActionItem("About Foreman 2", w => w.ShowAbout()),
                     new NativeMenuItemSeparator(),
-                    WindowActionItem("Settings", w => w.Commands.SettingsCommand.Execute(null), new KeyGesture(Key.OemComma, PlatformModifiers.Primary)),
+                    WindowActionItem("Settings…", w => w.Commands.SettingsCommand.Execute(null), new KeyGesture(Key.OemComma, PlatformModifiers.Primary)),
                     new NativeMenuItemSeparator(),
                     WindowActionItem("Hide Foreman 2", w => w.Hide(), new KeyGesture(Key.H, PlatformModifiers.Primary)),
                     DisabledItem("Hide Others", new KeyGesture(Key.H, PlatformModifiers.Primary | KeyModifiers.Alt)),
@@ -1671,17 +1842,34 @@ namespace Foreman.Mac {
             new(header) { Command = new DeferredMenuCommand(new RelayCommand(() => { if (ActiveWindow is MainWindow w) action(w); })), Gesture = gesture };
 
         private NativeMenu BuildNativeMenu() {
+            presetComparatorCommand = new RelayCommand(ShowPresetComparator, () => ComparablePresets() is not null);
+            NativeMenuItem save = MenuItem("Save", Commands.SaveCommand, new KeyGesture(Key.S, PlatformModifiers.Primary));
+            NativeMenuItem saveAs = MenuItem("Save As…", Commands.SaveAsCommand, new KeyGesture(Key.S, PlatformModifiers.Primary | KeyModifiers.Shift));
+            NativeMenuItem exportImage = MenuItem("Export Image…", Commands.ExportImageCommand, new KeyGesture(Key.E, PlatformModifiers.Primary | KeyModifiers.Shift));
+            NativeMenuItem close = ActionItem("Close", Close, new KeyGesture(Key.W, PlatformModifiers.Primary));
             var fileMenu = new NativeMenu {
                 Items = {
-                    MenuItem("New", Commands.NewCommand, new KeyGesture(Key.N, PlatformModifiers.Primary)),
-                    MenuItem("Open", Commands.LoadCommand, new KeyGesture(Key.O, PlatformModifiers.Primary)),
-                    MenuItem("Save", Commands.SaveCommand, new KeyGesture(Key.S, PlatformModifiers.Primary)),
-                    MenuItem("Save As", Commands.SaveAsCommand, new KeyGesture(Key.S, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    MenuItem("New Graph", Commands.NewCommand, new KeyGesture(Key.N, PlatformModifiers.Primary)),
+                    MenuItem("Open…", Commands.LoadCommand, new KeyGesture(Key.O, PlatformModifiers.Primary)),
+                    new NativeMenuItem("Open Recent") { IsEnabled = false, Menu = [] },
+                    save,
+                    saveAs,
                     new NativeMenuItemSeparator(),
-                    MenuItem("Import", Commands.ImportCommand),
-                    MenuItem("Export Image", Commands.ExportImageCommand, new KeyGesture(Key.E, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    MenuItem("Import Graph…", Commands.ImportCommand),
+                    exportImage,
                     new NativeMenuItemSeparator(),
-                    ActionItem("Close", Close, new KeyGesture(Key.W, PlatformModifiers.Primary)),
+                    close,
+                },
+            };
+
+            var findMenu = new NativeMenu {
+                Items = {
+                    ActionItem("Find Node…", FocusSearchField, new KeyGesture(Key.F, PlatformModifiers.Primary)),
+                    ActionItem("Find Next", () => StepSearchMatch(forward: true), new KeyGesture(Key.G, PlatformModifiers.Primary)),
+                    ActionItem("Find Previous", () => StepSearchMatch(forward: false), new KeyGesture(Key.G, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    new NativeMenuItemSeparator(),
+                    //A bare Tab key equivalent would take Tab from every text field; the canvas traversal it names is not built yet.
+                    DisabledItem("Select Next Node"),
                 },
             };
 
@@ -1698,6 +1886,10 @@ namespace Foreman.Mac {
                     ActionItem("Paste", MenuPaste),
                     new NativeMenuItemSeparator(),
                     ActionItem("Delete", MenuDelete),
+                    ActionItem("Select All", MenuSelectAll, new KeyGesture(Key.A, PlatformModifiers.Primary)),
+                    ActionItem("Deselect All", MenuDeselectAll, new KeyGesture(Key.A, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    new NativeMenuItemSeparator(),
+                    new NativeMenuItem("Find") { Menu = findMenu },
                 },
             };
 
@@ -1737,38 +1929,72 @@ namespace Foreman.Mac {
                 Command = new DeferredMenuCommand(new RelayCommand(MenuTogglePinInspector)),
             };
 
-            var viewMenu = new NativeMenu {
+            showToolbarMenuItem = new NativeMenuItem("Show Toolbar") {
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = showToolbar,
+                Gesture = new KeyGesture(Key.T, PlatformModifiers.Primary | KeyModifiers.Alt),
+                Command = new DeferredMenuCommand(new RelayCommand(MenuToggleShowToolbar)),
+            };
+
+            var linkRoutingMenu = new NativeMenu {
                 Items = {
-                    MenuItem("Zoom In", ZoomInCommand, new KeyGesture(Key.OemPlus, PlatformModifiers.Primary)),
-                    MenuItem("Zoom Out", ZoomOutCommand, new KeyGesture(Key.OemMinus, PlatformModifiers.Primary)),
-                    ActionItem("Actual Size", MenuActualSize, new KeyGesture(Key.D0, PlatformModifiers.Primary)),
-                    ActionItem("Fit to Graph", MenuFitToGraph, new KeyGesture(Key.D0, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    new NativeMenuItem("Rounded") { ToggleType = MenuItemToggleType.Radio, IsEnabled = false },
+                    new NativeMenuItem("Orthogonal") { ToggleType = MenuItemToggleType.Radio, IsEnabled = false },
                     new NativeMenuItemSeparator(),
-                    showGridlinesMenuItem,
-                    new NativeMenuItem("Minor Gridlines") { Menu = SubmenuFrom(minorGridlinesMenuItems) },
-                    new NativeMenuItem("Major Gridlines") { Menu = SubmenuFrom(majorGridlinesMenuItems) },
-                    new NativeMenuItemSeparator(),
-                    iconViewMenuItem,
-                    pauseCalculationsMenuItem,
-                    new NativeMenuItem("Rate Unit") { Menu = SubmenuFrom(rateUnitMenuItems) },
-                    new NativeMenuItemSeparator(),
-                    showInspectorMenuItem,
-                    pinInspectorMenuItem,
-                    new NativeMenuItemSeparator(),
-                    DisabledItem("Level of Detail"),
+                    DisabledItem("Clear Waypoints"),
                 },
             };
+
+            NativeMenuItemBase[] canvasHalf = [
+                MenuItem("Zoom In", ZoomInCommand, new KeyGesture(Key.OemPlus, PlatformModifiers.Primary)),
+                MenuItem("Zoom Out", ZoomOutCommand, new KeyGesture(Key.OemMinus, PlatformModifiers.Primary)),
+                ActionItem("Actual Size", MenuActualSize, new KeyGesture(Key.D0, PlatformModifiers.Primary)),
+                ActionItem("Fit to Graph", MenuFitToGraph, new KeyGesture(Key.D0, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                new NativeMenuItemSeparator(),
+                showGridlinesMenuItem,
+                new NativeMenuItem("Minor Gridlines") { Menu = SubmenuFrom(minorGridlinesMenuItems) },
+                new NativeMenuItem("Major Gridlines") { Menu = SubmenuFrom(majorGridlinesMenuItems) },
+                new NativeMenuItem("Rate Unit") { Menu = SubmenuFrom(rateUnitMenuItems) },
+                new NativeMenuItem("Link Routing") { Menu = linkRoutingMenu },
+                iconViewMenuItem,
+                pauseCalculationsMenuItem,
+                new NativeMenuItemSeparator(),
+                showInspectorMenuItem,
+                pinInspectorMenuItem,
+            ];
+            var viewMenu = new NativeMenu();
+            foreach (NativeMenuItemBase item in canvasHalf)
+                viewMenu.Items.Add(item);
+            viewMenu.Items.Add(new NativeMenuItemSeparator());
+            viewMenu.Items.Add(showToolbarMenuItem);
+            viewMenu.Items.Add(DisabledItem("Customize Toolbar…"));
+            viewMenu.Items.Add(ActionItem("Enter Full Screen", MenuToggleFullScreen, EnterFullScreenGesture()));
 
             var windowMenu = new NativeMenu {
                 Items = {
                     ActionItem("Minimize", MenuMinimize, new KeyGesture(Key.M, PlatformModifiers.Primary)),
                     ActionItem("Zoom", MenuZoomWindow),
                     new NativeMenuItemSeparator(),
+                    DisabledItem("Welcome to Foreman", new KeyGesture(Key.W, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    new NativeMenuItem("Preset Comparator") { Command = new DeferredMenuCommand(presetComparatorCommand) },
+                    new NativeMenuItemSeparator(),
                     ActionItem("Bring All to Front", MenuBringAllToFront),
                 },
             };
 
-            var helpMenu = new NativeMenu { Items = { MenuItem("Help / Git repo", Commands.HelpCommand) } };
+            windowMenu.Opening += (_, _) => presetComparatorCommand.NotifyCanExecuteChanged();
+
+            var helpMenu = new NativeMenu {
+                Items = {
+                    ActionItem("Foreman 2 Help", () => OpenInBrowser(RepositoryUrl + "#readme"), new KeyGesture(Key.OemQuestion, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    ActionItem("Keyboard Shortcuts", () => OpenInBrowser(RepositoryUrl + "/blob/main/docs/keyboard-shortcuts.md")),
+                    new NativeMenuItemSeparator(),
+                    ActionItem("Foreman 2 on GitHub", () => OpenInBrowser(RepositoryUrl)),
+                    ActionItem("Report an Issue…", () => OpenInBrowser(ReportIssueUrl())),
+                },
+            };
+
+            documentScopedMenuItems = [.. WithSubmenuItems([save, saveAs, exportImage, close, .. editMenu.Items, .. canvasHalf])];
 
             return new NativeMenu {
                 Items = {
@@ -1779,6 +2005,42 @@ namespace Foreman.Mac {
                     new NativeMenuItem("Help") { Menu = helpMenu },
                 },
             };
+        }
+
+        //⌃⌘F folds onto Find Node's ⌃F where Primary is Control.
+        private static KeyGesture? EnterFullScreenGesture() =>
+            PlatformModifiers.Primary == KeyModifiers.Meta ? new KeyGesture(Key.F, KeyModifiers.Meta | KeyModifiers.Control) : null;
+
+        private static IEnumerable<NativeMenuItem> WithSubmenuItems(IEnumerable<NativeMenuItemBase> items) {
+            foreach (NativeMenuItem item in items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator)) {
+                yield return item;
+                if (item.Menu is NativeMenu submenu)
+                    foreach (NativeMenuItem nested in WithSubmenuItems(submenu.Items))
+                        yield return nested;
+            }
+        }
+
+        private NativeMenuItem[] documentScopedMenuItems = [];
+        private readonly Dictionary<NativeMenuItem, bool> enabledBeforeNoDocument = [];
+        private bool isDocumentOpen = true;
+
+        internal bool IsDocumentOpen {
+            get => isDocumentOpen;
+            set {
+                if (isDocumentOpen == value)
+                    return;
+                isDocumentOpen = value;
+                if (value) {
+                    foreach ((NativeMenuItem item, bool enabled) in enabledBeforeNoDocument)
+                        item.IsEnabled = enabled;
+                    enabledBeforeNoDocument.Clear();
+                    return;
+                }
+                foreach (NativeMenuItem item in documentScopedMenuItems) {
+                    enabledBeforeNoDocument[item] = item.IsEnabled;
+                    item.IsEnabled = false;
+                }
+            }
         }
 
         private static NativeMenuItem MenuItem(string header, IRelayCommand command, KeyGesture? gesture = null) =>

@@ -15,7 +15,6 @@ namespace Foreman.Mac.ViewModels {
         public IRelayCommand AutoconnectCommand { get; }
         public IRelayCommand SettingsCommand { get; }
         public IRelayCommand GraphSummaryCommand { get; }
-        public IRelayCommand HelpCommand { get; } = new RelayCommand(() => { }, () => false);
         public IRelayCommand AlignSelectionCommand { get; }
 
         public ShellViewModel(Action onNew, Action onLoad, Action onSave, Action onSaveAs, Action onImport, Action onExportImage, Action onAddItem, Action onAddRecipe, Action onAutoconnect, Action onAlignSelection, Action onSettings, Action onGraphSummary, Func<bool>? canExecuteAlignSelection = null) {

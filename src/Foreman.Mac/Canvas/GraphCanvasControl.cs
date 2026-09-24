@@ -1554,17 +1554,17 @@ namespace Foreman.Mac.Canvas {
                 panUnit *= 5;
             }
 
+            //⌘S, ⌘A, ⇧⌘A, ⌘W and ⇧⌘W are menu key equivalents, so a Primary chord never pans.
+            bool pan = !modifiers.HasFlag(PlatformModifiers.Primary);
             switch (key) {
                 case Key.Left: MoveSelection(-moveUnit, 0); return true;
                 case Key.Right: MoveSelection(moveUnit, 0); return true;
                 case Key.Up: MoveSelection(0, -moveUnit); return true;
                 case Key.Down: MoveSelection(0, moveUnit); return true;
-                case Key.W: Pan(0, (int)panUnit); return true;
-                case Key.A: Pan((int)panUnit, 0); return true;
-                //Primary-modifier-gated so Cmd+S/Ctrl+S reaches Save (the NativeMenu KeyGesture) instead of
-                //also panning the view (reference: docs/upstream-divergences.md's now-retired WASD/Cmd+S entry).
-                case Key.S when !modifiers.HasFlag(PlatformModifiers.Primary): Pan(0, -(int)panUnit); return true;
-                case Key.D: Pan(-(int)panUnit, 0); return true;
+                case Key.W when pan: Pan(0, (int)panUnit); return true;
+                case Key.A when pan: Pan((int)panUnit, 0); return true;
+                case Key.S when pan: Pan(0, -(int)panUnit); return true;
+                case Key.D when pan: Pan(-(int)panUnit, 0); return true;
                 default: return false;
             }
         }

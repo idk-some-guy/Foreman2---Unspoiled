@@ -356,7 +356,7 @@ namespace Foreman.Mac.Views {
 
         private void RefreshPresetList() {
             presetListBox.ItemsSource = (Options.Presets ?? []).Where(p => !p.IsCurrentlySelected).ToList();
-            bool canCompare = (Options.Presets?.Count ?? 0) >= 2;
+            bool canCompare = PresetComparatorWindow.CanCompare(Options.Presets);
             Button compare = presetsTab.ComparePresetsButtonControl;
             compare.IsEnabled = canCompare;
             ToolTip.SetTip(compare, canCompare ? null : "Import another preset to compare it with this one.");

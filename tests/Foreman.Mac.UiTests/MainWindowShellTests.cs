@@ -125,7 +125,7 @@ namespace Foreman.Mac.UiTests {
 
         //A reflection sweep over ShellViewModel's 13 IRelayCommand properties: each must be reachable from the toolbar or a native menu. Settings only reaches the app-level menu (built once, before any window exists) as a closure, not the live command instance, so its reachability is proven by executing the real menu item rather than by an instance comparison.
         [AvaloniaFact]
-        public void AllThirteenCommands_AreReachableFromToolbarOrNativeMenu() {
+        public void AllTwelveCommands_AreReachableFromToolbarOrNativeMenu() {
             var window = new MainWindow();
             window.Show();
             Dispatcher.UIThread.RunJobs();
@@ -142,7 +142,7 @@ namespace Foreman.Mac.UiTests {
                 .Select(i => i.Command).OfType<MainWindow.DeferredMenuCommand>()
                 .Select(d => d.Inner).OfType<IRelayCommand>().ToHashSet();
 
-            NativeMenuItem settingsItem = AllNativeMenuItems(NativeMenu.GetMenu(Application.Current!)!).Single(i => i.Header == "Settings");
+            NativeMenuItem settingsItem = AllNativeMenuItems(NativeMenu.GetMenu(Application.Current!)!).Single(i => i.Header == "Settings…");
             Assert.Equal(new KeyGesture(Key.OemComma, PlatformModifiers.Primary), settingsItem.Gesture);
             bool settingsOpened = false;
             window.SettingsDialogStub = _ => settingsOpened = true;
@@ -157,7 +157,7 @@ namespace Foreman.Mac.UiTests {
                 .Where(p => typeof(IRelayCommand).IsAssignableFrom(p.PropertyType))
                 .ToDictionary(p => p.Name, p => (IRelayCommand)p.GetValue(window.Commands)!);
 
-            Assert.Equal(13, commandsByProperty.Count);
+            Assert.Equal(12, commandsByProperty.Count);
             foreach ((string name, IRelayCommand command) in commandsByProperty)
                 Assert.Contains(command, reachableCommands);
         }
@@ -249,20 +249,6 @@ namespace Foreman.Mac.UiTests {
             window.Commands.SettingsCommand.Execute(null);
 
             Assert.True(opened);
-        }
-
-        //§14 ruling 4: ⌘. is cancel-in-flight; no async LP-solve/cancel plumbing exists yet, so this only proves the seam, not that a real solve gets cancelled.
-        [AvaloniaFact]
-        public void ZoomStepper_IsSolving_IsClearedByCmdPeriod() {
-            var window = new MainWindow();
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-
-            window.Toolbar.ZoomStepper.IsSolving = true;
-
-            CanvasKeys.KeyDownOn(window, Key.OemPeriod, PlatformModifiers.Primary);
-
-            Assert.False(window.Toolbar.ZoomStepper.IsSolving);
         }
 
         //v2 §02's search field: ⌘F reaches it from any focus, ⌘G/⇧⌘G cycle, and ruling §03 row 1 has typing alone select the first match before any ⌘G.
@@ -1549,18 +1535,6 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public void NativeMenu_HasTopLevelFileEditViewHelp() {
-            var window = new MainWindow();
-
-            var headers = NativeMenu.GetMenu(window)!.Items.OfType<NativeMenuItem>().Select(i => i.Header).ToList();
-
-            Assert.Contains("File", headers);
-            Assert.Contains("Edit", headers);
-            Assert.Contains("View", headers);
-            Assert.Contains("Help", headers);
-        }
-
-        [AvaloniaFact]
         public void NativeMenu_FileContainsSaveWithCmdSGesture() {
             var window = new MainWindow();
 
@@ -1569,21 +1543,6 @@ namespace Foreman.Mac.UiTests {
 
             Assert.Equal(Key.S, save.Gesture!.Key);
             Assert.Equal(KeyModifiers.Meta, save.Gesture.KeyModifiers);
-        }
-
-        //Linux branch of the platform fork above (docs/upstream-divergences.md, phase 8 Task 2): every
-        //NativeMenu gesture reads PlatformModifiers.Primary, which BuildNativeMenu bakes in once at
-        //construction - forcing Linux before building the window proves the whole menu picks up Ctrl.
-        [AvaloniaFact]
-        public void NativeMenu_FileContainsSaveWithCtrlSGesture_OnLinux() {
-            using IDisposable platform = PlatformModifiers.UseIsMacOs(false);
-            var window = new MainWindow();
-
-            var fileMenu = NativeMenu.GetMenu(window)!.Items.OfType<NativeMenuItem>().Single(i => i.Header == "File").Menu!;
-            var save = fileMenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "Save");
-
-            Assert.Equal(Key.S, save.Gesture!.Key);
-            Assert.Equal(KeyModifiers.Control, save.Gesture.KeyModifiers);
         }
 
         [AvaloniaFact]
@@ -1595,24 +1554,55 @@ namespace Foreman.Mac.UiTests {
             //NativeMenuItem (Header "-"), so it has to be filtered out explicitly before grouping by Header.
             var items = fileMenu.Items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator).ToDictionary(i => i.Header!, i => i.IsEnabled);
 
-            Assert.True(items["New"]);
+            Assert.True(items["New Graph"]);
             Assert.True(items["Save"]);
-            Assert.True(items["Save As"]);
-            Assert.True(items["Import"]);
-            Assert.True(items["Export Image"]);
+            Assert.True(items["Save As…"]);
+            Assert.True(items["Import Graph…"]);
+            Assert.True(items["Export Image…"]);
         }
 
-        //v2 §14 ruling 4: ⌘. is cancel-in-flight, command-only, and bound to no menu item; Pause All Calculations moves to ⌥⌘P so the two chords never double-book.
+        //Hidden-toolbar ruling: ⌘F shows the toolbar only while the search field has focus; the setting and the checkmark stay off.
         [AvaloniaFact]
-        public void PauseAllCalculations_UsesOptionCmdP_AndNoMenuItemClaimsCmdPeriod() {
-            var window = new MainWindow();
+        public async Task FindNode_WithTheToolbarHidden_RevealsItUntilTheFieldResigns() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenWindowWithGraphAsync();
+            var settings = new AppSettings { ShowToolbar = false };
+            window.Settings = settings;
+            Dispatcher.UIThread.RunJobs();
+            NativeMenu view = NativeMenu.GetMenu(window)!.Items.OfType<NativeMenuItem>().Single(i => i.Header == "View").Menu!;
+            NativeMenuItem showToolbar = view.Items.OfType<NativeMenuItem>().Single(i => i.Header == "Show Toolbar");
+            Assert.False(window.Toolbar.IsVisible);
+            Assert.False(showToolbar.IsChecked);
+
+            CanvasKeys.KeyDownOn(window.GraphCanvas, Key.F, KeyModifiers.Meta);
+
+            SearchField search = window.Toolbar.SearchField;
+            Assert.True(window.Toolbar.IsVisible);
+            Assert.True(search.IsKeyboardFocusWithin);
+            Assert.False(settings.ShowToolbar);
+            Assert.False(showToolbar.IsChecked);
+
+            search.Text = "zzz";
+            CanvasKeys.KeyDownOn(search, Key.Escape);
+            Assert.True(window.Toolbar.IsVisible);
+            CanvasKeys.KeyDownOn(search, Key.Escape);
+            Assert.False(window.Toolbar.IsVisible);
+            Assert.False(settings.ShowToolbar);
+        }
+
+        //Hidden-toolbar ruling: a hidden-toolbar window never lays out the 52 pt row first.
+        [AvaloniaFact]
+        public void ShowToolbarOff_AtOpen_LaysOutAt28FromTheFirstPass() {
+            var window = new MainWindow { Settings = new AppSettings { ShowToolbar = false } };
+            Grid titleBar = window.FindControl<Grid>("TitleBarRow")!;
+            var heights = new List<double>();
+            titleBar.LayoutUpdated += (_, _) => heights.Add(titleBar.Bounds.Height);
+
             window.Show();
+            Dispatcher.UIThread.RunJobs();
 
-            NativeMenuItem[] allItems = [.. AllNativeMenuItems(NativeMenu.GetMenu(window)!)];
-            NativeMenuItem pauseItem = allItems.Single(i => i.Header == "Pause All Calculations");
-
-            Assert.Equal(new KeyGesture(Key.P, PlatformModifiers.Primary | KeyModifiers.Alt), pauseItem.Gesture);
-            Assert.DoesNotContain(allItems, i => i.Gesture == new KeyGesture(Key.OemPeriod, PlatformModifiers.Primary));
+            Assert.NotEmpty(heights);
+            Assert.All(heights, h => Assert.Equal(28, h, 0.5));
+            Assert.False(window.Toolbar.IsVisible);
         }
 
         [AvaloniaFact]
