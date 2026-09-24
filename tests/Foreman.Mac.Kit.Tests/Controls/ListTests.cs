@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -80,6 +81,20 @@ namespace Foreman.Mac.Kit.Tests.Controls {
                 Border probe = item.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "RowProbe");
                 Assert.Equal(item.Content, ((TextBlock)probe.Child!).Text);
             }
+        }
+
+        [AvaloniaFact]
+        public void ItemsPanel_IsTheOneTheConsumerSets_SoALongListVirtualises() {
+            using var fixture = new KitFixture();
+            ListBox listBox = Themed([.. Enumerable.Range(0, 200).Select(i => $"Recipe {i}")]);
+            listBox.ItemsPanel = new FuncTemplate<Panel?>(() => new VirtualizingStackPanel());
+            listBox.Height = 120;
+            fixture.Window.Content = listBox;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.IsType<VirtualizingStackPanel>(listBox.ItemsPanelRoot);
+            int realized = ItemContainers(listBox).Length;
+            Assert.InRange(realized, 1, 20);
         }
 
         [AvaloniaFact]

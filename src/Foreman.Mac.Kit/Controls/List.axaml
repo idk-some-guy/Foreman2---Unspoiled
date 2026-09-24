@@ -50,7 +50,7 @@
                 BorderThickness="{TemplateBinding BorderThickness}"
                 CornerRadius="{TemplateBinding CornerRadius}">
           <ScrollViewer x:Name="PART_ScrollViewer" Padding="{TemplateBinding Padding}">
-            <ItemsPresenter x:Name="PART_ItemsPresenter" />
+            <ItemsPresenter x:Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
           </ScrollViewer>
         </Border>
       </ControlTemplate>

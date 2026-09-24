@@ -1,18 +1,39 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Foreman.Mac.ViewModels"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
              x:Class="Foreman.Mac.Views.Settings.AnnotationsTab"
              x:DataType="vm:SettingsViewModel">
-  <ScrollViewer>
-    <StackPanel Margin="8" Spacing="10">
-      <StackPanel Spacing="4">
-        <TextBlock Text="Guide-Arrows:" FontWeight="Bold" />
-        <CheckBox Name="ErrorArrowsCheckBox" Content="Display arrows pointing to any node errors" IsChecked="{Binding ErrorArrowsChecked, Mode=TwoWay}" />
-        <CheckBox Name="WarningArrowsCheckBox" Content="Display arrows pointing to any node warnings" IsChecked="{Binding WarningArrowsChecked, Mode=TwoWay}" />
-        <CheckBox Name="DisconnectedArrowsCheckBox" Content="Display arrows pointing to any node with missing links" IsChecked="{Binding DisconnectedArrowsChecked, Mode=TwoWay}" />
-        <CheckBox Name="OUSuppliedArrowsCheckBox" Content="Display arrows pointing to any under-supplied or over-producing node" IsChecked="{Binding OuSuppliedArrowsChecked, Mode=TwoWay}" />
-        <CheckBox Name="FlagOUSupplyNodesCheckBox" Content="Flag over or under supplied nodes" IsChecked="{Binding FlagOUSupplyNodesChecked, Mode=TwoWay}" />
-      </StackPanel>
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" AllowAutoHide="True">
+    <StackPanel Margin="20,18,20,20">
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Guide arrows" TrailingGap="0">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Error arrows"
+                     Note="Points an arrow from the edge of the view at any node with an error.">
+          <ctrl:Switch Name="ErrorArrowsSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding ErrorArrowsChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Warning arrows"
+                     Note="Points an arrow from the edge of the view at any node with a warning.">
+          <ctrl:Switch Name="WarningArrowsSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding WarningArrowsChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Missing links"
+                     Note="Points an arrow at any node with an input or output that is not connected.">
+          <ctrl:Switch Name="DisconnectedArrowsSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding DisconnectedArrowsChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Supply arrows"
+                     Note="Points an arrow at any node that is over-producing or under-supplied.">
+          <ctrl:Switch Name="OUSuppliedArrowsSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding OuSuppliedArrowsChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Flag supply problems"
+                     Note="Marks over-producing and under-supplied nodes on the node itself, not only with an arrow.">
+          <ctrl:Switch Name="FlagOUSupplyNodesSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding FlagOUSupplyNodesChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

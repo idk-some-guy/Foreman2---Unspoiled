@@ -41,16 +41,19 @@ namespace Foreman.Mac.Kit.Composites {
 
         private (Control? Helper, List<Control> Cluster) Groups() {
             Control? helper = null;
+            var others = new List<Control>();
             var byRole = new Dictionary<ButtonRowRole, Control>();
             foreach (Control child in Children) {
                 ButtonRowRole role = RoleOf(child);
                 if (role == ButtonRowRole.Helper)
                     helper = child;
+                else if (role == ButtonRowRole.Other)
+                    others.Add(child);
                 else
                     byRole[role] = child;
             }
-            ButtonRowRole[] order = [ButtonRowRole.Other, ButtonRowRole.Destructive, ButtonRowRole.Cancel, ButtonRowRole.Default];
-            List<Control> cluster = [.. order.Where(byRole.ContainsKey).Select(r => byRole[r])];
+            ButtonRowRole[] order = [ButtonRowRole.Destructive, ButtonRowRole.Cancel, ButtonRowRole.Default];
+            List<Control> cluster = [.. others, .. order.Where(byRole.ContainsKey).Select(r => byRole[r])];
             return (helper, cluster);
         }
 

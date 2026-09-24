@@ -111,7 +111,7 @@ namespace Foreman.Mac.UiTests.Views {
             var window = new GalleryWindow(cache, new AppSettings());
 
             Assert.Equal(
-                ["Graph Summary rows", "Preset Comparator rows", "Enabled Objects rows",
+                ["Graph Summary rows", "Preset Comparator rows",
                  "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)",
                  "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)",
                  "Checkbox", "Radio group", "Switch — Settings only (A16)", "Checkbox, Radio group & Switch (150%)",
@@ -424,7 +424,7 @@ namespace Foreman.Mac.UiTests.Views {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //The Design language section shows every retokened surface still in the gallery: the three status-colored row kinds (View Options retired into Kit.PopoverFrame).
+        //The Design language section shows every retokened surface still in the gallery: the two status-colored row kinds (View Options retired into Kit.PopoverFrame).
         [AvaloniaFact]
         public void ThemeShowcase_BuildsATilePerRetokenedSurface() {
             DataCache cache = NewFixtureCache();
@@ -434,7 +434,7 @@ namespace Foreman.Mac.UiTests.Views {
             string[] captions = [.. window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
             Assert.Contains("Graph Summary rows", captions);
             Assert.Contains("Preset Comparator rows", captions);
-            Assert.Contains("Enabled Objects rows", captions);
+            Assert.DoesNotContain("Enabled Objects rows", captions);
         }
 
         //The toggle is the gate tool's whole point (task-6-brief: "genuinely useful for eyeballing both

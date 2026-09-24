@@ -31,12 +31,6 @@ using TabStrip = Foreman.Mac.Kit.Controls.TabStrip;
 using TabStripItem = Foreman.Mac.Kit.Controls.TabStripItem;
 
 namespace Foreman.Mac.Views {
-    //C2c Task 4: non-modal, toolbar-tabbed Settings window - changes apply as they're made instead of on a
-    //Confirm/Cancel pair (reference task-4-brief.md, phase9-ui-proposal-RATIFIED.html §06.3). Presets tab
-    //still buffers a pending preset switch (picking one swaps the whole live DataCache, so it closes this
-    //window and MainWindow reopens it once the reload lands - see RequestReload); every other tab writes
-    //straight through SettingsViewModel onto the live AppSettings/graph via MainWindow's SettingChanged
-    //handler and SettingsSession.
     public partial class SettingsWindow : Window, IThemeAware {
         public sealed class SettingsWindowOptions(DataCache cache) {
             public DataCache DCache { get; } = cache;
@@ -124,6 +118,7 @@ namespace Foreman.Mac.Views {
             footerText = this.FindControl<TextBlock>("FooterText")!;
             footerText.Text = "Foreman 2 · " + AppVersion.VersionedDisplay;
             footerRow = this.FindControl<DockPanel>("FooterRow")!;
+            tabBody.AddHandler(GotFocusEvent, BringFocusedRowIntoView);
             restoreDefaultsButton = this.FindControl<Button>("RestoreDefaultsButton")!;
 
             paneStrip = this.FindControl<TabStrip>("PaneStrip")!;
@@ -154,10 +149,8 @@ namespace Foreman.Mac.Views {
 
             currentPresetLabel.Text = Options.SelectedPreset?.Name;
 
-            presetListBox.ItemsSource = (Options.Presets ?? []).Where(p => !p.IsCurrentlySelected).ToList();
-
-            UpdateModList();
-            EnabledObjectsListItem.RefreshTheme();
+            RefreshPresetList();
+            RefreshModList();
             LoadUnfilteredLists();
             SheetHost.For(this);
 
@@ -167,14 +160,11 @@ namespace Foreman.Mac.Views {
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        //RefreshTheme re-resolves the shared brushes and pushes them out to every row already on screen
-        //(RowBackground/Foreground are live-computed, not baked at row construction).
         public void RefreshTheme() {
             if (WindowScaler.CurrentScale != appliedScale) {
                 RecordPaneSize(appliedScale);
                 ApplyPaneSize();
             }
-            EnabledObjectsListItem.RefreshTheme();
         }
 
         //--- Pane strip -----------------------------------------------------------------------------------
@@ -187,9 +177,18 @@ namespace Foreman.Mac.Views {
             activeTabIndex = index;
             paneStrip.SelectedIndex = index;
             tabBody.Content = tabControls[index];
+            if (tabControls[index].Content is ScrollViewer paneScroller)
+                paneScroller.Offset = default;
             Title = PaneNames[index];
             ApplyPaneSize();
             UpdateRestoreDefaults();
+        }
+
+        private bool focusingAfterRestore;
+
+        private void BringFocusedRowIntoView(object? sender, RoutedEventArgs e) {
+            if (!focusingAfterRestore && tabBody.Content is UserControl { Content: ScrollViewer } && e.Source is Visual source)
+                source.FindAncestorOfType<Kit.Composites.FormRow>(includeSelf: true)?.BringIntoView();
         }
 
         private static bool IsResizable(int index) => (SettingsPane)index is SettingsPane.EnabledObjects or SettingsPane.Advanced;
@@ -244,9 +243,22 @@ namespace Foreman.Mac.Views {
             UpdateRestoreDefaults();
             if (restoreDefaultsButton.IsEnabled)
                 restoreDefaultsButton.Focus();
-            else
-                tabControls[activeTabIndex].GetVisualDescendants().OfType<InputElement>()
-                    .FirstOrDefault(c => c.Focusable && c.IsEffectivelyEnabled && c.IsEffectivelyVisible)?.Focus();
+            else if (tabControls[activeTabIndex].GetVisualDescendants().OfType<InputElement>()
+                         .FirstOrDefault(c => c.Focusable && c.IsEffectivelyEnabled && c.IsEffectivelyVisible) is { } first)
+                FocusWithoutScrolling(first);
+        }
+
+        private void FocusWithoutScrolling(InputElement target) {
+            //Focus raises RequestBringIntoView on the focused control; handling it at the source keeps the offset.
+            EventHandler<RequestBringIntoViewEventArgs> keep = static (_, e) => e.Handled = true;
+            target.AddHandler(RequestBringIntoViewEvent, keep);
+            focusingAfterRestore = true;
+            try {
+                target.Focus();
+            } finally {
+                focusingAfterRestore = false;
+                target.RemoveHandler(RequestBringIntoViewEvent, keep);
+            }
         }
 
         //MainWindow's "Open Presets…" seam (A25 .error) - brings an already-open instance back to its first tab.
@@ -322,7 +334,7 @@ namespace Foreman.Mac.Views {
             //Ports UpdatePresetLabel's bold toggle (reference SettingsForm.cs:263-265): bold means "this is
             //still the active preset" - it drops the moment the list picks out a different candidate.
             presetListBox.SelectionChanged += (_, _) => {
-                UpdateModList();
+                RefreshModList();
                 currentPresetLabel.FontWeight = presetListBox.SelectedItem is null ? FontWeight.Bold : FontWeight.Normal;
             };
             presetListBox.DoubleTapped += (_, _) => {
@@ -342,6 +354,15 @@ namespace Foreman.Mac.Views {
 
             presetsTab.ImportPresetButtonControl.Click += (_, _) => Async.Fire(ShowImportPresetAsync(), nameof(ShowImportPresetAsync));
             presetsTab.ComparePresetsButtonControl.Click += (_, _) => Async.Fire(ShowComparePresetsAsync(), nameof(ShowComparePresetsAsync));
+            presetsTab.RetryPresetReadButtonControl.Click += (_, _) => RefreshModList();
+        }
+
+        private void RefreshPresetList() {
+            presetListBox.ItemsSource = (Options.Presets ?? []).Where(p => !p.IsCurrentlySelected).ToList();
+            bool canCompare = (Options.Presets?.Count ?? 0) >= 2;
+            Button compare = presetsTab.ComparePresetsButtonControl;
+            compare.IsEnabled = canCompare;
+            ToolTip.SetTip(compare, canCompare ? null : "Import another preset to compare it with this one.");
         }
 
         //Preset switch is the one thing here that isn't a plain live-apply write: it swaps the whole
@@ -353,19 +374,40 @@ namespace Foreman.Mac.Views {
             RequestReload();
         }
 
-        private void UpdateModList() {
+        //Test-only seam: supplies the preset file read in place of the real one.
+        internal Func<Preset, Task<PresetInfo>>? PresetInfoReaderStub { get; set; }
+
+        //The latest mod-list read; an older read that lands late is ignored.
+        internal Task ModListRead { get; private set; } = Task.CompletedTask;
+        private int modListReadGeneration;
+
+        //PresetProcessor.ReadPresetInfo reports a damaged file as this one sentinel mod.
+        private const string PresetReadErrorMod = "ERROR READING PRESET!";
+
+        private void RefreshModList() => ModListRead = ReadModListAsync(++modListReadGeneration);
+
+        private async Task ReadModListAsync(int generation) {
             Preset? selected = presetListBox.SelectedItem as Preset ?? Options.SelectedPreset;
             modSelectionBox.ItemsSource = null;
-            if (selected is null)
+            if (selected is null) {
+                presetsTab.ShowModList();
+                return;
+            }
+
+            presetsTab.ShowModListReading();
+            PresetInfo info = await (PresetInfoReaderStub?.Invoke(selected) ?? Task.Run(() => PresetProcessor.ReadPresetInfo(selected))).ConfigureAwait(true);
+            if (generation != modListReadGeneration)
                 return;
 
-            PresetInfo info = PresetProcessor.ReadPresetInfo(selected);
-            if (info.ModList is null)
+            if (info.ModList is null || info.ModList.ContainsKey(PresetReadErrorMod)) {
+                presetsTab.ShowModListFailure(selected.Name);
                 return;
+            }
 
             var modList = info.ModList.Select(kvp => kvp.Key + "_" + kvp.Value).ToList();
             modList.Sort(StringComparer.Ordinal);
             modSelectionBox.ItemsSource = modList;
+            presetsTab.ShowModList();
         }
 
         private void OnPresetListBoxContextRequested(object? sender, ContextRequestedEventArgs e) {
@@ -381,15 +423,10 @@ namespace Foreman.Mac.Views {
         internal void UpdatePresetMenuCaptionsFor(Preset preset) {
             MenuItem selectPresetMenuItem = presetsTab.SelectPresetMenuItemControl;
             MenuItem deletePresetMenuItem = presetsTab.DeletePresetMenuItemControl;
-            selectPresetMenuItem.Header = preset.IsCurrentlySelected ? "Current Preset" : "Use This Preset";
+            selectPresetMenuItem.Header = "Use Preset";
             selectPresetMenuItem.IsEnabled = !preset.IsCurrentlySelected;
-            if (preset.IsDefaultPreset) {
-                deletePresetMenuItem.Header = "Default Preset";
-                deletePresetMenuItem.IsEnabled = false;
-            } else {
-                deletePresetMenuItem.Header = "Delete This Preset";
-                deletePresetMenuItem.IsEnabled = !preset.IsCurrentlySelected;
-            }
+            deletePresetMenuItem.Header = "Delete Preset";
+            deletePresetMenuItem.IsEnabled = !preset.IsDefaultPreset && !preset.IsCurrentlySelected;
         }
 
         private async Task DeletePresetAsync(Preset preset) {
@@ -409,7 +446,7 @@ namespace Foreman.Mac.Views {
             DeletePresetDbRows(preset.Name);
 
             Options.Presets?.Remove(preset);
-            presetListBox.ItemsSource = (Options.Presets ?? []).Where(p => !p.IsCurrentlySelected).ToList();
+            RefreshPresetList();
         }
 
         private static void DeletePresetDbRows(string presetName) {
@@ -454,13 +491,13 @@ namespace Foreman.Mac.Views {
             if (newPreset is null) {
                 newPreset = new Preset(sheet.NewPresetName, isCurrentlySelected: false, isDefaultPreset: false);
                 Options.Presets?.Add(newPreset);
-                presetListBox.ItemsSource = (Options.Presets ?? []).Where(p => !p.IsCurrentlySelected).ToList();
+                RefreshPresetList();
             }
 
             if (ReferenceEquals(newPreset, Options.Presets is { Count: > 0 } presets ? presets[0] : null)) {
                 Options.SelectedPreset = newPreset;
                 RequestReload();
-            } else if (await ShowSwitchToImportedPresetConfirmAsync().ConfigureAwait(true)) {
+            } else if (await ShowSwitchToImportedPresetConfirmAsync(newPreset).ConfigureAwait(true)) {
                 SelectPreset(newPreset);
             }
         }
@@ -469,8 +506,9 @@ namespace Foreman.Mac.Views {
         //dialog.
         internal Func<Task<bool>>? ImportSwitchConfirmationStub { get; set; }
 
-        private Task<bool> ShowSwitchToImportedPresetConfirmAsync() =>
-            ImportSwitchConfirmationStub?.Invoke() ?? Dialogs.ShowConfirmAsync(this, "", "Preset import complete! Do you wish to switch to the new preset?");
+        private Task<bool> ShowSwitchToImportedPresetConfirmAsync(Preset preset) =>
+            ImportSwitchConfirmationStub?.Invoke() ?? Dialogs.ShowConfirmAsync(this, $"Switch to the new preset “{Dialogs.MiddleTruncate(preset.Name)}”?",
+                "The import is saved either way; switching reloads the open graph with this preset’s items and recipes.", "Switch Preset");
 
         //Test-only seam: lets a test observe the real Compare Presets launch without an actual window.
         internal Func<List<Preset>, Task>? ComparePresetsDialogStub { get; set; }
@@ -479,8 +517,8 @@ namespace Foreman.Mac.Views {
 
         //R9: PresetComparatorWindow is non-modal too, one instance, reused/activated on a second click.
         private Task ShowComparePresetsAsync() {
-            if ((Options.Presets?.Count ?? 0) < 2)
-                return ShowWarningAsync("", "Can not compare presets!\n...you only have 1 preset :/");
+            if (!presetsTab.ComparePresetsButtonControl.IsEnabled)
+                return Task.CompletedTask;
 
             return ComparePresetsDialogStub?.Invoke(Options.Presets ?? []) ?? RealShowComparePresetsAsync();
         }
@@ -513,8 +551,6 @@ namespace Foreman.Mac.Views {
             enabledObjectsTab.EnableAllButtonControl.Click += (_, _) => EnableAll();
         }
 
-        private IEnumerable<ListBox> AllListViews => enabledObjectsTab.AllListViews;
-
         private IEnumerable<List<EnabledObjectsListItem>> AllUnfilteredLists {
             get {
                 yield return unfilteredAssemblerList;
@@ -528,13 +564,13 @@ namespace Foreman.Mac.Views {
         }
 
         private void LoadUnfilteredLists() {
-            LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(a => a.EntityType == EntityType.Assembler), unfilteredAssemblerList, enabledObjectsTab.AssemblerListViewControl);
-            LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(a => a.EntityType is EntityType.Miner or EntityType.OffshorePump), unfilteredMinerList, enabledObjectsTab.MinerListViewControl);
-            LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(a => a.EntityType is EntityType.Boiler or EntityType.BurnerGenerator or EntityType.Generator or EntityType.Reactor), unfilteredPowerList, enabledObjectsTab.PowerListViewControl);
-            LoadUnfilteredList(Options.DCache.Beacons.Values, unfilteredBeaconList, enabledObjectsTab.BeaconListViewControl);
-            LoadUnfilteredList(Options.DCache.Modules.Values, unfilteredModuleList, enabledObjectsTab.ModuleListViewControl);
-            LoadUnfilteredList(Options.DCache.Recipes.Values, unfilteredRecipeList, enabledObjectsTab.RecipeListViewControl);
-            LoadUnfilteredList(Options.DCache.Qualities.Values, unfilteredQualityList, enabledObjectsTab.QualityListViewControl, sortByQualityOrder: true);
+            LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(a => a.EntityType == EntityType.Assembler), unfilteredAssemblerList);
+            LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(a => a.EntityType is EntityType.Miner or EntityType.OffshorePump), unfilteredMinerList);
+            LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(a => a.EntityType is EntityType.Boiler or EntityType.BurnerGenerator or EntityType.Generator or EntityType.Reactor), unfilteredPowerList);
+            LoadUnfilteredList(Options.DCache.Beacons.Values, unfilteredBeaconList);
+            LoadUnfilteredList(Options.DCache.Modules.Values, unfilteredModuleList);
+            LoadUnfilteredList(Options.DCache.Recipes.Values, unfilteredRecipeList);
+            LoadUnfilteredList(Options.DCache.Qualities.Values, unfilteredQualityList, sortByQualityOrder: true);
 
             foreach (EnabledObjectsListItem item in unfilteredRecipeList)
                 if (item.DataObject is IRecipe recipe)
@@ -544,7 +580,7 @@ namespace Foreman.Mac.Views {
                 unfilteredBeaconList, unfilteredModuleList, unfilteredRecipeList, unfilteredQualityList);
         }
 
-        private void LoadUnfilteredList<T>(IEnumerable<T> origin, List<EnabledObjectsListItem> destination, ListBox list, bool sortByQualityOrder = false) where T : IDataObjectBase {
+        private void LoadUnfilteredList<T>(IEnumerable<T> origin, List<EnabledObjectsListItem> destination, bool sortByQualityOrder = false) where T : IDataObjectBase {
             IEnumerable<T> ordered = sortByQualityOrder
                 ? origin.OrderByDescending(o => o.Available).ThenBy(o => (IDataObjectBase)o)
                 : origin.OrderByDescending(o => o.Available).ThenBy(o => o.FriendlyName);
@@ -557,7 +593,7 @@ namespace Foreman.Mac.Views {
                 };
                 item.PropertyChanged += (_, e) => {
                     if (e.PropertyName == nameof(EnabledObjectsListItem.IsChecked))
-                        SetEnabledMembership(item, list);
+                        SetEnabledMembership(item, enabledObjectsTab.ObjectListControl);
                 };
                 destination.Add(item);
             }
@@ -668,8 +704,8 @@ namespace Foreman.Mac.Views {
                 }
                 ApplyEnabledObjectsLiveFromOptions();
             } else if (sheet.Outcome == SaveFileLoadOutcome.Abort) {
-                await ShowWarningAsync("",
-                    "Error while reading save file. Try running factorio, opening the save game, saving again, and retrying?").ConfigureAwait(true);
+                await ShowWarningAsync("Couldn’t read the save file.",
+                    "Open the save in Factorio, save it again, and then try loading it here.").ConfigureAwait(true);
             }
         }
 
@@ -699,6 +735,7 @@ namespace Foreman.Mac.Views {
             return DeletePresetAsync(preset);
         }
         internal Task SimulateComparePresetsClickAsync() => ShowComparePresetsAsync();
+        internal void SimulateModListReload() => RefreshModList();
         internal Task SimulateImportPresetClickAsync() => ShowImportPresetAsync();
 
         internal void SimulateEnableAllClick() => EnableAll();

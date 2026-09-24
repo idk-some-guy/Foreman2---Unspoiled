@@ -1,33 +1,35 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Stepper = Foreman.Mac.Kit.Controls.Stepper;
+using Switch = Foreman.Mac.Kit.Controls.Switch;
 
 namespace Foreman.Mac.Views.Settings {
     public partial class AdvancedTab : UserControl {
-        private readonly CheckBox showProductivityBonusOnAllCheckBox;
-        private readonly CheckBox showUnavailablesCheckBox;
-        private readonly CheckBox loadBarrelingCheckBox;
-        private readonly NumericUpDown lowPriorityPowerInput;
-        private readonly CheckBox pullConsumerNodesCheckBox;
-        private readonly NumericUpDown pullConsumerNodesPowerInput;
+        private readonly Switch showProductivityBonusOnAllSwitch;
+        private readonly Switch showUnavailablesSwitch;
+        private readonly Switch loadBarrelingSwitch;
+        private readonly Stepper lowPriorityPowerStepper;
+        private readonly Switch pullConsumerNodesSwitch;
+        private readonly Stepper pullConsumerNodesPowerStepper;
 
         public AdvancedTab() {
             InitializeComponent();
 
-            showProductivityBonusOnAllCheckBox = this.FindControl<CheckBox>("ShowProductivityBonusOnAllCheckBox")!;
-            showUnavailablesCheckBox = this.FindControl<CheckBox>("ShowUnavailablesCheckBox")!;
-            loadBarrelingCheckBox = this.FindControl<CheckBox>("LoadBarrelingCheckBox")!;
-            lowPriorityPowerInput = this.FindControl<NumericUpDown>("LowPriorityPowerInput")!;
-            pullConsumerNodesCheckBox = this.FindControl<CheckBox>("PullConsumerNodesCheckBox")!;
-            pullConsumerNodesPowerInput = this.FindControl<NumericUpDown>("PullConsumerNodesPowerInput")!;
+            showProductivityBonusOnAllSwitch = this.FindControl<Switch>("ShowProductivityBonusOnAllSwitch")!;
+            showUnavailablesSwitch = this.FindControl<Switch>("ShowUnavailablesSwitch")!;
+            loadBarrelingSwitch = this.FindControl<Switch>("LoadBarrelingSwitch")!;
+            lowPriorityPowerStepper = this.FindControl<Stepper>("LowPriorityPowerStepper")!;
+            pullConsumerNodesSwitch = this.FindControl<Switch>("PullConsumerNodesSwitch")!;
+            pullConsumerNodesPowerStepper = this.FindControl<Stepper>("PullConsumerNodesPowerStepper")!;
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        internal CheckBox ShowProductivityBonusOnAllCheckBoxControl => showProductivityBonusOnAllCheckBox;
-        internal CheckBox ShowUnavailablesCheckBoxControl => showUnavailablesCheckBox;
-        internal CheckBox LoadBarrelingCheckBoxControl => loadBarrelingCheckBox;
-        internal NumericUpDown LowPriorityPowerInputControl => lowPriorityPowerInput;
-        internal CheckBox PullConsumerNodesCheckBoxControl => pullConsumerNodesCheckBox;
-        internal NumericUpDown PullConsumerNodesPowerInputControl => pullConsumerNodesPowerInput;
+        internal Switch ShowProductivityBonusOnAllSwitchControl => showProductivityBonusOnAllSwitch;
+        internal Switch ShowUnavailablesSwitchControl => showUnavailablesSwitch;
+        internal Switch LoadBarrelingSwitchControl => loadBarrelingSwitch;
+        internal Stepper LowPriorityPowerStepperControl => lowPriorityPowerStepper;
+        internal Switch PullConsumerNodesSwitchControl => pullConsumerNodesSwitch;
+        internal Stepper PullConsumerNodesPowerStepperControl => pullConsumerNodesPowerStepper;
     }
 }

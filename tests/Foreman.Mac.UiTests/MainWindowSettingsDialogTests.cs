@@ -388,11 +388,20 @@ namespace Foreman.Mac.UiTests {
                 Assert.False(SheetHost.For(opened).IsOpen);
                 Assert.Equal(before, Snapshot(settings));
 
+                ScrollViewer? scroller = pane == 2 ? Assert.IsType<ScrollViewer>(opened.GeneralTabControl.Content) : null;
+                scroller?.ScrollToEnd();
+                Dispatcher.UIThread.RunJobs();
+                double scrolledTo = scroller?.Offset.Y ?? 0;
+                Assert.True(scroller is null || scrolledTo > 0);
                 SheetFixture.Click(opened, restore);
                 AnimationClock.Settle();
                 shown = Assert.IsType<AlertSheet>(SheetHost.For(opened).Content);
                 CanvasKeys.KeyDownOn(shown.YesButtonControl, Key.Back, KeyModifiers.Meta);
                 AnimationClock.Settle();
+                if (scroller is not null) {
+                    AnimationClock.UntilReflowsSettled(opened);
+                    Assert.Equal(scrolledTo, scroller.Offset.Y, 0.5);
+                }
 
                 Dictionary<string, object?> after = Snapshot(settings);
                 Dictionary<string, object?> expected = Snapshot(defaults);

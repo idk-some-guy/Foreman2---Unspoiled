@@ -71,7 +71,7 @@ namespace Foreman.Mac.UiTests.Theming {
         //--- Settings ---------------------------------------------------------------------------------------
 
         [AvaloniaFact]
-        public async Task Settings_ThemeFlip_EnabledObjectsRowRepaints_AndNoSubscriberLeakAfterClose() {
+        public async Task Settings_ThemeFlip_KeepsItsHubSubscription_AndNoSubscriberLeakAfterClose() {
             App app = CurrentApp;
             int baseline = app.Hub.SubscriberCount;
             DataCache cache = await GetCacheAsync();
@@ -82,13 +82,11 @@ namespace Foreman.Mac.UiTests.Theming {
             window.Show();
             Assert.True(app.Hub.SubscriberCount > baseline);
 
-            EnabledObjectsListItem before = window.ViewModel.RecipeObjects.First(r => r.DataObject.Available);
-            Color beforeColor = ColorOf(before.RowBackground);
+            int subscribed = app.Hub.SubscriberCount;
 
             app.ApplyTheme(ThemeMode.Dark);
 
-            EnabledObjectsListItem after = window.ViewModel.RecipeObjects.First(r => r.DataObject.Available);
-            Assert.NotEqual(beforeColor, ColorOf(after.RowBackground));
+            Assert.Equal(subscribed, app.Hub.SubscriberCount);
 
             window.Close();
             Assert.Equal(baseline, app.Hub.SubscriberCount);

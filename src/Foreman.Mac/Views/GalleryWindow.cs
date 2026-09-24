@@ -47,7 +47,7 @@ namespace Foreman.Mac.Views {
 
         public GalleryWindow(DataCache cache, AppSettings settings) {
             this.cache = cache;
-            registry = BuildRegistry(cache);
+            registry = BuildRegistry();
             Title = "Foreman Gallery";
             Width = 1600;
             Height = 1000;
@@ -124,11 +124,10 @@ namespace Foreman.Mac.Views {
 
         //Today's dev-only tile set, one registration per panel the window shows - the declarative seam K6's
         //future showcase additions register into instead of GalleryWindow growing more inline Build* calls.
-        private static GalleryRegistry BuildRegistry(DataCache cache) {
+        private static GalleryRegistry BuildRegistry() {
             var registry = new GalleryRegistry();
             registry.Register(new GalleryTile("Theme", "Graph Summary rows", "Default", BuildSummaryRowsShowcaseTile));
             registry.Register(new GalleryTile("Theme", "Preset Comparator rows", "Default", BuildComparatorRowsShowcaseTile));
-            registry.Register(new GalleryTile("Theme", "Enabled Objects rows", "Default", () => BuildEnabledObjectsRowsShowcaseTile(cache)));
             registry.Register(new GalleryTile("Kit", "Type ramp", "Default", BuildTypeRampTile));
             registry.Register(new GalleryTile("Kit", "Glyphs", "Default", BuildGlyphSheetTile));
             registry.Register(new GalleryTile("Kit", "Type ramp & Glyphs (150%)", "150%", BuildKitScaledTile));
@@ -2270,36 +2269,6 @@ namespace Foreman.Mac.Views {
                 Background = row.Background,
                 Padding = new Thickness(4, 1),
                 Child = new TextBlock { Text = row.Name, Foreground = row.Foreground, FontStyle = row.FontStyle },
-            };
-
-        //Two EnabledObjectsListItem rows (available + unavailable) built off real cache items, through the
-        //same RefreshTheme() seam SettingsWindow calls before building its own rows.
-        private static StackPanel BuildEnabledObjectsRowsShowcaseTile(DataCache cache) {
-            EnabledObjectsListItem.RefreshTheme();
-
-            var rows = new StackPanel { Spacing = 2 };
-            IItem available = cache.AvailableItems.First();
-            rows.Children.Add(EnabledObjectsRowVisual(new EnabledObjectsListItem(available, null) { IsChecked = true }));
-
-            IItem? unavailable = cache.Items.Values.FirstOrDefault(i => !i.Available);
-            if (unavailable is not null)
-                rows.Children.Add(EnabledObjectsRowVisual(new EnabledObjectsListItem(unavailable, null) { IsChecked = false }));
-
-            return rows;
-        }
-
-        private static Border EnabledObjectsRowVisual(EnabledObjectsListItem item) =>
-            new() {
-                Background = item.RowBackground,
-                Padding = new Thickness(2),
-                Child = new StackPanel {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 4,
-                    Children = {
-                        new CheckBox { IsChecked = item.IsChecked },
-                        new TextBlock { Text = item.Name, Foreground = item.Foreground },
-                    },
-                },
             };
 
         //Same TryGetResource(key, variant, fallback) shape as ThemeResources.ResolveColor, typed for the

@@ -33,8 +33,8 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         private static TextBlock TitleText(FormGroup group) =>
             group.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Title");
 
-        private static StackPanel Stack(FormGroup group) =>
-            group.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_Stack");
+        private static DockPanel Stack(FormGroup group) =>
+            group.GetVisualDescendants().OfType<DockPanel>().Single(s => s.Name == "PART_Stack");
 
         [AvaloniaFact]
         public void KitFormGroup_IsAControlThemeTargetingFormGroup() {
@@ -101,7 +101,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Dispatcher.UIThread.RunJobs();
 
             Application.Current!.TryGetResource("Foreman.Space.Space2", Application.Current.ActualThemeVariant, out object? gap);
-            Assert.Equal(Assert.IsType<double>(gap), Stack(group).Spacing);
+            Assert.Equal(Assert.IsType<double>(gap), Stack(group).VerticalSpacing);
         }
 
         //A group with no title (a sheet body) starts with its first row, not a blank title line and its gap.
@@ -121,6 +121,27 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             group.Title = "Canvas";
             Dispatcher.UIThread.RunJobs();
             Assert.True(TitleText(group).IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void Stretched_GivesItsRowsTheRemainingHeight_BelowTheTitleAndItsGap() {
+            using var fixture = new KitFixture();
+            var rows = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), VerticalAlignment = VerticalAlignment.Stretch };
+            var fill = new Border { MinHeight = 10 };
+            Grid.SetRow(fill, 1);
+            rows.Children.Add(new Border { Height = 20 });
+            rows.Children.Add(fill);
+            var group = new FormGroup { Theme = KitFormGroupTheme(), Title = "Presets", VerticalAlignment = VerticalAlignment.Stretch };
+            group.ItemsPanel = new Avalonia.Controls.Templates.FuncTemplate<Panel?>(() => new Panel());
+            group.Items.Add(rows);
+            fixture.Window.Content = new Grid { Height = 300, Children = { group } };
+            Dispatcher.UIThread.RunJobs();
+
+            Application.Current!.TryGetResource("Foreman.Space.Space2", Application.Current.ActualThemeVariant, out object? gap);
+            Application.Current!.TryGetResource("Foreman.Space.Space4", Application.Current.ActualThemeVariant, out object? groupGap);
+            double titleBlock = TitleText(group).Bounds.Height + Assert.IsType<double>(gap);
+            Assert.Equal(300 - Assert.IsType<double>(groupGap), group.Bounds.Height, 0.5);
+            Assert.Equal(group.Bounds.Height - titleBlock - 20, fill.Bounds.Height, 0.5);
         }
 
         [AvaloniaFact]

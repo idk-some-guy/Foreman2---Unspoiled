@@ -64,6 +64,26 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void SeveralOtherActions_AllArrangeInInsertionOrder_AndWrapWhenNarrow() {
+            using var fixture = new KitFixture();
+            Button fromSave = Btn("Load From Save…", ButtonRowRole.Other);
+            Button fromPacks = Btn("Set From Science Packs…", ButtonRowRole.Other);
+            Button enableAll = Btn("Enable All", ButtonRowRole.Other);
+            ButtonRow wide = Layout(900, fromSave, fromPacks, enableAll);
+
+            Assert.All([fromSave, fromPacks, enableAll], b => Assert.True(b.Bounds.Width > 0 && b.IsArrangeValid));
+            Assert.Equal(fromSave.Bounds.Y, enableAll.Bounds.Y);
+            Assert.True(fromSave.Bounds.Right < fromPacks.Bounds.X && fromPacks.Bounds.Right < enableAll.Bounds.X);
+
+            double oneLine = fromSave.Bounds.Width + fromPacks.Bounds.Width + enableAll.Bounds.Width;
+            Button a = Btn("Load From Save…", ButtonRowRole.Other), b = Btn("Set From Science Packs…", ButtonRowRole.Other), c = Btn("Enable All", ButtonRowRole.Other);
+            ButtonRow narrow = Layout(oneLine - 20, a, b, c);
+            Assert.All([a, b, c], x => Assert.True(x.Bounds.Width > 0 && x.Bounds.Right <= narrow.Bounds.Width + 0.5));
+            Assert.True(a.Bounds.Y < c.Bounds.Y);
+            Assert.True(narrow.Bounds.Height > wide.Bounds.Height);
+        }
+
+        [AvaloniaFact]
         public void LeadingHelper_IsLeftmost_SeparatedFromClusterByAFlexibleGap() {
             using var fixture = new KitFixture();
             Button helper = Btn("Reset to defaults", ButtonRowRole.Helper);

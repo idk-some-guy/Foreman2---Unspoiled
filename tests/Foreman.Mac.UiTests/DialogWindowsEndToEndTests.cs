@@ -150,11 +150,10 @@ namespace Foreman.Mac.UiTests {
             window.SettingsDialogStub = w => settingsWindow = w;
             window.ShowSettings();
 
-            settingsWindow!.AdvancedTabControl.LowPriorityPowerInputControl.Value = 5.5m;
-            settingsWindow.GeneralTabControl.QualityStepsInputControl.Value = 9m;
+            settingsWindow!.AdvancedTabControl.LowPriorityPowerStepperControl.Value = 5.5;
+            settingsWindow.GeneralTabControl.QualityStepsStepperControl.Value = 9;
 
-            var recipeItem = settingsWindow.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!
-                .Cast<EnabledObjectsListItem>().First(i => i.DataObject == ironPlateRecipe);
+            var recipeItem = settingsWindow.ViewModel.RecipeObjects.First(i => i.DataObject == ironPlateRecipe);
             recipeItem.IsChecked = false;
 
             //LowPriorityPower/QualitySteps land on the live graph at once (ApplyLoadedSettings); only the
@@ -269,8 +268,7 @@ namespace Foreman.Mac.UiTests {
             //which is what actually proves this rather than the (currently unseeded - see fork report)
             //Options.EnabledObjects buffer.
             IRecipe ironPlateInNewCache = window.DataCache!.Recipes["iron-plate"];
-            var recipeDataObjects = settingsWindow.EnabledObjectsTabControl.RecipeListViewControl.ItemsSource!
-                .Cast<EnabledObjectsListItem>().Select(i => i.DataObject).ToList();
+            var recipeDataObjects = settingsWindow.ViewModel.RecipeObjects.Select(i => i.DataObject).ToList();
             Assert.Contains(recipeDataObjects, o => ReferenceEquals(o, ironPlateInNewCache));
             Assert.DoesNotContain(recipeDataObjects, o => ReferenceEquals(o, vanilla.Recipes["iron-plate"]));
         }

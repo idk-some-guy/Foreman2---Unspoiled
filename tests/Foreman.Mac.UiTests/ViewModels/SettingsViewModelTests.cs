@@ -264,6 +264,28 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.DoesNotContain(copperPlate, vm.RecipeObjects);
         }
 
+        [Fact]
+        public void ShowFilterAndCategory_LimitTheVisibleListToTheChosenCategoryAndState() {
+            var on = new EnabledObjectsListItem(FakeDataObject.NewAvailable("On"), icon: null) { IsChecked = true };
+            var off = new EnabledObjectsListItem(FakeDataObject.NewAvailable("Off"), icon: null);
+            var beacon = new EnabledObjectsListItem(FakeDataObject.NewAvailable("Beacon"), icon: null);
+            var vm = new SettingsViewModel();
+            vm.LoadUnfilteredLists([], [], [], [beacon], [], [on, off], []);
+
+            Assert.Same(vm.AssemblerObjects, vm.VisibleObjects);
+            vm.EnabledObjectsCategoryIndex = 5;
+            Assert.Same(vm.RecipeObjects, vm.VisibleObjects);
+            Assert.Equal([on, off], vm.VisibleObjects);
+
+            vm.EnabledObjectsShowIndex = 1;
+            Assert.Equal([on], vm.VisibleObjects);
+            vm.EnabledObjectsShowIndex = 2;
+            Assert.Equal([off], vm.VisibleObjects);
+
+            Assert.Equal(["Assemblers (0)", "Miners (0)", "Power (0)", "Beacons (1)", "Modules (0)", "Recipes (2)", "Qualities (0)"],
+                vm.EnabledObjectsCategoryLabels);
+        }
+
         //R5 live apply: SettingChanged is the seam SettingsSession reacts through - every AppSettings-backed
         //property raises it by name.
         [Fact]
@@ -288,6 +310,8 @@ namespace Foreman.Mac.UiTests.ViewModels {
 
             vm.FilterText = "iron";
             vm.ShowUnavailablesFilterChecked = true;
+            vm.EnabledObjectsCategoryIndex = 5;
+            vm.EnabledObjectsShowIndex = 2;
 
             Assert.Empty(raised);
         }

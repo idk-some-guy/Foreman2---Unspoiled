@@ -24,6 +24,7 @@ namespace Foreman.Mac.ViewModels {
             nameof(FilterText), nameof(ShowUnavailablesFilterChecked),
             nameof(AssemblerObjects), nameof(MinerObjects), nameof(PowerObjects), nameof(BeaconObjects),
             nameof(ModuleObjects), nameof(RecipeObjects), nameof(QualityObjects),
+            nameof(EnabledObjectsCategoryIndex), nameof(EnabledObjectsShowIndex), nameof(VisibleObjects), nameof(EnabledObjectsCategoryLabels),
         ];
 
         public event Action<string>? SettingChanged;
@@ -309,6 +310,21 @@ namespace Foreman.Mac.ViewModels {
         [ObservableProperty]
         private IReadOnlyList<EnabledObjectsListItem> qualityObjects = [];
 
+        public static IReadOnlyList<string> EnabledObjectsCategoryNames { get; } = ["Assemblers", "Miners", "Power", "Beacons", "Modules", "Recipes", "Qualities"];
+
+        [ObservableProperty]
+        private int enabledObjectsCategoryIndex;
+
+        //0 All, 1 Enabled, 2 Disabled.
+        [ObservableProperty]
+        private int enabledObjectsShowIndex;
+
+        [ObservableProperty]
+        private IReadOnlyList<EnabledObjectsListItem> visibleObjects = [];
+
+        [ObservableProperty]
+        private IReadOnlyList<string> enabledObjectsCategoryLabels = [.. EnabledObjectsCategoryNames.Select(n => $"{n} (0)")];
+
         private List<EnabledObjectsListItem> unfilteredAssemblers = [];
         private List<EnabledObjectsListItem> unfilteredMiners = [];
         private List<EnabledObjectsListItem> unfilteredPower = [];
@@ -335,11 +351,17 @@ namespace Foreman.Mac.ViewModels {
             unfilteredModules = modules;
             unfilteredRecipes = recipes;
             unfilteredQualities = qualities;
+            EnabledObjectsCategoryLabels = [.. EnabledObjectsCategoryNames.Zip(UnfilteredCategories, (name, list) => $"{name} ({list.Count})")];
             RefreshFilteredLists();
         }
 
+        private IEnumerable<List<EnabledObjectsListItem>> UnfilteredCategories =>
+            [unfilteredAssemblers, unfilteredMiners, unfilteredPower, unfilteredBeacons, unfilteredModules, unfilteredRecipes, unfilteredQualities];
+
         partial void OnFilterTextChanged(string? value) => RefreshFilteredLists();
         partial void OnShowUnavailablesFilterCheckedChanged(bool value) => RefreshFilteredLists();
+        partial void OnEnabledObjectsShowIndexChanged(int value) => RefreshFilteredLists();
+        partial void OnEnabledObjectsCategoryIndexChanged(int value) => UpdateVisibleObjects();
 
         //Ports UpdateFilteredLists (reference SettingsWindow.axaml.cs): reassigns every filtered property
         //to a fresh list on every call - FRESH-LIST rule, ItemsSource reference-equality short-circuits a
@@ -352,12 +374,25 @@ namespace Foreman.Mac.ViewModels {
             ModuleObjects = FilterList(unfilteredModules);
             RecipeObjects = FilterList(unfilteredRecipes);
             QualityObjects = FilterList(unfilteredQualities);
+            UpdateVisibleObjects();
         }
+
+        private void UpdateVisibleObjects() =>
+            VisibleObjects = EnabledObjectsCategoryIndex switch {
+                1 => MinerObjects,
+                2 => PowerObjects,
+                3 => BeaconObjects,
+                4 => ModuleObjects,
+                5 => RecipeObjects,
+                6 => QualityObjects,
+                _ => AssemblerObjects,
+            };
 
         private IReadOnlyList<EnabledObjectsListItem> FilterList(List<EnabledObjectsListItem> unfiltered) {
             string filter = FilterText ?? "";
             return [.. unfiltered.Where(item =>
                 (ShowUnavailablesFilterChecked || item.DataObject.Available) &&
+                EnabledObjectsShowIndex switch { 1 => item.IsChecked, 2 => !item.IsChecked, _ => true } &&
                 (string.IsNullOrEmpty(filter) || item.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)))];
         }
     }

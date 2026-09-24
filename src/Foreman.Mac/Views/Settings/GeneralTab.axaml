@@ -1,39 +1,59 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Foreman.Mac.ViewModels"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
              x:Class="Foreman.Mac.Views.Settings.GeneralTab"
              x:DataType="vm:SettingsViewModel">
-  <ScrollViewer>
-    <StackPanel Margin="8" Spacing="10">
-      <StackPanel Spacing="4">
-        <Grid ColumnDefinitions="Auto,Auto">
-          <TextBlock Grid.Column="0" Text="Maximum Quality Steps" VerticalAlignment="Center" Margin="0,0,8,0" />
-          <NumericUpDown Name="QualityStepsInput" Grid.Column="1" Minimum="1" Maximum="20" Increment="1" FormatString="0" Width="110" Value="{Binding QualityStepsValue, Mode=TwoWay}" />
-        </Grid>
-        <CheckBox Name="ShowNodeRecipeCheckBox" Content="Show recipe tool tip" IsChecked="{Binding ShowNodeRecipeChecked, Mode=TwoWay}" />
-        <CheckBox Name="RoundAssemblerCountCheckBox" Content="Round building count" IsChecked="{Binding RoundAssemblerCountChecked, Mode=TwoWay}" />
-      </StackPanel>
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" AllowAutoHide="True">
+    <StackPanel Margin="20,18,20,20">
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="New nodes">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Default building"
+                     Note="Chooses which building a new recipe node starts with.">
+          <ctrl:PopUp Name="AssemblerSelectorStylePopUp" Theme="{StaticResource Kit.PopUp}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Default modules"
+                     Note="Fills a new node's module slots with this choice.">
+          <ctrl:PopUp Name="ModuleSelectorStylePopUp" Theme="{StaticResource Kit.PopUp}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="New nodes point"
+                     Note="Sets which way a new node faces on the canvas.">
+          <ctrl:Segmented Name="NodeDirectionSegmented" Theme="{StaticResource Kit.Segmented}"
+                          SelectedIndex="{Binding NodeDirectionIndex, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Smart direction"
+                     Note="Point a new node the way its neighbors already flow, instead of always using the default above.">
+          <ctrl:Switch Name="SmartNodeDirectionSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding SmartNodeDirectionChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Passthrough nodes"
+                     Note="Draw passthrough nodes as a thin bar rather than a full card.">
+          <ctrl:Switch Name="SimplePassthroughNodesSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding SimplePassthroughNodesChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
 
-      <StackPanel Spacing="4">
-        <TextBlock Text="Defaults" FontWeight="Bold" />
-        <Grid ColumnDefinitions="Auto,Auto">
-          <TextBlock Grid.Column="0" Text="Assemblers:" VerticalAlignment="Center" Margin="0,0,8,0" />
-          <ComboBox Name="AssemblerSelectorStyleDropDown" Grid.Column="1" Width="200" SelectedIndex="{Binding AssemblerSelectorStyleIndex, Mode=TwoWay}" />
-        </Grid>
-        <Grid ColumnDefinitions="Auto,Auto">
-          <TextBlock Grid.Column="0" Text="Modules:" VerticalAlignment="Center" Margin="0,0,8,0" />
-          <ComboBox Name="ModuleSelectorStyleDropDown" Grid.Column="1" Width="200" SelectedIndex="{Binding ModuleSelectorStyleIndex, Mode=TwoWay}" />
-        </Grid>
-        <Grid ColumnDefinitions="Auto,Auto,Auto">
-          <TextBlock Grid.Column="0" Text="Node Direction:" VerticalAlignment="Center" Margin="0,0,8,0" />
-          <ComboBox Name="NodeDirectionDropDown" Grid.Column="1" Width="140" SelectedIndex="{Binding NodeDirectionIndex, Mode=TwoWay}">
-            <ComboBoxItem Content="Up (default)" />
-            <ComboBoxItem Content="Down" />
-          </ComboBox>
-          <CheckBox Name="SmartNodeDirectionCheckBox" Grid.Column="2" Content="Smart Direction" Margin="8,0,0,0" IsChecked="{Binding SmartNodeDirectionChecked, Mode=TwoWay}" />
-        </Grid>
-        <CheckBox Name="SimplePassthroughNodesCheckBox" Content="Use simple-draw passthrough nodes as default" IsChecked="{Binding SimplePassthroughNodesChecked, Mode=TwoWay}" />
-      </StackPanel>
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Counts">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Round buildings"
+                     Note="Show whole buildings instead of fractional counts such as ×4.37.">
+          <ctrl:Switch Name="RoundAssemblerCountSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding RoundAssemblerCountChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Quality steps"
+                     Note="Plans up to this many quality upgrades for each recipe.">
+          <ctrl:Stepper Name="QualityStepsStepper" Theme="{StaticResource Kit.Stepper}"
+                        Minimum="1" Maximum="20" Increment="1" Decimals="0"
+                        Value="{Binding QualityStepsValue, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
+
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Canvas" TrailingGap="0">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Recipe tooltips"
+                     Note="Shows a node's recipe in a tooltip when the pointer rests on the node.">
+          <ctrl:Switch Name="ShowNodeRecipeSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding ShowNodeRecipeChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

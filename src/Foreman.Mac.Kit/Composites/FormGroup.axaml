@@ -14,8 +14,9 @@
     <Setter Property="Template">
       <ControlTemplate>
         <Border x:Name="PART_Frame">
-          <StackPanel x:Name="PART_Stack" Spacing="{DynamicResource Foreman.Space.Space2}">
+          <DockPanel x:Name="PART_Stack" VerticalSpacing="{DynamicResource Foreman.Space.Space2}">
             <TextBlock x:Name="PART_Title"
+                       DockPanel.Dock="Top"
                        Theme="{StaticResource Kit.Text}"
                        Text="{TemplateBinding Title}"
                        FontSize="{DynamicResource Foreman.Type.SectionHeader.FontSize}"
@@ -23,9 +24,9 @@
                        LetterSpacing="0"
                        Foreground="{DynamicResource Foreman.Color.TextSecondary}"
                        IsVisible="{TemplateBinding Title, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+            <ContentPresenter x:Name="PART_StateHost" DockPanel.Dock="Top" IsVisible="False" />
             <ItemsPresenter x:Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
-            <ContentPresenter x:Name="PART_StateHost" IsVisible="False" />
-          </StackPanel>
+          </DockPanel>
         </Border>
       </ControlTemplate>
     </Setter>

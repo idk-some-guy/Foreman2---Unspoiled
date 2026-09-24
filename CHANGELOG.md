@@ -258,6 +258,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   a "Settings panes" tab group, ⌘1 to ⌘6 do nothing while a sheet is open, and a sheet on a
   window whose root is a dock or stack panel now covers the whole window instead of collapsing to
   zero width.
+- The Presets, Enabled Objects, General, Advanced and Annotations panes use the kit form layout:
+  titled group boxes, one label column, switches for settings, and a one-sentence note saying what
+  each control does. Presets and Enabled Objects fit their window, and only their lists scroll.
+  General, Advanced and Annotations scroll as one page behind an auto-hiding scroller, open at the
+  top whenever you switch to them, and bring a row and its note fully into view when Tab reaches
+  it. Restore Defaults leaves the scroll position where it was. Presets shows Other presets and Mods in preset side by side in one box. The mods list shows a loading line while it
+  reads a preset, and a preset file that can't be read gets an inline warning with Retry in the
+  list's place instead of an alert. Enabled Objects drops its group boxes: a Category pop-up with
+  counts, a filter field, a Show filter (All, Enabled, Disabled) and a Show unavailable box sit
+  above the list with their help in tooltips, and the list takes all the extra height when the
+  window grows. Unavailable objects are dimmed, and a search that matches nothing says so, with a
+  Show All Objects button. Compare Presets… is dimmed until a second preset exists. The preset menu
+  reads Use Preset and Delete Preset. The alerts for switching to an imported preset and for an
+  unreadable save file use the new wording. Long kit lists now scroll without building every row,
+  a kit button row can hold several ordinary buttons, and a stretched kit group box gives its rows
+  the extra height.
 
 ### Fixed
 

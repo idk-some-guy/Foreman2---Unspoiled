@@ -1,30 +1,31 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Switch = Foreman.Mac.Kit.Controls.Switch;
 
 namespace Foreman.Mac.Views.Settings {
     public partial class AnnotationsTab : UserControl {
-        private readonly CheckBox errorArrowsCheckBox;
-        private readonly CheckBox warningArrowsCheckBox;
-        private readonly CheckBox disconnectedArrowsCheckBox;
-        private readonly CheckBox ouSuppliedArrowsCheckBox;
-        private readonly CheckBox flagOUSupplyNodesCheckBox;
+        private readonly Switch errorArrowsSwitch;
+        private readonly Switch warningArrowsSwitch;
+        private readonly Switch disconnectedArrowsSwitch;
+        private readonly Switch ouSuppliedArrowsSwitch;
+        private readonly Switch flagOUSupplyNodesSwitch;
 
         public AnnotationsTab() {
             InitializeComponent();
 
-            errorArrowsCheckBox = this.FindControl<CheckBox>("ErrorArrowsCheckBox")!;
-            warningArrowsCheckBox = this.FindControl<CheckBox>("WarningArrowsCheckBox")!;
-            disconnectedArrowsCheckBox = this.FindControl<CheckBox>("DisconnectedArrowsCheckBox")!;
-            ouSuppliedArrowsCheckBox = this.FindControl<CheckBox>("OUSuppliedArrowsCheckBox")!;
-            flagOUSupplyNodesCheckBox = this.FindControl<CheckBox>("FlagOUSupplyNodesCheckBox")!;
+            errorArrowsSwitch = this.FindControl<Switch>("ErrorArrowsSwitch")!;
+            warningArrowsSwitch = this.FindControl<Switch>("WarningArrowsSwitch")!;
+            disconnectedArrowsSwitch = this.FindControl<Switch>("DisconnectedArrowsSwitch")!;
+            ouSuppliedArrowsSwitch = this.FindControl<Switch>("OUSuppliedArrowsSwitch")!;
+            flagOUSupplyNodesSwitch = this.FindControl<Switch>("FlagOUSupplyNodesSwitch")!;
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        internal CheckBox ErrorArrowsCheckBoxControl => errorArrowsCheckBox;
-        internal CheckBox WarningArrowsCheckBoxControl => warningArrowsCheckBox;
-        internal CheckBox DisconnectedArrowsCheckBoxControl => disconnectedArrowsCheckBox;
-        internal CheckBox OUSuppliedArrowsCheckBoxControl => ouSuppliedArrowsCheckBox;
-        internal CheckBox FlagOUSupplyNodesCheckBoxControl => flagOUSupplyNodesCheckBox;
+        internal Switch ErrorArrowsSwitchControl => errorArrowsSwitch;
+        internal Switch WarningArrowsSwitchControl => warningArrowsSwitch;
+        internal Switch DisconnectedArrowsSwitchControl => disconnectedArrowsSwitch;
+        internal Switch OUSuppliedArrowsSwitchControl => ouSuppliedArrowsSwitch;
+        internal Switch FlagOUSupplyNodesSwitchControl => flagOUSupplyNodesSwitch;
     }
 }
