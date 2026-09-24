@@ -9,7 +9,7 @@
       <ControlTemplate>
         <kit:SheetFrame x:Name="PART_Sheet"
                          Theme="{StaticResource Kit.SheetFrame}"
-                         WidthClass="Alert"
+                         WidthClass="{TemplateBinding WidthClass}"
                          TopInset="{TemplateBinding TopInset}"
                          IsOpen="{TemplateBinding IsOpen}"
                          Buttons="{TemplateBinding Buttons}">

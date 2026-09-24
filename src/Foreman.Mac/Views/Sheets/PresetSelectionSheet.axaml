@@ -1,47 +1,27 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:sheets="using:Foreman.Mac.Views.Sheets"
-             x:Class="Foreman.Mac.Views.Sheets.PresetSelectionSheet"
-             MinHeight="300">
+             x:Class="Foreman.Mac.Views.Sheets.PresetSelectionSheet">
   <UserControl.Styles>
-    <!-- Fluent's default ListBoxItem padding/min-height reads far sparser than upstream's dense WinForms
-         rows; this tightens it back down to match the comparator/settings lists' own compact class. -->
-    <Style Selector="ListBox.compact ListBoxItem">
-      <Setter Property="Padding" Value="4,2" />
-      <Setter Property="MinHeight" Value="22" />
+    <Style Selector="ListBoxItem:selected TextBlock.preset-name">
+      <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
   </UserControl.Styles>
-  <UserControl.Resources>
-    <DataTemplate x:Key="PresetRowTemplate" x:DataType="sheets:PresetRow">
-      <Grid ColumnDefinitions="200,70,70,90" ToolTip.Tip="{Binding Tooltip}">
-        <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" />
-        <TextBlock Grid.Column="1" Text="{Binding ModsText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
-        <TextBlock Grid.Column="2" Text="{Binding ItemsText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
-        <TextBlock Grid.Column="3" Text="{Binding RecipesText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+  <StackPanel Spacing="{DynamicResource Foreman.Space.Space3}">
+    <TextBlock Theme="{StaticResource Kit.Text}" Classes="callout secondary" TextWrapping="Wrap"
+               Text="No preset matches this graph exactly; the ratings show how much of it each preset can reproduce." />
+    <StackPanel>
+      <Grid Name="HeaderRow">
+        <TextBlock Grid.Column="0" Theme="{StaticResource Kit.Text}" Classes="caption secondary" FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}"
+                   Text="Preset" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="2" Theme="{StaticResource Kit.Text}" Classes="caption secondary" FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}"
+                   Text="Mods" VerticalAlignment="Center" HorizontalAlignment="Right" />
+        <TextBlock Grid.Column="4" Theme="{StaticResource Kit.Text}" Classes="caption secondary" FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}"
+                   Text="Items" VerticalAlignment="Center" HorizontalAlignment="Right" />
+        <TextBlock Grid.Column="6" Theme="{StaticResource Kit.Text}" Classes="caption secondary" FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}"
+                   Text="Recipes" VerticalAlignment="Center" HorizontalAlignment="Right" />
       </Grid>
-    </DataTemplate>
-  </UserControl.Resources>
-  <DockPanel>
-    <TextBlock DockPanel.Dock="Top" Text="No preset was found to match the saved graph exactly." TextWrapping="Wrap" Margin="0,0,0,2" />
-    <TextBlock DockPanel.Dock="Top" Text="Please select which preset you wish to use based on the given compatibility ratings." TextWrapping="Wrap" Margin="0,0,0,8" />
-
-    <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,*" Margin="0,8,0,0">
-      <Button Name="ConfirmationButton" Grid.Column="0" Content="Load with seleted preset" HorizontalAlignment="Stretch" Margin="0,0,4,0" />
-      <Button Name="CancellingButton" Grid.Column="1" Content="Dont Load" HorizontalAlignment="Stretch" Margin="4,0,0,0" />
-    </Grid>
-
-    <Grid ColumnDefinitions="200,70,70,90" Margin="0,0,0,2">
-      <TextBlock Grid.Column="0" Text="Preset" FontWeight="Bold" />
-      <TextBlock Grid.Column="1" Text="Mods (%)" FontWeight="Bold" HorizontalAlignment="Right" />
-      <TextBlock Grid.Column="2" Text="Items (%)" FontWeight="Bold" HorizontalAlignment="Right" />
-      <TextBlock Grid.Column="3" Text="Recipes (%)" FontWeight="Bold" HorizontalAlignment="Right" />
-    </Grid>
-    <ListBox Name="PresetSelectionListView" Classes="compact" ItemTemplate="{StaticResource PresetRowTemplate}" BorderThickness="1" BorderBrush="Gray">
-      <ListBox.ItemsPanel>
-        <ItemsPanelTemplate>
-          <VirtualizingStackPanel />
-        </ItemsPanelTemplate>
-      </ListBox.ItemsPanel>
-    </ListBox>
-  </DockPanel>
+      <ListBox Name="PresetSelectionListView" Theme="{StaticResource Kit.List}" SelectionMode="Single"
+               CornerRadius="{DynamicResource Foreman.Radius.Control}" IsTextSearchEnabled="True" />
+    </StackPanel>
+  </StackPanel>
 </UserControl>

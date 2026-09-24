@@ -100,6 +100,8 @@ namespace Foreman.Mac.Kit.Composites {
         }
 
         private Grid? grid;
+        private FormRowControlPanel? controlColumn;
+        private Control? watchedContent;
         private TextBlock? label;
         private TextBlock? noteText;
         private TextBlock? noteSuffixText;
@@ -107,6 +109,7 @@ namespace Foreman.Mac.Kit.Composites {
         private double inspectorLabelWidth = 108;
         private double popoverLabelWidth = 86;
         private double gutterWidth = 12;
+        private double unitGap = 8;
         private double rowMinHeight = 22;
         private double captionFontSize = 11;
         private EventHandler<PointerPressedEventArgs>? labelPressed;
@@ -117,7 +120,7 @@ namespace Foreman.Mac.Kit.Composites {
             NoteProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyRowState(); r.ApplyAccessibility(); });
             ErrorProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyRowState(); r.ApplyAccessibility(); });
             LabelProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyAccessibility());
-            ContentProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyAccessibility(); });
+            ContentProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyAccessibility(); r.WatchContent(); });
             LabelColumnProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyLabelColumnWidth());
             NoteIsValueProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
             ErrorIsWarningProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
@@ -131,6 +134,7 @@ namespace Foreman.Mac.Kit.Composites {
                 label.PointerPressed -= labelPressed;
 
             grid = e.NameScope.Find<Grid>("PART_Grid");
+            controlColumn = e.NameScope.Find<FormRowControlPanel>("PART_ControlColumn");
             label = e.NameScope.Find<TextBlock>("PART_Label");
             noteText = e.NameScope.Find<TextBlock>("PART_Note");
             noteSuffixText = e.NameScope.Find<TextBlock>("PART_NoteSuffix");
@@ -142,6 +146,8 @@ namespace Foreman.Mac.Kit.Composites {
 
             ApplyLabelColumnWidth();
             ApplyGutterWidth();
+            ApplyUnitGap();
+            ApplyControlStretch();
             ApplyRowMinHeight();
             ApplyRowState();
             ApplyNoteLineHeight();
@@ -152,12 +158,41 @@ namespace Foreman.Mac.Kit.Composites {
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnAttachedToVisualTree(e);
             Subscribe();
+            WatchContent();
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
             CompositeMotion.ClearExplicitHeight(this, ref reflowCancellation);
             Unsubscribe();
+            UnwatchContent();
+        }
+
+        //A control that stretches (Stretch alignment, no explicit Width) fills the column to the trailing inset; any other keeps its own width.
+        private void WatchContent() {
+            UnwatchContent();
+            if (Content is Control content && this.IsAttachedToVisualTree()) {
+                watchedContent = content;
+                content.PropertyChanged += OnContentPropertyChanged;
+            }
+            ApplyControlStretch();
+        }
+
+        private void UnwatchContent() {
+            if (watchedContent is not null)
+                watchedContent.PropertyChanged -= OnContentPropertyChanged;
+            watchedContent = null;
+        }
+
+        private void OnContentPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e) {
+            if (e.Property == HorizontalAlignmentProperty || e.Property == WidthProperty)
+                ApplyControlStretch();
+        }
+
+        private void ApplyControlStretch() {
+            if (controlColumn is null)
+                return;
+            controlColumn.Fill = Content is Control content && content.HorizontalAlignment == Avalonia.Layout.HorizontalAlignment.Stretch && double.IsNaN(content.Width);
         }
 
         protected override Size MeasureOverride(Size availableSize) {
@@ -198,6 +233,10 @@ namespace Foreman.Mac.Kit.Composites {
                 gutterWidth = v;
                 ApplyGutterWidth();
             }, gutterWidth)));
+            subs.Add(this.GetResourceObservable("Foreman.Space.Space2").Subscribe(new ResourceSinks.DoubleSink(v => {
+                unitGap = v;
+                ApplyUnitGap();
+            }, unitGap)));
             subs.Add(this.GetResourceObservable("Foreman.Size.ControlHeightRegular").Subscribe(new ResourceSinks.DoubleSink(v => {
                 rowMinHeight = v;
                 ApplyRowMinHeight();
@@ -228,6 +267,11 @@ namespace Foreman.Mac.Kit.Composites {
             if (grid is null)
                 return;
             grid.ColumnDefinitions[1].Width = new GridLength(gutterWidth);
+        }
+
+        private void ApplyUnitGap() {
+            if (controlColumn is not null)
+                controlColumn.Gap = unitGap;
         }
 
         private void ApplyRowMinHeight() {

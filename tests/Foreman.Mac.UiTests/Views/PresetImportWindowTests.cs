@@ -1,29 +1,32 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Avalonia.Media;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
-using Foreman.Mac.Services;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Sheets;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Covers PresetImportSheet's own wiring (io-reference.md §4, upstream PresetImportForm, moved onto
-    //SheetHost by C2c Task 2): pre-flight validation, live name-color states, Cancel, and the hand-off into
-    //PresetImporter.ProcessPreset (which is exercised for real against StubFactorioHarness in ForemanTest,
-    //not here - see SaveFileLoadWindowTests for the established "this sheet's tests never touch a real
-    //factorio process" convention).
+    //Covers PresetImportSheet's own wiring (io-reference.md §4): the live name checks, the pre-flight problems
+    //as row errors, Cancel, the failure strip, and the hand-off into PresetImporter.ProcessPreset (run for real
+    //against StubFactorioHarness in ForemanTest, never here).
     [UnsupportedOSPlatform("windows")]
     public class PresetImportWindowTests {
+        private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+
         private static string NewTempDir() {
             string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             Directory.CreateDirectory(dir);
@@ -46,33 +49,53 @@ namespace Foreman.Mac.UiTests.Views {
 
         //---- live name validation (reference §4 step 8) ---------------------------------------------------
 
-        private static Color BackgroundColorOf(TextBox textBox) => Assert.IsAssignableFrom<ISolidColorBrush>(textBox.Background).Color;
+        private const string NameRule = "5–40 characters: letters, numbers, spaces, and ( ) . - _";
+        private const string BuiltInName = "“Factorio 2.0 Vanilla” is built in and can’t be replaced. Choose another name.";
 
         [AvaloniaFact]
-        public void PresetNameTextBox_FewerThanFiveChars_IsWarningSoft() {
+        public void PresetName_FewerThanFiveChars_TurnsTheRuleNoteToAWarning_UntilTheNameIsUsable() {
             var sheet = new PresetImportSheet([]);
 
             sheet.PresetNameTextBoxControl.Text = "Ab1";
 
-            Assert.Equal(ThemeResources.ResolveColor("Foreman.Color.WarningSoft", default), BackgroundColorOf(sheet.PresetNameTextBoxControl));
+            Assert.True(string.IsNullOrEmpty(sheet.PresetNameRowControl.Error));
+            Assert.Equal(NameRule, sheet.PresetNameRowControl.Note);
+            Assert.True(sheet.PresetNameRowControl.NoteIsWarning);
+
+            sheet.PresetNameTextBoxControl.Text = "Ab1 My Preset";
+
+            Assert.False(sheet.PresetNameRowControl.NoteIsWarning);
         }
 
         [AvaloniaFact]
-        public void PresetNameTextBox_UniqueValidName_IsSuccessSoft() {
+        public void PresetName_UniqueValidName_ShowsOnlyTheRule() {
             var sheet = new PresetImportSheet([]);
 
             sheet.PresetNameTextBoxControl.Text = "My New Preset";
 
-            Assert.Equal(ThemeResources.ResolveColor("Foreman.Color.SuccessSoft", default), BackgroundColorOf(sheet.PresetNameTextBoxControl));
+            Assert.True(string.IsNullOrEmpty(sheet.PresetNameRowControl.Error));
+            Assert.Equal(NameRule, sheet.PresetNameRowControl.Note);
         }
 
         [AvaloniaFact]
-        public void PresetNameTextBox_CollidesWithExistingPreset_IsErrorSoft() {
+        public void PresetName_CollidesWithExistingPreset_WarnsThatImportReplacesIt_AndImportStaysEnabled() {
             var sheet = new PresetImportSheet([new Preset("Taken Name", false, false)]);
 
             sheet.PresetNameTextBoxControl.Text = "taken name"; //case-insensitive collision
 
-            Assert.Equal(ThemeResources.ResolveColor("Foreman.Color.ErrorSoft", default), BackgroundColorOf(sheet.PresetNameTextBoxControl));
+            Assert.Equal("This name is in use. Importing replaces that preset.", sheet.PresetNameRowControl.Error);
+            Assert.True(sheet.PresetNameRowControl.ErrorIsWarning);
+            Assert.True(sheet.OKButtonControl.IsEnabled);
+        }
+
+        [AvaloniaFact]
+        public void PresetName_TheBuiltInPreset_IsARowError() {
+            var sheet = new PresetImportSheet([]);
+
+            sheet.PresetNameTextBoxControl.Text = "factorio 2.0 vanilla";
+
+            Assert.Equal(BuiltInName, sheet.PresetNameRowControl.Error);
+            Assert.False(sheet.PresetNameRowControl.ErrorIsWarning);
         }
 
         [AvaloniaFact]
@@ -93,7 +116,7 @@ namespace Foreman.Mac.UiTests.Views {
             var sheet = new PresetImportSheet([], candidates);
 
             Assert.True(sheet.FactorioLocationComboBoxControl.IsVisible);
-            Assert.Equal(candidates, sheet.FactorioLocationComboBoxControl.ItemsSource);
+            Assert.Equal(candidates, sheet.FactorioLocationComboBoxControl.Items);
         }
 
         [AvaloniaFact]
@@ -136,100 +159,148 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(false, sheet.DialogResultValue);
         }
 
-        //---- pre-flight validation matrix (reference §4 steps 1-7) ------------------------------------------
+        //---- pre-flight problems are row errors with focus on the field, never an alert (reference §4 steps 1-7) ----
+
+        private static FormRow RowLabelled(PresetImportSheet sheet, string label) =>
+            sheet.GetVisualDescendants().OfType<FormRow>().Single(r => r.Label == label);
+
+        private static (PresetImportSheet Sheet, SheetHost Host) Presented(List<Preset>? existing = null) {
+            var sheet = new PresetImportSheet(existing ?? [], []);
+            (_, SheetHost host, _) = SheetFixture.Present(sheet);
+            return (sheet, host);
+        }
 
         [AvaloniaFact]
-        public async Task RunImportAsync_FactorioLocationDoesNotExist_ShowsVerbatimMessage() {
-            var sheet = new PresetImportSheet([]);
+        public async Task RunImportAsync_FactorioLocationDoesNotExist_IsTheInstallRowError() {
+            (PresetImportSheet sheet, SheetHost host) = Presented();
             sheet.FactorioLocationTextBoxControl.Text = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             sheet.PresetNameTextBoxControl.Text = "Valid Name Here";
-            string? captured = null;
-            sheet.WarningDialogStub = (_, m) => { captured = m; return Task.CompletedTask; };
 
-            await sheet.RunImportAsync();
+            await sheet.RunImportAsync().WaitAsync(Timeout);
 
-            Assert.Equal("That directory doesn't seem to exist", captured);
+            SheetFixture.AssertNoAlert(host);
+            Assert.Equal("This folder doesn’t exist. Check the path, or click Browse… to choose it.", RowLabelled(sheet, "Factorio install").Error);
+            Assert.True(sheet.FactorioLocationTextBoxControl.IsFocused);
+            Assert.False(sheet.ImportStarted);
         }
 
         [AvaloniaFact]
-        public async Task RunImportAsync_NameTooShort_ShowsVerbatimMessage() {
-            var sheet = new PresetImportSheet([]);
+        public async Task RunImportAsync_NameTooShort_IsTheNameRowError_AndFocusesTheName() {
+            (PresetImportSheet sheet, SheetHost host) = Presented();
             sheet.FactorioLocationTextBoxControl.Text = NewTempDir();
             sheet.PresetNameTextBoxControl.Text = "Ab1";
-            string? captured = null;
-            sheet.WarningDialogStub = (_, m) => { captured = m; return Task.CompletedTask; };
 
-            await sheet.RunImportAsync();
+            await sheet.RunImportAsync().WaitAsync(Timeout);
 
-            Assert.Equal("Preset name has to be longer than 5!", captured);
+            SheetFixture.AssertNoAlert(host);
+            Assert.Equal("Preset names need at least 5 characters.", sheet.PresetNameRowControl.Error);
+            Assert.False(sheet.PresetNameRowControl.ErrorIsWarning);
+            Assert.True(sheet.PresetNameTextBoxControl.IsFocused);
         }
 
         [AvaloniaFact]
-        public async Task RunImportAsync_DefaultPresetName_ShowsVerbatimMessage() {
-            var sheet = new PresetImportSheet([]);
+        public async Task RunImportAsync_DefaultPresetName_IsTheBuiltInRowError_AndFocusesTheName() {
+            (PresetImportSheet sheet, SheetHost host) = Presented();
             sheet.FactorioLocationTextBoxControl.Text = NewTempDir();
             sheet.PresetNameTextBoxControl.Text = "Factorio 2.0 Vanilla";
-            string? captured = null;
-            sheet.WarningDialogStub = (_, m) => { captured = m; return Task.CompletedTask; };
 
-            await sheet.RunImportAsync();
+            await sheet.RunImportAsync().WaitAsync(Timeout);
 
-            Assert.Equal("Cant overwrite default preset!", captured);
+            SheetFixture.AssertNoAlert(host);
+            Assert.Equal(BuiltInName, sheet.PresetNameRowControl.Error);
+            Assert.True(sheet.PresetNameTextBoxControl.IsFocused);
+            Assert.False(sheet.ImportStarted);
         }
 
         [AvaloniaFact]
         public async Task RunImportAsync_ExistingNameDeclinedOverwrite_StopsWithoutFurtherMessages() {
-            var sheet = new PresetImportSheet([new Preset("Existing Preset", false, false)]);
+            (PresetImportSheet sheet, SheetHost host) = Presented([new Preset("Existing Preset", false, false)]);
             sheet.FactorioLocationTextBoxControl.Text = NewTempDir();
             sheet.PresetNameTextBoxControl.Text = "Existing Preset";
-            bool warned = false;
-            sheet.WarningDialogStub = (_, _) => { warned = true; return Task.CompletedTask; };
-            sheet.ConfirmDialogStub = (_, _) => Task.FromResult(false);
+            string? title = null;
+            string? message = null;
+            sheet.ConfirmDialogStub = (t, m) => { title = t; message = m; return Task.FromResult(false); };
 
-            await sheet.RunImportAsync();
+            await sheet.RunImportAsync().WaitAsync(Timeout);
 
-            Assert.False(warned);
+            SheetFixture.AssertNoAlert(host);
+            Assert.Equal("Replace the preset “Existing Preset”?", title);
+            Assert.Equal("A preset with this name already exists. Importing replaces its items, recipes, and icons. You can’t undo this action.", message);
             Assert.Null(sheet.DialogResultValue);
         }
 
         [AvaloniaFact]
-        public async Task RunImportAsync_FactorioExecutableNotFound_ShowsAdaptedVerbatimMessage() {
-            var sheet = new PresetImportSheet([]);
+        public async Task RunImportAsync_FactorioExecutableNotFound_IsTheInstallRowError() {
+            (PresetImportSheet sheet, SheetHost host) = Presented();
             sheet.FactorioLocationTextBoxControl.Text = NewTempDir(); //exists, but no factorio inside
             sheet.PresetNameTextBoxControl.Text = "Valid Name Here";
-            string? captured = null;
-            sheet.WarningDialogStub = (_, m) => { captured = m; return Task.CompletedTask; };
 
-            await sheet.RunImportAsync();
+            await sheet.RunImportAsync().WaitAsync(Timeout);
 
-            Assert.Equal("Couldnt find factorio (Contents/MacOS/factorio) - please select a valid Factorio install location", captured);
+            SheetFixture.AssertNoAlert(host);
+            Assert.Equal("This folder doesn’t contain Factorio. Choose the folder that holds factorio.app.", RowLabelled(sheet, "Factorio install").Error);
+            Assert.True(sheet.FactorioLocationTextBoxControl.IsFocused);
         }
 
         [AvaloniaFact]
-        public async Task RunImportAsync_FactorioVersionTooOld_ShowsTheValidatorMessage() {
-            var sheet = new PresetImportSheet([]);
+        public async Task RunImportAsync_FactorioVersionTooOld_IsTheInstallRowError() {
+            (PresetImportSheet sheet, SheetHost host) = Presented();
             sheet.FactorioLocationTextBoxControl.Text = NewValidatingFactorioInstall("1.1.0");
             sheet.PresetNameTextBoxControl.Text = "Valid Name Here";
-            string? captured = null;
-            sheet.WarningDialogStub = (_, m) => { captured = m; return Task.CompletedTask; };
 
-            await sheet.RunImportAsync();
+            await sheet.RunImportAsync().WaitAsync(Timeout);
 
-            Assert.Contains("Factorio Version below 2.0", captured);
+            SheetFixture.AssertNoAlert(host);
+            Assert.Equal("Factorio 1.1.0 is too old for this Foreman. Use Factorio 2.0.7 or later.", RowLabelled(sheet, "Factorio install").Error);
         }
 
         [AvaloniaFact]
-        public async Task RunImportAsync_ModsFolderCannotBeAutoLocated_ShowsVerbatimMessage() {
-            var sheet = new PresetImportSheet([]) { HomeOverride = NewTempDir() };
+        public async Task RunImportAsync_FactorioVersionTooNew_IsTheInstallRowError() {
+            (PresetImportSheet sheet, SheetHost host) = Presented();
+            sheet.FactorioLocationTextBoxControl.Text = NewValidatingFactorioInstall("3.0.1");
+            sheet.PresetNameTextBoxControl.Text = "Valid Name Here";
+
+            await sheet.RunImportAsync().WaitAsync(Timeout);
+
+            SheetFixture.AssertNoAlert(host);
+            Assert.Equal("Factorio 3.0.1 is newer than this Foreman supports. Check for a Foreman update.", RowLabelled(sheet, "Factorio install").Error);
+        }
+
+        [AvaloniaFact]
+        public async Task RunImportAsync_ModsFolderCannotBeAutoLocated_IsTheModsRowError() {
+            var sheet = new PresetImportSheet([], []) { HomeOverride = NewTempDir() };
+            (_, SheetHost host, _) = SheetFixture.Present(sheet);
             sheet.FactorioLocationTextBoxControl.Text = NewValidatingFactorioInstall();
             sheet.PresetNameTextBoxControl.Text = "Valid Name Here";
             //no config-path.cfg, no default mac user-data folder under this fake home - auto-detect fails.
-            string? captured = null;
-            sheet.WarningDialogStub = (_, m) => { captured = m; return Task.CompletedTask; };
 
-            await sheet.RunImportAsync();
+            await sheet.RunImportAsync().WaitAsync(Timeout);
 
-            Assert.Equal("Couldnt auto-locate the mods folder - please manually locate the folder", captured);
+            SheetFixture.AssertNoAlert(host);
+            Assert.Equal("Foreman couldn’t find your mods folder. Click Browse… to choose it.", RowLabelled(sheet, "Mods folder").Error);
+            Assert.True(sheet.ModsLocationTextBoxControl.IsFocused);
+            Assert.Null(RowLabelled(sheet, "Factorio install").Error);
+        }
+
+        [AvaloniaFact]
+        public async Task Browse_NotAFactorioOrModsFolder_IsThatRowsError_AndAGoodPickClearsIt() {
+            (PresetImportSheet sheet, SheetHost host) = Presented();
+            string plain = NewTempDir();
+            sheet.BrowseFactorioLocationStub = () => Task.FromResult<string?>(plain);
+            sheet.BrowseModsLocationStub = () => Task.FromResult<string?>(plain);
+
+            await sheet.BrowseFactorioLocationAsync().WaitAsync(Timeout);
+            await sheet.BrowseModsLocationAsync().WaitAsync(Timeout);
+
+            SheetFixture.AssertNoAlert(host);
+            Assert.Equal("This folder doesn’t contain Factorio. Choose the folder that holds factorio.app.", RowLabelled(sheet, "Factorio install").Error);
+            Assert.Equal("This isn’t a Factorio mods folder. Choose the folder that holds mod-list.json.", RowLabelled(sheet, "Mods folder").Error);
+
+            string mods = WriteModsFolder();
+            sheet.BrowseModsLocationStub = () => Task.FromResult<string?>(mods);
+            await sheet.BrowseModsLocationAsync().WaitAsync(Timeout);
+            Assert.Null(RowLabelled(sheet, "Mods folder").Error);
+            Assert.Equal(mods, sheet.ModsLocationTextBoxControl.Text);
         }
 
         //---- pipeline hand-off (ProcessPresetStub bypasses the real Factorio process entirely) -------------
@@ -243,7 +314,7 @@ namespace Foreman.Mac.UiTests.Views {
             sheet.ProcessPresetStub = (_, _, _, name, _, _, _, _) =>
                 Task.FromResult(new PresetImporter.Result { Outcome = PresetImportOutcome.Ok, NewPresetName = name });
 
-            await sheet.RunImportAsync();
+            await sheet.RunImportAsync().WaitAsync(Timeout);
 
             Assert.Equal(true, sheet.DialogResultValue);
             Assert.Equal("Valid Name Here", sheet.NewPresetName);
@@ -251,22 +322,103 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public async Task RunImportAsync_PipelineFails_ShowsWarningAndReEnablesTheForm() {
+        public async Task PresetImport_Failure_ShowsTheStatePanelError_AndKeepsThePrimaryEnabled() {
+            var reported = new TaskCompletionSource();
+            var pipelineGate = new TaskCompletionSource();
             var sheet = new PresetImportSheet([]);
+            (_, SheetHost host, Task<bool?> result) = SheetFixture.Present(sheet);
             sheet.FactorioLocationTextBoxControl.Text = NewValidatingFactorioInstall();
             sheet.ModsLocationTextBoxControl.Text = WriteModsFolder();
             sheet.PresetNameTextBoxControl.Text = "Valid Name Here";
-            sheet.ProcessPresetStub = (_, _, _, _, _, _, _, _) =>
-                Task.FromResult(new PresetImporter.Result { Outcome = PresetImportOutcome.Failed, WarningMessage = "boom" });
-            string? captured = null;
-            sheet.WarningDialogStub = (_, m) => { captured = m; return Task.CompletedTask; };
+            sheet.ProcessPresetStub = async (_, _, _, _, _, progress, _, _) => {
+                progress.Report(new(20, "Running Factorio - foreman export scripts."));
+                reported.TrySetResult();
+                await pipelineGate.Task;
+                return new PresetImporter.Result {
+                    Outcome = PresetImportOutcome.Failed,
+                    Failure = FactorioRunFailure.AnotherInstanceRunning,
+                    WarningMessage = "Foreman export could not be completed because this instance of Factorio is currently running.",
+                };
+            };
 
-            await sheet.RunImportAsync();
+            Task run = sheet.RunImportAsync();
+            await reported.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            AnimationClock.Settle(500);
+            StatePanel loading = SheetFixture.StripOf(host);
+            Assert.Equal(StatePanelShape.Loading, loading.Shape);
+            Assert.Equal("Importing “Valid Name Here” — running Factorio - foreman export scripts.", loading.Sentence);
+            Assert.Equal(0.2, loading.Progress!.Value, 3);
+            Assert.False(sheet.OKButtonControl.IsEnabled);
+            Assert.True(sheet.CancelButtonControl.IsEffectivelyEnabled);
+            Assert.False(sheet.PresetNameTextBoxControl.IsEffectivelyEnabled);
 
-            Assert.Equal("boom", captured);
+            pipelineGate.TrySetResult();
+            await run;
+            AnimationClock.Settle();
+
+            Assert.False(result.IsCompleted);
+            StatePanel strip = SheetFixture.StripOf(host);
+            Assert.Equal(StatePanelShape.Error, strip.Shape);
+            SheetFixture.AssertNoAlert(host);
+            Assert.Equal("Couldn’t import “Valid Name Here”. Factorio is already running. Quit Factorio, then try again.", strip.Sentence);
+            Assert.Equal("Try Again", sheet.OKButtonControl.Content);
+            Assert.True(sheet.OKButtonControl.IsEffectivelyEnabled);
+            Assert.True(sheet.CancelButtonControl.IsEffectivelyEnabled);
+            Assert.True(sheet.ShowLogButtonControl.IsEffectivelyVisible);
+            Assert.Equal(ButtonRowRole.Helper, ButtonRow.GetRole(sheet.ShowLogButtonControl));
+            Assert.True(sheet.PresetNameTextBoxControl.IsEffectivelyEnabled);
+            Assert.True(sheet.FactorioLocationTextBoxControl.IsEffectivelyVisible);
             Assert.Null(sheet.DialogResultValue);
-            Assert.False(sheet.ProgressPanelVisible);
             Assert.Equal("", sheet.NewPresetName);
+
+            sheet.ProcessPresetStub = (_, _, _, name, _, _, _, _) =>
+                Task.FromResult(new PresetImporter.Result { Outcome = PresetImportOutcome.Ok, NewPresetName = name });
+            sheet.OKButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.True(await result);
+            Assert.False(sheet.ShowLogButtonControl.IsVisible);
+        }
+
+        [AvaloniaFact]
+        public async Task PresetImport_UnmappedFailure_PointsAtTheLog_AndShowLogOpensIt() {
+            var sheet = new PresetImportSheet([], []);
+            (Window window, SheetHost host, Task<bool?> result) = SheetFixture.Present(sheet);
+            sheet.FactorioLocationTextBoxControl.Text = NewValidatingFactorioInstall();
+            sheet.ModsLocationTextBoxControl.Text = WriteModsFolder();
+            sheet.PresetNameTextBoxControl.Text = "Valid Name Here";
+            sheet.ProcessPresetStub = (_, _, _, _, _, _, _, _) => Task.FromResult(new PresetImporter.Result {
+                Outcome = PresetImportOutcome.Failed,
+                Failure = FactorioRunFailure.Unmapped,
+                WarningMessage = "Factorio crashed while doing something new.\n\nIt went badly.",
+            });
+            int logOpened = 0;
+            sheet.ShowLogStub = () => { logOpened++; return Task.CompletedTask; };
+
+            await sheet.RunImportAsync().WaitAsync(Timeout);
+            AnimationClock.Settle();
+
+            StatePanel strip = SheetFixture.StripOf(host);
+            Assert.Equal("Couldn’t import “Valid Name Here”. The details are in Foreman’s log.", strip.Sentence);
+            Assert.DoesNotContain(" — factorio", strip.Sentence!);
+            Assert.True(sheet.ShowLogButtonControl.IsEffectivelyVisible);
+            SheetFixture.Click(window, sheet.ShowLogButtonControl);
+            Assert.Equal(1, logOpened);
+            Assert.False(result.IsCompleted);
+        }
+
+        [Fact]
+        public void FailureReasons_AreOneSentenceOfAtMost110Characters_InTheSheetsCopyStyle() {
+            foreach (FactorioRunFailure failure in Enum.GetValues<FactorioRunFailure>()) {
+                foreach (FactorioCrashPhase phase in Enum.GetValues<FactorioCrashPhase>()) {
+                    string reason = FailureSentences.Reason(failure, phase, new FactorioInstallCheck(FactorioInstallProblem.TooNew, "3.10.100"));
+                    Assert.InRange(reason.Length, 1, 110);
+                    Assert.EndsWith(".", reason);
+                    Assert.DoesNotContain("!", reason);
+                    Assert.DoesNotContain("'", reason);
+                    Assert.DoesNotContain(" — ", reason);
+                }
+            }
+            Assert.Equal("Factorio crashed while running the preset export scripts. A mod is the usual cause; see factorio-current.log.",
+                FailureSentences.Reason(FactorioRunFailure.Crashed, FactorioCrashPhase.RunningExportScripts, null));
         }
 
         [AvaloniaFact]
@@ -277,11 +429,11 @@ namespace Foreman.Mac.UiTests.Views {
             sheet.PresetNameTextBoxControl.Text = "Valid Name Here";
             sheet.ProcessPresetStub = (_, _, _, _, _, _, _, _) =>
                 Task.FromResult(new PresetImporter.Result { Outcome = PresetImportOutcome.Cancel });
-            sheet.WarningDialogStub = (_, _) => throw new InvalidOperationException("should not warn on Cancel");
 
-            await sheet.RunImportAsync();
+            await sheet.RunImportAsync().WaitAsync(Timeout);
 
             Assert.Null(sheet.DialogResultValue);
+            Assert.Null(sheet.Activity);
         }
 
         private static string WriteModsFolder() {
@@ -290,46 +442,33 @@ namespace Foreman.Mac.UiTests.Views {
             return dir;
         }
 
-        //---- SheetHost contract (C2c Task 2): width from the sheets table, Enter maps to the former Import
-        //(OK/AcceptButton) result. Escape resolves through SheetContent<T>'s own (non-virtual) Cancel(), not
-        //through this sheet's CancelImport() - see the task report for that gap versus the Cancel button,
-        //which still runs the full cts.Cancel()/DialogResultValue/NewPresetName bookkeeping. -----------------
+        //---- the kit sheet: the wide width, the three window-column rows, notes inside the sheet, Escape cancels the run ----
 
         [AvaloniaFact]
-        public void SheetWidth_Is460() {
-            var sheet = new PresetImportSheet([]);
+        public void PresetImport_Width_IsTheNamedSheetWidth() {
+            var sheet = new PresetImportSheet([], []);
+            (_, SheetHost host, _) = SheetFixture.Present(sheet);
 
-            Assert.Equal(460, sheet.SheetWidth);
+            Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthWide"), SheetFixture.PanelOf(host, sheet).Bounds.Width, 0.5);
+            Assert.Equal("Import a preset", SheetFixture.FrameOf(host, sheet).Title);
+            Assert.Equal(["Show Log…", "Cancel", "Import"], sheet.Buttons!.Items.Cast<Button>().Select(b => b.Content));
+            Assert.False(sheet.ShowLogButtonControl.IsVisible);
+            FormRow[] rows = [.. sheet.GetVisualDescendants().OfType<FormRow>()];
+            Assert.Equal(["Factorio install", "Preset name", "Mods folder"], rows.Select(r => r.Label));
+            Assert.All(rows, r => Assert.Equal(FormRowLabelColumn.Window, r.LabelColumn));
+            Assert.All(sheet.GetVisualDescendants().OfType<TextBlock>(), t => Assert.DoesNotContain("!", t.Text ?? ""));
+            Assert.Equal("Language, mods, and mod settings come from Factorio. Change them there before importing.", rows[0].Note);
+            Assert.Equal(NameRule, rows[1].Note);
+            Assert.Equal("Leave blank to detect it automatically.", rows[2].Note);
+            Border panel = SheetFixture.PanelOf(host, sheet);
+            double contentRight = sheet.TranslatePoint(new Avalonia.Point(sheet.Bounds.Width, 0), panel)!.Value.X;
+            foreach (FormRow row in rows) {
+                TextBlock note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+                Assert.True(note.TranslatePoint(new Avalonia.Point(note.Bounds.Width, 0), panel)!.Value.X <= contentRight + 0.5, row.Label);
+            }
         }
 
-        [AvaloniaFact]
-        public async Task Enter_TriggersImport_AndEscape_ResolvesWithNoOutcome() {
-            var window = new Window { Width = 900, Height = 700 };
-            window.Show();
-            SheetHost host = SheetHost.For(window);
-
-            var sheet1 = new PresetImportSheet([]);
-            sheet1.FactorioLocationTextBoxControl.Text = NewValidatingFactorioInstall();
-            sheet1.ModsLocationTextBoxControl.Text = WriteModsFolder();
-            sheet1.PresetNameTextBoxControl.Text = "Valid Name Here";
-            sheet1.ProcessPresetStub = (_, _, _, name, _, _, _, _) =>
-                Task.FromResult(new PresetImporter.Result { Outcome = PresetImportOutcome.Ok, NewPresetName = name });
-            Task<bool?> task1 = host.ShowAsync(sheet1);
-            Dispatcher.UIThread.RunJobs();
-            CanvasKeys.KeyDownOn(sheet1.PresetNameTextBoxControl, Key.Enter);
-            Assert.True(await task1);
-            AnimationClock.Settle();
-
-            var sheet2 = new PresetImportSheet([]);
-            Task<bool?> task2 = host.ShowAsync(sheet2);
-            Dispatcher.UIThread.RunJobs();
-            CanvasKeys.KeyDownOn(sheet2.PresetNameTextBoxControl, Key.Escape);
-            Assert.Null(await task2);
-        }
-
-        //Fix round 1, item 1: SheetHost's Escape handling calls the exact same (now virtual) Cancel() the
-        //Cancel button calls, so a real Escape keypress on a presented sheet must cancel the in-flight
-        //import pipeline's token too, not just resolve the Task.
+        //Escape and the Cancel button share Cancel(), so Escape cancels the in-flight pipeline's token too.
         [AvaloniaFact]
         public async Task Escape_WhilePipelineInFlight_CancelsTheTokenAndDisposesTheSheet() {
             var pipelineStarted = new SemaphoreSlim(0, 1);
@@ -363,9 +502,7 @@ namespace Foreman.Mac.UiTests.Views {
             pipelineGate.TrySetResult(); //let the still-awaiting background pipeline finish so nothing leaks past the test.
         }
 
-        //Carry-over from C2c Task 2 review: a pipeline result landing after Cancel already disposed the
-        //sheet used to overwrite NewPresetName/DialogResultValue with the late outcome anyway (mirrors the
-        //completed-guard SaveFileLoadSheet.RunAsync already has).
+        //A pipeline result landing after Cancel disposed the sheet must not overwrite the cancelled state.
         [AvaloniaFact]
         public async Task RunImportAsync_LateResultAfterCancel_DoesNotOverwriteCancelledState() {
             var pipelineStarted = new SemaphoreSlim(0, 1);
@@ -404,6 +541,7 @@ namespace Foreman.Mac.UiTests.Views {
             var sheet = new PresetImportSheet([]);
 
             Assert.Same(sheet.OKButtonControl, sheet.DefaultButton);
+            Assert.Same(sheet.OKButtonControl, sheet.Buttons!.ResolveDefaultButton());
         }
     }
 }

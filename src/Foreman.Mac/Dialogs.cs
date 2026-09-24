@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Views.Sheets;
 using System.IO;
 using System.Threading.Tasks;
@@ -25,8 +26,9 @@ namespace Foreman.Mac {
 
         //Minimal UserMessages.Show(..., MessageBoxButtons.YesNo) substitution - WinForms' MessageBoxButtons
         //enum has no Avalonia equivalent, so this is its own small dialog rather than a MessageDialog flag.
-        public static async Task<bool> ShowConfirmAsync(Window owner, string title, string message) {
-            ConfirmChoice choice = await SheetHost.For(owner).ShowStackedAsync(new AlertSheet(title, message, AlertButtons.YesNo)).ConfigureAwait(true);
+        //With a verb the buttons read Cancel · verb, the verb the default; a long message takes the Standard width.
+        public static async Task<bool> ShowConfirmAsync(Window owner, string title, string message, string? verb = null, SheetWidthClass width = SheetWidthClass.Alert) {
+            ConfirmChoice choice = await SheetHost.For(owner).ShowStackedAsync(new AlertSheet(title, message, AlertButtons.YesNo, verb, width)).ConfigureAwait(true);
             return choice == ConfirmChoice.Yes;
         }
 

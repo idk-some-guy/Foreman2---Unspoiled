@@ -1,13 +1,15 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Sheets;
@@ -20,11 +22,10 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Covers io-reference.md §6's SciencePacksLoadForm contract (phase 6 Task 6, moved onto SheetHost by C2c
-    //Task 2): the 48px pack grid (MaxColumns 14 row/column balancing), the prerequisite cascade in both
-    //directions including upstream's own documented OR-as-AND imprecision (ported as-is, docs/upstream-
-    //divergences.md), and Confirm's subset rule against the shared EnabledObjectsDerivation helper (reused
-    //from SaveFileLoadSheet's ProcessSaveData, not re-implemented).
+    //Covers the science-packs sheet (io-reference.md §6): the Kit.ChooserCell pack grid, the prerequisite
+    //cascade in both directions including upstream's documented OR-as-AND imprecision (ported as-is,
+    //docs/upstream-divergences.md), Confirm's subset rule through the shared EnabledObjectsDerivation, and the
+    //pane's own scrolling.
     public class SciencePacksWindowTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private static readonly SemaphoreSlim CacheGate = new(1, 1);
@@ -67,7 +68,7 @@ namespace Foreman.Mac.UiTests.Views {
         //Real click through the actual input pipeline (MouseDown/MouseUp at the button's own screen point
         //on the owner window), not a direct handler call.
         private static void ClickPack(SciencePacksSheet sheet, Window window, IItem pack) {
-            Button button = sheet.PackButtonFor(pack)!;
+            ChooserCell button = sheet.PackButtonFor(pack)!;
             Point screen = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
             window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
             window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
@@ -82,36 +83,20 @@ namespace Foreman.Mac.UiTests.Views {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //---- grid row/column balancing (reference §6, SciencePacksLoadForm.cs:36-45) ---------------------
-
-        [Theory]
-        [InlineData(7, 1, 7)]
-        [InlineData(14, 1, 14)]
-        [InlineData(15, 2, 8)]
-        [InlineData(20, 2, 10)]
-        public void ComputeGridDimensions_BalancesIntoANearSquareGridCappedAtMaxColumns(int count, int expectedRows, int expectedColumns) {
-            (int rows, int columns) = SciencePacksSheet.ComputeGridDimensions(count);
-
-            Assert.Equal(expectedRows, rows);
-            Assert.Equal(expectedColumns, columns);
-        }
-
         //---- population (reference §6: DisabledPackBGColor, now Foreman.Color.Error, one button per
         //DCache.SciencePacks) ----------------------------------------------------------------------------
 
         [AvaloniaFact]
-        public async Task Constructor_PopulatesOneErrorColoredButtonPerSciencePack_AllStartingDisabled() {
+        public async Task Constructor_PopulatesOneUnselectedCellPerSciencePack_NamedForThePack() {
             DataCache cache = await GetVanillaCacheAsync();
 
             var sheet = new SciencePacksSheet(cache, []);
-            Color deselectedColor = ThemeResources.ResolveColor("Foreman.Color.Error", default);
 
             Assert.Equal(cache.SciencePacks.Count, sheet.SciencePackButtonStates.Count);
-            foreach (KeyValuePair<Button, bool> entry in sheet.SciencePackButtonStates) {
+            foreach (KeyValuePair<ChooserCell, bool> entry in sheet.SciencePackButtonStates) {
                 Assert.False(entry.Value);
-                Assert.Equal(deselectedColor, Assert.IsAssignableFrom<ISolidColorBrush>(entry.Key.Background).Color);
-                Assert.Equal(48, entry.Key.Width);
-                Assert.Equal(48, entry.Key.Height);
+                Assert.False(entry.Key.IsSelected);
+                Assert.Equal(((IItem)entry.Key.Tag!).FriendlyName, entry.Key.FullName);
             }
         }
 
@@ -233,51 +218,79 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.DoesNotContain("AssociatedItems.Select(item => item.ProductionRecipes)", source);
         }
 
-        //---- SheetHost contract (C2c Task 2): width from the sheets table (dynamic - the column count times
-        //IconSize, matching the former SizeToContent="WidthAndHeight" window), Enter/Esc map to the former
-        //Confirm/Cancel results --------------------------------------------------------------------------
+        //---- the kit sheet: named width, chooser cells, trailing button row ------------------------------
 
         [AvaloniaFact]
-        public async Task SheetWidth_MatchesTheGridsComputedColumnCount() {
+        public async Task SciencePacks_Width_IsTheNamedSheetWidth() {
             DataCache cache = await GetVanillaCacheAsync();
             var sheet = new SciencePacksSheet(cache, []);
+            (_, SheetHost host, _) = SheetFixture.Present(sheet);
 
-            (_, int columns) = SciencePacksSheet.ComputeGridDimensions(cache.SciencePacks.Count);
-            Assert.Equal(columns * 48, sheet.SheetWidth);
-        }
-
-        //Fix round 1, item 3: a large pack count (a heavily modded preset) must scroll inside the sheet's
-        //own owner-clamped MaxHeight rather than overflowing it.
-        [AvaloniaFact]
-        public void SciencePackGrid_IsWrappedInAScrollViewer() {
-            var sheet = new SciencePacksSheet(new DataCache(false), []);
-            var window = new Window { Width = 900, Height = 700, Content = sheet };
-            window.Show();
-
-            Assert.NotNull(sheet.SciencePackGridControl.FindAncestorOfType<ScrollViewer>());
+            Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), SheetFixture.PanelOf(host, sheet).Bounds.Width, 0.5);
+            Assert.Equal("Select researched science packs", SheetFixture.FrameOf(host, sheet).Title);
+            Assert.Equal(["Cancel", "Confirm"], sheet.Buttons!.Items.Cast<Button>().Select(b => b.Content));
+            Assert.Same(sheet.ConfirmationButtonControl, sheet.Buttons.ResolveDefaultButton());
         }
 
         [AvaloniaFact]
-        public async Task Enter_TriggersConfirm_AndEscape_Cancels() {
+        public async Task SciencePacks_Grid_UsesChooserCells_At88pt() {
             DataCache cache = await GetVanillaCacheAsync();
-            var window = new Window { Width = 900, Height = 700 };
-            window.Show();
-            SheetHost host = SheetHost.For(window);
+            var sheet = new SciencePacksSheet(cache, []);
+            (Window window, SheetHost host, _) = SheetFixture.Present(sheet);
 
-            var sheet1 = new SciencePacksSheet(cache, []);
-            Task<bool?> task1 = host.ShowAsync(sheet1);
-            Dispatcher.UIThread.RunJobs();
-            CanvasKeys.KeyDownOn(sheet1.SciencePackGridControl, Key.Enter);
-            Assert.True(await task1);
-            Assert.True(sheet1.Accepted);
-            AnimationClock.Settle();
+            double pitch = SheetFixture.Token("Foreman.Size.ChooserCell");
+            Assert.Equal(88, pitch);
+            ChooserCell[] cells = [.. sheet.GetVisualDescendants().OfType<ChooserCell>()];
+            Assert.Equal(cache.SciencePacks.Count, cells.Length);
+            Assert.Empty(sheet.GetVisualDescendants().OfType<Button>());
+            double right = SheetFixture.PanelOf(host, sheet).Bounds.Width;
+            foreach (ChooserCell cell in cells) {
+                Assert.Equal(pitch, cell.Bounds.Width, 0.5);
+                Assert.Equal(pitch, cell.Bounds.Height, 0.5);
+                Assert.True(cell.TranslatePoint(new Point(cell.Bounds.Width, 0), SheetFixture.PanelOf(host, sheet))!.Value.X <= right);
+            }
+            Assert.True(cells.Select(c => c.TranslatePoint(new Point(0, 0), sheet)!.Value.Y).Distinct().Count() > 1);
 
-            var sheet2 = new SciencePacksSheet(cache, []);
-            Task<bool?> task2 = host.ShowAsync(sheet2);
+            ChooserCell automation = sheet.PackButtonFor(PackNamed(cache, "automation-science-pack"))!;
+            Assert.True(automation.Focusable);
+            ClickPack(sheet, window, PackNamed(cache, "automation-science-pack"));
+            Assert.True(automation.IsSelected);
+            Assert.Contains(":selected", automation.Classes);
+            CanvasKeys.KeyDownOn(automation, Key.Space);
+            Assert.False(automation.IsSelected);
+            Assert.False(StateOf(sheet, cache, "automation-science-pack"));
+        }
+
+        [AvaloniaFact]
+        public async Task VoiceOverPress_OnACell_TogglesItAndCascadesLikeAClick() {
+            DataCache cache = await GetVanillaCacheAsync();
+            var sheet = new SciencePacksSheet(cache, []);
+            SheetFixture.Present(sheet);
+            ChooserCell chemical = sheet.PackButtonFor(PackNamed(cache, "chemical-science-pack"))!;
+
+            ((IInvokeProvider)ControlAutomationPeer.CreatePeerForElement(chemical)).Invoke();
             Dispatcher.UIThread.RunJobs();
-            CanvasKeys.KeyDownOn(sheet2.SciencePackGridControl, Key.Escape);
-            Assert.Null(await task2);
-            Assert.False(sheet2.Accepted);
+
+            Assert.True(chemical.IsSelected);
+            Assert.True(StateOf(sheet, cache, "chemical-science-pack"));
+            Assert.True(StateOf(sheet, cache, "automation-science-pack"));
+            Assert.True(StateOf(sheet, cache, "logistic-science-pack"));
+            Assert.False(StateOf(sheet, cache, "production-science-pack"));
+        }
+
+        [AvaloniaFact]
+        public async Task ManyPacksInAShortWindow_ScrollInsideTheSheet_WhichStaysInTheWindow() {
+            DataCache cache = await GetVanillaCacheAsync();
+            var sheet = new SciencePacksSheet(cache, []);
+            (Window window, SheetHost host, _) = SheetFixture.Present(sheet, 700, 300);
+            AnimationClock.UntilReflowsSettled(window);
+
+            Border panel = SheetFixture.PanelOf(host, sheet);
+            Point bottom = panel.TranslatePoint(new Point(0, panel.Bounds.Height), window)!.Value;
+            Assert.True(bottom.Y <= window.Bounds.Height + 0.5);
+            ScrollViewer scroller = sheet.GetVisualDescendants().OfType<ScrollViewer>().First();
+            Assert.True(scroller.Extent.Height > scroller.Viewport.Height);
+            Assert.Contains(sheet.PackButtonFor(PackNamed(cache, "space-science-pack"))!, scroller.GetVisualDescendants().OfType<ChooserCell>());
         }
     }
 }

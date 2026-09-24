@@ -35,10 +35,5 @@
       <NumericUpDown Name="BackColorBlueInput" Grid.Column="2" Width="72" Minimum="0" Maximum="255" />
       <Border Name="BackColorSwatch" Grid.Column="3" Width="28" Height="28" Margin="8,0,0,0" BorderBrush="Gray" BorderThickness="1" />
     </Grid>
-
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-      <Button Name="CancelButton" Content="Cancel" />
-      <Button Name="OKButton" Content="OK" />
-    </StackPanel>
   </StackPanel>
 </UserControl>

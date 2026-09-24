@@ -72,7 +72,7 @@ namespace Foreman.Mac.UiTests.Sheets {
         //---- YesNo: the plain confirm the sheets still raise; Yes is the default, Escape and No resolve No
 
         [AvaloniaFact]
-        public async Task YesNoMode_YesIsTheDefault_EscapeAndTheNoButtonResolveNo() {
+        public async Task YesNoMode_YesIsTheDefault_EscapeAndTheNoButtonResolveNo_AndAVerbReplacesYesNo() {
             var sheet = new AlertSheet("", "message", AlertButtons.YesNo);
             Assert.Equal([sheet.NoButtonControl, sheet.YesButtonControl], sheet.Buttons!.Items.Cast<Button>());
             Assert.Equal("Yes", sheet.YesButtonControl.Content);
@@ -92,6 +92,18 @@ namespace Foreman.Mac.UiTests.Sheets {
             Dispatcher.UIThread.RunJobs();
             Assert.True(task.IsCompleted);
             Assert.Equal(ConfirmChoice.No, await task);
+            AnimationClock.Settle();
+
+            //With a verb the confirm reads Cancel · verb, the verb the default Return fires.
+            var verbed = new AlertSheet("Use this save anyway?", "The save’s mods don’t match the current preset’s.", AlertButtons.YesNo, "Use Save");
+            Assert.Equal(["Cancel", "Use Save"], verbed.Buttons!.Items.Cast<Button>().Select(b => b.Content));
+            Assert.Equal(ButtonRowRole.Cancel, ButtonRow.GetRole(verbed.NoButtonControl));
+            Assert.Same(verbed.YesButtonControl, verbed.Buttons.ResolveDefaultButton());
+            Task<ConfirmChoice> confirmed = host.ShowAsync(verbed);
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(verbed.YesButtonControl, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(ConfirmChoice.Yes, await confirmed);
         }
 
         //---- YesNoCancel: the save prompt - Don't Save · Cancel · Save, Save the default -------------------

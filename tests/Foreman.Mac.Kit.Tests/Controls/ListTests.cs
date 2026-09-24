@@ -66,6 +66,23 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void ItemTemplate_IsRealisedInsideEveryItemsPresenter() {
+            using var fixture = new KitFixture();
+            ListBox listBox = Themed("Stone furnace", "Steel furnace");
+            listBox.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<string>(
+                (item, _) => new Border { Name = "RowProbe", Child = new TextBlock { Text = item } });
+            fixture.Window.Content = listBox;
+            Dispatcher.UIThread.RunJobs();
+
+            ListBoxItem[] items = ItemContainers(listBox);
+            Assert.Equal(2, items.Length);
+            foreach (ListBoxItem item in items) {
+                Border probe = item.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "RowProbe");
+                Assert.Equal(item.Content, ((TextBlock)probe.Child!).Text);
+            }
+        }
+
+        [AvaloniaFact]
         public void Selection_ArrowKeysMoveTheCurrentItem() {
             using var fixture = new KitFixture();
             ListBox listBox = Themed("Stone furnace", "Steel furnace", "Electric furnace");

@@ -92,6 +92,18 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void WidthClass_Standard_WidensTheAlertToTheStandardSheetWidth() {
+            using var fixture = new KitFixture();
+            AlertFrame alert = Themed();
+            alert.WidthClass = SheetWidthClass.Standard;
+            Shown(alert);
+
+            Application.Current!.TryGetResource("Foreman.Metrics.SheetWidthStandard", Application.Current.ActualThemeVariant, out object? width);
+            Assert.Equal(Assert.IsType<double>(width), SheetPanel(alert).Width);
+            Assert.Equal(SheetWidthClass.Alert, new AlertFrame().WidthClass);
+        }
+
+        [AvaloniaFact]
         public void Icon_Is32PointBitmap() {
             using var fixture = new KitFixture();
             AlertFrame alert = Themed();

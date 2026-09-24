@@ -305,6 +305,46 @@ namespace Foreman.Mac.UiTests.Sheets {
         }
 
         [AvaloniaFact]
+        public void FocusLeavingTheSheet_ReturnsToTheControlFocusedBeforeIt_NotTheFirstField() {
+            var outside = new Button();
+            var window = new Window { Width = 800, Height = 600, Content = outside };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+            var sheet = new ProbeSheet();
+            _ = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+            sheet.Ok.Focus();
+            Assert.True(sheet.Ok.IsFocused);
+
+            outside.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(sheet.Ok.IsFocused);
+            Assert.False(sheet.Field.IsFocused);
+        }
+
+        [AvaloniaFact]
+        public void FocusLeavingTheSheet_WhenTheLastFocusedControlIsNowHidden_LandsOnTheFirstFocusable() {
+            var outside = new Button();
+            var window = new Window { Width = 800, Height = 600, Content = outside };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+            var sheet = new ProbeSheet();
+            _ = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+            sheet.Ok.Focus();
+            Assert.True(sheet.Ok.IsFocused);
+            sheet.Ok.IsVisible = false;
+            Dispatcher.UIThread.RunJobs();
+
+            outside.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(sheet.Field.IsFocused);
+            Assert.False(outside.IsFocused);
+        }
+
+        [AvaloniaFact]
         public async Task ShowStackedAsync_WithASheetAlreadyOpen_PresentsAboveItAndTrapsFocusOnTop() {
             var window = new Window { Width = 800, Height = 600, Content = new Button() };
             window.Show();

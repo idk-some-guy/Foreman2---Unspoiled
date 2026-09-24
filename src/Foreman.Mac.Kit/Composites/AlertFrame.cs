@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 
 namespace Foreman.Mac.Kit.Composites {
-    //Kit.SheetFrame at SheetWidthAlert 300 with the alert body baked in: app icon, headline, informative text.
+    //Kit.SheetFrame at SheetWidthAlert 300 (Standard for a long message) with the alert body baked in: app icon, headline, informative text.
     public class AlertFrame : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(AlertFrame);
 
@@ -29,12 +29,16 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<double> TopInsetProperty =
             AvaloniaProperty.Register<AlertFrame, double>(nameof(TopInset));
 
+        public static readonly StyledProperty<SheetWidthClass> WidthClassProperty =
+            AvaloniaProperty.Register<AlertFrame, SheetWidthClass>(nameof(WidthClass), SheetWidthClass.Alert);
+
         public IImage? Icon { get => GetValue(IconProperty); set => SetValue(IconProperty, value); }
         public string? Headline { get => GetValue(HeadlineProperty); set => SetValue(HeadlineProperty, value); }
         public string? InformativeText { get => GetValue(InformativeTextProperty); set => SetValue(InformativeTextProperty, value); }
         public ButtonRow? Buttons { get => GetValue(ButtonsProperty); set => SetValue(ButtonsProperty, value); }
         public bool IsOpen { get => GetValue(IsOpenProperty); set => SetValue(IsOpenProperty, value); }
         public double TopInset { get => GetValue(TopInsetProperty); set => SetValue(TopInsetProperty, value); }
+        public SheetWidthClass WidthClass { get => GetValue(WidthClassProperty); set => SetValue(WidthClassProperty, value); }
 
         public event EventHandler? Closed;
         public event EventHandler? Cancelled;

@@ -957,14 +957,27 @@ namespace Foreman.Mac {
             PresetSelectionDialogStub?.Invoke(presetErrors) ?? RealShowPresetSelectionDialogAsync(presetErrors);
 
         //Ports the ResolveChosenPresetAsync slow path's dialog launch (upstream ProductionGraphViewer.cs:
-        //1477-1488): owner+50/+50, same Manual placement as Settings/Graph Summary/Image Export.
+        //1477-1488). The chosen preset is read while the sheet is still open, so a failed read shows on its strip.
         private async Task<Preset?> RealShowPresetSelectionDialogAsync(List<PresetErrorPackage> presetErrors) {
-            var sheet = new PresetSelectionSheet(presetErrors);
+            PresetSelectionSheet sheet = NewPresetSelectionSheet(presetErrors);
             bool? result = await SheetHost.For(this).ShowAsync(sheet).ConfigureAwait(true);
             if (!GraphCanvas.FloatingPanelHost.IsOpen)
                 GraphCanvas.Focus();
             return result == true ? sheet.ChosenPreset : null;
         }
+
+        internal static PresetSelectionSheet NewPresetSelectionSheet(List<PresetErrorPackage> presetErrors) =>
+            new(presetErrors) { ReadPresetAsync = CanReadPresetAsync };
+
+        private static Task<bool> CanReadPresetAsync(Preset preset) => Task.Run(() => {
+            try {
+                Foreman.DataCaching.PresetProcessor.PrepPreset(preset);
+                return true;
+            } catch (Exception ex) {
+                ErrorLogging.LogException(ex, "Preset selection: couldn't read " + preset.Name);
+                return false;
+            }
+        });
 
         private Task ShowPresetSwitchInfoAsync(string message) =>
             PresetSwitchInfoStub?.Invoke(message) ?? Dialogs.ShowInfoAsync(this, message);

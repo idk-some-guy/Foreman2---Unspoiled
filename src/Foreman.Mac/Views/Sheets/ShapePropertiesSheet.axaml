@@ -29,10 +29,5 @@
       <TextBlock Text="Border width" Grid.Column="0" VerticalAlignment="Center" Width="110" />
       <NumericUpDown Name="BorderWidthInput" Grid.Column="1" Minimum="0" Maximum="50" Increment="1" HorizontalAlignment="Left" Width="100" />
     </Grid>
-
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-      <Button Name="CancelButton" Content="Cancel" />
-      <Button Name="OKButton" Content="OK" />
-    </StackPanel>
   </StackPanel>
 </UserControl>

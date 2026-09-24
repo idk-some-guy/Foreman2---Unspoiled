@@ -354,7 +354,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(Assert.IsType<double>(size), note.FontSize);
             Assert.Equal(fixture.Brush("Foreman.Color.TextTertiary").ToImmutable(), note.Foreground?.ToImmutable());
 
-            StackPanel errorRow = row.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_ErrorRow");
+            Panel errorRow = row.GetVisualDescendants().OfType<Panel>().Single(s => s.Name == "PART_ErrorRow");
             Assert.False(errorRow.IsVisible);
         }
 
@@ -367,8 +367,8 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             fixture.Window.Content = row;
             Dispatcher.UIThread.RunJobs();
 
-            StackPanel noteRow = row.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_NoteRow");
-            StackPanel errorRow = row.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_ErrorRow");
+            Panel noteRow = row.GetVisualDescendants().OfType<Panel>().Single(s => s.Name == "PART_NoteRow");
+            Panel errorRow = row.GetVisualDescendants().OfType<Panel>().Single(s => s.Name == "PART_ErrorRow");
             Assert.False(noteRow.IsVisible);
             Assert.True(errorRow.IsVisible);
 
@@ -518,8 +518,8 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             fixture.Window.Content = row;
             Dispatcher.UIThread.RunJobs();
 
-            StackPanel noteRow = row.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_NoteRow");
-            StackPanel errorRow = row.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_ErrorRow");
+            Panel noteRow = row.GetVisualDescendants().OfType<Panel>().Single(s => s.Name == "PART_NoteRow");
+            Panel errorRow = row.GetVisualDescendants().OfType<Panel>().Single(s => s.Name == "PART_ErrorRow");
 
             var noteTransition = Assert.Single(noteRow.Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
             Assert.Equal(Motion.TabLabelCrossFadeDuration, noteTransition.Duration);
@@ -536,7 +536,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             fixture.Window.Content = row;
             Dispatcher.UIThread.RunJobs();
 
-            StackPanel noteRow = row.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_NoteRow");
+            Panel noteRow = row.GetVisualDescendants().OfType<Panel>().Single(s => s.Name == "PART_NoteRow");
             Assert.DoesNotContain(noteRow.Transitions!, t => t is not DoubleTransition);
             var opacity = Assert.Single(noteRow.Transitions!.OfType<DoubleTransition>());
             Assert.IsType<CubicEaseInOut>(opacity.Easing);
@@ -891,6 +891,109 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Application.Current!.TryGetResource("Foreman.Type.Caption.FontSize", Application.Current.ActualThemeVariant, out object? scaledSize);
             Assert.Equal((double)scaledSize! * 1.35, note.LineHeight);
         }
-    
+
+        private static ControlTheme KitTheme(string key) {
+            Assert.True(Application.Current!.TryGetResource(key, null, out object? theme));
+            return Assert.IsType<ControlTheme>(theme);
+        }
+
+        private static FormRow Themed(string label, object content) =>
+            new() { Theme = KitTheme("Kit.FormRow"), Label = label, Content = content };
+
+        private static double Resolved(string key) {
+            Assert.True(Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? value));
+            return Assert.IsType<double>(value);
+        }
+
+        [AvaloniaTheory]
+        [InlineData(1.0)]
+        [InlineData(1.5)]
+        public void ControlColumn_AStretchingFieldFillsToTheGroupsInnerTrailingEdge_NaturalWidthControlsKeepTheirs(double scale) {
+            using var fixture = new KitFixture();
+            ScaleContract.Apply(scale);
+            fixture.Window.Width = 900;
+            var field = new TextBox { Theme = KitTheme("Kit.TextField"), HorizontalAlignment = HorizontalAlignment.Stretch, Text = "/Users/me/Documents" };
+            var popUp = new Foreman.Mac.Kit.Controls.PopUp { Theme = KitTheme("Kit.PopUp") };
+            popUp.Items.Add("1");
+            popUp.Items.Add("1/20");
+            popUp.SelectedItem = "1";
+            var stepper = new Foreman.Mac.Kit.Controls.Stepper { Theme = KitTheme("Kit.Stepper"), Value = 3 };
+            var segmented = new Foreman.Mac.Kit.Controls.Segmented { Theme = KitTheme("Kit.Segmented") };
+            segmented.Items.Add("Auto");
+            segmented.Items.Add("Fixed");
+            var group = new FormGroup { Theme = KitTheme("Kit.FormGroup"), IsBoxed = true, Width = 360 * scale };
+            group.Items.Add(Themed("Save to", field));
+            group.Items.Add(Themed("Scale", popUp));
+            group.Items.Add(Themed("Width", stepper));
+            group.Items.Add(Themed("Mode", segmented));
+            fixture.Window.Content = group;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+
+            Border frame = group.GetVisualChildren().OfType<Border>().Single(b => b.Name == "PART_Frame");
+            double innerRight = frame.Bounds.Width - frame.BorderThickness.Right - frame.Padding.Right;
+            double fieldRight = field.TranslatePoint(new Point(field.Bounds.Width, 0), frame)!.Value.X;
+            Assert.Equal(innerRight, fieldRight, 0.5);
+
+            double fieldLeft = field.TranslatePoint(new Point(0, 0), frame)!.Value.X;
+            Assert.Equal(fieldLeft, popUp.TranslatePoint(new Point(0, 0), frame)!.Value.X, 0.5);
+            Assert.Equal(popUp.DesiredSize.Width, popUp.Bounds.Width, 0.5);
+            Assert.True(popUp.Bounds.Width < fieldRight - fieldLeft);
+            Assert.Equal(fieldLeft, stepper.TranslatePoint(new Point(0, 0), frame)!.Value.X, 0.5);
+            Assert.Equal(stepper.DesiredSize.Width, stepper.Bounds.Width, 0.5);
+            Assert.Equal(fieldLeft, segmented.TranslatePoint(new Point(0, 0), frame)!.Value.X, 0.5);
+            Assert.Equal(segmented.DesiredSize.Width, segmented.Bounds.Width, 0.5);
+            Assert.True(segmented.Bounds.Width < fieldRight - fieldLeft);
+
+            int layouts = 0;
+            group.LayoutUpdated += (_, _) => layouts++;
+            AnimationClock.Settle(300);
+            Assert.Equal(0, layouts);
+        }
+
+        [AvaloniaFact]
+        public void ControlColumn_FollowsTheControlsAlignmentWhenItChanges() {
+            using var fixture = new KitFixture();
+            var field = new TextBox { Theme = KitTheme("Kit.TextField"), HorizontalAlignment = HorizontalAlignment.Left, Text = "a" };
+            FormRow row = Themed("Save to", field);
+            fixture.Window.Content = new StackPanel { Width = 360, Children = { row } };
+            Dispatcher.UIThread.RunJobs();
+            Grid grid = FrameGrid(row);
+            Assert.True(field.TranslatePoint(new Point(field.Bounds.Width, 0), grid)!.Value.X < grid.Bounds.Width - 1);
+
+            field.HorizontalAlignment = HorizontalAlignment.Stretch;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(grid.Bounds.Width, field.TranslatePoint(new Point(field.Bounds.Width, 0), grid)!.Value.X, 0.5);
+
+            field.Width = 100;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(100, field.Bounds.Width, 0.5);
+            Assert.Equal(grid.ColumnDefinitions[0].ActualWidth + grid.ColumnDefinitions[1].ActualWidth, field.TranslatePoint(new Point(0, 0), grid)!.Value.X, 0.5);
+        }
+
+        [AvaloniaTheory]
+        [InlineData(1.0)]
+        [InlineData(1.5)]
+        public void NoteAndError_LongerThanTheControlColumn_WrapWithinIt(double scale) {
+            using var fixture = new KitFixture();
+            ScaleContract.Apply(scale);
+            const string longText = "Language, mods, and mod settings come from Factorio. Change them there before importing.";
+            FormRow noteRow = Themed("Factorio install", new TextBox { Theme = KitTheme("Kit.TextField") });
+            noteRow.Note = longText;
+            FormRow errorRow = Themed("Mods folder", new TextBox { Theme = KitTheme("Kit.TextField") });
+            errorRow.Error = longText;
+            fixture.Window.Content = new StackPanel { Width = 420 * scale, Children = { noteRow, errorRow } };
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+
+            TextBlock note = noteRow.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
+            Assert.True(note.TextLayout.TextLines.Count >= 2);
+            Assert.True(note.TranslatePoint(new Point(note.Bounds.Width, 0), noteRow)!.Value.X <= FrameGrid(noteRow).Bounds.Right + 0.5);
+
+            TextBlock error = errorRow.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_ErrorText");
+            Assert.True(error.TextLayout.TextLines.Count >= 2);
+            Assert.True(error.TranslatePoint(new Point(error.Bounds.Width, 0), errorRow)!.Value.X <= FrameGrid(errorRow).Bounds.Right + 0.5);
+            Assert.Equal(Resolved("Foreman.Type.Caption.FontSize"), note.FontSize);
+        }
     }
 }

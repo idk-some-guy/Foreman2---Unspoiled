@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Sheets;
 using System;
@@ -16,15 +17,13 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Covers io-reference.md §5's SaveFileLoadForm contract (phase 6 Task 5, moved onto SheetHost by C2c
-    //Task 2) at the sheet level: the file-picker cancel path, wiring SaveFileReader.Result onto
-    //Outcome/SaveFileInfo/dialogs, the mod-mismatch confirm gate and the §§-pseudo-recipe/save-driven/
-    //transitive-derive enabled-object pipeline (ProcessSaveData), and the Cancel button's honest
-    //non-preemptive behavior (docs/io-reference.md §4 caution). SaveFileReader's own process-pipeline
-    //correctness (exe discovery, crash/another-instance/missing-marker detection, P0 parse) is covered
-    //separately against StubFactorioHarness under ForemanTest (Foreman.Core), where that harness lives -
-    //LoadPipelineStub stands in for it here.
+    //Covers the save-file load sheet (io-reference.md §5): the picker cancel path, SaveFileReader.Result onto
+    //Outcome and SaveFileInfo, the failure strip and its retry, the mod-mismatch confirm, the enabled-object
+    //derivation, and Cancel's honest non-preemptive behaviour. SaveFileReader's own pipeline is covered against
+    //StubFactorioHarness in ForemanTest; LoadPipelineStub stands in for it here.
     public class SaveFileLoadWindowTests {
+        private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private static readonly SemaphoreSlim CacheGate = new(1, 1);
         private static DataCache? sharedCache;
@@ -53,12 +52,11 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task RunAsync_PickerCancelled_ClosesWithCancelOutcomeAndShowsNoDialogs() {
             var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
                 OpenSaveFilePathStub = () => Task.FromResult<string?>(null),
-                WarningDialogStub = (_, _) => throw new InvalidOperationException("should not warn"),
                 ConfirmDialogStub = (_, _) => throw new InvalidOperationException("should not confirm"),
                 LoadPipelineStub = (_, _) => throw new InvalidOperationException("should not run the pipeline"),
             };
 
-            await sheet.RunAsync();
+            await sheet.RunAsync().WaitAsync(Timeout);
 
             Assert.Equal(SaveFileLoadOutcome.Cancel, sheet.Outcome);
             Assert.Null(sheet.SaveFileInfo);
@@ -100,10 +98,9 @@ namespace Foreman.Mac.UiTests.Views {
             var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
                 OpenSaveFilePathStub = () => Task.FromResult<string?>(savePath),
                 LoadPipelineStub = (path, _) => new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Ok, SaveFileInfo = saveInfo },
-                WarningDialogStub = (_, _) => throw new InvalidOperationException("should not warn"),
             };
 
-            await sheet.RunAsync();
+            await sheet.RunAsync().WaitAsync(Timeout);
 
             Assert.Equal(SaveFileLoadOutcome.Ok, sheet.Outcome);
             Assert.Same(saveInfo, sheet.SaveFileInfo);
@@ -111,22 +108,85 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public async Task RunAsync_PipelineReturnsAbortWithAWarningMessage_ShowsItVerbatimAndDoesNotProcess() {
-            string? capturedMessage = null;
+        public async Task RunAsync_ReadFails_ShowsTheFailureStrip_KeepsTheSheetOpen_AndTryAgainRereadsTheSamePath() {
+            int picks = 0;
+            var paths = new List<string>();
+            var results = new Queue<SaveFileReader.Result>([
+                new SaveFileReader.Result {
+                    Outcome = SaveFileLoadOutcome.Abort,
+                    Failure = FactorioRunFailure.Crashed,
+                    CrashPhase = FactorioCrashPhase.ReadingSave,
+                    WarningMessage = "Factorio crashed while reading the save file.",
+                },
+                new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Ok, SaveFileInfo = new SaveFileInfo() },
+            ]);
+            var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
+                OpenSaveFilePathStub = () => { picks++; return Task.FromResult<string?>("/tmp/saves/Megabase v3.zip"); },
+                LoadPipelineStub = (path, _) => { paths.Add(path); return results.Dequeue(); },
+                ConfirmDialogStub = (_, _) => Task.FromResult(true),
+            };
+            (Window window, SheetHost host, Task<SaveFileLoadOutcome?> task) = SheetFixture.Present(sheet);
+            await WaitForAsync(() => sheet.Activity?.Kind == SheetActivityKind.Failed);
+            AnimationClock.Settle();
+
+            SheetFixture.AssertNoAlert(host);
+            Assert.False(task.IsCompleted);
+            StatePanel strip = SheetFixture.StripOf(host);
+            Assert.Equal(StatePanelShape.Error, strip.Shape);
+            Assert.Equal("Couldn’t read “Megabase v3”. Factorio crashed while reading the save file. A mod is the usual cause; see factorio-current.log.", strip.Sentence);
+            Assert.Equal("Try Again", sheet.LoadButtonControl.Content);
+            Assert.True(sheet.LoadButtonControl.IsEffectivelyEnabled);
+            Assert.True(sheet.ShowLogButtonControl.IsEffectivelyVisible);
+            Assert.Null(sheet.ResolvedSaveFileLocation);
+
+            SheetFixture.Click(window, sheet.LoadButtonControl);
+            Assert.Equal(SaveFileLoadOutcome.Ok, await task.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.Equal(1, picks);
+            Assert.Equal(["/tmp/saves/Megabase v3.zip", "/tmp/saves/Megabase v3.zip"], paths);
+        }
+
+        [AvaloniaFact]
+        public async Task RunAsync_InstallTooOld_ReadsTheValidatorSentenceInTheStrip() {
             var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
                 OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip"),
                 LoadPipelineStub = (_, _) => new SaveFileReader.Result {
-                    Outcome = SaveFileLoadOutcome.Abort,
-                    WarningMessage = "Factorio crashed while reading the save file.",
+                    Outcome = SaveFileLoadOutcome.Cancel,
+                    Failure = FactorioRunFailure.InvalidInstall,
+                    InstallCheck = new FactorioInstallCheck(FactorioInstallProblem.TooOld, "1.1.0"),
+                    WarningMessage = "Factorio Version below 2.0 can not be used with this version of Foreman.",
                 },
-                WarningDialogStub = (_, message) => { capturedMessage = message; return Task.CompletedTask; },
             };
+            (_, SheetHost host, Task<SaveFileLoadOutcome?> task) = SheetFixture.Present(sheet);
+            await WaitForAsync(() => sheet.Activity?.Kind == SheetActivityKind.Failed);
 
-            await sheet.RunAsync();
+            SheetFixture.AssertNoAlert(host);
+            Assert.Equal("Couldn’t read “mysave”. Factorio 1.1.0 is too old for this Foreman. Use Factorio 2.0.7 or later.", sheet.Activity!.Sentence);
+            Assert.False(task.IsCompleted);
+        }
 
-            Assert.Equal(SaveFileLoadOutcome.Abort, sheet.Outcome);
-            Assert.Equal("Factorio crashed while reading the save file.", capturedMessage);
-            Assert.Null(sheet.ResolvedSaveFileLocation);
+        [AvaloniaFact]
+        public async Task ShowLog_AfterAFailure_OpensTheLog() {
+            int opened = 0;
+            var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
+                OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip"),
+                LoadPipelineStub = (_, _) => new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Abort, Failure = FactorioRunFailure.Unmapped },
+                ShowLogStub = () => { opened++; return Task.CompletedTask; },
+            };
+            (Window window, SheetHost host, _) = SheetFixture.Present(sheet);
+            await WaitForAsync(() => sheet.Activity?.Kind == SheetActivityKind.Failed);
+            AnimationClock.Settle();
+
+            Assert.Equal("Couldn’t read “mysave”. The details are in Foreman’s log.", SheetFixture.StripOf(host).Sentence);
+            SheetFixture.Click(window, sheet.ShowLogButtonControl);
+            Assert.Equal(1, opened);
+        }
+
+        private static async Task WaitForAsync(Func<bool> condition) {
+            for (int i = 0; i < 200 && !condition(); i++) {
+                await Task.Delay(10);
+                Dispatcher.UIThread.RunJobs();
+            }
+            Assert.True(condition());
         }
 
         [AvaloniaFact]
@@ -134,10 +194,9 @@ namespace Foreman.Mac.UiTests.Views {
             var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
                 OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip"),
                 LoadPipelineStub = (_, _) => new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Cancel },
-                WarningDialogStub = (_, _) => throw new InvalidOperationException("should not warn"),
             };
 
-            await sheet.RunAsync();
+            await sheet.RunAsync().WaitAsync(Timeout);
 
             Assert.Equal(SaveFileLoadOutcome.Cancel, sheet.Outcome);
         }
@@ -168,9 +227,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(SaveFileLoadOutcome.Cancel, sheet.Outcome); //the late Ok result must not overwrite it.
         }
 
-        //Fix round 1, item 1: SheetHost's Escape handling calls the exact same (now virtual) Cancel()
-        //SimulateCancelClick/the Cancel button call, so driving it through a real Escape keypress on a
-        //presented sheet must cancel the in-flight pipeline's token too, not just resolve the Task.
+        //Escape and the Cancel button share Cancel(), so Escape cancels the in-flight pipeline's token too.
         [AvaloniaFact]
         public async Task Escape_WhilePipelineInFlight_CancelsTheTokenAndDisposesTheSheet() {
             var pipelineStarted = new SemaphoreSlim(0, 1);
@@ -210,16 +267,30 @@ namespace Foreman.Mac.UiTests.Views {
             var enabledObjects = new HashSet<IDataObjectBase>();
             var sheet = new SaveFileLoadSheet(cache, enabledObjects) {
                 SaveFileInfo = new SaveFileInfo(),
+                SavePath = "/tmp/saves/Megabase v3.zip",
             };
             string? capturedTitle = null;
             string? capturedMessage = null;
             sheet.ConfirmDialogStub = (title, message) => { capturedTitle = title; capturedMessage = message; return Task.FromResult(false); };
 
-            await sheet.ProcessSaveDataAsync();
+            await sheet.ProcessSaveDataAsync().WaitAsync(Timeout);
 
-            Assert.Equal("Save file mod inconsistencies found!", capturedTitle);
-            Assert.Contains("selected save file mods do not match preset mods; out of {0} mods:", capturedMessage);
+            Assert.Equal("Use this save anyway?", capturedTitle);
+            Assert.StartsWith($"The mods in “Megabase v3” don’t match the preset “{cache.PresetName}”. Only recipes the preset contains are enabled.\nNot in the save: ", capturedMessage);
+            Assert.DoesNotContain("!", capturedTitle + capturedMessage);
+            Assert.DoesNotContain("Are you sure", capturedMessage);
             Assert.Empty(enabledObjects);
+        }
+
+        [Fact]
+        public void MismatchLines_NameEachSideInOrder_WithASerialAnd_CappedAtFiveNames() {
+            Assert.Equal("", SaveFileLoadSheet.MismatchLines([], [], []));
+            Assert.Equal("\nNot in the save: space-exploration and krastorio2",
+                SaveFileLoadSheet.MismatchLines(["space-exploration", "krastorio2"], [], []));
+            Assert.Equal("\nNot in the save: a\nDifferent version: flib\nNot in the preset: b, c, and d",
+                SaveFileLoadSheet.MismatchLines(["a"], ["flib"], ["b", "c", "d"]));
+            Assert.Equal("\nNot in the preset: m1, m2, m3, m4, m5, and 3 more",
+                SaveFileLoadSheet.MismatchLines([], [], ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"]));
         }
 
         [AvaloniaFact]
@@ -243,7 +314,7 @@ namespace Foreman.Mac.UiTests.Views {
                 ConfirmDialogStub = (_, _) => throw new InvalidOperationException("mods match - no mismatch dialog expected"),
             };
 
-            await sheet.ProcessSaveDataAsync();
+            await sheet.ProcessSaveDataAsync().WaitAsync(Timeout);
 
             Assert.Contains(pseudoRecipe, enabledObjects);
             Assert.Contains(normalRecipe, enabledObjects);
@@ -253,8 +324,7 @@ namespace Foreman.Mac.UiTests.Views {
                 Assert.Contains(cache.PlayerAssembler, enabledObjects);
         }
 
-        //---- fix round 1 (item 3c): the mod-mismatch confirm stacks on top of the still-open sheet instead
-        //---- of queuing behind its own dismissal - a real end-to-end proof there's no deadlock. -----------
+        //---- the mod-mismatch confirm stacks on the still-open sheet instead of queuing behind it -----------
 
         [AvaloniaFact]
         public async Task ProcessSaveDataAsync_ModsMismatch_RealConfirmStacksOnTheOpenSheet_AndResolvesWithoutDeadlock() {
@@ -278,6 +348,11 @@ namespace Foreman.Mac.UiTests.Views {
                 throw processTask.Exception!;
 
             AlertSheet confirm = host.GetVisualDescendants().OfType<AlertSheet>().Single();
+            Assert.Equal(["Cancel", "Use Save"], confirm.Buttons!.Items.Cast<Button>().Select(b => b.Content));
+            Assert.Same(confirm.YesButtonControl, confirm.Buttons.ResolveDefaultButton());
+            AnimationClock.Settle();
+            Border alertPanel = confirm.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Panel");
+            Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), alertPanel.Bounds.Width, 0.5);
             confirm.YesButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
             await processTask; //no deadlock: the stacked confirm resolves and ProcessSaveDataAsync completes on its own
@@ -285,37 +360,47 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.False(outerTask.IsCompleted); //the outer sheet is still open - its own RunAsync never got a save path
         }
 
-        //---- SheetHost contract (C2c Task 2, fix round 1): width from the sheets table. There is no default
-        //button here (Cancel is the only user-facing action while the reader pipeline runs, same as before)
-        //so Enter has no counterpart to assert. Escape now routes through this sheet's own overridden
-        //Cancel() (fix round 1, item 1), the same method the Cancel button calls, so it carries the same
-        //cts.Cancel()/Outcome bookkeeping. -----------------------------------------------------------------
+        //---- the kit sheet: named width, the reading strip, Show Log… · Cancel · Load ---------------------------
 
         [AvaloniaFact]
-        public void SheetWidth_Is300() {
+        public void SaveFileLoad_Width_IsTheNamedSheetWidth() {
             var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
-                OpenSaveFilePathStub = () => Task.FromResult<string?>(null),
+                OpenSaveFilePathStub = () => new TaskCompletionSource<string?>().Task,
             };
+            (_, SheetHost host, _) = SheetFixture.Present(sheet);
 
-            Assert.Equal(300, sheet.SheetWidth);
+            Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), SheetFixture.PanelOf(host, sheet).Bounds.Width, 0.5);
+            Assert.Equal("Load a Factorio save", SheetFixture.FrameOf(host, sheet).Title);
+            Assert.Equal(["Show Log…", "Cancel", "Load"], sheet.Buttons!.Items.Cast<Button>().Select(b => b.Content));
+            Assert.False(sheet.ShowLogButtonControl.IsVisible);
+            Assert.Same(sheet.LoadButtonControl, sheet.Buttons.ResolveDefaultButton());
         }
 
         [AvaloniaFact]
-        public async Task Escape_ResolvesTheSheetWithTheCancelOutcome() {
+        public async Task SaveFileLoad_WhileReading_ShowsTheStageSentence_DisablesLoad_AndKeepsCancelLive() {
+            var pipelineStarted = new SemaphoreSlim(0, 1);
+            var pipelineGate = new TaskCompletionSource();
             var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
-                OpenSaveFilePathStub = () => new TaskCompletionSource<string?>().Task, //never resolves - the picker stays open
+                OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip"),
+                LoadPipelineStub = (_, _) => {
+                    pipelineStarted.Release();
+                    pipelineGate.Task.Wait(CancellationToken.None);
+                    return new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Cancel };
+                },
             };
-            var window = new Window { Width = 800, Height = 600 };
-            window.Show();
-            SheetHost host = SheetHost.For(window);
+            (_, SheetHost host, Task<SaveFileLoadOutcome?> task) = SheetFixture.Present(sheet);
+            await pipelineStarted.WaitAsync();
+            AnimationClock.Settle(500);
 
-            Task<SaveFileLoadOutcome?> task = host.ShowAsync(sheet);
-            Dispatcher.UIThread.RunJobs();
-            CanvasKeys.KeyDownOn(sheet.CancelButtonControl, Key.Escape);
+            StatePanel strip = SheetFixture.StripOf(host);
+            Assert.Equal(StatePanelShape.Loading, strip.Shape);
+            Assert.Equal("Reading “mysave” — running Factorio.", strip.Sentence);
+            Assert.False(sheet.LoadButtonControl.IsEnabled);
+            Assert.True(sheet.CancelButtonControl.IsEffectivelyEnabled);
 
+            sheet.CancelButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.Equal(SaveFileLoadOutcome.Cancel, await task);
-            Assert.False(host.IsOpen);
-            Assert.True(sheet.Disposed);
+            pipelineGate.TrySetResult();
         }
     }
 }

@@ -28,12 +28,14 @@ namespace Foreman.Mac.Views.Sheets {
         public AlertSheet() : this("", "", AlertButtons.Ok) {
         }
 
-        public AlertSheet(string title, string message, AlertButtons buttons, string? destructiveVerb = null) {
+        //verb labels the affirmative button: required for Destructive, optional for YesNo (then Cancel · verb).
+        public AlertSheet(string title, string message, AlertButtons buttons, string? verb = null, SheetWidthClass width = SheetWidthClass.Alert) {
             InitializeComponent();
             this.buttons = buttons;
-            WidthClass = SheetWidthClass.Alert;
+            WidthClass = width;
 
             frame = this.FindControl<AlertFrame>("Frame")!;
+            frame.WidthClass = width;
             ButtonRow row = this.FindControl<ButtonRow>("Row")!;
 
             //An untitled alert leads with its message, as NSAlert's messageText does.
@@ -47,13 +49,14 @@ namespace Foreman.Mac.Views.Sheets {
             noButton = RowButton(buttons switch {
                 AlertButtons.YesNoCancel => "Don’t Save",
                 AlertButtons.Destructive => "Cancel",
+                AlertButtons.YesNo when verb is not null => "Cancel",
                 _ => "No",
             });
             yesButton = RowButton(buttons switch {
                 AlertButtons.Ok => "OK",
                 AlertButtons.YesNoCancel => "Save",
-                AlertButtons.Destructive => destructiveVerb ?? throw new ArgumentNullException(nameof(destructiveVerb)),
-                _ => "Yes",
+                AlertButtons.Destructive => verb ?? throw new ArgumentNullException(nameof(verb)),
+                _ => verb ?? "Yes",
             });
 
             switch (buttons) {

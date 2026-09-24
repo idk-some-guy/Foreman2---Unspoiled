@@ -248,12 +248,15 @@ namespace Foreman.Mac.UiTests.Inspector {
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
             Assert.Equal(RateType.Auto, node.RateType);
 
-            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
+            (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
+            Segmented mode = view.FindControl<Segmented>("RateMode")!;
+            AnimationClock.UntilReflowsSettled(host);
+            Assert.Equal(mode.DesiredSize.Width, mode.Bounds.Width, 0.5);
             Oracle oracle = NewOracle(rf.Fx);
             oracle.GoStale(13);
             Assert.False(oracle.Resolved);
 
-            view.FindControl<Segmented>("RateMode")!.SelectedIndex = 1;
+            mode.SelectedIndex = 1;
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(oracle.Resolved);
@@ -673,8 +676,8 @@ namespace Foreman.Mac.UiTests.Inspector {
             FormRow row = view.FindControl<FormRow>("BeaconRow")!;
             TextBlock note = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Note");
             Assert.True(string.IsNullOrEmpty(note.Text));
-            Assert.False(row.GetVisualDescendants().OfType<StackPanel>().Single(x => x.Name == "PART_NoteRow").IsVisible);
-            Assert.False(row.GetVisualDescendants().OfType<StackPanel>().Single(x => x.Name == "PART_ErrorRow").IsVisible);
+            Assert.False(row.GetVisualDescendants().OfType<Panel>().Single(x => x.Name == "PART_NoteRow").IsVisible);
+            Assert.False(row.GetVisualDescendants().OfType<Panel>().Single(x => x.Name == "PART_ErrorRow").IsVisible);
         }
 
         [AvaloniaFact]

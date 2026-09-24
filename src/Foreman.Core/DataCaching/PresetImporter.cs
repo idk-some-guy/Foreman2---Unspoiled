@@ -36,6 +36,9 @@ namespace Foreman.DataCaching {
             public required PresetImportOutcome Outcome { get; init; }
             public string NewPresetName { get; init; } = "";
             public string? WarningMessage { get; init; }
+            public FactorioRunFailure Failure { get; init; }
+            public FactorioCrashPhase CrashPhase { get; init; }
+            public FactorioInstallCheck? InstallCheck { get; init; }
         }
 
         //userDataDirectoryOverride is the same test-only db-root seam PresetProcessor.ResolveUserDataDirectory
@@ -60,7 +63,7 @@ namespace Foreman.DataCaching {
             //this is a bit redundant. but whatevs. (upstream's own comment, kept verbatim)
             if (!File.Exists(exePath)) {
                 CleanupFailedImport(tempSavePath);
-                return Fail("factorio.exe not found...");
+                return Fail("factorio.exe not found...", FactorioRunFailure.InvalidInstall, install: new FactorioInstallCheck(FactorioInstallProblem.ExecutableMissing, ""));
             }
 
             try {
@@ -72,10 +75,10 @@ namespace Foreman.DataCaching {
                 CleanupFailedImport(tempSavePath, modsPath);
                 if (e is UnauthorizedAccessException) {
                     ErrorLogging.LogException(e, "insufficient access to factorio mods folder");
-                    return Fail("Insufficient access to the factorio mods folder. Please ensure factorio mods are in an accessible folder, or launch Foreman with Administrator privileges.");
+                    return Fail("Insufficient access to the factorio mods folder. Please ensure factorio mods are in an accessible folder, or launch Foreman with Administrator privileges.", FactorioRunFailure.ModsFolderNoAccess);
                 }
                 ErrorLogging.LogException(e, "error while accessing factorio mods folder");
-                return Fail("Unknown error trying to access factorio mods folder. Sorry");
+                return Fail("Unknown error trying to access factorio mods folder. Sorry", FactorioRunFailure.ModsFolderUnreadable);
             }
 
             progress.Report(new(10, "Running Factorio - creating test save."));
@@ -91,10 +94,10 @@ namespace Foreman.DataCaching {
 
             if (FactorioBenchmarkRunner.IsAnotherInstanceRunning(createRun.Output)) {
                 CleanupFailedImport(tempSavePath, modsPath);
-                return Fail(AnotherInstanceMessage);
+                return Fail(AnotherInstanceMessage, FactorioRunFailure.AnotherInstanceRunning);
             }
 
-            if (CheckCrash(createRun, "creating the test save for preset export", scratchDirectory, tempSavePath, modsPath) is Result createCrashResult)
+            if (CheckCrash(createRun, "creating the test save for preset export", FactorioCrashPhase.CreatingTestSave, scratchDirectory, tempSavePath, modsPath) is Result createCrashResult)
                 return createCrashResult;
 
             if (!File.Exists(tempSavePath)) {
@@ -104,7 +107,7 @@ namespace Foreman.DataCaching {
                 return Fail(
                     "Factorio did not create the test save (temp-save.zip) needed for preset export.\n\n" +
                     "Factorio may have crashed or exited early. Check factorio-current.log in your Factorio user data folder " +
-                    "and try disabling mods until you can create a new game with the same mod list.");
+                    "and try disabling mods until you can create a new game with the same mod list.", FactorioRunFailure.TestSaveNotCreated);
             }
 
             FactorioModListHelper.SetModState(modsPath, "foremanexport", enabled: true, removeFromListWhenDisabled: false);
@@ -115,10 +118,10 @@ namespace Foreman.DataCaching {
                 CleanupFailedImport(tempSavePath, modsPath);
                 if (e is UnauthorizedAccessException) {
                     ErrorLogging.LogException(e, "copying of foreman export mod files failed - insufficient access");
-                    return Fail("Insufficient access to copy foreman export mod files (Mods/" + ForemanExportModName + "/) to the factorio mods folder. Please ensure factorio mods are in an accessible folder, or launch Foreman with Administrator privileges.");
+                    return Fail("Insufficient access to copy foreman export mod files (Mods/" + ForemanExportModName + "/) to the factorio mods folder. Please ensure factorio mods are in an accessible folder, or launch Foreman with Administrator privileges.", FactorioRunFailure.ModsFolderNoAccess);
                 }
                 ErrorLogging.LogException(e, "copying of foreman export mod files failed");
-                return Fail("could not copy foreman export mod files (Mods/" + ForemanExportModName + "/) to the factorio mods folder. Reinstall foreman?");
+                return Fail("could not copy foreman export mod files (Mods/" + ForemanExportModName + "/) to the factorio mods folder. Reinstall foreman?", FactorioRunFailure.HelperModCopyFailed);
             }
 
             progress.Report(new(20, "Running Factorio - foreman export scripts."));
@@ -133,7 +136,7 @@ namespace Foreman.DataCaching {
             if (string.IsNullOrEmpty(resultString) && token.IsCancellationRequested)
                 return Cancelled();
 
-            if (CheckCrash(exportRun, "running the preset export scripts", scratchDirectory, tempSavePath, modsPath) is Result exportCrashResult)
+            if (CheckCrash(exportRun, "running the preset export scripts", FactorioCrashPhase.RunningExportScripts, scratchDirectory, tempSavePath, modsPath) is Result exportCrashResult)
                 return exportCrashResult;
 
             if (File.Exists(tempSavePath))
@@ -145,17 +148,18 @@ namespace Foreman.DataCaching {
 
             if (FactorioBenchmarkRunner.IsAnotherInstanceRunning(resultString)) {
                 CleanupFailedImport(tempSavePath, modsPath);
-                return Fail(AnotherInstanceMessage);
+                return Fail(AnotherInstanceMessage, FactorioRunFailure.AnotherInstanceRunning);
             }
             if (!resultString.Contains("<<<END-EXPORT-P1>>>", StringComparison.Ordinal) || !resultString.Contains("<<<END-EXPORT-P2>>>", StringComparison.Ordinal)) {
-                string failureMessage = resultString.Contains("temp-save.zip does not exist", StringComparison.Ordinal)
+                bool savedMissing = resultString.Contains("temp-save.zip does not exist", StringComparison.Ordinal);
+                string failureMessage = savedMissing
                     ? "Foreman export could not finish because Factorio could not load the test save (temp-save.zip). " +
                       "The save may not have been created in the previous step; check factorio-current.log for crashes or errors."
                     : "Foreman export could not be completed - possible mod conflict detected. Please run Factorio and ensure it can successfully load to menu before retrying.";
                 ErrorLogging.LogLine("Foreman export failed partway. Consult errorExporting.json for full output (and search for <<<END-EXPORT-P1>>> or <<<END-EXPORT-P2>>>, at least one of which is missing)");
                 WriteExportFailureLog(scratchDirectory, resultString);
                 CleanupFailedImport(tempSavePath, modsPath);
-                return Fail(failureMessage);
+                return Fail(failureMessage, savedMissing ? FactorioRunFailure.TestSaveNotLoaded : FactorioRunFailure.ExportIncomplete);
             }
 
             //Marker slicing (docs/upstream-divergences.md): upstream's fixed byte offsets (marker index + 23,
@@ -185,7 +189,7 @@ namespace Foreman.DataCaching {
                     ErrorLogging.LogException(dumpEx, "Foreman preset export: failed to write _iconJObjectOut.json/_dataJObjectOut.json");
                 }
                 CleanupFailedImport(tempSavePath, modsPath);
-                return Fail("Foreman export could not be completed - unknown json parsing error.\nSorry");
+                return Fail("Foreman export could not be completed - unknown json parsing error.\nSorry", FactorioRunFailure.ExportUnreadable);
             }
 
             //trawl over the dataJObject entities and replace any 'lid' with 'localised_name'
@@ -220,7 +224,7 @@ namespace Foreman.DataCaching {
                     if (token.IsCancellationRequested)
                         return Cancelled();
                     ErrorLogging.LogLine("Mod parsing failed - the list of mods provided could not be mapped to the existing mod folders & zip files.");
-                    return Fail("Mod inconsistency detected. Try to see if launching Factorio gives an error?");
+                    return Fail("Mod inconsistency detected. Try to see if launching Factorio gives an error?", FactorioRunFailure.ModInconsistency);
                 }
 
                 if (!await icProcessor.CreateIconCache(iconJObject, presetBasePath + ".dat", progress, 30, 100, token).ConfigureAwait(false)) {
@@ -286,7 +290,7 @@ namespace Foreman.DataCaching {
             }
         }
 
-        private static Result? CheckCrash(FactorioRunResult run, string phaseDescription, string scratchDirectory, string tempSavePath, string modsPath) {
+        private static Result? CheckCrash(FactorioRunResult run, string phaseDescription, FactorioCrashPhase phase, string scratchDirectory, string tempSavePath, string modsPath) {
             if (!run.Crashed)
                 return null;
 
@@ -297,7 +301,7 @@ namespace Foreman.DataCaching {
                 "Factorio crashed while " + phaseDescription + ".\n\n" +
                 "This is usually caused by a bug in one of your enabled mods, not by Foreman. " +
                 "Open factorio-current.log in your Factorio user data folder for details, " +
-                "then try disabling mods until Factorio can start a new game with the same mod list.");
+                "then try disabling mods until Factorio can start a new game with the same mod list.", FactorioRunFailure.Crashed, phase);
         }
 
         //A failure log must never itself throw and mask the original failure it was trying to record.
@@ -315,7 +319,8 @@ namespace Foreman.DataCaching {
             return resultString[start..end].Trim();
         }
 
-        private static Result Fail(string message) => new() { Outcome = PresetImportOutcome.Failed, WarningMessage = message };
+        private static Result Fail(string message, FactorioRunFailure failure, FactorioCrashPhase phase = FactorioCrashPhase.None, FactorioInstallCheck? install = null) =>
+            new() { Outcome = PresetImportOutcome.Failed, WarningMessage = message, Failure = failure, CrashPhase = phase, InstallCheck = install };
         private static Result Cancelled() => new() { Outcome = PresetImportOutcome.Cancel };
     }
 }

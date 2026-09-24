@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using SkiaSharp;
 using System;
@@ -64,8 +65,7 @@ namespace Foreman.Mac.Views.Sheets {
             InitializeComponent();
             this.element = element;
             original = Snapshot.Capture(element);
-            SheetWidth = 360;
-            Title = "Text Properties";
+            Title = "Text properties";
 
             textInput = this.FindControl<TextBox>("TextInput")!;
             fontPreviewLabel = this.FindControl<TextBlock>("FontPreviewLabel")!;
@@ -85,8 +85,9 @@ namespace Foreman.Mac.Views.Sheets {
             backColorGreenInput = this.FindControl<NumericUpDown>("BackColorGreenInput")!;
             backColorBlueInput = this.FindControl<NumericUpDown>("BackColorBlueInput")!;
             backColorSwatch = this.FindControl<Border>("BackColorSwatch")!;
-            okButton = this.FindControl<Button>("OKButton")!;
-            cancelButton = this.FindControl<Button>("CancelButton")!;
+            cancelButton = SheetButtons.Make("Cancel", ButtonRowRole.Cancel);
+            okButton = SheetButtons.Make("OK", ButtonRowRole.Default);
+            Buttons = SheetButtons.Row(cancelButton, okButton);
             DefaultButton = okButton;
 
             PopulateFromElement();

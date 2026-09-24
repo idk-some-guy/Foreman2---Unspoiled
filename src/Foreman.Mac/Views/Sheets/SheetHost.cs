@@ -33,6 +33,7 @@ namespace Foreman.Mac.Views.Sheets {
             public SheetBody? Body;
             public bool Dismissed;
             public Button? ActivityDefault;
+            public InputElement? LastFocused;
             public bool PriorDefaultEnabled;
             public object? PriorDefaultContent;
         }
@@ -196,7 +197,11 @@ namespace Foreman.Mac.Views.Sheets {
                 LegacyDefault = content.Buttons is null ? content.DefaultButton : null,
                 Body = body,
             };
-            frame.Cancelled += (_, _) => layer.Cancel();
+            //A row Cancel button that completes the sheet on its own click has already run by the time the frame reports Escape.
+            frame.Cancelled += (_, _) => {
+                if (!content.Result.IsCompleted)
+                    layer.Cancel();
+            };
             return layer;
         }
 
@@ -335,11 +340,15 @@ namespace Foreman.Mac.Views.Sheets {
                 Click(button);
         }
 
-        //IsHitTestVisible=false only blocks pointer input; this yanks focus back into whichever layer is topmost.
+        //IsHitTestVisible=false only blocks pointer input; this yanks focus back to where it was in the topmost layer.
         private void OnWindowGotFocus(object? sender, RoutedEventArgs e) {
             if (!IsOpen || TopLayer is not { } top)
                 return;
-            if (e.Source is Visual focused && IsInside(top.Root, focused))
+            if (e.Source is Visual focused && IsInside(top.Root, focused)) {
+                top.LastFocused = focused as InputElement;
+                return;
+            }
+            if (top.LastFocused is { Focusable: true, IsEffectivelyEnabled: true, IsEffectivelyVisible: true } last && IsInside(top.Root, last) && last.Focus())
                 return;
             FocusFirstFocusable(top.Content);
         }
@@ -353,7 +362,7 @@ namespace Foreman.Mac.Views.Sheets {
 
         private static void FocusFirstFocusable(Control root) {
             InputElement? target = root.GetVisualDescendants().OfType<InputElement>()
-                .FirstOrDefault(candidate => candidate.Focusable && candidate.IsEffectivelyEnabled);
+                .FirstOrDefault(candidate => candidate.Focusable && candidate.IsEffectivelyEnabled && candidate.IsEffectivelyVisible);
             target?.Focus();
         }
 

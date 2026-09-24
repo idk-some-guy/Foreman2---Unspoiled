@@ -1,22 +1,27 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
              x:Class="Foreman.Mac.Views.Sheets.ImageExportSheet">
-  <StackPanel Spacing="10">
-    <Grid ColumnDefinitions="*,Auto">
-      <TextBox Name="FileTextBox" Grid.Column="0" IsReadOnly="True" Margin="0,0,6,0" />
-      <Button Name="BrowseButton" Grid.Column="1" Content="Browse..." />
-    </Grid>
-    <Border BorderBrush="Gray" BorderThickness="1" Padding="8">
-      <StackPanel Orientation="Horizontal" Spacing="10">
-        <StackPanel Spacing="2">
-          <TextBlock Text="Scale" FontWeight="Bold" />
-          <ComboBox Name="ScaleSelectionBox" Width="80" />
-        </StackPanel>
-        <TextBlock Name="ImageSizeLabel" Text="Image Size: x x y" VerticalAlignment="Center" />
+  <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+    <kit:FormRow Name="SaveToRow" Theme="{StaticResource Kit.FormRow}" Label="Save to" LabelColumn="Window">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Foreman.Space.Space2}">
+        <TextBox Name="FileTextBox" Grid.Column="0" Theme="{StaticResource Kit.TextField}" IsReadOnly="True" />
+        <Button Name="BrowseButton" Grid.Column="1" Theme="{StaticResource Kit.Button}" Content="Browse…" />
+      </Grid>
+    </kit:FormRow>
+    <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Scale" LabelColumn="Window">
+      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Space.Space2}">
+        <ctrl:PopUp Name="ScaleSelectionBox" Theme="{StaticResource Kit.PopUp}" />
+        <TextBlock Name="ImageSizeLabel" Theme="{StaticResource Kit.Text}" Classes="callout secondary"
+                   VerticalAlignment="Center" />
       </StackPanel>
-    </Border>
-    <CheckBox Name="TransparencyCheckBox" Content="Transparent Background" />
-    <CheckBox Name="ViewLimitCheckBox" Content="Limit to View" />
-    <Button Name="ExportButton" Content="Export" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
-  </StackPanel>
+    </kit:FormRow>
+    <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Options" LabelColumn="Window">
+      <StackPanel Spacing="{DynamicResource Foreman.Space.Space05}">
+        <CheckBox Name="TransparencyCheckBox" Theme="{StaticResource Kit.CheckBox}" Content="Transparent background" />
+        <CheckBox Name="ViewLimitCheckBox" Theme="{StaticResource Kit.CheckBox}" Content="Limit to the visible area" />
+      </StackPanel>
+    </kit:FormRow>
+  </kit:FormGroup>
 </UserControl>

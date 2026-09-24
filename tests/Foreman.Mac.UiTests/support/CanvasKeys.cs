@@ -15,6 +15,11 @@ namespace Foreman.Mac.UiTests.support {
             Dispatcher.UIThread.RunJobs();
         }
 
+        public static void TextInputOn(Control target, string text) {
+            target.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = text });
+            Dispatcher.UIThread.RunJobs();
+        }
+
         public static void KeyDownOnCanvas(GraphCanvasControl canvas, Key key, KeyModifiers modifiers = KeyModifiers.None) {
             canvas.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = modifiers });
             Dispatcher.UIThread.RunJobs();

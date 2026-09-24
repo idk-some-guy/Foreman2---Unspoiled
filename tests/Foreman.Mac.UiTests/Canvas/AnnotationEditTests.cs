@@ -530,6 +530,28 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(33f, freshText.FontSize);
         }
 
+        [AvaloniaFact]
+        public void ShapeProperties_Width_IsTheNamedSheetWidth() {
+            var sheet = new ShapePropertiesSheet(new ShapeAnnotationElement(new Point(0, 0), 200, 150));
+            (_, SheetHost host, _) = SheetFixture.Present(sheet);
+
+            Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), SheetFixture.PanelOf(host, sheet).Bounds.Width, 0.5);
+            Assert.Equal("Shape properties", SheetFixture.FrameOf(host, sheet).Title);
+            Assert.Equal([sheet.CancelButtonControl, sheet.OKButtonControl], sheet.Buttons!.Items.Cast<Avalonia.Controls.Button>());
+            Assert.Same(sheet.OKButtonControl, sheet.Buttons.ResolveDefaultButton());
+        }
+
+        [AvaloniaFact]
+        public void TextProperties_Width_IsTheNamedSheetWidth() {
+            var sheet = new TextPropertiesSheet(new TextAnnotationElement(new Point(0, 0)));
+            (_, SheetHost host, _) = SheetFixture.Present(sheet);
+
+            Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), SheetFixture.PanelOf(host, sheet).Bounds.Width, 0.5);
+            Assert.Equal("Text properties", SheetFixture.FrameOf(host, sheet).Title);
+            Assert.Equal([sheet.CancelButtonControl, sheet.OKButtonControl], sheet.Buttons!.Items.Cast<Avalonia.Controls.Button>());
+            Assert.Same(sheet.OKButtonControl, sheet.Buttons.ResolveDefaultButton());
+        }
+
         //---- annotation clipboard integration (reference §5/§9: merged node+annotation payload) ----
 
         [AvaloniaFact]

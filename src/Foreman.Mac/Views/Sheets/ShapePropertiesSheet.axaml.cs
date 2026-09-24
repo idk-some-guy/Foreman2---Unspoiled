@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using SkiaSharp;
 using System;
@@ -49,8 +50,7 @@ namespace Foreman.Mac.Views.Sheets {
             InitializeComponent();
             this.element = element;
             original = Snapshot.Capture(element);
-            SheetWidth = 340;
-            Title = "Shape Properties";
+            Title = "Shape properties";
 
             shapeTypeCombo = this.FindControl<ComboBox>("ShapeTypeCombo")!;
             noFillCheckBox = this.FindControl<CheckBox>("NoFillCheckBox")!;
@@ -65,8 +65,9 @@ namespace Foreman.Mac.Views.Sheets {
             borderColorBlueInput = this.FindControl<NumericUpDown>("BorderColorBlueInput")!;
             borderColorSwatch = this.FindControl<Border>("BorderColorSwatch")!;
             borderWidthInput = this.FindControl<NumericUpDown>("BorderWidthInput")!;
-            okButton = this.FindControl<Button>("OKButton")!;
-            cancelButton = this.FindControl<Button>("CancelButton")!;
+            cancelButton = SheetButtons.Make("Cancel", ButtonRowRole.Cancel);
+            okButton = SheetButtons.Make("OK", ButtonRowRole.Default);
+            Buttons = SheetButtons.Row(cancelButton, okButton);
             DefaultButton = okButton;
 
             PopulateFromElement();

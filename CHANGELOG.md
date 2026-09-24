@@ -179,6 +179,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   full-width progress bar under a sentence of up to three lines, whose fill eases to each new value and
   reads its percent to VoiceOver) or a failure (the default becomes Try Again) in a strip above its
   buttons, keeping its fields on screen.
+- The sheet bodies moved onto the kit. Export, Save-file Load, Science Packs and the two annotation
+  property sheets are 360pt wide, Preset Import and Preset Selection 460pt, and every title is
+  sentence case. Each sheet ends in a trailing Cancel · default row. Path fields fill their form row
+  up to the Browse… button, long notes wrap inside the row, and the inspector's Auto/Fixed switch
+  keeps its natural width. A preset name under five characters turns its rule note to the warning
+  colour. Preset Selection reads "Select a preset" with Cancel · Load Preset, ranks presets by mods,
+  then items, then recipes, opens with the best match selected, lines its column headers up with the
+  rows, selects by typing a name, and names the full preset and its mods in each row's tooltip. A
+  problem with one field now shows under that field and moves focus to it instead of raising an alert.
+  A failed export, import, save read or preset load keeps the sheet open with one plain reason above
+  the buttons and Try Again as the default; Import and Save-file Load add Show Log…. Export renders on
+  a background thread, so its progress bar moves and Cancel works while it runs. The overwrite,
+  missing-icon and save-mod-mismatch confirms name their action, and the mismatch lists what is
+  missing on each side. VoiceOver can press a science pack. When focus leaves an open sheet it returns
+  to the control that last had it, or to the first visible control if that one is hidden.
 
 ### Fixed
 

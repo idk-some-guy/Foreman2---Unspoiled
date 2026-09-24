@@ -10,6 +10,7 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Kit.Controls;
+using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
 using Foreman.Models.Nodes;
@@ -52,7 +53,10 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorTestSupport.Select(window, supplier!);
 
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
-            view.FindControl<Segmented>("RateMode")!.SelectedIndex = 1;
+            Segmented mode = view.FindControl<Segmented>("RateMode")!;
+            AnimationClock.UntilReflowsSettled(window);
+            Assert.Equal(mode.DesiredSize.Width, mode.Bounds.Width, 0.5);
+            mode.SelectedIndex = 1;
             view.FindControl<Stepper>("RateValue")!.Value = 90;
             Dispatcher.UIThread.RunJobs();
 

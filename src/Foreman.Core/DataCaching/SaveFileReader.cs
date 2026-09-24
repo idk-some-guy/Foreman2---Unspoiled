@@ -19,6 +19,9 @@ namespace Foreman.DataCaching {
             public required SaveFileLoadOutcome Outcome { get; init; }
             public SaveFileInfo? SaveFileInfo { get; init; }
             public string? WarningMessage { get; init; }
+            public FactorioRunFailure Failure { get; init; }
+            public FactorioCrashPhase CrashPhase { get; init; }
+            public FactorioInstallCheck? InstallCheck { get; init; }
         }
 
         public static Result Load(string saveFilePath, CancellationToken token) {
@@ -29,8 +32,14 @@ namespace Foreman.DataCaching {
                 string[] currentLogLines = Utf8File.ReadAllLines(currentLog);
                 string factorioPath = FindFactorioExecutablePathFromLog(currentLogLines) ?? "";
 
-                if (!FactorioInstallValidator.TryValidateExecutable(factorioPath, out string? factorioVersionError))
-                    return new Result { Outcome = SaveFileLoadOutcome.Cancel, WarningMessage = factorioVersionError };
+                FactorioInstallCheck installCheck = FactorioInstallValidator.CheckExecutable(factorioPath);
+                if (installCheck.Problem != FactorioInstallProblem.None)
+                    return new Result {
+                        Outcome = SaveFileLoadOutcome.Cancel,
+                        WarningMessage = FactorioInstallValidator.UserMessage(installCheck),
+                        Failure = FactorioRunFailure.InvalidInstall,
+                        InstallCheck = installCheck,
+                    };
 
                 modsPath = Path.Combine(userDataPath ?? "", "mods");
                 if (!Directory.Exists(modsPath))
@@ -42,6 +51,7 @@ namespace Foreman.DataCaching {
                     return new Result {
                         Outcome = SaveFileLoadOutcome.Abort,
                         WarningMessage = "could not copy foreman save reader mod files (Mods/foremansavereader_2.0.0/) to the factorio mods folder. Reinstall foreman?",
+                        Failure = FactorioRunFailure.HelperModCopyFailed,
                     };
                 }
 
@@ -71,6 +81,7 @@ namespace Foreman.DataCaching {
                     return new Result {
                         Outcome = SaveFileLoadOutcome.Cancel,
                         WarningMessage = "File read could not be completed because this instance of Factorio is currently running. Please stop expanding the factory for just a brief moment...",
+                        Failure = FactorioRunFailure.AnotherInstanceRunning,
                     };
 
                 if (readRun.Crashed) {
@@ -79,12 +90,14 @@ namespace Foreman.DataCaching {
                         Outcome = SaveFileLoadOutcome.Abort,
                         WarningMessage = "Factorio crashed while reading the save file.\n\n" +
                             "This is usually caused by a mod bug. See factorio-current.log in your Factorio user data folder.",
+                        Failure = FactorioRunFailure.Crashed,
+                        CrashPhase = FactorioCrashPhase.ReadingSave,
                     };
                 }
 
                 if (!resultString.Contains("<<<END-EXPORT-P0>>>", StringComparison.Ordinal)) {
                     ErrorLogging.LogLine("could not process save file due to export not completing. Mod issue?");
-                    return new Result { Outcome = SaveFileLoadOutcome.Abort };
+                    return new Result { Outcome = SaveFileLoadOutcome.Abort, Failure = FactorioRunFailure.Unmapped };
                 }
 
                 return new Result { Outcome = SaveFileLoadOutcome.Ok, SaveFileInfo = ParseP0Export(resultString) };
@@ -92,7 +105,7 @@ namespace Foreman.DataCaching {
                 ErrorLogging.LogException(ex, string.Format(CultureInfo.InvariantCulture, "Error reading save file '{0}'", saveFilePath));
                 if (!string.IsNullOrEmpty(modsPath) && Directory.Exists(Path.Combine(modsPath, "foremansavereader_2.0.0")))
                     Directory.Delete(Path.Combine(modsPath, "foremansavereader_2.0.0"), true);
-                return new Result { Outcome = SaveFileLoadOutcome.Abort };
+                return new Result { Outcome = SaveFileLoadOutcome.Abort, Failure = FactorioRunFailure.Unmapped };
             }
         }
 

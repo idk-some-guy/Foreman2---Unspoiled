@@ -59,6 +59,7 @@
   </ControlTheme>
 
   <ControlTheme x:Key="Kit.Stepper" TargetType="kit:Stepper">
+    <Setter Property="HorizontalAlignment" Value="Left" />
     <Setter Property="Height" Value="{DynamicResource Foreman.Size.ControlHeightRegular}" />
     <Setter Property="Cursor" Value="Arrow" />
     <Setter Property="kit:FocusRing.IsEnabled" Value="True" />

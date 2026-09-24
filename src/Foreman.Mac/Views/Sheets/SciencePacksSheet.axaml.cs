@@ -1,34 +1,32 @@
+using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Interactivity;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
-using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Styling;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using SkiaSharp;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.Views.Sheets {
-    //Ports Forms/SciencePacksLoadForm.cs(+.Designer.cs) (reference io-reference.md §6): a 48px icon-button
-    //grid (MaxColumns 14) built from DCache.SciencePacks, toggled Error/Accent, with a prerequisite
+    //Ports Forms/SciencePacksLoadForm.cs(+.Designer.cs) (reference io-reference.md §6): a grid of
+    //Kit.ChooserCells built from DCache.SciencePacks, an accepted pack shown selected, with a prerequisite
     //cascade in both directions. Confirm re-derives EnabledObjects from the accepted packs, reusing
     //EnabledObjectsDerivation (Foreman.Core, shared with SaveFileLoadSheet's ProcessSaveData - io-
     //reference.md risk 5) for the assembler/beacon/module transitive-enable step rather than a second copy.
-    //C2c Task 2 moved this off SciencePacksWindow onto SheetHost: SheetWidth tracks the grid's own computed
-    //column count, matching the former SizeToContent="WidthAndHeight" window.
     public partial class SciencePacksSheet : SheetContent<bool?> {
         private const int IconSize = 48;
-        private const int MaxColumns = 14;
 
         private readonly DataCache dCache;
         private readonly HashSet<IDataObjectBase> enabledObjects;
-        private readonly UniformGrid sciencePackGrid;
+        private readonly WrapPanel sciencePackGrid;
         private readonly Button confirmationButton;
         private readonly Button cancellationButton;
-        private readonly Dictionary<Button, bool> sciencePackButtons = [];
+        private readonly Dictionary<ChooserCell, bool> sciencePackButtons = [];
         private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
 
         internal bool Accepted { get; private set; }
@@ -42,9 +40,10 @@ namespace Foreman.Mac.Views.Sheets {
             this.enabledObjects = enabledObjects;
             Title = "Select researched science packs";
 
-            sciencePackGrid = this.FindControl<UniformGrid>("SciencePackGrid")!;
-            confirmationButton = this.FindControl<Button>("ConfirmationButton")!;
-            cancellationButton = this.FindControl<Button>("CancellationButton")!;
+            sciencePackGrid = this.FindControl<WrapPanel>("SciencePackGrid")!;
+            cancellationButton = SheetButtons.Make("Cancel", ButtonRowRole.Cancel);
+            confirmationButton = SheetButtons.Make("Confirm", ButtonRowRole.Default);
+            Buttons = SheetButtons.Row(cancellationButton, confirmationButton);
             DefaultButton = confirmationButton;
 
             confirmationButton.Click += (_, _) => Confirm();
@@ -55,34 +54,28 @@ namespace Foreman.Mac.Views.Sheets {
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        //Ports PopulateSciencePackOptions' row/column balancing (reference §6, SciencePacksLoadForm.cs:36-45):
-        //a near-square grid capped at MaxColumns wide, not a plain wrap at 14 columns.
-        internal static (int Rows, int Columns) ComputeGridDimensions(int count) {
-            int rows = (count / MaxColumns) + (count % MaxColumns > 0 ? 1 : 0);
-            int columns = rows == 0 ? 0 : (count / rows) + (count % rows > 0 ? 1 : 0);
-            return (rows, columns);
-        }
-
         private void PopulateSciencePackOptions() {
-            (int rows, int columns) = ComputeGridDimensions(dCache.SciencePacks.Count);
-            sciencePackGrid.Rows = rows;
-            sciencePackGrid.Columns = columns;
-            SheetWidth = columns * IconSize;
-
+            Application.Current!.TryGetResource("Kit.ChooserCell", null, out object? cellTheme);
             foreach (IItem sciencePack in dCache.SciencePacks) {
-                var button = new Button {
-                    Width = IconSize,
-                    Height = IconSize,
-                    Padding = default,
-                    Background = DeselectedBrush(),
+                var cell = new ChooserCell {
+                    Theme = cellTheme as ControlTheme,
+                    Icon = GetOrBakeIcon(sciencePack.Icon),
+                    Label = sciencePack.FriendlyName,
+                    FullName = sciencePack.FriendlyName,
+                    Focusable = true,
                     Tag = sciencePack,
-                    Content = new Image { Source = GetOrBakeIcon(sciencePack.Icon), Stretch = Stretch.Uniform },
                 };
-                ToolTip.SetTip(button, sciencePack.FriendlyName);
-                button.Click += Button_Click;
+                cell.Tapped += (_, _) => Toggle(cell);
+                cell.Invoked += (_, _) => Toggle(cell);
+                cell.KeyDown += (_, e) => {
+                    if (e.Key is not Key.Space)
+                        return;
+                    e.Handled = true;
+                    Toggle(cell);
+                };
 
-                sciencePackGrid.Children.Add(button);
-                sciencePackButtons.Add(button, false);
+                sciencePackGrid.Children.Add(cell);
+                sciencePackButtons.Add(cell, false);
             }
         }
 
@@ -90,29 +83,29 @@ namespace Foreman.Mac.Views.Sheets {
         //upstream's own documented imprecision (its comment at :87-88, docs/upstream-divergences.md): a
         //science pack reachable through multiple alternate tech-tree branches gets every branch's
         //prerequisites treated as required (AND) instead of any one branch (OR) - not fixed here.
-        private void Button_Click(object? sender, RoutedEventArgs e) {
-            if (sender is not Button clicked || clicked.Tag is not IItem sciPack)
+        private void Toggle(ChooserCell clicked) {
+            if (clicked.Tag is not IItem sciPack)
                 return;
 
             bool enabled = !sciencePackButtons[clicked];
-            sciencePackButtons[clicked] = enabled;
-            clicked.Background = enabled ? SelectedBrush() : DeselectedBrush();
+            SetAccepted(clicked, enabled);
 
-            foreach (Button button in sciencePackButtons.Keys.ToArray()) {
-                if (button.Tag is not IItem item)
+            foreach (ChooserCell cell in sciencePackButtons.Keys.ToArray()) {
+                if (cell.Tag is not IItem item)
                     continue;
                 if (enabled) {
-                    if (dCache.SciencePackPrerequisites[sciPack].Contains(item)) {
-                        button.Background = SelectedBrush();
-                        sciencePackButtons[button] = true;
-                    }
+                    if (dCache.SciencePackPrerequisites[sciPack].Contains(item))
+                        SetAccepted(cell, true);
                 } else {
-                    if (dCache.SciencePackPrerequisites[item].Contains(sciPack)) {
-                        button.Background = DeselectedBrush();
-                        sciencePackButtons[button] = false;
-                    }
+                    if (dCache.SciencePackPrerequisites[item].Contains(sciPack))
+                        SetAccepted(cell, false);
                 }
             }
+        }
+
+        private void SetAccepted(ChooserCell cell, bool accepted) {
+            sciencePackButtons[cell] = accepted;
+            cell.IsSelected = accepted;
         }
 
         //Ports ConfirmationButton_Click (reference §6, SciencePacksLoadForm.cs:121-161).
@@ -131,17 +124,11 @@ namespace Foreman.Mac.Views.Sheets {
 
         private Bitmap GetOrBakeIcon(SKBitmap icon) => IconBaker.GetOrBake(bakedIconCache, icon, IconSize);
 
-        private static IBrush SelectedBrush() => ThemeResources.ResolveBrush("Foreman.Color.Accent", Color.FromRgb(0x00, 0x7A, 0xFF));
-
-        //was a solid DarkRed, not a pastel: vivid Error keeps the strength
-        private static IBrush DeselectedBrush() => ThemeResources.ResolveBrush("Foreman.Color.Error", Color.FromRgb(0xD7, 0x00, 0x15));
-
         //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
-        internal UniformGrid SciencePackGridControl => sciencePackGrid;
         internal Button ConfirmationButtonControl => confirmationButton;
         internal Button CancellationButtonControl => cancellationButton;
-        internal IReadOnlyDictionary<Button, bool> SciencePackButtonStates => sciencePackButtons;
-        internal Button? PackButtonFor(IItem sciencePack) => sciencePackButtons.Keys.FirstOrDefault(b => ReferenceEquals(b.Tag, sciencePack));
+        internal IReadOnlyDictionary<ChooserCell, bool> SciencePackButtonStates => sciencePackButtons;
+        internal ChooserCell? PackButtonFor(IItem sciencePack) => sciencePackButtons.Keys.FirstOrDefault(b => ReferenceEquals(b.Tag, sciencePack));
         internal void SimulateConfirmClick() => Confirm();
         internal void SimulateCancelClick() => Cancel();
     }

@@ -1,38 +1,29 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
              x:Class="Foreman.Mac.Views.Sheets.PresetImportSheet">
-  <StackPanel Spacing="10">
-    <StackPanel Spacing="2">
-      <TextBlock Text="Factorio Location:" FontWeight="Bold" />
-      <ComboBox Name="FactorioLocationComboBox" HorizontalAlignment="Stretch" IsVisible="False" />
-      <Grid ColumnDefinitions="*,Auto">
-        <TextBox Name="FactorioLocationTextBox" Grid.Column="0" Margin="0,0,6,0" />
-        <Button Name="FactorioBrowseButton" Grid.Column="1" Content="Browse..." />
+  <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+    <kit:FormRow Name="FactorioLocationRow" Theme="{StaticResource Kit.FormRow}" Label="Factorio install" LabelColumn="Window"
+                 Note="Language, mods, and mod settings come from Factorio. Change them there before importing.">
+      <StackPanel Spacing="{DynamicResource Foreman.Space.Space1}">
+        <ctrl:PopUp Name="FactorioLocationComboBox" Theme="{StaticResource Kit.PopUp}" IsVisible="False" />
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Foreman.Space.Space2}">
+          <TextBox Name="FactorioLocationTextBox" Grid.Column="0" Theme="{StaticResource Kit.TextField}" />
+          <Button Name="FactorioBrowseButton" Grid.Column="1" Theme="{StaticResource Kit.Button}" Content="Browse…" />
+        </Grid>
+      </StackPanel>
+    </kit:FormRow>
+    <kit:FormRow Name="PresetNameRow" Theme="{StaticResource Kit.FormRow}" Label="Preset name" LabelColumn="Window"
+                 Note="5–40 characters: letters, numbers, spaces, and ( ) . - _">
+      <TextBox Name="PresetNameTextBox" Theme="{StaticResource Kit.TextField}" Text="Factorio 2.0 Space Age" MaxLength="40" />
+    </kit:FormRow>
+    <kit:FormRow Name="ModsLocationRow" Theme="{StaticResource Kit.FormRow}" Label="Mods folder" LabelColumn="Window"
+                 Note="Leave blank to detect it automatically.">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Foreman.Space.Space2}">
+        <TextBox Name="ModsLocationTextBox" Grid.Column="0" Theme="{StaticResource Kit.TextField}" />
+        <Button Name="ModsBrowseButton" Grid.Column="1" Theme="{StaticResource Kit.Button}" Content="Browse…" />
       </Grid>
-    </StackPanel>
-    <StackPanel Spacing="2">
-      <TextBlock Text="Factorio Settings:" FontWeight="Bold" />
-      <TextBlock Text="NOTE: Language, Active Mods, and Mod options are to be set within Factorio!" TextWrapping="Wrap" />
-    </StackPanel>
-    <StackPanel Spacing="2">
-      <TextBlock Text="Preset Name:" FontWeight="Bold" />
-      <TextBox Name="PresetNameTextBox" Text="Factorio 2.0 Space Age" MaxLength="40" Background="Moccasin" />
-      <TextBlock Text="5-40 characters: letters, numbers, brackets, dash or underscore." TextWrapping="Wrap" FontSize="11" />
-    </StackPanel>
-    <StackPanel Spacing="2">
-      <TextBlock Text="Mod Folder Location (leave blank for auto-detect):" FontWeight="Bold" />
-      <Grid ColumnDefinitions="*,Auto">
-        <TextBox Name="ModsLocationTextBox" Grid.Column="0" Margin="0,0,6,0" />
-        <Button Name="ModsBrowseButton" Grid.Column="1" Content="Browse..." />
-      </Grid>
-    </StackPanel>
-    <Grid ColumnDefinitions="*,Auto">
-      <Button Name="OKButton" Grid.Column="0" Content="Import" Margin="0,0,6,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
-      <Button Name="CancelButton" Grid.Column="1" Content="Cancel" />
-    </Grid>
-    <StackPanel Name="ProgressPanel" Spacing="2" IsVisible="False">
-      <TextBlock Name="StatusTextBlock" Text="" />
-      <ProgressBar Name="ImportProgressBar" Minimum="0" Maximum="100" Value="0" />
-    </StackPanel>
-  </StackPanel>
+    </kit:FormRow>
+  </kit:FormGroup>
 </UserControl>

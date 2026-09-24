@@ -1,10 +1,11 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using System;
 using System.Collections.Generic;
@@ -17,29 +18,27 @@ namespace Foreman.Mac.Views.Sheets {
     //Ports PresetImportForm(+.designer.cs) (reference io-reference.md §4, upstream PresetImportForm.cs): the
     //Import-preset-from-Factorio dialog. Pre-flight validation lives here; the process pipeline itself
     //(PresetImporter, Foreman.Core) is UI-independent and tested against StubFactorioHarness separately.
-    //FactorioLocationComboBox is a real (non-editable) ComboBox again, listing every detected candidate; the
-    //editable TextBox next to it stays the authoritative free-text value, since Avalonia's ComboBox has no
-    //editable-freetext mode without pulling in AutoCompleteBox. ModsLocationComboBox stays a plain TextBox -
-    //upstream never seeds it with any candidate at all (docs/upstream-divergences.md). C2c Task 2 moved this
-    //off PresetImportWindow onto SheetHost: DialogResultValue stays the caller's own read model (SettingsWindow
-    //reads NewPresetName/ImportStarted off it the same way it read them off the window), independent of the
-    //sheet's own Complete/Cancel result.
+    //FactorioLocationComboBox is a Kit.PopUp listing every detected candidate; the text field below it stays
+    //the authoritative free-text value. The mods folder stays a plain text field - upstream never seeds it
+    //with any candidate at all (docs/upstream-divergences.md). DialogResultValue stays the caller's own read
+    //model (SettingsWindow reads NewPresetName/ImportStarted off it), independent of the sheet's own result.
     public partial class PresetImportSheet : SheetContent<bool?>, IDisposable {
         private readonly List<Preset> existingPresets;
         private readonly CancellationTokenSource cts = new();
         private bool disposed;
 
-        private readonly ComboBox factorioLocationComboBox;
+        private readonly FormRow factorioLocationRow;
+        private readonly FormRow modsLocationRow;
+        private readonly PopUp factorioLocationComboBox;
         private readonly TextBox factorioLocationTextBox;
         private readonly Button factorioBrowseButton;
+        private readonly FormRow presetNameRow;
         private readonly TextBox presetNameTextBox;
         private readonly TextBox modsLocationTextBox;
         private readonly Button modsBrowseButton;
         private readonly Button okButton;
         private readonly Button cancelButton;
-        private readonly StackPanel progressPanel;
-        private readonly ProgressBar progressBar;
-        private readonly TextBlock statusTextBlock;
+        private readonly Button showLogButton;
 
         public string NewPresetName { get; private set; } = "";
         public bool ImportStarted { get; private set; }
@@ -54,8 +53,8 @@ namespace Foreman.Mac.Views.Sheets {
         //Test-only seams (see ImageExportSheet's SaveFilePathStub for the established convention).
         internal Func<Task<string?>>? BrowseFactorioLocationStub { get; set; }
         internal Func<Task<string?>>? BrowseModsLocationStub { get; set; }
-        internal Func<string, string, Task>? WarningDialogStub { get; set; }
         internal Func<string, string, Task<bool>>? ConfirmDialogStub { get; set; }
+        internal Func<Task>? ShowLogStub { get; set; }
         //Lets a test replace PresetImporter.ProcessPreset with a scripted result, without spawning a real
         //(or stub-script) process - the pipeline's own correctness is covered separately in ForemanTest
         //against StubFactorioHarness, where that harness actually lives.
@@ -74,28 +73,33 @@ namespace Foreman.Mac.Views.Sheets {
         internal PresetImportSheet(List<Preset> existingPresets, List<string>? installLocationsOverride) {
             InitializeComponent();
             this.existingPresets = existingPresets;
-            SheetWidth = 460;
-            Title = "Import Preset";
+            WidthClass = SheetWidthClass.Wide;
+            Title = "Import a preset";
 
-            factorioLocationComboBox = this.FindControl<ComboBox>("FactorioLocationComboBox")!;
+            factorioLocationRow = this.FindControl<FormRow>("FactorioLocationRow")!;
+            modsLocationRow = this.FindControl<FormRow>("ModsLocationRow")!;
+            factorioLocationComboBox = this.FindControl<PopUp>("FactorioLocationComboBox")!;
             factorioLocationTextBox = this.FindControl<TextBox>("FactorioLocationTextBox")!;
             factorioBrowseButton = this.FindControl<Button>("FactorioBrowseButton")!;
+            presetNameRow = this.FindControl<FormRow>("PresetNameRow")!;
             presetNameTextBox = this.FindControl<TextBox>("PresetNameTextBox")!;
             modsLocationTextBox = this.FindControl<TextBox>("ModsLocationTextBox")!;
             modsBrowseButton = this.FindControl<Button>("ModsBrowseButton")!;
-            okButton = this.FindControl<Button>("OKButton")!;
-            cancelButton = this.FindControl<Button>("CancelButton")!;
-            progressPanel = this.FindControl<StackPanel>("ProgressPanel")!;
-            progressBar = this.FindControl<ProgressBar>("ImportProgressBar")!;
-            statusTextBlock = this.FindControl<TextBlock>("StatusTextBlock")!;
+            showLogButton = SheetButtons.Make("Show Log…", ButtonRowRole.Helper);
+            showLogButton.IsVisible = false;
+            cancelButton = SheetButtons.Make("Cancel", ButtonRowRole.Cancel);
+            okButton = SheetButtons.Make("Import", ButtonRowRole.Default);
+            Buttons = SheetButtons.Row(showLogButton, cancelButton, okButton);
             DefaultButton = okButton;
 
             List<string> installLocations = installLocationsOverride ?? FactorioPathsProcessor.GetFactorioInstallLocations();
             factorioLocationTextBox.Text = installLocations.FirstOrDefault() ?? "";
-            factorioLocationComboBox.ItemsSource = installLocations;
+            foreach (string location in installLocations)
+                factorioLocationComboBox.Items.Add(location);
+            factorioLocationComboBox.SelectedItem = installLocations.FirstOrDefault();
             factorioLocationComboBox.IsVisible = installLocations.Count > 1;
-            factorioLocationComboBox.SelectionChanged += (_, _) => {
-                if (factorioLocationComboBox.SelectedItem is string selected)
+            factorioLocationComboBox.PropertyChanged += (_, e) => {
+                if (e.Property == PopUp.SelectedItemProperty && factorioLocationComboBox.SelectedItem is string selected)
                     factorioLocationTextBox.Text = selected;
             };
 
@@ -103,11 +107,12 @@ namespace Foreman.Mac.Views.Sheets {
             modsBrowseButton.Click += (_, _) => Async.Fire(BrowseModsLocationAsync(), nameof(BrowseModsLocationAsync));
             //TextChanging (not TextChanged) - fires synchronously per keystroke, matching upstream's
             //immediate per-keystroke PresetNameTextBox_TextChanged (reference §4 step 8). The seeded default
-            //text above is never re-validated (upstream sets it before wiring TextChanged too), so this
-            //stays Moccasin - the XAML default - until the user actually types.
+            //text above is never re-validated (upstream sets it before wiring TextChanged too), so its row
+            //shows only the naming rule until the user actually types.
             presetNameTextBox.TextChanging += (_, _) => OnPresetNameChanging();
             okButton.Click += (_, _) => Async.Fire(RunImportAsync(), nameof(RunImportAsync));
             cancelButton.Click += (_, _) => Cancel();
+            showLogButton.Click += (_, _) => Async.Fire(ShowLogAsync(), nameof(ShowLogAsync));
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -122,9 +127,9 @@ namespace Foreman.Mac.Views.Sheets {
             GC.SuppressFinalize(this);
         }
 
-        //Ports PresetNameTextBox_TextChanged (reference §4 step 8) verbatim: filter to
-        //letters/digits/"()-_. ", preserve caret position, then color Warning (<5 chars) / Error (name
-        //collision) / Success (OK).
+        //Ports PresetNameTextBox_TextChanged (reference §4 step 8): filter to letters/digits/"()-_. ", preserve
+        //caret position, then flag the row: the rule note in warning colour (<5 chars), the built-in preset as
+        //an error, a collision as a warning (Import leads to the Replace confirm), nothing once the name is usable.
         private void OnPresetNameChanging() {
             int caret = presetNameTextBox.CaretIndex;
             string text = presetNameTextBox.Text ?? "";
@@ -135,50 +140,69 @@ namespace Foreman.Mac.Views.Sheets {
                 presetNameTextBox.CaretIndex = caret;
             }
 
-            presetNameTextBox.Background = filtered.Length < 5
-                ? ThemeResources.ResolveBrush("Foreman.Color.WarningSoft", Color.FromArgb(0x38, 0xB2, 0x50, 0x00))
-                : existingPresets.Any(p => string.Equals(p.Name, filtered, StringComparison.OrdinalIgnoreCase))
-                ? ThemeResources.ResolveBrush("Foreman.Color.ErrorSoft", Color.FromArgb(0x3D, 0xD7, 0x00, 0x15))
-                : ThemeResources.ResolveBrush("Foreman.Color.SuccessSoft", Color.FromArgb(0x73, 0x34, 0xC7, 0x59));
+            presetNameRow.NoteIsWarning = filtered.Length < 5;
+            if (filtered.Length < 5)
+                SetNameProblem(null, warning: false);
+            else if (IsBuiltInName(filtered))
+                SetNameProblem(BuiltInNameSentence, warning: false);
+            else if (existingPresets.Any(p => string.Equals(p.Name, filtered, StringComparison.OrdinalIgnoreCase)))
+                SetNameProblem("This name is in use. Importing replaces that preset.", warning: true);
+            else
+                SetNameProblem(null, warning: false);
+        }
+
+        private static string BuiltInNameSentence => $"“{Services.PresetResolver.DefaultPresetName}” is built in and can’t be replaced. Choose another name.";
+
+        private static bool IsBuiltInName(string name) =>
+            string.Equals(name, Services.PresetResolver.DefaultPresetName, StringComparison.OrdinalIgnoreCase);
+
+        private void SetNameProblem(string? sentence, bool warning) {
+            presetNameRow.ErrorIsWarning = warning;
+            presetNameRow.Error = sentence;
+        }
+
+        private static void ShowFieldProblem(FormRow row, Control field, string sentence) {
+            row.ErrorIsWarning = false;
+            row.Error = sentence;
+            field.Focus();
         }
 
         private void EnableProgressBar(bool enabled) {
-            progressPanel.IsVisible = enabled;
+            factorioLocationComboBox.IsEnabled = !enabled;
             factorioLocationTextBox.IsEnabled = !enabled;
             factorioBrowseButton.IsEnabled = !enabled;
             presetNameTextBox.IsEnabled = !enabled;
             modsLocationTextBox.IsEnabled = !enabled;
             modsBrowseButton.IsEnabled = !enabled;
-            okButton.IsEnabled = !enabled;
         }
 
-        //Ports FactorioBrowseButton_Click (reference §4): message adapted per platform (docs/upstream-divergences.md) -
-        //upstream's own text names "bin"/"data"/"config-path.cfg", which don't exist on a mac install, and
-        //Linux has no .app bundle wrapper at all.
+        //Ports FactorioBrowseButton_Click (reference §4): a folder that isn't a Factorio install is the row's error,
+        //worded per platform (a mac install is factorio.app, Linux has no bundle wrapper).
         internal async Task BrowseFactorioLocationAsync() {
             string? selected = await (BrowseFactorioLocationStub?.Invoke() ?? RealPickFolderAsync()).ConfigureAwait(true);
             if (selected is null)
                 return;
 
-            if (FactorioPathsProcessor.TryNormalizeInstallPath(selected, out string installRoot))
+            if (FactorioPathsProcessor.TryNormalizeInstallPath(selected, out string installRoot)) {
                 factorioLocationTextBox.Text = installRoot;
-            else
-                await ShowWarningAsync("", OperatingSystem.IsMacOS()
-                    ? "Selected directory doesnt seem to be a factorio install folder (it should at the very least have a \"factorio.app/Contents/MacOS/factorio\" executable)"
-                    : "Selected directory doesnt seem to be a factorio install folder (it should at the very least have a \"bin/x64/factorio\" executable)").ConfigureAwait(true);
+                factorioLocationRow.Error = null;
+            } else {
+                ShowFieldProblem(factorioLocationRow, factorioLocationTextBox, FailureSentences.NotAFactorioFolder);
+            }
         }
 
-        //Ports ModsBrowseButton_Click (reference §4) verbatim - no OS-specific wording to adapt.
+        //Ports ModsBrowseButton_Click (reference §4): a folder without mod-list.json is the row's error.
         internal async Task BrowseModsLocationAsync() {
             string? selected = await (BrowseModsLocationStub?.Invoke() ?? RealPickFolderAsync()).ConfigureAwait(true);
             if (selected is null)
                 return;
 
-            if (File.Exists(Path.Combine(selected, "mod-list.json")))
+            if (File.Exists(Path.Combine(selected, "mod-list.json"))) {
                 modsLocationTextBox.Text = selected;
-            else
-                await ShowWarningAsync("",
-                    "Selected directory doesnt seem to be a factorio mods folder (it should at the very least have \"mod-list.json\" file)").ConfigureAwait(true);
+                modsLocationRow.Error = null;
+            } else {
+                ShowFieldProblem(modsLocationRow, modsLocationTextBox, "This isn’t a Factorio mods folder. Choose the folder that holds mod-list.json.");
+            }
         }
 
         private async Task<string?> RealPickFolderAsync() {
@@ -208,36 +232,41 @@ namespace Foreman.Mac.Views.Sheets {
         //cleanup bug (docs/upstream-divergences.md); this port's pipeline already cleans up completely on
         //every one of its own failure paths, so a fresh OK click has nothing left over to clean.
         internal async Task RunImportAsync() {
+            ClearActivity();
+            showLogButton.IsVisible = false;
+            factorioLocationRow.Error = null;
+            modsLocationRow.Error = null;
             NewPresetName = presetNameTextBox.Text ?? "";
             if (!Directory.Exists(factorioLocationTextBox.Text)) {
-                await ShowWarningAsync("", "That directory doesn't seem to exist").ConfigureAwait(true);
+                ShowFieldProblem(factorioLocationRow, factorioLocationTextBox, "This folder doesn’t exist. Check the path, or click Browse… to choose it.");
                 return;
             }
             if (NewPresetName.Length < 5) {
-                await ShowWarningAsync("", "Preset name has to be longer than 5!").ConfigureAwait(true);
+                ShowFieldProblem(presetNameRow, presetNameTextBox, "Preset names need at least 5 characters.");
                 return;
             }
 
-            if (string.Equals(NewPresetName, Services.PresetResolver.DefaultPresetName, StringComparison.OrdinalIgnoreCase)) {
-                await ShowWarningAsync("", "Cant overwrite default preset!").ConfigureAwait(true);
+            if (IsBuiltInName(NewPresetName)) {
+                ShowFieldProblem(presetNameRow, presetNameTextBox, BuiltInNameSentence);
                 return;
             }
             if (existingPresets.Any(p => string.Equals(p.Name, NewPresetName, StringComparison.OrdinalIgnoreCase))) {
-                bool overwrite = await ShowConfirmAsync("Confirm Overwrite", "This preset name is already in use. Do you wish to overwrite?").ConfigureAwait(true);
+                bool overwrite = await ShowConfirmAsync($"Replace the preset “{Dialogs.MiddleTruncate(NewPresetName)}”?",
+                    "A preset with this name already exists. Importing replaces its items, recipes, and icons. You can’t undo this action.",
+                    "Replace", destructive: true).ConfigureAwait(true);
                 if (!overwrite)
                     return;
             }
 
             if (!FactorioPathsProcessor.TryNormalizeInstallPath(factorioLocationTextBox.Text ?? "", out string installPath)) {
-                await ShowWarningAsync("", OperatingSystem.IsMacOS()
-                    ? "Couldnt find factorio (Contents/MacOS/factorio) - please select a valid Factorio install location"
-                    : "Couldnt find factorio (bin/x64/factorio) - please select a valid Factorio install location").ConfigureAwait(true);
+                ShowFieldProblem(factorioLocationRow, factorioLocationTextBox, FailureSentences.NotAFactorioFolder);
                 return;
             }
 
             string factorioExePath = FactorioPathsProcessor.GetExecutablePath(installPath);
-            if (!FactorioInstallValidator.TryValidateExecutable(factorioExePath, out string? factorioVersionError)) {
-                await ShowWarningAsync("", factorioVersionError).ConfigureAwait(true);
+            FactorioInstallCheck installCheck = FactorioInstallValidator.CheckExecutable(factorioExePath);
+            if (installCheck.Problem != FactorioInstallProblem.None) {
+                ShowFieldProblem(factorioLocationRow, factorioLocationTextBox, FailureSentences.Install(installCheck));
                 return;
             }
 
@@ -245,18 +274,24 @@ namespace Foreman.Mac.Views.Sheets {
             if (string.IsNullOrEmpty(modsPath) || !File.Exists(Path.Combine(modsPath, "mod-list.json"))) {
                 string userDataPath = FactorioPathsProcessor.GetFactorioUserPath(installPath, verboseFail: true, HomeOverride);
                 if (string.IsNullOrEmpty(userDataPath)) {
-                    await ShowWarningAsync("", "Couldnt auto-locate the mods folder - please manually locate the folder").ConfigureAwait(true);
+                    ShowFieldProblem(modsLocationRow, modsLocationTextBox, "Foreman couldn’t find your mods folder. Click Browse… to choose it.");
                     return;
                 }
                 modsPath = Path.Combine(userDataPath, "mods");
             }
 
             EnableProgressBar(true);
+            string quoted = $"“{Dialogs.MiddleTruncate(NewPresetName, 24)}”";
+            int percent = 0;
+            string stage = "";
+            ReportProgress($"Importing {quoted}.", 0);
             var progress = new Progress<KeyValuePair<int, string>>(value => {
-                if (value.Key > progressBar.Value)
-                    progressBar.Value = value.Key;
-                if (!string.IsNullOrEmpty(value.Value) && value.Value != statusTextBlock.Text)
-                    statusTextBlock.Text = value.Value;
+                if (disposed || Activity?.Kind != SheetActivityKind.InProgress)
+                    return;
+                percent = Math.Max(percent, value.Key);
+                if (!string.IsNullOrEmpty(value.Value))
+                    stage = StageClause(value.Value);
+                ReportProgress(stage.Length > 0 ? $"Importing {quoted} — {stage}." : $"Importing {quoted}.", percent / 100.0);
             });
 
             ImportStarted = true;
@@ -269,6 +304,8 @@ namespace Foreman.Mac.Views.Sheets {
             if (disposed) //Cancel already disposed the sheet while the pipeline was in flight - discard the late result.
                 return;
 
+            ClearActivity();
+            EnableProgressBar(false);
             if (result.Outcome == PresetImportOutcome.Ok) {
                 NewPresetName = result.NewPresetName;
                 DialogResultValue = true;
@@ -276,10 +313,26 @@ namespace Foreman.Mac.Views.Sheets {
                 Dispose();
             } else {
                 NewPresetName = "";
-                EnableProgressBar(false);
-                if (result.WarningMessage is string message)
-                    await ShowWarningAsync("", message).ConfigureAwait(true);
+                if (result.Outcome == PresetImportOutcome.Failed) {
+                    ErrorLogging.LogLine("Preset import failed: " + result.WarningMessage);
+                    showLogButton.IsVisible = true;
+                    ReportFailure($"Couldn’t import {quoted}. {FailureSentences.Reason(result.Failure, result.CrashPhase, result.InstallCheck)}");
+                }
             }
+        }
+
+        //A pipeline progress stage as the clause after the em dash: one line, lower-cased lead, no closing period.
+        private static string StageClause(string message) {
+            string clause = string.Join(" ", message.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).TrimEnd('.', ' ');
+            if (clause.Length > 1 && char.IsUpper(clause[0]) && !char.IsUpper(clause[1]))
+                clause = char.ToLowerInvariant(clause[0]) + clause[1..];
+            return clause;
+        }
+
+        private Task ShowLogAsync() {
+            if (ShowLogStub is not null)
+                return ShowLogStub();
+            return TopLevel.GetTopLevel(this)?.Launcher.LaunchFileInfoAsync(new FileInfo(ErrorLogging.LogFilePath)) ?? Task.CompletedTask;
         }
 
         //Ports the icon-partial-failure Yes/No prompt (reference §4 step 6, PresetImportForm.cs:373). Called
@@ -288,27 +341,28 @@ namespace Foreman.Mac.Views.Sheets {
         private Task<bool> ConfirmContinueWithMissingIconsAsync(int failedCount, int totalCount) {
             var tcs = new TaskCompletionSource<bool>();
             string message = string.Create(DisplayCulture.Format,
-                $"{failedCount}/{totalCount} images that were processed for icons were not found and thus some icons are likely wrong/empty. Do you still wish to continue with the preset import?");
-            Dispatcher.UIThread.Post(async () => tcs.SetResult(await ShowConfirmAsync("Confirm Preset Import", message).ConfigureAwait(true)));
+                $"{failedCount} of {totalCount} icon images weren’t found, so some icons may be wrong or empty.");
+            Dispatcher.UIThread.Post(async () => tcs.SetResult(await ShowConfirmAsync("Continue importing with missing icons?", message, "Continue").ConfigureAwait(true)));
             return tcs.Task;
         }
 
-        private Task ShowWarningAsync(string title, string message) =>
-            WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync((Window)TopLevel.GetTopLevel(this)!, title, message);
-
-        private Task<bool> ShowConfirmAsync(string title, string message) =>
-            ConfirmDialogStub?.Invoke(title, message) ?? Dialogs.ShowConfirmAsync((Window)TopLevel.GetTopLevel(this)!, title, message);
+        private Task<bool> ShowConfirmAsync(string title, string message, string verb, bool destructive = false) {
+            if (ConfirmDialogStub is not null)
+                return ConfirmDialogStub(title, message);
+            var owner = (Window)TopLevel.GetTopLevel(this)!;
+            return destructive ? Dialogs.ShowDestructiveConfirmAsync(owner, title, message, verb) : Dialogs.ShowConfirmAsync(owner, title, message, verb);
+        }
 
         //-------------------------------------------------------------------------------------------------Test-only seams
 
-        internal ComboBox FactorioLocationComboBoxControl => factorioLocationComboBox;
+        internal PopUp FactorioLocationComboBoxControl => factorioLocationComboBox;
         internal TextBox FactorioLocationTextBoxControl => factorioLocationTextBox;
+        internal FormRow PresetNameRowControl => presetNameRow;
         internal TextBox PresetNameTextBoxControl => presetNameTextBox;
         internal TextBox ModsLocationTextBoxControl => modsLocationTextBox;
         internal Button OKButtonControl => okButton;
         internal Button CancelButtonControl => cancelButton;
-        internal ProgressBar ProgressBarControl => progressBar;
-        internal bool ProgressPanelVisible => progressPanel.IsVisible;
+        internal Button ShowLogButtonControl => showLogButton;
         internal bool Disposed => disposed;
 
         internal void SimulateCancelClick() => Cancel();

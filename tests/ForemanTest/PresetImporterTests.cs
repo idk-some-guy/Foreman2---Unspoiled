@@ -176,6 +176,7 @@ namespace ForemanTest {
             Assert.AreEqual(
                 "Foreman export could not be completed because this instance of Factorio is currently running. Please stop expanding the factory for just a brief moment and let the export commence in peace!",
                 result.WarningMessage);
+            Assert.AreEqual(FactorioRunFailure.AnotherInstanceRunning, result.Failure);
             AssertNoDebris(scratchDir, modsPath, userPresetsDir, "Blocked Preset");
         }
 
@@ -199,7 +200,90 @@ namespace ForemanTest {
                 "Open factorio-current.log in your Factorio user data folder for details, " +
                 "then try disabling mods until Factorio can start a new game with the same mod list.",
                 result.WarningMessage);
+            Assert.AreEqual(FactorioRunFailure.Crashed, result.Failure);
+            Assert.AreEqual(FactorioCrashPhase.CreatingTestSave, result.CrashPhase);
             AssertNoDebris(scratchDir, modsPath, userPresetsDir, "Crashed Preset");
+        }
+
+        [TestMethod]
+        public async Task ProcessPreset_FactorioCrashesDuringTheExportScripts_IsACrashInThatPhase() {
+            string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
+            StubFactorioHarness.WriteScript(macOsDir,
+                "case \"$*\" in\n" +
+                "  *--create*) touch ./temp-save.zip; exit 0 ;;\n" +
+                "  *) printf 'Received SIGSEGV\\n'; exit 1 ;;\n" +
+                "esac\n");
+            string installPath = Path.GetDirectoryName(macOsDir)!;
+            string modsPath = NewTempDir();
+            string scratchDir = NewTempDir();
+            string userPresetsDir = NewTempDir();
+
+            PresetImporter.Result result = await PresetImporter.ProcessPreset(
+                installPath, modsPath, scratchDir, "Export Crash Preset", userPresetsDir,
+                new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
+
+            Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
+            Assert.AreEqual(FactorioRunFailure.Crashed, result.Failure);
+            Assert.AreEqual(FactorioCrashPhase.RunningExportScripts, result.CrashPhase);
+            AssertNoDebris(scratchDir, modsPath, userPresetsDir, "Export Crash Preset");
+        }
+
+        [TestMethod]
+        public async Task ProcessPreset_ExecutableMissing_IsAnInvalidInstall() {
+            string installPath = NewTempDir();
+
+            PresetImporter.Result result = await PresetImporter.ProcessPreset(
+                installPath, NewTempDir(), NewTempDir(), "No Exe Preset", NewTempDir(),
+                new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
+
+            Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
+            Assert.AreEqual(FactorioRunFailure.InvalidInstall, result.Failure);
+            Assert.AreEqual(FactorioInstallProblem.ExecutableMissing, result.InstallCheck?.Problem);
+        }
+
+        [TestMethod]
+        public async Task ProcessPreset_ModsFolderUnderAReadOnlyParent_IsModsFolderNoAccess() {
+            var (installPath, _, scratchDir) = BuildFixture("", "{}", "{\"mods\":[]}");
+            string readOnlyParent = NewTempDir();
+            File.SetUnixFileMode(readOnlyParent, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+
+            try {
+                PresetImporter.Result result = await PresetImporter.ProcessPreset(
+                    installPath, Path.Combine(readOnlyParent, "mods"), scratchDir, "No Access Preset", NewTempDir(),
+                    new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
+
+                Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
+                Assert.AreEqual(FactorioRunFailure.ModsFolderNoAccess, result.Failure);
+            } finally {
+                File.SetUnixFileMode(readOnlyParent, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+        }
+
+        [TestMethod]
+        public async Task ProcessPreset_ModsPathIsAFile_IsModsFolderUnreadable() {
+            var (installPath, _, scratchDir) = BuildFixture("", "{}", "{\"mods\":[]}");
+            string modsFile = Path.Combine(NewTempDir(), "mods");
+            File.WriteAllText(modsFile, "not a folder");
+
+            PresetImporter.Result result = await PresetImporter.ProcessPreset(
+                installPath, modsFile, scratchDir, "File Mods Preset", NewTempDir(),
+                new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
+
+            Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
+            Assert.AreEqual(FactorioRunFailure.ModsFolderUnreadable, result.Failure);
+        }
+
+        [TestMethod]
+        public async Task ProcessPreset_AFileSquatsTheExportModsFolderName_IsHelperModCopyFailed() {
+            var (installPath, modsPath, scratchDir) = BuildFixture("", "{}", "{\"mods\":[]}");
+            File.WriteAllText(Path.Combine(modsPath, "foremanexport_2.0.0"), "not a folder");
+
+            PresetImporter.Result result = await PresetImporter.ProcessPreset(
+                installPath, modsPath, scratchDir, "Squatted Preset", NewTempDir(),
+                new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
+
+            Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
+            Assert.AreEqual(FactorioRunFailure.HelperModCopyFailed, result.Failure);
         }
 
         [TestMethod]
@@ -221,6 +305,7 @@ namespace ForemanTest {
                 "Factorio may have crashed or exited early. Check factorio-current.log in your Factorio user data folder " +
                 "and try disabling mods until you can create a new game with the same mod list.",
                 result.WarningMessage);
+            Assert.AreEqual(FactorioRunFailure.TestSaveNotCreated, result.Failure);
             AssertNoDebris(scratchDir, modsPath, userPresetsDir, "No Save Preset");
         }
 
@@ -241,6 +326,7 @@ namespace ForemanTest {
             Assert.AreEqual(
                 "Foreman export could not be completed - possible mod conflict detected. Please run Factorio and ensure it can successfully load to menu before retrying.",
                 result.WarningMessage);
+            Assert.AreEqual(FactorioRunFailure.ExportIncomplete, result.Failure);
             AssertNoDebris(scratchDir, modsPath, userPresetsDir, "Conflict Preset");
         }
 
@@ -262,6 +348,7 @@ namespace ForemanTest {
                 "Foreman export could not finish because Factorio could not load the test save (temp-save.zip). " +
                 "The save may not have been created in the previous step; check factorio-current.log for crashes or errors.",
                 result.WarningMessage);
+            Assert.AreEqual(FactorioRunFailure.TestSaveNotLoaded, result.Failure);
         }
 
         [TestMethod]
@@ -275,6 +362,7 @@ namespace ForemanTest {
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
             Assert.AreEqual("Foreman export could not be completed - unknown json parsing error.\nSorry", result.WarningMessage);
+            Assert.AreEqual(FactorioRunFailure.ExportUnreadable, result.Failure);
             //Debug dumps land in Foreman's own scratch directory (matching upstream's Application.StartupPath,
             //Foreman's own directory - not Factorio's), never in the Factorio bundle itself.
             Assert.IsTrue(File.Exists(Path.Combine(scratchDir, "_iconJObjectOut.json")));
@@ -345,6 +433,7 @@ namespace ForemanTest {
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
             Assert.AreEqual("Mod inconsistency detected. Try to see if launching Factorio gives an error?", result.WarningMessage);
+            Assert.AreEqual(FactorioRunFailure.ModInconsistency, result.Failure);
             AssertNoDebris(scratchDir, modsPath, userPresetsDir, "Inconsistent Preset");
         }
 
