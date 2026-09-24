@@ -1491,7 +1491,7 @@ namespace Foreman.Mac.UiTests {
         }
 
         //I-4 (final fix wave): the titlebar's own VersionLabel TextBlock is gone (contract #toolbar retired
-        //it in favor of the About panel) - these two tests move to the real window ShowAboutAsync opens.
+        //it in favor of the About panel) - this test moves to the real window ShowAboutAsync opens.
         //Task 10: the panel became a real AboutWindow (design doc .about-card) instead of a MessageDialog.
         [AvaloniaFact]
         public async Task AboutPanel_ShowsAppVersion() {
@@ -1502,33 +1502,6 @@ namespace Foreman.Mac.UiTests {
             AboutWindow about = window.OwnedWindows.OfType<AboutWindow>().Single();
 
             Assert.Equal(AppVersion.VersionedDisplay, about.VersionTextBlockControl.Text);
-
-            about.Close();
-            await openTask;
-        }
-
-        [AvaloniaFact]
-        public async Task AboutPanel_MatchesSpecFormatVerbatim() {
-            var window = new MainWindow();
-            window.Show();
-
-            Task openTask = window.ShowAboutAsync();
-            AboutWindow about = window.OwnedWindows.OfType<AboutWindow>().Single();
-
-            var informational = typeof(AppVersion).Assembly
-                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
-                .InformationalVersion;
-            var shortSemVer = informational?.Split('+')[0];
-            Assert.Matches(@"^\d+\.\d+\.\d+$", shortSemVer);
-
-            var upstream = typeof(AppVersion).Assembly
-                .GetCustomAttributes<AssemblyMetadataAttribute>()
-                .FirstOrDefault(a => a.Key == "UpstreamVersion")?.Value;
-            Assert.Matches(@"^\d+\.\d+\.\d+$", upstream);
-
-            Assert.Equal("Foreman 2", about.AppNameTextBlockControl.Text);
-            Assert.Equal($"v {shortSemVer} based on {upstream}", about.VersionTextBlockControl.Text);
-            Assert.Equal("A Factorio production-chain planner", about.TaglineTextBlockControl.Text);
 
             about.Close();
             await openTask;

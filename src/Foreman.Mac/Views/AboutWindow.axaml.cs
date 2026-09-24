@@ -1,11 +1,10 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 
 namespace Foreman.Mac.Views {
-    //I-4 (final fix wave) verdict fix: the real About panel from the ratified mock (design doc
-    //.about-card), replacing the plain MessageDialog that carried only "Foreman 2\n{version}".
     public partial class AboutWindow : Window, IThemeAware {
         public string VersionLabel { get; }
 
@@ -29,6 +28,15 @@ namespace Foreman.Mac.Views {
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+        protected override void OnKeyDown(KeyEventArgs e) {
+            if (e.Key == Key.Escape || (e.Key == Key.W && e.KeyModifiers.HasFlag(KeyModifiers.Meta))) {
+                e.Handled = true;
+                Close();
+                return;
+            }
+            base.OnKeyDown(e);
+        }
 
         public void RefreshTheme() => minSizeScale.Apply();
 

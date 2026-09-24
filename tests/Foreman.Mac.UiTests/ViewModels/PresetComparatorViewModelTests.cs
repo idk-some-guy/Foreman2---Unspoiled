@@ -1,5 +1,4 @@
 using Avalonia.Headless.XUnit;
-using Avalonia.Media;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.ViewModels;
@@ -34,15 +33,17 @@ namespace Foreman.Mac.UiTests.ViewModels {
 
             vm.RebuildTab(0, modsTab);
 
-            Assert.Equal("base_1.0", Assert.Single(vm.LeftOnlyRows).Name);
-            Assert.Equal("extra_3.0", Assert.Single(vm.RightOnlyRows).Name);
-            Assert.Equal("shared_2.0", Assert.Single(vm.LeftRows).Name);
-            Assert.Equal("shared_2.0", Assert.Single(vm.RightRows).Name);
-            Assert.Equal(PresetComparatorWindow.RowSimilarity.Equal, vm.LeftRows[0].Similarity);
+            Assert.Equal("base 1.0", Assert.Single(vm.LeftOnlyRows).Name);
+            Assert.Equal("extra 3.0", Assert.Single(vm.RightOnlyRows).Name);
+            ComparatorPairRow shared = Assert.Single(vm.BothRows);
+            Assert.Equal("shared 2.0", shared.Left.Name);
+            Assert.Equal("shared 2.0", shared.Right.Name);
+            Assert.Equal("shared_2.0", shared.Left.FilterKey);
+            Assert.Equal(PresetComparatorWindow.RowSimilarity.Equal, shared.Similarity);
         }
 
         [AvaloniaFact]
-        public void RebuildTab_Items_TagsRowsWithSourceObjectAndColorsMatchedPairBySimilarity() {
+        public void RebuildTab_Items_TagsRowsWithSourceObject_PairsTheSharedOnes_AndMarksUnavailable() {
             DataCache cache = NewEmptyCache();
             SubgroupPrototype subgroup = NewSubgroup(cache);
             ItemPrototype leftOnly = new(cache, "left-only", "Left Only", subgroup, "a") { Available = true };
@@ -60,8 +61,10 @@ namespace Foreman.Mac.UiTests.ViewModels {
 
             Assert.Same(leftOnly, Assert.Single(vm.LeftOnlyRows).Tag);
             Assert.Same(rightOnly, Assert.Single(vm.RightOnlyRows).Tag);
-            Assert.Equal(PresetComparatorWindow.RowSimilarity.Equal, Assert.Single(vm.LeftRows).Similarity);
-            Assert.Equal(FontStyle.Italic, Assert.Single(vm.RightOnlyRows).FontStyle);
+            Assert.Equal(PresetComparatorWindow.RowSimilarity.Equal, Assert.Single(vm.BothRows).Similarity);
+            ComparatorRow unavailable = Assert.Single(vm.RightOnlyRows);
+            Assert.True(unavailable.IsUnavailable);
+            Assert.Equal("Right Only (right-only) \u2014 unavailable in this preset", unavailable.Tooltip);
         }
 
         [AvaloniaFact]
@@ -84,12 +87,12 @@ namespace Foreman.Mac.UiTests.ViewModels {
             vm.RebuildTab(1, itemsTab);
             string itemsRowName = Assert.Single(vm.LeftOnlyRows).Name;
 
-            Assert.Equal("only-mod_1.0", modsRowName);
+            Assert.Equal("only-mod 1.0", modsRowName);
             Assert.Equal("Only Item", itemsRowName);
         }
 
         //Regression net for the same reference-equality bug PresetComparatorWindowTests.
-        //RealClickOnTabHeader_SwitchesSelectionAndRepaintsRealizedRows guards at the UI layer: every
+        //Comparator_RealTabClicks_RepaintTheRows_AndAFilterThatEmptiesAListShowsNoMatches guards at the UI layer: every
         //RebuildTab call must hand back brand-new list instances so a bound ListBox always sees the
         //change, even across two calls with identical input.
         [Fact]

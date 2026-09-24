@@ -86,8 +86,8 @@ namespace Foreman.Mac {
                 ApplyTheme(settings.FlagDarkMode);
 
                 Preset preset = new PresetResolver().Resolve(settings.CurrentPresetName);
-                DataCache? cache = await ShellBootstrapper.LoadPresetAsync(preset, settings.UseRecipeBWfilters).ConfigureAwait(true);
-                if (cache is null) {
+                (DataCache Cache, Preset Preset)? loaded = await ShellBootstrapper.LoadPresetAsync(preset, null, settings.UseRecipeBWfilters).ConfigureAwait(true);
+                if (loaded is not (DataCache cache, _)) {
                     ShellBootstrapper.DefaultFatalExit();
                     return;
                 }

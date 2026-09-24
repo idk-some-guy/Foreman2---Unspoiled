@@ -1,113 +1,188 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:v="using:Foreman.Mac.Views"
-        xmlns:p="using:Foreman"
+        xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+        xmlns:kit="using:Foreman.Mac.Kit.Composites"
         x:Class="Foreman.Mac.Views.PresetComparatorWindow"
-        Title="Preset Comparer"
+        Title="Preset Comparator"
         Width="1000"
         Height="700"
-        MinWidth="679"
-        MinHeight="414"
+        MinWidth="720"
+        MinHeight="480"
         WindowStartupLocation="Manual"
-        Background="{DynamicResource SystemChromeMediumColor}">
+        Background="{DynamicResource Foreman.Color.WindowBackground}">
   <Window.Styles>
-    <!-- Fluent's default ListBoxItem padding/min-height reads far sparser than upstream's dense WinForms
-         rows (24px icon, minimal chrome); this tightens it back down on the four comparator lists. -->
-    <Style Selector="ListBox.compact ListBoxItem">
-      <Setter Property="Padding" Value="2,1" />
-      <Setter Property="MinHeight" Value="0" />
+    <Style Selector="ListBox.comparator-list ListBoxItem">
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="ctrl:FocusRing.CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="ListBox.pairs ListBoxItem.similar:not(:selected)">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.WarningSoft}" />
+    </Style>
+    <Style Selector="ListBox.pairs ListBoxItem.different:not(:selected)">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ErrorSoft}" />
+    </Style>
+    <Style Selector="ListBoxItem:not(:selected) TextBlock.comparator-name">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    </Style>
+    <Style Selector="ListBoxItem:not(:selected) TextBlock.comparator-name.unavailable">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
+      <Setter Property="FontStyle" Value="Italic" />
+    </Style>
+    <Style Selector="ListBoxItem:selected TextBlock.comparator-name">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.match">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    </Style>
+    <Style Selector="TextBlock.match.identical">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
+    </Style>
+    <Style Selector="TextBlock.group-heading">
+      <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}" />
     </Style>
   </Window.Styles>
   <Window.Resources>
+    <ControlTheme x:Key="ComparatorTable" TargetType="ListBox" BasedOn="{StaticResource Kit.List}">
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}">
+            <DockPanel>
+              <v:ComparatorColumnHeader x:Name="PART_ColumnHeader" DockPanel.Dock="Top" Height="20" Margin="10,0" ColumnDefinitions="*,*,72">
+                <TextBlock x:Name="PART_LeftHeader" Theme="{StaticResource Kit.Text}" Classes="caption secondary group-heading"
+                           AutomationProperties.ControlTypeOverride="HeaderItem" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <TextBlock x:Name="PART_RightHeader" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="caption secondary group-heading"
+                           AutomationProperties.ControlTypeOverride="HeaderItem" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Theme="{StaticResource Kit.Text}" Classes="caption secondary group-heading" Text="Match"
+                           AutomationProperties.ControlTypeOverride="HeaderItem" VerticalAlignment="Center" />
+              </v:ComparatorColumnHeader>
+              <ScrollViewer x:Name="PART_ScrollViewer" Padding="{TemplateBinding Padding}">
+                <ItemsPresenter x:Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+              </ScrollViewer>
+            </DockPanel>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
     <DataTemplate x:Key="ComparatorRowTemplate" x:DataType="v:ComparatorRow">
-      <Border Background="{Binding Background}" Padding="4,1">
-        <StackPanel Orientation="Horizontal" Spacing="6">
-          <Image Source="{Binding Icon}" Width="24" Height="24" VerticalAlignment="Center" />
-          <TextBlock Text="{Binding Name}" Foreground="{Binding Foreground}" FontStyle="{Binding FontStyle}" VerticalAlignment="Center" />
+      <StackPanel Orientation="Horizontal" Spacing="6" Background="Transparent" ToolTip.Tip="{Binding Tooltip}">
+        <Image Source="{Binding Icon}" Width="20" Height="20" VerticalAlignment="Center" />
+        <TextBlock Classes="comparator-name" Classes.unavailable="{Binding IsUnavailable}" Text="{Binding Name}"
+                   FontSize="{DynamicResource Foreman.Type.Body.FontSize}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+      </StackPanel>
+    </DataTemplate>
+    <DataTemplate x:Key="ComparatorPairTemplate" x:DataType="v:ComparatorPairRow">
+      <Grid ColumnDefinitions="*,*,72" Background="Transparent">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" ToolTip.Tip="{Binding Left.Tooltip}">
+          <Image Source="{Binding Left.Icon}" Width="20" Height="20" VerticalAlignment="Center" />
+          <TextBlock Classes="comparator-name" Classes.unavailable="{Binding Left.IsUnavailable}" Text="{Binding Left.Name}"
+                     FontSize="{DynamicResource Foreman.Type.Body.FontSize}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
         </StackPanel>
-      </Border>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" ToolTip.Tip="{Binding Right.Tooltip}">
+          <Image Source="{Binding Right.Icon}" Width="20" Height="20" VerticalAlignment="Center" />
+          <TextBlock Classes="comparator-name" Classes.unavailable="{Binding Right.IsUnavailable}" Text="{Binding Right.Name}"
+                     FontSize="{DynamicResource Foreman.Type.Body.FontSize}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+        </StackPanel>
+        <TextBlock Grid.Column="2" Classes="match" Classes.identical="{Binding IsIdentical}" Text="{Binding MatchText}"
+                   FontSize="{DynamicResource Foreman.Type.Caption.FontSize}" VerticalAlignment="Center" />
+      </Grid>
     </DataTemplate>
   </Window.Resources>
-  <Grid Margin="8" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,*">
-    <Border Name="PresetSelectionGroup" Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" BorderBrush="Gray" BorderThickness="1" Padding="6" Margin="0,0,4,4">
-      <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Text="Preset Selection" FontWeight="Bold" Margin="0,0,0,4" />
-        <Grid ColumnDefinitions="*,Auto,*">
-          <ComboBox Name="LeftPresetSelectionBox" Grid.Column="0" HorizontalAlignment="Stretch">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="p:Preset">
-                <TextBlock Text="{Binding Name}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-          <TextBlock Grid.Column="1" Text="&lt;-- vs --&gt;" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0" />
-          <ComboBox Name="RightPresetSelectionBox" Grid.Column="2" HorizontalAlignment="Stretch">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="p:Preset">
-                <TextBlock Text="{Binding Name}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-        </Grid>
-      </DockPanel>
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Background="{DynamicResource Foreman.Color.TitlebarBackground}"
+            BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,0,0,1">
+      <ctrl:TabStrip Name="ComparisonTabStrip" Theme="{StaticResource Kit.TabStrip}" Classes="toolbar-tabs" Margin="0,3"
+                     AutomationProperties.Name="Comparison categories" />
     </Border>
-    <Button Name="ProcessPresetsButton" Grid.Row="0" Grid.Column="1" Content="Read Presets And Compare" Margin="4,0,0,4" />
-    <Button Name="CloseButton" Grid.Row="1" Grid.Column="1" Content="Close" Margin="4,0,0,4" IsCancel="True" />
 
-    <TabControl Name="ComparisonTabControl" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,4">
-      <TabItem Header="Mods" />
-      <TabItem Header="Items" />
-      <TabItem Header="Recipes" />
-      <TabItem Header="Assemblers" />
-      <TabItem Header="Miners" />
-      <TabItem Header="Power" />
-      <TabItem Header="Beacons" />
-      <TabItem Header="Modules" />
-    </TabControl>
-
-    <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" RowDefinitions="Auto,Auto,*" ColumnDefinitions="*,*,*,*">
-      <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,4">
-        <TextBlock Grid.Column="0" Text="Filter:" VerticalAlignment="Center" Margin="0,0,4,0" />
-        <TextBox Name="FilterTextBox" Grid.Column="1" />
-        <CheckBox Name="ShowUnavailableCheckBox" Grid.Column="2" Content="Show Unavailables" Margin="8,0,0,0" />
+    <Grid Margin="20" RowDefinitions="22,12,22,16,*">
+      <Grid Name="PresetRow" Grid.Row="0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="8" />
+          <ColumnDefinition Width="*" MinWidth="180" MaxWidth="320" />
+          <ColumnDefinition Width="8" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="8" />
+          <ColumnDefinition Width="*" MinWidth="180" MaxWidth="320" />
+          <ColumnDefinition Width="12" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="0.0001*" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Theme="{StaticResource Kit.Text}" Classes="body secondary" Text="Compare" VerticalAlignment="Center" />
+        <ctrl:PopUp Name="LeftPresetPopUp" Grid.Column="2" Theme="{StaticResource Kit.PopUp}" HorizontalAlignment="Stretch"
+                    AutomationProperties.Name="Left preset" />
+        <TextBlock Grid.Column="4" Theme="{StaticResource Kit.Text}" Classes="body secondary" Text="with" VerticalAlignment="Center" />
+        <ctrl:PopUp Name="RightPresetPopUp" Grid.Column="6" Theme="{StaticResource Kit.PopUp}" HorizontalAlignment="Stretch"
+                    AutomationProperties.Name="Right preset" />
+        <Button Name="CompareButton" Grid.Column="8" Theme="{StaticResource Kit.Button}" Classes="primary" Content="Compare" IsDefault="True" />
       </Grid>
 
-      <TextBlock Grid.Row="1" Grid.Column="0" Text="Left Preset Exclusive:" VerticalAlignment="Center" />
-      <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-        <TextBlock Text="Both Presets:" VerticalAlignment="Center" />
-        <CheckBox Name="HideEqualObjectsCheckBox" Content="Hide Equal" IsChecked="True" />
-        <CheckBox Name="HideSimilarObjectsCheckBox" Content="Hide Similar" />
+      <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="16">
+        <ctrl:SearchField Name="FilterField" Theme="{StaticResource Kit.SearchField}" Width="240" MinWidth="160"
+                          PlaceholderText="Filter" AutomationProperties.Name="Filter" />
+        <CheckBox Name="ShowUnavailableCheckBox" Theme="{StaticResource Kit.CheckBox}" Content="Show unavailable" VerticalAlignment="Center" />
       </StackPanel>
-      <TextBlock Grid.Row="1" Grid.Column="3" Text="Right Preset Exclusive:" HorizontalAlignment="Right" VerticalAlignment="Center" />
 
-      <ListBox Name="LeftOnlyListView" Grid.Row="2" Grid.Column="0" Classes="compact" ItemTemplate="{StaticResource ComparatorRowTemplate}" Margin="0,0,4,0">
-        <ListBox.ItemsPanel>
-          <ItemsPanelTemplate>
-            <VirtualizingStackPanel />
-          </ItemsPanelTemplate>
-        </ListBox.ItemsPanel>
-      </ListBox>
-      <ListBox Name="LeftListView" Grid.Row="2" Grid.Column="1" Classes="compact" ItemTemplate="{StaticResource ComparatorRowTemplate}" Margin="4,0">
-        <ListBox.ItemsPanel>
-          <ItemsPanelTemplate>
-            <VirtualizingStackPanel />
-          </ItemsPanelTemplate>
-        </ListBox.ItemsPanel>
-      </ListBox>
-      <ListBox Name="RightListView" Grid.Row="2" Grid.Column="2" Classes="compact" ItemTemplate="{StaticResource ComparatorRowTemplate}" Margin="4,0">
-        <ListBox.ItemsPanel>
-          <ItemsPanelTemplate>
-            <VirtualizingStackPanel />
-          </ItemsPanelTemplate>
-        </ListBox.ItemsPanel>
-      </ListBox>
-      <ListBox Name="RightOnlyListView" Grid.Row="2" Grid.Column="3" Classes="compact" ItemTemplate="{StaticResource ComparatorRowTemplate}" Margin="4,0,0,0">
-        <ListBox.ItemsPanel>
-          <ItemsPanelTemplate>
-            <VirtualizingStackPanel />
-          </ItemsPanelTemplate>
-        </ListBox.ItemsPanel>
-      </ListBox>
+      <Grid Name="GroupsGrid" Grid.Row="4" ColumnDefinitions="*,12,2*,12,*">
+        <DockPanel Name="LeftOnlyGroup" Grid.Column="0">
+          <Grid DockPanel.Dock="Top" Height="20" Margin="0,0,0,6" ColumnDefinitions="*,Auto">
+            <TextBlock Name="LeftOnlyHeading" Theme="{StaticResource Kit.Text}" Classes="caption secondary group-heading"
+                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            <TextBlock Name="LeftOnlyCount" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="caption tertiary"
+                       FontFeatures="tnum" Margin="8,0,0,0" VerticalAlignment="Center" />
+          </Grid>
+          <Panel>
+            <ListBox Name="LeftOnlyList" Theme="{StaticResource Kit.List}" Classes="comparator-list" ItemTemplate="{StaticResource ComparatorRowTemplate}"
+                     CornerRadius="{DynamicResource Foreman.Radius.Control}" Padding="{DynamicResource Foreman.Thickness.Space05}" />
+            <TextBlock Name="LeftOnlyNoResults" Theme="{StaticResource Kit.Text}" Classes="callout tertiary" IsHitTestVisible="False"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="False" />
+          </Panel>
+        </DockPanel>
+
+        <DockPanel Name="BothGroup" Grid.Column="2">
+          <Grid DockPanel.Dock="Top" Height="20" Margin="0,0,0,6" ColumnDefinitions="Auto,Auto,*,Auto,12,Auto">
+            <TextBlock Name="BothHeading" Theme="{StaticResource Kit.Text}" Classes="caption secondary group-heading"
+                       Text="In both" VerticalAlignment="Center" />
+            <TextBlock Name="BothCount" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="caption tertiary"
+                       FontFeatures="tnum" Margin="8,0,0,0" VerticalAlignment="Center" />
+            <CheckBox Name="HideIdenticalCheckBox" Grid.Column="3" Theme="{StaticResource Kit.CheckBox}" Content="Hide identical"
+                      IsChecked="True" VerticalAlignment="Center" />
+            <CheckBox Name="HideSimilarCheckBox" Grid.Column="5" Theme="{StaticResource Kit.CheckBox}" Content="Hide similar"
+                      VerticalAlignment="Center" />
+          </Grid>
+          <Border Name="BothFrame" Background="{DynamicResource Foreman.Color.WellBackground}" BorderBrush="{DynamicResource Foreman.Color.Border}"
+                  BorderThickness="1" CornerRadius="{DynamicResource Foreman.Radius.Control}" ClipToBounds="True">
+            <Panel>
+              <v:ComparatorTableList Name="BothList" Theme="{StaticResource ComparatorTable}" Classes="pairs comparator-list" BorderThickness="0" CornerRadius="0"
+                                     Background="Transparent" Padding="{DynamicResource Foreman.Thickness.Space05}"
+                                     ItemTemplate="{StaticResource ComparatorPairTemplate}" />
+              <TextBlock Name="BothNoResults" Theme="{StaticResource Kit.Text}" Classes="callout tertiary" IsHitTestVisible="False"
+                         Margin="0,20,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="False" />
+            </Panel>
+          </Border>
+        </DockPanel>
+
+        <DockPanel Name="RightOnlyGroup" Grid.Column="4">
+          <Grid DockPanel.Dock="Top" Height="20" Margin="0,0,0,6" ColumnDefinitions="*,Auto">
+            <TextBlock Name="RightOnlyHeading" Theme="{StaticResource Kit.Text}" Classes="caption secondary group-heading"
+                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            <TextBlock Name="RightOnlyCount" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="caption tertiary"
+                       FontFeatures="tnum" Margin="8,0,0,0" VerticalAlignment="Center" />
+          </Grid>
+          <Panel>
+            <ListBox Name="RightOnlyList" Theme="{StaticResource Kit.List}" Classes="comparator-list" ItemTemplate="{StaticResource ComparatorRowTemplate}"
+                     CornerRadius="{DynamicResource Foreman.Radius.Control}" Padding="{DynamicResource Foreman.Thickness.Space05}" />
+            <TextBlock Name="RightOnlyNoResults" Theme="{StaticResource Kit.Text}" Classes="callout tertiary" IsHitTestVisible="False"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="False" />
+          </Panel>
+        </DockPanel>
+      </Grid>
+
+      <kit:StatePanel Name="EmptyPanel" Grid.Row="4" Theme="{StaticResource Kit.StatePanel}" Shape="Empty"
+                      Headline="Choose two presets to compare" ExternalButtons="{Binding #CompareButton}" />
     </Grid>
-  </Grid>
+  </DockPanel>
 </Window>

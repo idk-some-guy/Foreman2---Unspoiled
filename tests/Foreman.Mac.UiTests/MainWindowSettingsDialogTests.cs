@@ -191,6 +191,31 @@ namespace Foreman.Mac.UiTests {
             Assert.NotSame(first, window.CurrentSettingsWindow);
         }
 
+        [AvaloniaFact]
+        public void PresetSwitch_ChooseAnother_ReopensSettingsOnPresets_WithTheFailedRowAndItsWarning() {
+            var settings = new AppSettings { CurrentPresetName = "Factorio 2.0 Vanilla" };
+            var window = NewWindowReadyForSettings(settings);
+            window.PresetResolver = new PresetResolver(userPresetsDirectoryOverride: NewTempDir());
+            DataCache before = window.DataCache!;
+            window.DataLoadStub = (_, _) => Task.FromResult(new DataLoadResult(null, DataLoadOutcome.ChooseAnother));
+            SettingsWindow first = OpenSettings(window);
+            Preset failed = first.Options.Presets!.First(p => p.Name != settings.CurrentPresetName);
+            first.Options.SelectedPreset = failed;
+
+            first.RequestReload();
+            Dispatcher.UIThread.RunJobs();
+
+            SettingsWindow reopened = window.CurrentSettingsWindow!;
+            Assert.NotSame(first, reopened);
+            Assert.Same(before, window.DataCache);
+            Assert.Equal("Factorio 2.0 Vanilla", settings.CurrentPresetName);
+            Assert.Equal(0, reopened.PaneStripControl.SelectedIndex);
+            Assert.Equal(failed.Name, Assert.IsType<Preset>(reopened.PresetsTabControl.PresetListBoxControl.SelectedItem).Name);
+            Border warning = Assert.IsType<Border>(reopened.PresetsTabControl.ModsStateHostControl.Child);
+            Assert.Contains(warning.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.Contains("couldn\u2019t be read") == true);
+            Assert.True(reopened.PresetsTabControl.RetryPresetReadButtonControl.IsEffectivelyVisible);
+        }
+
         //Phase 7 deferred-minors sweep: the non-live-apply Enabled-Objects sync used to index
         //cache.Assemblers["rocket-silo"] directly, a KeyNotFoundException on any preset without a rocket
         //silo entity. RocketAssembler itself is a synthetic pseudo-assembler DataCacheBootstrap always

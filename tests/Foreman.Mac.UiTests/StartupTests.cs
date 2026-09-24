@@ -128,6 +128,8 @@ namespace Foreman.Mac.UiTests {
     }
 
     public class StartupTests {
+        private static readonly string[] RetiredLoadAlerts = ["Preset load interrupted", "is corrupt. Switching to the default preset", "No Preset is loaded!"];
+
         private static string NewTempHome() {
             string home = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             Directory.CreateDirectory(home);
@@ -180,31 +182,31 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public async Task BootAsync_InitialLoadFails_ShowsWarningAndRetriesWithDefaultPreset() {
+        public async Task BootAsync_LaunchWindowSettlesOnTheDefault_MakesItCurrent_WithNoStartupAlert() {
             var settingsService = new SettingsService(NewTempHome());
             var settings = settingsService.Load();
             settings.CurrentPresetName = "Custom Preset";
             string presetsDir = NewPresetsDirectoryWithVanillaAnd("Custom Preset");
             var warnings = new List<string>();
-            bool fatalExitCalled = false;
+            (Preset Requested, Preset? Fallback)? call = null;
 
             var window = await ShellBootstrapper.BootAsync(
                 settingsService,
                 settings,
                 new PresetResolver(presetsDir),
-                ShellBootstrapper.LoadPresetAsync,
+                (preset, fallback, _) => {
+                    call = (preset, fallback);
+                    return Task.FromResult<(DataCache, Preset)?>((new DataCache(filterRecipes: true), fallback!));
+                },
                 (_, _, message) => { warnings.Add(message); return Task.CompletedTask; },
-                () => fatalExitCalled = true);
+                () => { });
 
             Assert.NotNull(window);
-            Assert.NotNull(window!.DataCache);
-            Assert.True(window.DataCache!.AvailableRecipes.Any());
-            Assert.False(fatalExitCalled);
-            Assert.Single(warnings);
-            Assert.Contains("Custom Preset", warnings[0]);
-            Assert.Contains("is corrupt", warnings[0]);
+            Assert.Equal("Custom Preset", call!.Value.Requested.Name);
+            Assert.Equal("Factorio 2.0 Vanilla", call.Value.Fallback!.Name);
+            Assert.Empty(warnings);
 
-            window.Close();
+            window!.Close();
             Assert.Equal("Factorio 2.0 Vanilla", settingsService.Load().CurrentPresetName);
         }
 
@@ -220,7 +222,7 @@ namespace Foreman.Mac.UiTests {
                 settingsService,
                 settingsService.Load(),
                 new PresetResolver(emptyPresetsDir),
-                (_, _) => { loadAttempted = true; return Task.FromResult<DataCache?>(null); },
+                (_, _, _) => { loadAttempted = true; return Task.FromResult<(DataCache, Preset)?>(null); },
                 (_, _, _) => Task.CompletedTask,
                 () => fatalExitCalled = true);
 
@@ -230,7 +232,7 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public async Task BootAsync_DefaultPresetAlsoFailsToLoad_SignalsFatalExit() {
+        public async Task BootAsync_LaunchWindowQuits_SignalsFatalExit_AndTheRetiredLoadAlertsAreGone() {
             var settingsService = new SettingsService(NewTempHome());
             string presetsDir = NewPresetsDirectoryWithVanillaAnd("Custom Preset");
             var warnings = new List<string>();
@@ -240,15 +242,17 @@ namespace Foreman.Mac.UiTests {
                 settingsService,
                 settingsService.Load(),
                 new PresetResolver(presetsDir),
-                (_, _) => Task.FromResult<DataCache?>(null),
+                (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
                 (_, _, message) => { warnings.Add(message); return Task.CompletedTask; },
                 () => fatalExitCalled = true);
 
             Assert.Null(window);
             Assert.True(fatalExitCalled);
-            Assert.Equal(2, warnings.Count);
-            Assert.Contains("is corrupt", warnings[1]);
-            Assert.Contains("No Preset is loaded", warnings[1]);
+            Assert.Empty(warnings);
+
+            byte[] assembly = File.ReadAllBytes(typeof(ShellBootstrapper).Assembly.Location);
+            foreach (string retired in RetiredLoadAlerts)
+                Assert.Equal(-1, assembly.AsSpan().IndexOf(System.Text.Encoding.Unicode.GetBytes(retired)));
         }
 
         //---- solver warmup seam (perf-packaging-reference.md §1c: first-node freeze) ----

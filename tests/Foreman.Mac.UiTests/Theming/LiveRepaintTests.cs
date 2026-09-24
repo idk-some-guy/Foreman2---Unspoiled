@@ -144,68 +144,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(preBaseline, app.Hub.SubscriberCount);
         }
 
-        //--- The comparator (PresetComparatorWindow) --------------------------------------------------------
-
-        private static DataCache NewEmptyCache() => new(filterRecipes: false);
-
-        private static SubgroupPrototype NewSubgroup(DataCache cache) {
-            var group = new GroupPrototype(cache, "g", "G", "a");
-            var subgroup = new SubgroupPrototype(cache, "sg", "a");
-            subgroup.MyGroupInternal = group;
-            group.SubgroupsInternal.Add(subgroup);
-            return subgroup;
-        }
-
-        //ProcessObjects reads DataCache.Items, which only DataCacheStore.Items (internal) actually backs -
-        //constructing an ItemPrototype alone never registers it there (same reflection seam
-        //CatalogFixture.Store uses elsewhere in this test project).
-        private static DataCacheStore Store(DataCache cache) {
-            FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            return (DataCacheStore)field.GetValue(cache)!;
-        }
-
-        [AvaloniaFact]
-        public async Task Comparator_ThemeFlip_LeftOnlyRowRepaints_AndNoSubscriberLeakAfterClose() {
-            App app = CurrentApp;
-            var leftPreset = new Preset("Left-only", true, true);
-            var rightPreset = new Preset("Right-only", true, true);
-
-            DataCache leftCache = NewEmptyCache();
-            SubgroupPrototype subgroup = NewSubgroup(leftCache);
-            var soloItem = new ItemPrototype(leftCache, "solo-item", "Solo Item", subgroup, "a") { Available = true };
-            Store(leftCache).Items[soloItem.Name] = soloItem;
-            DataCache rightCache = NewEmptyCache();
-
-            int baseline = app.Hub.SubscriberCount;
-            var window = new PresetComparatorWindow([leftPreset, rightPreset]) {
-                LoadCacheStub = preset => Task.FromResult<DataCache?>(preset.Name == leftPreset.Name ? leftCache : rightCache),
-            };
-            window.Show();
-            Assert.True(app.Hub.SubscriberCount > baseline);
-
-            await window.SimulateProcessPresetsClickAsync();
-            Dispatcher.UIThread.RunJobs();
-            //Comparing lands on the Mods tab (index 0) by default - the solo item only shows up once the
-            //Items tab (index 1) is selected, which re-runs RebuildTab against unfilteredItemTabObjects. A
-            //real click through the input pipeline, not a direct SelectedIndex set, is what
-            //PresetComparatorWindowTests' own tab-switch coverage relies on for this exact control.
-            TabItem itemsTab = window.ComparisonTabControlControl.Items.OfType<TabItem>().ElementAt(1);
-            Point tabScreen = itemsTab.TranslatePoint(new Point(itemsTab.Bounds.Width / 2, itemsTab.Bounds.Height / 2), window)!.Value;
-            window.MouseDown(tabScreen, MouseButton.Left, RawInputModifiers.None);
-            window.MouseUp(tabScreen, MouseButton.Left, RawInputModifiers.None);
-            Dispatcher.UIThread.RunJobs();
-            ComparatorRow before = Assert.Single(window.ViewModel.LeftOnlyRows);
-            Color beforeColor = ColorOf(before.Background);
-
-            app.ApplyTheme(ThemeMode.Dark);
-
-            ComparatorRow after = Assert.Single(window.ViewModel.LeftOnlyRows);
-            Assert.NotEqual(beforeColor, ColorOf(after.Background));
-
-            window.Close();
-            Assert.Equal(baseline, app.Hub.SubscriberCount);
-        }
-
         //--- The browser (AddBrowserWindow) -----------------------------------------------------------------
 
         [AvaloniaFact]

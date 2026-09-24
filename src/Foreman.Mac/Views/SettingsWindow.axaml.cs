@@ -261,6 +261,14 @@ namespace Foreman.Mac.Views {
         //MainWindow's "Open Presets…" seam (A25 .error) - brings an already-open instance back to its first tab.
         internal void SelectPresetsPane() => SelectTab(0);
 
+        internal void ShowPresetLoadFailure(string presetName) {
+            SelectTab(0);
+            presetListBox.SelectedItem = Options.Presets?.FirstOrDefault(p => p.Name == presetName);
+            modListReadGeneration++;
+            modSelectionBox.ItemsSource = null;
+            presetsTab.ShowModListFailure(presetName);
+        }
+
         //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
         internal TabStrip PaneStripControl => paneStrip;
         internal int ActiveTabIndex => activeTabIndex;

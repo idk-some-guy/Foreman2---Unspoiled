@@ -7,7 +7,7 @@
     </Style>
   </UserControl.Styles>
   <StackPanel Spacing="{DynamicResource Foreman.Space.Space3}">
-    <TextBlock Theme="{StaticResource Kit.Text}" Classes="callout secondary" TextWrapping="Wrap"
+    <TextBlock Name="LedeText" Theme="{StaticResource Kit.Text}" Classes="callout secondary" TextWrapping="Wrap"
                Text="No preset matches this graph exactly; the ratings show how much of it each preset can reproduce." />
     <StackPanel>
       <Grid Name="HeaderRow">

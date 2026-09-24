@@ -1,12 +1,19 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.DataCaching.Loading;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views;
 using System;
 using System.Collections.Generic;
@@ -14,6 +21,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+using TabStrip = Foreman.Mac.Kit.Controls.TabStrip;
 
 namespace Foreman.Mac.UiTests.Views {
     public class PresetComparatorWindowTests {
@@ -283,215 +291,417 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.False(PresetComparatorWindow.EvaluateSimilarity(7, "Mod", left, "Mod", productivityDiffers).SimilarInternals);
         }
 
-        //--- SyncedListPair -------------------------------------------------------------------------------
+        //--- Window ------------------------------------------------------------------------------------------
 
-        [AvaloniaFact]
-        public void SyncedListPair_ScrollingOneList_MovesBuddyToSameOffset() {
-            var items = Enumerable.Range(0, 100).Select(i => "row " + i).ToList();
-            var left = new ListBox { Width = 100, Height = 100, ItemsSource = items };
-            var right = new ListBox { Width = 100, Height = 100, ItemsSource = items };
-            var pair = new SyncedListPair(left, right);
-            var panel = new StackPanel();
-            panel.Children.Add(left);
-            panel.Children.Add(right);
-            var window = new Window { Content = panel, Width = 300, Height = 300 };
+        private static DataStore NewStore() => new();
+
+        private sealed class DataStore {
+            public readonly DataCache Left = NewEmptyCache();
+            public readonly DataCache Right = NewEmptyCache();
+            private readonly SubgroupPrototype leftGroup;
+            private readonly SubgroupPrototype rightGroup;
+
+            public DataStore() {
+                leftGroup = NewSubgroup(Left);
+                rightGroup = NewSubgroup(Right);
+            }
+
+            public DataStore Item(string name, string? leftName, bool leftAvailable, string? rightName, bool rightAvailable) {
+                if (leftName is not null)
+                    StoreOf(Left).Items[name] = new ItemPrototype(Left, name, leftName, leftGroup, "a") { Available = leftAvailable };
+                if (rightName is not null)
+                    StoreOf(Right).Items[name] = new ItemPrototype(Right, name, rightName, rightGroup, "a") { Available = rightAvailable };
+                return this;
+            }
+
+            public DataStore Recipe(string name, string? leftName, string? rightName) {
+                if (leftName is not null)
+                    StoreOf(Left).Recipes[name] = new RecipePrototype(Left, name, leftName, leftGroup, "a") { Available = true };
+                if (rightName is not null)
+                    StoreOf(Right).Recipes[name] = new RecipePrototype(Right, name, rightName, rightGroup, "a") { Available = true };
+                return this;
+            }
+        }
+
+        private static DataCacheStore StoreOf(DataCache cache) =>
+            (DataCacheStore)typeof(DataCache).GetField("_store", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(cache)!;
+
+        private static readonly Preset LeftPreset = new("Left preset", true, true);
+        private static readonly Preset RightPreset = new("Right preset", false, false);
+
+        private static PresetComparatorWindow NewWindow(DataStore store) => new([LeftPreset, RightPreset]) {
+            LoadCacheStub = preset => Task.FromResult(new DataLoadResult(preset.Name == LeftPreset.Name ? store.Left : store.Right, DataLoadOutcome.Loaded)),
+        };
+
+        private static async Task<PresetComparatorWindow> ComparedAsync(DataStore store) {
+            PresetComparatorWindow window = NewWindow(store);
             window.Show();
+            await window.SimulateCompareClickAsync();
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-
-            Assert.NotNull(pair.LeftScrollViewer);
-            Assert.NotNull(pair.RightScrollViewer);
-
-            pair.LeftScrollViewer!.Offset = new Vector(0, 40);
-
-            Assert.Equal(40, pair.RightScrollViewer!.Offset.Y);
-        }
-
-        [AvaloniaFact]
-        public void SyncedListPair_SelectingOneList_SelectsSameIndexInBuddy() {
-            var left = new ListBox { ItemsSource = new List<string> { "a", "b", "c" } };
-            var right = new ListBox { ItemsSource = new List<string> { "a", "b", "c" } };
-            _ = new SyncedListPair(left, right);
-
-            left.SelectedIndex = 1;
-
-            Assert.Equal(1, right.SelectedIndex);
-        }
-
-        //--- Window shell -----------------------------------------------------------------------------
-
-        //Phase5b hands-on gate (Finding 2): the human reported every tab rendering the Mods diff under real
-        //clicks. The data model (ItemsSource) retargets correctly on tab change - ProcessObjects/ProcessMods
-        //rebuild unfilteredSelectedTabRows and UpdateFilteredLists reassigns leftOnlyListView.ItemsSource -
-        //but it reassigns the SAME List<ComparatorRow> reference every time (the 4 lists are shared across
-        //tabs by design). Avalonia's StyledProperty setter short-circuits on reference-equal values, so
-        //ListBox never sees a change notification and keeps its previously realized rows on screen even
-        //though the underlying list's contents changed. A test that only reads ItemsSource back can't catch
-        //this (it always reflects current contents); only inspecting the realized visual tree can. Real
-        //clicks drive both the tab switch and the filter typing through the actual input pipeline.
-        [AvaloniaFact]
-        public async Task RealClickOnTabHeader_SwitchesSelectionAndRepaintsRealizedRows() {
-            (DataCache vanilla, DataCache spaceAge) = await GetCachesAsync();
-            PresetComparatorWindow window = NewWindowWithStubbedCaches(vanilla, spaceAge);
-            window.Show();
-            await window.SimulateProcessPresetsClickAsync();
-            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-
-            //Space Age's own mods (space-age, quality, elevated-rails, ...) are exclusive to it, so
-            //RightOnlyListView is the bucket guaranteed non-empty on the Mods tab.
-            string[] modNames = [.. window.RightOnlyListViewControl.ItemsSource!.Cast<ComparatorRow>().Select(r => r.Name)];
-            Assert.NotEmpty(modNames);
-            Assert.NotEmpty(RealizedRowTexts(window.RightOnlyListViewControl));
-
-            TabItem itemsTab = window.ComparisonTabControlControl.Items.OfType<TabItem>().ElementAt(1);
-            Avalonia.Point tabScreen = itemsTab.TranslatePoint(new Avalonia.Point(itemsTab.Bounds.Width / 2, itemsTab.Bounds.Height / 2), window)!.Value;
-            window.MouseDown(tabScreen, MouseButton.Left, RawInputModifiers.None);
-            window.MouseUp(tabScreen, MouseButton.Left, RawInputModifiers.None);
-            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-
-            Assert.Equal(1, window.ComparisonTabControlControl.SelectedIndex);
-            List<object> itemsRows = [.. window.RightOnlyListViewControl.ItemsSource!.Cast<object>()];
-            List<string> realizedAfterItemsTab = RealizedRowTexts(window.RightOnlyListViewControl);
-
-            Assert.NotEmpty(realizedAfterItemsTab);
-            Assert.DoesNotContain(realizedAfterItemsTab, text => modNames.Contains(text));
-            //The virtualized panel only realizes rows near the top of the viewport, so assert against the
-            //first row it actually reports rather than an arbitrarily chosen off-screen item.
-            string firstItemRowName = itemsRows.Cast<ComparatorRow>().First().Name;
-            Assert.Contains(realizedAfterItemsTab, text => text == firstItemRowName);
-
-            TabItem recipesTab = window.ComparisonTabControlControl.Items.OfType<TabItem>().ElementAt(2);
-            Avalonia.Point recipesScreen = recipesTab.TranslatePoint(new Avalonia.Point(recipesTab.Bounds.Width / 2, recipesTab.Bounds.Height / 2), window)!.Value;
-            window.MouseDown(recipesScreen, MouseButton.Left, RawInputModifiers.None);
-            window.MouseUp(recipesScreen, MouseButton.Left, RawInputModifiers.None);
-            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-
-            List<string> realizedAfterRecipesTab = RealizedRowTexts(window.RightOnlyListViewControl);
-            Assert.NotEmpty(realizedAfterRecipesTab);
-            Assert.DoesNotContain(realizedAfterRecipesTab, text => realizedAfterItemsTab.Contains(text));
-
-            Avalonia.Point filterScreen = window.FilterTextBoxControl.TranslatePoint(new Avalonia.Point(5, window.FilterTextBoxControl.Bounds.Height / 2), window)!.Value;
-            window.MouseDown(filterScreen, MouseButton.Left, RawInputModifiers.None);
-            window.MouseUp(filterScreen, MouseButton.Left, RawInputModifiers.None);
-            window.KeyTextInput("zzz-does-not-match-anything-zzz");
-            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-
-            Assert.Empty(window.RightOnlyListViewControl.ItemsSource!.Cast<object>());
-            Assert.Empty(RealizedRowTexts(window.RightOnlyListViewControl));
-        }
-
-        private static List<string> RealizedRowTexts(ListBox listBox) =>
-            [.. listBox.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
-
-        [AvaloniaFact]
-        public void ComparisonTabControl_HasEightTabsInOrder() {
-            var window = new PresetComparatorWindow([]);
-
-            var headers = window.ComparisonTabControlControl.Items.OfType<TabItem>().Select(t => t.Header).ToList();
-
-            Assert.Equal(["Mods", "Items", "Recipes", "Assemblers", "Miners", "Power", "Beacons", "Modules"], headers);
-        }
-
-        [AvaloniaFact]
-        public void FilterRow_HideEqualDefaultsChecked_OthersDefaultUnchecked() {
-            var window = new PresetComparatorWindow([]);
-
-            Assert.True(window.HideEqualObjectsCheckBoxControl.IsChecked);
-            Assert.False(window.HideSimilarObjectsCheckBoxControl.IsChecked);
-            Assert.False(window.ShowUnavailableCheckBoxControl.IsChecked);
-        }
-
-        //Imp#2 (final fix wave, upstream PresetComparatorForm.Designer.cs:605): Close is the window's
-        //CancelButton, so Escape must reach it without a click.
-        [AvaloniaFact]
-        public void EscapeKey_ClosesWindow() {
-            var window = new PresetComparatorWindow([]);
-            window.Show();
-            bool closed = false;
-            window.Closed += (_, _) => closed = true;
-
-            window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
-
-            Assert.True(closed);
-        }
-
-        //Ports PresetSelectionBox_SelectedValueChanged's tri-state caption (reference PresetComparatorForm.cs:404-408).
-        [AvaloniaFact]
-        public void ProcessPresetsButton_SamePresetBothSides_ShowsCantCompareCaption() {
-            var presets = new List<Preset> { new("A", true, true), new("B", false, false) };
-            var window = new PresetComparatorWindow(presets);
-
-            Assert.True(window.ProcessPresetsButtonControl.IsEnabled);
-            Assert.Equal("Read Presets And Compare", window.ProcessPresetsButtonControl.Content);
-
-            window.RightPresetSelectionBoxControl.SelectedIndex = 0;
-
-            Assert.False(window.ProcessPresetsButtonControl.IsEnabled);
-            Assert.Equal("Cant Compare Preset To Itself", window.ProcessPresetsButtonControl.Content);
-        }
-
-        //--- Full pipeline (real presets, loaded once and shared/injected via LoadCacheStub) -------------
-
-        private static PresetComparatorWindow NewWindowWithStubbedCaches(DataCache vanilla, DataCache spaceAge) {
-            var presets = new List<Preset> { new(VanillaPresetName, true, true), new(SpaceAgePresetName, false, false) };
-            var window = new PresetComparatorWindow(presets);
-            window.LoadCacheStub = preset => Task.FromResult<DataCache?>(preset.Name == VanillaPresetName ? vanilla : spaceAge);
             return window;
         }
 
-        [AvaloniaFact]
-        public async Task ProcessPresetsButton_Click_TogglesComparingStateAndPopulatesModsTab() {
-            (DataCache vanilla, DataCache spaceAge) = await GetCachesAsync();
-            PresetComparatorWindow window = NewWindowWithStubbedCaches(vanilla, spaceAge);
+        private static DataStore StatusStore() => NewStore()
+            .Item("same", "Same", true, "Same", true)
+            .Item("renamed", "Renamed", true, "Renamed plate", true)
+            .Item("changed", "Changed", true, "Changed", false)
+            .Item("gone", "Gone", false, null, false)
+            .Item("new", null, false, "New", true);
 
-            await window.SimulateProcessPresetsClickAsync();
+        private static PresetComparatorWindow NewWindowWithStubbedCaches(DataCache vanilla, DataCache spaceAge) {
+            var presets = new List<Preset> { new(VanillaPresetName, true, true), new(SpaceAgePresetName, false, false) };
+            return new PresetComparatorWindow(presets) {
+                LoadCacheStub = preset => Task.FromResult(new DataLoadResult(preset.Name == VanillaPresetName ? vanilla : spaceAge, DataLoadOutcome.Loaded)),
+            };
+        }
 
-            Assert.True(window.Comparing);
-            Assert.Equal("Select Other Presets", window.ProcessPresetsButtonControl.Content);
-            Assert.False(window.PresetSelectionGroupControl.IsEnabled);
-            Assert.NotEmpty(window.RightOnlyListViewControl.ItemsSource!.Cast<object>());
+        private static string[] Texts(Visual root) =>
+            [.. root.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "").Where(t => t.Length > 0)];
+
+        private static Color TokenColor(string key) {
+            Assert.True(Avalonia.Application.Current!.TryGetResource(key, Avalonia.Application.Current.ActualThemeVariant, out object? value), key);
+            return Assert.IsType<Color>(value);
+        }
+
+        private static readonly string[] StatusKeys = ["StatusForeground", "StatusWarningBackground"];
+        private static readonly ThemeMode[] Themes = [ThemeMode.Light, ThemeMode.Dark];
+        private static readonly string[] RetiredStrings = ["Close", "Filter:", "<-- vs -->", "Read Presets And Compare", "Preset Selection", "Show Unavailables", "Preset Comparer"];
+
+        private static ListBoxItem ContainerFor(ListBox list, Func<ComparatorPairRow, bool> match) =>
+            list.GetVisualDescendants().OfType<ListBoxItem>().Single(c => c.DataContext is ComparatorPairRow row && match(row));
+
+        private static List<AutomationPeer> PeerTree(AutomationPeer root) {
+            var all = new List<AutomationPeer>();
+            void Walk(AutomationPeer peer) {
+                all.Add(peer);
+                foreach (AutomationPeer child in peer.GetChildren())
+                    Walk(child);
+            }
+            Walk(root);
+            return all;
         }
 
         [AvaloniaFact]
-        public async Task HideEqualObjectsCheckBox_DefaultChecked_HidesMoreThanWhenUnchecked() {
-            (DataCache vanilla, DataCache spaceAge) = await GetCachesAsync();
-            PresetComparatorWindow window = NewWindowWithStubbedCaches(vanilla, spaceAge);
-            await window.SimulateProcessPresetsClickAsync();
+        public async Task Comparator_Window_TitleMinSizeCopyStatePanelsAndEscape_AreAsRuled() {
+            (DataStore Store, int Tab, string Filter, string Expected)[] bothStates = [
+                (NewStore().Item("same", "Same", true, "Same", true), 1, "", "Nothing differs"),
+                (NewStore().Item("left", "Left", true, null, false), 6, "", "None"),
+                (StatusStore(), 1, "zzz", "No matches"),
+            ];
+            foreach ((DataStore store, int tab, string filter, string expected) in bothStates) {
+                PresetComparatorWindow compared = await ComparedAsync(store);
+                compared.ComparisonTabStripControl.SelectedIndex = tab;
+                compared.FilterFieldControl.Text = filter;
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                TextBlock bothNoResults = compared.FindControl<TextBlock>("BothNoResults")!;
+                Assert.Empty(compared.BothListControl.ItemsSource!.Cast<object>());
+                Assert.True(bothNoResults.IsVisible, expected);
+                Assert.Equal(expected, bothNoResults.Text);
+                compared.Close();
+            }
 
-            int hiddenCount = window.LeftListViewControl.ItemsSource!.Cast<object>().Count();
-            window.HideEqualObjectsCheckBoxControl.IsChecked = false;
-            int shownCount = window.LeftListViewControl.ItemsSource!.Cast<object>().Count();
+            var window = new PresetComparatorWindow([LeftPreset, RightPreset]);
+            window.Show();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
-            Assert.True(shownCount > hiddenCount, "Unchecking Hide Equal should reveal at least the equal-version shared mods.");
+            Assert.Equal("Preset Comparator", window.Title);
+            Assert.Equal(720, window.MinWidth);
+            Assert.Equal(480, window.MinHeight);
+            Assert.Empty(window.GetVisualDescendants().OfType<TabControl>());
+            string[] texts = Texts(window);
+            foreach (string retired in RetiredStrings)
+                Assert.DoesNotContain(retired, texts);
+            Assert.DoesNotContain(texts, t => t.EndsWith(':'));
+            Assert.Contains("Compare", texts);
+            Assert.Contains("with", texts);
+            Assert.Equal("Filter", window.FilterFieldControl.PlaceholderText);
+            Assert.Equal("Show unavailable", window.ShowUnavailableCheckBoxControl.Content);
+            Assert.True(window.HideIdenticalCheckBoxControl.IsChecked);
+            Assert.False(window.HideSimilarCheckBoxControl.IsChecked);
+            Assert.False(window.ShowUnavailableCheckBoxControl.IsChecked);
+
+            Assert.True(window.CompareButtonControl.IsDefault);
+            Assert.True(window.CompareButtonControl.IsEnabled);
+            StatePanel empty = window.EmptyPanelControl;
+            Assert.Equal(StatePanelShape.Empty, empty.Shape);
+            Assert.True(empty.IsVisible);
+            Assert.False(window.GroupsGridControl.IsVisible);
+            Assert.Equal("Choose two presets to compare", empty.Headline);
+            Assert.Equal("Pick a preset on each side, then click Compare. Each preset takes a few seconds to load.", empty.Sentence);
+
+            window.RightPresetPopUpControl.SelectedItem = LeftPreset.Name;
+
+            Assert.False(window.CompareButtonControl.IsEnabled);
+            Assert.Equal("Choose a different preset on either side.", ToolTip.GetTip(window.CompareButtonControl));
+            Assert.Equal("Both sides name the same preset. Choose a different one on either side.", empty.Sentence);
+
+            bool closed = false;
+            window.Closed += (_, _) => closed = true;
+            window.FilterFieldControl.Focus();
+            window.FilterFieldControl.Text = "plate";
+            window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            Assert.False(closed);
+            Assert.True(string.IsNullOrEmpty(window.FilterFieldControl.Text));
+            window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            Assert.True(closed);
         }
 
-        //Regression: the Fluent theme's default ListBoxItem carries generous Padding/MinHeight, leaving
-        //upstream's dense WinForms rows (24px icon, minimal chrome) looking sparse and hard to scan.
         [AvaloniaFact]
-        public async Task ComparatorRows_AreDenseLikeUpstream() {
+        public void Comparator_Tabs_AreToolbarTabs_WithCategoryGlyphs_OpeningOnItems_AndCommandDigitsSelect() {
+            var window = new PresetComparatorWindow([]);
+            window.Show();
+            TabStrip strip = window.ComparisonTabStripControl;
+            string[] names = ["Mods", "Items", "Recipes", "Assemblers", "Miners", "Power", "Beacons", "Modules"];
+            string[] glyphs = ["Category.Mods", "Category.Items", "Category.Recipes", "Category.Assemblers", "Category.Miners", "Category.Power", "Beacon", "Category.Modules"];
+
+            Assert.Contains("toolbar-tabs", strip.Classes);
+            Assert.Equal(names, strip.Items.Select(t => t.Text));
+            for (int i = 0; i < names.Length; i++) {
+                Assert.Same(window.FindResource($"Kit.Glyph.{glyphs[i]}.18"), strip.Items[i].Glyph);
+                Assert.Equal($"{names[i]} \u2014 \u2318{i + 1}", strip.Items[i].ToolTip);
+            }
+            Assert.Same(window.FindResource("Kit.Glyph.Beacon.Fill.18"), strip.Items[6].GlyphFill);
+            Assert.Equal(1, strip.SelectedIndex);
+
+            window.KeyPressQwerty(PhysicalKey.Digit3, RawInputModifiers.Meta);
+
+            Assert.Equal(2, strip.SelectedIndex);
+        }
+
+        [AvaloniaFact]
+        public async Task Comparator_AfterCompare_GroupsRowsAndPairedHeaderFollowTheRuledGeometry_AndReadAsATable() {
+            PresetComparatorWindow window = await ComparedAsync(StatusStore());
+            window.HideIdenticalCheckBoxControl.IsChecked = false;
+            window.ShowUnavailableCheckBoxControl.IsChecked = true;
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            Assert.False(window.EmptyPanelControl.IsVisible);
+            string[] texts = Texts(window);
+            Assert.Contains("Only in Left preset", texts);
+            Assert.Contains("In both", texts);
+            Assert.Contains("Only in Right preset", texts);
+            Assert.Contains("Match", texts);
+            DockPanel[] groups = [.. window.GroupsGridControl.Children.OfType<DockPanel>()];
+            Assert.Equal(groups[0].Bounds.Width * 2, groups[1].Bounds.Width, 1.5);
+            Assert.Equal(groups[0].Bounds.Width, groups[2].Bounds.Width, 1);
+            Assert.Equal(12, groups[1].Bounds.Left - groups[0].Bounds.Right, 0.5);
+            Assert.Equal(12, groups[2].Bounds.Left - groups[1].Bounds.Right, 0.5);
+            Assert.Equal(3, window.BothListControl.ItemsSource!.Cast<ComparatorPairRow>().Count(r => !r.Left.FilterKey.StartsWith("§§", StringComparison.Ordinal)));
+            Assert.All(window.BothListControl.GetVisualDescendants().OfType<ListBoxItem>(), c => Assert.Equal(26, c.Bounds.Height));
+            Assert.Equal("Identical", ((ComparatorPairRow)ContainerFor(window.BothListControl, r => r.Left.Name == "Same").DataContext!).MatchText);
+
+            foreach (ListBox list in new[] { window.LeftOnlyListControl, window.BothListControl, window.RightOnlyListControl }) {
+                ListBoxItem row = list.GetVisualDescendants().OfType<ListBoxItem>().First();
+                Image icon = row.GetVisualDescendants().OfType<Image>().First();
+                Assert.Equal(8, icon.TranslatePoint(default, row)!.Value.X, 0.5);
+            }
+            Border frame = window.FindControl<Border>("BothFrame")!;
+            double InsideFrame(Visual v) => v.TranslatePoint(default, frame)!.Value.X - frame.BorderThickness.Left;
+            Image[] cells = [.. ContainerFor(window.BothListControl, r => r.Left.Name == "Changed").GetVisualDescendants().OfType<Image>()];
+            Assert.Equal(10, InsideFrame(HeaderCell(window, "PART_LeftHeader")), 0.5);
+            Assert.Equal(10, InsideFrame(cells[0]), 0.5);
+            Assert.Equal(InsideFrame(cells[1]), InsideFrame(HeaderCell(window, "PART_RightHeader")), 0.5);
+
+            ComparatorPairRow similarRow = window.BothListControl.ItemsSource!.Cast<ComparatorPairRow>().Single(r => r.Similarity == PresetComparatorWindow.RowSimilarity.CloseEnough);
+            window.BothListControl.SelectedItem = similarRow;
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            ListBoxItem selected = ContainerFor(window.BothListControl, r => r == similarRow);
+            Assert.Equal(new CornerRadius(4), selected.CornerRadius);
+            Assert.Equal(new CornerRadius(4), selected.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Frame").CornerRadius);
+            Assert.Equal(TokenColor("Foreman.Color.AccentSoft"), ((ISolidColorBrush)selected.Background!).Color);
+
+            AutomationPeer table = ControlAutomationPeer.CreatePeerForElement(window.BothListControl);
+            Assert.Equal(AutomationControlType.Table, table.GetAutomationControlType());
+            AutomationPeer header = table.GetChildren()[0];
+            Assert.Equal(AutomationControlType.Header, header.GetAutomationControlType());
+            Assert.Equal(["Left preset", "Right preset", "Match"],
+                header.GetChildren().Where(p => p.GetAutomationControlType() == AutomationControlType.HeaderItem).Select(p => p.GetName()));
+            ListBoxItem gone = window.LeftOnlyListControl.GetVisualDescendants().OfType<ListBoxItem>().Single(c => c.DataContext is ComparatorRow { Name: "Gone" });
+            Assert.EndsWith("unavailable", ControlAutomationPeer.CreatePeerForElement(gone).GetName());
+
+            List<AutomationPeer> tree = PeerTree(ControlAutomationPeer.CreatePeerForElement(window));
+            AutomationPeer onlyHeader = Assert.Single(tree, p => p.GetAutomationControlType() == AutomationControlType.Header);
+            Assert.Same(onlyHeader, table.GetChildren()[0]);
+            Assert.Same(table, onlyHeader.GetParent());
+            Assert.True(onlyHeader.IsControlElement());
+            foreach (DockPanel group in groups) {
+                AutomationPeer groupPeer = ControlAutomationPeer.CreatePeerForElement(group);
+                Assert.Contains(groupPeer, tree);
+                Assert.Equal(AutomationControlType.Group, groupPeer.GetAutomationControlType());
+                Assert.True(groupPeer.IsControlElement());
+            }
+            window.Close();
+
+            System.Globalization.CultureInfo previous = System.Globalization.CultureInfo.CurrentCulture;
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("en-US");
+            try {
+                PresetComparatorWindow counted = await ComparedAsync(CountStore());
+                counted.ComparisonTabStripControl.SelectedIndex = 2;
+                counted.HideIdenticalCheckBoxControl.IsChecked = false;
+                counted.FilterFieldControl.Text = "keep";
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                Assert.Equal(["Only in Left preset, 1 recipe", "In both, 2 recipes", "Only in Right preset, 0 recipes"], GroupNames(counted));
+                counted.KeyPressQwerty(PhysicalKey.Digit2, RawInputModifiers.Meta);
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                Assert.Equal(["Only in Left preset, 1 item", "In both, 2 items", "Only in Right preset, 0 items"], GroupNames(counted));
+                counted.FilterFieldControl.Text = "";
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                string[] shown = [.. CountNames.Select(n => counted.FindControl<TextBlock>(n)!.Text!)];
+                Assert.Equal(["1", counted.BothListControl.ItemsSource!.Cast<object>().Count().ToString("N0", System.Globalization.CultureInfo.CurrentCulture), "1"], shown);
+                Assert.Matches(@"^1,0\d\d$", shown[1]);
+                Assert.Equal(["Only in Left preset, 1 item", $"In both, {shown[1]} items", "Only in Right preset, 1 item"], GroupNames(counted));
+                counted.Close();
+            } finally {
+                System.Globalization.CultureInfo.CurrentCulture = previous;
+            }
+        }
+
+        private static TextBlock HeaderCell(PresetComparatorWindow window, string part) =>
+            window.BothListControl.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == part);
+
+        private static string[] GroupNames(PresetComparatorWindow window) =>
+            [.. window.GroupsGridControl.Children.OfType<DockPanel>().Select(g => ControlAutomationPeer.CreatePeerForElement(g).GetName() ?? "")];
+
+        private static readonly string[] CountNames = ["LeftOnlyCount", "BothCount", "RightOnlyCount"];
+
+        private static DataStore CountStore() {
+            DataStore store = NewStore();
+            foreach ((string key, string name, bool left, bool right) in new[] {
+                ("keep1", "Keep one", true, false), ("keep2", "Keep two", true, true), ("keep3", "Keep three", true, true),
+                ("drop4", "Drop four", true, true), ("drop5", "Drop five", false, true) }) {
+                store.Item(key, left ? name : null, true, right ? name : null, true);
+                store.Recipe(key, left ? name : null, right ? name : null);
+            }
+            for (int i = 0; i < 1000; i++)
+                store.Item($"bulk{i:D4}", $"Bulk {i}", true, $"Bulk {i}", true);
+            return store;
+        }
+
+        [AvaloniaFact]
+        public async Task Comparator_Rows_ResolveTheSemanticStatusTokens_InBothThemes() {
+            var app = (App)Avalonia.Application.Current!;
+            try {
+                foreach (ThemeMode mode in Themes) {
+                    app.ApplyTheme(mode);
+                    PresetComparatorWindow window = await ComparedAsync(StatusStore().Item("flipped", "Flipped", false, "Flipped", true));
+                    window.ShowUnavailableCheckBoxControl.IsChecked = true;
+                    Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+                    ListBoxItem similar = ContainerFor(window.BothListControl, r => r.Similarity == PresetComparatorWindow.RowSimilarity.CloseEnough);
+                    ListBoxItem different = ContainerFor(window.BothListControl, r => r.Left.Name == "Changed");
+                    ListBoxItem flipped = ContainerFor(window.BothListControl, r => r.Left.Name == "Flipped");
+                    Assert.Equal("Changed, Changed, unavailable, different", ControlAutomationPeer.CreatePeerForElement(different).GetName());
+                    Assert.Equal("Flipped, unavailable, Flipped, different", ControlAutomationPeer.CreatePeerForElement(flipped).GetName());
+                    Assert.EndsWith("unavailable in this preset", ((ComparatorPairRow)different.DataContext!).Right.Tooltip);
+                    Assert.Equal(TokenColor("Foreman.Color.ErrorSoft"), ((ISolidColorBrush)flipped.Background!).Color);
+                    Assert.Equal(TokenColor("Foreman.Color.WarningSoft"), ((ISolidColorBrush)similar.Background!).Color);
+                    Assert.Equal("Similar", ((ComparatorPairRow)similar.DataContext!).MatchText);
+                    Assert.Equal(TokenColor("Foreman.Color.ErrorSoft"), ((ISolidColorBrush)different.Background!).Color);
+                    Assert.Equal("Different", ((ComparatorPairRow)different.DataContext!).MatchText);
+
+                    TextBlock gone = window.LeftOnlyListControl.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Gone");
+                    Assert.Equal(TokenColor("Foreman.Color.TextTertiary"), ((ISolidColorBrush)gone.Foreground!).Color);
+                    Assert.Equal(FontStyle.Italic, gone.FontStyle);
+                    foreach ((ListBoxItem pair, int unavailableSide) in new[] { (different, 1), (flipped, 0) }) {
+                        TextBlock[] names = [.. pair.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("comparator-name"))];
+                        Assert.Equal(TokenColor("Foreman.Color.Text"), ((ISolidColorBrush)names[1 - unavailableSide].Foreground!).Color);
+                        Assert.Equal(FontStyle.Normal, names[1 - unavailableSide].FontStyle);
+                        Assert.Equal(TokenColor("Foreman.Color.TextTertiary"), ((ISolidColorBrush)names[unavailableSide].Foreground!).Color);
+                        Assert.Equal(FontStyle.Italic, names[unavailableSide].FontStyle);
+                    }
+
+                    Color[] status = [.. StatusKeys.Select(k => TokenColor("Foreman.Color." + k))];
+                    var offenders = new List<string>();
+                    foreach (Visual v in window.GetVisualDescendants()) {
+                        IBrush?[] own = v switch {
+                            TextBlock t => [t.Foreground, t.Background],
+                            TemplatedControl c => [c.Background],
+                            Border b => [b.Background, b.BorderBrush],
+                            Panel p => [p.Background],
+                            _ => [],
+                        };
+                        if (own.OfType<ISolidColorBrush>().Any(b => status.Contains(b.Color)))
+                            offenders.Add($"{v.GetType().Name}#{(v as Control)?.Name}<{v.GetVisualParent()?.GetType().Name}>");
+                    }
+                    Assert.Empty(offenders);
+                    window.Close();
+                }
+            } finally {
+                app.ApplyTheme(ThemeMode.Light);
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task Comparator_RealTabClicks_RepaintTheRows_AndAFilterThatEmptiesAListShowsNoMatches() {
             (DataCache vanilla, DataCache spaceAge) = await GetCachesAsync();
             PresetComparatorWindow window = NewWindowWithStubbedCaches(vanilla, spaceAge);
             window.Show();
-            await window.SimulateProcessPresetsClickAsync();
+            await window.SimulateCompareClickAsync();
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
-            ListBoxItem realizedRow = window.RightOnlyListViewControl.GetVisualDescendants().OfType<ListBoxItem>().First();
-            Assert.True(realizedRow.Bounds.Height <= 28, $"Expected a dense row (<=28px), got {realizedRow.Bounds.Height}px.");
+            ClickTab(window, "Mods");
+            string[] modRows = [.. window.RightOnlyListControl.ItemsSource!.Cast<ComparatorRow>().Select(r => r.Name)];
+            Assert.NotEmpty(modRows);
+
+            ClickTab(window, "Recipes");
+            List<string> realized = [.. window.RightOnlyListControl.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
+            Assert.NotEmpty(realized);
+            Assert.DoesNotContain(realized, modRows.Contains);
+
+            SheetFixture.Click(window, window.FilterFieldControl);
+            window.KeyTextInput("zzz-does-not-match-anything-zzz");
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            Assert.Empty(window.LeftOnlyListControl.ItemsSource!.Cast<object>());
+            Assert.True(window.LeftOnlyNoResultsControl.IsVisible);
+            Assert.Equal("No matches", window.LeftOnlyNoResultsControl.Text);
         }
 
         [AvaloniaFact]
-        public async Task ProcessPresetsButton_Click_AgainReturnsToSelectingAndClearsLists() {
-            //Uses throwaway caches (not the class-shared vanilla/spaceAge ones): toggling back to
-            //Selecting calls DataCache.Clear() on whatever LeftCache/RightCache hold, and the shared
-            //caches must stay intact for every other test in this class.
-            PresetComparatorWindow window = NewWindowWithStubbedCaches(NewEmptyCache(), NewEmptyCache());
-            await window.SimulateProcessPresetsClickAsync();
+        public async Task Comparator_ChooseAnotherOnEitherSide_FocusesAndOpensThatSidesPopUp_KeepingTheOldResults() {
+            DataStore store = StatusStore();
+            PresetComparatorWindow window = await ComparedAsync(store);
+            object[] rowsBefore = [.. window.BothListControl.ItemsSource!.Cast<object>()];
+            Assert.NotEmpty(rowsBefore);
+            DataCache freshLeft = NewEmptyCache();
+            window.LoadCacheStub = preset => Task.FromResult(preset.Name == LeftPreset.Name
+                ? new DataLoadResult(freshLeft, DataLoadOutcome.Loaded)
+                : new DataLoadResult(null, DataLoadOutcome.ChooseAnother));
 
-            await window.SimulateProcessPresetsClickAsync();
+            await window.SimulateCompareClickAsync();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
-            Assert.False(window.Comparing);
-            Assert.Equal("Read Presets And Compare", window.ProcessPresetsButtonControl.Content);
-            Assert.True(window.PresetSelectionGroupControl.IsEnabled);
-            Assert.Null(window.LeftOnlyListViewControl.ItemsSource);
+            Assert.True(window.Compared);
+            string[] texts = Texts(window);
+            Assert.Contains("Only in Left preset", texts);
+            Assert.Contains("Only in Right preset", texts);
+            Assert.Equal(rowsBefore, window.BothListControl.ItemsSource!.Cast<object>());
+            Assert.Same(store.Left, window.LeftCache);
+            Assert.Same(store.Right, window.RightCache);
+            Assert.True(window.RightPresetPopUpControl.IsFocused);
+            Assert.True(window.RightPresetPopUpControl.IsOpen);
+            window.RightPresetPopUpControl.IsOpen = false;
+
+            window.LoadCacheStub = preset => Task.FromResult(preset.Name == LeftPreset.Name
+                ? new DataLoadResult(null, DataLoadOutcome.ChooseAnother)
+                : new DataLoadResult(NewEmptyCache(), DataLoadOutcome.Loaded));
+            await window.SimulateCompareClickAsync();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            Assert.True(window.Compared);
+            Assert.Equal(rowsBefore, window.BothListControl.ItemsSource!.Cast<object>());
+            Assert.Same(store.Left, window.LeftCache);
+            Assert.Same(store.Right, window.RightCache);
+            Assert.True(window.LeftPresetPopUpControl.IsFocused);
+            Assert.True(window.LeftPresetPopUpControl.IsOpen);
+            Assert.False(window.RightPresetPopUpControl.IsOpen);
+            window.LeftPresetPopUpControl.IsOpen = false;
+            window.Close();
+        }
+
+        internal static void ClickTab(PresetComparatorWindow window, string label) {
+            TextBlock text = window.ComparisonTabStripControl.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == label);
+            SheetFixture.Click(window, (Control)text.GetVisualParent()!);
         }
     }
 }

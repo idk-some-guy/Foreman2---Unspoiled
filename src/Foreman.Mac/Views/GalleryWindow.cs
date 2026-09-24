@@ -127,7 +127,6 @@ namespace Foreman.Mac.Views {
         private static GalleryRegistry BuildRegistry() {
             var registry = new GalleryRegistry();
             registry.Register(new GalleryTile("Theme", "Graph Summary rows", "Default", BuildSummaryRowsShowcaseTile));
-            registry.Register(new GalleryTile("Theme", "Preset Comparator rows", "Default", BuildComparatorRowsShowcaseTile));
             registry.Register(new GalleryTile("Kit", "Type ramp", "Default", BuildTypeRampTile));
             registry.Register(new GalleryTile("Kit", "Glyphs", "Default", BuildGlyphSheetTile));
             registry.Register(new GalleryTile("Kit", "Type ramp & Glyphs (150%)", "150%", BuildKitScaledTile));
@@ -231,7 +230,7 @@ namespace Foreman.Mac.Views {
             return stack;
         }
 
-        //All 30 shared masters (Themes/Glyphs.axaml) at the 20 pt drawn size, named.
+        //All 37 shared masters (Themes/Glyphs.axaml) at the 20 pt drawn size, named.
         private static readonly string[] GlyphSheetNames = [
             "New", "Open", "Save", "Item", "Recipe", "Connect", "Align", "Export", "Summary",
             "View", "View.Fill", "Passthrough", "Beacon", "Beacon.Fill",
@@ -240,6 +239,8 @@ namespace Foreman.Mac.Views {
             "RadialPlant", "RadialUnplant", "RadialCancel",
             "Settings.Presets", "Settings.EnabledObjects", "Settings.General",
             "Settings.Advanced", "Settings.Annotations", "Settings.Appearance",
+            "Category.Mods", "Category.Items", "Category.Recipes", "Category.Assemblers",
+            "Category.Miners", "Category.Power", "Category.Modules",
         ];
 
         private static WrapPanel BuildGlyphSheetTile() {
@@ -2243,32 +2244,6 @@ namespace Foreman.Mac.Views {
                         new TextBlock { Text = row.OutText, Foreground = row.Foreground, Width = 60 },
                     },
                 },
-            };
-
-        //Three ComparatorRow instances (Equal/CloseEnough/Different) - the same status-color trio
-        //PresetComparatorViewModel.RebuildTab computes for a matched Left/Right pair.
-        private static StackPanel BuildComparatorRowsShowcaseTile() {
-            IBrush equalBackground = ThemeResources.ResolveBrush("Foreman.Color.ControlBackground", Colors.White);
-            IBrush closeEnoughBackground = ThemeResources.ResolveBrush("Foreman.Color.StatusCautionBackground", Color.FromRgb(240, 230, 140));
-            IBrush differentBackground = ThemeResources.ResolveBrush("Foreman.Color.StatusWarningBackground", Color.FromRgb(255, 192, 203));
-            IBrush availableForeground = ThemeResources.ResolveBrush("Foreman.Color.StatusForeground", Colors.Black);
-            IBrush unavailableForeground = ThemeResources.ResolveBrush("Foreman.Color.StatusWarningForeground", Color.FromRgb(139, 0, 0));
-
-            return new StackPanel {
-                Spacing = 2,
-                Children = {
-                    ComparatorRowVisual(new ComparatorRow("equal", "Iron Plate", "iron-plate", null, availableForeground, FontStyle.Normal) { Background = equalBackground }),
-                    ComparatorRowVisual(new ComparatorRow("close-enough", "Iron Plate (renamed)", "iron-plate", null, availableForeground, FontStyle.Normal) { Background = closeEnoughBackground }),
-                    ComparatorRowVisual(new ComparatorRow("different", "Removed Recipe", "removed-recipe", null, unavailableForeground, FontStyle.Italic) { Background = differentBackground }),
-                },
-            };
-        }
-
-        private static Border ComparatorRowVisual(ComparatorRow row) =>
-            new() {
-                Background = row.Background,
-                Padding = new Thickness(4, 1),
-                Child = new TextBlock { Text = row.Name, Foreground = row.Foreground, FontStyle = row.FontStyle },
             };
 
         //Same TryGetResource(key, variant, fallback) shape as ThemeResources.ResolveColor, typed for the

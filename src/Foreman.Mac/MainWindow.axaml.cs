@@ -136,6 +136,8 @@ namespace Foreman.Mac {
         //Test-only seam: lets a test supply the cross-preset PresetSelectionWindow's outcome (io-reference.md
         //§8 slow path) without a real modal ShowDialog.
         internal Func<List<PresetErrorPackage>, Task<Preset?>>? PresetSelectionDialogStub { get; set; }
+        internal Func<List<PresetErrorPackage>, Preset, Task<Preset?>>? ChooseAnotherPresetDialogStub { get; set; }
+        internal Func<Preset, AppSettings, Task<DataLoadResult>>? DataLoadStub { get; set; }
 
         //Test-only seam: lets a test observe/short-circuit the silent-switch info message (io-reference.md
         //§8) without a real modal ShowDialog.
@@ -943,15 +945,24 @@ namespace Foreman.Mac {
                 return;
             }
 
+            string previousPresetName = settings.CurrentPresetName;
             Preset? chosenPreset = await ResolveChosenPresetAsync(document).ConfigureAwait(true);
-            if (chosenPreset is null)
+            while (chosenPreset is not null && chosenPreset.Name != cache.PresetName) {
+                DataLoadResult loaded = await LoadDataCacheForPresetAsync(chosenPreset, settings).ConfigureAwait(true);
+                if (loaded.Cache is Foreman.DataCaching.DataCache newCache) {
+                    cache = newCache;
+                    break;
+                }
+                chosenPreset = loaded.Outcome == DataLoadOutcome.ChooseAnother
+                    ? await ChooseAnotherPresetAsync(document, chosenPreset).ConfigureAwait(true)
+                    : null;
+            }
+            if (chosenPreset is null) {
+                if (settings.CurrentPresetName != previousPresetName) {
+                    settings.CurrentPresetName = previousPresetName;
+                    SettingsService?.Save(settings);
+                }
                 return;
-
-            if (chosenPreset.Name != cache.PresetName) {
-                Foreman.DataCaching.DataCache? newCache = await LoadDataCacheForPresetAsync(chosenPreset, settings).ConfigureAwait(true);
-                if (newCache is null)
-                    return;
-                cache = newCache;
             }
 
             //LoadDocument is about to dispose every current node view model.
@@ -1032,16 +1043,16 @@ namespace Foreman.Mac {
 
         //Ports the ResolveChosenPresetAsync slow path's dialog launch (upstream ProductionGraphViewer.cs:
         //1477-1488). The chosen preset is read while the sheet is still open, so a failed read shows on its strip.
-        private async Task<Preset?> RealShowPresetSelectionDialogAsync(List<PresetErrorPackage> presetErrors) {
-            PresetSelectionSheet sheet = NewPresetSelectionSheet(presetErrors);
+        private async Task<Preset?> RealShowPresetSelectionDialogAsync(List<PresetErrorPackage> presetErrors, Preset? failed = null) {
+            PresetSelectionSheet sheet = NewPresetSelectionSheet(presetErrors, failed);
             bool? result = await SheetHost.For(this).ShowAsync(sheet).ConfigureAwait(true);
             if (!GraphCanvas.IsPanelOpen)
                 GraphCanvas.Focus();
             return result == true ? sheet.ChosenPreset : null;
         }
 
-        internal static PresetSelectionSheet NewPresetSelectionSheet(List<PresetErrorPackage> presetErrors) =>
-            new(presetErrors) { ReadPresetAsync = CanReadPresetAsync };
+        internal static PresetSelectionSheet NewPresetSelectionSheet(List<PresetErrorPackage> presetErrors, Preset? failed = null) =>
+            new(presetErrors, failed) { ReadPresetAsync = CanReadPresetAsync };
 
         private static Task<bool> CanReadPresetAsync(Preset preset) => Task.Run(() => {
             try {
@@ -1059,17 +1070,44 @@ namespace Foreman.Mac {
         //Ports the ResolveChosenPresetAsync/ReloadGraphForCurrentPreset shared DataLoadForm spin-up (upstream
         //ProductionGraphViewer.cs:1365-1386's non-corrupt path): swaps in the chosen preset's DataCache,
         //shared by both the Load-a-file path (LoadGraphJsonAsync) and the Settings preset-switch path
-        //(ReloadForPresetAsync). Returns null (leaving the live DataCache untouched) if the load fails.
-        private async Task<Foreman.DataCaching.DataCache?> LoadDataCacheForPresetAsync(Preset preset, AppSettings settings) {
+        //(ReloadForPresetAsync). Only a Loaded outcome swaps the live DataCache and the current preset.
+        private async Task<DataLoadResult> LoadDataCacheForPresetAsync(Preset preset, AppSettings settings) {
+            DataLoadResult loaded = await (DataLoadStub?.Invoke(preset, settings) ?? RealLoadDataCacheAsync(preset, settings)).ConfigureAwait(true);
+            if (loaded is { Outcome: DataLoadOutcome.Loaded, Cache: Foreman.DataCaching.DataCache newCache }) {
+                DataCache = newCache;
+                settings.CurrentPresetName = preset.Name;
+            }
+            return loaded;
+        }
+
+        private async Task<DataLoadResult> RealLoadDataCacheAsync(Preset preset, AppSettings settings) {
             var dataLoadWindow = new DataLoadWindow(preset, settings.UseRecipeBWfilters);
-            dataLoadWindow.Show();
+            dataLoadWindow.Show(this);
             await dataLoadWindow.LoadTask.ConfigureAwait(true);
-            if (dataLoadWindow.Result is not Foreman.DataCaching.DataCache newCache)
+            return new DataLoadResult(dataLoadWindow.Result, dataLoadWindow.Outcome);
+        }
+
+        private async Task<Preset?> ChooseAnotherPresetAsync(GraphViewerSaveDocument saveDocument, Preset failed) {
+            if (Settings is not AppSettings settings || PresetResolver is not Services.PresetResolver presetResolver)
                 return null;
 
-            DataCache = newCache;
-            settings.CurrentPresetName = preset.Name;
-            return newCache;
+            ProductionGraphSaveDocument productionGraph = saveDocument.ProductionGraph;
+            var modSet = new Dictionary<string, string>(saveDocument.IncludedMods);
+            var itemNames = productionGraph.IncludedItems.ToList();
+            var qualityNames = productionGraph.IncludedQualities.Select(q => q.Key).ToList();
+            var recipeShorts = productionGraph.IncludedRecipes.ToList();
+            var plantShorts = productionGraph.IncludedPlantProcesses.ToList();
+
+            var presetErrors = new List<PresetErrorPackage>();
+            foreach (Preset preset in presetResolver.BuildPresetList(settings.CurrentPresetName))
+                presetErrors.Add(await PresetProcessor.TestPreset(preset, modSet, itemNames, qualityNames, recipeShorts, plantShorts).ConfigureAwait(true));
+
+            Preset? choice = await (ChooseAnotherPresetDialogStub?.Invoke(presetErrors, failed) ?? RealShowPresetSelectionDialogAsync(presetErrors, failed)).ConfigureAwait(true);
+            if (choice is not null) {
+                settings.CurrentPresetName = choice.Name;
+                SettingsService?.Save(settings);
+            }
+            return choice;
         }
 
         //Ports ApplyLoadedGraphUiState (reference: upstream MainForm.cs:227-241): records the save path,
@@ -1298,7 +1336,7 @@ namespace Foreman.Mac {
         //persisting settings.json - matching upstream's presetReloaded branch and its unconditional
         //Properties.Settings.Default.Save() at the end of ApplySettingsDialogChanges. Tasks 2/3 extend the
         //non-preset-reload branch as their tabs' widgets gain something to apply.
-        internal void ShowSettings(bool selectPresetsPane = false) {
+        internal void ShowSettings(bool selectPresetsPane = false, string? failedPreset = null) {
             //Toolbar/native-menu clicks never reach GraphCanvasControl.OnPointerPressed's own click-outside-
             //closes-panel guard (they're not canvas pointer events at all), so a panel left open under this
             //window stayed stale once it closed. Closes first, matching NewGraphAsync/LoadDocument's own
@@ -1310,6 +1348,8 @@ namespace Foreman.Mac {
             if (settingsWindow is { } existing) {
                 if (selectPresetsPane)
                     existing.SelectPresetsPane();
+                if (failedPreset is not null)
+                    existing.ShowPresetLoadFailure(failedPreset);
                 if (SettingsDialogStub is null)
                     existing.Show(this);
                 existing.Activate();
@@ -1372,6 +1412,8 @@ namespace Foreman.Mac {
             settingsWindow = window;
             settingsSession = session;
 
+            if (failedPreset is not null)
+                window.ShowPresetLoadFailure(failedPreset);
             if (SettingsDialogStub is { } stub)
                 stub(window);
             else
@@ -1410,11 +1452,13 @@ namespace Foreman.Mac {
             if (Settings is not AppSettings settings)
                 return;
 
-            if (options.SelectedPreset is Preset selectedPreset)
-                await ReloadForPresetAsync(selectedPreset, settings).ConfigureAwait(true);
+            string? failedPreset = null;
+            if (options.SelectedPreset is Preset selectedPreset
+                && await ReloadForPresetAsync(selectedPreset, settings).ConfigureAwait(true) == DataLoadOutcome.ChooseAnother)
+                failedPreset = selectedPreset.Name;
 
             SettingsService?.Save(settings);
-            ShowSettings();
+            ShowSettings(failedPreset: failedPreset);
         }
 
         //Ports GraphSummaryButton_Click (reference upstream MainForm.cs:564-569): always the whole session,
@@ -1487,15 +1531,15 @@ namespace Foreman.Mac {
         //call) matters here specifically: the serialized document's EnabledRecipes/etc. still name the OLD
         //cache's enabled set, which would otherwise zero out everything in the new cache that doesn't share a
         //name with it - the freshly booted cache's own default-enabled state is what should survive instead.
-        private async Task ReloadForPresetAsync(Preset preset, AppSettings settings) {
+        private async Task<DataLoadOutcome> ReloadForPresetAsync(Preset preset, AppSettings settings) {
             if (DataCache is not Foreman.DataCaching.DataCache oldCache)
-                return;
+                return DataLoadOutcome.Cancelled;
 
             string graphJson = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, oldCache));
 
-            Foreman.DataCaching.DataCache? newCache = await LoadDataCacheForPresetAsync(preset, settings).ConfigureAwait(true);
-            if (newCache is null)
-                return;
+            DataLoadResult loaded = await LoadDataCacheForPresetAsync(preset, settings).ConfigureAwait(true);
+            if (loaded.Cache is not Foreman.DataCaching.DataCache newCache)
+                return loaded.Outcome;
 
             GraphLoadResult result = GraphCanvas.LoadDocument(newCache, graphJson, setEnablesFromJson: false);
             if (!result.Success)
@@ -1504,6 +1548,7 @@ namespace Foreman.Mac {
             ApplyLoadedSettings();
             UpdateTitleBar();
             GraphCanvas.RequestRedraw();
+            return DataLoadOutcome.Loaded;
         }
 
         //Ports GraphViewer_KeyDown's Space handler (reference §7): a separate subscription on the canvas

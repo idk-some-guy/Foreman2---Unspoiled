@@ -59,7 +59,7 @@ namespace Foreman.Mac.Kit.Controls {
         private CornerRadius chromeRadius = new(9);
         private readonly List<IDisposable> subs = [];
 
-        private sealed record ItemVisual(Border Item, Border? Fill, Border? SelectionFill, Path? Glyph, TextBlock Label, TabStripItem Model);
+        private sealed record ItemVisual(Border Item, Border? Fill, Border? SelectionFill, Path? Glyph, Path? GlyphFill, TextBlock Label, TabStripItem Model);
 
         static TabStrip() {
             FocusableProperty.OverrideDefaultValue<TabStrip>(true);
@@ -226,6 +226,7 @@ namespace Foreman.Mac.Kit.Controls {
             };
 
             Path? glyph = null;
+            Path? glyphFill = null;
             if (model.Glyph is not null) {
                 glyph = new Path {
                     Data = model.Glyph,
@@ -236,7 +237,12 @@ namespace Foreman.Mac.Kit.Controls {
                     StrokeLineCap = PenLineCap.Round,
                     StrokeJoin = PenLineJoin.Round,
                 };
-                content.Children.Add(new Viewbox { Width = glyph18, Height = glyph18, Stretch = Stretch.Uniform, Child = glyph });
+                Control master = glyph;
+                if (model.GlyphFill is not null) {
+                    glyphFill = new Path { Data = model.GlyphFill, Width = GlyphMasterSize, Height = GlyphMasterSize, Stretch = Stretch.None };
+                    master = new Panel { Width = GlyphMasterSize, Height = GlyphMasterSize, Children = { glyphFill, glyph } };
+                }
+                content.Children.Add(new Viewbox { Width = glyph18, Height = glyph18, Stretch = Stretch.Uniform, Child = master });
             }
 
             var label = new TextBlock {
@@ -274,7 +280,7 @@ namespace Foreman.Mac.Kit.Controls {
             };
             ToolTip.SetTip(item, model.ToolTip);
 
-            return new ItemVisual(item, fill, selectionFill, glyph, label, model);
+            return new ItemVisual(item, fill, selectionFill, glyph, glyphFill, label, model);
         }
 
         private ItemVisual BuildUnderlineItem(TabStripItem model) {
@@ -292,7 +298,7 @@ namespace Foreman.Mac.Kit.Controls {
                 Child = label,
             };
 
-            return new ItemVisual(item, null, null, null, label, model);
+            return new ItemVisual(item, null, null, null, null, label, model);
         }
 
         private void ApplyStateColors() {
@@ -319,6 +325,8 @@ namespace Foreman.Mac.Kit.Controls {
                     v.Label.Foreground = color;
                     if (v.Glyph is not null)
                         v.Glyph.Stroke = color;
+                    if (v.GlyphFill is not null)
+                        v.GlyphFill.Fill = color;
                 }
             }
 

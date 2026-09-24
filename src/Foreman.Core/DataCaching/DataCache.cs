@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Foreman.DataCaching {
@@ -72,41 +73,66 @@ namespace Foreman.DataCaching {
         //The two directory overrides are the same test-only seam PresetProcessor.GetPresetPath/PrepPreset
         //already take; every production call site omits them.
         public async Task LoadAllData(Preset preset, IProgress<KeyValuePair<int, string>> progress, bool loadIcons = true,
-                string? userPresetsDirectoryOverride = null, string? bundlePresetsDirectoryOverride = null) {
+                string? userPresetsDirectoryOverride = null, string? bundlePresetsDirectoryOverride = null,
+                CancellationToken cancellationToken = default) {
+            try {
+                await LoadAllDataCore(preset, progress, loadIcons, userPresetsDirectoryOverride, bundlePresetsDirectoryOverride, cancellationToken)
+                    .ConfigureAwait(false);
+            } catch (OperationCanceledException) {
+                Clear();
+                PresetName = null;
+                Version = 0;
+                throw;
+            }
+        }
+
+        private async Task LoadAllDataCore(Preset preset, IProgress<KeyValuePair<int, string>> progress, bool loadIcons,
+                string? userPresetsDirectoryOverride, string? bundlePresetsDirectoryOverride, CancellationToken ct) {
+            ct.ThrowIfCancellationRequested();
             Clear();
 
             var session = new PresetLoadSession();
             PresetName = preset.Name;
             JsonObject jsonData = PresetProcessor.PrepPreset(preset, userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
             Version = PresetJson.GetInt32(jsonData, PresetExportFormat.VersionPropertyName) ?? 0;
+            ct.ThrowIfCancellationRequested();
 
-            _store.IconCache = loadIcons
-                ? await IconCache.LoadIconCacheFromStore(
-                    PresetProcessor.GetPresetIconEntries(preset, userPresetsDirectoryOverride),
-                    progress, 0, 90).ConfigureAwait(false)
-                : [];
+            if (loadIcons) {
+                var iconEntries = PresetProcessor.GetPresetIconEntries(preset, userPresetsDirectoryOverride);
+                ct.ThrowIfCancellationRequested();
+                _store.IconCache = await IconCache.LoadIconCacheFromStore(iconEntries, progress, 0, 90).ConfigureAwait(false);
+            } else {
+                _store.IconCache = [];
+            }
+            ct.ThrowIfCancellationRequested();
 
             await Task.Run(() => {
                 progress.Report(new KeyValuePair<int, string>(90, "Processing Data..."));
+                ct.ThrowIfCancellationRequested();
 
                 var entityLoader = new EntityDataLoader(this, _store, session);
                 var presetLoader = new PresetDataLoader(this, _store, session);
                 presetLoader.LoadFromJson(jsonData, _store.IconCache);
+                ct.ThrowIfCancellationRequested();
                 entityLoader.LoadEntities(jsonData, _store.IconCache);
+                ct.ThrowIfCancellationRequested();
                 entityLoader.LinkRecipesToCraftingCategoryMachines();
                 presetLoader.LoadRocketLaunches(jsonData);
                 entityLoader.LoadCharacter(
                     PresetJson.EnumerateArray(jsonData, "entities").FirstOrDefault(a => PresetJson.GetString(a, "name") == "character"));
+                ct.ThrowIfCancellationRequested();
 
                 if (_store.RocketAssembler is not null)
                     _store.Assemblers.Add(_store.RocketAssembler.Name, _store.RocketAssembler);
 
                 PresetCraftingCompatibility.FinalizeRecipeCraftingLinks(_store, session);
+                ct.ThrowIfCancellationRequested();
                 new DataCachePostLoadProcessor(this, _store).RunAfterPresetParsed();
+                ct.ThrowIfCancellationRequested();
 
                 progress.Report(new KeyValuePair<int, string>(98, "Finalizing..."));
                 progress.Report(new KeyValuePair<int, string>(100, "Done!"));
-            }).ConfigureAwait(false);
+            }, ct).ConfigureAwait(false);
         }
 
         public void Clear() => DataCacheBootstrap.ClearLoadedData(_store);

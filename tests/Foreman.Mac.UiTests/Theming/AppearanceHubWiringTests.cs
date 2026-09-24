@@ -93,7 +93,10 @@ namespace Foreman.Mac.UiTests.Theming {
             int before = SubscriberCount;
             var window = new DataLoadWindow(new Preset("Nonexistent Preset", true, true));
             Assert.Equal(before + 1, SubscriberCount);
+            window.Show();
 
+            await window.AttemptTask;
+            window.Close();
             await window.LoadTask;
 
             Assert.Equal(before, SubscriberCount);

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.LogicalTree;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -209,6 +210,16 @@ namespace Foreman.Mac.UiTests.Views {
             CanvasKeys.KeyDownOn(sheet.PresetSelectionListViewControl, Key.Enter);
             Assert.True(result.IsCompleted);
             Assert.Equal("Factorio 2.0.55 — Space Age", sheet.ChosenPreset!.Name);
+        }
+
+        [AvaloniaFact]
+        public void ChooseAnother_Lede_NamesTheFailedPreset_AndTheBestOtherPresetIsSelected() {
+            var sheet = new PresetSelectionSheet(ThreePresets(), new Preset("Factorio 2.0.55 — Space Age", false, false));
+
+            Assert.Equal("\u201CFactorio 2.0.55 — Space Age\u201D couldn\u2019t be loaded. The ratings show how much of this graph each other preset can reproduce.",
+                sheet.GetLogicalDescendants().OfType<TextBlock>().First().Text);
+            PresetRow selected = Assert.IsType<PresetRow>(sheet.PresetSelectionListViewControl.SelectedItem);
+            Assert.NotEqual("Factorio 2.0.55 — Space Age", selected.Name);
         }
 
         private static IEnumerable<AutomationPeer> PeerTree(AutomationPeer root) {

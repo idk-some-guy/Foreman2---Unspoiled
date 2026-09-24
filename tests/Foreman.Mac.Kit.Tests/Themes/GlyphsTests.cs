@@ -20,6 +20,8 @@ namespace Foreman.Mac.Kit.Tests.Themes {
             "RadialPlant", "RadialUnplant", "RadialCancel",
             "Settings.Presets", "Settings.EnabledObjects", "Settings.General",
             "Settings.Advanced", "Settings.Annotations", "Settings.Appearance",
+            "Category.Mods", "Category.Items", "Category.Recipes", "Category.Assemblers",
+            "Category.Miners", "Category.Power", "Category.Modules",
         ];
 
         private static readonly int[] Sizes = [16, 17, 18, 20];

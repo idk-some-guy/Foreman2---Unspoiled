@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ForemanTest {
@@ -329,6 +330,44 @@ namespace ForemanTest {
             Assert.AreEqual(0, cache.Items.Count(i => !i.Key.StartsWith("§§", StringComparison.Ordinal)));
             await cache.LoadAllData(new Preset(VanillaPresetName, true, true), NullProgress.Instance, loadIcons: false).ConfigureAwait(false);
             Assert.IsTrue(cache.Items.ContainsKey("iron-plate"));
+        }
+
+        [TestMethod]
+        public async Task LoadAllData_CancelledMidLoad_StopsAndLeavesTheCacheUnloaded() {
+            var cache = new DataCache(filterRecipes: true);
+            using var cts = new CancellationTokenSource();
+            var progress = new CancelOnReport(90, cts);
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() =>
+                cache.LoadAllData(new Preset(VanillaPresetName, true, true), progress, loadIcons: false, cancellationToken: cts.Token)).ConfigureAwait(false);
+
+            Assert.DoesNotContain(98, progress.Reported);
+            Assert.IsNull(cache.PresetName);
+            Assert.AreEqual(0, cache.Items.Count(i => !i.Key.StartsWith("§§", StringComparison.Ordinal)));
+            Assert.AreEqual(0, cache.Recipes.Count(r => !r.Key.StartsWith("§§", StringComparison.Ordinal)));
+        }
+
+        [TestMethod]
+        public async Task LoadAllData_AlreadyCancelled_ReportsNothing() {
+            var cache = new DataCache(filterRecipes: true);
+            using var cts = new CancellationTokenSource();
+            await cts.CancelAsync().ConfigureAwait(false);
+            var progress = new CancelOnReport(-1, cts);
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() =>
+                cache.LoadAllData(new Preset(VanillaPresetName, true, true), progress, loadIcons: true, cancellationToken: cts.Token)).ConfigureAwait(false);
+
+            Assert.IsEmpty(progress.Reported);
+            Assert.IsNull(cache.PresetName);
+        }
+
+        private sealed class CancelOnReport(int cancelAt, CancellationTokenSource cts) : IProgress<KeyValuePair<int, string>> {
+            public List<int> Reported { get; } = [];
+            public void Report(KeyValuePair<int, string> value) {
+                Reported.Add(value.Key);
+                if (value.Key == cancelAt)
+                    cts.Cancel();
+            }
         }
 
         [TestMethod]

@@ -3,6 +3,7 @@ using Foreman;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac.Services;
+using Foreman.Mac.Views;
 using Foreman.Serialization;
 using System;
 using System.Collections.Generic;
@@ -186,6 +187,49 @@ namespace Foreman.Mac.UiTests {
             Assert.Same(cache, window.DataCache);
             Assert.Single(window.GraphCanvas.Viewer.NodeElements);
             Assert.Null(window.SaveFilePath);
+        }
+
+        [AvaloniaFact]
+        public async Task LoadGraphJsonAsync_DataLoadCancelled_LeavesDataCacheAndCurrentPresetUntouched() {
+            var cache = new DataCache(filterRecipes: true);
+            var window = NewWindow(VanillaPresetName, NewTempDir());
+            window.DataCache = cache;
+            window.PresetSelectionDialogStub = _ => Task.FromResult<Preset?>(new Preset(SpaceAgePresetName, false, false));
+            window.DataLoadStub = (_, _) => Task.FromResult(new DataLoadResult(null, DataLoadOutcome.Cancelled));
+
+            await window.LoadGraphJsonAsync(GraphSaveCodec.WriteViewerDocumentToString(NewEmptyDocument("Not An Installed Preset")), "/tmp/does-not-matter.fjson");
+
+            Assert.Same(cache, window.DataCache);
+            Assert.Equal(VanillaPresetName, window.Settings!.CurrentPresetName);
+            Assert.Null(window.SaveFilePath);
+        }
+
+        [AvaloniaFact]
+        public async Task LoadGraphJsonAsync_ChooseAnother_ReopensThePickerForTheFailedPreset_ThenLoadsThePick() {
+            var window = NewWindow(VanillaPresetName, NewTempDir());
+            window.DataCache = new DataCache(filterRecipes: true);
+            var picked = new DataCache(filterRecipes: true);
+            var loads = new List<string>();
+            window.PresetSelectionDialogStub = _ => Task.FromResult<Preset?>(new Preset(SpaceAgePresetName, false, false));
+            Preset? failedSeen = null;
+            window.ChooseAnotherPresetDialogStub = (errors, failed) => {
+                failedSeen = failed;
+                Assert.Contains(errors, e => e.Preset.Name == VanillaPresetName);
+                return Task.FromResult<Preset?>(new Preset(VanillaPresetName, true, true));
+            };
+            window.DataLoadStub = (preset, _) => {
+                loads.Add(preset.Name);
+                return Task.FromResult(loads.Count == 1
+                    ? new DataLoadResult(null, DataLoadOutcome.ChooseAnother)
+                    : new DataLoadResult(picked, DataLoadOutcome.Loaded));
+            };
+
+            await window.LoadGraphJsonAsync(GraphSaveCodec.WriteViewerDocumentToString(NewEmptyDocument("Not An Installed Preset")), "/tmp/does-not-matter.fjson");
+
+            Assert.Equal([SpaceAgePresetName, VanillaPresetName], loads);
+            Assert.Equal(SpaceAgePresetName, failedSeen!.Name);
+            Assert.Same(picked, window.DataCache);
+            Assert.Equal(VanillaPresetName, window.Settings!.CurrentPresetName);
         }
     }
 }

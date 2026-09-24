@@ -111,7 +111,7 @@ namespace Foreman.Mac.UiTests.Views {
             var window = new GalleryWindow(cache, new AppSettings());
 
             Assert.Equal(
-                ["Graph Summary rows", "Preset Comparator rows",
+                ["Graph Summary rows",
                  "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)",
                  "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)",
                  "Checkbox", "Radio group", "Switch — Settings only (A16)", "Checkbox, Radio group & Switch (150%)",
@@ -181,9 +181,9 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains("Stepper", captions);
             Assert.Contains("Slider", captions);
             Assert.Contains("Text field, Search field, Stepper & Slider (150%)", captions);
-            //A sample from each end of the 30-glyph sheet, proving the full set rendered with name labels.
+            //A sample from each end of the 37-glyph sheet, proving the full set rendered with name labels.
             Assert.Contains("New", captions);
-            Assert.Contains("Settings.Appearance", captions);
+            Assert.Contains("Category.Modules", captions);
         }
 
         [AvaloniaFact]
@@ -424,7 +424,7 @@ namespace Foreman.Mac.UiTests.Views {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //The Design language section shows every retokened surface still in the gallery: the two status-colored row kinds (View Options retired into Kit.PopoverFrame).
+        //The Design language section shows every retokened surface still in the gallery: the Graph Summary rows (View Options and the comparator rows retired onto the kit).
         [AvaloniaFact]
         public void ThemeShowcase_BuildsATilePerRetokenedSurface() {
             DataCache cache = NewFixtureCache();
@@ -433,7 +433,7 @@ namespace Foreman.Mac.UiTests.Views {
 
             string[] captions = [.. window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
             Assert.Contains("Graph Summary rows", captions);
-            Assert.Contains("Preset Comparator rows", captions);
+            Assert.DoesNotContain("Preset Comparator rows", captions);
             Assert.DoesNotContain("Enabled Objects rows", captions);
         }
 

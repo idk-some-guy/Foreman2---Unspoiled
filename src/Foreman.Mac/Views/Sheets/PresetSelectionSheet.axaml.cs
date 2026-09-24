@@ -51,8 +51,11 @@ namespace Foreman.Mac.Views.Sheets {
         public PresetSelectionSheet() : this([]) {
         }
 
-        public PresetSelectionSheet(List<PresetErrorPackage> presetErrors) {
+        public PresetSelectionSheet(List<PresetErrorPackage> presetErrors, Preset? failed = null) {
             InitializeComponent();
+            if (failed is not null)
+                this.FindControl<TextBlock>("LedeText")!.Text =
+                    $"\u201C{Dialogs.MiddleTruncate(failed.Name)}\u201D couldn\u2019t be loaded. The ratings show how much of this graph each other preset can reproduce.";
             ViewModel.Load(presetErrors);
             WidthClass = SheetWidthClass.Wide;
             Title = "Select a preset";
@@ -77,8 +80,8 @@ namespace Foreman.Mac.Views.Sheets {
             presetListView.ItemsSource = presetRows;
             presetListView.SelectionChanged += (_, _) => ViewModel.Selected = presetListView.SelectedItem as PresetRow;
             presetListView.DoubleTapped += (_, _) => Async.Fire(CommitAsync(), nameof(CommitAsync));
-            if (presetRows.Count > 0)
-                presetListView.SelectedIndex = 0;
+            if (presetRows.FindIndex(r => r.Preset.Name != failed?.Name) is int first and >= 0)
+                presetListView.SelectedIndex = first;
             confirmationButton.Click += (_, _) => Async.Fire(CommitAsync(), nameof(CommitAsync));
             cancellingButton.Click += (_, _) => Cancel();
             Loaded += (_, _) => presetListView.Focus();

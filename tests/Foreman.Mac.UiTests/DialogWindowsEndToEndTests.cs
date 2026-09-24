@@ -459,9 +459,9 @@ namespace Foreman.Mac.UiTests {
             bool comparatorPopulated = false;
             settingsWindow!.ComparePresetsDialogStub = async presets => {
                 var comparator = new PresetComparatorWindow(presets) {
-                    LoadCacheStub = preset => Task.FromResult<DataCache?>(preset.Name == VanillaPresetName ? comparatorVanilla : preset.Name == SpaceAgePresetName ? comparatorSpaceAge : null),
+                    LoadCacheStub = preset => Task.FromResult(new DataLoadResult(preset.Name == VanillaPresetName ? comparatorVanilla : preset.Name == SpaceAgePresetName ? comparatorSpaceAge : null, DataLoadOutcome.Loaded)),
                 };
-                await comparator.SimulateProcessPresetsClickAsync().ConfigureAwait(true);
+                await comparator.SimulateCompareClickAsync().ConfigureAwait(true);
                 comparatorPopulated = comparator.LeftCache is not null && comparator.RightCache is not null;
                 comparator.Close();
             };
@@ -505,7 +505,7 @@ namespace Foreman.Mac.UiTests {
             for (int i = 0; i < 3; i++) {
                 window.SettingsDialogStub = w => {
                     w.ComparePresetsDialogStub = presets => {
-                        //Never started (SimulateProcessPresetsClickAsync isn't called), so PresetComparatorWindow's
+                        //Never started (SimulateCompareClickAsync isn't called), so PresetComparatorWindow's
                         //own Closed handler no-ops (comparing stays false) rather than clearing a cache this test
                         //never loaded.
                         new PresetComparatorWindow(presets).Close();

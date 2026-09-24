@@ -123,6 +123,36 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void ToolbarTabs_GlyphFill_IsFilledInTheLabelColour_UnderTheStroke_AndFollowsSelection() {
+            using var fixture = new KitFixture();
+            Application.Current!.TryGetResource("Kit.Glyph.Beacon.18", null, out object? stroke);
+            Application.Current!.TryGetResource("Kit.Glyph.Beacon.Fill.18", null, out object? fill);
+            var strip = new TabStrip { Theme = KitTabStripTheme() };
+            strip.Classes.Add("toolbar-tabs");
+            strip.Items.Add(new TabStripItem { Text = "Beacons", Glyph = (Geometry)stroke!, GlyphFill = (Geometry)fill! });
+            strip.Items.Add(new TabStripItem { Text = "Modules", Glyph = SampleGlyph() });
+            strip.SelectedIndex = 0;
+            fixture.Window.Content = strip;
+            Dispatcher.UIThread.RunJobs();
+
+            Path[] paths = [.. Items(strip)[0].GetVisualDescendants().OfType<Path>()];
+            Assert.Equal(2, paths.Length);
+            Path fillPath = paths.Single(p => ReferenceEquals(p.Data, fill));
+            Path strokePath = paths.Single(p => ReferenceEquals(p.Data, stroke));
+            Assert.Null(fillPath.Stroke);
+            Assert.Equal(new Size(18, 18), fillPath.Bounds.Size);
+            Assert.Equal(Stretch.None, fillPath.Stretch);
+            Assert.Equal(fixture.Brush("Foreman.Color.AccentText").ToImmutable(), fillPath.Fill?.ToImmutable());
+            Assert.Equal(fixture.Brush("Foreman.Color.AccentText").ToImmutable(), strokePath.Stroke?.ToImmutable());
+
+            strip.SelectedIndex = 1;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(fixture.Brush("Foreman.Color.TextSecondary").ToImmutable(), fillPath.Fill?.ToImmutable());
+            Assert.Single(Items(strip)[1].GetVisualDescendants().OfType<Path>());
+        }
+
+        [AvaloniaFact]
         public void ToolbarTabs_EachItemCarriesItsModelsToolTip() {
             using var fixture = new KitFixture();
             var strip = new TabStrip { Theme = KitTabStripTheme() };

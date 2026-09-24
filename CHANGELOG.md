@@ -300,6 +300,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   panel, then dismisses the frontmost sheet, and Ctrl+period does the same on Linux. ⌘-chords on W,
   A, S and D no longer pan the canvas. With no document open, the save, export and close items, all
   of Edit and the canvas half of View disable.
+- The About window is a plain 280 pt window with a 64 pt icon, the name, the version and the
+  tagline on the standard type ramp, with no card and no buttons; Esc and ⌘W close it. The preset
+  comparator follows the Settings layout: eight category tabs with their own glyphs in the toolbar
+  (⌘1 to ⌘8, opening on Items), a "Compare … with …" row, a filter row, and three groups (only in
+  the left preset, in both, only in the right preset). The "In both" group pairs each shared object
+  on one row with a Match column that reads Similar or Different, and it tints the row too.
+  Unavailable objects show dimmed and italic. VoiceOver reads each group's heading with its shown
+  count ("In both, 2 recipes") and the "In both" list as a table. The data-load window, titled Loading Preset, names the
+  preset and shows one of three stage sentences above the progress bar. After launch, Cancel, Esc,
+  ⌘., ⌘W and the close button all stop the load, and it really stops, because the load now takes a
+  cancellation token. At launch there is no Cancel, and closing shows a short alert while loading
+  carries on. A failed load keeps the window open with Try Again and Choose Another Preset…, or, at
+  launch, Use Default Preset and Quit Foreman. That replaces the two startup alerts about corrupt
+  presets.
 
 ### Fixed
 

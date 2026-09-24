@@ -4,33 +4,21 @@
         x:Class="Foreman.Mac.Views.AboutWindow"
         x:DataType="views:AboutWindow"
         Title="About Foreman 2"
-        SizeToContent="WidthAndHeight"
+        Width="280"
+        SizeToContent="Height"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
-        Background="Transparent">
-  <Border Width="220"
-          Padding="30,26"
-          Background="{DynamicResource Foreman.Color.WindowBackground}"
-          BorderBrush="{DynamicResource Foreman.Color.Border}"
-          BorderThickness="1"
-          CornerRadius="12">
-    <StackPanel Spacing="6" HorizontalAlignment="Center">
-      <Border Width="56" Height="56" Margin="0,0,0,4" CornerRadius="13" ClipToBounds="True"
-              BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1">
-        <Image Name="AppIconImage" Width="56" Height="56" Stretch="UniformToFill"
-               Source="avares://Foreman.Mac/Assets/unspoiled-icon-512.png" />
-      </Border>
-      <TextBlock Name="AppNameTextBlock" Text="Foreman 2" HorizontalAlignment="Center"
-                 FontSize="{DynamicResource Foreman.Type.Legacy.About.Name.FontSize}"
-                 FontWeight="{DynamicResource Foreman.Type.SectionHeader.FontWeight}"
-                 Foreground="{DynamicResource Foreman.Color.Text}" />
-      <TextBlock Name="VersionTextBlock" Text="{Binding VersionLabel}" HorizontalAlignment="Center"
-                 FontSize="{DynamicResource Foreman.Type.Legacy.About.Version.FontSize}"
-                 Foreground="{DynamicResource Foreman.Color.TextSecondary}" />
-      <TextBlock Name="TaglineTextBlock" Text="A Factorio production-chain planner" HorizontalAlignment="Center"
-                 TextAlignment="Center" Margin="0,6,0,0"
-                 FontSize="{DynamicResource Foreman.Type.Legacy.About.Tagline.FontSize}"
-                 Foreground="{DynamicResource Foreman.Color.TextTertiary}" />
-    </StackPanel>
-  </Border>
+        Background="{DynamicResource Foreman.Color.WindowBackground}">
+  <StackPanel Margin="24">
+    <Image Name="AppIconImage" Width="64" Height="64" Stretch="Uniform" HorizontalAlignment="Center"
+           Source="avares://Foreman.Mac/Assets/unspoiled-icon-512.png" AutomationProperties.AccessibilityView="Raw" />
+    <TextBlock Name="AppNameTextBlock" Theme="{StaticResource Kit.Text}" Classes="headline"
+               Text="Foreman 2" HorizontalAlignment="Center" Margin="0,12,0,0" />
+    <SelectableTextBlock Name="VersionTextBlock" Theme="{StaticResource Kit.Text}" Classes="caption secondary"
+                         Text="{Binding VersionLabel}" HorizontalAlignment="Center" Margin="0,2,0,0" FontFeatures="tnum"
+                         SelectionBrush="{DynamicResource Foreman.Color.AccentSoft}" />
+    <TextBlock Name="TaglineTextBlock" Theme="{StaticResource Kit.Text}" Classes="callout secondary"
+               Text="A Factorio production-chain planner" HorizontalAlignment="Center"
+               TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0" />
+  </StackPanel>
 </Window>
