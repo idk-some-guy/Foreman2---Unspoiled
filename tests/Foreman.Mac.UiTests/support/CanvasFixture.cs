@@ -113,6 +113,12 @@ namespace Foreman.Mac.UiTests.support {
             Window.MouseUp(screenPoint, MouseButton.Left, RawInputModifiers.None);
         }
 
+        //The radial arms on pointer direction, so a click on it is preceded by the move a real pointer makes.
+        public void MoveAndClickAt(AvaloniaPoint screenPoint) {
+            MoveTo(screenPoint);
+            ClickAt(screenPoint);
+        }
+
         public void ReleaseAt(AvaloniaPoint screenPoint) => Window.MouseUp(screenPoint, MouseButton.Left, RawInputModifiers.None);
 
         public void DoubleClick(AvaloniaPoint screenPoint) {

@@ -415,7 +415,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Window.MouseMove(emptyForRotten, RawInputModifiers.LeftMouseButton);
             fx.Window.MouseUp(emptyForRotten, MouseButton.Left, RawInputModifiers.None);
             Assert.NotNull(fx.Control.OpenRadial);
-            fx.Control.FloatingPanelHost.Close();
+            fx.Control.ClosePanels();
 
             StartDragFromTab(fx, freshConsumer, LinkType.Input);
             AvaloniaPoint emptyForFresh = new(Half - 200, Half + 200);

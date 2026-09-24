@@ -1,12 +1,16 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
+using Avalonia.Automation.Peers;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
+using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.QuickAdd;
 using Foreman.Models;
@@ -20,11 +24,137 @@ using AvaloniaPoint = Avalonia.Point;
 using AvaloniaVector = Avalonia.Vector;
 
 namespace Foreman.Mac.UiTests.QuickAdd {
-    //Task 4, then gate fix 2 (Jozef, live 2026-09-06): the link-drag release chooser is a radial whose
-    //slice set now depends on drag direction and the dragged item's spoil/plant data - builds on
-    //CanvasFixture's drag helpers (DragFrom/MoveTo/ClickAt/ReleaseAt) and its own custom-cache overloads
-    //for the spoil/plant fixtures below.
-    public sealed class RadialMenuTests {
+    //The link-drag release chooser's slice set depends on drag direction and the dragged item's spoil/plant data.
+    public sealed class RadialMenuTests : IDisposable {
+        public void Dispose() => WindowScaler.SetScale(1.0);
+
+        private static readonly string[] SixOutputOutcomes = ["Add…", "Output", "Passthrough", "Spoil", "Plant", "Cancel"];
+
+        private static RadialMenu OpenSixOutcomeRadial(out CanvasFixture fx, AvaloniaPoint release) {
+            DataCache cache = SixOutcomeCache(out ItemPrototype seed);
+            var pair = new ItemQualityPair(seed, Store(cache).DefaultQuality!);
+            fx = CanvasFixture.WithCacheAndOneSupplierOf(cache, pair, out AvaloniaPoint outputTab);
+            fx.DragFrom(outputTab).To(release).Release();
+            return fx.Control.OpenRadial!;
+        }
+
+        [AvaloniaFact]
+        public void Radial_AnyOtherKey_DismissesTheRing_AndOpensTheSameSixOutcomesAsAContextMenuAtTheReleasePoint() {
+            var release = new AvaloniaPoint(400, 300);
+            RadialMenu radial = OpenSixOutcomeRadial(out CanvasFixture fx, release);
+            using CanvasFixture _ = fx;
+
+            CanvasKeys.KeyDownOn(radial.Ring, Key.A);
+
+            Assert.Null(fx.Control.OpenRadial);
+            MenuPanel menu = fx.Control.OpenRadialFallback!;
+            Assert.Equal(SixOutputOutcomes, menu.Items.Where(r => !r.IsSeparator).Select(r => r.Text));
+            Assert.Equal(2, menu.Items.Count(r => r.IsSeparator));
+            Assert.Equal(release, fx.Control.RadialFallbackPopup.PlacementRect!.Value.TopLeft);
+            Assert.True(menu.IsKeyboardFocusWithin);
+
+            CanvasKeys.KeyDownOn(menu, Key.Down);
+            CanvasKeys.KeyDownOn(menu, Key.Down);
+            CanvasKeys.KeyDownOn(menu, Key.Down);
+            CanvasKeys.KeyDownOn(menu, Key.Enter);
+
+            Assert.Null(fx.Control.OpenRadialFallback);
+            Assert.Single(fx.Viewer.Graph.Nodes.OfType<PassthroughNode>());
+            Assert.Single(fx.Viewer.Graph.NodeLinks);
+        }
+
+        [AvaloniaFact]
+        public void Radial_FallbackMenuDropsEmptyGroups_AndEscapeThereCancelsWithoutANode() {
+            using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
+            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
+
+            CanvasKeys.KeyDownOn(fx.Control.OpenRadial!.Ring, Key.A);
+            MenuPanel menu = fx.Control.OpenRadialFallback!;
+            Assert.Equal(["Add…", "Output", "Passthrough", "", "Cancel"], menu.Items.Select(r => r.Text));
+
+            CanvasKeys.KeyDownOn(menu, Key.Escape);
+            Assert.Null(fx.Control.OpenRadialFallback);
+            Assert.Single(fx.Viewer.Graph.Nodes);
+        }
+
+        [AvaloniaFact]
+        public void Radial_ArrowKeysArmByDirection_AndReturnCommitsTheArmedSlice() {
+            using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
+            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
+            RadialMenu radial = fx.Control.OpenRadial!;
+
+            CanvasKeys.KeyDownOn(radial.Ring, Key.Up);
+            Assert.Equal(RadialMenu.SlotOf(RadialChoice.Add), radial.Ring.ArmedIndex);
+            CanvasKeys.KeyDownOn(radial.Ring, Key.Right);
+            Assert.Equal(RadialMenu.SlotOf(RadialChoice.Passthrough), radial.Ring.ArmedIndex);
+            CanvasKeys.KeyDownOn(radial.Ring, Key.Return);
+
+            Assert.Null(fx.Control.OpenRadial);
+            Assert.Single(fx.Viewer.Graph.Nodes.OfType<PassthroughNode>());
+            Assert.Single(fx.Viewer.Graph.NodeLinks);
+        }
+
+        [AvaloniaFact]
+        public void Radial_TabOnTheFocusedRingDoesNothing_AndEscapeCancelsInsteadOfOpeningTheFallbackMenu() {
+            using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
+            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
+
+            CanvasKeys.KeyDownOn(fx.Control.OpenRadial!.Ring, Key.Tab);
+            Assert.NotNull(fx.Control.OpenRadial);
+            Assert.True(fx.Control.OpenRadial!.Ring.IsFocused);
+            Assert.Null(fx.Control.OpenRadialFallback);
+
+            CanvasKeys.KeyDownOn(fx.Control.OpenRadial!.Ring, Key.A, KeyModifiers.Meta);
+            Assert.NotNull(fx.Control.OpenRadial);
+            Assert.Null(fx.Control.OpenRadialFallback);
+            Assert.Empty(fx.Viewer.SelectedNodes);
+
+            CanvasKeys.KeyDownOn(fx.Control.OpenRadial!.Ring, Key.Escape);
+
+            Assert.Null(fx.Control.OpenRadial);
+            Assert.Null(fx.Control.OpenRadialFallback);
+            Assert.Single(fx.Viewer.Graph.Nodes);
+        }
+
+        [AvaloniaFact]
+        public void Radial_MovingPast140ptFromTheCentre_Cancels() {
+            using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
+            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
+            AvaloniaPoint center = fx.Control.OpenRadial!.Ring.Bounds.Center;
+
+            fx.MoveTo(center + new AvaloniaVector(135, 0));
+            Assert.NotNull(fx.Control.OpenRadial);
+
+            fx.MoveTo(center + new AvaloniaVector(145, 0));
+            Assert.Null(fx.Control.OpenRadial);
+            Assert.Single(fx.Viewer.Graph.Nodes);
+        }
+
+        [AvaloniaFact]
+        public void Radial_ExposesItselfAsAMenu_WithSixNamedItems() {
+            RadialMenu radial = OpenSixOutcomeRadial(out CanvasFixture fx, new AvaloniaPoint(400, 300));
+            using CanvasFixture _ = fx;
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(radial.Ring);
+            Assert.Equal(AutomationControlType.Menu, peer.GetAutomationControlType());
+            Assert.Equal("Link options", peer.GetName());
+            Assert.Equal(SixOutputOutcomes, peer.GetChildren().Select(c => c.GetName()));
+        }
+
+        [AvaloniaFact]
+        public void Radial_RingIs220pt_AtEveryScaleStep() {
+            using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
+            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
+            RadialRing ring = fx.Control.OpenRadial!.Ring;
+
+            foreach (double step in new[] { 1.0, 1.25, 1.5, 1.75, 2.0 }) {
+                WindowScaler.SetScale(step);
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(220, ring.Bounds.Width);
+                Assert.Equal(220, ring.Bounds.Height);
+            }
+        }
+
         [AvaloniaFact]
         public void ReleasingALinkDragOnEmptyCanvasOpensTheRadialCentredOnTheReleasePoint() {
             using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
@@ -32,8 +162,8 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.DragFrom(outputTab).To(release).Release();
 
             RadialMenu radial = fx.Control.OpenRadial!;
-            Assert.Equal(release.X, radial.Bounds.Center.X, 1);
-            Assert.Equal(release.Y, radial.Bounds.Center.Y, 1);
+            Assert.Equal(release.X, radial.Ring.Bounds.Center.X, 1);
+            Assert.Equal(release.Y, radial.Ring.Bounds.Center.Y, 1);
             Assert.Empty(fx.Viewer.Graph.Nodes.OfType<PassthroughNode>());
         }
 
@@ -43,10 +173,10 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
 
             RadialMenu radial = fx.Control.OpenRadial!;
-            fx.MoveTo(radial.Bounds.Center + new AvaloniaVector(0, -64)); //top slice: Add is always centred here
-            Assert.Equal(RadialChoice.Add, radial.HoveredSlice);
+            fx.MoveTo(radial.Ring.Bounds.Center + new AvaloniaVector(0, -64)); //top slice: Add is always centred here
+            Assert.Equal(RadialMenu.SlotOf(RadialChoice.Add), radial.Ring.ArmedIndex);
 
-            fx.ClickAt(radial.Bounds.Center + new AvaloniaVector(0, -64));
+            fx.ClickAt(radial.Ring.Bounds.Center + new AvaloniaVector(0, -64));
             AddRequest request = fx.Control.ActiveAddRequest!;
             Assert.NotNull(request.Link);
             Assert.Equal(NewNodeType.Consumer, request.Link!.NodeType);
@@ -54,65 +184,91 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         }
 
         [AvaloniaFact]
-        public void ClickingPassthroughDropsALinkedPassthroughNode() {
-            using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
-            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
+        public void ClickingPassthrough_OnItsSliceOrPastTheRingWithin140pt_DropsALinkedPassthroughNode() {
+            foreach (bool pastTheRing in new[] { false, true }) {
+                using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
+                fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
 
-            RadialMenu radial = fx.Control.OpenRadial!;
-            fx.ClickAt(radial.Bounds.Center + OffsetFor(RadialChoice.Passthrough, radial.Slices));
+                RadialMenu radial = fx.Control.OpenRadial!;
+                if (pastTheRing) {
+                    AvaloniaPoint center = radial.Ring.Bounds.Center;
+                    fx.MoveTo(center + Polar(60, 30));
+                    Assert.Equal(RadialMenu.SlotOf(RadialChoice.Passthrough), radial.Ring.ArmedIndex);
+                    fx.MoveAndClickAt(center + Polar(125, 10));
+                } else {
+                    ClickSlice(fx, radial, RadialChoice.Passthrough);
+                }
 
-            Assert.Single(fx.Viewer.Graph.Nodes.OfType<PassthroughNode>());
-            Assert.Single(fx.Viewer.Graph.NodeLinks);
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
+                Assert.Single(fx.Viewer.Graph.Nodes.OfType<PassthroughNode>());
+                Assert.Single(fx.Viewer.Graph.NodeLinks);
+                Assert.Null(fx.Control.OpenRadial);
+            }
+
+            using var hub = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint tab);
+            hub.DragFrom(tab).To(new AvaloniaPoint(400, 300)).Release();
+            AvaloniaPoint hubCenter = hub.Control.OpenRadial!.Ring.Bounds.Center;
+            hub.MoveTo(hubCenter + Polar(60, 30));
+            hub.MoveTo(hubCenter + Polar(10, 30));
+            hub.MoveAndClickAt(hubCenter + Polar(125, 10));
+            Assert.Null(hub.Control.OpenRadial);
+            Assert.Single(hub.Viewer.Graph.Nodes);
         }
 
+        private static AvaloniaVector Polar(double radius, double angleDeg) =>
+            new(radius * Math.Cos(angleDeg * Math.PI / 180), radius * Math.Sin(angleDeg * Math.PI / 180));
+
         [AvaloniaFact]
-        public void CancelSlice_OutsideClick_AndEscape_AllDisposeTheDragWithoutANode() {
-            foreach (string how in new[] { "cancel", "outside", "escape" }) {
+        public void EveryWayOut_ClosesTheRadial_FadesTheRingOutFirst_ThenTakesItOutOfTheTabOrderAndTheTree() {
+            foreach (string how in new[] { "commit", "cancel", "outside", "escape", "past140" }) {
                 using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
                 fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
                 RadialMenu radial = fx.Control.OpenRadial!;
-                AvaloniaPoint center = radial.Bounds.Center;
+                RadialRing ring = radial.Ring;
+                AvaloniaPoint center = ring.Bounds.Center;
 
-                if (how == "cancel")
-                    fx.ClickAt(center + OffsetFor(RadialChoice.Cancel, radial.Slices));
+                if (how == "commit")
+                    ClickSlice(fx, radial, RadialChoice.Passthrough);
+                else if (how == "cancel")
+                    ClickSlice(fx, radial, RadialChoice.Cancel);
                 else if (how == "outside")
                     fx.ClickAt(center + new AvaloniaVector(150, 150));
-                else
+                else if (how == "escape")
                     CanvasKeys.PressOnCanvas(fx.Control, Key.Escape);
+                else
+                    fx.MoveTo(center + new AvaloniaVector(145, 0));
 
-                Assert.False(fx.Control.FloatingPanelHost.IsOpen);
-                Assert.Single(fx.Viewer.Graph.Nodes);
-                Assert.Null(fx.Control.DraggedLink);
+                Assert.Null(fx.Control.OpenRadial);
+                Assert.Equal(how == "commit" ? 2 : 1, fx.Viewer.Graph.Nodes.Count());
+                if (how != "commit")
+                    Assert.Null(fx.Control.DraggedLink);
+                Assert.True(ring.IsVisible, how);
+                TabTwelveTimesFromTheCanvas(fx, ring);
+                Assert.True(ring.IsVisible, how);
+
+                AnimationClock.Settle((int)Foreman.Mac.Kit.Motion.RadialCloseDuration.TotalMilliseconds + 150);
+                Assert.False(ring.IsVisible, how);
+                TabTwelveTimesFromTheCanvas(fx, ring);
+                Assert.False(HasLinkOptionsMenu(ControlAutomationPeer.CreatePeerForElement(fx.Control)), how);
+
+                fx.DragFrom(outputTab).To(new AvaloniaPoint(300, 500)).Release();
+                RadialRing reopened = fx.Control.OpenRadial!.Ring;
+                Assert.True(reopened.IsVisible, how);
+                Assert.True(reopened.IsFocused, how);
             }
         }
 
-        //Gate fix 3, item 4: a press inside the 260x260 square but past the outer ring (radius 92) used to
-        //land inside FloatingPanelHost.Bounds and get silently swallowed instead of cancelling.
-        [AvaloniaFact]
-        public void PressInsideTheSquareButOutsideTheRing_Cancels() {
-            using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
-            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
-            RadialMenu radial = fx.Control.OpenRadial!;
-
-            fx.ClickAt(radial.Bounds.Center + new AvaloniaVector(100, 100));
-
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
-            Assert.Single(fx.Viewer.Graph.Nodes);
-            Assert.Null(fx.Control.DraggedLink);
+        //Tab raised on the focused element bubbles to the TopLevel's keyboard navigation handler, which moves focus.
+        private static void TabTwelveTimesFromTheCanvas(CanvasFixture fx, RadialRing ring) {
+            fx.Control.Focus();
+            for (int i = 0; i < 12; i++) {
+                CanvasKeys.KeyDownOn((Control)fx.Window.FocusManager!.GetFocusedElement()!, Key.Tab);
+                Assert.NotSame(ring, fx.Window.FocusManager.GetFocusedElement());
+            }
         }
 
-        [AvaloniaFact]
-        public void PressOnTheHub_IsANoOp() {
-            using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
-            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
-            RadialMenu radial = fx.Control.OpenRadial!;
-
-            fx.ClickAt(radial.Bounds.Center);
-
-            Assert.True(fx.Control.FloatingPanelHost.IsOpen);
-            Assert.Same(radial, fx.Control.OpenRadial);
-        }
+        private static bool HasLinkOptionsMenu(AutomationPeer peer) =>
+            (peer.GetAutomationControlType() == AutomationControlType.Menu && peer.GetName() == "Link options")
+            || peer.GetChildren().Any(HasLinkOptionsMenu);
 
         [AvaloniaFact]
         public void CmdHeldAtReleaseStillDropsAPassthroughWithoutTheRadial() {
@@ -139,7 +295,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         public void PaletteFromTheRadialPlacesALinkedNode_AndTheNextOneToTheRight() {
             using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
             fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
-            fx.ClickAt(fx.Control.OpenRadial!.Bounds.Center + new AvaloniaVector(0, -64));
+            ClickSlice(fx, fx.Control.OpenRadial!, RadialChoice.Add);
 
             var box = fx.Control.OpenPalette!.Search;
             CanvasKeys.KeyDownOn(box, Key.Enter); //top row: the top-ranked compatible recipe (the item row is gone - Source/Output own that role now)
@@ -150,7 +306,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(120, placed[1].Location.X - placed[0].Location.X, 0.5);
         }
 
-        //---- gate fix 2: direction/spoil-dependent slice sets ----
+        //---- direction/spoil-dependent slice sets ----
 
         [AvaloniaFact]
         public void InputTabDragOnAnItemWithSpoilOrigins_SlicesAreAddSourcePassthroughUnspoilCancel() {
@@ -215,7 +371,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
                 consumerRequest.Control.OpenRadial!.Slices);
         }
 
-        //---- gate fix 2: Source/Output/Spoil/UnSpoil outcomes ----
+        //---- Source/Output/Spoil/UnSpoil outcomes ----
 
         [AvaloniaFact]
         public void ClickingSourcePlacesALinkedSupplierNode() {
@@ -225,7 +381,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.DragFrom(inputTab).To(new AvaloniaPoint(400, 300)).Release();
 
             RadialMenu radial = fx.Control.OpenRadial!;
-            fx.ClickAt(radial.Bounds.Center + OffsetFor(RadialChoice.Source, radial.Slices));
+            ClickSlice(fx, radial, RadialChoice.Source);
 
             Assert.Single(fx.Viewer.Graph.Nodes.OfType<SupplierNode>());
             Assert.Single(fx.Viewer.Graph.NodeLinks);
@@ -240,7 +396,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
 
             RadialMenu radial = fx.Control.OpenRadial!;
-            fx.ClickAt(radial.Bounds.Center + OffsetFor(RadialChoice.Output, radial.Slices));
+            ClickSlice(fx, radial, RadialChoice.Output);
 
             Assert.Single(fx.Viewer.Graph.Nodes.OfType<ConsumerNode>());
             Assert.Single(fx.Viewer.Graph.NodeLinks);
@@ -254,7 +410,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
 
             RadialMenu radial = fx.Control.OpenRadial!;
-            fx.ClickAt(radial.Bounds.Center + OffsetFor(RadialChoice.Spoil, radial.Slices));
+            ClickSlice(fx, radial, RadialChoice.Spoil);
 
             SpoilNode node = Assert.Single(fx.Viewer.Graph.Nodes.OfType<SpoilNode>());
             Assert.Equal("fresh-food", node.InputItem.Item!.Name);
@@ -269,12 +425,12 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.DragFrom(inputTab).To(new AvaloniaPoint(400, 300)).Release();
 
             RadialMenu radial = fx.Control.OpenRadial!;
-            fx.ClickAt(radial.Bounds.Center + OffsetFor(RadialChoice.Unspoil, radial.Slices));
+            ClickSlice(fx, radial, RadialChoice.Unspoil);
 
             SpoilNode node = Assert.Single(fx.Viewer.Graph.Nodes.OfType<SpoilNode>());
             Assert.Equal("fresh-food", node.InputItem.Item!.Name);
             Assert.Equal("rotten-food", node.OutputItem.Item!.Name);
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.Null(fx.Control.OpenRadial);
         }
 
         [AvaloniaFact]
@@ -287,7 +443,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.DragFrom(inputTab).To(new AvaloniaPoint(400, 300)).Release();
 
             RadialMenu radial = fx.Control.OpenRadial!;
-            fx.ClickAt(radial.Bounds.Center + OffsetFor(RadialChoice.Unspoil, radial.Slices));
+            ClickSlice(fx, radial, RadialChoice.Unspoil);
 
             Assert.NotNull(browseRequest);
             Assert.Equal(NodeType.Spoil, browseRequest!.OriginsRole);
@@ -304,7 +460,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
 
             RadialMenu radial = fx.Control.OpenRadial!;
-            fx.ClickAt(radial.Bounds.Center + OffsetFor(RadialChoice.Plant, radial.Slices));
+            ClickSlice(fx, radial, RadialChoice.Plant);
 
             PlantNode node = Assert.Single(fx.Viewer.Graph.Nodes.OfType<PlantNode>());
             Assert.Equal("seed", node.Seed.Item!.Name);
@@ -319,88 +475,22 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.DragFrom(inputTab).To(new AvaloniaPoint(400, 300)).Release();
 
             RadialMenu radial = fx.Control.OpenRadial!;
-            fx.ClickAt(radial.Bounds.Center + OffsetFor(RadialChoice.Unplant, radial.Slices));
+            ClickSlice(fx, radial, RadialChoice.Unplant);
 
             PlantNode node = Assert.Single(fx.Viewer.Graph.Nodes.OfType<PlantNode>());
             Assert.Equal("seed", node.Seed.Item!.Name);
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.Null(fx.Control.OpenRadial);
         }
 
-        //---- gate fix 2: label overflow (260x260 control, MaxWidth-wrapped labels) ----
-
-        [AvaloniaFact]
-        public void EveryLabelStaysInsideTheControlBounds_ForSixAndThreeSlices() {
-            IReadOnlyList<RadialChoice>[] cases = [
-                [RadialChoice.Add, RadialChoice.Source, RadialChoice.Passthrough, RadialChoice.Unspoil, RadialChoice.Unplant, RadialChoice.Cancel],
-                [RadialChoice.Add, RadialChoice.Passthrough, RadialChoice.Cancel],
-            ];
-
-            foreach (IReadOnlyList<RadialChoice> choices in cases) {
-                var radial = new RadialMenu(choices);
-                radial.Measure(new Size(260, 260));
-                radial.Arrange(new Rect(0, 0, 260, 260));
-
-                var controlBounds = new Rect(0, 0, 260, 260);
-                foreach (TextBlock label in radial.Children.OfType<TextBlock>()) {
-                    Point origin = label.TranslatePoint(new Point(0, 0), radial)!.Value;
-                    var labelBounds = new Rect(origin, label.Bounds.Size);
-                    Assert.True(controlBounds.Contains(labelBounds), $"'{label.Text}' bounds {labelBounds} escape the {controlBounds} control");
-                }
-            }
-        }
-
-        [Fact]
-        public void ResolveChoice_IsNullInTheHubAndBeyondTheRim_AndPicksBySliceAngleInBetween() {
-            RadialChoice[] choices = [RadialChoice.Add, RadialChoice.Passthrough, RadialChoice.Cancel];
-
-            for (int radius = 0; radius <= 35; radius++)
-                foreach (double angle in SampleAngles)
-                    Assert.Null(RadialMenu.ResolveChoice(PointAt(radius, angle), choices));
-
-            for (int radius = 37; radius <= 91; radius++)
-                foreach (double angle in SampleAngles)
-                    Assert.Equal(ExpectedSlice(angle), RadialMenu.ResolveChoice(PointAt(radius, angle), choices));
-
-            for (int radius = 93; radius <= 150; radius += 10)
-                foreach (double angle in SampleAngles)
-                    Assert.Null(RadialMenu.ResolveChoice(PointAt(radius, angle), choices));
-        }
-
-        [AvaloniaFact]
-        public void AddSlicePathBoundsMatchThe92RadiusExtents() {
-            var radial = new RadialMenu([RadialChoice.Add, RadialChoice.Passthrough, RadialChoice.Cancel]);
-            Path addSlice = radial.Children.OfType<Path>().First(p => p.Classes.Contains("foreman-radial-slice"));
-            Rect bounds = addSlice.Data!.Bounds;
-
-            Assert.Equal(50.3, bounds.Left, 1);
-            Assert.Equal(209.7, bounds.Right, 1);
-            Assert.Equal(38, bounds.Top, 1);
-        }
-
-        private static readonly double[] SampleAngles = [.. Enumerable.Range(0, 24).Select(i => 7.5 + (i * 15.0))]; //offset off the slice boundaries (multiples of 30)
-
-        private static AvaloniaPoint PointAt(double radius, double angleDeg) {
-            double angleRad = angleDeg * Math.PI / 180;
-            return new AvaloniaPoint(130 + (radius * Math.Cos(angleRad)), 130 + (radius * Math.Sin(angleRad)));
-        }
-
-        private static RadialChoice ExpectedSlice(double angleDeg) {
-            double normalized = ((angleDeg % 360) + 360) % 360;
-            if (normalized is >= 210 and < 330)
-                return RadialChoice.Add;
-            if (normalized is >= 90 and < 210)
-                return RadialChoice.Cancel;
-            return RadialChoice.Passthrough;
-        }
-
-        //Mirrors RadialMenu's own SliceAngles formula (index 0 = Add, centred at the top, clockwise from
-        //there) so click tests can hit a slice by name regardless of how many slices the set has.
-        private static AvaloniaVector OffsetFor(RadialChoice choice, IReadOnlyList<RadialChoice> slices, double radius = 60) {
-            int index = slices.ToList().IndexOf(choice);
-            double span = 360.0 / slices.Count;
-            double angleDeg = 270 + (index * span);
+        //Six fixed 60° slots, slot 0 centred at the top and clockwise from there, whatever the outcome count.
+        private static AvaloniaVector OffsetFor(RadialChoice choice, double radius = 60) {
+            double angleDeg = 270 + (RadialMenu.SlotOf(choice) * 60);
             double angleRad = angleDeg * Math.PI / 180;
             return new AvaloniaVector(radius * Math.Cos(angleRad), radius * Math.Sin(angleRad));
+        }
+
+        private static void ClickSlice(CanvasFixture fx, RadialMenu radial, RadialChoice choice) {
+            fx.MoveAndClickAt(radial.Ring.Bounds.Center + OffsetFor(choice));
         }
 
         //A minimal fresh-food/rotten-food pair (mirrors LinkDragTests' own spoil fixture): rottenFood.SpoilOrigins
@@ -465,6 +555,21 @@ namespace Foreman.Mac.UiTests.QuickAdd {
                 crop.PlantOriginsInternal.Add(extraSeed);
             }
 
+            return cache;
+        }
+
+        //One item that both spoils and plants, so an output-tab drag fills all six slots.
+        private static DataCache SixOutcomeCache(out ItemPrototype seed) {
+            DataCache cache = SpoilCache(out ItemPrototype rottenFood, out seed);
+            DataCacheStore store = Store(cache);
+            var subgroup = new SubgroupPrototype(cache, "§§test:subgroup-crop", "z");
+            var crop = new ItemPrototype(cache, "crop", "crop", subgroup, "z");
+            store.Items[crop.Name] = crop;
+            var process = new PlantProcessPrototype(cache, "plant-fresh-food");
+            process.InternalOneWayAddProduct(crop, 1);
+            process.Seed = seed;
+            seed.PlantResult = process;
+            crop.PlantOriginsInternal.Add(seed);
             return cache;
         }
 

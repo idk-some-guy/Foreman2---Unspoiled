@@ -28,7 +28,6 @@ namespace Foreman.Mac.Kit {
         public static readonly TimeSpan PopoverCloseDuration = TimeSpan.FromMilliseconds(100);
         public const double PopoverOpenScale = 0.97;
         public static readonly TimeSpan RadialSweepDuration = TimeSpan.FromMilliseconds(140);
-        public static readonly TimeSpan RadialSweepCloseDuration = TimeSpan.FromMilliseconds(100);
         public static readonly TimeSpan SwitchKnobDuration = TimeSpan.FromMilliseconds(120);
         public static readonly TimeSpan SegmentedSelectionDuration = TimeSpan.FromMilliseconds(100);
         public static readonly TimeSpan InspectorReflowDuration = TimeSpan.FromMilliseconds(180);
@@ -44,7 +43,7 @@ namespace Foreman.Mac.Kit {
         public static readonly TimeSpan PlacementFlashHold = TimeSpan.FromMilliseconds(200);
 
         //Set by AppearanceHub from the platform's Reduce Motion flag; an already-open site only picks up a
-        //live change if it re-pushes its own Transitions on RefreshTheme (SheetHost and RadialMenu do).
+        //live change if it re-pushes its own Transitions on RefreshTheme (SheetHost does).
         public static bool ReduceMotion { get; set; }
 
         //Completes once no FormRow/PalettePanel height reflow under root is still easing, cancelled and detached ones included.

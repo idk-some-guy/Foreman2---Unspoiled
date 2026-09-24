@@ -24,10 +24,8 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         }
 
         [Fact]
-        public void RadialSweepDurations_AreOneHundredFortyOpeningAndOneHundredClosing() {
+        public void RadialSweepDuration_IsOneHundredFortyMilliseconds() =>
             Assert.Equal(140, Motion.RadialSweepDuration.TotalMilliseconds);
-            Assert.Equal(100, Motion.RadialSweepCloseDuration.TotalMilliseconds);
-        }
 
         [Fact]
         public void SwitchKnobDuration_IsOneHundredTwentyMilliseconds() =>

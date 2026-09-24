@@ -235,6 +235,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   browser explains what the link hides and offers Remove Constraint, Show All or Show Item (add the
   linked item itself) where one of them helps. Icons that are still loading show a spinner in the grid while the sidebar stays usable. The window's minimum size is 760 × 520, and it
   remembers its size and last category. ⌘F focuses the search field and Escape closes the window.
+- The link-drag radial is rebuilt on the kit ring. It is 220 pt across at every display size and
+  always has six wedges in fixed places: Add… at the top, Output or Source next, then Passthrough,
+  Spoil or Unspoil at the bottom, Plant or Unplant, and Cancel at the upper left. An outcome the item
+  can't take leaves its wedge empty instead of moving the others. A wedge arms as soon as you point
+  toward it, and pointing at an empty wedge or back into the hub disarms it. Clicking commits, also
+  just past the ring as long as the click is within 140 pt of the center; clicking in the hub or an
+  empty wedge cancels, and so does moving more than 140 pt from the center. The arrow keys arm a
+  wedge by direction and Return commits it. Escape cancels the radial and the link. Any other
+  printable key swaps the radial for a menu with the same outcomes at the release point, while Tab,
+  bare modifier keys and ⌘/⌃ shortcuts do nothing. The labels now read Unspoil and Unplant, and VoiceOver hears a
+  menu called "Link options" with one item per outcome. Once a radial closes and fades out, it
+  leaves the Tab order and VoiceOver no longer finds it.
 
 ### Fixed
 

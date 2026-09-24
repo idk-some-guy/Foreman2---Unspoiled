@@ -5,7 +5,6 @@
   <ControlTheme x:Key="Kit.RadialRing" TargetType="kit:RadialRing">
     <Setter Property="Opacity" Value="0" />
     <Setter Property="RenderTransformOrigin" Value="50%,50%" />
-    <Setter Property="RenderTransform" Value="scale(0.9)" />
     <Setter Property="Template">
       <ControlTemplate>
         <Canvas x:Name="PART_Root" Background="Transparent" />
@@ -14,7 +13,6 @@
 
     <Style Selector="^:open">
       <Setter Property="Opacity" Value="1" />
-      <Setter Property="RenderTransform" Value="scale(1)" />
     </Style>
   </ControlTheme>
 

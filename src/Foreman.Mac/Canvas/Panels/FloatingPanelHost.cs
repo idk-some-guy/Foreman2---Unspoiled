@@ -1,5 +1,4 @@
 using System;
-using Avalonia.Threading;
 using DrawingPoint = System.Drawing.Point;
 using DrawingRectangle = System.Drawing.Rectangle;
 using DrawingSize = System.Drawing.Size;
@@ -24,9 +23,6 @@ namespace Foreman.Mac.Canvas.Panels {
         private readonly AvaloniaControl _owner;
         private AvaloniaControl? _content;
         private DrawingPoint _anchorGraphPoint;
-        private bool _centerOnAnchor;
-        private AvaloniaControl? _closingContent;
-        private DispatcherTimer? _closingTimer;
 
         public FloatingPanelHost(AvaloniaCanvas host, Viewport viewport, AvaloniaControl owner) {
             _host = host;
@@ -45,69 +41,25 @@ namespace Foreman.Mac.Canvas.Panels {
                 (int)AvaloniaCanvas.GetLeft(control), (int)AvaloniaCanvas.GetTop(control),
                 (int)control.Width, (int)control.Height);
 
-        public void Show(AvaloniaControl content, DrawingPoint anchorGraphPoint, bool centerOnAnchor = false) {
+        public void Show(AvaloniaControl content, DrawingPoint anchorGraphPoint) {
             Close();
-            CancelPendingClose();
             _content = content;
             _anchorGraphPoint = anchorGraphPoint;
-            _centerOnAnchor = centerOnAnchor;
             _host.Children.Add(content);
             Reposition();
-            FocusPrimary(content);
-        }
-
-        private static void FocusPrimary(AvaloniaControl primary) {
-            if (primary is IPanelInitialFocus focusable)
-                focusable.FocusInitialControl();
-            else
-                primary.Focus();
+            content.Focus();
         }
 
         //Restores focus to the owning canvas (reference §7): the click-outside-closes path already does
         //this itself right after calling Close(), but Escape and a chooser's own selection-close had no
         //equivalent, leaving canvas keyboard shortcuts dead until the next click.
-        //IsOpen/_content clear immediately either way, so callers see the panel as closed right away -
-        //content that opts into IPanelClosingTransition (RadialMenu) just lingers in the host, fading,
-        //for its own ClosingDuration before actually being detached.
         public void Close() {
             if (_content is null)
                 return;
             AvaloniaControl closing = _content;
             _owner.Focus();
             _content = null;
-
-            if (closing is IPanelClosingTransition transition) {
-                CancelPendingClose();
-                _closingContent = closing;
-                transition.BeginClosing();
-                _closingTimer = new DispatcherTimer { Interval = transition.ClosingDuration };
-                _closingTimer.Tick += OnClosingTimerElapsed;
-                _closingTimer.Start();
-            } else {
-                _host.Children.Remove(closing);
-            }
-        }
-
-        private void OnClosingTimerElapsed(object? sender, EventArgs e) => CancelPendingClose();
-
-        //The owning canvas's own teardown (GraphCanvasControl.OnDetachedFromVisualTree) calls this: a
-        //DispatcherTimer left running past its window's own lifetime fires on a UI thread that a headless
-        //test runner may since have handed to a different, unrelated test - stopping it here instead avoids
-        //that cross-thread ownership exception during that other test's cleanup.
-        public void CancelPendingCloseTransition() => CancelPendingClose();
-
-        //Cancellable: a new Show() (or a second Close()) purges whatever's still mid-fade immediately
-        //instead of leaving two panels in the host or racing the timer to remove one already gone.
-        private void CancelPendingClose() {
-            if (_closingTimer is not null) {
-                _closingTimer.Stop();
-                _closingTimer.Tick -= OnClosingTimerElapsed;
-                _closingTimer = null;
-            }
-            if (_closingContent is not null) {
-                _host.Children.Remove(_closingContent);
-                _closingContent = null;
-            }
+            _host.Children.Remove(closing);
         }
 
         public void Reposition() {
@@ -116,24 +68,10 @@ namespace Foreman.Mac.Canvas.Panels {
 
             int viewerWidth = (int)_viewport.Width;
             int viewerHeight = (int)_viewport.Height;
-            DrawingRectangle rect = _centerOnAnchor
-                ? CenteredRect(_content, _anchorGraphPoint)
-                : MeasureReflowableRect(_content, _anchorGraphPoint, viewerWidth, viewerHeight);
+            DrawingRectangle rect = MeasureReflowableRect(_content, _anchorGraphPoint, viewerWidth, viewerHeight);
             DrawingRectangle clamped = EditPanelScreenLayout.ClampRectToViewer(rect, viewerWidth, viewerHeight);
             AvaloniaCanvas.SetLeft(_content, clamped.X);
             AvaloniaCanvas.SetTop(_content, clamped.Y);
-        }
-
-        //Centers fixed-size content on the anchor instead of the reflow-then-anchor-at-top-left math every other panel uses.
-        private DrawingRectangle CenteredRect(AvaloniaControl content, DrawingPoint anchorGraphPoint) {
-            content.Measure(new AvaloniaSize(double.PositiveInfinity, double.PositiveInfinity));
-            AvaloniaSize desired = content.DesiredSize;
-            AvaloniaPoint anchorScreen = _viewport.GraphToScreen(anchorGraphPoint);
-            return new DrawingRectangle(
-                (int)Math.Round(anchorScreen.X - (desired.Width / 2)),
-                (int)Math.Round(anchorScreen.Y - (desired.Height / 2)),
-                (int)Math.Ceiling(desired.Width),
-                (int)Math.Ceiling(desired.Height));
         }
 
         //Gives content a chance to actually reflow to the available space before

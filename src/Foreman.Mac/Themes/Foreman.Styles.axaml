@@ -1,7 +1,5 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:qa="using:Foreman.Mac.Views.QuickAdd"
-        xmlns:motion="using:Foreman.Mac.Kit">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <Style Selector="TextBlock.foreman-large-title">
     <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.LargeTitle.FontSize}" />
@@ -38,65 +36,6 @@
     <Setter Property="StrokeThickness" Value="1.5" />
     <Setter Property="StrokeLineCap" Value="Round" />
     <Setter Property="StrokeJoin" Value="Round" />
-  </Style>
-
-  <!-- Radial menu (C2b link-drag chooser, reference §11): ".hover" is toggled from code, not :pointerover. -->
-
-  <!-- Gate fix 8, item 2d: opens with a scale+fade in (RadialMenu sets the 0.85/Opacity-0 starting point
-       itself, on construction) and, via .closing (RadialMenu.BeginClosing/FloatingPanelHost's own deferred
-       removal), fades out before the host actually detaches it. -->
-  <!-- RadialMenu.cs sets Transitions itself, in code, from Motion.Transition (open on construction,
-       closing in BeginClosing) so a live Reduce Motion toggle reaches it. -->
-  <Style Selector="qa|RadialMenu">
-    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
-  </Style>
-  <Style Selector="qa|RadialMenu.closing">
-    <Setter Property="Opacity" Value="0" />
-  </Style>
-
-  <Style Selector="Path.foreman-radial-slice">
-    <Setter Property="Fill" Value="Transparent" />
-    <Setter Property="Stroke" Value="Transparent" />
-    <Setter Property="StrokeThickness" Value="1" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <BrushTransition Property="Fill" Duration="{x:Static motion:Motion.HoverDuration}" />
-        <BrushTransition Property="Stroke" Duration="{x:Static motion:Motion.HoverDuration}" />
-      </Transitions>
-    </Setter>
-  </Style>
-  <Style Selector="Path.foreman-radial-slice.hover">
-    <Setter Property="Fill" Value="{DynamicResource Foreman.Color.AccentSoft}" />
-    <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.Accent}" />
-  </Style>
-
-  <Style Selector="Ellipse.foreman-radial-hub">
-    <Setter Property="Fill" Value="{DynamicResource Foreman.Color.WellBackground}" />
-    <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.BorderStrong}" />
-    <Setter Property="StrokeThickness" Value="1" />
-  </Style>
-
-  <Style Selector="Ellipse.foreman-radial-cursor">
-    <Setter Property="Fill" Value="{DynamicResource Foreman.Color.Accent}" />
-  </Style>
-
-  <Style Selector="Path.foreman-radial-icon">
-    <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.TextSecondary}" />
-    <Setter Property="StrokeThickness" Value="1.5" />
-    <Setter Property="StrokeLineCap" Value="Round" />
-    <Setter Property="StrokeJoin" Value="Round" />
-  </Style>
-  <Style Selector="Path.foreman-radial-icon.hover">
-    <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.AccentText}" />
-  </Style>
-
-  <Style Selector="TextBlock.foreman-radial-label">
-    <Setter Property="FontSize" Value="10.5" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
-  </Style>
-  <Style Selector="TextBlock.foreman-radial-label.hover">
-    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.AccentText}" />
   </Style>
 
 </Styles>

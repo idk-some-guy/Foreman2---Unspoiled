@@ -157,7 +157,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         public void LinkDragFromAFuelOnlyItem_PickingACompatibleRecipe_AutoSelectsTheBurnerAssemblerAndFuel() {
             using var fx = CanvasFixture.WithVanillaAndOneSupplierOf("coal", out AvaloniaPoint outputTab);
             fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
-            fx.ClickAt(fx.Control.OpenRadial!.Bounds.Center + new AvaloniaVector(0, -64)); //top slice: Add
+            fx.MoveAndClickAt(fx.Control.OpenRadial!.Ring.Bounds.Center + new AvaloniaVector(0, -64)); //top slice: Add
 
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron plate";
@@ -176,7 +176,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         public void LinkDragFromAnItemAlreadyInTheRecipe_PickingItsProducer_LeavesTheDefaultAssemblerAndNoFuel() {
             using var fx = CanvasFixture.WithVanillaAndOneConsumerOf("iron-plate", out AvaloniaPoint inputTab);
             fx.DragFrom(inputTab).To(new AvaloniaPoint(400, 300)).Release();
-            fx.ClickAt(fx.Control.OpenRadial!.Bounds.Center + new AvaloniaVector(0, -64)); //top slice: Add
+            fx.MoveAndClickAt(fx.Control.OpenRadial!.Ring.Bounds.Center + new AvaloniaVector(0, -64)); //top slice: Add
 
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron plate";
@@ -197,7 +197,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             var before = fx.Viewer.NodeElements.ToList();
             var dropScreenPoint = new AvaloniaPoint(400, 300);
             fx.DragFrom(outputTab).To(dropScreenPoint).Release();
-            fx.ClickAt(fx.Control.OpenRadial!.Bounds.Center + new AvaloniaVector(0, -64));
+            fx.MoveAndClickAt(fx.Control.OpenRadial!.Ring.Bounds.Center + new AvaloniaVector(0, -64));
 
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron gear wheel"; //consumes iron-plate
@@ -217,7 +217,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             var before = fx.Viewer.NodeElements.ToList();
             var dropScreenPoint = new AvaloniaPoint(400, 300);
             fx.DragFrom(inputTab).To(dropScreenPoint).Release();
-            fx.ClickAt(fx.Control.OpenRadial!.Bounds.Center + new AvaloniaVector(0, -64));
+            fx.MoveAndClickAt(fx.Control.OpenRadial!.Ring.Bounds.Center + new AvaloniaVector(0, -64));
 
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron plate"; //produces iron-plate

@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Collections;
@@ -8,13 +9,16 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Transformation;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Globalization;
 using System.Linq;
+using System.Threading;
 
 namespace Foreman.Mac.Kit.Composites {
-    //A slice arms when the pointer crosses the hub radius into its wedge and stays armed until it crosses out again; arrows/diagonals arm the same way, any other key opens a context menu of the same six items (A24). Fixed 220pt across every ScaleContract step.
+    //A slice arms when the pointer crosses the hub radius into its wedge and stays armed until it crosses out again; arrows/diagonals arm the same way, any other printable key opens a context menu of the same filled items (A24). Items is always six slots; an empty slot keeps its bare wedge and never arms. Fixed 220pt across every ScaleContract step.
     public class RadialRing : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(RadialRing);
 
@@ -26,6 +30,9 @@ namespace Foreman.Mac.Kit.Composites {
 
         public static readonly DirectProperty<RadialRing, bool> CanOpenProperty =
             AvaloniaProperty.RegisterDirect<RadialRing, bool>(nameof(CanOpen), o => o.canOpen);
+
+        private static readonly StyledProperty<double> CloseProgressProperty =
+            AvaloniaProperty.Register<RadialRing, double>("CloseProgress");
 
         public int ArmedIndex { get => GetValue(ArmedIndexProperty); set => SetValue(ArmedIndexProperty, value); }
         public bool IsOpen { get => GetValue(IsOpenProperty); set => SetValue(IsOpenProperty, value); }
@@ -43,11 +50,12 @@ namespace Foreman.Mac.Kit.Composites {
         private Canvas? root;
         private readonly List<Path> sliceVisuals = [];
         private readonly List<(Path Icon, TextBlock Label)> iconVisuals = [];
-        private readonly List<StackPanel> cellVisuals = [];
+        private readonly List<RadialCell> cellVisuals = [];
         private Ellipse? cursorDot;
         private Ellipse? cursorHalo;
         private readonly List<IDisposable> tokenSubs = [];
         private readonly List<IDisposable> glyphSubs = [];
+        private CancellationTokenSource? closeFade;
 
         private double outerRadius = 100;
         private double hubRadius = 38;
@@ -67,13 +75,14 @@ namespace Foreman.Mac.Kit.Composites {
         private const double IconMasterSize = 17;
 
         static RadialRing() {
-            FocusableProperty.OverrideDefaultValue<RadialRing>(true);
             ArmedIndexProperty.Changed.AddClassHandler<RadialRing>((r, _) => r.UpdateArmedVisuals());
             IsOpenProperty.Changed.AddClassHandler<RadialRing>((r, e) => r.ApplyOpenState((bool)e.NewValue!));
         }
 
         public RadialRing() {
             IsHitTestVisible = IsOpen;
+            RenderTransform = OpenScale(IsOpen);
+            ApplyNavigation(IsOpen);
             Items.CollectionChanged += OnItemsChanged;
         }
 
@@ -96,6 +105,8 @@ namespace Foreman.Mac.Kit.Composites {
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
             Unsubscribe();
+            closeFade?.Cancel();
+            closeFade = null;
         }
 
         private void Subscribe() {
@@ -123,7 +134,7 @@ namespace Foreman.Mac.Kit.Composites {
             glyphSubs.Clear();
         }
 
-        private void RecomputeCanOpen() => SetAndRaise(CanOpenProperty, ref canOpen, Items.Count(i => i.IsEnabled) >= 2);
+        private void RecomputeCanOpen() => SetAndRaise(CanOpenProperty, ref canOpen, Items.Count(i => i.IsEnabled && !i.IsEmpty) >= 2);
 
         //A fixed 10pt margin beyond the 100pt outer radius, not derived from it - matches the mock's own 0..220 viewBox regardless of the radii tokens.
         private double Center => diameter / 2;
@@ -159,6 +170,7 @@ namespace Foreman.Mac.Kit.Composites {
             const double iconCellHeight = 32;
             for (int i = 0; i < RadialGeometry.SliceCount; i++) {
                 RadialItem? item = i < Items.Count ? Items[i] : null;
+                bool filled = item is { IsEmpty: false };
 
                 //Design box: a Viewbox around a fixed 17pt master Path with Stretch=None, never Stretch=Uniform - Uniform would fit the geometry's own bounds and inflate the glyph.
                 var icon = new Path {
@@ -170,27 +182,28 @@ namespace Foreman.Mac.Kit.Composites {
                     IsHitTestVisible = false,
                 };
                 var iconBox = new Viewbox { Width = IconMasterSize, Height = IconMasterSize, Stretch = Stretch.Uniform, Child = icon };
-                if (!string.IsNullOrEmpty(item?.GlyphKey)) {
+                if (filled && !string.IsNullOrEmpty(item!.GlyphKey)) {
                     glyphSubs.Add(this.GetResourceObservable($"Kit.Glyph.{item!.GlyphKey}.17")
                         .Subscribe(new ResourceSinks.Sink<Geometry?>(g => icon.Data = g, null)));
                 }
 
                 var label = new TextBlock {
-                    Text = item?.Label,
+                    Text = filled ? item!.Label : "",
                     FontSize = labelFontSize,
                     FontWeight = labelWeight,
                     Foreground = textSecondary,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     IsHitTestVisible = false,
                 };
-                var cell = new StackPanel {
+                var cell = new RadialCell {
+                    IsVisible = filled,
                     Width = iconCellWidth,
                     Height = iconCellHeight,
                     Spacing = 2,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     Children = { iconBox, label },
                 };
-                AutomationProperties.SetName(cell, item?.Label);
+                AutomationProperties.SetName(cell, filled ? item!.Label : null);
 
                 Point center = RadialGeometry.PointOnCircle(69, RadialGeometry.SliceCenter(i)) + new Point(Center, Center);
                 Canvas.SetLeft(cell, center.X - (iconCellWidth / 2));
@@ -249,7 +262,10 @@ namespace Foreman.Mac.Kit.Composites {
         }
 
         private void ApplyOpenState(bool open) {
+            closeFade?.Cancel();
+            closeFade = null;
             if (open) {
+                IsVisible = true;
                 ArmedIndex = -1;
                 if (cursorDot is not null)
                     cursorDot.IsVisible = false;
@@ -259,12 +275,48 @@ namespace Foreman.Mac.Kit.Composites {
             TimeSpan duration = open ? Motion.RadialOpenDuration : Motion.RadialCloseDuration;
             Avalonia.Animation.Easings.Easing easing = open ? Motion.RadialOpenEasing : Motion.LeavingEasing;
             Transitions = Motion.Transition(TransitionKind.Scale, duration, easing);
+            RenderTransform = OpenScale(open);
             ApplySweep(open);
 
             PseudoClasses.Set(":open", open);
             IsHitTestVisible = open;
+            ApplyNavigation(open);
             if (open)
                 Focus();
+            else
+                _ = HideAfterCloseFade();
+        }
+
+        //Under Reduce Motion the ring stays at full size, so its fades never show a scale.
+        private static TransformOperations OpenScale(bool open) {
+            double scale = open || Motion.ReduceMotion ? 1 : Motion.RadialOpenScale;
+            return TransformOperations.Parse($"scale({scale.ToString(CultureInfo.InvariantCulture)})");
+        }
+
+        //A closed ring stays in its host's surface, so it leaves the tab order until it opens again.
+        private void ApplyNavigation(bool open) {
+            Focusable = open;
+            KeyboardNavigation.SetIsTabStop(this, open);
+        }
+
+        //The close fade runs on the animation clock; the ring leaves the tree only once that clock has run out.
+        private async System.Threading.Tasks.Task HideAfterCloseFade() {
+            var cancellation = new CancellationTokenSource();
+            closeFade = cancellation;
+            var clock = new Animation {
+                Duration = Motion.RadialCloseDuration,
+                Children = {
+                    new KeyFrame { Cue = new Cue(0), Setters = { new Avalonia.Styling.Setter(CloseProgressProperty, 0d) } },
+                    new KeyFrame { Cue = new Cue(1), Setters = { new Avalonia.Styling.Setter(CloseProgressProperty, 1d) } },
+                },
+            };
+            try {
+                await clock.RunAsync(this, cancellation.Token);
+            } catch (OperationCanceledException) {
+                return;
+            }
+            if (!cancellation.IsCancellationRequested && !IsOpen)
+                IsVisible = false;
         }
 
         //Slices wipe in clockwise over RadialSweepDuration, staggered by index; Reduce Motion collapses every slice to the same opacity-only fade at zero delay.
@@ -320,7 +372,9 @@ namespace Foreman.Mac.Kit.Composites {
                 return;
             }
             int index = RadialGeometry.SliceForAngle(RadialGeometry.AngleOf(vector));
-            if (index < Items.Count && Items[index].IsEnabled)
+            if (index >= Items.Count || Items[index].IsEmpty)
+                ArmedIndex = -1;
+            else if (Items[index].IsEnabled)
                 ArmedIndex = index;
         }
 
@@ -346,16 +400,31 @@ namespace Foreman.Mac.Kit.Composites {
                 return;
             }
 
-            e.Handled = true;
-            if (e.Key == Key.Return) {
-                CommitOrDismiss();
-                return;
+            switch (e.Key) {
+                case Key.Return:
+                    e.Handled = true;
+                    CommitOrDismiss();
+                    return;
+                case Key.Escape:
+                    e.Handled = true;
+                    Dismissed?.Invoke(this, EventArgs.Empty);
+                    return;
+                case Key.Tab:
+                    e.Handled = true;
+                    return;
             }
+            if (!IsPrintable(e.Key) || (e.KeyModifiers & (KeyModifiers.Meta | KeyModifiers.Control)) != 0)
+                return;
 
-            //Escape and any other key dismiss and reopen the same six items as a context menu - A24's accessible fallback since a direction gesture has no accessible equivalent.
+            //A printable key dismisses and reopens the filled items as a context menu - A24's accessible fallback since a direction gesture has no accessible equivalent.
+            e.Handled = true;
             Dismissed?.Invoke(this, EventArgs.Empty);
-            ContextMenuRequested?.Invoke(this, [.. Items]);
+            ContextMenuRequested?.Invoke(this, [.. Items.Where(i => !i.IsEmpty)]);
         }
+
+        private static bool IsPrintable(Key key) =>
+            key is (>= Key.A and <= Key.Z) or (>= Key.D0 and <= Key.D9) or (>= Key.NumPad0 and <= Key.NumPad9)
+                or Key.Space or (>= Key.Multiply and <= Key.Divide) or (>= Key.OemSemicolon and <= Key.OemBackslash);
 
         //Numpad follows a physical keypad's compass layout (8=N, 6=E, 2=S, 4=W, 7/9/1/3 the diagonals); arrow keys cover the four cardinals the same way.
         private static double? KeyAngle(Key key) => key switch {
@@ -372,12 +441,21 @@ namespace Foreman.Mac.Kit.Composites {
 
         protected override AutomationPeer OnCreateAutomationPeer() => new RadialRingAutomationPeer(this);
 
-        //One child peer per wedge cell in the clockwise build order - the default control walk does not surface plain StackPanels as automation children.
+        //A menu the host names, with one item per filled wedge in clockwise slot order; empty wedges stay out of the tree.
         private sealed class RadialRingAutomationPeer(RadialRing owner) : ControlAutomationPeer(owner) {
-            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Group;
-            protected override string? GetNameCore() => "Actions";
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Menu;
+            protected override bool IsControlElementCore() => owner.IsOpen;
+            protected override bool IsContentElementCore() => owner.IsOpen;
             protected override IReadOnlyList<AutomationPeer> GetChildrenCore() =>
-                [.. owner.cellVisuals.Select(ControlAutomationPeer.CreatePeerForElement)];
+                [.. owner.cellVisuals.Where(c => c.IsVisible).Select(ControlAutomationPeer.CreatePeerForElement)];
+        }
+
+        private sealed class RadialCell : StackPanel {
+            protected override AutomationPeer OnCreateAutomationPeer() => new RadialCellAutomationPeer(this);
+        }
+
+        private sealed class RadialCellAutomationPeer(RadialCell owner) : ControlAutomationPeer(owner) {
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.MenuItem;
         }
     }
 }

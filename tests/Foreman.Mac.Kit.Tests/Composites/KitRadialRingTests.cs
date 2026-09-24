@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Animation;
+using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
@@ -49,6 +50,31 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             for (int i = 0; i < GlyphKeys.Length; i++)
                 ring.Items.Add(new RadialItem { GlyphKey = GlyphKeys[i], Label = GlyphKeys[i], IsEnabled = allEnabled });
             return ring;
+        }
+
+        //The output-tab ring of a vanilla item: slots 3 and 4 (Spoil, Plant) are explicit empty items.
+        private static RadialRing FourOutcome() {
+            var ring = new RadialRing { Theme = KitRadialRingTheme() };
+            AutomationProperties.SetName(ring, "Link options");
+            ring.Items.Add(new RadialItem { GlyphKey = "RadialAdd", Label = "Add…" });
+            ring.Items.Add(new RadialItem { GlyphKey = "RadialOutput", Label = "Output" });
+            ring.Items.Add(new RadialItem { GlyphKey = "Passthrough", Label = "Passthrough" });
+            ring.Items.Add(RadialItem.Empty);
+            ring.Items.Add(RadialItem.Empty);
+            ring.Items.Add(new RadialItem { GlyphKey = "RadialCancel", Label = "Cancel" });
+            return ring;
+        }
+
+        private static Point RingPoint(double radius, double angleDeg) {
+            double rad = angleDeg * Math.PI / 180;
+            return new Point(110 + (radius * Math.Cos(rad)), 110 + (radius * Math.Sin(rad)));
+        }
+
+        private static KeyEventArgs PressKey(Control target, Key key, KeyModifiers modifiers = KeyModifiers.None) {
+            var args = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = modifiers };
+            target.RaiseEvent(args);
+            Dispatcher.UIThread.RunJobs();
+            return args;
         }
 
         private static (Window Window, RadialRing Ring) Shown(RadialRing? ring = null) {
@@ -321,7 +347,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
-        public void EscapeOrAnyOtherKey_Dismisses_AndRaisesTheSameSixItemsAsAContextMenu() {
+        public void Escape_Dismisses_WithoutRequestingTheContextMenu() {
             using var fixture = new KitFixture();
             (_, RadialRing ring) = Shown();
 
@@ -330,12 +356,10 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             ring.Dismissed += (_, _) => dismissed++;
             ring.ContextMenuRequested += (_, items) => menuItems = items;
 
-            ring.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape });
-            Dispatcher.UIThread.RunJobs();
+            PressKey(ring, Key.Escape);
 
             Assert.Equal(1, dismissed);
-            Assert.NotNull(menuItems);
-            Assert.Equal(ring.Items.Select(i => i.Label), menuItems!.Select(i => i.Label));
+            Assert.Null(menuItems);
         }
 
         [AvaloniaFact]
@@ -353,11 +377,12 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void ReduceMotion_RemovesScaleAndSweep_LeavesOneOpacityTransition() {
             using var fixture = new KitFixture();
             Motion.ReduceMotion = true;
-            (_, RadialRing ring) = Shown();
+            (_, RadialRing ring) = Shown(FourOutcome());
 
             var opacityTransitions = ring.Transitions!.OfType<DoubleTransition>().Where(t => t.Property == Visual.OpacityProperty).ToList();
             Assert.Single(opacityTransitions);
             Assert.Empty(ring.Transitions!.OfType<TransformOperationsTransition>());
+            Assert.Equal(6, Slices(ring).Count);
 
             //Every slice collapses to the same opacity-only fade, at zero delay - no stagger under Reduce Motion.
             foreach (Path slice in Slices(ring)) {
@@ -369,11 +394,12 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
-        public void Sweep_StaggersEachSlicesFadeInDelay_ByIndexAcrossRadialSweepDuration() {
+        public void Sweep_StaggersEachSlicesFadeInDelay_ByIndexAcrossRadialSweepDuration_EmptyWedgesIncluded() {
             using var fixture = new KitFixture();
-            (_, RadialRing ring) = Shown();
+            (_, RadialRing ring) = Shown(FourOutcome());
 
             List<Path> slices = Slices(ring);
+            Assert.Equal(6, slices.Count);
             for (int i = 0; i < slices.Count; i++) {
                 DoubleTransition opacity = Assert.Single(slices[i].Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
                 TimeSpan expectedDelay = TimeSpan.FromMilliseconds(Motion.RadialSweepDuration.TotalMilliseconds / RadialGeometry.SliceCount * i);
@@ -411,18 +437,130 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
-        public void AutomationPeer_IsAGroupNamedActions_WithSixChildPeersNamedByLabelInClockwiseOrder() {
+        public void FourOutcomeRing_Is220AtEveryScaleStep_WithSixSixtyDegreeWedgesCentredClockwiseFromTop() {
             using var fixture = new KitFixture();
-            (_, RadialRing ring) = Shown();
+            (_, RadialRing ring) = Shown(FourOutcome());
+
+            foreach (double step in new[] { 1.0, 1.25, 1.5, 1.75, 2.0 }) {
+                ScaleContract.Apply(step);
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(220, ring.Bounds.Width);
+                Assert.Equal(220, ring.Bounds.Height);
+            }
+
+            List<Path> slices = Slices(ring);
+            Assert.Equal(6, slices.Count);
+            for (int i = 0; i < 6; i++) {
+                double centre = 270 + (60 * i);
+                Assert.True(slices[i].Data!.FillContains(RingPoint(69, centre)), $"wedge {i} misses its centre {centre}");
+                Assert.True(slices[i].Data!.FillContains(RingPoint(69, centre - 29)), $"wedge {i} is narrower than 60 degrees");
+                Assert.True(slices[i].Data!.FillContains(RingPoint(69, centre + 29)), $"wedge {i} is narrower than 60 degrees");
+                Assert.False(slices[i].Data!.FillContains(RingPoint(69, centre + 31)), $"wedge {i} is wider than 60 degrees");
+            }
+        }
+
+        [AvaloniaFact]
+        public void EmptySlots_KeepTheFilledWedgesFillAndHairlineStroke_WithNoGlyphLabelOrVisibleCell() {
+            using var fixture = new KitFixture();
+            (_, RadialRing ring) = Shown(FourOutcome());
+
+            List<Path> slices = Slices(ring);
+            List<StackPanel> cells = Cells(ring);
+            foreach (int i in new[] { 3, 4 }) {
+                Assert.Equal(slices[0].Fill?.ToImmutable(), slices[i].Fill?.ToImmutable());
+                Assert.Equal(fixture.Brush("Foreman.Color.BorderStrong").ToImmutable(), slices[i].Stroke?.ToImmutable());
+                Assert.Equal(1, slices[i].StrokeThickness);
+                Assert.False(cells[i].IsVisible);
+                Path icon = (Path)cells[i].GetVisualDescendants().OfType<Viewbox>().Single().Child!;
+                Assert.Null(icon.Data);
+                Assert.True(string.IsNullOrEmpty(cells[i].GetVisualDescendants().OfType<TextBlock>().Single().Text));
+            }
+        }
+
+        [AvaloniaFact]
+        public void FilledCells_SitOnTheSixtyNinePointLabelRadius_AtTheirFixedSlots() {
+            using var fixture = new KitFixture();
+            (_, RadialRing ring) = Shown(FourOutcome());
+
+            List<StackPanel> cells = Cells(ring);
+            (int Slot, double X, double Y)[] expected = [(0, 110, 41), (1, 169.76, 75.5), (2, 169.76, 144.5), (5, 50.24, 75.5)];
+            foreach ((int slot, double x, double y) in expected) {
+                StackPanel cell = cells[slot];
+                Assert.Equal(x, Canvas.GetLeft(cell) + (cell.Width / 2), 0.5);
+                Assert.Equal(y, Canvas.GetTop(cell) + (cell.Height / 2), 0.5);
+            }
+        }
+
+        [AvaloniaFact]
+        public void PointingIntoAnEmptyWedge_Disarms_AndReleasingThereDismissesWithoutCommitting() {
+            using var fixture = new KitFixture();
+            var executed = 0;
+            RadialRing ring = FourOutcome();
+            ring.Items[2].Command = new RecordingCommand(() => executed++);
+            (Window window, _) = Shown(ring);
+            int committed = 0, dismissed = 0;
+            ring.Committed += (_, _) => committed++;
+            ring.Dismissed += (_, _) => dismissed++;
+
+            MoveTo(window, RingPoint(60, 90));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(-1, ring.ArmedIndex);
+
+            MoveTo(window, RingPoint(60, 30));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, ring.ArmedIndex);
+
+            MoveTo(window, RingPoint(60, 90));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(-1, ring.ArmedIndex);
+
+            ReleaseAt(window, RingPoint(60, 90));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, dismissed);
+            Assert.Equal(0, committed);
+            Assert.Equal(0, executed);
+        }
+
+        [AvaloniaFact]
+        public void DirectionKeys_ArmFilledSlots_AndAKeyAimedAtAnEmptyWedgeLeavesTheArm() {
+            using var fixture = new KitFixture();
+            (_, RadialRing ring) = Shown(FourOutcome());
+
+            PressKey(ring, Key.Up);
+            Assert.Equal(0, ring.ArmedIndex);
+            PressKey(ring, Key.Left);
+            Assert.Equal(5, ring.ArmedIndex);
+            PressKey(ring, Key.Right);
+            Assert.Equal(2, ring.ArmedIndex);
+            PressKey(ring, Key.Down);
+            Assert.Equal(2, ring.ArmedIndex);
+        }
+
+        [AvaloniaFact]
+        public void APrintableKey_RequestsTheContextMenu_WithOnlyTheFilledItemsInSlotOrder() {
+            using var fixture = new KitFixture();
+            (_, RadialRing ring) = Shown(FourOutcome());
+            IReadOnlyList<RadialItem>? menuItems = null;
+            ring.ContextMenuRequested += (_, items) => menuItems = items;
+
+            PressKey(ring, Key.A);
+
+            Assert.NotNull(menuItems);
+            Assert.Equal(["Add…", "Output", "Passthrough", "Cancel"], menuItems!.Select(i => i.Label));
+        }
+
+        [AvaloniaFact]
+        public void AutomationPeer_IsAMenuNamedByTheHost_WithAMenuItemPerFilledWedgeInClockwiseOrder() {
+            using var fixture = new KitFixture();
+            (_, RadialRing ring) = Shown(FourOutcome());
 
             AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(ring);
-            Assert.Equal(AutomationControlType.Group, peer.GetAutomationControlType());
-            Assert.Equal("Actions", peer.GetName());
+            Assert.Equal(AutomationControlType.Menu, peer.GetAutomationControlType());
+            Assert.Equal("Link options", peer.GetName());
 
             IReadOnlyList<AutomationPeer> children = peer.GetChildren();
-            Assert.Equal(GlyphKeys.Length, children.Count);
-            for (int i = 0; i < GlyphKeys.Length; i++)
-                Assert.Equal(GlyphKeys[i], children[i].GetName());
+            Assert.Equal(["Add…", "Output", "Passthrough", "Cancel"], children.Select(c => c.GetName()));
+            Assert.All(children, c => Assert.Equal(AutomationControlType.MenuItem, c.GetAutomationControlType()));
         }
 
         [AvaloniaFact]
@@ -493,6 +631,142 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(0, ring.Opacity);
 
             Assert.True(layouts <= 40, $"RadialRing laid out {layouts} times settling one open/close pair.");
+        }
+
+        [AvaloniaFact]
+        public void TabBareModifiersAndCommandChords_LeaveTheRingOpenFocusedAndArmed_WhilePrintableKeysRequestTheFallback() {
+            using var fixture = new KitFixture();
+            foreach (KeyModifiers modifiers in new[] { KeyModifiers.None, KeyModifiers.Shift }) {
+                (Window window, RadialRing ring) = Shown(FourOutcome());
+                ((Canvas)ring.Parent!).Children.Insert(0, new Button { Content = "Beside" });
+                ring.Focus();
+                ring.ArmedIndex = 2;
+
+                KeyEventArgs args = PressKey(ring, Key.Tab, modifiers);
+
+                Assert.True(ring.IsFocused, modifiers.ToString());
+                Assert.True(args.Handled, modifiers.ToString());
+                Assert.True(ring.IsOpen);
+                Assert.Equal(2, ring.ArmedIndex);
+                window.Close();
+            }
+
+            var ignored = new (Key Key, KeyModifiers Modifiers)[] {
+                (Key.Tab, KeyModifiers.None), (Key.LeftShift, KeyModifiers.None), (Key.RightShift, KeyModifiers.None), (Key.LWin, KeyModifiers.None),
+                (Key.LeftCtrl, KeyModifiers.None), (Key.LeftAlt, KeyModifiers.None),
+                (Key.A, KeyModifiers.Meta), (Key.A, KeyModifiers.Control), (Key.Space, KeyModifiers.Meta),
+            };
+            foreach ((Key key, KeyModifiers modifiers) in ignored) {
+                (Window window, RadialRing ring) = Shown(FourOutcome());
+                ring.ArmedIndex = 2;
+                int dismissed = 0, requested = 0;
+                ring.Dismissed += (_, _) => dismissed++;
+                ring.ContextMenuRequested += (_, _) => requested++;
+
+                PressKey(ring, key, modifiers);
+
+                Assert.True(ring.IsOpen, $"{modifiers}+{key}");
+                Assert.Equal(2, ring.ArmedIndex);
+                Assert.Equal(0, dismissed);
+                Assert.Equal(0, requested);
+                window.Close();
+            }
+
+            var printable = new (Key Key, KeyModifiers Modifiers)[] {
+                (Key.A, KeyModifiers.None), (Key.Space, KeyModifiers.None), (Key.A, KeyModifiers.Shift), (Key.A, KeyModifiers.Alt),
+            };
+            foreach ((Key key, KeyModifiers modifiers) in printable) {
+                (Window window, RadialRing ring) = Shown(FourOutcome());
+                int dismissed = 0, requested = 0;
+                ring.Dismissed += (_, _) => dismissed++;
+                ring.ContextMenuRequested += (_, _) => requested++;
+
+                PressKey(ring, key, modifiers);
+
+                Assert.Equal(1, dismissed);
+                Assert.Equal(1, requested);
+                window.Close();
+            }
+        }
+
+        //Tab raised on the focused element bubbles to the TopLevel's keyboard navigation handler, which moves focus.
+        private static void TabTwelveTimesFrom(Control start, RadialRing ring) {
+            start.Focus();
+            TopLevel top = TopLevel.GetTopLevel(start)!;
+            for (int i = 0; i < 12; i++) {
+                PressKey((Control)top.FocusManager!.GetFocusedElement()!, Key.Tab);
+                Assert.NotSame(ring, top.FocusManager.GetFocusedElement());
+            }
+        }
+
+        private static bool HasLinkOptionsMenu(AutomationPeer peer) =>
+            (peer.GetAutomationControlType() == AutomationControlType.Menu && peer.GetName() == "Link options")
+            || peer.GetChildren().Any(HasLinkOptionsMenu);
+
+        [AvaloniaFact]
+        public void ClosedRing_FadesOutBeforeHiding_ThenLeavesTheTabOrderAndTheTree_AndReopensVisibleAndFocused() {
+            using var fixture = new KitFixture();
+            Assert.False(new RadialRing { Theme = KitRadialRingTheme() }.Focusable);
+
+            (Window window, RadialRing ring) = Shown(FourOutcome());
+            var host = (Canvas)ring.Parent!;
+            var before = new Button { Content = "Before" };
+            host.Children.Insert(0, before);
+            AnimationClock.Settle();
+            Assert.True(ring.IsFocused);
+
+            ring.IsOpen = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(ring.IsVisible);
+            TabTwelveTimesFrom(before, ring);
+            Assert.True(ring.IsVisible);
+            Assert.False(ring.Focusable);
+            Assert.False(KeyboardNavigation.GetIsTabStop(ring));
+
+            AnimationClock.Settle((int)Motion.RadialCloseDuration.TotalMilliseconds + 150);
+            Assert.False(ring.IsVisible);
+            TabTwelveTimesFrom(before, ring);
+            Assert.False(HasLinkOptionsMenu(ControlAutomationPeer.CreatePeerForElement(host)));
+
+            ring.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(ring.IsVisible);
+            Assert.True(ring.IsFocused);
+            Assert.True(HasLinkOptionsMenu(ControlAutomationPeer.CreatePeerForElement(host)));
+            window.Close();
+        }
+
+        private static double ScaleOf(RadialRing ring) => Assert.IsAssignableFrom<ITransform>(ring.RenderTransform).Value.M11;
+
+        [AvaloniaFact]
+        public void ClosedAndOpeningRing_SitsAtRadialOpenScale_FromMotion_AndNeverScalesUnderReduceMotion() {
+            using var fixture = new KitFixture();
+            Assert.DoesNotContain(KitRadialRingTheme().Setters.OfType<Setter>(), s => s.Property == Visual.RenderTransformProperty);
+
+            RadialRing ring = Themed();
+            var window = new Window { Width = 220, Height = 220, Content = new Canvas { Children = { ring } } };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(Motion.RadialOpenScale, ScaleOf(ring), 3);
+
+            ring.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(Motion.RadialOpenScale, ScaleOf(ring), 3);
+            AnimationClock.Settle();
+            Assert.Equal(1, ScaleOf(ring), 3);
+
+            ring.IsOpen = false;
+            AnimationClock.Settle();
+            Assert.Equal(Motion.RadialOpenScale, ScaleOf(ring), 3);
+            window.Close();
+
+            Motion.ReduceMotion = true;
+            (Window reduced, RadialRing still) = Shown();
+            Assert.Equal(1, ScaleOf(still), 3);
+            still.IsOpen = false;
+            AnimationClock.Settle();
+            Assert.Equal(1, ScaleOf(still), 3);
+            reduced.Close();
         }
     }
 }

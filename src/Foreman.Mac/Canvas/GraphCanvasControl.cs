@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Primitives.PopupPositioning;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Media;
@@ -16,6 +18,7 @@ using Foreman.Mac;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
@@ -120,7 +123,15 @@ namespace Foreman.Mac.Canvas {
             paletteFrame = new PopoverFrame { Name = "QuickAddPopover", Mode = PopoverFrameMode.Flush };
             paletteFrame.Closed += (_, _) => Focus();
             paletteHost.Surface.Children.Add(paletteFrame);
-            Child = new Panel { Children = { overlay, paletteHost } };
+            radialFallbackPopup = new Popup {
+                IsLightDismissEnabled = true,
+                Placement = PlacementMode.AnchorAndGravity,
+                PlacementAnchor = PopupAnchor.TopLeft,
+                PlacementGravity = PopupGravity.BottomRight,
+                PlacementTarget = this,
+            };
+            radialFallbackPopup.Closed += (_, _) => Focus();
+            Child = new Panel { Children = { overlay, paletteHost, radialFallbackPopup } };
             FloatingPanelHost = new FloatingPanelHost(overlay, Viewport, this);
             AddHandler(PointerPressedEvent, NoteDismissingPress, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
             Viewer.Context.SetClipboardText = SetClipboardText;
@@ -223,45 +234,104 @@ namespace Foreman.Mac.Canvas {
             RequestRedraw();
         }
 
-        internal RadialMenu? OpenRadial => FloatingPanelHost.Content as RadialMenu;
+        internal RadialMenu? OpenRadial => openRadial;
+        internal MenuPanel? OpenRadialFallback => radialFallbackPopup.IsOpen ? radialFallbackPopup.Child as MenuPanel : null;
+        internal Popup RadialFallbackPopup => radialFallbackPopup;
+
+        private const double RadialCancelDistance = 140;
+        private readonly Popup radialFallbackPopup;
+        private RadialMenu? openRadial;
+        private RadialRing? closedRing;
 
         internal void ShowRadialMenu(NewNodeLinkDragRequest request) {
             ResetPointerDragState();
             ClosePalette();
+            CloseRadial();
+            if (closedRing is not null) {
+                paletteHost.Surface.Children.Remove(closedRing);
+                closedRing = null;
+            }
+
             var radial = new RadialMenu(RadialSlicesFor(request));
             radial.Chosen += (_, choice) => {
-                FloatingPanelHost.Close();
-                switch (choice) {
-                    case RadialChoice.Add:
-                        ShowQuickAdd(new AddRequest(request.EndpointLocation, AddScope.All, LinkContextFor(request)));
-                        break;
-                    case RadialChoice.Passthrough:
-                        CreatePassthroughFromLinkDrag(request);
-                        break;
-                    case RadialChoice.Source:
-                        PlaceLinkedRole(request, NodeType.Supplier);
-                        break;
-                    case RadialChoice.Output:
-                        PlaceLinkedRole(request, NodeType.Consumer);
-                        break;
-                    case RadialChoice.Spoil:
-                        PlaceSpoilPlant(request, NodeType.Spoil, NodeDirection.Up);
-                        break;
-                    case RadialChoice.Plant:
-                        PlaceSpoilPlant(request, NodeType.Plant, NodeDirection.Up);
-                        break;
-                    case RadialChoice.Unspoil:
-                        PlaceOrBrowseOrigins(request, NodeType.Spoil);
-                        break;
-                    case RadialChoice.Unplant:
-                        PlaceOrBrowseOrigins(request, NodeType.Plant);
-                        break;
-                    default:
-                        DisposeLinkDrag();
-                        break;
-                }
+                CloseRadial();
+                RunRadialChoice(request, choice);
             };
-            FloatingPanelHost.Show(radial, Viewport.ScreenToGraph(request.ScreenPoint), centerOnAnchor: true);
+            radial.Dismissed += (_, _) => CloseRadial();
+            radial.MenuRequested += (_, _) => ShowRadialFallback(radial, request);
+
+            RadialRing ring = radial.Ring;
+            ring.Theme ??= KitTheme("Kit.RadialRing");
+            paletteHost.Surface.Children.Add(ring);
+            paletteHost.UpdateLayout();
+            AvaloniaCanvas.SetLeft(ring, Math.Max(0, Math.Min(request.ScreenPoint.X - (ring.Width / 2), Bounds.Width - ring.Width)));
+            AvaloniaCanvas.SetTop(ring, Math.Max(0, Math.Min(request.ScreenPoint.Y - (ring.Height / 2), Bounds.Height - ring.Height)));
+            paletteHost.UpdateLayout();
+            openRadial = radial;
+            ring.IsOpen = true;
+        }
+
+        //The closed ring stays in the surface, faded and hit-test invisible, until the next ring replaces it.
+        private void CloseRadial() {
+            if (openRadial is null)
+                return;
+            RadialRing ring = openRadial.Ring;
+            openRadial = null;
+            ring.IsOpen = false;
+            closedRing = ring;
+            Focus();
+        }
+
+        private bool IsWithinRadialCancelDistance(AvaloniaPoint screenPoint) =>
+            openRadial is not null && ((Vector)(screenPoint - openRadial.Ring.Bounds.Center)).Length <= RadialCancelDistance;
+
+        private bool IsInsideRadial(object? source) =>
+            source is Visual visual && openRadial?.Ring is RadialRing ring && (ReferenceEquals(visual, ring) || ring.IsVisualAncestorOf(visual));
+
+        private void ShowRadialFallback(RadialMenu radial, NewNodeLinkDragRequest request) {
+            var menu = new MenuPanel();
+            foreach (MenuRow row in radial.FallbackRows(choice => {
+                radialFallbackPopup.IsOpen = false;
+                RunRadialChoice(request, choice);
+            }))
+                menu.Items.Add(row);
+            menu.RequestClose += (_, _) => radialFallbackPopup.IsOpen = false;
+            radialFallbackPopup.Child = menu;
+            radialFallbackPopup.PlacementRect = new Rect(request.ScreenPoint, new Size(1, 1));
+            radialFallbackPopup.IsOpen = true;
+            menu.Focus();
+        }
+
+        private void RunRadialChoice(NewNodeLinkDragRequest request, RadialChoice choice) {
+            switch (choice) {
+                case RadialChoice.Add:
+                    ShowQuickAdd(new AddRequest(request.EndpointLocation, AddScope.All, LinkContextFor(request)));
+                    break;
+                case RadialChoice.Passthrough:
+                    CreatePassthroughFromLinkDrag(request);
+                    break;
+                case RadialChoice.Source:
+                    PlaceLinkedRole(request, NodeType.Supplier);
+                    break;
+                case RadialChoice.Output:
+                    PlaceLinkedRole(request, NodeType.Consumer);
+                    break;
+                case RadialChoice.Spoil:
+                    PlaceSpoilPlant(request, NodeType.Spoil, NodeDirection.Up);
+                    break;
+                case RadialChoice.Plant:
+                    PlaceSpoilPlant(request, NodeType.Plant, NodeDirection.Up);
+                    break;
+                case RadialChoice.Unspoil:
+                    PlaceOrBrowseOrigins(request, NodeType.Spoil);
+                    break;
+                case RadialChoice.Unplant:
+                    PlaceOrBrowseOrigins(request, NodeType.Plant);
+                    break;
+                default:
+                    DisposeLinkDrag();
+                    break;
+            }
         }
 
         //UnPlant alone carries the old footer's isDefaultQuality gate; Spoil/UnSpoil/Plant do not.
@@ -456,7 +526,6 @@ namespace Foreman.Mac.Canvas {
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
             KitSkia.TokenBridge.Changed -= OnCanvasTokensChanged;
-            FloatingPanelHost.CancelPendingCloseTransition();
             panCancellation?.Cancel();
             panCancellation = null;
             EndPlacementFlash();
@@ -493,7 +562,22 @@ namespace Foreman.Mac.Canvas {
             base.OnPointerPressed(e);
             if (IsInsidePalette(e.Source))
                 return;
+            if (IsInsideRadial(e.Source)) {
+                e.Handled = true;
+                return;
+            }
             AvaloniaPoint screenPoint = e.GetPosition(this);
+            //Off the ring but within the cancel distance, the release commits the armed slice; past it, the press cancels and is swallowed (macOS light dismiss).
+            if (openRadial is not null) {
+                if (IsWithinRadialCancelDistance(screenPoint))
+                    radialPress = true;
+                else {
+                    CloseRadial();
+                    dismissingPress = true;
+                }
+                e.Handled = true;
+                return;
+            }
 
             //Ports ToolTipRenderer.ClearFloatingControls() being the first statement in
             //ProductionGraphViewer_MouseDown, unconditional on every click (reference §7): a click that
@@ -501,17 +585,6 @@ namespace Foreman.Mac.Canvas {
             //us), so only an outside click can close it - and, matching upstream, that same click still
             //falls through to the canvas handling below instead of being swallowed.
             if (FloatingPanelHost.IsOpen) {
-                //C2b: unlike every other panel, a press past the radial's ring cancels the drag instead of
-                //falling through to canvas selection - including inside the panel's own 260x260 square,
-                //which the plain Bounds.Contains check below would otherwise swallow silently.
-                if (OpenRadial is RadialMenu radial) {
-                    if (RadialMenu.IsOutsideOuterRadius(e.GetPosition(radial))) {
-                        DisposeLinkDrag();
-                        FloatingPanelHost.Close();
-                    }
-                    e.Handled = true;
-                    return;
-                }
                 var pressedPoint = new DrawingPoint((int)screenPoint.X, (int)screenPoint.Y);
                 if (FloatingPanelHost.Bounds.Contains(pressedPoint)) {
                     e.Handled = true;
@@ -594,6 +667,11 @@ namespace Foreman.Mac.Canvas {
             if (IsInsidePalette(e.Source))
                 return;
             AvaloniaPoint screenPoint = e.GetPosition(this);
+            if (openRadial is not null) {
+                if (!IsWithinRadialCancelDistance(screenPoint))
+                    CloseRadial();
+                return;
+            }
 
             //Mirrors OnPointerPressed's chrome-swallow guard (reference §7): a move over the panel itself
             //must not start a canvas lasso, drag a node underneath, or recompute the (irrelevant, covered)
@@ -735,6 +813,17 @@ namespace Foreman.Mac.Canvas {
                 return;
             }
             AvaloniaPoint releaseScreenPoint = e.GetPosition(this);
+            if (radialPress) {
+                radialPress = false;
+                e.Handled = true;
+                if (openRadial is null)
+                    return;
+                if (IsWithinRadialCancelDistance(releaseScreenPoint))
+                    openRadial.CommitArmed();
+                else
+                    CloseRadial();
+                return;
+            }
 
             //Mirrors OnPointerPressed's chrome-swallow guard (reference §7): a press landing on the panel
             //already returns before claiming MouseDownElement/CurrentDragOperation, but without this the
@@ -912,17 +1001,20 @@ namespace Foreman.Mac.Canvas {
         internal AddRequest? ActiveAddRequest { get; private set; }
         internal QuickAddPalette? OpenPalette => paletteFrame.IsOpen ? paletteFrame.Content as QuickAddPalette : null;
         internal PopoverFrame PaletteFrame => paletteFrame;
-        internal bool IsPanelOpen => FloatingPanelHost.IsOpen || OpenPalette is not null;
+        internal bool IsPanelOpen => FloatingPanelHost.IsOpen || OpenPalette is not null || openRadial is not null;
         private readonly Dictionary<SKBitmap, Bitmap> addIconCache = [];
         private readonly PopoverHost paletteHost = new();
         private readonly PopoverFrame paletteFrame;
         private DrawingPoint paletteGraphAnchor;
         private AvaloniaPoint? paletteScreenAnchor;
         private bool dismissingPress;
+        private bool radialPress;
 
         internal void ClosePanels() {
             FloatingPanelHost.Close();
             ClosePalette();
+            CloseRadial();
+            radialFallbackPopup.IsOpen = false;
         }
 
         private void ClosePalette() {
@@ -949,7 +1041,6 @@ namespace Foreman.Mac.Canvas {
                 return;
             ResetPointerDragState();
             FloatingPanelHost.Close();
-            FloatingPanelHost.CancelPendingCloseTransition();
 
             //Own local per palette instance: the browser can place at any time while this stays open (it's
             //a separate real window), and its own PlaceCandidate calls must not bleed into this palette's next pick.
