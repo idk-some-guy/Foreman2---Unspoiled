@@ -1824,13 +1824,14 @@ namespace Foreman.Mac.UiTests {
         }
 
         //The host spans the whole window, titlebar included, so a light-dismiss press on any toolbar item reaches it first.
+        //The canvas's own host (the quick-add palette's) sits inside the canvas and is not this one.
         [AvaloniaFact]
         public void PopoverHost_IsMountedOnce_AndSpansTheWholeWindow() {
             var window = new MainWindow();
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            var host = Assert.Single(window.GetVisualDescendants().OfType<PopoverHost>());
+            var host = Assert.Single(window.GetVisualDescendants().OfType<PopoverHost>(), h => !window.GraphCanvas.IsVisualAncestorOf(h));
             var rootGrid = (Grid)window.Content!;
 
             Assert.Equal(rootGrid.Bounds.Width, host.Bounds.Width, 1);

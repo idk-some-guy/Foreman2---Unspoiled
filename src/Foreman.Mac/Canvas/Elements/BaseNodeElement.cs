@@ -247,6 +247,34 @@ namespace Foreman.Mac.Canvas.Elements {
 
             if (Highlighted)
                 GraphicsStuff.FillRoundRect(canvas, trans.X - (Width / 2), trans.Y - (Height / 2), Width, Height, 8, SelectionOverlayPaint);
+
+            if (IsPlacementFlashing && PlacementFlashOpacity > 0)
+                DrawPlacementFlash(canvas);
+        }
+
+        internal bool IsPlacementFlashing { get; set; }
+        internal double PlacementFlashOpacity { get; set; }
+
+        private const float PlacementFlashStroke = 2;
+        private const float PlacementFlashOffset = 2;
+        private const float NodeCornerRadius = 10;
+
+        //Centre-line rect of the ring: the stroke is centred PlacementFlashOffset outside the node's bounds, at the border radius + the offset.
+        internal (SKRect Path, float Radius, float StrokeWidth, SKColor Color) PlacementFlashRing() {
+            Point centre = LocalToGraph(new Point(0, 0));
+            SKRect bounds = SKRect.Create(centre.X - (Width / 2f), centre.Y - (Height / 2f), Width, Height);
+            return (SKRect.Inflate(bounds, PlacementFlashOffset, PlacementFlashOffset), NodeCornerRadius + PlacementFlashOffset, PlacementFlashStroke, TokenBridge.Current.Accent);
+        }
+
+        private void DrawPlacementFlash(SKCanvas canvas) {
+            (SKRect path, float radius, float stroke, SKColor color) = PlacementFlashRing();
+            using var paint = new SKPaint {
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = stroke,
+                IsAntialias = true,
+                Color = color.WithAlpha((byte)Math.Round(color.Alpha * Math.Clamp(PlacementFlashOpacity, 0, 1))),
+            };
+            canvas.DrawRoundRect(path, radius, radius, paint);
         }
 
         protected static SKPaint Fill(SKColor color) => new() { Color = color, Style = SKPaintStyle.Fill, IsAntialias = true };

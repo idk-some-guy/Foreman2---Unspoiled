@@ -20,7 +20,6 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Type.Legacy.About.Tagline.FontSize",
             "Foreman.Type.Legacy.About.Version.FontSize",
             "Foreman.Type.Legacy.Browser.Row.FontSize",
-            "Foreman.Type.Legacy.Kbd.FontSize",
             "Foreman.Type.Legacy.SearchField.FontSize",
             "Foreman.Type.Legacy.ToolbarItem.Label.FontSize",
             "Foreman.Type.Canvas.FontSize",

@@ -31,9 +31,8 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         public void AddItem_OpensAnItemScopedPaletteAtTheGraphPoint() {
             using var fx = CanvasFixture.WithVanilla();
             fx.Control.AddItemAsync(new DrawingPoint(300, 200));
-            Assert.True(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.NotNull(fx.Control.OpenPalette);
             Assert.Equal(AddScope.Items, fx.Control.ActiveAddRequest!.Scope);
-            Assert.IsType<QuickAddPalette>(fx.Control.FloatingPanelHost.Content);
         }
 
         [AvaloniaFact]
@@ -42,13 +41,14 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.Control.AddItemAsync(new DrawingPoint(300, 200));
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron plate";
-            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
-            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
             var nodes = fx.Viewer.Graph.Nodes.OfType<SupplierNode>().OrderBy(n => n.Location.Y).ToList();
             Assert.Equal(2, nodes.Count);
             Assert.Equal(200, nodes[0].Location.Y, 0.5);
             Assert.Equal(320, nodes[1].Location.Y, 0.5);
-            Assert.True(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.NotNull(fx.Control.OpenPalette);
         }
 
         [AvaloniaFact]
@@ -57,7 +57,8 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.Control.AddRecipeAsync(new DrawingPoint(0, 0));
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron gear";
-            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
             var node = Assert.Single(fx.Viewer.Graph.Nodes.OfType<RecipeNode>());
             Assert.Equal("iron-gear-wheel", node.BaseRecipe.Recipe!.Name);
         }
@@ -67,9 +68,9 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             using var fx = CanvasFixture.WithVanillaAndOneNode(out AvaloniaPoint nodeScreenPoint);
             fx.DoubleClick(new AvaloniaPoint(50, 50));
             Assert.Equal(AddScope.All, fx.Control.ActiveAddRequest!.Scope);
-            fx.Control.FloatingPanelHost.Close();
+            fx.Control.ClosePanels();
             fx.DoubleClick(nodeScreenPoint);
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.False(fx.Control.IsPanelOpen);
         }
 
         //Gate fix 7, item 2: opening the browser (a new top-level window, from a link-drag's radial Add.../
@@ -117,9 +118,9 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             window.MouseDown(clickPoint, MouseButton.Left, RawInputModifiers.None);
             window.MouseUp(clickPoint, MouseButton.Left, RawInputModifiers.None);
             window.MouseDown(clickPoint, MouseButton.Left, RawInputModifiers.None);
-            Assert.True(canvas.FloatingPanelHost.IsOpen);
+            Assert.NotNull(canvas.OpenPalette);
 
-            var box = canvas.OpenPalette!.FindControl<TextBox>("SearchBox")!;
+            var box = canvas.OpenPalette!.Search;
             CanvasKeys.KeyDownOn(box, Key.Enter, KeyModifiers.Meta);
             Assert.True(window.BrowserWindow!.IsVisible);
 
@@ -142,11 +143,11 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             using var fx = CanvasFixture.WithVanilla();
             AddRequest? browse = null; fx.Control.BrowseRequested += (_, r) => browse = r;
             fx.Control.AddItemAsync(new DrawingPoint(0, 0));
-            var box = fx.Control.OpenPalette!.FindControl<TextBox>("SearchBox")!;
+            var box = fx.Control.OpenPalette!.Search;
             ((QuickAddViewModel)fx.Control.OpenPalette!.DataContext!).Query = "gear";
             CanvasKeys.KeyDownOn(box, Key.Enter, KeyModifiers.Meta);
             Assert.Equal("gear", browse!.SeedText); Assert.Equal(AddScope.Items, browse.Scope);
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.Null(fx.Control.OpenPalette);
         }
 
         //Ports ItemRecipeChooserFlowTests' retired TwoStageFlow_PlainRecipeClick_ItemOnlyValidAsFuel_
@@ -160,7 +161,8 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron plate";
-            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
 
             var node = Assert.Single(fx.Viewer.Graph.Nodes.OfType<RecipeNode>());
             IItem coal = fx.Cache.Items["coal"];
@@ -178,7 +180,8 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron plate";
-            TextBox box = palette.FindControl<TextBox>("SearchBox")!;
+            Dispatcher.UIThread.RunJobs();
+            TextBox box = palette.Search;
             CanvasKeys.KeyDownOn(box, Key.Enter); //row 0 is the recipe (the radial's Source/Output slices own the item row now)
 
             var node = Assert.Single(fx.Viewer.Graph.Nodes.OfType<RecipeNode>());
@@ -198,7 +201,8 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron gear wheel"; //consumes iron-plate
-            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
 
             BaseNodeElement created = fx.Viewer.NodeElements.Except(before).Single();
             DrawingPoint dropGraphPoint = fx.Control.Viewport.ScreenToGraph(dropScreenPoint);
@@ -217,70 +221,13 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron plate"; //produces iron-plate
-            TextBox box = palette.FindControl<TextBox>("SearchBox")!;
+            Dispatcher.UIThread.RunJobs();
+            TextBox box = palette.Search;
             CanvasKeys.KeyDownOn(box, Key.Enter); //row 0 is the recipe (the radial's Source/Output slices own the item row now)
 
             BaseNodeElement created = fx.Viewer.NodeElements.Except(before).Single();
             DrawingPoint dropGraphPoint = fx.Control.Viewport.ScreenToGraph(dropScreenPoint);
             Assert.Equal(dropGraphPoint.Y + (created.Height / 2), created.ViewModel.Location.Y);
-        }
-
-        //Gate fix 1, item 1: the palette opens with zero rows (SeedText is always empty), then must grow
-        //as Query fills in rows and shrink back once it empties - through the real FloatingPanelHost, not
-        //a bare Window, since that's what pinned the height in the first place.
-        [AvaloniaFact]
-        public void TypingAMatch_GrowsThePaletteToFitTheNewRows_AndShrinksBackWhenTheQueryEmpties() {
-            CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: ["Row One", "Row Two", "Row Three"], recipes: []);
-            (GraphCanvasControl canvas, _) = NewCanvas(fx.Cache);
-
-            canvas.ShowQuickAdd(new AddRequest(new DrawingPoint(0, 0), AddScope.All));
-            QuickAddPalette palette = canvas.OpenPalette!;
-            var vm = (QuickAddViewModel)palette.DataContext!;
-            double emptyHeight = canvas.FloatingPanelHost.Bounds.Height;
-
-            vm.Query = "row";
-            Dispatcher.UIThread.RunJobs();
-            Assert.Equal(3, vm.Rows.Count);
-            double grownHeight = canvas.FloatingPanelHost.Bounds.Height;
-            Assert.True(grownHeight > emptyHeight, $"grown height ({grownHeight}) did not exceed the empty height ({emptyHeight})");
-
-            var results = palette.FindControl<ItemsControl>("Results")!;
-            for (int i = 0; i < 3; i++) {
-                Control container = results.ContainerFromIndex(i)!;
-                Point bottomRight = container.TranslatePoint(new Point(container.Bounds.Width, container.Bounds.Height), palette) ?? new Point(double.NaN, double.NaN);
-                Assert.True(bottomRight.Y <= palette.Bounds.Height + 0.5, $"row {i} bottom ({bottomRight.Y}) is outside the palette ({palette.Bounds.Height})");
-            }
-
-            vm.Query = "";
-            Dispatcher.UIThread.RunJobs();
-            Assert.Empty(vm.Rows);
-            Assert.Equal(emptyHeight, canvas.FloatingPanelHost.Bounds.Height, 0.5);
-        }
-
-        [AvaloniaFact]
-        public void TypingATwelveRowMatch_ShowsExactlySixRows_AndScrolls() {
-            List<string> rowNames = [.. Enumerable.Range(1, 12).Select(i => $"Row {i:00}")];
-            CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: rowNames, recipes: []);
-            (GraphCanvasControl canvas, _) = NewCanvas(fx.Cache);
-
-            canvas.ShowQuickAdd(new AddRequest(new DrawingPoint(0, 0), AddScope.All));
-            QuickAddPalette palette = canvas.OpenPalette!;
-            var vm = (QuickAddViewModel)palette.DataContext!;
-            vm.Query = "row";
-            Dispatcher.UIThread.RunJobs();
-            Assert.Equal(12, vm.Rows.Count);
-
-            var results = palette.FindControl<ItemsControl>("Results")!;
-            var scrollViewer = results.GetVisualAncestors().OfType<ScrollViewer>().First();
-            Assert.True(scrollViewer.Extent.Height > scrollViewer.Viewport.Height, "the list did not scroll for a 12-row match");
-
-            Control sixthRow = results.ContainerFromIndex(5)!;
-            Point sixthBottom = sixthRow.TranslatePoint(new Point(0, sixthRow.Bounds.Height), scrollViewer) ?? new Point(double.NaN, double.NaN);
-            Assert.True(sixthBottom.Y <= scrollViewer.Viewport.Height + 0.5, $"the sixth row's bottom ({sixthBottom.Y}) is below the viewport ({scrollViewer.Viewport.Height})");
-
-            Control seventhRow = results.ContainerFromIndex(6)!;
-            Point seventhTop = seventhRow.TranslatePoint(new Point(0, 0), scrollViewer) ?? new Point(double.NaN, double.NaN);
-            Assert.True(seventhTop.Y >= scrollViewer.Viewport.Height - 0.5, $"the seventh row's top ({seventhTop.Y}) is above the viewport ({scrollViewer.Viewport.Height}) - more than six rows are visible");
         }
 
         //Gate fix 3, item 3: MainWindow's own Space-toggles-gridlines handler is a separate KeyDown
@@ -292,7 +239,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             bool gridlinesBefore = window.GraphCanvas.Grid.ShowGrid;
 
             window.GraphCanvas.AddItemAsync(new DrawingPoint(0, 0));
-            var box = window.GraphCanvas.OpenPalette!.FindControl<TextBox>("SearchBox")!;
+            var box = window.GraphCanvas.OpenPalette!.Search;
             //A real Space keypress raises both events - KeyDown (what the gridlines bug hooked) and
             //TextInput (what actually inserts the character).
             CanvasKeys.KeyDownOn(box, Key.Space);
@@ -312,7 +259,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         public void LetterTypedIntoTheSearchBox_ThroughTheRealWindowKeyboardPath_IsNotMarkedHandled() {
             MainWindow window = OpenWindow(out _);
             window.GraphCanvas.AddItemAsync(new DrawingPoint(0, 0));
-            window.GraphCanvas.OpenPalette!.FindControl<TextBox>("SearchBox")!.Focus();
+            window.GraphCanvas.OpenPalette!.Search.Focus();
 
             bool? handledAfterRouting = null;
             window.AddHandler(InputElement.KeyDownEvent,
@@ -331,7 +278,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             MainWindow window = OpenWindow(out _);
             window.GraphCanvas.AddItemAsync(new DrawingPoint(0, 0));
             var palette = window.GraphCanvas.OpenPalette!;
-            palette.FindControl<TextBox>("SearchBox")!.Focus();
+            palette.Search.Focus();
 
             foreach (char letter in "iron") {
                 window.KeyPressQwerty(CanvasKeys.PhysicalKeyFor(letter), RawInputModifiers.None);
@@ -346,7 +293,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             MainWindow window = OpenWindow(out _);
 
             window.GraphCanvas.AddItemAsync(new DrawingPoint(0, 0));
-            var box = window.GraphCanvas.OpenPalette!.FindControl<TextBox>("SearchBox")!;
+            var box = window.GraphCanvas.OpenPalette!.Search;
             DrawingPoint offsetBefore = window.GraphCanvas.Viewport.ViewOffset;
 
             CanvasKeys.KeyDownOn(box, Key.G);
@@ -369,7 +316,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             bool gridlinesBefore = window.GraphCanvas.Grid.ShowGrid;
 
             window.GraphCanvas.AddItemAsync(new DrawingPoint(0, 0));
-            var box = window.GraphCanvas.OpenPalette!.FindControl<TextBox>("SearchBox")!;
+            var box = window.GraphCanvas.OpenPalette!.Search;
             CanvasKeys.KeyDownOn(box, Key.Space);
 
             Assert.True(sawIt);

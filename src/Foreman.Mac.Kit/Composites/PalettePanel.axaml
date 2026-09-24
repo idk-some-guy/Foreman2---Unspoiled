@@ -8,16 +8,22 @@
     <Setter Property="Transitions" Value="{x:Static m:Motion.FormRowReflowTransitions}" />
     <Setter Property="Template">
       <ControlTemplate>
-        <StackPanel x:Name="PART_Root" Background="{DynamicResource Foreman.Color.PaletteMaterial}">
-          <Panel x:Name="PART_Header" />
-          <Panel>
-            <StackPanel x:Name="PART_Track" Margin="6,4,6,4" Spacing="1" />
-            <ContentPresenter x:Name="PART_State" Margin="6,0,6,0" IsVisible="False" />
-          </Panel>
-          <Border BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,1,0,0">
-            <StackPanel x:Name="PART_Footer" Orientation="Horizontal" Spacing="12" Margin="12,6" />
-          </Border>
-        </StackPanel>
+        <Border x:Name="PART_Root" Background="{DynamicResource Foreman.Color.PaletteMaterial}"
+                BorderBrush="{DynamicResource Foreman.Color.BorderStrong}" BorderThickness="1"
+                CornerRadius="{DynamicResource Foreman.Radius.Popover}">
+          <StackPanel>
+            <StackPanel x:Name="PART_Header">
+              <ContentPresenter x:Name="PART_HeaderAccessory" Margin="8,6,8,8" IsVisible="False" />
+            </StackPanel>
+            <Panel>
+              <StackPanel x:Name="PART_Track" Margin="6,4,6,4" Spacing="1" />
+              <ContentPresenter x:Name="PART_State" Margin="6,0,6,0" IsVisible="False" />
+            </Panel>
+            <Border BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,1,0,0">
+              <StackPanel x:Name="PART_Footer" Orientation="Horizontal" Spacing="12" Margin="12,6" />
+            </Border>
+          </StackPanel>
+        </Border>
       </ControlTemplate>
     </Setter>
   </ControlTheme>

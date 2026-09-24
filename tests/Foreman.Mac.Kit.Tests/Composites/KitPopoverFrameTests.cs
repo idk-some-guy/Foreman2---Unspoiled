@@ -71,6 +71,9 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         private static Border Panel(PopoverFrame popover) =>
             popover.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Panel");
 
+        private static Border ContentClip(PopoverFrame popover) =>
+            popover.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_ContentClip");
+
         private static Border Tail(PopoverFrame popover) =>
             popover.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Tail");
 
@@ -704,6 +707,151 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(["cancelled", "closed"], order);
+        }
+
+        private static (Window Window, PopoverHost Host, PopoverFrame Popover) ShownFlush(Point at, double windowWidth = 400, double windowHeight = 300, Control? content = null) {
+            var host = new PopoverHost { Width = windowWidth, Height = windowHeight };
+            PopoverFrame popover = new() {
+                Theme = KitPopoverFrameTheme(),
+                Mode = PopoverFrameMode.Flush,
+                AnchorPoint = at,
+                Content = content ?? new Border { Width = 100, Height = 60 },
+            };
+            host.Surface.Children.Add(popover);
+            var window = new Window { Width = windowWidth, Height = windowHeight, Content = host };
+            window.Show();
+            popover.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            return (window, host, popover);
+        }
+
+        [AvaloniaFact]
+        public void Flush_PlacesTheFrameAtItsAnchorPoint_WithoutAnAnchorControl() {
+            using var fixture = new KitFixture();
+            (_, _, PopoverFrame popover) = ShownFlush(new Point(40, 30));
+
+            Assert.Null(popover.Anchor);
+            Assert.Equal(40, Canvas.GetLeft(popover), 0.5);
+            Assert.Equal(30, Canvas.GetTop(popover), 0.5);
+        }
+
+        [AvaloniaFact]
+        public void Flush_FlipsToTheLeftAndAbove_WhenThePointLeavesNoRoomOnScreen() {
+            using var fixture = new KitFixture();
+            (_, _, PopoverFrame popover) = ShownFlush(new Point(380, 290));
+            Size frame = Panel(popover).DesiredSize;
+
+            Assert.Equal(380 - frame.Width, Canvas.GetLeft(popover), 0.5);
+            Assert.Equal(290 - frame.Height, Canvas.GetTop(popover), 0.5);
+            Assert.True(Canvas.GetLeft(popover) >= 0 && Canvas.GetTop(popover) >= 0);
+        }
+
+        [AvaloniaFact]
+        public void Flush_DrawsNoTail() {
+            using var fixture = new KitFixture();
+            (_, _, PopoverFrame popover) = ShownFlush(new Point(40, 30));
+
+            Assert.False(Tail(popover).IsVisible);
+            Assert.Equal(new Thickness(0), Panel(popover).Margin);
+        }
+
+        [AvaloniaFact]
+        public void Flush_PanelHasZeroPadding_SoTheContentSitsAgainstTheBorder() {
+            using var fixture = new KitFixture();
+            var content = new Border { Width = 100, Height = 60 };
+            (_, _, PopoverFrame popover) = ShownFlush(new Point(40, 30), content: content);
+            Border panel = Panel(popover);
+
+            Assert.Equal(new Thickness(0), panel.Padding);
+            Point contentOrigin = content.TranslatePoint(new Point(0, 0), panel) ?? new Point(double.NaN, double.NaN);
+            Assert.Equal(panel.BorderThickness.Left, contentOrigin.X, 0.5);
+            Assert.Equal(panel.BorderThickness.Top, contentOrigin.Y, 0.5);
+        }
+
+        [AvaloniaFact]
+        public void Flush_PaintsNoMaterialOfItsOwn() {
+            using var fixture = new KitFixture();
+            (_, _, PopoverFrame popover) = ShownFlush(new Point(40, 30));
+
+            Assert.Null(Panel(popover).Background);
+            Assert.Null(ContentClip(popover).Background);
+        }
+
+        [AvaloniaFact]
+        public void Flush_LeavesTheShadowBorderUnclipped_AndClipsTheContentAtThePopoverRadius() {
+            using var fixture = new KitFixture();
+            (_, _, PopoverFrame popover) = ShownFlush(new Point(40, 30));
+            Assert.True(Application.Current!.TryGetResource("Foreman.Radius.Popover", Application.Current.ActualThemeVariant, out object? radius));
+
+            Assert.NotEqual(default, Panel(popover).BoxShadow);
+            Assert.False(Panel(popover).ClipToBounds);
+            Border clip = ContentClip(popover);
+            Assert.True(clip.ClipToBounds);
+            Assert.Equal(Assert.IsType<CornerRadius>(radius), clip.CornerRadius);
+        }
+
+        [AvaloniaFact]
+        public void Flush_DrawsNoBorderOfItsOwn_SoAFrameAroundAPaletteWidthPanelMeasuresThatWidth() {
+            using var fixture = new KitFixture();
+            (_, _, PopoverFrame popover) = ShownFlush(new Point(40, 30), content: new Border { Width = 272, Height = 60 });
+
+            Assert.Equal(new Thickness(0), Panel(popover).BorderThickness);
+            Assert.Equal(272, Panel(popover).Bounds.Width, 0.5);
+        }
+
+        [AvaloniaFact]
+        public void Flush_ReturningToAnchoredMode_RestoresPaddingTailAndMaterial() {
+            using var fixture = new KitFixture();
+            (_, _, PopoverFrame popover) = ShownFlush(new Point(40, 30));
+
+            popover.Mode = PopoverFrameMode.Anchored;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(new Thickness(14, 10, 14, 14), Panel(popover).Padding);
+            Assert.True(Tail(popover).IsVisible);
+            Assert.NotNull(Panel(popover).Background);
+            Assert.Equal(new Thickness(1), Panel(popover).BorderThickness);
+            Assert.False(ContentClip(popover).ClipToBounds);
+        }
+
+        [AvaloniaFact]
+        public void Flush_MovingTheAnchorPoint_MovesTheFrame() {
+            using var fixture = new KitFixture();
+            (_, _, PopoverFrame popover) = ShownFlush(new Point(40, 30));
+
+            popover.AnchorPoint = new Point(120, 90);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(120, Canvas.GetLeft(popover), 0.5);
+            Assert.Equal(90, Canvas.GetTop(popover), 0.5);
+        }
+
+        [Fact]
+        public void ResolvePointPlacement_PrefersBelowTrailing_FlipsEachAxisOnItsOwn_ThenClamps() {
+            Size host = new(400, 300);
+            Size frame = new(100, 60);
+
+            Assert.Equal(new Point(40, 30), PopoverFrame.ResolvePointPlacement(new Point(40, 30), host, frame));
+            Assert.Equal(new Point(280, 30), PopoverFrame.ResolvePointPlacement(new Point(380, 30), host, frame));
+            Assert.Equal(new Point(40, 230), PopoverFrame.ResolvePointPlacement(new Point(40, 290), host, frame));
+            Assert.Equal(new Point(0, 0), PopoverFrame.ResolvePointPlacement(new Point(50, 40), new Size(80, 50), frame));
+        }
+
+        [AvaloniaFact]
+        public void Open_LeavesFocusOnContentThatAlreadyHasIt() {
+            using var fixture = new KitFixture();
+            var field = new TextBox { Width = 100 };
+            var host = new PopoverHost { Width = 400, Height = 300 };
+            PopoverFrame popover = new() { Theme = KitPopoverFrameTheme(), Mode = PopoverFrameMode.Flush, AnchorPoint = new Point(20, 20), Content = field };
+            host.Surface.Children.Add(popover);
+            var window = new Window { Width = 400, Height = 300, Content = host };
+            window.Show();
+
+            popover.IsOpen = true;
+            field.Focus();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(field, window.FocusManager?.GetFocusedElement());
         }
     }
 }

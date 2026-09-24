@@ -235,8 +235,8 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(typeof(PalettePanel), KitPalettePanelTheme().TargetType);
         }
 
-        private static StackPanel Root(PalettePanel panel) =>
-            panel.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "PART_Root");
+        private static Border Root(PalettePanel panel) =>
+            panel.GetVisualDescendants().OfType<Border>().Single(p => p.Name == "PART_Root");
 
         [AvaloniaFact]
         public void PalettePanel_BackgroundResolvesPaletteMaterial_AndSwapsToOpaqueUnderReduceTransparency() {
@@ -262,6 +262,30 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Shown(panel);
 
             Assert.Equal(272, panel.Bounds.Width);
+        }
+
+        [AvaloniaTheory]
+        [InlineData("Light")]
+        [InlineData("Dark")]
+        public void OutermostTemplateChild_IsAOnePointBorderStrongHairlineAtPopoverRadius_InsideThePaletteWidth(string variantName) {
+            using var fixture = new KitFixture();
+            ThemeVariant variant = variantName == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light;
+            PalettePanel panel = NewPanel(FourResults);
+            Window window = Shown(panel);
+            window.RequestedThemeVariant = variant;
+            Dispatcher.UIThread.RunJobs();
+
+            Border outer = Assert.IsType<Border>(panel.GetVisualChildren().Single());
+            Assert.Same(Root(panel), outer);
+            Assert.Equal(new Thickness(1), outer.BorderThickness);
+            Assert.True(Application.Current!.TryGetResource("Foreman.Color.BorderStrong", variant, out object? strong));
+            IBrush expected = strong is Color c ? new SolidColorBrush(c) : Assert.IsAssignableFrom<IBrush>(strong);
+            Assert.Equal(expected.ToImmutable(), outer.BorderBrush?.ToImmutable());
+            Assert.True(Application.Current.TryGetResource("Foreman.Radius.Popover", variant, out object? radius));
+            Assert.Equal(Assert.IsType<CornerRadius>(radius), outer.CornerRadius);
+            Assert.True(Application.Current.TryGetResource("Foreman.Size.PaletteWidth", variant, out object? width));
+            Assert.Equal(Assert.IsType<double>(width), panel.Bounds.Width);
+            Assert.Equal(panel.Bounds.Width, outer.Bounds.Width);
         }
 
         [AvaloniaFact]
@@ -438,13 +462,13 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         //=== Kit.SearchField flush variant (palette header) ===
 
         [AvaloniaFact]
-        public void FlushSearch_WidthSpansThePanel() {
+        public void FlushSearch_WidthSpansThePanelInsideItsHairline() {
             using var fixture = new KitFixture();
             PalettePanel panel = NewPanel(FourResults);
             Shown(panel);
 
-            Assert.Equal(panel.Bounds.Width, panel.Search.Bounds.Width);
-            Assert.Equal(272, panel.Search.Bounds.Width);
+            Assert.Equal(panel.Bounds.Width - 2, panel.Search.Bounds.Width);
+            Assert.Equal(270, panel.Search.Bounds.Width);
         }
 
         [AvaloniaFact]
@@ -609,6 +633,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void NoResults_RendersACompactStatePanel_AndKeepsTheSearchHeader() {
             using var fixture = new KitFixture();
             PalettePanel panel = NewPanel();
+            panel.NoResultsButtons = HostButtons("Browse All…");
             panel.Search.Text = "beacn";
             Shown(panel);
             Dispatcher.UIThread.RunJobs();
@@ -616,8 +641,162 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             StatePanel state = panel.GetVisualDescendants().OfType<StatePanel>().Single();
             Assert.Equal(StatePanelShape.NoResults, state.Shape);
             Assert.True(state.IsCompact);
-            Assert.Contains("beacn", state.Headline);
             Assert.True(panel.Search.IsVisible);
+        }
+
+        private static ButtonRow HostButtons(params string[] labels) {
+            Assert.True(Application.Current!.TryGetResource("Kit.ButtonRow", null, out object? rowTheme));
+            var row = new ButtonRow { Theme = Assert.IsType<ControlTheme>(rowTheme) };
+            for (int i = 0; i < labels.Length; i++) {
+                var button = new Button { Content = labels[i] };
+                ButtonRow.SetRole(button, i == labels.Length - 1 ? ButtonRowRole.Default : ButtonRowRole.Other);
+                row.Items.Add(button);
+            }
+            return row;
+        }
+
+        [AvaloniaFact]
+        public void NoResults_ShowsTheHostsHeadlineSentenceAndButtons() {
+            using var fixture = new KitFixture();
+            PalettePanel panel = NewPanel();
+            panel.NoResultsHeadline = "No matches for “beacn”";
+            panel.NoResultsSentence = "Nothing in this preset matches the search.";
+            ButtonRow buttons = HostButtons("Browse All…");
+            panel.NoResultsButtons = buttons;
+            panel.Search.Text = "beacn";
+            Shown(panel);
+            Dispatcher.UIThread.RunJobs();
+
+            StatePanel state = panel.GetVisualDescendants().OfType<StatePanel>().Single(s => s.IsEffectivelyVisible);
+            Assert.Equal("No matches for “beacn”", state.Headline);
+            Assert.Equal("Nothing in this preset matches the search.", state.Sentence);
+            Assert.Same(buttons, state.Buttons);
+            Assert.Contains(panel.GetVisualDescendants().OfType<Button>(), b => Equals(b.Content, "Browse All…") && b.IsEffectivelyVisible);
+        }
+
+        [AvaloniaFact]
+        public void NoResults_CarriesNoBuiltInCopy() {
+            using var fixture = new KitFixture();
+            PalettePanel panel = NewPanel();
+            panel.Search.Text = "beacn";
+            Shown(panel);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.All(panel.GetVisualDescendants().OfType<StatePanel>(), s => {
+                Assert.Null(s.Headline);
+                Assert.Null(s.Buttons);
+            });
+        }
+
+        [Fact]
+        public void PalettePanelSource_HoldsNoSurfaceCopy() {
+            string dir = AppContext.BaseDirectory;
+            while (!System.IO.Directory.Exists(System.IO.Path.Combine(dir, "src", "Foreman.Mac.Kit")))
+                dir = System.IO.Path.GetDirectoryName(dir) ?? throw new InvalidOperationException("repo root not found");
+            string text = System.IO.File.ReadAllText(System.IO.Path.Combine(dir, "src", "Foreman.Mac.Kit", "Composites", "PalettePanel.cs"));
+            Assert.DoesNotContain("Clear Search", text);
+            Assert.DoesNotContain("No results", text);
+        }
+
+        [AvaloniaFact]
+        public void HostCopy_ChangedWhileShown_UpdatesTheNoResultsPanel() {
+            using var fixture = new KitFixture();
+            PalettePanel panel = NewPanel();
+            panel.NoResultsButtons = HostButtons("Browse All…");
+            panel.Search.Text = "beacn";
+            Shown(panel);
+            panel.NoResultsSentence = "Only recipes that make Iron Plate are listed while a link is being dragged.";
+            ButtonRow wider = HostButtons("Browse All…", "Remove Constraint");
+            panel.NoResultsButtons = wider;
+            Dispatcher.UIThread.RunJobs();
+
+            StatePanel state = panel.GetVisualDescendants().OfType<StatePanel>().Single(s => s.IsEffectivelyVisible);
+            Assert.Equal("Only recipes that make Iron Plate are listed while a link is being dragged.", state.Sentence);
+            Assert.Same(wider, state.Buttons);
+        }
+
+        private static bool IsOnScreen(Control control) => control.IsEffectivelyVisible && TopLevel.GetTopLevel(control) is not null;
+
+        [AvaloniaFact]
+        public void EmptyContent_ShowsWhileTheQueryIsEmpty_AndGivesWayToNoResultsOnceTyped() {
+            using var fixture = new KitFixture();
+            PalettePanel panel = NewPanel();
+            var empty = new TextBlock { Text = "Search to add a node" };
+            panel.EmptyContent = empty;
+            panel.NoResultsButtons = HostButtons("Browse All…");
+            Shown(panel);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(IsOnScreen(empty));
+            Assert.DoesNotContain(panel.GetVisualDescendants().OfType<StatePanel>(), s => s.IsEffectivelyVisible);
+
+            panel.Search.Text = "beacn";
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(IsOnScreen(empty));
+            Assert.Contains(panel.GetVisualDescendants().OfType<StatePanel>(), s => s.IsEffectivelyVisible && s.Shape == StatePanelShape.NoResults);
+        }
+
+        [AvaloniaFact]
+        public void EmptyContent_HidesOnceResultsArrive() {
+            using var fixture = new KitFixture();
+            PalettePanel panel = NewPanel();
+            var empty = new TextBlock { Text = "Search to add a node" };
+            panel.EmptyContent = empty;
+            Shown(panel);
+            foreach (PaletteResult r in FourResults)
+                panel.Results.Add(r);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(IsOnScreen(empty));
+            Assert.Equal(4, Rows(panel).Length);
+        }
+
+        [AvaloniaFact]
+        public void EmptyContent_StatePanel_RendersCompactInsideThePanel() {
+            using var fixture = new KitFixture();
+            PalettePanel panel = NewPanel();
+            var empty = new StatePanel { Shape = StatePanelShape.Empty, Headline = "Search to add a node", Sentence = "Type a few letters.", Buttons = HostButtons("Browse All…") };
+            Assert.True(Application.Current!.TryGetResource("Kit.StatePanel", null, out object? stateTheme));
+            empty.Theme = Assert.IsType<ControlTheme>(stateTheme);
+            panel.EmptyContent = empty;
+            Shown(panel);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(empty.IsCompact);
+        }
+
+        [AvaloniaFact]
+        public void HeaderAccessory_SitsBetweenTheSearchFieldAndTheRows() {
+            using var fixture = new KitFixture();
+            PalettePanel panel = NewPanel(FourResults);
+            var chip = new Border { Width = 120, Height = 20 };
+            panel.HeaderAccessory = chip;
+            Shown(panel);
+            Dispatcher.UIThread.RunJobs();
+
+            double searchBottom = panel.Search.TranslatePoint(new Point(0, panel.Search.Bounds.Height), panel)!.Value.Y;
+            double chipTop = chip.TranslatePoint(new Point(0, 0), panel)!.Value.Y;
+            double chipBottom = chip.TranslatePoint(new Point(0, chip.Bounds.Height), panel)!.Value.Y;
+            double firstRowTop = Rows(panel)[0].TranslatePoint(new Point(0, 0), panel)!.Value.Y;
+            Assert.True(chipTop >= searchBottom, $"accessory top {chipTop} above the field's bottom {searchBottom}");
+            Assert.True(firstRowTop >= chipBottom, $"first row top {firstRowTop} above the accessory's bottom {chipBottom}");
+        }
+
+        [AvaloniaFact]
+        public void HeaderAccessory_Cleared_LeavesNoGapUnderTheField() {
+            using var fixture = new KitFixture();
+            PalettePanel panel = NewPanel(FourResults);
+            Shown(panel);
+            Dispatcher.UIThread.RunJobs();
+            double before = Rows(panel)[0].TranslatePoint(new Point(0, 0), panel)!.Value.Y;
+
+            panel.HeaderAccessory = new Border { Width = 120, Height = 20 };
+            Dispatcher.UIThread.RunJobs();
+            panel.HeaderAccessory = null;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(before, Rows(panel)[0].TranslatePoint(new Point(0, 0), panel)!.Value.Y, 0.5);
         }
 
         [AvaloniaFact]
@@ -649,7 +828,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(9, panel.Search.Padding.Top);
             Assert.Equal(new Thickness(6, 4, 6, 4), track.Margin);
             Assert.Equal(6, footer.Margin.Bottom);
-            Assert.Equal(header.Bounds.Height + track.Bounds.Height + 8 + footerFrame.Bounds.Height, panel.Bounds.Height, 1);
+            Assert.Equal(1 + header.Bounds.Height + track.Bounds.Height + 8 + footerFrame.Bounds.Height + 1, panel.Bounds.Height, 1);
 
             PaletteRow[] rows = Rows(panel);
             Assert.Equal(1, rows[1].Bounds.Top - rows[0].Bounds.Bottom);
@@ -699,11 +878,30 @@ namespace Foreman.Mac.Kit.Tests.Composites {
                 Dispatcher.UIThread.RunJobs();
 
                 Assert.Equal(408, panel.Bounds.Width);
-                Assert.Equal(panel.Bounds.Width, panel.Search.Bounds.Width);
+                Assert.Equal(panel.Bounds.Width - 2, panel.Search.Bounds.Width);
                 PaletteRow row = Rows(panel)[0];
                 Assert.Equal(39, row.Bounds.Height);
                 Border icon = row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Icon");
                 Assert.Equal(33, icon.Bounds.Width);
+            }
+
+            [AvaloniaFact]
+            public void PanelWidth_FollowsAScaleChange_DuringAHeightReflow_InAnUnconstrainedHost() {
+                using var fixture = new KitFixture();
+                PalettePanel panel = NewPanel(FourResults[0]);
+                var host = new Canvas();
+                host.Children.Add(panel);
+                Shown(host);
+                AnimationClock.Settle();
+                panel.Results.Add(FourResults[1]);
+                Dispatcher.UIThread.RunJobs();
+
+                ScaleContract.Apply(1.5);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.True(panel.TryFindResource("Foreman.Size.PaletteWidth", panel.ActualThemeVariant, out object? width));
+                Assert.Equal(Assert.IsType<double>(width), panel.Bounds.Width, 0.5);
+                Assert.Equal(panel.Bounds.Width, panel.DesiredSize.Width, 0.5);
             }
         }
     }

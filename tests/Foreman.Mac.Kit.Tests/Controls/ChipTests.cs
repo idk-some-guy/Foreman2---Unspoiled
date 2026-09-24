@@ -1,8 +1,12 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -252,6 +256,105 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             Application.Current!.TryGetResource("Foreman.Opacity.Disabled", Application.Current.ActualThemeVariant, out object? disabled);
             Assert.Equal(Assert.IsType<double>(disabled), chip.Opacity);
+        }
+
+        private const string LongLabel = "Compatible with Advanced Oil Processing Byproduct Intermediate";
+
+        private static Chip HostedAt256(KitFixture fixture, string label) {
+            Chip chip = Themed(label);
+            fixture.Window.Content = new Border { Width = 256, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Child = chip };
+            Dispatcher.UIThread.RunJobs();
+            return chip;
+        }
+
+        private static TextBlock Label(Chip chip) => chip.GetVisualDescendants().OfType<TextBlock>().Single();
+
+        [AvaloniaFact]
+        public void LongLabel_InA256PointHost_TrimsAtTheTail_WithTheCloseBoxDockedInsideTheTrailingEdge() {
+            using var fixture = new KitFixture();
+            Chip chip = HostedAt256(fixture, LongLabel);
+
+            Assert.True(chip.Bounds.Width <= 256.5, $"chip is {chip.Bounds.Width} wide");
+            Assert.Equal(20, chip.Bounds.Height, 0.5);
+            Rect close = new(CloseBox(chip).TranslatePoint(new Point(0, 0), chip)!.Value, CloseBox(chip).Bounds.Size);
+            Assert.Equal(16, close.Width, 0.5);
+            Assert.Equal(16, close.Height, 0.5);
+            Assert.True(close.X >= 0 && close.Y >= 0 && close.Bottom <= chip.Bounds.Height + 0.5, $"close box at {close}");
+            Assert.Equal(chip.Bounds.Width - 4, close.Right, 0.5);
+
+            TextBlock label = Label(chip);
+            Assert.Equal(TextTrimming.CharacterEllipsis, label.TextTrimming);
+            Assert.Equal(1, label.MaxLines);
+            Assert.Contains(label.TextLayout.TextLines, l => l.HasCollapsed);
+            Assert.Equal(LongLabel, ToolTip.GetTip(chip));
+            Assert.False(ToolTip.GetServiceEnabled(CloseBox(chip)));
+            Assert.True(chip.TryFindResource(typeof(ToolTip), out object? tipTheme));
+            Assert.Same(KitTheme("Kit.Tooltip"), tipTheme);
+            Assert.Equal(LongLabel, ControlAutomationPeer.CreatePeerForElement(chip).GetName());
+        }
+
+        [AvaloniaFact]
+        public void ShortLabel_InA256PointHost_HugsItsLabel_WithNoTrimAndNoTooltip() {
+            using var fixture = new KitFixture();
+            //Headless glyphs run about one em wide, so the ruled "Compatible with Iron Plate" already overflows 256 here.
+            Chip chip = HostedAt256(fixture, "Iron Plate");
+
+            Assert.True(chip.Bounds.Width < 256, $"chip is {chip.Bounds.Width} wide");
+            Assert.DoesNotContain(Label(chip).TextLayout.TextLines, l => l.HasCollapsed);
+            Assert.Null(ToolTip.GetTip(chip));
+        }
+
+        [AvaloniaFact]
+        public void TrimmedTooltip_FollowsTheLabel_AndClearsWhenTheLabelFits() {
+            using var fixture = new KitFixture();
+            Chip chip = HostedAt256(fixture, LongLabel);
+
+            chip.Label = LongLabel + " Two";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(LongLabel + " Two", ToolTip.GetTip(chip));
+
+            chip.Label = "Iron Plate";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(ToolTip.GetTip(chip));
+        }
+
+        [AvaloniaFact]
+        public void AccessibleName_DefaultsToTheFullLabel_ButAnExplicitNameWins() {
+            using var fixture = new KitFixture();
+            Chip chip = HostedAt256(fixture, LongLabel);
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(chip);
+
+            Assert.Equal(LongLabel, peer.GetName());
+            Assert.DoesNotContain("…", peer.GetName());
+
+            AutomationProperties.SetName(chip, "Explicit");
+            Assert.Equal("Explicit", peer.GetName());
+        }
+
+        [AvaloniaFact]
+        public void CloseBoxPeer_CarriesTheRemoveAccessibleName_AndInvokeRemoves() {
+            using var fixture = new KitFixture();
+            Chip chip = Themed("Assembling machine");
+            chip.RemoveAccessibleName = "Remove Constraint";
+            var command = new RecordingCommand();
+            chip.RemoveCommand = command;
+            bool removed = false;
+            chip.Removed += (_, _) => removed = true;
+            fixture.Window.Content = chip;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer close = Assert.Single(ControlAutomationPeer.CreatePeerForElement(chip).GetChildren(), p => p.GetName() == "Remove Constraint");
+            Assert.Equal(AutomationControlType.Button, close.GetAutomationControlType());
+            IInvokeProvider invoke = Assert.IsAssignableFrom<IInvokeProvider>(close.GetProvider<IInvokeProvider>());
+            invoke.Invoke();
+
+            Assert.True(removed);
+            Assert.Equal(1, command.ExecuteCount);
+        }
+
+        private static object KitTheme(string key) {
+            Assert.True(Application.Current!.TryGetResource(key, null, out object? theme));
+            return theme!;
         }
     }
 

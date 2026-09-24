@@ -1,57 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:Foreman.Mac.ViewModels"
+             xmlns:composites="using:Foreman.Mac.Kit.Composites"
              x:Class="Foreman.Mac.Views.QuickAdd.QuickAddPalette"
-             x:DataType="vm:QuickAddViewModel"
              HorizontalAlignment="Left" VerticalAlignment="Top">
-  <Border Classes="foreman-qa-panel">
-    <DockPanel LastChildFill="True">
-      <Border DockPanel.Dock="Top" Classes="foreman-qa-search-row">
-        <Grid ColumnDefinitions="Auto,*">
-          <Viewbox Grid.Column="0" Width="14" Height="14" Margin="0,0,8,0">
-            <Canvas Width="20" Height="20">
-              <Path Data="{StaticResource Foreman.Icon.Search}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
-            </Canvas>
-          </Viewbox>
-          <TextBox Grid.Column="1" Name="SearchBox" Classes="foreman-qa-search"
-                    Text="{Binding Query, Mode=TwoWay}" PlaceholderText="{Binding Watermark}" />
-        </Grid>
-      </Border>
-
-      <Border DockPanel.Dock="Bottom" Classes="foreman-qa-hint-row">
-        <WrapPanel>
-          <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,12,4">
-            <Border Classes="foreman-kbd"><TextBlock Classes="foreman-kbd-text" Text="↵" /></Border>
-            <TextBlock Classes="foreman-qa-hint-text" Text="Place, keep open" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,12,4">
-            <Border Classes="foreman-kbd"><TextBlock Classes="foreman-kbd-text" Text="⌘↵" /></Border>
-            <TextBlock Classes="foreman-qa-hint-text" Text="Browse…" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,0,4">
-            <Border Classes="foreman-kbd"><TextBlock Classes="foreman-kbd-text" Text="Esc" /></Border>
-            <TextBlock Classes="foreman-qa-hint-text" Text="Close" />
-          </StackPanel>
-        </WrapPanel>
-      </Border>
-
-      <ScrollViewer MaxHeight="196">
-        <ItemsControl Name="Results" ItemsSource="{Binding Rows}" Padding="6,4">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate DataType="vm:QuickAddRow">
-              <Button Classes="foreman-qa-row" Classes.top="{Binding IsHighlighted}">
-                <Grid ColumnDefinitions="Auto,*,Auto">
-                  <Border Grid.Column="0" Classes="foreman-qa-row-icon" Margin="0,0,9,0">
-                    <Image Source="{Binding Icon}" Stretch="Uniform" />
-                  </Border>
-                  <TextBlock Grid.Column="1" Classes="foreman-qa-row-name" Text="{Binding Name}" />
-                  <TextBlock Grid.Column="2" Classes="foreman-qa-row-sub" Text="{Binding Sub}" />
-                </Grid>
-              </Button>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
-    </DockPanel>
-  </Border>
+  <composites:PalettePanel Name="Panel" Theme="{StaticResource Kit.PalettePanel}" />
 </UserControl>

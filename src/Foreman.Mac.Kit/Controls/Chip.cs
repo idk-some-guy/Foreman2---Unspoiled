@@ -1,8 +1,12 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
+using Avalonia.Styling;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,6 +22,9 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<ICommand?> RemoveCommandProperty =
             AvaloniaProperty.Register<Chip, ICommand?>(nameof(RemoveCommand));
 
+        public static readonly StyledProperty<string?> RemoveAccessibleNameProperty =
+            AvaloniaProperty.Register<Chip, string?>(nameof(RemoveAccessibleName));
+
         public string? Label {
             get => GetValue(LabelProperty);
             set => SetValue(LabelProperty, value);
@@ -28,11 +35,19 @@ namespace Foreman.Mac.Kit.Controls {
             set => SetValue(RemoveCommandProperty, value);
         }
 
+        public string? RemoveAccessibleName {
+            get => GetValue(RemoveAccessibleNameProperty);
+            set => SetValue(RemoveAccessibleNameProperty, value);
+        }
+
         public event EventHandler? Removed;
 
         private Border? closeBox;
         private Border? closeHoverFill;
         private Path? closeGlyph;
+        private TextBlock? label;
+        private IDisposable? labelBoundsSub;
+        private bool labelTrimmed;
         private bool closeHovering;
         private double glyphIdleOpacity = 0.75;
         private readonly List<IDisposable> subs = [];
@@ -49,6 +64,8 @@ namespace Foreman.Mac.Kit.Controls {
             closeBox = e.NameScope.Find<Border>("PART_CloseBox");
             closeHoverFill = e.NameScope.Find<Border>("PART_CloseHoverFill");
             closeGlyph = e.NameScope.Find<Path>("PART_CloseGlyph");
+            label = e.NameScope.Find<TextBlock>("PART_Label");
+            SubscribeLabelBounds();
             if (closeBox is not null) {
                 closeBox.PointerEntered += OnCloseEntered;
                 closeBox.PointerExited += OnCloseExited;
@@ -60,15 +77,41 @@ namespace Foreman.Mac.Kit.Controls {
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnAttachedToVisualTree(e);
             Subscribe();
+            SubscribeLabelBounds();
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
             Unsubscribe();
+            labelBoundsSub?.Dispose();
+            labelBoundsSub = null;
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
+            base.OnPropertyChanged(change);
+            if (change.Property == LabelProperty)
+                ApplyTrimmedTip();
+        }
+
+        //The label only reports its trim after arrange, so the tip follows the label's arranged bounds.
+        private void SubscribeLabelBounds() {
+            labelBoundsSub?.Dispose();
+            labelBoundsSub = label?.GetObservable(BoundsProperty).Subscribe(new BoundsObserver(_ => {
+                labelTrimmed = label!.TextLayout.TextLines.Any(l => l.HasCollapsed);
+                ApplyTrimmedTip();
+            }));
+        }
+
+        private void ApplyTrimmedTip() {
+            string? tip = labelTrimmed ? Label : null;
+            if (!Equals(ToolTip.GetTip(this), tip))
+                ToolTip.SetTip(this, tip);
         }
 
         private void Subscribe() {
             Unsubscribe();
+            //The tip's ToolTip finds its implicit theme through the chip, so the kit look reaches it without a global style.
+            subs.Add(this.GetResourceObservable("Kit.Tooltip").Subscribe(new ResourceSinks.Sink<ControlTheme?>(theme => Resources[typeof(ToolTip)] = theme, null)));
             subs.Add(this.GetResourceObservable("Foreman.Opacity.ChipCloseIdle").Subscribe(new ResourceSinks.DoubleSink(v => { glyphIdleOpacity = v; ApplyCloseState(); }, glyphIdleOpacity)));
         }
 
@@ -115,7 +158,7 @@ namespace Foreman.Mac.Kit.Controls {
             base.OnKeyDown(e);
         }
 
-        private void Remove() {
+        internal void Remove() {
             Chip? landing = NextChip() ?? PreviousChip();
             Control? fallback = landing is null ? ChipHost.GetFocusFallback(this) : null;
             if (RemoveCommand?.CanExecute(null) == true)
@@ -141,6 +184,36 @@ namespace Foreman.Mac.Kit.Controls {
             List<Chip> chips = [.. panel.Children.OfType<Chip>()];
             int index = chips.IndexOf(this);
             return index <= 0 ? null : chips[index - 1];
+        }
+
+        protected override AutomationPeer OnCreateAutomationPeer() => new ChipAutomationPeer(this);
+
+        private sealed class BoundsObserver(Action<Rect> onNext) : IObserver<Rect> {
+            public void OnNext(Rect value) => onNext(value);
+            public void OnError(Exception error) { }
+            public void OnCompleted() { }
+        }
+
+        private sealed class ChipAutomationPeer(Chip owner) : ControlAutomationPeer(owner) {
+            protected override string? GetNameCore() => base.GetNameCore() is { Length: > 0 } name ? name : owner.Label;
+            protected override IReadOnlyList<AutomationPeer> GetChildrenCore() =>
+                owner.closeBox is { } close ? [ControlAutomationPeer.CreatePeerForElement(close)] : [];
+        }
+    }
+
+    //A named Border subclass so the ✕ gets its own invokable automation peer.
+    public class ChipCloseBox : Border {
+        protected override Type StyleKeyOverride => typeof(Border);
+
+        protected override AutomationPeer OnCreateAutomationPeer() => new ChipCloseBoxAutomationPeer(this);
+
+        private sealed class ChipCloseBoxAutomationPeer(ChipCloseBox owner) : ControlAutomationPeer(owner), IInvokeProvider {
+            private Chip? Chip => owner.TemplatedParent as Chip;
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Button;
+            protected override string? GetNameCore() => base.GetNameCore() is { Length: > 0 } name ? name : Chip?.RemoveAccessibleName;
+            protected override bool IsContentElementCore() => true;
+            protected override bool IsControlElementCore() => true;
+            void IInvokeProvider.Invoke() => Chip?.Remove();
         }
     }
 }

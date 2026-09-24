@@ -52,18 +52,8 @@ namespace Foreman.Mac.Canvas.Panels {
             _anchorGraphPoint = anchorGraphPoint;
             _centerOnAnchor = centerOnAnchor;
             _host.Children.Add(content);
-            if (content is IPanelContentResize resizable)
-                resizable.ContentResized += OnContentResized;
             Reposition();
             FocusPrimary(content);
-        }
-
-        //Content that shrinks/grows (QuickAddPalette's row count) invalidates its own measure but doesn't
-        //arrange until the next layout pass - forcing that pass here means Reposition's Measure call below
-        //sees the real desired size instead of whatever was true before the row count changed.
-        private void OnContentResized(object? sender, EventArgs e) {
-            _content?.UpdateLayout();
-            Reposition();
         }
 
         private static void FocusPrimary(AvaloniaControl primary) {
@@ -82,8 +72,6 @@ namespace Foreman.Mac.Canvas.Panels {
         public void Close() {
             if (_content is null)
                 return;
-            if (_content is IPanelContentResize resizable)
-                resizable.ContentResized -= OnContentResized;
             AvaloniaControl closing = _content;
             _owner.Focus();
             _content = null;
@@ -148,7 +136,7 @@ namespace Foreman.Mac.Canvas.Panels {
                 (int)Math.Ceiling(desired.Height));
         }
 
-        //Gives content (e.g. QuickAddPalette) a chance to actually reflow to the available space before
+        //Gives content a chance to actually reflow to the available space before
         //EditPanelViewportLayout.Apply measures+clamps it - otherwise Apply can only shrink the outer
         //Width/Height property, which clips fixed-size content instead of making it smaller.
         private DrawingRectangle MeasureReflowableRect(AvaloniaControl content, DrawingPoint anchorGraphPoint, int viewerWidth, int viewerHeight) {

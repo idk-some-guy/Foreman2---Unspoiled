@@ -40,6 +40,27 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<PaletteResult?> SelectedItemProperty =
             AvaloniaProperty.Register<PalettePanel, PaletteResult?>(nameof(SelectedItem));
 
+        public static readonly StyledProperty<string?> NoResultsHeadlineProperty =
+            AvaloniaProperty.Register<PalettePanel, string?>(nameof(NoResultsHeadline));
+
+        public static readonly StyledProperty<string?> NoResultsSentenceProperty =
+            AvaloniaProperty.Register<PalettePanel, string?>(nameof(NoResultsSentence));
+
+        public static readonly StyledProperty<ButtonRow?> NoResultsButtonsProperty =
+            AvaloniaProperty.Register<PalettePanel, ButtonRow?>(nameof(NoResultsButtons));
+
+        public static readonly StyledProperty<Control?> EmptyContentProperty =
+            AvaloniaProperty.Register<PalettePanel, Control?>(nameof(EmptyContent));
+
+        public static readonly StyledProperty<Control?> HeaderAccessoryProperty =
+            AvaloniaProperty.Register<PalettePanel, Control?>(nameof(HeaderAccessory));
+
+        public string? NoResultsHeadline { get => GetValue(NoResultsHeadlineProperty); set => SetValue(NoResultsHeadlineProperty, value); }
+        public string? NoResultsSentence { get => GetValue(NoResultsSentenceProperty); set => SetValue(NoResultsSentenceProperty, value); }
+        public ButtonRow? NoResultsButtons { get => GetValue(NoResultsButtonsProperty); set => SetValue(NoResultsButtonsProperty, value); }
+        public Control? EmptyContent { get => GetValue(EmptyContentProperty); set => SetValue(EmptyContentProperty, value); }
+        public Control? HeaderAccessory { get => GetValue(HeaderAccessoryProperty); set => SetValue(HeaderAccessoryProperty, value); }
+
         public AvaloniaList<PaletteResult> Results { get; } = [];
         public AvaloniaList<PaletteFooterHint> FooterHints { get; } = [];
 
@@ -55,10 +76,9 @@ namespace Foreman.Mac.Kit.Composites {
         public event EventHandler? CloseRequested;
 
         private readonly StatePanel noResultsPanel = new() { Shape = StatePanelShape.NoResults };
-        private readonly Button clearSearchButton = new() { Content = "Clear Search" };
-        private readonly ButtonRow noResultsButtons = new();
 
         private Panel? header;
+        private ContentPresenter? accessoryPresenter;
         private StackPanel? track;
         private ContentPresenter? statePresenter;
         private StackPanel? footer;
@@ -71,19 +91,19 @@ namespace Foreman.Mac.Kit.Composites {
 
         static PalettePanel() {
             SelectedItemProperty.Changed.AddClassHandler<PalettePanel>((p, _) => p.ApplySelection());
+            NoResultsHeadlineProperty.Changed.AddClassHandler<PalettePanel>((p, _) => p.noResultsPanel.Headline = p.NoResultsHeadline);
+            NoResultsSentenceProperty.Changed.AddClassHandler<PalettePanel>((p, _) => p.noResultsPanel.Sentence = p.NoResultsSentence);
+            NoResultsButtonsProperty.Changed.AddClassHandler<PalettePanel>((p, _) => p.ApplyNoResultsButtons());
+            EmptyContentProperty.Changed.AddClassHandler<PalettePanel>((p, _) => p.ApplyStateVisibility());
+            HeaderAccessoryProperty.Changed.AddClassHandler<PalettePanel>((p, _) => p.ApplyHeaderAccessory());
         }
 
         public PalettePanel() {
-            ButtonRow.SetRole(clearSearchButton, ButtonRowRole.Default);
-            noResultsButtons.Items.Add(clearSearchButton);
-            noResultsPanel.Buttons = noResultsButtons;
-            noResultsPanel.MaxHeight = NoResultsMaxHeight;
-            clearSearchButton.Click += (_, _) => Search.Text = string.Empty;
             Search.Classes.Add("flush");
 
             Results.CollectionChanged += (_, _) => ScheduleRebuild();
             FooterHints.CollectionChanged += (_, _) => RebuildFooter();
-            Search.GetObservable(TextBox.TextProperty).Subscribe(new TextObserver(_ => ApplyNoResultsHeadline()));
+            Search.GetObservable(TextBox.TextProperty).Subscribe(new TextObserver(_ => ApplyStateVisibility()));
             this.GetObservable(ListHost.IsKeyProperty).Subscribe(new BoolObserver(v => { isKey = v; ApplyIsKeyToRows(); }));
 
             AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
@@ -106,22 +126,23 @@ namespace Foreman.Mac.Kit.Composites {
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
             base.OnApplyTemplate(e);
             header = e.NameScope.Find<Panel>("PART_Header");
+            accessoryPresenter = e.NameScope.Find<ContentPresenter>("PART_HeaderAccessory");
             track = e.NameScope.Find<StackPanel>("PART_Track");
             statePresenter = e.NameScope.Find<ContentPresenter>("PART_State");
             footer = e.NameScope.Find<StackPanel>("PART_Footer");
 
             ApplyTheme("Kit.SearchField", Search);
             ApplyTheme("Kit.StatePanel", noResultsPanel);
-            ApplyTheme("Kit.ButtonRow", noResultsButtons);
-            ApplyTheme("Kit.Button", clearSearchButton);
             if (this.TryFindResource("Kit.PaletteRow", null, out object? theme) && theme is ControlTheme paletteRowTheme)
                 rowTheme = paletteRowTheme;
 
             if (header is not null && !header.Children.Contains(Search))
-                header.Children.Add(Search);
+                header.Children.Insert(0, Search);
             if (statePresenter is not null)
-                statePresenter.Content = noResultsPanel;
+                statePresenter.MaxHeight = NoResultsMaxHeight;
 
+            ApplyNoResultsButtons();
+            ApplyHeaderAccessory();
             RebuildFooter();
             Rebuild();
         }
@@ -196,7 +217,6 @@ namespace Foreman.Mac.Kit.Composites {
             SetCurrentValue(SelectedItemProperty, newItems.Count > 0 ? newItems[0] : null);
             ApplySelection();
             ApplyStateVisibility();
-            ApplyNoResultsHeadline();
             ApplyAutomationSummary();
             BeginHeightReflow();
         }
@@ -291,17 +311,42 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
+        //An empty query with nothing listed is first use (the host's Empty slot); anything else with nothing listed is no-results.
         private void ApplyStateVisibility() {
             bool noResults = (currentItems?.Count ?? 0) == 0;
             if (track is not null)
                 track.IsVisible = !noResults;
-            if (statePresenter is not null)
-                statePresenter.IsVisible = noResults;
+            if (statePresenter is null)
+                return;
+            Control? state = !noResults ? null
+                : string.IsNullOrEmpty(Search.Text) && EmptyContent is { } empty ? empty
+                : NoResultsButtons is not null ? noResultsPanel
+                : null;
+            if (!ReferenceEquals(statePresenter.Content, state))
+                statePresenter.Content = state;
+            statePresenter.IsVisible = state is not null;
         }
 
-        private void ApplyNoResultsHeadline() {
-            string query = Search.Text ?? "";
-            noResultsPanel.Headline = string.IsNullOrEmpty(query) ? "No results" : $"No results for “{query}”.";
+        //StatePanel refuses to build without a button, so the no-results panel only joins the tree once the host gives it one.
+        private void ApplyNoResultsButtons() {
+            if (NoResultsButtons is null) {
+                if (ReferenceEquals(statePresenter?.Content, noResultsPanel))
+                    statePresenter!.Content = null;
+                noResultsPanel.Buttons = null;
+            } else {
+                ApplyTheme("Kit.ButtonRow", NoResultsButtons);
+                foreach (Control item in NoResultsButtons.Items.OfType<Button>())
+                    ApplyTheme("Kit.Button", item);
+                noResultsPanel.Buttons = NoResultsButtons;
+            }
+            ApplyStateVisibility();
+        }
+
+        private void ApplyHeaderAccessory() {
+            if (accessoryPresenter is null)
+                return;
+            accessoryPresenter.Content = HeaderAccessory;
+            accessoryPresenter.IsVisible = HeaderAccessory is not null;
         }
 
         private void ApplyAutomationSummary() {
@@ -325,7 +370,9 @@ namespace Foreman.Mac.Kit.Composites {
         //The panel's own height eases to the new content height (addendum §09) - mirrors Kit.FormRow's reflow exactly.
         private void BeginHeightReflow() {
             CompositeMotion.ReflowHeight(this, () => {
-                Measure(new Size(Bounds.Width, double.PositiveInfinity));
+                //Measure keeps the constraint it is given as the one layout re-measures with, so reuse the host's width, not Bounds.
+                double width = LayoutInformation.GetPreviousMeasureConstraint(this)?.Width ?? Bounds.Width;
+                Measure(new Size(width, double.PositiveInfinity));
                 return DesiredSize.Height;
             }, () => CompositeMotion.ClearExplicitHeight(this, ref reflowCancellation), ref reflowCancellation);
         }

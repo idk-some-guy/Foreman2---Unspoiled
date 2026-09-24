@@ -206,6 +206,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   their values ("Opacity, 40 percent"), and the export path and size labels read their text as the
   value. Every popover now opens with a small settle from 97 % scale, and Tab no longer lands in a
   popover that has closed.
+- The Quick Add palette is rebuilt on the kit. It opens where you double-clicked, where a link drag
+  was released, or under the Item and Recipe toolbar buttons, and flips to stay on screen. It shows
+  at most six rows, and past that ⌘Return opens the browser with the same search. Before you type, it
+  explains how to add a node, and a search with no matches offers Browse All…. When it opens from a
+  link drag, it lists only recipes that make or take the dragged item, says which in its placeholder,
+  and shows a "Compatible with Iron Plate" chip. A long item name is cut short with an ellipsis and
+  shown in full in a tooltip, and VoiceOver can press the chip's ✕ as Remove Constraint. Removing the
+  chip widens the search and places the next node unlinked at the drop point. Return places the node
+  and keeps the palette open. A node placed from the palette or the browser flashes once with an
+  accent ring so you can see where it landed. Reduce Motion keeps the flash and only softens its fade.
 
 ### Fixed
 

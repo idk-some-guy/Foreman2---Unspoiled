@@ -63,6 +63,12 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.Equal(3000, Motion.SpinnerReducedMotionDuration.TotalMilliseconds);
         }
 
+        [Fact]
+        public void PlacementFlash_HoldsTwoHundredMilliseconds_AndRunsFiveHundredFortyInAll() {
+            Assert.Equal(200, Motion.PlacementFlashHold.TotalMilliseconds);
+            Assert.Equal(540, (Motion.HoverDuration + Motion.PlacementFlashHold + Motion.CrossFadeDuration).TotalMilliseconds);
+        }
+
         //The 10 pre-existing duration/scale constants keep their names and values untouched.
         [Fact]
         public void ThePreExistingTenConstants_KeepTheirValues() {

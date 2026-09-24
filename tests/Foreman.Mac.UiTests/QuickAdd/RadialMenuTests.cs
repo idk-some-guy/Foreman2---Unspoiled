@@ -50,7 +50,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             AddRequest request = fx.Control.ActiveAddRequest!;
             Assert.NotNull(request.Link);
             Assert.Equal(NewNodeType.Consumer, request.Link!.NodeType);
-            Assert.IsType<QuickAddPalette>(fx.Control.FloatingPanelHost.Content);
+            Assert.NotNull(fx.Control.OpenPalette);
         }
 
         [AvaloniaFact]
@@ -141,7 +141,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
             fx.ClickAt(fx.Control.OpenRadial!.Bounds.Center + new AvaloniaVector(0, -64));
 
-            var box = fx.Control.OpenPalette!.FindControl<TextBox>("SearchBox")!;
+            var box = fx.Control.OpenPalette!.Search;
             CanvasKeys.KeyDownOn(box, Key.Enter); //top row: the top-ranked compatible recipe (the item row is gone - Source/Output own that role now)
             CanvasKeys.KeyDownOn(box, Key.Enter);
 
@@ -229,6 +229,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             Assert.Single(fx.Viewer.Graph.Nodes.OfType<SupplierNode>());
             Assert.Single(fx.Viewer.Graph.NodeLinks);
+            Assert.Null(fx.Control.PlacementFlashNode);
         }
 
         [AvaloniaFact]

@@ -15,19 +15,16 @@
         <Border Background="{DynamicResource Foreman.Color.AccentSoft}"
                 CornerRadius="{DynamicResource Foreman.Radius.Pill}"
                 Padding="{DynamicResource Foreman.Thickness.ChipPadding}">
-          <StackPanel Orientation="Horizontal"
-                      Spacing="{DynamicResource Foreman.Size.ChipGap}"
-                      VerticalAlignment="Center">
-            <TextBlock Text="{TemplateBinding Label}"
-                       Foreground="{DynamicResource Foreman.Color.AccentText}"
-                       FontSize="{DynamicResource Foreman.Type.Caption.FontSize}"
-                       FontWeight="{DynamicResource Foreman.Type.Callout.Emphasized.FontWeight}"
-                       VerticalAlignment="Center" />
-            <Border x:Name="PART_CloseBox"
-                    Width="{DynamicResource Foreman.Size.ChipCloseBox}"
-                    Height="{DynamicResource Foreman.Size.ChipCloseBox}"
-                    CornerRadius="{DynamicResource Foreman.Radius.Pill}"
-                    Background="Transparent">
+          <DockPanel LastChildFill="True"
+                     HorizontalSpacing="{DynamicResource Foreman.Size.ChipGap}"
+                     VerticalAlignment="Center">
+            <kit:ChipCloseBox x:Name="PART_CloseBox"
+                              DockPanel.Dock="Right"
+                              ToolTip.ServiceEnabled="False"
+                              Width="{DynamicResource Foreman.Size.ChipCloseBox}"
+                              Height="{DynamicResource Foreman.Size.ChipCloseBox}"
+                              CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                              Background="Transparent">
               <Panel>
                 <Border x:Name="PART_CloseHoverFill"
                         CornerRadius="{DynamicResource Foreman.Radius.Pill}"
@@ -54,8 +51,17 @@
                         Transitions="{x:Static m:Motion.ButtonTransitions}" />
                 </Viewbox>
               </Panel>
-            </Border>
-          </StackPanel>
+            </kit:ChipCloseBox>
+            <TextBlock x:Name="PART_Label"
+                       Text="{TemplateBinding Label}"
+                       TextTrimming="CharacterEllipsis"
+                       TextWrapping="NoWrap"
+                       MaxLines="1"
+                       Foreground="{DynamicResource Foreman.Color.AccentText}"
+                       FontSize="{DynamicResource Foreman.Type.Caption.FontSize}"
+                       FontWeight="{DynamicResource Foreman.Type.Callout.Emphasized.FontWeight}"
+                       VerticalAlignment="Center" />
+          </DockPanel>
         </Border>
       </ControlTemplate>
     </Setter>

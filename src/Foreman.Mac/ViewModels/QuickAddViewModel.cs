@@ -10,7 +10,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 
 namespace Foreman.Mac.ViewModels {
-    public sealed partial class QuickAddRow : ObservableObject {
+    public sealed class QuickAddRow {
         public QuickAddRow(AddCandidate candidate, string name, string kindLabel, string qualitySuffix, IImage? icon) {
             Candidate = candidate;
             Name = name;
@@ -25,17 +25,20 @@ namespace Foreman.Mac.ViewModels {
         public string QualitySuffix { get; }
         public IImage? Icon { get; }
         public string Sub => KindLabel + QualitySuffix;
-
-        [ObservableProperty]
-        private bool isHighlighted;
     }
 
     public sealed partial class QuickAddViewModel : ObservableObject {
+        public const string BrowseAllLabel = "Browse All…";
+        public const string RemoveConstraintLabel = "Remove Constraint";
+        public const string EmptyHeadline = "Search to add a node";
+        public const string EmptySentence = "Type a few letters of a recipe or an item, then press Return to place it.";
+        private const int QuotedQueryLimit = 24;
+
         private readonly AddCatalog catalog;
-        private readonly AddRequest request;
         private readonly string qualitySuffix;
         private readonly Func<SKBitmap, IImage?> bakeIcon;
         private readonly ObservableCollection<QuickAddRow> rows = [];
+        private AddRequest request;
 
         public QuickAddViewModel(AddCatalog catalog, AddRequest request, IQuality? quality, Func<SKBitmap, IImage?> bakeIcon) {
             this.catalog = catalog;
@@ -48,47 +51,68 @@ namespace Foreman.Mac.ViewModels {
         }
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(NoResultsHeadline), nameof(NoResultsSentence))]
         private string query = "";
 
-        [ObservableProperty]
-        private int highlightedIndex = -1;
-
         public ReadOnlyObservableCollection<QuickAddRow> Rows { get; }
-        public bool HasRows => rows.Count > 0;
 
-        //FloatingPanelHost re-measures the palette on this (via QuickAddPalette's IPanelContentResize) -
-        //Refresh() below is the only place the row count actually changes.
         public event EventHandler? RowsChanged;
+        public event EventHandler? ConstraintChanged;
 
-        public string Watermark => request.Scope switch {
-            AddScope.Items => "Search items…",
-            AddScope.Recipes => "Search recipes…",
-            _ => "Search…",
+        public AddLinkContext? Link => request.Link;
+        private string? LinkItemName => request.Link?.Item.Item?.FriendlyName;
+
+        //Supplier lists recipes that make the dragged item, Consumer those that take it (AddCatalog.IsCompatible's split).
+        private string? LinkVerb => request.Link?.NodeType switch {
+            NewNodeType.Supplier => "make",
+            NewNodeType.Consumer => "take",
+            _ => null,
         };
 
+        public string? ConstraintText => LinkItemName is string name ? $"Compatible with {name}" : null;
+
+        public string Watermark => LinkVerb is string verb && LinkItemName is string name ? $"Search recipes that {verb} {name}"
+            : request.Scope switch {
+                AddScope.Items => "Search items…",
+                AddScope.Recipes => "Search recipes…",
+                _ => "Search…",
+            };
+
+        public string NoResultsHeadline => LinkVerb is string verb && LinkItemName is string name && Query.Length == 0
+            ? $"No recipes {verb} {name}"
+            : $"No matches for “{Quoted(Query)}”";
+
+        public string NoResultsSentence => LinkVerb is string verb && LinkItemName is string name
+            ? Query.Length == 0 ? $"No recipes {verb} {name}" : $"Only recipes that {verb} {name} are listed while a link is being dragged."
+            : "Nothing in this preset matches the search.";
+
+        private static string Quoted(string text) => text.Length > QuotedQueryLimit ? text[..QuotedQueryLimit] + "…" : text;
+
         partial void OnQueryChanged(string value) => Refresh();
-        partial void OnHighlightedIndexChanged(int value) => SyncHighlight();
 
-        public void MoveHighlight(int delta) {
-            if (rows.Count == 0) { HighlightedIndex = -1; return; }
-            HighlightedIndex = ((HighlightedIndex + delta) % rows.Count + rows.Count) % rows.Count;
+        //Dropping the constraint also drops the link: placement becomes a plain one at the drop point.
+        public void RemoveConstraint() {
+            if (request.Link is null)
+                return;
+            request = request with { Link = null };
+            OnPropertyChanged(nameof(Link));
+            OnPropertyChanged(nameof(ConstraintText));
+            OnPropertyChanged(nameof(Watermark));
+            OnPropertyChanged(nameof(NoResultsHeadline));
+            OnPropertyChanged(nameof(NoResultsSentence));
+            ConstraintChanged?.Invoke(this, EventArgs.Empty);
+            Refresh();
         }
-
-        public AddCandidate? Commit() => HighlightedIndex >= 0 && HighlightedIndex < rows.Count ? rows[HighlightedIndex].Candidate : null;
 
         private void Refresh() {
             var desired = catalog.Search(Query, request.Scope, request.Link, limit: 200)
                 .Select(c => new QuickAddRow(c, c.Name, c.KindLabel, c.Kind == AddKind.Recipe ? qualitySuffix : "", bakeIcon(c.Entry.Icon)))
                 .ToList();
             SyncRows(desired);
-            HighlightedIndex = rows.Count > 0 ? 0 : -1;
-            SyncHighlight();
-            OnPropertyChanged(nameof(HasRows));
             RowsChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        //Gate fix 11: a row that survives the query change keeps its own instance (Move, not
-        //Remove+Add), so its container survives too and only genuinely new rows animate in.
+        //A row that survives the query change keeps its own instance (Move, not Remove+Add).
         private void SyncRows(List<QuickAddRow> desired) {
             var desiredCandidates = new HashSet<AddCandidate>(desired.Select(r => r.Candidate));
             for (int i = rows.Count - 1; i >= 0; i--)
@@ -109,12 +133,6 @@ namespace Foreman.Mac.ViewModels {
                 if (rows[i].Candidate.Equals(candidate))
                     return i;
             return -1;
-        }
-
-        //Also called directly from Refresh() - a same-value HighlightedIndex skips the change notification, which would otherwise leave fresh rows unmarked.
-        private void SyncHighlight() {
-            for (int i = 0; i < rows.Count; i++)
-                rows[i].IsHighlighted = i == HighlightedIndex;
         }
     }
 }

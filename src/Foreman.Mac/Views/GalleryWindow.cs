@@ -2092,6 +2092,9 @@ namespace Foreman.Mac.Views {
         //Search still loading - the leading glyph has already swapped for the spinner.
         private static StackPanel BuildPalettePanelNoResultsTile() {
             PalettePanel panel = KitPalettePanel(PaletteFooterHintsCloseOnly);
+            panel.NoResultsHeadline = "No matches for “beacn”";
+            panel.NoResultsSentence = "Nothing in this preset matches the search.";
+            panel.NoResultsButtons = KitButtonRow(KitRowButton("Browse All…", ButtonRowRole.Default));
             panel.Search.Text = "beacn";
             panel.Search.IsLoading = true;
 

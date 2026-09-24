@@ -13,6 +13,9 @@ using System.Globalization;
 namespace Foreman.Mac.Kit.Composites {
     public enum PopoverEdge { Bottom, Top, Right, Left }
 
+    //Flush: placed at a point rather than an anchor control, with no tail, no padding and no material, so the content supplies the look.
+    public enum PopoverFrameMode { Anchored, Flush }
+
     //Where the frame landed and how its tail should sit - computed by the pure ResolvePlacement.
     public readonly record struct PopoverPlacementResult(PopoverEdge Edge, Point FramePosition, double TailOffset, Point RenderOrigin);
 
@@ -33,7 +36,16 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<double> PanelWidthProperty =
             AvaloniaProperty.Register<PopoverFrame, double>(nameof(PanelWidth), double.NaN);
 
+        public static readonly StyledProperty<PopoverFrameMode> ModeProperty =
+            AvaloniaProperty.Register<PopoverFrame, PopoverFrameMode>(nameof(Mode));
+
+        //Host-surface coordinates; read only in Flush mode.
+        public static readonly StyledProperty<Point> AnchorPointProperty =
+            AvaloniaProperty.Register<PopoverFrame, Point>(nameof(AnchorPoint));
+
         public Control? Anchor { get => GetValue(AnchorProperty); set => SetValue(AnchorProperty, value); }
+        public PopoverFrameMode Mode { get => GetValue(ModeProperty); set => SetValue(ModeProperty, value); }
+        public Point AnchorPoint { get => GetValue(AnchorPointProperty); set => SetValue(AnchorPointProperty, value); }
         public bool IsOpen { get => GetValue(IsOpenProperty); set => SetValue(IsOpenProperty, value); }
         public double PanelWidth { get => GetValue(PanelWidthProperty); set => SetValue(PanelWidthProperty, value); }
         public PopoverEdge ResolvedPlacement => resolvedPlacement;
@@ -47,6 +59,7 @@ namespace Foreman.Mac.Kit.Composites {
 
         private Border? panel;
         private Border? tail;
+        private Border? contentClip;
         private PopoverEdge resolvedPlacement = PopoverEdge.Bottom;
         private double tailSize = 12;
         private readonly List<IDisposable> tokenSubs = [];
@@ -54,6 +67,8 @@ namespace Foreman.Mac.Kit.Composites {
 
         static PopoverFrame() {
             IsOpenProperty.Changed.AddClassHandler<PopoverFrame>((p, e) => p.ApplyOpenState((bool)e.NewValue!));
+            ModeProperty.Changed.AddClassHandler<PopoverFrame>((p, _) => p.ApplyMode());
+            AnchorPointProperty.Changed.AddClassHandler<PopoverFrame>((p, _) => p.UpdatePlacement());
             ContentProperty.Changed.AddClassHandler<PopoverFrame>((p, _) => p.ApplyAccessibleName());
         }
 
@@ -68,15 +83,31 @@ namespace Foreman.Mac.Kit.Composites {
             base.OnApplyTemplate(e);
             panel = e.NameScope.Find<Border>("PART_Panel");
             tail = e.NameScope.Find<Border>("PART_Tail");
+            contentClip = e.NameScope.Find<Border>("PART_ContentClip");
             PseudoClasses.Set(":open", IsOpen);
             IsHitTestVisible = IsOpen;
             if (panel is not null) {
                 panel.Transitions = null;
                 panel.RenderTransform = PanelScale(IsOpen);
             }
-            ApplyTailGeometry();
+            ApplyMode();
             ApplyAccessibleName();
             SubscribePanelSize();
+            UpdatePlacement();
+        }
+
+        private bool IsFlush => Mode == PopoverFrameMode.Flush;
+
+        //ClipToBounds clips a Border's own drawing too, so the clip sits inside the shadow-carrying panel.
+        private void ApplyMode() {
+            if (panel is null)
+                return;
+            PseudoClasses.Set(":flush", IsFlush);
+            if (contentClip is not null)
+                contentClip.ClipToBounds = IsFlush;
+            if (tail is not null)
+                tail.IsVisible = !IsFlush;
+            ApplyTailGeometry();
             UpdatePlacement();
         }
 
@@ -94,8 +125,9 @@ namespace Foreman.Mac.Kit.Composites {
                 ApplyTailGeometry();
                 UpdatePlacement();
             }, tailSize)));
-            if (Anchor is { } anchor && this.FindAncestorOfType<PopoverHost>() is { } host) {
-                tokenSubs.Add(anchor.GetObservable(Visual.BoundsProperty).Subscribe(new ChangeObserver<Rect>(_ => UpdatePlacement())));
+            if (this.FindAncestorOfType<PopoverHost>() is { } host && (Anchor is not null || IsFlush)) {
+                if (Anchor is { } anchor)
+                    tokenSubs.Add(anchor.GetObservable(Visual.BoundsProperty).Subscribe(new ChangeObserver<Rect>(_ => UpdatePlacement())));
                 tokenSubs.Add(host.GetObservable(Visual.BoundsProperty).Subscribe(new ChangeObserver<Rect>(_ => UpdatePlacement())));
                 SubscribePanelSize();
             }
@@ -118,7 +150,7 @@ namespace Foreman.Mac.Kit.Composites {
         private void ApplyTailGeometry() {
             if (tail is null || panel is null)
                 return;
-            double half = tailSize / 2;
+            double half = IsFlush ? 0 : tailSize / 2;
             panel.Margin = new Thickness(half);
             tail.Width = tailSize;
             tail.Height = tailSize;
@@ -137,7 +169,16 @@ namespace Foreman.Mac.Kit.Composites {
 
         //Driven by the anchor's and the host's own Bounds, never by this control's arrange pass.
         private void UpdatePlacement() {
-            if (panel is null || Anchor is not { } anchor || this.FindAncestorOfType<PopoverHost>() is not { } host)
+            if (panel is null || this.FindAncestorOfType<PopoverHost>() is not { } host)
+                return;
+            if (IsFlush) {
+                Point position = ResolvePointPlacement(AnchorPoint, host.Bounds.Size, panel.DesiredSize);
+                Canvas.SetLeft(this, position.X);
+                Canvas.SetTop(this, position.Y);
+                panel.RenderTransformOrigin = new RelativePoint(AnchorPoint - position, RelativeUnit.Absolute);
+                return;
+            }
+            if (Anchor is not { } anchor)
                 return;
             Rect anchorInParent = new(anchor.TranslatePoint(new Point(0, 0), host) ?? default, anchor.Bounds.Size);
             PopoverPlacementResult placement = ResolvePlacement(anchorInParent, host.Bounds.Size, panel.DesiredSize, Gap, TailClamp);
@@ -186,7 +227,7 @@ namespace Foreman.Mac.Kit.Composites {
             ApplyNavigation(open);
             if (open)
                 //Posted, not inline - the frame has not been through its first arrange yet, so Focus() silently no-ops here.
-                Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (IsOpen) Focus(); });
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (IsOpen && !IsKeyboardFocusWithin) Focus(); });
             else {
                 Anchor?.Focus();
                 Closed?.Invoke(this, EventArgs.Empty);
@@ -236,6 +277,15 @@ namespace Foreman.Mac.Kit.Composites {
             public void OnNext(T value) => onNext(value);
             public void OnError(Exception error) { }
             public void OnCompleted() { }
+        }
+
+        //Top-left at the point; each axis flips to the point's other side on its own when the frame would leave the host, then clamps.
+        internal static Point ResolvePointPlacement(Point point, Size host, Size frame) {
+            double x = point.X + frame.Width <= host.Width ? point.X : point.X - frame.Width;
+            double y = point.Y + frame.Height <= host.Height ? point.Y : point.Y - frame.Height;
+            return new Point(
+                Math.Clamp(x, 0, Math.Max(0, host.Width - frame.Width)),
+                Math.Clamp(y, 0, Math.Max(0, host.Height - frame.Height)));
         }
 
         //Preferred edge below the anchor, flipping to above then trailing then leading, and only then clamping - the frame never leaves the host.

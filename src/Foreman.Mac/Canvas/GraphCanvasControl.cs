@@ -15,6 +15,7 @@ using Foreman.Graph;
 using Foreman.Mac;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
@@ -102,6 +103,7 @@ namespace Foreman.Mac.Canvas {
 
         static GraphCanvasControl() {
             PanProgressProperty.Changed.AddClassHandler<GraphCanvasControl>((c, e) => c.OnPanProgress(e.GetNewValue<double>()));
+            PlacementFlashProgressProperty.Changed.AddClassHandler<GraphCanvasControl>((c, e) => c.OnPlacementFlashProgress(e.GetNewValue<double>()));
         }
 
         public GraphCanvasControl() {
@@ -115,8 +117,12 @@ namespace Foreman.Mac.Canvas {
             //Gotcha: overlay.Background must stay null - a set Background would hit-test as opaque and
             //swallow every canvas click, since Decorator.Child paints above our own Render override.
             var overlay = new AvaloniaCanvas();
-            Child = overlay;
+            paletteFrame = new PopoverFrame { Name = "QuickAddPopover", Mode = PopoverFrameMode.Flush };
+            paletteFrame.Closed += (_, _) => Focus();
+            paletteHost.Surface.Children.Add(paletteFrame);
+            Child = new Panel { Children = { overlay, paletteHost } };
             FloatingPanelHost = new FloatingPanelHost(overlay, Viewport, this);
+            AddHandler(PointerPressedEvent, NoteDismissingPress, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
             Viewer.Context.SetClipboardText = SetClipboardText;
             Viewer.Context.GetClipboardText = GetClipboardText;
             Viewer.Context.StartLinkDrag = StartLinkDrag;
@@ -163,12 +169,12 @@ namespace Foreman.Mac.Canvas {
 
         //Closes any open panel first: a load can replace or remove the node it was bound to.
         internal GraphLoadResult LoadDocument(DataCache cache, string json, bool setEnablesFromJson = true) {
-            FloatingPanelHost.Close();
+            ClosePanels();
             return Viewer.LoadDocument(cache, json, setEnablesFromJson);
         }
 
         internal GraphLoadResult LoadDocument(DataCache cache, GraphViewerSaveDocument document, bool setEnablesFromJson = true) {
-            FloatingPanelHost.Close();
+            ClosePanels();
             return Viewer.LoadDocument(cache, document, setEnablesFromJson);
         }
 
@@ -221,6 +227,7 @@ namespace Foreman.Mac.Canvas {
 
         internal void ShowRadialMenu(NewNodeLinkDragRequest request) {
             ResetPointerDragState();
+            ClosePalette();
             var radial = new RadialMenu(RadialSlicesFor(request));
             radial.Chosen += (_, choice) => {
                 FloatingPanelHost.Close();
@@ -285,13 +292,13 @@ namespace Foreman.Mac.Canvas {
         private void PlaceLinkedRole(NewNodeLinkDragRequest request, NodeType role) {
             if (request.Item.Item is not IItem item)
                 return;
-            PlaceCandidate(AddCatalog.Candidate(item), new AddRequest(request.EndpointLocation, AddScope.Items, LinkContextFor(request)), role);
+            PlaceNode(AddCatalog.Candidate(item), new AddRequest(request.EndpointLocation, AddScope.Items, LinkContextFor(request)), role);
         }
 
         private void PlaceSpoilPlant(NewNodeLinkDragRequest request, NodeType role, NodeDirection direction) {
             if (request.Item.Item is not IItem item)
                 return;
-            PlaceCandidate(AddCatalog.Candidate(item), new AddRequest(request.EndpointLocation, AddScope.Items, LinkContextFor(request)), role, spoilPlantDirection: direction);
+            PlaceNode(AddCatalog.Candidate(item), new AddRequest(request.EndpointLocation, AddScope.Items, LinkContextFor(request)), role, spoilPlantDirection: direction);
         }
 
         //UnSpoil/UnPlant: one origin places directly; several hand off to the browser's Origins-of chip via OriginsRole.
@@ -301,7 +308,7 @@ namespace Foreman.Mac.Canvas {
             IReadOnlyCollection<IItem> origins = role == NodeType.Spoil ? item.SpoilOrigins : item.PlantOrigins;
             AddLinkContext link = LinkContextFor(request);
             if (origins.Count <= 1) {
-                PlaceCandidate(AddCatalog.Candidate(item), new AddRequest(request.EndpointLocation, AddScope.Items, link), role, spoilPlantDirection: NodeDirection.Down);
+                PlaceNode(AddCatalog.Candidate(item), new AddRequest(request.EndpointLocation, AddScope.Items, link), role, spoilPlantDirection: NodeDirection.Down);
                 return;
             }
             BrowseRequested?.Invoke(this, new AddRequest(request.EndpointLocation, AddScope.Items, link, OriginsRole: role));
@@ -434,6 +441,8 @@ namespace Foreman.Mac.Canvas {
             base.OnSizeChanged(e);
             Viewport.SetSize(e.NewSize.Width, e.NewSize.Height, Viewer.Graph.Bounds);
             FloatingPanelHost.Reposition();
+            if (OpenPalette is not null && paletteScreenAnchor is null)
+                paletteFrame.AnchorPoint = Viewport.GraphToScreen(paletteGraphAnchor);
             InvalidateVisual();
         }
 
@@ -450,6 +459,7 @@ namespace Foreman.Mac.Canvas {
             FloatingPanelHost.CancelPendingCloseTransition();
             panCancellation?.Cancel();
             panCancellation = null;
+            EndPlacementFlash();
             Viewer.Dispose();
             foreach (Bitmap bitmap in addIconCache.Values)
                 bitmap.Dispose();
@@ -462,7 +472,7 @@ namespace Foreman.Mac.Canvas {
         //check - the wheel must do nothing at all, not zoom the canvas out from under an open panel.
         protected override void OnPointerWheelChanged(PointerWheelEventArgs e) {
             base.OnPointerWheelChanged(e);
-            if (FloatingPanelHost.IsOpen)
+            if (IsPanelOpen)
                 return;
 
             AvaloniaPoint position = e.GetPosition(this);
@@ -481,6 +491,8 @@ namespace Foreman.Mac.Canvas {
         //§2); Focus() picks up keyboard input (arrow keys, Shift axis-lock) the same click starts.
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
             base.OnPointerPressed(e);
+            if (IsInsidePalette(e.Source))
+                return;
             AvaloniaPoint screenPoint = e.GetPosition(this);
 
             //Ports ToolTipRenderer.ClearFloatingControls() being the first statement in
@@ -579,6 +591,8 @@ namespace Foreman.Mac.Canvas {
         //Ports ProductionGraphViewer_MouseMove (reference §1/§2).
         protected override void OnPointerMoved(PointerEventArgs e) {
             base.OnPointerMoved(e);
+            if (IsInsidePalette(e.Source))
+                return;
             AvaloniaPoint screenPoint = e.GetPosition(this);
 
             //Mirrors OnPointerPressed's chrome-swallow guard (reference §7): a move over the panel itself
@@ -716,6 +730,10 @@ namespace Foreman.Mac.Canvas {
         //no extra handling beyond the drag math OnPointerMoved already applied.
         protected override void OnPointerReleased(PointerReleasedEventArgs e) {
             base.OnPointerReleased(e);
+            if (dismissingPress || IsInsidePalette(e.Source)) {
+                dismissingPress = false;
+                return;
+            }
             AvaloniaPoint releaseScreenPoint = e.GetPosition(this);
 
             //Mirrors OnPointerPressed's chrome-swallow guard (reference §7): a press landing on the panel
@@ -887,37 +905,78 @@ namespace Foreman.Mac.Canvas {
 
         //C2b: MainWindow's toolbar and BuildBackgroundMenu's "Add Item"/"Add Recipe" both just open a
         //scoped Quick Add palette now - ShowQuickAdd/PlaceCandidate below do the rest.
-        internal void AddItemAsync(DrawingPoint graphPoint) => ShowQuickAdd(new AddRequest(graphPoint, AddScope.Items));
-        internal void AddRecipeAsync(DrawingPoint graphPoint) => ShowQuickAdd(new AddRequest(graphPoint, AddScope.Recipes));
+        internal void AddItemAsync(DrawingPoint graphPoint, AvaloniaPoint? screenAnchor = null) => ShowQuickAdd(new AddRequest(graphPoint, AddScope.Items), screenAnchor);
+        internal void AddRecipeAsync(DrawingPoint graphPoint, AvaloniaPoint? screenAnchor = null) => ShowQuickAdd(new AddRequest(graphPoint, AddScope.Recipes), screenAnchor);
 
         internal event EventHandler<AddRequest>? BrowseRequested;
         internal AddRequest? ActiveAddRequest { get; private set; }
-        internal QuickAddPalette? OpenPalette => FloatingPanelHost.Content as QuickAddPalette;
+        internal QuickAddPalette? OpenPalette => paletteFrame.IsOpen ? paletteFrame.Content as QuickAddPalette : null;
+        internal PopoverFrame PaletteFrame => paletteFrame;
+        internal bool IsPanelOpen => FloatingPanelHost.IsOpen || OpenPalette is not null;
         private readonly Dictionary<SKBitmap, Bitmap> addIconCache = [];
+        private readonly PopoverHost paletteHost = new();
+        private readonly PopoverFrame paletteFrame;
+        private DrawingPoint paletteGraphAnchor;
+        private AvaloniaPoint? paletteScreenAnchor;
+        private bool dismissingPress;
 
-        internal void ShowQuickAdd(AddRequest request) {
+        internal void ClosePanels() {
+            FloatingPanelHost.Close();
+            ClosePalette();
+        }
+
+        private void ClosePalette() {
+            if (paletteFrame.IsOpen)
+                paletteFrame.IsOpen = false;
+        }
+
+        private bool IsInsidePalette(object? source) =>
+            source is Visual visual && paletteFrame.IsOpen && (ReferenceEquals(visual, paletteFrame) || paletteFrame.IsVisualAncestorOf(visual));
+
+        //The popover host swallows the press that light-dismisses the palette (macOS); its release must not act on the canvas either.
+        private void NoteDismissingPress(object? sender, PointerPressedEventArgs e) {
+            if (e.Handled && e.Source is Visual visual && ReferenceEquals(visual, paletteHost))
+                dismissingPress = true;
+        }
+
+        private static Avalonia.Styling.ControlTheme KitTheme(string key) {
+            Application.Current!.TryGetResource(key, null, out object? theme);
+            return theme as Avalonia.Styling.ControlTheme ?? throw new InvalidOperationException($"GraphCanvasControl: kit theme '{key}' not found.");
+        }
+
+        internal void ShowQuickAdd(AddRequest request, AvaloniaPoint? screenAnchor = null) {
             if (Viewer.Context.DCache is not DataCache cache)
                 return;
             ResetPointerDragState();
+            FloatingPanelHost.Close();
+            FloatingPanelHost.CancelPendingCloseTransition();
 
             //Own local per palette instance: the browser can place at any time while this stays open (it's
-            //a separate real window, not hosted in FloatingPanelHost), and its own PlaceCandidate calls
-            //must not bleed into this palette's next pick.
+            //a separate real window), and its own PlaceCandidate calls must not bleed into this palette's next pick.
             AddRequest current = request;
             ActiveAddRequest = current;
             var vm = new QuickAddViewModel(new AddCatalog(cache, ChooserSettings), request, Viewer.Graph.DefaultAssemblerQuality, bmp => IconBaker.GetOrBake(addIconCache, bmp, 22));
             var palette = new QuickAddPalette { DataContext = vm };
             palette.PickCommitted += (_, c) => {
-                current = PlaceCandidate(c, current);
+                current = PlaceCandidate(c, current with { Link = vm.Link });
                 ActiveAddRequest = current;
             };
             palette.BrowseRequested += (_, q) => {
-                var browseRequest = current with { SeedText = q };
-                FloatingPanelHost.Close();
+                var browseRequest = current with { SeedText = q, Link = vm.Link };
+                ClosePalette();
                 BrowseRequested?.Invoke(this, browseRequest);
             };
-            palette.CloseRequested += (_, _) => FloatingPanelHost.Close();
-            FloatingPanelHost.Show(palette, request.Location);
+            palette.CloseRequested += (_, _) => ClosePalette();
+
+            paletteFrame.Theme ??= KitTheme("Kit.PopoverFrame");
+            paletteGraphAnchor = request.Location;
+            paletteScreenAnchor = screenAnchor;
+            paletteFrame.Content = palette;
+            paletteFrame.AnchorPoint = screenAnchor ?? Viewport.GraphToScreen(request.Location);
+            paletteFrame.IsOpen = true;
+            //The panel builds its search field in OnApplyTemplate; until a layout pass runs there is nothing to focus or type into.
+            paletteHost.UpdateLayout();
+            palette.FocusInitialControl();
         }
 
         //Pure: returns the advanced request so a caller (the palette above, the browser in
@@ -925,29 +984,116 @@ namespace Foreman.Mac.Canvas {
         //ActiveAddRequest itself, which exists only as the palette's own tracker/test seam.
         internal AddRequest PlaceCandidate(AddCandidate candidate, AddRequest request, NodeType? roleOverride = null, IQuality? quality = null,
             NodeDirection? spoilPlantDirection = null, IItem? explicitOrigin = null) {
+            (AddRequest next, NodeId placed) = PlaceNodeCore(candidate, request, roleOverride, quality, spoilPlantDirection, explicitOrigin);
+            if (Viewer.NodeElementDictionary.TryGetValue(placed, out BaseNodeElement? element))
+                StartPlacementFlash(element);
+            return next;
+        }
+
+        private AddRequest PlaceNode(AddCandidate candidate, AddRequest request, NodeType? roleOverride = null, IQuality? quality = null,
+            NodeDirection? spoilPlantDirection = null, IItem? explicitOrigin = null) =>
+            PlaceNodeCore(candidate, request, roleOverride, quality, spoilPlantDirection, explicitOrigin).Next;
+
+        private (AddRequest Next, NodeId Placed) PlaceNodeCore(AddCandidate candidate, AddRequest request, NodeType? roleOverride, IQuality? quality,
+            NodeDirection? spoilPlantDirection, IItem? explicitOrigin) {
             if (Viewer.Context.DCache is not DataCache cache)
-                return request;
+                return (request, NodeId.Invalid);
 
             IQuality q = quality ?? Viewer.Graph.DefaultAssemblerQuality ?? cache.DefaultQuality!;
             NodeDirection direction = spoilPlantDirection ?? request.Link?.Direction ?? Viewer.Graph.DefaultNodeDirection;
             NewNodeType outer = request.Link?.NodeType ?? NewNodeType.Disconnected;
 
+            NodeId placed;
             if (candidate.Kind == AddKind.Recipe) {
                 var baseItem = request.Link?.Item ?? default;
                 var ctx = new NewNodeContext(baseItem, request.Location, outer, request.Link?.OriginElement, direction, request.Link is not null);
-                ProcessNodeRequest(ctx, NodeType.Recipe, new RecipeQualityPair(candidate.Recipe!, q), direction);
+                placed = ProcessNodeRequest(ctx, NodeType.Recipe, new RecipeQualityPair(candidate.Recipe!, q), direction);
             } else {
                 var item = new ItemQualityPair(candidate.Item!, q);
                 var ctx = new NewNodeContext(item, request.Location, outer, request.Link?.OriginElement, direction, request.Link is not null);
                 NodeType role = roleOverride ?? (outer == NewNodeType.Consumer ? NodeType.Consumer : NodeType.Supplier);
-                ProcessNodeRequest(ctx, role, default, direction, explicitOrigin);
+                placed = ProcessNodeRequest(ctx, role, default, direction, explicitOrigin);
             }
 
-            return request with {
+            AddRequest next = request with {
                 Location = request.Link is null
                     ? new DrawingPoint(request.Location.X, request.Location.Y + 120)
                     : new DrawingPoint(request.Location.X + 120, request.Location.Y)
             };
+            return (next, placed);
+        }
+
+        internal static readonly StyledProperty<double> PlacementFlashProgressProperty =
+            AvaloniaProperty.Register<GraphCanvasControl, double>("PlacementFlashProgress");
+
+        internal BaseNodeElement? PlacementFlashNode { get; private set; }
+        private CancellationTokenSource? placementFlashCancellation;
+
+        private static TimeSpan PlacementFlashDuration => KitMotion.HoverDuration + KitMotion.PlacementFlashHold + KitMotion.CrossFadeDuration;
+
+        internal static double PlacementFlashOpacityAt(TimeSpan elapsed, bool reduceMotion) {
+            TimeSpan rise = KitMotion.HoverDuration;
+            TimeSpan fallStart = rise + KitMotion.PlacementFlashHold;
+            if (elapsed <= TimeSpan.Zero)
+                return 0;
+            if (elapsed < rise) {
+                double t = elapsed / rise;
+                return reduceMotion ? KitMotion.CrossFadeEasing.Ease(t) : KitMotion.EntranceEasing.Ease(t);
+            }
+            if (elapsed <= fallStart)
+                return 1;
+            double f = Math.Min(1, (elapsed - fallStart) / KitMotion.CrossFadeDuration);
+            return 1 - (reduceMotion ? KitMotion.CrossFadeEasing.Ease(f) : KitMotion.LeavingEasing.Ease(f));
+        }
+
+        private void StartPlacementFlash(BaseNodeElement node) {
+            EndPlacementFlash();
+            PlacementFlashNode = node;
+            node.IsPlacementFlashing = true;
+            node.PlacementFlashOpacity = 0;
+            var cancellation = new CancellationTokenSource();
+            placementFlashCancellation = cancellation;
+            _ = RunPlacementFlash(cancellation.Token);
+        }
+
+        private async Task RunPlacementFlash(CancellationToken token) {
+            var clock = new Animation {
+                Duration = PlacementFlashDuration,
+                Easing = new Avalonia.Animation.Easings.LinearEasing(),
+                Children = {
+                    new KeyFrame { Cue = new Cue(0), Setters = { new Avalonia.Styling.Setter(PlacementFlashProgressProperty, 0d) } },
+                    new KeyFrame { Cue = new Cue(1), Setters = { new Avalonia.Styling.Setter(PlacementFlashProgressProperty, 1d) } },
+                },
+            };
+            try {
+                await clock.RunAsync(this, token);
+            } catch (OperationCanceledException) {
+                return;
+            }
+            if (!token.IsCancellationRequested)
+                EndPlacementFlash();
+        }
+
+        private void OnPlacementFlashProgress(double progress) {
+            if (PlacementFlashNode is not BaseNodeElement node)
+                return;
+            if (!Viewer.NodeElements.Contains(node)) {
+                EndPlacementFlash();
+                return;
+            }
+            node.PlacementFlashOpacity = PlacementFlashOpacityAt(PlacementFlashDuration * progress, KitMotion.ReduceMotion);
+            RequestRedraw();
+        }
+
+        private void EndPlacementFlash() {
+            placementFlashCancellation?.Cancel();
+            placementFlashCancellation = null;
+            if (PlacementFlashNode is not BaseNodeElement node)
+                return;
+            node.IsPlacementFlashing = false;
+            node.PlacementFlashOpacity = 0;
+            PlacementFlashNode = null;
+            RequestRedraw();
         }
 
         private Services.AppSettings? fallbackChooserSettings;
@@ -959,9 +1105,9 @@ namespace Foreman.Mac.Canvas {
 
         //Ports ProcessNodeRequest's node-creation switch (reference §3/§10, upstream lines 265-393). Assembler/
         //fuel auto-selection for a Recipe pick is ApplyAssemblerFuelAutoSelection's job, below.
-        private void ProcessNodeRequest(NewNodeContext ctx, NodeType nodeType, RecipeQualityPair recipe, NodeDirection direction, IItem? explicitOrigin = null) {
+        private NodeId ProcessNodeRequest(NewNodeContext ctx, NodeType nodeType, RecipeQualityPair recipe, NodeDirection direction, IItem? explicitOrigin = null) {
             if (Viewer.Context.DCache is not DataCache cache)
-                return;
+                return NodeId.Invalid;
 
             IItem? itemNN = ctx.BaseItem.Item;
             IQuality? qualityNN = ctx.BaseItem.Quality;
@@ -997,6 +1143,7 @@ namespace Foreman.Mac.Canvas {
             }
 
             ProcessCreatedNode(ctx, newNodeId);
+            return newNodeId;
         }
 
         //an explicit origin from the UnSpoil/UnPlant chip wins over the single-origin rule
@@ -1162,9 +1309,9 @@ namespace Foreman.Mac.Canvas {
             //generalized to every canvas shortcut while a panel holds focus - Escape is the one key a
             //panel doesn't itself need to handle, so it closes the panel here same as upstream's own
             //Escape/inDrawShapeMode case just below.
-            if (FloatingPanelHost.IsOpen) {
+            if (IsPanelOpen) {
                 if (e.Key == Key.Escape) {
-                    FloatingPanelHost.Close();
+                    ClosePanels();
                     e.Handled = true;
                     return;
                 }
@@ -1204,7 +1351,7 @@ namespace Foreman.Mac.Canvas {
         //and RaiseEvent does the same for a directly-raised one), so checking it rather than the ambient
         //FocusManager keeps this correct even under a test's synthetic dispatch.
         private bool FocusIsInsideFloatingPanel(KeyEventArgs e) {
-            if (e.Source is TextBox)
+            if (e.Source is TextBox || IsInsidePalette(e.Source))
                 return true;
             return e.Source is Visual sourceVisual && FloatingPanelHost.Content is Visual panelRoot &&
                 (ReferenceEquals(sourceVisual, panelRoot) || panelRoot.IsVisualAncestorOf(sourceVisual));
@@ -1260,7 +1407,7 @@ namespace Foreman.Mac.Canvas {
         //nodes - TryDeleteSelection/TryDeleteSelectedNodes both carry their own >10 confirm gate.
         protected override void OnKeyUp(KeyEventArgs e) {
             base.OnKeyUp(e);
-            if (FloatingPanelHost.IsOpen)
+            if (IsPanelOpen)
                 return;
 
             UpdateModifiers(e.KeyModifiers);

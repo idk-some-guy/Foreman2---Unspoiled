@@ -41,6 +41,7 @@ namespace Foreman.Mac.Kit {
         public static readonly TimeSpan TooltipWarmWindow = TimeSpan.FromMilliseconds(500);
         public static readonly TimeSpan IndeterminateProgressDuration = TimeSpan.FromSeconds(1.2);
         public static readonly TimeSpan StatePanelDelay = TimeSpan.FromMilliseconds(400);
+        public static readonly TimeSpan PlacementFlashHold = TimeSpan.FromMilliseconds(200);
 
         //Set by AppearanceHub from the platform's Reduce Motion flag; an already-open site only picks up a
         //live change if it re-pushes its own Transitions on RefreshTheme (SheetHost and RadialMenu do).

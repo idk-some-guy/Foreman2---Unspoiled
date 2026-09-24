@@ -202,9 +202,10 @@ namespace Foreman.Mac.UiTests.Canvas {
             var graphPoint = new Point(120, -40);
 
             fx.Control.AddItemAsync(graphPoint);
-            var palette = Assert.IsType<QuickAddPalette>(fx.Control.FloatingPanelHost.Content);
+            QuickAddPalette palette = Assert.IsType<QuickAddPalette>(fx.Control.OpenPalette);
             ((QuickAddViewModel)palette.DataContext!).Query = ironPlate.Item!.FriendlyName;
-            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
 
             BaseNodeElement created = Assert.Single(fx.Control.Viewer.NodeElements);
             Assert.IsType<SupplierNodeElement>(created);
@@ -221,7 +222,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.AddItemAsync(new Point(0, 0));
 
             Assert.Empty(fx.Control.Viewer.NodeElements);
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.False(fx.Control.IsPanelOpen);
         }
 
         [AvaloniaFact]
@@ -230,8 +231,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Pair("iron-plate");
 
             fx.Control.AddItemAsync(new Point(0, 0));
-            Assert.True(fx.Control.FloatingPanelHost.IsOpen);
-            fx.Control.FloatingPanelHost.Close();
+            Assert.True(fx.Control.IsPanelOpen);
+            fx.Control.ClosePanels();
 
             Assert.Empty(fx.Control.Viewer.NodeElements);
         }

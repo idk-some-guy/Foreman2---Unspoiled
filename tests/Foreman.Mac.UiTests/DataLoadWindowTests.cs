@@ -1,9 +1,7 @@
 using Avalonia.Headless.XUnit;
 using Foreman;
-using Foreman.DataCaching;
 using Foreman.Mac.Views;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -11,12 +9,6 @@ using Xunit;
 namespace Foreman.Mac.UiTests {
     public class DataLoadWindowTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
-
-        private static string NewTempDir() {
-            string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-            Directory.CreateDirectory(dir);
-            return dir;
-        }
 
         [AvaloniaFact]
         public async Task Load_RealPreset_PopulatesResultAndReportsProgress() {
@@ -63,29 +55,38 @@ namespace Foreman.Mac.UiTests {
             Assert.All(windows, w => Assert.Equal(100, w.Progress));
         }
 
+        private static DataLoadWindow HeldMidLoad(TaskCompletionSource release, List<string> logged) =>
+            new(new Preset(VanillaPresetName, true, true), filterRecipes: true, load: (_, _) => release.Task, log: logged.Add);
+
         [AvaloniaFact]
         public void Close_MidLoad_ShowsCloseWarningInsteadOfClosingSilently() {
-            var window = new DataLoadWindow(new Preset(VanillaPresetName, true, true));
+            var release = new TaskCompletionSource();
+            var logged = new List<string>();
+            DataLoadWindow window = HeldMidLoad(release, logged);
             window.Show();
 
             window.Close();
 
             Assert.True(window.CloseWarningDialogShown);
             Assert.True(window.IsVisible);
+            Assert.Equal(window.CloseWarning, Assert.Single(logged));
+            release.SetResult();
         }
 
         [AvaloniaFact]
         public void Close_MidLoad_WarningDescribesLoadContinuingInBackground() {
-            using var logIsolation = ErrorLogging.UseIsolatedLogDirectory(NewTempDir());
-            ErrorLogging.ClearLog();
-            var window = new DataLoadWindow(new Preset(VanillaPresetName, true, true));
+            var release = new TaskCompletionSource();
+            var logged = new List<string>();
+            DataLoadWindow window = HeldMidLoad(release, logged);
             window.Show();
 
             window.Close();
 
-            string log = File.ReadAllText(ErrorLogging.LogFilePath);
-            Assert.Contains("continues", log);
-            Assert.DoesNotContain("incomplete", log);
+            string line = Assert.Single(logged);
+            Assert.Equal(window.CloseWarning, line);
+            Assert.Contains("continues", line);
+            Assert.DoesNotContain("incomplete", line);
+            release.SetResult();
         }
     }
 }

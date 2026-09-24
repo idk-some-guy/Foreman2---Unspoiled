@@ -83,7 +83,6 @@
   <Thickness x:Key="Foreman.Thickness.Space05">2</Thickness>
   <CornerRadius x:Key="Foreman.Radius.Control">6</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Card">9</CornerRadius>
-  <CornerRadius x:Key="Foreman.Radius.Window">11</CornerRadius>
   <!-- Distinct from Radius.Control's 6, per the addendum's group-header spec row. -->
   <CornerRadius x:Key="Foreman.Radius.InspectorGroupHeader">4</CornerRadius>
   <Thickness x:Key="Foreman.Thickness.InspectorGroupHeaderPadding">4,0,0,0</Thickness>
@@ -134,7 +133,6 @@
   <x:Double x:Key="Foreman.Type.Legacy.About.Tagline.FontSize">10.5</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.About.Version.FontSize">11.5</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.Browser.Row.FontSize">12.5</x:Double>
-  <x:Double x:Key="Foreman.Type.Legacy.Kbd.FontSize">9.5</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.SearchField.FontSize">12.5</x:Double>
   <!-- Kit.ToolbarItem's icon+label caption; hig-critique ruling keeps it legacy at 9.5, not folded into the ramp. -->
   <x:Double x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontSize">9.5</x:Double>

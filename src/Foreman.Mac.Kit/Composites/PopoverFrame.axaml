@@ -17,7 +17,10 @@
                   HorizontalAlignment="Left"
                   VerticalAlignment="Top"
                   Opacity="0">
-            <ContentPresenter Content="{TemplateBinding Content}" />
+            <Border x:Name="PART_ContentClip"
+                    CornerRadius="{DynamicResource Foreman.Radius.Popover}">
+              <ContentPresenter Content="{TemplateBinding Content}" />
+            </Border>
           </Border>
           <Border x:Name="PART_Tail"
                   Background="{DynamicResource Foreman.Color.PopoverMaterial}"
@@ -31,6 +34,12 @@
 
     <Style Selector="^:open /template/ Border#PART_Panel">
       <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <Style Selector="^:flush /template/ Border#PART_Panel">
+      <Setter Property="Background" Value="{x:Null}" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
     </Style>
 
     <Style Selector="^:open /template/ Border#PART_Tail">

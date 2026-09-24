@@ -113,10 +113,11 @@ namespace Foreman.Mac.UiTests {
             IRecipe recipe = cache.Recipes[recipeName];
             int before = control.NodeElements.Count;
             control.AddRecipeAsync(location);
-            var palette = Assert.IsType<QuickAddPalette>(control.FloatingPanelHost.Content);
+            QuickAddPalette palette = Assert.IsType<QuickAddPalette>(control.OpenPalette);
             ((QuickAddViewModel)palette.DataContext!).Query = recipe.FriendlyName;
-            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
-            control.FloatingPanelHost.Close();
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
+            control.ClosePanels();
             Assert.Equal(before + 1, control.NodeElements.Count);
             return Task.FromResult((RecipeNodeElement)control.NodeElements[^1]);
         }
@@ -594,11 +595,11 @@ namespace Foreman.Mac.UiTests {
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(cache, settings, tempHome);
             window.GraphCanvas.AddRecipeAsync(new Point(0, 0));
-            Assert.True(window.GraphCanvas.FloatingPanelHost.IsOpen);
+            Assert.True(window.GraphCanvas.IsPanelOpen);
 
             window.ShowSettings();
 
-            Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
+            Assert.False(window.GraphCanvas.IsPanelOpen);
 
             SettingsWindow settingsWindow = window.OwnedWindows.OfType<SettingsWindow>().Single();
             settingsWindow.Close();

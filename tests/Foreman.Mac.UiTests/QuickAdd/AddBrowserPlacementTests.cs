@@ -44,6 +44,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Single(shell.Graph.Nodes.OfType<ConsumerNode>());
             Assert.Equal([100, 220, 340], shell.Graph.Nodes.Select(n => n.Location.Y).OrderBy(y => y));
             Assert.True(shell.Window.BrowserWindow!.IsVisible);
+            Assert.Equal(340, shell.Window.GraphCanvas.PlacementFlashNode!.ViewModel.Location.Y);
         }
 
         [AvaloniaFact]
@@ -220,7 +221,9 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             vm.Place(NodeType.Consumer);
 
             ((QuickAddViewModel)palette.DataContext!).Query = "iron plate";
-            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
+
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
 
             //The palette's own pick must land as a disconnected Supplier at its own anchor, not the
             //browser's Consumer/link/location.

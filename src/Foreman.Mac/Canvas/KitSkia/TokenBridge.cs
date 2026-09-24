@@ -4,9 +4,8 @@ using System;
 using AvColor = Avalonia.Media.Color;
 
 namespace Foreman.Mac.Canvas.KitSkia {
-    //Canvas token snapshot: metrics plus the three former literal border hexes (#696969/#B8860B/#8B0000)
-    //as tokens; the rest of the painters' colours migrate later, when K5 owns Canvas/Elements/* itself.
-    public sealed record CanvasTokens(double Scale, double NodePadding, double TypeFontSize, SKColor TabBorder, SKColor ChipBorder, SKColor ErrorBorder);
+    //The painters' other colours are still literals in Canvas/Elements.
+    public sealed record CanvasTokens(double Scale, double NodePadding, double TypeFontSize, SKColor TabBorder, SKColor ChipBorder, SKColor ErrorBorder, SKColor Accent);
 
     public static class TokenBridge {
         private const double BaseNodePadding = 8.0;
@@ -15,9 +14,10 @@ namespace Foreman.Mac.Canvas.KitSkia {
         private static readonly SKColor FallbackTabBorder = new(0x69, 0x69, 0x69);
         private static readonly SKColor FallbackChipBorder = new(0xB8, 0x86, 0x0B);
         private static readonly SKColor FallbackErrorBorder = new(0x8B, 0x00, 0x00);
+        private static readonly SKColor FallbackAccent = new(0x00, 0x7A, 0xFF);
 
         public static CanvasTokens Current { get; private set; } =
-            new(1.0, BaseNodePadding, BaseTypeFontSize, FallbackTabBorder, FallbackChipBorder, FallbackErrorBorder);
+            new(1.0, BaseNodePadding, BaseTypeFontSize, FallbackTabBorder, FallbackChipBorder, FallbackErrorBorder, FallbackAccent);
 
         //Painters subscribe to re-request a redraw; GraphCanvasControl does.
         public static event EventHandler? Changed;
@@ -33,7 +33,8 @@ namespace Foreman.Mac.Canvas.KitSkia {
                 BaseTypeFontSize * scale,
                 ResolveBorderColor("Foreman.Color.CanvasTabBorder", FallbackTabBorder),
                 ResolveBorderColor("Foreman.Color.CanvasChipBorder", FallbackChipBorder),
-                ResolveBorderColor("Foreman.Color.CanvasErrorBorder", FallbackErrorBorder));
+                ResolveBorderColor("Foreman.Color.CanvasErrorBorder", FallbackErrorBorder),
+                ResolveBorderColor("Foreman.Color.Accent", FallbackAccent));
             if (tokens == Current)
                 return;
 

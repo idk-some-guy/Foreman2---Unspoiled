@@ -101,6 +101,16 @@ namespace Foreman.Mac.UiTests.support {
             return fx;
         }
 
+        //The production chain plus one item whose name overflows the palette's chip column, made from Iron Plate.
+        public static CatalogFixture WithProductionChainAndALongNamedProduct(string longName, out ItemPrototype longItem) {
+            CatalogFixture fx = WithProductionChain();
+            longItem = fx.AddOrGetItem(longName);
+            RecipePrototype recipe = fx.AddRecipe("Byproduct Refining");
+            recipe.InternalOneWayAddIngredient(fx.itemsByName["Iron Plate"], 1);
+            recipe.InternalOneWayAddProduct(longItem, 1, 0);
+            return fx;
+        }
+
         public static CatalogFixture WithQualities(IReadOnlyList<string> qualityNames, IReadOnlyList<string>? disabled = null) {
             CatalogFixture fx = NewBase();
             DataCacheStore store = Store(fx.Cache);

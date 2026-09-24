@@ -19,6 +19,8 @@ namespace Foreman.Mac.Views {
 
         private readonly Preset selectedPreset;
         private readonly bool filterRecipes;
+        private readonly Func<DataCache, IProgress<KeyValuePair<int, string>>, Task> load;
+        private readonly Action<string> log;
         private readonly ProgressBar progressBar;
         private readonly TextBlock statusTextBlock;
         private int currentPercent;
@@ -32,13 +34,19 @@ namespace Foreman.Mac.Views {
         public DataCache? Result { get; private set; }
         public int Progress => (int)progressBar.Value;
         public string StatusText => statusTextBlock.Text ?? "";
-        public bool CloseWarningDialogShown { get; private set; }
+        public bool CloseWarningDialogShown => CloseWarning != null;
+        public string? CloseWarning { get; private set; }
 
         public DataLoadWindow() : this(new Preset(string.Empty, false, false)) {
         }
 
-        public DataLoadWindow(Preset preset, bool filterRecipes = true) {
+        public DataLoadWindow(Preset preset, bool filterRecipes = true) : this(preset, filterRecipes, null, null) {
+        }
+
+        internal DataLoadWindow(Preset preset, bool filterRecipes, Func<DataCache, IProgress<KeyValuePair<int, string>>, Task>? load, Action<string>? log) {
             InitializeComponent();
+            this.load = load ?? ((cache, progress) => cache.LoadAllData(preset, progress));
+            this.log = log ?? ErrorLogging.LogLine;
             progressBar = this.FindControl<ProgressBar>("LoadProgressBar")!;
             statusTextBlock = this.FindControl<TextBlock>("StatusTextBlock")!;
             selectedPreset = preset;
@@ -59,7 +67,7 @@ namespace Foreman.Mac.Views {
             var cache = new DataCache(filterRecipes);
             loadInProgress = true;
             try {
-                await cache.LoadAllData(selectedPreset, progress).ConfigureAwait(false);
+                await load(cache, progress).ConfigureAwait(false);
                 Result = cache;
                 loadCompleted = true;
             } catch (Exception ex) {
@@ -86,8 +94,8 @@ namespace Foreman.Mac.Views {
         protected override void OnClosing(WindowClosingEventArgs e) {
             if (loadInProgress && !loadCompleted && !closeWarningAcknowledged) {
                 e.Cancel = true;
-                ErrorLogging.LogLine(CloseWarningMessage);
-                CloseWarningDialogShown = true;
+                log(CloseWarningMessage);
+                CloseWarning = CloseWarningMessage;
                 Async.Fire(AcknowledgeCloseWarningAsync(), nameof(AcknowledgeCloseWarningAsync));
                 return;
             }

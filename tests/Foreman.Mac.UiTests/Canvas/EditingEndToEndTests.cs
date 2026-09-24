@@ -76,10 +76,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             IRecipe recipe = cache.Recipes[recipeName];
             int before = control.NodeElements.Count;
             control.AddRecipeAsync(location);
-            var palette = Assert.IsType<QuickAddPalette>(control.FloatingPanelHost.Content);
+            QuickAddPalette palette = Assert.IsType<QuickAddPalette>(control.OpenPalette);
             ((QuickAddViewModel)palette.DataContext!).Query = recipe.FriendlyName;
-            CanvasKeys.KeyDownOn(palette.FindControl<TextBox>("SearchBox")!, Key.Enter);
-            control.FloatingPanelHost.Close();
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
+            control.ClosePanels();
             Assert.Equal(before + 1, control.NodeElements.Count);
             return Task.FromResult((RecipeNodeElement)control.NodeElements[^1]);
         }

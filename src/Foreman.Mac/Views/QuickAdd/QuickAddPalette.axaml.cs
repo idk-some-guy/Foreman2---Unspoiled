@@ -1,123 +1,181 @@
 using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
-using Avalonia.VisualTree;
-using Foreman.Mac.Canvas.Panels;
-using Foreman.Mac.Kit;
+using Avalonia.Media;
+using Avalonia.Styling;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 
 namespace Foreman.Mac.Views.QuickAdd {
-    public sealed partial class QuickAddPalette : UserControl, IPanelInitialFocus, IPanelContentResize {
-        private readonly TextBox searchBox;
-        private readonly ItemsControl results;
+    public sealed partial class QuickAddPalette : UserControl {
+        internal const int MaxRows = 6;
+
+        private readonly PalettePanel panel;
+        //Value-keyed: the panel keeps its previous result instances when a requery yields an equal set.
+        private readonly Dictionary<PaletteResult, QuickAddRow> rowFor = [];
+        private readonly Dictionary<IImage, IBrush> iconBrushes = [];
         private QuickAddViewModel? subscribedVm;
 
-        //Parameterless so the XAML runtime loader can find it (AVLN3001) - the caller assigns DataContext
-        //separately and OnDataContextChanged below picks it up.
+        //Parameterless so the XAML runtime loader can find it (AVLN3001); the caller assigns DataContext separately.
         public QuickAddPalette() {
             InitializeComponent();
-            searchBox = this.FindControl<TextBox>("SearchBox")!;
-            results = this.FindControl<ItemsControl>("Results")!;
-            searchBox.AddHandler(KeyDownEvent, OnSearchKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-            AddHandler(Button.ClickEvent, OnRowClick);
+            panel = this.FindControl<PalettePanel>("Panel")!;
+            panel.FooterHints.Add(new PaletteFooterHint { KeyText = "↵", KeyAccessibleName = "Return", Description = "Place, stay open" });
+            panel.FooterHints.Add(new PaletteFooterHint { KeyText = "⌘↵", KeyAccessibleName = "Command Return", Description = "Browse…" });
+            panel.FooterHints.Add(new PaletteFooterHint { KeyText = "esc", KeyAccessibleName = "Escape", Description = "Close" });
+            panel.Committed += OnCommitted;
+            panel.CloseRequested += (_, _) => CloseRequested?.Invoke(this, EventArgs.Empty);
+            panel.Search.GetObservable(TextBox.TextProperty).Subscribe(new TextSink(OnSearchTextChanged));
+            //Tunnel on an ancestor of the panel, so ⌘Return is caught before the panel's own Return commits.
+            AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
             DataContextChanged += OnDataContextChanged;
-            results.ContainerPrepared += OnRowContainerPrepared;
         }
 
         public event EventHandler<AddCandidate>? PickCommitted;
         public event EventHandler<string>? BrowseRequested;
         public event EventHandler? CloseRequested;
-        public event EventHandler? ContentResized;
+
+        internal SearchField Search => panel.Search;
 
         private QuickAddViewModel? Vm => DataContext as QuickAddViewModel;
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
+        public void FocusInitialControl() => panel.Search.Focus();
+
         private void OnDataContextChanged(object? sender, EventArgs e) {
-            if (subscribedVm is not null)
-                subscribedVm.RowsChanged -= OnVmRowsChanged;
+            if (subscribedVm is not null) {
+                subscribedVm.RowsChanged -= OnRowsChanged;
+                subscribedVm.PropertyChanged -= OnVmPropertyChanged;
+                subscribedVm.ConstraintChanged -= OnConstraintChanged;
+            }
             subscribedVm = Vm;
-            if (subscribedVm is not null)
-                subscribedVm.RowsChanged += OnVmRowsChanged;
+            if (subscribedVm is null)
+                return;
+            subscribedVm.RowsChanged += OnRowsChanged;
+            subscribedVm.PropertyChanged += OnVmPropertyChanged;
+            subscribedVm.ConstraintChanged += OnConstraintChanged;
+            panel.Search.Text = subscribedVm.Query;
+            ApplyCopy();
+            ApplyConstraint();
+            OnRowsChanged(this, EventArgs.Empty);
         }
 
-        private void OnVmRowsChanged(object? sender, EventArgs e) => ContentResized?.Invoke(this, EventArgs.Empty);
+        private void OnSearchTextChanged(string? text) {
+            if (Vm is QuickAddViewModel vm && vm.Query != (text ?? ""))
+                vm.Query = text ?? "";
+        }
 
-        private void OnSearchKeyDown(object? sender, KeyEventArgs e) {
+        private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+            if (e.PropertyName == nameof(QuickAddViewModel.Query) && Vm is QuickAddViewModel vm && panel.Search.Text != vm.Query)
+                panel.Search.Text = vm.Query;
+            ApplyCopy();
+        }
+
+        private void ApplyCopy() {
             if (Vm is not QuickAddViewModel vm)
                 return;
-            switch (e.Key) {
-                case Key.Down:
-                    vm.MoveHighlight(+1);
-                    BringHighlightIntoView(vm);
-                    e.Handled = true;
-                    break;
-                case Key.Up:
-                    vm.MoveHighlight(-1);
-                    BringHighlightIntoView(vm);
-                    e.Handled = true;
-                    break;
-                case Key.Escape:
-                    CloseRequested?.Invoke(this, EventArgs.Empty);
-                    e.Handled = true;
-                    break;
-                case Key.Enter when e.KeyModifiers.HasFlag(KeyModifiers.Meta):
-                    BrowseRequested?.Invoke(this, vm.Query);
-                    e.Handled = true;
-                    break;
-                case Key.Enter:
-                    if (vm.Commit() is { } candidate)
-                        PickCommitted?.Invoke(this, candidate);
-                    e.Handled = true;
-                    break;
+            panel.Search.PlaceholderText = vm.Watermark;
+            panel.NoResultsHeadline = vm.NoResultsHeadline;
+            panel.NoResultsSentence = vm.NoResultsSentence;
+        }
+
+        private void OnRowsChanged(object? sender, EventArgs e) {
+            if (Vm is not QuickAddViewModel vm)
+                return;
+            rowFor.Clear();
+            List<PaletteResult> results = [];
+            foreach (QuickAddRow row in vm.Rows.Take(MaxRows)) {
+                var result = new PaletteResult(row.Name, row.Sub, IconBrush(row.Icon));
+                rowFor.TryAdd(result, row);
+                results.Add(result);
             }
+            panel.Results.Clear();
+            panel.Results.AddRange(results);
         }
 
-        //The ScrollViewer caps at 256px, well under the row count a search can return - keeps the
-        //highlight on-screen as arrow keys move it past what's currently visible. Adjusts Offset
-        //directly rather than Control.BringIntoView() - that routed event is a no-op in some windowing
-        //states this control doesn't control.
-        private void BringHighlightIntoView(QuickAddViewModel vm) {
-            if (vm.HighlightedIndex < 0 || results.ContainerFromIndex(vm.HighlightedIndex) is not Control container)
-                return;
-            if (results.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault() is not ScrollViewer scrollViewer)
-                return;
-            if (container.TranslatePoint(new Point(0, 0), scrollViewer) is not Point topLeft)
-                return;
-
-            double bottom = topLeft.Y + container.Bounds.Height;
-            double viewportHeight = scrollViewer.Viewport.Height;
-            if (topLeft.Y < 0)
-                scrollViewer.Offset += new Vector(0, topLeft.Y);
-            else if (bottom > viewportHeight)
-                scrollViewer.Offset += new Vector(0, bottom - viewportHeight);
+        //One brush per baked bitmap, so an unchanged row compares equal across queries and the panel replays nothing.
+        private IBrush? IconBrush(IImage? icon) {
+            if (icon is not IImageBrushSource source)
+                return null;
+            if (!iconBrushes.TryGetValue(icon, out IBrush? brush))
+                iconBrushes[icon] = brush = new ImageBrush(source) { Stretch = Stretch.Uniform };
+            return brush;
         }
 
-        //A row starts life carrying .entering (Opacity 0, translated up 4px per the style in
-        //Foreman.Styles.axaml) and sheds it a frame later, so the base style's own Transitions carry it
-        //into place instead of the row just appearing. Gate fix 11: the Transitions are overridden
-        //per-row here so a later row's entrance is delayed by its own stagger.
-        private void OnRowContainerPrepared(object? sender, ContainerPreparedEventArgs e) {
-            e.Container.Classes.Add("entering");
-            e.Container.Transitions = EntranceTransitions(Motion.StaggerDelay(e.Index));
-            Dispatcher.UIThread.Post(() => e.Container.Classes.Remove("entering"), DispatcherPriority.Loaded);
-        }
-
-        private static Transitions EntranceTransitions(TimeSpan delay) =>
-            Motion.Transition(TransitionKind.SlideFade, Motion.EntranceDuration, Motion.EntranceEasing, delay);
-
-        private void OnRowClick(object? sender, RoutedEventArgs e) {
-            if (e.Source is Button { DataContext: QuickAddRow row })
+        private void OnCommitted(object? sender, PaletteResult result) {
+            if (rowFor.TryGetValue(result, out QuickAddRow? row))
                 PickCommitted?.Invoke(this, row.Candidate);
         }
 
-        public void FocusInitialControl() => searchBox.Focus();
+        private void OnKeyDown(object? sender, KeyEventArgs e) {
+            if (e.Key == Key.Enter && e.KeyModifiers.HasFlag(KeyModifiers.Meta)) {
+                RequestBrowse();
+                e.Handled = true;
+            }
+        }
+
+        private void RequestBrowse() => BrowseRequested?.Invoke(this, Vm?.Query ?? "");
+
+        private void OnConstraintChanged(object? sender, EventArgs e) {
+            ApplyConstraint();
+            panel.Search.Focus();
+        }
+
+        private void ApplyConstraint() {
+            if (Vm is not QuickAddViewModel vm)
+                return;
+            bool constrained = vm.ConstraintText is not null;
+            panel.EmptyContent = constrained ? null : BuildEmptyState();
+            panel.NoResultsButtons = constrained
+                ? Buttons((QuickAddViewModel.BrowseAllLabel, ButtonRowRole.Default, RequestBrowse), (QuickAddViewModel.RemoveConstraintLabel, ButtonRowRole.Other, vm.RemoveConstraint))
+                : Buttons((QuickAddViewModel.BrowseAllLabel, ButtonRowRole.Default, RequestBrowse));
+            panel.HeaderAccessory = constrained ? BuildChip(vm) : null;
+        }
+
+        private StatePanel BuildEmptyState() => new() {
+            Theme = KitTheme("Kit.StatePanel"),
+            Shape = StatePanelShape.Empty,
+            Headline = QuickAddViewModel.EmptyHeadline,
+            Sentence = QuickAddViewModel.EmptySentence,
+            Buttons = Buttons((QuickAddViewModel.BrowseAllLabel, ButtonRowRole.Default, RequestBrowse)),
+        };
+
+        private static ButtonRow Buttons(params (string Label, ButtonRowRole Role, Action Act)[] specs) {
+            var row = new ButtonRow { Theme = KitTheme("Kit.ButtonRow") };
+            foreach ((string label, ButtonRowRole role, Action act) in specs) {
+                var button = new Button { Theme = KitTheme("Kit.Button"), Content = label };
+                ButtonRow.SetRole(button, role);
+                button.Click += (_, _) => act();
+                row.Items.Add(button);
+            }
+            return row;
+        }
+
+        private Chip BuildChip(QuickAddViewModel vm) {
+            var chip = new Chip { Theme = KitTheme("Kit.Chip"), Label = vm.ConstraintText, RemoveAccessibleName = QuickAddViewModel.RemoveConstraintLabel };
+            ChipHost.SetFocusFallback(chip, panel.Search);
+            chip.Removed += (_, _) => vm.RemoveConstraint();
+            return chip;
+        }
+
+        private static ControlTheme KitTheme(string key) {
+            Application.Current!.TryGetResource(key, null, out object? theme);
+            return theme as ControlTheme ?? throw new InvalidOperationException($"QuickAddPalette: kit theme '{key}' not found.");
+        }
+
+        private sealed class TextSink(Action<string?> onNext) : IObserver<string?> {
+            public void OnNext(string? value) => onNext(value);
+            public void OnError(Exception error) { }
+            public void OnCompleted() { }
+        }
     }
 }

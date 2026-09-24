@@ -13,6 +13,7 @@ using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 using Foreman;
 using Foreman.DataCaching;
@@ -166,10 +167,10 @@ namespace Foreman.Mac {
                 onSaveAs: () => Async.Fire(SaveGraphAsAsync(), nameof(SaveGraphAsAsync)),
                 onImport: () => Async.Fire(ImportGraphAsync(), nameof(ImportGraphAsync)),
                 onExportImage: () => Async.Fire(OpenImageExportAsync(), nameof(OpenImageExportAsync)),
-                onAddItem: () => GraphCanvas.AddItemAsync(GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2))),
-                onAddRecipe: () => GraphCanvas.AddRecipeAsync(GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2))),
-                onAutoconnect: () => { GraphCanvas.FloatingPanelHost.Close(); GraphCanvas.Viewer.AutoconnectDisconnectedInputs(); GraphCanvas.RequestRedraw(); },
-                onAlignSelection: () => { GraphCanvas.FloatingPanelHost.Close(); GraphCanvas.Viewer.AlignSelected(); GraphCanvas.RequestRedraw(); },
+                onAddItem: () => GraphCanvas.AddItemAsync(ViewportCentre(), PaletteAnchorUnder("AddItemButton")),
+                onAddRecipe: () => GraphCanvas.AddRecipeAsync(ViewportCentre(), PaletteAnchorUnder("AddRecipeButton")),
+                onAutoconnect: () => { GraphCanvas.ClosePanels(); GraphCanvas.Viewer.AutoconnectDisconnectedInputs(); GraphCanvas.RequestRedraw(); },
+                onAlignSelection: () => { GraphCanvas.ClosePanels(); GraphCanvas.Viewer.AlignSelected(); GraphCanvas.RequestRedraw(); },
                 onSettings: () => ShowSettings(),
                 onGraphSummary: () => Async.Fire(OpenGraphSummaryAsync(), nameof(OpenGraphSummaryAsync)),
                 canExecuteAlignSelection: () => GraphCanvas.Viewer.SelectedNodes.Count > 0);
@@ -290,6 +291,16 @@ namespace Foreman.Mac {
         private static ControlTheme KitTheme(string key) {
             Application.Current!.TryGetResource(key, null, out object? theme);
             return theme as ControlTheme ?? throw new InvalidOperationException($"MainWindow: kit theme '{key}' not found.");
+        }
+
+        private System.Drawing.Point ViewportCentre() =>
+            GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2));
+
+        private Avalonia.Point? PaletteAnchorUnder(string itemName) {
+            if (this.GetVisualDescendants().OfType<ToolbarItem>().FirstOrDefault(i => i.Name == itemName && i.IsEffectivelyVisible) is not ToolbarItem item
+                || item.TranslatePoint(new Avalonia.Point(0, item.Bounds.Height), GraphCanvas) is not Avalonia.Point under)
+                return null;
+            return new Avalonia.Point(under.X, Math.Max(0, under.Y));
         }
 
         //Label copy is the ratified mock's own (v2 §06.1, A16/A22/A26): "Show"/"Minor"/"Major" under "Gridlines", "Rate unit"/"Display" under "Graph".
@@ -961,7 +972,7 @@ namespace Foreman.Mac {
         private async Task<Preset?> RealShowPresetSelectionDialogAsync(List<PresetErrorPackage> presetErrors) {
             PresetSelectionSheet sheet = NewPresetSelectionSheet(presetErrors);
             bool? result = await SheetHost.For(this).ShowAsync(sheet).ConfigureAwait(true);
-            if (!GraphCanvas.FloatingPanelHost.IsOpen)
+            if (!GraphCanvas.IsPanelOpen)
                 GraphCanvas.Focus();
             return result == true ? sheet.ChosenPreset : null;
         }
@@ -1026,7 +1037,7 @@ namespace Foreman.Mac {
             if (!await TestGraphSavedStatusAsync().ConfigureAwait(true))
                 return;
 
-            GraphCanvas.FloatingPanelHost.Close();
+            GraphCanvas.ClosePanels();
             ViewModel.Inspector.SetSelection([]);
             GraphCanvas.Viewer.Graph.ClearGraph();
             savefilePath = null;
@@ -1229,7 +1240,7 @@ namespace Foreman.Mac {
             //closes-panel guard (they're not canvas pointer events at all), so a panel left open under this
             //window stayed stale once it closed. Closes first, matching NewGraphAsync/LoadDocument's own
             //unconditional-close-on-major-UI-change precedent.
-            GraphCanvas.FloatingPanelHost.Close();
+            GraphCanvas.ClosePanels();
             ViewModel.Inspector.SetSelection([]);
 
             //R5/⌘, - one instance for the app's lifetime; a second invocation just brings it forward.
@@ -1291,7 +1302,7 @@ namespace Foreman.Mac {
                     settingsSession = null;
                 }
                 //See FloatingPanelHost's own focus-restore comment further down this file.
-                if (!GraphCanvas.FloatingPanelHost.IsOpen)
+                if (!GraphCanvas.IsPanelOpen)
                     GraphCanvas.Focus();
             };
 
@@ -1348,7 +1359,7 @@ namespace Foreman.Mac {
         //either). C2c Task 3 moved this off GraphSummaryWindow onto SheetHost.
         internal Task OpenGraphSummaryAsync() {
             //See OpenSettingsAsync's own close-first comment: same toolbar-bypasses-canvas-pointer-events gap.
-            GraphCanvas.FloatingPanelHost.Close();
+            GraphCanvas.ClosePanels();
 
             if (GraphSummaryDialogStub is Action<IProductionGraphSession> stub) {
                 stub(GraphCanvas.Viewer.Session);
@@ -1361,7 +1372,7 @@ namespace Foreman.Mac {
             var sheet = new GraphSummarySheet(GraphCanvas.Viewer.Session, GraphCanvas.Viewer.Graph.GetRateName());
             await SheetHost.For(this).ShowAsync(sheet).ConfigureAwait(true);
             //See RealShowSettingsDialogAsync's own focus-restore comment, including the open-panel guard.
-            if (!GraphCanvas.FloatingPanelHost.IsOpen)
+            if (!GraphCanvas.IsPanelOpen)
                 GraphCanvas.Focus();
         }
 
@@ -1369,7 +1380,7 @@ namespace Foreman.Mac {
         //placement as Settings/Graph Summary.
         internal Task OpenImageExportAsync() {
             //See OpenSettingsAsync's own close-first comment: same toolbar-bypasses-canvas-pointer-events gap.
-            GraphCanvas.FloatingPanelHost.Close();
+            GraphCanvas.ClosePanels();
 
             if (ImageExportDialogStub is Action<GraphViewer> stub) {
                 stub(GraphCanvas.Viewer);
@@ -1380,7 +1391,7 @@ namespace Foreman.Mac {
 
         private async Task RealShowImageExportAsync() {
             await SheetHost.For(this).ShowAsync(new ImageExportSheet(GraphCanvas.Viewer)).ConfigureAwait(true);
-            if (!GraphCanvas.FloatingPanelHost.IsOpen)
+            if (!GraphCanvas.IsPanelOpen)
                 GraphCanvas.Focus();
         }
 
@@ -1400,7 +1411,7 @@ namespace Foreman.Mac {
         private async Task RealShowAboutAsync() {
             var dialog = new AboutWindow(ViewModel.VersionLabel);
             await dialog.ShowDialog(this).ConfigureAwait(true);
-            if (!GraphCanvas.FloatingPanelHost.IsOpen)
+            if (!GraphCanvas.IsPanelOpen)
                 GraphCanvas.Focus();
         }
 
@@ -1440,7 +1451,7 @@ namespace Foreman.Mac {
             //Gate fix 8: GraphCanvasControl's own OnKeyDown no longer marks a panel-bound key Handled (that
             //was what broke live typing into the search box), so Space typed there now reaches this
             //subscription too - this guard is what keeps it from toggling gridlines while the panel is open.
-            if (GraphCanvas.FloatingPanelHost.IsOpen)
+            if (GraphCanvas.IsPanelOpen)
                 return;
             if (e.Key != Key.Space)
                 return;
