@@ -266,6 +266,51 @@ namespace Foreman.Mac.UiTests.Sheets {
         }
 
         [AvaloniaFact]
+        public async Task SheetHost_DockPanelAndStackPanelRootsAreWrapped_AndAPlainPanelRootIsNot() {
+            {
+                var top = new Border { Height = 40 };
+                DockPanel.SetDock(top, Dock.Top);
+                var root = new DockPanel { Children = { top, new Border() } };
+                await AssertLayoutPanelRootIsCovered(root);
+            }
+            {
+                var root = new StackPanel { Children = { new Border { Height = 40 }, new Border { Height = 200 } } };
+                await AssertLayoutPanelRootIsCovered(root);
+            }
+            {
+                var panel = new Panel { Children = { new Border() } };
+                var window = new Window { Width = 800, Height = 600, Content = panel };
+                window.Show();
+
+                SheetHost host = SheetHost.For(window);
+
+                Assert.Same(panel, window.Content);
+                Assert.Contains(host, panel.Children);
+            }
+        }
+
+        private static async Task AssertLayoutPanelRootIsCovered(Panel root) {
+            var window = new Window { Width = 800, Height = 600, Content = root };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+            var sheet = new ProbeSheet();
+
+            Task<bool?> task = host.ShowAsync(sheet);
+            AnimationClock.Settle();
+            AnimationClock.UntilReflowsSettled(window);
+
+            Point origin = host.TranslatePoint(new Point(0, 0), window)!.Value;
+            Assert.Equal(new Rect(window.ClientSize), new Rect(origin, host.Bounds.Size));
+            Point centre = sheet.Ok.TranslatePoint(new Point(sheet.Ok.Bounds.Width / 2, sheet.Ok.Bounds.Height / 2), window)!.Value;
+            Visual? hit = window.InputHitTest(centre) as Visual;
+            Assert.True(hit is not null && (ReferenceEquals(hit, sheet.Ok) || sheet.Ok.IsVisualAncestorOf(hit)), $"hit {hit?.GetType().Name ?? "nothing"}");
+            Assert.False(root.IsHitTestVisible);
+
+            SheetFixture.Click(window, sheet.Ok);
+            Assert.True(await task);
+        }
+
+        [AvaloniaFact]
         public void For_OnAMainWindow_OverlaysTheRootGridAndShowsASheet() {
             using ShellFixture fixture = ShellFixture.Open();
 

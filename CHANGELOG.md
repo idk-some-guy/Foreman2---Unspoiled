@@ -247,6 +247,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   bare modifier keys and ⌘/⌃ shortcuts do nothing. The labels now read Unspoil and Unplant, and VoiceOver hears a
   menu called "Link options" with one item per outcome. Once a radial closes and fades out, it
   leaves the Tab order and VoiceOver no longer finds it.
+- The Settings window chrome is rebuilt on the kit. Its six panes (Presets, Enabled Objects,
+  General, Advanced, Annotations, Appearance) sit in a labelled tab strip that never shrinks to
+  icons. ⌘1 to ⌘6 switch panes, each tab's tooltip names its shortcut, the window title follows
+  the pane, and panes swap without a cross-fade. Presets, General, Annotations and Appearance stay
+  at 520 × 480. Enabled Objects and Advanced resize between 520 × 480 and 900 × 760, and each
+  remembers its own size. The footer keeps the version and gains Restore Defaults on General,
+  Advanced, Annotations and Appearance. The button is dimmed while the pane is already at its
+  defaults and asks for confirmation before resetting only that pane. VoiceOver reads the strip as
+  a "Settings panes" tab group, ⌘1 to ⌘6 do nothing while a sheet is open, and a sheet on a
+  window whose root is a dock or stack panel now covers the whole window instead of collapsing to
+  zero width.
 
 ### Fixed
 

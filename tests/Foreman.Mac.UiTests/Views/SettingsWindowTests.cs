@@ -1,3 +1,7 @@
+using Avalonia;
+using Point = Avalonia.Point;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -72,58 +76,119 @@ namespace Foreman.Mac.UiTests.Views {
 
         //--- Tab shell -----------------------------------------------------------------------------------
 
+        private static readonly string[] PaneNames = ["Presets", "Enabled Objects", "General", "Advanced", "Annotations", "Appearance"];
+
+        private static Border[] PaneItems(SettingsWindow window) =>
+            [.. window.PaneStripControl.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_Track").Children.OfType<Border>()];
+
         [AvaloniaFact]
-        public async Task TabButtons_ArePresetsEnabledObjectsGeneralAdvancedAnnotationsAppearanceInOrder() {
+        public async Task Settings_PaneStrip_ListsSixLabelledPanes_AndNeverCollapsesToIconOnly() {
             var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
-            window.Show(); //button templates (and so their Content's visual children) only realize once rooted
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
 
-            var labels = window.TabButtonControls
-                .Select(b => b.GetVisualDescendants().OfType<TextBlock>().First().Text)
-                .ToList();
+            Assert.Equal(520, window.ClientSize.Width);
+            Assert.Equal(PaneNames, window.PaneStripControl.Items.Select(i => i.Text));
+            Border[] items = PaneItems(window);
+            Assert.Equal(6, items.Length);
+            for (int i = 0; i < items.Length; i++) {
+                TextBlock label = items[i].GetVisualDescendants().OfType<TextBlock>().Single();
+                Assert.Equal(PaneNames[i], label.Text);
+                Assert.True(label.IsEffectivelyVisible);
+                Assert.True(label.Bounds.Width > 0);
+                Assert.Equal(TextTrimming.None, label.TextTrimming);
+                Assert.True(label.Bounds.Width >= label.DesiredSize.Width);
+                Assert.NotNull(items[i].GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single().Data);
+            }
+            Assert.DoesNotContain("icon-only", window.PaneStripControl.Classes);
 
-            Assert.Equal(["Presets", "Enabled Objects", "General", "Advanced", "Annotations", "Appearance"], labels);
+            AutomationPeer strip = ControlAutomationPeer.CreatePeerForElement(window.PaneStripControl);
+            Assert.Equal(AutomationControlType.Tab, strip.GetAutomationControlType());
+            Assert.Equal("Settings panes", strip.GetName());
+            IReadOnlyList<AutomationPeer> tabs = strip.GetChildren();
+            Assert.Equal(PaneNames, tabs.Select(t => t.GetName()));
+            for (int i = 0; i < tabs.Count; i++) {
+                Assert.Equal(AutomationControlType.TabItem, tabs[i].GetAutomationControlType());
+                Assert.Equal(i == 0, tabs[i].GetProvider<ISelectionItemProvider>()!.IsSelected);
+                Assert.Contains($"⌘{i + 1}", tabs[i].GetHelpText());
+            }
+
+            try {
+                foreach (double scale in new[] { 1.0, 1.5 }) {
+                    WindowScaler.SetScale(scale);
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal(520 * scale, window.ClientSize.Width);
+                    Assert.Equal((0.0, 0.0), (window.PaneStripControl.Margin.Left, window.PaneStripControl.Margin.Right));
+                    Assert.True(window.PaneStripControl.TryFindResource("Foreman.Thickness.TabStripPadding", window.PaneStripControl.ActualThemeVariant, out object? token));
+                    var padding = Assert.IsType<Thickness>(token);
+                    Border[] scaled = PaneItems(window);
+                    Assert.Equal(padding.Left, scaled[0].TranslatePoint(default, window)!.Value.X);
+                    Assert.All(scaled.Select(i => i.GetVisualDescendants().OfType<TextBlock>().Single()), l => Assert.True(l.Bounds.Width >= l.DesiredSize.Width));
+                    Assert.True(window.PaneStripControl.DesiredSize.Width <= window.ClientSize.Width,
+                        $"strip wants {window.PaneStripControl.DesiredSize.Width} of {window.ClientSize.Width} at {scale}");
+                }
+            } finally {
+                WindowScaler.SetScale(1.0);
+            }
         }
 
         [AvaloniaFact]
-        public async Task TabButtons_EachCarriesAPathIconBoundToItsOwnGlyph() {
+        public async Task Settings_Cmd1ThroughCmd6_SwitchPanes_AndEachTooltipNamesItsShortcut() {
+            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Border[] items = PaneItems(window);
+            UserControl[] panes = [window.PresetsTabControl, window.EnabledObjectsTabControl, window.GeneralTabControl,
+                window.AdvancedTabControl, window.AnnotationsTabControl, window.AppearanceTabControl];
+
+            for (int i = 0; i < items.Length; i++)
+                Assert.Equal($"{PaneNames[i]} — ⌘{i + 1}", ToolTip.GetTip(items[i]));
+            Assert.Equal("Presets", window.Title);
+
+            Point general = items[2].TranslatePoint(new Point(items[2].Bounds.Width / 2, items[2].Bounds.Height / 2), window) ?? default;
+            window.MouseDown(general, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(general, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, window.ActiveTabIndex);
+            Assert.Same(window.GeneralTabControl, window.TabBodyControl.Content);
+
+            int previous = 2;
+            foreach (int n in new[] { 6, 5, 4, 3, 2, 1 }) {
+                CanvasKeys.KeyDownOn(window.TabBodyControl, Key.D0 + n, KeyModifiers.Meta);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Equal(n - 1, window.ActiveTabIndex);
+                Assert.Equal(n - 1, window.PaneStripControl.SelectedIndex);
+                Assert.Equal(PaneNames[n - 1], window.Title);
+                Assert.Same(panes[n - 1], window.TabBodyControl.Content);
+                Assert.Equal(1, panes[n - 1].Opacity);
+                if (previous != n - 1)
+                    Assert.Null(panes[previous].GetVisualParent());
+                previous = n - 1;
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task Settings_Footer_ShowsTheVersion_AndAboutStillDoesToo() {
             var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
             window.Show();
 
-            foreach (Button button in window.TabButtonControls)
-                Assert.NotNull(button.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().FirstOrDefault()?.Data);
-        }
+            for (int i = 0; i < PaneNames.Length; i++) {
+                window.SimulateTabClick(i);
+                Dispatcher.UIThread.RunJobs();
 
-        [AvaloniaFact]
-        public async Task SimulateTabClick_SetsActiveClassOnThatButtonOnlyAndSwapsTabBodyContent() {
-            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
+                Assert.Equal("Foreman 2 · " + AppVersion.VersionedDisplay, window.FooterTextControl.Text);
+                Assert.True(window.FooterTextControl.IsEffectivelyVisible);
+                Assert.Same(window.FooterTextControl, window.FooterRowControl.Children[0]);
+                Assert.Contains("caption", window.FooterTextControl.Classes);
+                Assert.Contains("tertiary", window.FooterTextControl.Classes);
+                Assert.DoesNotContain(window.GetVisualDescendants().OfType<TextBlock>(),
+                    t => t.Text?.Contains("resize", StringComparison.OrdinalIgnoreCase) == true);
+            }
 
-            window.SimulateTabClick(2); //General
-
-            for (int i = 0; i < window.TabButtonControls.Count; i++)
-                Assert.Equal(i == 2, window.TabButtonControls[i].Classes.Contains("active"));
-            Assert.Same(window.GeneralTabControl, window.TabBodyControl.Content);
-            Assert.Equal(2, window.ActiveTabIndex);
-        }
-
-        [AvaloniaFact]
-        public async Task FooterText_IsForemanTwoBulletVersionedDisplay() {
-            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
-
-            Assert.Equal("Foreman 2 · " + AppVersion.VersionedDisplay, window.FooterTextControl.Text);
-        }
-
-        //R9/contract #modals: SettingsWindow is non-modal - Show(owner) must never disable the owner the way
-        //ShowDialog would.
-        [AvaloniaFact]
-        public async Task Show_LeavesTheOwnerWindowEnabledAndVisible() {
-            var owner = new Window();
-            owner.Show();
-            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
-
-            window.Show(owner);
-
-            Assert.True(owner.IsEnabled);
-            Assert.True(window.IsVisible);
+            var about = new AboutWindow();
+            about.Show();
+            Assert.Equal(AppVersion.VersionedDisplay, about.VersionTextBlockControl.Text);
         }
 
         //R5: closing hides nothing behind it and needs no Confirm - Esc/⌘W both just close this instance

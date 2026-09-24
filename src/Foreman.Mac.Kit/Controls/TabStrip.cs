@@ -1,4 +1,7 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -29,6 +32,7 @@ namespace Foreman.Mac.Kit.Controls {
         public event EventHandler? SelectionChanged;
 
         private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
+        private const double GlyphMasterSize = 18;
 
         private Border? chrome;
         private StackPanel? track;
@@ -59,7 +63,7 @@ namespace Foreman.Mac.Kit.Controls {
 
         static TabStrip() {
             FocusableProperty.OverrideDefaultValue<TabStrip>(true);
-            SelectedIndexProperty.Changed.AddClassHandler<TabStrip>((s, _) => s.OnSelectionChanged());
+            SelectedIndexProperty.Changed.AddClassHandler<TabStrip>((s, e) => s.OnSelectionChanged((int)e.OldValue!));
         }
 
         private static int CoerceSelectedIndex(AvaloniaObject sender, int value) {
@@ -197,6 +201,10 @@ namespace Foreman.Mac.Kit.Controls {
                 };
 
                 FocusRing.SetCornerRadius(visual.Item, underlineMode ? underlineFocusRadius : itemRadius);
+                AutomationProperties.SetName(visual.Item, model.Text);
+                AutomationProperties.SetHelpText(visual.Item, model.ToolTip);
+                AutomationProperties.SetPositionInSet(visual.Item, i + 1);
+                AutomationProperties.SetSizeOfSet(visual.Item, Items.Count);
 
                 track.Children.Add(visual.Item);
                 items.Add(visual);
@@ -205,6 +213,7 @@ namespace Foreman.Mac.Kit.Controls {
             ApplyStateColors();
             PositionUnderline(animate: false);
             UpdateRing();
+            (ControlAutomationPeer.FromElement(this) as TabStripAutomationPeer)?.ItemsRebuilt();
         }
 
         private ItemVisual BuildToolbarItem(TabStripItem model) {
@@ -218,8 +227,16 @@ namespace Foreman.Mac.Kit.Controls {
 
             Path? glyph = null;
             if (model.Glyph is not null) {
-                glyph = new Path { Data = model.Glyph, Width = glyph18, Height = glyph18, Stretch = Stretch.None };
-                content.Children.Add(glyph);
+                glyph = new Path {
+                    Data = model.Glyph,
+                    Width = GlyphMasterSize,
+                    Height = GlyphMasterSize,
+                    Stretch = Stretch.None,
+                    StrokeThickness = 1.5,
+                    StrokeLineCap = PenLineCap.Round,
+                    StrokeJoin = PenLineJoin.Round,
+                };
+                content.Children.Add(new Viewbox { Width = glyph18, Height = glyph18, Stretch = Stretch.Uniform, Child = glyph });
             }
 
             var label = new TextBlock {
@@ -246,7 +263,7 @@ namespace Foreman.Mac.Kit.Controls {
                 Transitions = Motion.TabFillTransitions,
             };
 
-            var item = new Border {
+            var item = new TabItemHost(this, model) {
                 Height = tabItemHeight,
                 MinWidth = tabItemMinWidth,
                 CornerRadius = itemRadius,
@@ -255,6 +272,7 @@ namespace Foreman.Mac.Kit.Controls {
                 Focusable = false,
                 Child = new Panel { Children = { fill, selectionFill, content } },
             };
+            ToolTip.SetTip(item, model.ToolTip);
 
             return new ItemVisual(item, fill, selectionFill, glyph, label, model);
         }
@@ -266,7 +284,7 @@ namespace Foreman.Mac.Kit.Controls {
                 FontWeight = calloutFontWeight,
             };
 
-            var item = new Border {
+            var item = new TabItemHost(this, model) {
                 Padding = underlineTabPadding,
                 Background = Brushes.Transparent,
                 Cursor = model.IsEnabled ? HandCursor : Cursor.Default,
@@ -300,7 +318,7 @@ namespace Foreman.Mac.Kit.Controls {
                     IBrush color = selected ? accentText : (hover || pressed) ? text : textSecondary;
                     v.Label.Foreground = color;
                     if (v.Glyph is not null)
-                        v.Glyph.Fill = color;
+                        v.Glyph.Stroke = color;
                 }
             }
 
@@ -336,11 +354,63 @@ namespace Foreman.Mac.Kit.Controls {
                 FocusRing.SetShowAlways(items[i].Item, hasKeyboardFocus && i == SelectedIndex);
         }
 
-        private void OnSelectionChanged() {
+        private void OnSelectionChanged(int previous) {
             ApplyStateColors();
             PositionUnderline(animate: true);
             UpdateRing();
+            AnnounceSelected(previous, false);
+            AnnounceSelected(SelectedIndex, true);
             SelectionChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void AnnounceSelected(int index, bool selected) {
+            if (index >= 0 && index < items.Count && ControlAutomationPeer.FromElement(items[index].Item) is AutomationPeer peer)
+                peer.RaisePropertyChangedEvent(SelectionItemPatternIdentifiers.IsSelectedProperty, !selected, selected);
+        }
+
+        protected override AutomationPeer OnCreateAutomationPeer() => new TabStripAutomationPeer(this);
+
+        private sealed class TabItemHost(TabStrip strip, TabStripItem model) : Border {
+            protected override Type StyleKeyOverride => typeof(Border);
+            public TabStrip Strip { get; } = strip;
+            public TabStripItem Model { get; } = model;
+            public int Index => Strip.items.FindIndex(v => ReferenceEquals(v.Item, this));
+            protected override AutomationPeer OnCreateAutomationPeer() => new TabItemAutomationPeer(this);
+        }
+
+        private sealed class TabStripAutomationPeer(TabStrip owner) : ControlAutomationPeer(owner), ISelectionProvider {
+            private TabStrip Strip => (TabStrip)Owner;
+
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Tab;
+
+            public void ItemsRebuilt() => InvalidateChildren();
+
+            protected override IReadOnlyList<AutomationPeer>? GetChildrenCore() =>
+                Strip.items.ConvertAll(v => CreatePeerForElement(v.Item));
+
+            bool ISelectionProvider.CanSelectMultiple => false;
+            bool ISelectionProvider.IsSelectionRequired => true;
+
+            IReadOnlyList<AutomationPeer> ISelectionProvider.GetSelection() =>
+                Strip.SelectedIndex >= 0 && Strip.SelectedIndex < Strip.items.Count ? [CreatePeerForElement(Strip.items[Strip.SelectedIndex].Item)] : [];
+        }
+
+        private sealed class TabItemAutomationPeer(TabItemHost owner) : ControlAutomationPeer(owner), ISelectionItemProvider {
+            private TabItemHost Host => (TabItemHost)Owner;
+
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.TabItem;
+            protected override bool IsEnabledCore() => Host.Model.IsEnabled;
+
+            bool ISelectionItemProvider.IsSelected => Host.Index >= 0 && Host.Index == Host.Strip.SelectedIndex;
+            ISelectionProvider? ISelectionItemProvider.SelectionContainer => CreatePeerForElement(Host.Strip) as ISelectionProvider;
+
+            void ISelectionItemProvider.Select() {
+                if (Host.Model.IsEnabled && Host.Index >= 0)
+                    Host.Strip.SelectedIndex = Host.Index;
+            }
+
+            void ISelectionItemProvider.AddToSelection() => ((ISelectionItemProvider)this).Select();
+            void ISelectionItemProvider.RemoveFromSelection() { }
         }
 
         protected override void OnKeyDown(KeyEventArgs e) {

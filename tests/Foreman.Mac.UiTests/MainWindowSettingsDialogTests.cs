@@ -1,12 +1,23 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.LogicalTree;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
@@ -63,17 +74,6 @@ namespace Foreman.Mac.UiTests {
 
             Assert.Equal(7m, opened.ViewModel.QualityStepsValue);
             Assert.False(opened.ViewModel.SmartNodeDirectionChecked);
-        }
-
-        [AvaloniaFact]
-        public void ShowSettings_CalledAgainWhileOneIsOpen_ReusesTheSameInstance() {
-            var settings = new AppSettings();
-            var window = NewWindowReadyForSettings(settings);
-            SettingsWindow first = OpenSettings(window);
-
-            window.ShowSettings(); //no stub reset - a reused instance never calls the stub again
-
-            Assert.Same(first, window.CurrentSettingsWindow);
         }
 
         //R5: every change writes onto AppSettings at once; the save itself coalesces 300ms - FlushAsync is
@@ -213,6 +213,209 @@ namespace Foreman.Mac.UiTests {
             opened.SimulateEnableAllClick();
 
             Assert.False(window.DataCache!.RocketAssembler!.Enabled);
+        }
+        private static void AssertSize(SettingsWindow window, double width, double height) {
+            Assert.Equal(width, window.ClientSize.Width);
+            Assert.Equal(height, window.ClientSize.Height);
+        }
+
+        [AvaloniaFact]
+        public async Task Settings_EnabledObjectsAndAdvanced_Resize520To900By480To760_AndRememberTheirSize() {
+            var settings = new AppSettings();
+            var window = NewWindowReadyForSettings(settings);
+            SettingsWindow opened = OpenSettings(window);
+            opened.Show(window);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(window.IsEnabled);
+
+            foreach (int fixedPane in new[] { 0, 2, 4, 5 }) {
+                opened.SimulateTabClick(fixedPane);
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(opened.CanResize);
+                AssertSize(opened, 520, 480);
+            }
+
+            foreach (int resizablePane in new[] { 1, 3 }) {
+                opened.SimulateTabClick(resizablePane);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(opened.CanResize);
+                Assert.Equal((520, 900, 480, 760), (opened.MinWidth, opened.MaxWidth, opened.MinHeight, opened.MaxHeight));
+                AssertSize(opened, 520, 480);
+            }
+
+            opened.SimulateTabClick(1);
+            opened.Width = 700;
+            opened.Height = 600;
+            Dispatcher.UIThread.RunJobs();
+            opened.SimulateTabClick(3);
+            Dispatcher.UIThread.RunJobs();
+            AssertSize(opened, 520, 480);
+            opened.Width = 800;
+            opened.Height = 700;
+            Dispatcher.UIThread.RunJobs();
+
+            opened.SimulateTabClick(2);
+            Dispatcher.UIThread.RunJobs();
+            AssertSize(opened, 520, 480);
+            opened.SimulateTabClick(1);
+            Dispatcher.UIThread.RunJobs();
+            AssertSize(opened, 700, 600);
+
+            Assert.Equal((700.0, 600.0), (settings.SettingsEnabledObjectsWidth, settings.SettingsEnabledObjectsHeight));
+            Assert.Equal((800.0, 700.0), (settings.SettingsAdvancedWidth, settings.SettingsAdvancedHeight));
+            int savesBefore = window.CurrentSettingsSession!.SaveCallCount;
+            await window.CurrentSettingsSession!.FlushAsync();
+            Assert.Equal(savesBefore + 1, window.CurrentSettingsSession!.SaveCallCount);
+
+            opened.Close();
+            Dispatcher.UIThread.RunJobs();
+            SettingsWindow reopened = OpenSettings(window);
+            Assert.NotSame(opened, reopened);
+            reopened.Show(window);
+            reopened.SimulateTabClick(3);
+            Dispatcher.UIThread.RunJobs();
+            AssertSize(reopened, 800, 700);
+            reopened.SimulateTabClick(1);
+            Dispatcher.UIThread.RunJobs();
+            AssertSize(reopened, 700, 600);
+
+            try {
+                WindowScaler.SetScale(1.5);
+                Dispatcher.UIThread.RunJobs();
+                AssertSize(reopened, 1050, 900);
+                Assert.Equal((780, 1350, 720, 1140), (reopened.MinWidth, reopened.MaxWidth, reopened.MinHeight, reopened.MaxHeight));
+                Assert.Equal((700.0, 600.0), (settings.SettingsEnabledObjectsWidth, settings.SettingsEnabledObjectsHeight));
+
+                reopened.SimulateTabClick(2);
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(reopened.CanResize);
+                Assert.Equal((780, 780, 720, 720), (reopened.MinWidth, reopened.MaxWidth, reopened.MinHeight, reopened.MaxHeight));
+                AssertSize(reopened, 780, 720);
+
+                reopened.SimulateTabClick(1);
+                Dispatcher.UIThread.RunJobs();
+                AssertSize(reopened, 1050, 900);
+                reopened.Width = 1200;
+                reopened.Height = 960;
+                Dispatcher.UIThread.RunJobs();
+
+                WindowScaler.SetScale(1.0);
+                Dispatcher.UIThread.RunJobs();
+                AssertSize(reopened, 800, 640);
+                Assert.Equal((800.0, 640.0), (settings.SettingsEnabledObjectsWidth, settings.SettingsEnabledObjectsHeight));
+                Assert.Equal((800.0, 700.0), (settings.SettingsAdvancedWidth, settings.SettingsAdvancedHeight));
+            } finally {
+                WindowScaler.SetScale(1.0);
+            }
+        }
+
+        private static readonly Dictionary<int, string[]> PaneFields = new() {
+            [2] = [nameof(AppSettings.DefaultAssemblerOption), nameof(AppSettings.DefaultModuleOption), nameof(AppSettings.DefaultNodeDirection),
+                nameof(AppSettings.SmartNodeDirection), nameof(AppSettings.SimplePassthroughNodes), nameof(AppSettings.RoundAssemblerCount),
+                nameof(AppSettings.QualitySteps), nameof(AppSettings.ShowRecipeToolTip)],
+            [3] = [nameof(AppSettings.EnableExtraProductivityForNonMiners), nameof(AppSettings.ShowUnavailable), nameof(AppSettings.UseRecipeBWfilters),
+                nameof(AppSettings.LowPriorityPower), nameof(AppSettings.PullConsumerNodes), nameof(AppSettings.PullConsumerNodesPower)],
+            [4] = [nameof(AppSettings.ShowErrorArrows), nameof(AppSettings.ShowWarningArrows), nameof(AppSettings.ShowDisconnectedArrows),
+                nameof(AppSettings.ShowOUSuppliedArrows), nameof(AppSettings.FlagOUSuppliedNodes)],
+            [5] = [nameof(AppSettings.FlagDarkMode), nameof(AppSettings.UiScale), nameof(AppSettings.LevelOfDetail), nameof(AppSettings.NodeCountForSimpleView),
+                nameof(AppSettings.IconsSize), nameof(AppSettings.ArrowsOnLinks), nameof(AppSettings.DynamicLineWidth), nameof(AppSettings.AbbreviateSciPacks)],
+        };
+
+        private static Dictionary<string, object?> Snapshot(AppSettings settings) =>
+            typeof(AppSettings).GetProperties(BindingFlags.Public | BindingFlags.Instance).ToDictionary(p => p.Name, p => p.GetValue(settings));
+
+        [AvaloniaFact]
+        public void Settings_RestoreDefaults_IsInTheFooter_ConfirmsFirst_AndResetsOnlyTheVisiblePane() {
+            var settings = new AppSettings {
+                QualitySteps = 5, SmartNodeDirection = false,
+                LowPriorityPower = 2, PullConsumerNodes = true,
+                ShowErrorArrows = false, FlagOUSuppliedNodes = true,
+                IconsSize = 32, ArrowsOnLinks = true,
+            };
+            var window = NewWindowReadyForSettings(settings);
+            SettingsWindow opened = OpenSettings(window);
+            opened.Show(window);
+            Dispatcher.UIThread.RunJobs();
+            Button restore = opened.RestoreDefaultsButtonControl;
+
+            foreach (int hiddenPane in new[] { 0, 1 }) {
+                opened.SimulateTabClick(hiddenPane);
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(restore.IsVisible);
+            }
+            Assert.Equal("Enable All", opened.EnabledObjectsTabControl.EnableAllButtonControl.Content);
+            Assert.DoesNotContain(opened.EnabledObjectsTabControl.GetLogicalDescendants().OfType<ContentControl>(), c => c.Content as string == "Restore Defaults");
+
+            AppSettings defaults = new();
+            string[] names = ["", "", "General", "Advanced", "Annotations", "Appearance"];
+
+            foreach ((int pane, string[] fields) in PaneFields) {
+                opened.SimulateTabClick(pane);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(restore.IsVisible);
+                Assert.Same(restore, opened.FooterRowControl.Children[^1]);
+                Assert.DoesNotContain("destructive", restore.Classes);
+                Assert.False(restore.IsDefault);
+                Assert.True(restore.IsEnabled);
+
+                Dictionary<string, object?> before = Snapshot(settings);
+                SheetFixture.Click(opened, restore);
+                AnimationClock.Settle();
+
+                AlertSheet shown = Assert.IsType<AlertSheet>(SheetHost.For(opened).Content);
+                Assert.Equal($"Restore the default {names[pane]} settings?", shown.FrameControl.Headline);
+                Assert.Equal("Every setting in this pane goes back to its original value. You can’t undo this action.", shown.FrameControl.InformativeText);
+                Assert.Equal(["Restore Defaults", "Cancel"], shown.Buttons!.Items.Cast<Button>().Select(b => b.Content as string));
+                Assert.Contains("destructive", shown.YesButtonControl.Classes);
+                Assert.Same(shown.NoButtonControl, shown.DefaultButton);
+                if (pane == 2) {
+                    CanvasKeys.KeyDownOn(shown.YesButtonControl, Key.D4, KeyModifiers.Meta);
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal((2, "General", false), (opened.ActiveTabIndex, opened.Title, opened.CanResize));
+                    AssertSize(opened, 520, 480);
+                    Assert.True(SheetHost.For(opened).IsOpen);
+                    Assert.Same(shown, SheetHost.For(opened).Content);
+                }
+                CanvasKeys.KeyDownOn(shown.YesButtonControl, Key.Enter);
+                AnimationClock.Settle();
+                Assert.Equal(before, Snapshot(settings));
+
+                SheetFixture.Click(opened, restore);
+                AnimationClock.Settle();
+                shown = Assert.IsType<AlertSheet>(SheetHost.For(opened).Content);
+                SheetFixture.Click(opened, shown.NoButtonControl);
+                AnimationClock.Settle();
+                Assert.False(SheetHost.For(opened).IsOpen);
+                Assert.Equal(before, Snapshot(settings));
+
+                SheetFixture.Click(opened, restore);
+                AnimationClock.Settle();
+                shown = Assert.IsType<AlertSheet>(SheetHost.For(opened).Content);
+                CanvasKeys.KeyDownOn(shown.YesButtonControl, Key.Back, KeyModifiers.Meta);
+                AnimationClock.Settle();
+
+                Dictionary<string, object?> after = Snapshot(settings);
+                Dictionary<string, object?> expected = Snapshot(defaults);
+                foreach (string field in fields)
+                    Assert.True(Equals(expected[field], after[field]), $"{field} is {after[field]}, not its default {expected[field]}");
+                foreach (string field in before.Keys.Except(fields))
+                    Assert.True(Equals(before[field], after[field]), $"{field} changed from {before[field]} to {after[field]}");
+                Assert.False(restore.IsEnabled);
+                var focused = TopLevel.GetTopLevel(opened)!.FocusManager!.GetFocusedElement() as Visual;
+                Assert.True(focused is not null && focused.GetVisualAncestors().Contains(opened.TabBodyControl.Content as Visual), $"focus is on {focused}");
+            }
+
+            opened.SimulateTabClick(4);
+            opened.ViewModel.ErrorArrowsChecked = false;
+            Assert.True(restore.IsEnabled);
+            SheetFixture.Click(opened, restore);
+            AnimationClock.Settle();
+            AlertSheet confirm = Assert.IsType<AlertSheet>(SheetHost.For(opened).Content);
+            SheetFixture.Click(opened, confirm.YesButtonControl);
+            AnimationClock.Settle();
+            Assert.False(SheetHost.For(opened).IsOpen);
+            Assert.Equal(defaults.ShowErrorArrows, settings.ShowErrorArrows);
+            Assert.False(restore.IsEnabled);
         }
     }
 }

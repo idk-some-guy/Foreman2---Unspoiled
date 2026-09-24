@@ -8,8 +8,11 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 
 namespace Foreman.Mac.ViewModels {
+    public enum SettingsPane { Presets, EnabledObjects, General, Advanced, Annotations, Appearance }
+
     //Settings window's Graph Options tab and Enabled Objects lists, split off SettingsWindow.axaml.cs's
     //former LoadGraphOptionsTab/CommitGraphOptionsTab/UpdateFilteredLists (Task 6). Presets-tab
     //orchestration (window services: dialogs, preset-list rebuilds) stays in the code-behind.
@@ -235,6 +238,47 @@ namespace Foreman.Mac.ViewModels {
             (string Label, double Scale) fallbackStep = ("100%", 1.0);
             settings.UiScale = UiScaleSteps.FirstOrDefault(step => step.Label == UiScaleLabel, fallbackStep).Scale;
         }
+
+        //--- Restore Defaults ----------------------------------------------------------------------------
+
+        //Per pane, in restore order; LoadBarrelingChecked goes last because changing it reloads the window.
+        private static readonly Dictionary<SettingsPane, string[]> PaneProperties = new() {
+            [SettingsPane.General] = [nameof(AssemblerSelectorStyleIndex), nameof(ModuleSelectorStyleIndex), nameof(NodeDirectionIndex),
+                nameof(SmartNodeDirectionChecked), nameof(SimplePassthroughNodesChecked), nameof(RoundAssemblerCountChecked),
+                nameof(QualityStepsValue), nameof(ShowNodeRecipeChecked)],
+            [SettingsPane.Advanced] = [nameof(ShowProductivityBonusOnAllChecked), nameof(ShowUnavailablesChecked), nameof(LowPriorityPowerValue),
+                nameof(PullConsumerNodesChecked), nameof(PullConsumerNodesPowerValue), nameof(LoadBarrelingChecked)],
+            [SettingsPane.Annotations] = [nameof(ErrorArrowsChecked), nameof(WarningArrowsChecked), nameof(DisconnectedArrowsChecked),
+                nameof(OuSuppliedArrowsChecked), nameof(FlagOUSupplyNodesChecked)],
+            [SettingsPane.Appearance] = [nameof(FlagDarkMode), nameof(UiScaleLabel), nameof(LowLodChecked), nameof(MediumLodChecked),
+                nameof(HighLodChecked), nameof(NodeCountForSimpleViewValue), nameof(IconsSizeValue), nameof(ArrowsOnLinksChecked),
+                nameof(DynamicLWChecked), nameof(AbbreviateSciPackChecked)],
+        };
+
+        private static SettingsViewModel Defaults() {
+            var defaults = new SettingsViewModel();
+            defaults.LoadFrom(new AppSettings());
+            return defaults;
+        }
+
+        public static bool HasDefaults(SettingsPane pane) => PaneProperties.ContainsKey(pane);
+
+        public bool IsAtDefaults(SettingsPane pane) {
+            if (!PaneProperties.TryGetValue(pane, out string[]? names))
+                return true;
+            SettingsViewModel defaults = Defaults();
+            return names.All(name => Equals(Property(name).GetValue(this), Property(name).GetValue(defaults)));
+        }
+
+        public void RestoreDefaults(SettingsPane pane) {
+            if (!PaneProperties.TryGetValue(pane, out string[]? names))
+                return;
+            SettingsViewModel defaults = Defaults();
+            foreach (string name in names)
+                Property(name).SetValue(this, Property(name).GetValue(defaults));
+        }
+
+        private static PropertyInfo Property(string name) => typeof(SettingsViewModel).GetProperty(name)!;
 
         //--- Enabled Objects tab ------------------------------------------------------------------------
 

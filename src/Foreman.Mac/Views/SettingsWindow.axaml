@@ -1,79 +1,30 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Foreman.Mac.ViewModels"
-        xmlns:motion="using:Foreman.Mac.Kit"
+        xmlns:kit="using:Foreman.Mac.Kit.Controls"
         x:Class="Foreman.Mac.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
-        Title="Settings"
-        Width="680"
-        Height="540"
+        Title="Presets"
+        Width="520"
+        Height="480"
+        CanResize="False"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource Foreman.Color.WindowBackground}">
   <DockPanel>
     <Border DockPanel.Dock="Top" Background="{DynamicResource Foreman.Color.TitlebarBackground}"
             BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,0,0,1">
-      <StackPanel Name="TabStrip" Orientation="Horizontal" Spacing="4" Margin="14,9">
-        <Button Name="PresetsTabButton" Classes="foreman-settings-tab" Click="OnPresetsTabClick">
-          <StackPanel Spacing="3">
-            <Viewbox Width="18" Height="18"><Canvas Width="20" Height="20">
-              <Path Data="{StaticResource Foreman.Icon.Settings.Presets}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
-            </Canvas></Viewbox>
-            <TextBlock Text="Presets" Classes="foreman-settings-tab-label" />
-          </StackPanel>
-        </Button>
-        <Button Name="EnabledObjectsTabButton" Classes="foreman-settings-tab" Click="OnEnabledObjectsTabClick">
-          <StackPanel Spacing="3">
-            <Viewbox Width="18" Height="18"><Canvas Width="20" Height="20">
-              <Path Data="{StaticResource Foreman.Icon.Settings.EnabledObjects}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
-            </Canvas></Viewbox>
-            <TextBlock Text="Enabled Objects" Classes="foreman-settings-tab-label" />
-          </StackPanel>
-        </Button>
-        <Button Name="GeneralTabButton" Classes="foreman-settings-tab" Click="OnGeneralTabClick">
-          <StackPanel Spacing="3">
-            <Viewbox Width="18" Height="18"><Canvas Width="20" Height="20">
-              <Path Data="{StaticResource Foreman.Icon.Settings.General}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
-            </Canvas></Viewbox>
-            <TextBlock Text="General" Classes="foreman-settings-tab-label" />
-          </StackPanel>
-        </Button>
-        <Button Name="AdvancedTabButton" Classes="foreman-settings-tab" Click="OnAdvancedTabClick">
-          <StackPanel Spacing="3">
-            <Viewbox Width="18" Height="18"><Canvas Width="20" Height="20">
-              <Path Data="{StaticResource Foreman.Icon.Settings.Advanced}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
-            </Canvas></Viewbox>
-            <TextBlock Text="Advanced" Classes="foreman-settings-tab-label" />
-          </StackPanel>
-        </Button>
-        <Button Name="AnnotationsTabButton" Classes="foreman-settings-tab" Click="OnAnnotationsTabClick">
-          <StackPanel Spacing="3">
-            <Viewbox Width="18" Height="18"><Canvas Width="20" Height="20">
-              <Path Data="{StaticResource Foreman.Icon.Settings.Annotations}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
-            </Canvas></Viewbox>
-            <TextBlock Text="Annotations" Classes="foreman-settings-tab-label" />
-          </StackPanel>
-        </Button>
-        <Button Name="AppearanceTabButton" Classes="foreman-settings-tab" Click="OnAppearanceTabClick">
-          <StackPanel Spacing="3">
-            <Viewbox Width="18" Height="18"><Canvas Width="20" Height="20">
-              <Path Data="{StaticResource Foreman.Icon.Settings.Appearance}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
-            </Canvas></Viewbox>
-            <TextBlock Text="Appearance" Classes="foreman-settings-tab-label" />
-          </StackPanel>
-        </Button>
-      </StackPanel>
+      <kit:TabStrip Name="PaneStrip" Theme="{StaticResource Kit.TabStrip}" Classes="toolbar-tabs" Margin="0,3"
+                    AutomationProperties.Name="Settings panes" />
     </Border>
 
     <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,1,0,0" Padding="16,8">
-      <TextBlock Name="FooterText" FontSize="11" Foreground="{DynamicResource Foreman.Color.TextTertiary}" />
+      <DockPanel Name="FooterRow" LastChildFill="False">
+        <TextBlock Name="FooterText" DockPanel.Dock="Left" VerticalAlignment="Center"
+                   Theme="{StaticResource Kit.Text}" Classes="caption tertiary" />
+        <Button Name="RestoreDefaultsButton" DockPanel.Dock="Right" Theme="{StaticResource Kit.Button}" Content="Restore Defaults" />
+      </DockPanel>
     </Border>
 
-    <TransitioningContentControl Name="TabBody">
-      <TransitioningContentControl.PageTransition>
-        <CrossFade Duration="{x:Static motion:Motion.CrossFadeDuration}"
-                   FadeInEasing="{x:Static motion:Motion.CrossFadeEasing}"
-                   FadeOutEasing="{x:Static motion:Motion.CrossFadeEasing}" />
-      </TransitioningContentControl.PageTransition>
-    </TransitioningContentControl>
+    <ContentControl Name="TabBody" />
   </DockPanel>
 </Window>

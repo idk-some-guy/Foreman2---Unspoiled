@@ -76,5 +76,11 @@ namespace Foreman.Mac.Services {
         public double BrowserHeight { get; set; } = 520;
         public string BrowserItemsGroup { get; set; } = "";
         public string BrowserRecipesGroup { get; set; } = "";
+
+        //The two resizable Settings panes' sizes in logical units; null until the pane is first resized.
+        public double? SettingsEnabledObjectsWidth { get; set; }
+        public double? SettingsEnabledObjectsHeight { get; set; }
+        public double? SettingsAdvancedWidth { get; set; }
+        public double? SettingsAdvancedHeight { get; set; }
     }
 }

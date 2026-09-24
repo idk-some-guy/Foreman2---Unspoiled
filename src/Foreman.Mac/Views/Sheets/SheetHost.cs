@@ -79,6 +79,7 @@ namespace Foreman.Mac.Views.Sheets {
         }
 
         //blockedSiblings is captured before the host joins the collection so it never blocks itself; the toolbar row stays live (v2 §04).
+        //A layout panel (DockPanel, StackPanel) would lay the host out as one more child, so only a plain Panel takes it as an overlay.
         private static void Attach(Window window, SheetHost host) {
             switch (window.Content) {
                 case Grid grid:
@@ -89,7 +90,7 @@ namespace Foreman.Mac.Views.Sheets {
                     host.blockedSiblings = [.. grid.Children.Where(c => !ReferenceEquals(c, host.topAnchor))];
                     grid.Children.Add(host);
                     break;
-                case Panel panel:
+                case Panel panel when panel.GetType() == typeof(Panel):
                     host.blockedSiblings = [.. panel.Children.Where(c => !ReferenceEquals(c, host.topAnchor))];
                     panel.Children.Add(host);
                     break;

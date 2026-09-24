@@ -1,5 +1,8 @@
 using Avalonia;
 using Avalonia.Animation;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
@@ -13,6 +16,7 @@ using Avalonia.VisualTree;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
+using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 using TabStrip = Foreman.Mac.Kit.Controls.TabStrip;
@@ -88,13 +92,48 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.Window.Content = strip;
             Dispatcher.UIThread.RunJobs();
 
-            Path glyph = Items(strip)[0].GetVisualDescendants().OfType<Path>().Single();
+            Viewbox box = Items(strip)[0].GetVisualDescendants().OfType<Viewbox>().Single();
             TextBlock label = Items(strip)[0].GetVisualDescendants().OfType<TextBlock>().Single();
 
             Application.Current!.TryGetResource("Foreman.Size.Glyph18", Application.Current.ActualThemeVariant, out object? glyphSize);
             Application.Current!.TryGetResource("Foreman.Type.TabLabel.FontSize", Application.Current.ActualThemeVariant, out object? labelSize);
-            Assert.Equal(Assert.IsType<double>(glyphSize), glyph.Width);
+            Assert.Equal(Assert.IsType<double>(glyphSize), box.Bounds.Width);
             Assert.Equal(Assert.IsType<double>(labelSize), label.FontSize);
+        }
+
+        [AvaloniaFact]
+        public void ToolbarTabs_Glyph_IsStrokedInTheLabelColourInsideAnEighteenPointMasterBox() {
+            using var fixture = new KitFixture();
+            TabStrip strip = ToolbarTabs("General", "Objects");
+            strip.SelectedIndex = 0;
+            fixture.Window.Content = strip;
+            Dispatcher.UIThread.RunJobs();
+
+            Path selected = Items(strip)[0].GetVisualDescendants().OfType<Path>().Single();
+            Path unselected = Items(strip)[1].GetVisualDescendants().OfType<Path>().Single();
+
+            Assert.Null(selected.Fill);
+            Assert.Equal(1.5, selected.StrokeThickness);
+            Assert.Equal(PenLineCap.Round, selected.StrokeLineCap);
+            Assert.Equal(PenLineJoin.Round, selected.StrokeJoin);
+            Assert.Equal(Stretch.None, selected.Stretch);
+            Assert.Equal(new Size(18, 18), selected.Bounds.Size);
+            Assert.Equal(fixture.Brush("Foreman.Color.AccentText").ToImmutable(), selected.Stroke?.ToImmutable());
+            Assert.Equal(fixture.Brush("Foreman.Color.TextSecondary").ToImmutable(), unselected.Stroke?.ToImmutable());
+        }
+
+        [AvaloniaFact]
+        public void ToolbarTabs_EachItemCarriesItsModelsToolTip() {
+            using var fixture = new KitFixture();
+            var strip = new TabStrip { Theme = KitTabStripTheme() };
+            strip.Classes.Add("toolbar-tabs");
+            strip.Items.Add(new TabStripItem { Text = "General", Glyph = SampleGlyph(), ToolTip = "General — ⌘1" });
+            strip.Items.Add(new TabStripItem { Text = "Objects", Glyph = SampleGlyph() });
+            fixture.Window.Content = strip;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("General — ⌘1", ToolTip.GetTip(Items(strip)[0]));
+            Assert.Null(ToolTip.GetTip(Items(strip)[1]));
         }
 
         [AvaloniaFact]
@@ -343,6 +382,53 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Application.Current!.TryGetResource("Foreman.Opacity.Disabled", Application.Current.ActualThemeVariant, out object? disabled);
             Assert.Equal(Assert.IsType<double>(disabled), Items(strip)[0].Opacity);
         }
+
+        [AvaloniaFact]
+        public void Peer_IsANamedTabListOfTabItems_ReportingSelectionPositionAndHelp() {
+            using var fixture = new KitFixture();
+            TabStrip strip = ToolbarTabs();
+            strip.Items.Add(new TabStripItem { Text = "Presets", Glyph = SampleGlyph(), ToolTip = "Presets — ⌘1" });
+            strip.Items.Add(new TabStripItem { Text = "General", Glyph = SampleGlyph(), ToolTip = "General — ⌘2" });
+            strip.Items.Add(new TabStripItem { Text = "Advanced", Glyph = SampleGlyph(), ToolTip = "Advanced — ⌘3", IsEnabled = false });
+            AutomationProperties.SetName(strip, "Settings panes");
+            fixture.Window.Content = strip;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(strip);
+            Assert.Equal(AutomationControlType.Tab, peer.GetAutomationControlType());
+            Assert.Equal("Settings panes", peer.GetName());
+            IReadOnlyList<AutomationPeer> tabs = peer.GetChildren();
+            Assert.Equal(["Presets", "General", "Advanced"], tabs.Select(t => t.GetName()));
+            Assert.All(tabs, t => Assert.Equal(AutomationControlType.TabItem, t.GetAutomationControlType()));
+            Assert.Equal(["Presets — ⌘1", "General — ⌘2", "Advanced — ⌘3"], tabs.Select(t => t.GetHelpText()));
+            Assert.Equal([1, 2, 3], Items(strip).Select(AutomationProperties.GetPositionInSet));
+            Assert.All(Items(strip), i => Assert.Equal(3, AutomationProperties.GetSizeOfSet(i)));
+            Assert.Equal([true, true, false], tabs.Select(t => t.IsEnabled()));
+            Assert.Equal([true, false, false], tabs.Select(t => t.GetProvider<ISelectionItemProvider>()!.IsSelected));
+            Assert.Same(tabs[0], Assert.Single(peer.GetProvider<ISelectionProvider>()!.GetSelection()));
+
+            tabs[1].GetProvider<ISelectionItemProvider>()!.Select();
+            Assert.Equal(1, strip.SelectedIndex);
+            tabs[2].GetProvider<ISelectionItemProvider>()!.Select();
+            Assert.Equal(1, strip.SelectedIndex);
+
+            strip.SelectedIndex = 0;
+            Assert.Equal([true, false, false], peer.GetChildren().Select(t => t.GetProvider<ISelectionItemProvider>()!.IsSelected));
+
+            var raised = new List<AutomationPropertyChangedEventArgs>[] { [], [], [] };
+            for (int i = 0; i < tabs.Count; i++) {
+                int index = i;
+                tabs[i].PropertyChanged += (_, e) => raised[index].Add(e);
+            }
+            strip.SelectedIndex = 1;
+            AutomationPropertyChangedEventArgs deselected = Assert.Single(raised[0]);
+            Assert.Same(SelectionItemPatternIdentifiers.IsSelectedProperty, deselected.Property);
+            Assert.Equal((true, false), ((bool?)deselected.OldValue, (bool?)deselected.NewValue));
+            AutomationPropertyChangedEventArgs selected = Assert.Single(raised[1]);
+            Assert.Same(SelectionItemPatternIdentifiers.IsSelectedProperty, selected.Property);
+            Assert.Equal((false, true), ((bool?)selected.OldValue, (bool?)selected.NewValue));
+            Assert.Empty(raised[2]);
+        }
     }
 
     [Collection(KitScaleGroup.Name)]
@@ -363,13 +449,14 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             //Rebuild() replaces every item Border wholesale on a token change, so re-query rather than reuse.
             Assert.Equal(46, ItemNow().Height);
-            Assert.Equal(18, ItemNow().GetVisualDescendants().OfType<Path>().Single().Width);
+            Assert.Equal(18, ItemNow().GetVisualDescendants().OfType<Viewbox>().Single().Bounds.Width);
 
             ScaleContract.Apply(1.5);
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(69, ItemNow().Height);
-            Assert.Equal(27, ItemNow().GetVisualDescendants().OfType<Path>().Single().Width);
+            Assert.Equal(27, ItemNow().GetVisualDescendants().OfType<Viewbox>().Single().Bounds.Width);
+            Assert.Equal(18, ItemNow().GetVisualDescendants().OfType<Path>().Single().Width);
         }
     }
 }

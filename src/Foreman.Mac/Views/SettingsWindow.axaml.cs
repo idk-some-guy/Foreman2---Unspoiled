@@ -27,6 +27,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using DrawingPoint = System.Drawing.Point;
+using TabStrip = Foreman.Mac.Kit.Controls.TabStrip;
+using TabStripItem = Foreman.Mac.Kit.Controls.TabStripItem;
 
 namespace Foreman.Mac.Views {
     //C2c Task 4: non-modal, toolbar-tabbed Settings window - changes apply as they're made instead of on a
@@ -53,10 +55,18 @@ namespace Foreman.Mac.Views {
         private readonly Settings.AnnotationsTab annotationsTab = new();
         private readonly Settings.AppearanceTab appearanceTab = new();
 
-        private readonly Button[] tabButtons;
+        private static readonly string[] PaneNames = ["Presets", "Enabled Objects", "General", "Advanced", "Annotations", "Appearance"];
+        private static readonly string[] PaneGlyphKeys = [
+            "Kit.Glyph.Settings.Presets.18", "Kit.Glyph.Settings.EnabledObjects.18", "Kit.Glyph.Settings.General.18",
+            "Kit.Glyph.Settings.Advanced.18", "Kit.Glyph.Settings.Annotations.18", "Kit.Glyph.Settings.Appearance.18",
+        ];
+
+        private readonly TabStrip paneStrip;
         private readonly UserControl[] tabControls;
-        private readonly TransitioningContentControl tabBody;
+        private readonly ContentControl tabBody;
         private readonly TextBlock footerText;
+        private readonly DockPanel footerRow;
+        private readonly Button restoreDefaultsButton;
         private int activeTabIndex = -1;
 
         private readonly List<EnabledObjectsListItem> unfilteredAssemblerList = [];
@@ -70,7 +80,8 @@ namespace Foreman.Mac.Views {
         //Dedups baked icons by source SKBitmap reference, same intent as upstream's EnabledObjectsIconIndex.
         private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
 
-        private readonly WindowMinSizeScale minSizeScale;
+        private const double FixedWidth = 520, FixedHeight = 480, MaxResizableWidth = 900, MaxResizableHeight = 760;
+        private double appliedScale = 1;
 
         public SettingsWindowOptions Options { get; }
 
@@ -109,18 +120,22 @@ namespace Foreman.Mac.Views {
             ViewModel = new SettingsViewModel();
             DataContext = ViewModel;
 
-            tabBody = this.FindControl<TransitioningContentControl>("TabBody")!;
+            tabBody = this.FindControl<ContentControl>("TabBody")!;
             footerText = this.FindControl<TextBlock>("FooterText")!;
             footerText.Text = "Foreman 2 · " + AppVersion.VersionedDisplay;
+            footerRow = this.FindControl<DockPanel>("FooterRow")!;
+            restoreDefaultsButton = this.FindControl<Button>("RestoreDefaultsButton")!;
 
-            tabButtons = [
-                this.FindControl<Button>("PresetsTabButton")!,
-                this.FindControl<Button>("EnabledObjectsTabButton")!,
-                this.FindControl<Button>("GeneralTabButton")!,
-                this.FindControl<Button>("AdvancedTabButton")!,
-                this.FindControl<Button>("AnnotationsTabButton")!,
-                this.FindControl<Button>("AppearanceTabButton")!,
-            ];
+            paneStrip = this.FindControl<TabStrip>("PaneStrip")!;
+            for (int i = 0; i < PaneNames.Length; i++)
+                paneStrip.Items.Add(new TabStripItem {
+                    Text = PaneNames[i],
+                    Glyph = (Geometry)this.FindResource(PaneGlyphKeys[i])!,
+                    ToolTip = $"{PaneNames[i]} — ⌘{i + 1}",
+                });
+            paneStrip.SelectionChanged += (_, _) => SelectTab(paneStrip.SelectedIndex);
+            restoreDefaultsButton.Click += (_, _) => Async.Fire(RestoreDefaultsAsync(), nameof(RestoreDefaultsAsync));
+            ViewModel.PropertyChanged += (_, _) => UpdateRestoreDefaults();
             tabControls = [presetsTab, enabledObjectsTab, generalTab, advancedTab, annotationsTab, appearanceTab];
 
             //Bindings must resolve the moment a value changes, not only once a tab is actually clicked into
@@ -144,10 +159,7 @@ namespace Foreman.Mac.Views {
             UpdateModList();
             EnabledObjectsListItem.RefreshTheme();
             LoadUnfilteredLists();
-            //Before minSizeScale below - see MainWindow's own matching comment (Content is still the
-            //root Grid at this point).
             SheetHost.For(this);
-            minSizeScale = new WindowMinSizeScale(this);
 
             AppearanceHub.Current?.Subscribe(this);
             Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
@@ -158,38 +170,95 @@ namespace Foreman.Mac.Views {
         //RefreshTheme re-resolves the shared brushes and pushes them out to every row already on screen
         //(RowBackground/Foreground are live-computed, not baked at row construction).
         public void RefreshTheme() {
-            minSizeScale.Apply();
+            if (WindowScaler.CurrentScale != appliedScale) {
+                RecordPaneSize(appliedScale);
+                ApplyPaneSize();
+            }
             EnabledObjectsListItem.RefreshTheme();
         }
 
-        //--- Tab strip ------------------------------------------------------------------------------------
-
-        private void OnPresetsTabClick(object? sender, RoutedEventArgs e) => SelectTab(0);
-        private void OnEnabledObjectsTabClick(object? sender, RoutedEventArgs e) => SelectTab(1);
-        private void OnGeneralTabClick(object? sender, RoutedEventArgs e) => SelectTab(2);
-        private void OnAdvancedTabClick(object? sender, RoutedEventArgs e) => SelectTab(3);
-        private void OnAnnotationsTabClick(object? sender, RoutedEventArgs e) => SelectTab(4);
-        private void OnAppearanceTabClick(object? sender, RoutedEventArgs e) => SelectTab(5);
+        //--- Pane strip -----------------------------------------------------------------------------------
 
         private void SelectTab(int index) {
             if (activeTabIndex == index)
                 return;
+            if (activeTabIndex >= 0)
+                RecordPaneSize(appliedScale);
             activeTabIndex = index;
-
-            for (int i = 0; i < tabButtons.Length; i++)
-                tabButtons[i].Classes.Set("active", i == index);
-
+            paneStrip.SelectedIndex = index;
             tabBody.Content = tabControls[index];
+            Title = PaneNames[index];
+            ApplyPaneSize();
+            UpdateRestoreDefaults();
+        }
+
+        private static bool IsResizable(int index) => (SettingsPane)index is SettingsPane.EnabledObjects or SettingsPane.Advanced;
+
+        private (double Width, double Height) RememberedSize(int index) {
+            (double? width, double? height) = (SettingsPane)index == SettingsPane.EnabledObjects
+                ? (Settings?.SettingsEnabledObjectsWidth, Settings?.SettingsEnabledObjectsHeight)
+                : (Settings?.SettingsAdvancedWidth, Settings?.SettingsAdvancedHeight);
+            return (Math.Clamp(width ?? FixedWidth, FixedWidth, MaxResizableWidth), Math.Clamp(height ?? FixedHeight, FixedHeight, MaxResizableHeight));
+        }
+
+        private void ApplyPaneSize() {
+            appliedScale = WindowScaler.CurrentScale;
+            bool resizable = IsResizable(activeTabIndex);
+            (double width, double height) = resizable ? RememberedSize(activeTabIndex) : (FixedWidth, FixedHeight);
+            CanResize = resizable;
+            MinWidth = FixedWidth * appliedScale;
+            MinHeight = FixedHeight * appliedScale;
+            MaxWidth = (resizable ? MaxResizableWidth : FixedWidth) * appliedScale;
+            MaxHeight = (resizable ? MaxResizableHeight : FixedHeight) * appliedScale;
+            Width = width * appliedScale;
+            Height = height * appliedScale;
+        }
+
+        private void RecordPaneSize(double scale) {
+            if (!IsResizable(activeTabIndex) || Settings is not AppSettings settings || ClientSize.Width <= 0 || ClientSize.Height <= 0)
+                return;
+            double width = Math.Clamp(ClientSize.Width / scale, FixedWidth, MaxResizableWidth);
+            double height = Math.Clamp(ClientSize.Height / scale, FixedHeight, MaxResizableHeight);
+            if ((width, height) == RememberedSize(activeTabIndex))
+                return;
+            if ((SettingsPane)activeTabIndex == SettingsPane.EnabledObjects)
+                (settings.SettingsEnabledObjectsWidth, settings.SettingsEnabledObjectsHeight) = (width, height);
+            else
+                (settings.SettingsAdvancedWidth, settings.SettingsAdvancedHeight) = (width, height);
+            Session?.Apply("SettingsPaneSize");
+        }
+
+        private void UpdateRestoreDefaults() {
+            var pane = (SettingsPane)activeTabIndex;
+            restoreDefaultsButton.IsVisible = SettingsViewModel.HasDefaults(pane);
+            restoreDefaultsButton.IsEnabled = !ViewModel.IsAtDefaults(pane);
+        }
+
+        private async Task RestoreDefaultsAsync() {
+            var pane = (SettingsPane)activeTabIndex;
+            if (!await Dialogs.ShowDestructiveConfirmAsync(this, $"Restore the default {PaneNames[activeTabIndex]} settings?",
+                    "Every setting in this pane goes back to its original value. You can’t undo this action.", "Restore Defaults").ConfigureAwait(true))
+                return;
+
+            ViewModel.RestoreDefaults(pane);
+            UpdateRestoreDefaults();
+            if (restoreDefaultsButton.IsEnabled)
+                restoreDefaultsButton.Focus();
+            else
+                tabControls[activeTabIndex].GetVisualDescendants().OfType<InputElement>()
+                    .FirstOrDefault(c => c.Focusable && c.IsEffectivelyEnabled && c.IsEffectivelyVisible)?.Focus();
         }
 
         //MainWindow's "Open Presets…" seam (A25 .error) - brings an already-open instance back to its first tab.
         internal void SelectPresetsPane() => SelectTab(0);
 
         //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
-        internal IReadOnlyList<Button> TabButtonControls => tabButtons;
+        internal TabStrip PaneStripControl => paneStrip;
         internal int ActiveTabIndex => activeTabIndex;
         internal TextBlock FooterTextControl => footerText;
-        internal TransitioningContentControl TabBodyControl => tabBody;
+        internal DockPanel FooterRowControl => footerRow;
+        internal Button RestoreDefaultsButtonControl => restoreDefaultsButton;
+        internal ContentControl TabBodyControl => tabBody;
         internal void SimulateTabClick(int index) => SelectTab(index);
 
         internal Settings.GeneralTab GeneralTabControl => generalTab;
@@ -202,6 +271,12 @@ namespace Foreman.Mac.Views {
         //⌘W/Esc close this window - MainWindow tracks one instance for the app's lifetime and hands out a
         //fresh one next time (see MainWindow.ShowSettings).
         protected override void OnKeyDown(KeyEventArgs e) {
+            if (e.KeyModifiers == KeyModifiers.Meta && e.Key is >= Key.D1 and <= Key.D6) {
+                e.Handled = true;
+                if (!SheetHost.For(this).IsOpen)
+                    SelectTab(e.Key - Key.D1);
+                return;
+            }
             if (e.Key == Key.Escape || (e.Key == Key.W && e.KeyModifiers.HasFlag(KeyModifiers.Meta))) {
                 e.Handled = true;
                 Close();
@@ -216,6 +291,7 @@ namespace Foreman.Mac.Views {
         //resolve must actually run before this window is gone, not get dropped when MainWindow nulls the
         //session out from under it on Closed.
         protected override void OnClosing(WindowClosingEventArgs e) {
+            RecordPaneSize(appliedScale);
             if (!closeConfirmed && Session is not null) {
                 e.Cancel = true;
                 Async.Fire(FlushThenCloseAsync(), nameof(FlushThenCloseAsync));

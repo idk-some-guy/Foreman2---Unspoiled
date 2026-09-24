@@ -13,6 +13,5 @@
   </Application.Resources>
   <Application.Styles>
     <FluentTheme />
-    <StyleInclude Source="avares://Foreman.Mac/Themes/Foreman.Styles.axaml" />
   </Application.Styles>
 </Application>
