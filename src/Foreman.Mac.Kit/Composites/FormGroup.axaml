@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:kit="using:Foreman.Mac.Kit.Composites">
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites"
+                    xmlns:conv="using:Avalonia.Data.Converters">
 
   <ControlTheme x:Key="Kit.FormGroup" TargetType="kit:FormGroup">
     <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -20,7 +21,8 @@
                        FontSize="{DynamicResource Foreman.Type.SectionHeader.FontSize}"
                        FontWeight="{DynamicResource Foreman.Type.SectionHeader.FontWeight}"
                        LetterSpacing="0"
-                       Foreground="{DynamicResource Foreman.Color.TextSecondary}" />
+                       Foreground="{DynamicResource Foreman.Color.TextSecondary}"
+                       IsVisible="{TemplateBinding Title, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
             <ItemsPresenter x:Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
             <ContentPresenter x:Name="PART_StateHost" IsVisible="False" />
           </StackPanel>

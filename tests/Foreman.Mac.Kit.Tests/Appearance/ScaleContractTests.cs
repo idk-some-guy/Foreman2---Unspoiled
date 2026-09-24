@@ -94,6 +94,16 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         }
 
         [AvaloniaFact]
+        public void Apply_AtOneFifty_MultipliesTheColorWellMetrics() {
+            ScaleContract.Apply(1.5);
+
+            Assert.Equal(66.0, ResourceDouble("Foreman.Size.ColorWellWidth"));
+            Assert.Equal(21.0, ResourceDouble("Foreman.Size.ColorWellChevronColumn"));
+            Assert.Equal(3.0, ResourceDouble("Foreman.Size.ColorWellSwatchInset"));
+            Assert.Equal(6.0, ResourceDouble("Foreman.Size.SwatchChecker"));
+        }
+
+        [AvaloniaFact]
         public void Apply_AtOneFifty_MultipliesTheCanvasBridgeTokens() {
             ScaleContract.Apply(1.5);
 

@@ -106,6 +106,21 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.Equal(88d, tokens["Foreman.Size.ChooserCell"]);
         }
 
+        //Swatch tokens sit behind content colour, so both appearances share one value.
+        [AvaloniaTheory]
+        [InlineData("Tokens.Light.axaml")]
+        [InlineData("Tokens.Dark.axaml")]
+        public void ColorWellAndSwatchTokens_MatchTheColourEditingPage(string fileName) {
+            var tokens = LoadThemeFile(fileName);
+            Assert.Equal(44d, tokens["Foreman.Size.ColorWellWidth"]);
+            Assert.Equal(14d, tokens["Foreman.Size.ColorWellChevronColumn"]);
+            Assert.Equal(4d, tokens["Foreman.Size.SwatchChecker"]);
+            Assert.Equal(new CornerRadius(3), tokens["Foreman.Radius.Swatch"]);
+            Assert.Equal(Color.Parse("#FFFFFF"), tokens["Foreman.Color.SwatchCheckerA"]);
+            Assert.Equal(Color.Parse("#D1D1D6"), tokens["Foreman.Color.SwatchCheckerB"]);
+            Assert.Equal(Color.Parse("#24000000"), tokens["Foreman.Color.SwatchStroke"]);
+        }
+
         [AvaloniaTheory]
         [InlineData("Tokens.Light.axaml")]
         [InlineData("Tokens.Dark.axaml")]

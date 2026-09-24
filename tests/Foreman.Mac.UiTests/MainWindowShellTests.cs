@@ -1812,11 +1812,11 @@ namespace Foreman.Mac.UiTests {
 
             window.GraphCanvas.Viewer.ShowAnnotationPropertiesDialog?.Invoke(shape);
             var sheet = Assert.IsType<ShapePropertiesSheet>(SheetHost.For(window).Content);
-            sheet.BorderWidthInputControl.Value = originalBorderWidth + 23;
+            sheet.BorderWidthStepperControl.Value = originalBorderWidth + 23;
             Dispatcher.UIThread.RunJobs();
             Assert.NotEqual(originalBorderWidth, shape.BorderWidth); //confirms the live-apply actually landed
 
-            CanvasKeys.KeyDownOn(sheet.BorderWidthInputControl, Key.Escape);
+            CanvasKeys.KeyDownOn(sheet.BorderWidthStepperControl, Key.Escape);
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(originalBorderWidth, shape.BorderWidth);

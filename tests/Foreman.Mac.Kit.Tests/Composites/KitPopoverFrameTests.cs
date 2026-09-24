@@ -179,6 +179,20 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(PopoverEdge.Top, popover.ResolvedPlacement);
         }
 
+        //Content measured only after the frame opened (a body templated on first open) still flips the edge.
+        [AvaloniaFact]
+        public void ResolvedPlacement_FollowsThePanelsMeasuredSize_WhenTheContentGrowsAfterOpening() {
+            using var fixture = new KitFixture();
+            (_, _, _, PopoverFrame popover) = ShownTiny(windowWidth: 400, windowHeight: 300, anchorX: 150, anchorY: 200);
+            Assert.Equal(PopoverEdge.Bottom, popover.ResolvedPlacement);
+
+            ((Border)popover.Content!).Height = 120;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle(100);
+
+            Assert.Equal(PopoverEdge.Top, popover.ResolvedPlacement);
+        }
+
         [AvaloniaFact]
         public void ResolvedPlacement_FallsBackToTrailingThenLeading_BeforeClamping() {
             //Anchor hugs the left edge - centering below/above would push the frame off-window on X, so only
@@ -588,6 +602,108 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             popoverB.IsOpen = true;
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(host.Surface.Children.Count - 1, host.Surface.Children.IndexOf(popoverB));
+        }
+
+        private static double ScaleOf(Border panel) => Assert.IsAssignableFrom<ITransform>(panel.RenderTransform).Value.M11;
+
+        [AvaloniaFact]
+        public void Motion_ClosedPanelSitsAtPopoverOpenScale_AndOpensToOne_OverPopoverDurationWithEntranceEasing() {
+            using var fixture = new KitFixture();
+            var anchor = new Button { Width = 80, Height = 22 };
+            var host = new PopoverHost { Width = 400, Height = 300 };
+            host.Surface.Children.Add(anchor);
+            PopoverFrame popover = Themed(anchor);
+            host.Surface.Children.Add(popover);
+            fixture.Window.Content = host;
+            Dispatcher.UIThread.RunJobs();
+
+            Border panel = Panel(popover);
+            Assert.Equal(Motion.PopoverOpenScale, ScaleOf(panel), 3);
+            Assert.Equal(panel.RenderTransform!.Value.M11, panel.RenderTransform.Value.M22);
+
+            popover.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.All(panel.Transitions!, t => {
+                (TimeSpan duration, Avalonia.Animation.Easings.Easing easing) = t switch {
+                    DoubleTransition d => (d.Duration, d.Easing),
+                    TransformOperationsTransition o => (o.Duration, o.Easing),
+                    _ => throw new Xunit.Sdk.XunitException($"unexpected transition {t}"),
+                };
+                Assert.Equal(Motion.PopoverDuration, duration);
+                Assert.IsType(Motion.EntranceEasing.GetType(), easing);
+            });
+            AnimationClock.Settle(300);
+            Assert.Equal(1, ScaleOf(panel), 3);
+
+            popover.IsOpen = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.All(panel.Transitions!.OfType<DoubleTransition>(), t => Assert.Equal(Motion.PopoverCloseDuration, t.Duration));
+            AnimationClock.Settle(300);
+            Assert.Equal(Motion.PopoverOpenScale, ScaleOf(panel), 3);
+        }
+
+        [AvaloniaFact]
+        public void Motion_UnderReduceMotion_ThePanelOnlyFades_AndNeverScales() {
+            using var fixture = new KitFixture();
+            Motion.ReduceMotion = true;
+            (_, _, _, PopoverFrame popover) = Shown();
+            Border panel = Panel(popover);
+
+            DoubleTransition fade = Assert.IsType<DoubleTransition>(Assert.Single(panel.Transitions!));
+            Assert.Equal(Visual.OpacityProperty, fade.Property);
+            popover.IsOpen = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.IsType<DoubleTransition>(Assert.Single(panel.Transitions!));
+            AnimationClock.Settle(300);
+            Assert.Equal(1, ScaleOf(panel), 3);
+        }
+
+        //The radial ring's 0.9 and its easing belong to the ring; the frame's motion never follows radial retuning.
+        [Fact]
+        public void Motion_TheFrameReferencesNoRadialToken() {
+            string dir = AppContext.BaseDirectory;
+            while (!System.IO.Directory.Exists(System.IO.Path.Combine(dir, "src", "Foreman.Mac.Kit")))
+                dir = System.IO.Path.GetDirectoryName(dir) ?? throw new InvalidOperationException("repo root not found");
+            foreach (string file in new[] { "PopoverFrame.cs", "PopoverFrame.axaml" }) {
+                string text = System.IO.File.ReadAllText(System.IO.Path.Combine(dir, "src", "Foreman.Mac.Kit", "Composites", file));
+                Assert.DoesNotContain("Radial", text);
+                Assert.DoesNotContain("scale(0.9)", text);
+            }
+        }
+
+        [AvaloniaFact]
+        public void AClosedFrame_IsNoTabStop_AndKeepsItsContentOutOfTabNavigation() {
+            using var fixture = new KitFixture();
+            (_, _, _, PopoverFrame popover) = Shown();
+            Assert.True(popover.Focusable);
+            Assert.Equal(KeyboardNavigationMode.Continue, KeyboardNavigation.GetTabNavigation(popover));
+
+            popover.IsOpen = false;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(popover.Focusable);
+            Assert.False(KeyboardNavigation.GetIsTabStop(popover));
+            Assert.Equal(KeyboardNavigationMode.None, KeyboardNavigation.GetTabNavigation(popover));
+
+            popover.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(popover.Focusable);
+            Assert.True(KeyboardNavigation.GetIsTabStop(popover));
+            Assert.Equal(KeyboardNavigationMode.Continue, KeyboardNavigation.GetTabNavigation(popover));
+        }
+
+        [AvaloniaFact]
+        public void Escape_RaisesCancelledBeforeClosed() {
+            using var fixture = new KitFixture();
+            (_, _, _, PopoverFrame popover) = Shown();
+            var order = new System.Collections.Generic.List<string>();
+            popover.Cancelled += (_, _) => order.Add("cancelled");
+            popover.Closed += (_, _) => order.Add("closed");
+
+            popover.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape });
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(["cancelled", "closed"], order);
         }
     }
 }

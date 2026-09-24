@@ -18,6 +18,12 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.Equal(expectedMs, Motion.PopoverDuration.TotalMilliseconds);
 
         [Fact]
+        public void PopoverOpenScale_IsNinetySevenHundredths_AndThePopoverClosesOverOneHundredMilliseconds() {
+            Assert.Equal(0.97, Motion.PopoverOpenScale);
+            Assert.Equal(100, Motion.PopoverCloseDuration.TotalMilliseconds);
+        }
+
+        [Fact]
         public void RadialSweepDurations_AreOneHundredFortyOpeningAndOneHundredClosing() {
             Assert.Equal(140, Motion.RadialSweepDuration.TotalMilliseconds);
             Assert.Equal(100, Motion.RadialSweepCloseDuration.TotalMilliseconds);

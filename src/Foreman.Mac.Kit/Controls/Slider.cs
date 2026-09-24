@@ -1,4 +1,7 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
@@ -31,6 +34,13 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<string?> UnitProperty =
             AvaloniaProperty.Register<Slider, string?>(nameof(Unit));
 
+        public static readonly StyledProperty<string?> SpokenUnitProperty =
+            AvaloniaProperty.Register<Slider, string?>(nameof(SpokenUnit));
+
+        //NaN pages by a quarter of the range.
+        public static readonly StyledProperty<double> PageStepProperty =
+            AvaloniaProperty.Register<Slider, double>(nameof(PageStep), double.NaN);
+
         public double Value {
             get => GetValue(ValueProperty);
             set => SetValue(ValueProperty, value);
@@ -59,6 +69,16 @@ namespace Foreman.Mac.Kit.Controls {
         public string? Unit {
             get => GetValue(UnitProperty);
             set => SetValue(UnitProperty, value);
+        }
+
+        public string? SpokenUnit {
+            get => GetValue(SpokenUnitProperty);
+            set => SetValue(SpokenUnitProperty, value);
+        }
+
+        public double PageStep {
+            get => GetValue(PageStepProperty);
+            set => SetValue(PageStepProperty, value);
         }
 
         public bool IsDiscrete => Step > 0;
@@ -224,10 +244,10 @@ namespace Foreman.Mac.Kit.Controls {
             valueLabel.Text = ShowValue ? FormatValue() : null;
         }
 
-        private string FormatValue() {
-            string number = Math.Round(Value).ToString(CultureInfo.InvariantCulture);
-            return string.IsNullOrEmpty(Unit) ? number : $"{number} {Unit}";
-        }
+        private string RoundedValue => Math.Round(Value).ToString(CultureInfo.InvariantCulture);
+
+        //A narrow no-break space keeps the unit on the number's line, as AppKit sets "40 %".
+        private string FormatValue() => string.IsNullOrEmpty(Unit) ? RoundedValue : $"{RoundedValue}\u202F{Unit}";
 
         protected override void OnPointerEntered(PointerEventArgs e) {
             base.OnPointerEntered(e);
@@ -309,11 +329,11 @@ namespace Foreman.Mac.Kit.Controls {
                     e.Handled = true;
                     break;
                 case Key.PageUp:
-                    Value += range * 0.25;
+                    Value += PageAmount(range);
                     e.Handled = true;
                     break;
                 case Key.PageDown:
-                    Value -= range * 0.25;
+                    Value -= PageAmount(range);
                     e.Handled = true;
                     break;
                 case Key.Escape:
@@ -330,13 +350,66 @@ namespace Foreman.Mac.Kit.Controls {
             }
         }
 
+        private double ArrowStep(double range) => IsDiscrete ? Step : range * 0.01;
+
+        private double PageAmount(double range) => double.IsNaN(PageStep) ? range * 0.25 : PageStep;
+
         private double StepFor(KeyModifiers modifiers, double range) {
             if (modifiers.HasFlag(KeyModifiers.Shift))
                 return range * 0.10;
             if (modifiers.HasFlag(KeyModifiers.Alt))
                 return range * 0.001;
-            return IsDiscrete ? Step : range * 0.01;
+            return ArrowStep(range);
         }
 
+        protected override AutomationPeer OnCreateAutomationPeer() => new SliderAutomationPeer(this);
+
+        //AXValue is the raw number; the spoken unit rides on the value string, since Avalonia has no AXValueDescription.
+        private sealed class SliderAutomationPeer : ControlAutomationPeer, IRangeValueProvider, IValueProvider {
+            public SliderAutomationPeer(Slider owner) : base(owner) {
+                owner.PropertyChanged += OwnerPropertyChanged;
+            }
+
+            private Slider Slider => (Slider)Owner;
+            private double Range => Slider.Maximum - Slider.Minimum;
+
+            private void OwnerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e) {
+                if (e.Property == ValueProperty)
+                    RaisePropertyChangedEvent(RangeValuePatternIdentifiers.ValueProperty, e.OldValue, e.NewValue);
+                else if (e.Property == MinimumProperty)
+                    RaisePropertyChangedEvent(RangeValuePatternIdentifiers.MinimumProperty, e.OldValue, e.NewValue);
+                else if (e.Property == MaximumProperty)
+                    RaisePropertyChangedEvent(RangeValuePatternIdentifiers.MaximumProperty, e.OldValue, e.NewValue);
+            }
+
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Slider;
+
+            //The thumb shares this peer, so the slider is a leaf and has focus whenever the thumb does.
+            protected override IReadOnlyList<AutomationPeer>? GetChildrenCore() => null;
+            protected override bool HasKeyboardFocusCore() => Slider.IsKeyboardFocusWithin;
+            protected override bool IsKeyboardFocusableCore() => Slider.thumb?.Focusable == true;
+            protected override void SetFocusCore() => Slider.thumb?.Focus();
+
+            bool IRangeValueProvider.IsReadOnly => !Slider.IsEnabled;
+            double IRangeValueProvider.Minimum => Slider.Minimum;
+            double IRangeValueProvider.Maximum => Slider.Maximum;
+            double IRangeValueProvider.Value => Slider.Value;
+            double IRangeValueProvider.SmallChange => Slider.ArrowStep(Range);
+            double IRangeValueProvider.LargeChange => Slider.PageAmount(Range);
+            void IRangeValueProvider.SetValue(double value) => Slider.SetCurrentValue(ValueProperty, value);
+
+            bool IValueProvider.IsReadOnly => true;
+            string? IValueProvider.Value => SpokenValue.Describe(Slider.RoundedValue, Slider.Unit, Slider.SpokenUnit);
+            void IValueProvider.SetValue(string? value) { }
+        }
+
+    }
+
+    //The thumb takes keyboard focus but answers to VoiceOver as the slider it belongs to.
+    internal sealed class SliderThumb : Border {
+        protected override Type StyleKeyOverride => typeof(Border);
+
+        protected override AutomationPeer OnCreateAutomationPeer() =>
+            TemplatedParent is Control owner ? ControlAutomationPeer.CreatePeerForElement(owner) : base.OnCreateAutomationPeer();
     }
 }

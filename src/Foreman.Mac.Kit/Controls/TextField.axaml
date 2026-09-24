@@ -29,27 +29,33 @@
                 BorderBrush="{TemplateBinding BorderBrush}"
                 BorderThickness="{TemplateBinding BorderThickness}"
                 CornerRadius="{TemplateBinding CornerRadius}">
-          <Grid Margin="{TemplateBinding Padding}">
-            <TextBlock x:Name="PART_Placeholder"
-                       Text="{TemplateBinding PlaceholderText}"
-                       Foreground="{TemplateBinding PlaceholderForeground}"
-                       FontSize="{TemplateBinding FontSize}"
-                       FontWeight="{TemplateBinding FontWeight}"
-                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-            <ScrollViewer Name="PART_ScrollViewer"
-                          HorizontalScrollBarVisibility="Hidden"
-                          VerticalScrollBarVisibility="Hidden">
-              <TextPresenter Name="PART_TextPresenter"
-                             Text="{TemplateBinding Text, Mode=TwoWay}"
-                             CaretIndex="{TemplateBinding CaretIndex}"
-                             SelectionStart="{TemplateBinding SelectionStart}"
-                             SelectionEnd="{TemplateBinding SelectionEnd}"
-                             CaretBrush="{TemplateBinding CaretBrush}"
-                             SelectionBrush="{TemplateBinding SelectionBrush}"
-                             SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
-                             VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
-            </ScrollViewer>
-          </Grid>
+          <DockPanel Margin="{TemplateBinding Padding}">
+            <ContentPresenter x:Name="PART_InnerLeftContent"
+                              DockPanel.Dock="Left"
+                              Content="{TemplateBinding InnerLeftContent}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+            <Grid>
+              <TextBlock x:Name="PART_Placeholder"
+                         Text="{TemplateBinding PlaceholderText}"
+                         Foreground="{TemplateBinding PlaceholderForeground}"
+                         FontSize="{TemplateBinding FontSize}"
+                         FontWeight="{TemplateBinding FontWeight}"
+                         VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+              <ScrollViewer Name="PART_ScrollViewer"
+                            HorizontalScrollBarVisibility="Hidden"
+                            VerticalScrollBarVisibility="Hidden">
+                <TextPresenter Name="PART_TextPresenter"
+                               Text="{TemplateBinding Text, Mode=TwoWay}"
+                               CaretIndex="{TemplateBinding CaretIndex}"
+                               SelectionStart="{TemplateBinding SelectionStart}"
+                               SelectionEnd="{TemplateBinding SelectionEnd}"
+                               CaretBrush="{TemplateBinding CaretBrush}"
+                               SelectionBrush="{TemplateBinding SelectionBrush}"
+                               SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+              </ScrollViewer>
+            </Grid>
+          </DockPanel>
         </Border>
       </ControlTemplate>
     </Setter>

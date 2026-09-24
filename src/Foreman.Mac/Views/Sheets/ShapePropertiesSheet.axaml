@@ -1,33 +1,30 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
              x:Class="Foreman.Mac.Views.Sheets.ShapePropertiesSheet">
-  <StackPanel Spacing="10">
-    <ComboBox Name="ShapeTypeCombo" HorizontalAlignment="Stretch" />
-
-    <CheckBox Name="NoFillCheckBox" Content="No fill" />
-    <TextBlock Text="Fill color" FontWeight="Bold" />
-    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto">
-      <NumericUpDown Name="FillColorRedInput" Grid.Column="0" Width="72" Minimum="0" Maximum="255" />
-      <NumericUpDown Name="FillColorGreenInput" Grid.Column="1" Width="72" Minimum="0" Maximum="255" />
-      <NumericUpDown Name="FillColorBlueInput" Grid.Column="2" Width="72" Minimum="0" Maximum="255" />
-      <Border Name="FillColorSwatch" Grid.Column="3" Width="28" Height="28" Margin="8,0,0,0" BorderBrush="Gray" BorderThickness="1" />
-    </Grid>
-    <Grid ColumnDefinitions="Auto,*">
-      <TextBlock Name="FillAlphaLabel" Grid.Column="0" Text="Fill alpha: 255" VerticalAlignment="Center" Width="110" />
-      <Slider Name="FillAlphaTrack" Grid.Column="1" Minimum="0" Maximum="255" />
-    </Grid>
-
-    <TextBlock Text="Border color" FontWeight="Bold" />
-    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto">
-      <NumericUpDown Name="BorderColorRedInput" Grid.Column="0" Width="72" Minimum="0" Maximum="255" />
-      <NumericUpDown Name="BorderColorGreenInput" Grid.Column="1" Width="72" Minimum="0" Maximum="255" />
-      <NumericUpDown Name="BorderColorBlueInput" Grid.Column="2" Width="72" Minimum="0" Maximum="255" />
-      <Border Name="BorderColorSwatch" Grid.Column="3" Width="28" Height="28" Margin="8,0,0,0" BorderBrush="Gray" BorderThickness="1" />
-    </Grid>
-
-    <Grid ColumnDefinitions="Auto,*">
-      <TextBlock Text="Border width" Grid.Column="0" VerticalAlignment="Center" Width="110" />
-      <NumericUpDown Name="BorderWidthInput" Grid.Column="1" Minimum="0" Maximum="50" Increment="1" HorizontalAlignment="Left" Width="100" />
-    </Grid>
-  </StackPanel>
+  <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" TrailingGap="0">
+    <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Shape" LabelColumn="Window">
+      <ctrl:Segmented Name="ShapeSegments" Theme="{StaticResource Kit.Segmented}" />
+    </kit:FormRow>
+    <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Fill" LabelColumn="Window">
+      <ctrl:ColorWell Name="FillWell" Theme="{StaticResource Kit.ColorWell}" AllowsNone="True" AllowsAlpha="True" />
+    </kit:FormRow>
+    <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Opacity" LabelColumn="Window">
+      <ctrl:Slider Name="OpacitySlider" Theme="{StaticResource Kit.Slider}"
+                   Minimum="0" Maximum="100" Step="1" PageStep="10" ShowValue="True" Unit="%"
+                   Width="NaN" HorizontalAlignment="Stretch" />
+    </kit:FormRow>
+    <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Border" LabelColumn="Window">
+      <ctrl:ColorWell Name="BorderWell" Theme="{StaticResource Kit.ColorWell}" />
+    </kit:FormRow>
+    <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Border width" LabelColumn="Window">
+      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Space.Space1}">
+        <ctrl:Stepper Name="BorderWidthStepper" Theme="{StaticResource Kit.Stepper}"
+                      Minimum="0" Maximum="50" Increment="1" Decimals="0" SpokenUnit="pixels"
+                      AutomationProperties.Name="Border width" />
+        <TextBlock Theme="{StaticResource Kit.Text}" Classes="callout secondary" Text="px" VerticalAlignment="Center" />
+      </StackPanel>
+    </kit:FormRow>
+  </kit:FormGroup>
 </UserControl>

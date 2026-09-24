@@ -29,6 +29,8 @@ namespace Foreman.Mac.Kit.Composites {
         }
 
         public PopoverHost() {
+            //Content a template nests inside the host joins Children after the Surface; the z-index keeps popovers on top.
+            Surface.ZIndex = 1;
             Children.Add(Surface);
             Surface.Children.CollectionChanged += (_, _) => UpdateBackground();
             AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
@@ -43,6 +45,8 @@ namespace Foreman.Mac.Kit.Composites {
         });
 
         internal void Remove(Control popover) => RunOrDefer(() => Surface.Children.Remove(popover));
+
+        internal PopoverFrame? OpenFrame => Surface.Children.OfType<PopoverFrame>().FirstOrDefault(f => f.IsOpen);
 
         private void UpdateBackground() =>
             Background = Surface.Children.OfType<PopoverFrame>().Any(f => f.IsOpen) ? Brushes.Transparent : null;

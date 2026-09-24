@@ -4,9 +4,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Media.Transformation;
 using Avalonia.VisualTree;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace Foreman.Mac.Kit.Composites {
     public enum PopoverEdge { Bottom, Top, Right, Left }
@@ -37,6 +39,7 @@ namespace Foreman.Mac.Kit.Composites {
         public PopoverEdge ResolvedPlacement => resolvedPlacement;
 
         public event EventHandler? Closed;
+        public event EventHandler? Cancelled;
 
         //Gap and corner clamp are pointer-sized constants, not named tokens - only the tail's 12pt square got a key.
         private const double Gap = 6;
@@ -47,9 +50,9 @@ namespace Foreman.Mac.Kit.Composites {
         private PopoverEdge resolvedPlacement = PopoverEdge.Bottom;
         private double tailSize = 12;
         private readonly List<IDisposable> tokenSubs = [];
+        private IDisposable? panelSizeSub;
 
         static PopoverFrame() {
-            FocusableProperty.OverrideDefaultValue<PopoverFrame>(true);
             IsOpenProperty.Changed.AddClassHandler<PopoverFrame>((p, e) => p.ApplyOpenState((bool)e.NewValue!));
             ContentProperty.Changed.AddClassHandler<PopoverFrame>((p, _) => p.ApplyAccessibleName());
         }
@@ -58,6 +61,7 @@ namespace Foreman.Mac.Kit.Composites {
             AddHandler(KeyDownEvent, OnKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             //An unopened frame must not swallow clicks meant for whatever sits behind it.
             IsHitTestVisible = IsOpen;
+            ApplyNavigation(IsOpen);
         }
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
@@ -66,9 +70,20 @@ namespace Foreman.Mac.Kit.Composites {
             tail = e.NameScope.Find<Border>("PART_Tail");
             PseudoClasses.Set(":open", IsOpen);
             IsHitTestVisible = IsOpen;
+            if (panel is not null) {
+                panel.Transitions = null;
+                panel.RenderTransform = PanelScale(IsOpen);
+            }
             ApplyTailGeometry();
             ApplyAccessibleName();
+            SubscribePanelSize();
             UpdatePlacement();
+        }
+
+        //Content measured after the frame opened (a first open, a growing body) re-resolves the edge from the panel's real size.
+        private void SubscribePanelSize() {
+            panelSizeSub?.Dispose();
+            panelSizeSub = panel?.GetObservable(Visual.BoundsProperty).Subscribe(new ChangeObserver<Rect>(_ => UpdatePlacement()));
         }
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
@@ -82,6 +97,7 @@ namespace Foreman.Mac.Kit.Composites {
             if (Anchor is { } anchor && this.FindAncestorOfType<PopoverHost>() is { } host) {
                 tokenSubs.Add(anchor.GetObservable(Visual.BoundsProperty).Subscribe(new ChangeObserver<Rect>(_ => UpdatePlacement())));
                 tokenSubs.Add(host.GetObservable(Visual.BoundsProperty).Subscribe(new ChangeObserver<Rect>(_ => UpdatePlacement())));
+                SubscribePanelSize();
             }
         }
 
@@ -94,6 +110,8 @@ namespace Foreman.Mac.Kit.Composites {
             foreach (IDisposable sub in tokenSubs)
                 sub.Dispose();
             tokenSubs.Clear();
+            panelSizeSub?.Dispose();
+            panelSizeSub = null;
         }
 
         //The tail's static footprint depends only on the PopoverTail token, never on where the frame lands.
@@ -154,15 +172,18 @@ namespace Foreman.Mac.Kit.Composites {
             if (open && this.FindAncestorOfType<PopoverHost>() is null)
                 throw new InvalidOperationException("PopoverFrame requires a PopoverHost ancestor to open.");
 
-            TimeSpan duration = open ? Motion.PopoverDuration : Motion.RadialSweepCloseDuration;
-            Avalonia.Animation.Easings.Easing easing = open ? Motion.RadialOpenEasing : Motion.LeavingEasing;
-            if (panel is not null)
+            TimeSpan duration = open ? Motion.PopoverDuration : Motion.PopoverCloseDuration;
+            Avalonia.Animation.Easings.Easing easing = open ? Motion.EntranceEasing : Motion.LeavingEasing;
+            if (panel is not null) {
                 panel.Transitions = Motion.Transition(TransitionKind.Scale, duration, easing);
+                panel.RenderTransform = PanelScale(open);
+            }
             if (tail is not null)
                 tail.Transitions = Motion.Transition(TransitionKind.Fade, duration, easing);
 
             PseudoClasses.Set(":open", open);
             IsHitTestVisible = open;
+            ApplyNavigation(open);
             if (open)
                 //Posted, not inline - the frame has not been through its first arrange yet, so Focus() silently no-ops here.
                 Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (IsOpen) Focus(); });
@@ -172,13 +193,36 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
+        //Under Reduce Motion the panel stays at full size, so a fade-out never shows a shrink.
+        private static TransformOperations PanelScale(bool open) {
+            double scale = open || Motion.ReduceMotion ? 1 : Motion.PopoverOpenScale;
+            return TransformOperations.Parse($"scale({scale.ToString(CultureInfo.InvariantCulture)})");
+        }
+
+        //A closed frame stays in its host's surface, so it and its content leave the tab order until it opens again.
+        private void ApplyNavigation(bool open) {
+            Focusable = open;
+            KeyboardNavigation.SetIsTabStop(this, open);
+            KeyboardNavigation.SetTabNavigation(this, open ? KeyboardNavigationMode.Continue : KeyboardNavigationMode.None);
+        }
+
         internal void Close() => IsOpen = false;
 
+        //Dismisses the way Escape does: the content puts back what it had when the frame opened, then the frame closes.
+        internal void Cancel() {
+            Cancelled?.Invoke(this, EventArgs.Empty);
+            Close();
+        }
+
+        //Escape and Command-period are both cancelOperation: in AppKit.
+        internal static bool IsCancelKey(KeyEventArgs e) =>
+            e.Key == Key.Escape || (e.Key == Key.OemPeriod && e.KeyModifiers == KeyModifiers.Meta);
+
         private void OnKeyDown(object? sender, KeyEventArgs e) {
-            if (!IsOpen || e.Key != Key.Escape)
+            if (!IsOpen || !IsCancelKey(e))
                 return;
             e.Handled = true;
-            Close();
+            Cancel();
         }
 
         protected override AutomationPeer OnCreateAutomationPeer() => new PopoverFrameAutomationPeer(this);

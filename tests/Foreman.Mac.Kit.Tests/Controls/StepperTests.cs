@@ -1,8 +1,12 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Provider;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
+using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -338,6 +342,76 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
         private static double LeftEdgeIn(Visual element, Visual ancestor) =>
             (element.TranslatePoint(new Point(0, 0), ancestor) ?? default).X;
+
+        [AvaloniaFact]
+        public void AutomationPeer_IsASpinnerWithRangeValue_AndReadsItsSpokenUnit() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Minimum = 0;
+            stepper.Maximum = 50;
+            stepper.Increment = 1;
+            stepper.Value = 2;
+            stepper.SpokenUnit = "pixels";
+            Avalonia.Automation.AutomationProperties.SetName(stepper, "Border width");
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(stepper);
+            Assert.Equal(AutomationControlType.Spinner, peer.GetAutomationControlType());
+            Assert.Equal("stepper", peer.GetLocalizedControlType());
+            Assert.Equal("Border width", peer.GetName());
+            IRangeValueProvider range = peer.GetProvider<IRangeValueProvider>()!;
+            Assert.Equal((2d, 0d, 50d, 1d, 10d), (range.Value, range.Minimum, range.Maximum, range.SmallChange, range.LargeChange));
+            Assert.Equal("2 pixels", peer.GetProvider<IValueProvider>()!.Value);
+
+            range.SetValue(14);
+            Assert.Equal(14, stepper.Value);
+            stepper.SpokenUnit = "points";
+            Assert.Equal("14 points", peer.GetProvider<IValueProvider>()!.Value);
+            stepper.SpokenUnit = null;
+            Assert.Equal("14", peer.GetProvider<IValueProvider>()!.Value);
+        }
+
+        private static Stepper BorderWidth() {
+            Stepper stepper = Themed();
+            stepper.Minimum = 0;
+            stepper.Maximum = 50;
+            stepper.Value = 2;
+            stepper.Unit = "px";
+            stepper.SpokenUnit = "pixels";
+            Avalonia.Automation.AutomationProperties.SetName(stepper, "Border width");
+            return stepper;
+        }
+
+        [AvaloniaFact]
+        public void AccessibleFocus_AfterTab_IsTheStepper_WhileTheFieldKeepsKeyboardFocus() {
+            using var fixture = new KitFixture();
+            Stepper stepper = BorderWidth();
+
+            AutomationPeer? focus = AccessibleFocus.TabOnto(fixture.Window, stepper);
+
+            Assert.True(ValueBox(stepper).IsFocused);
+            Assert.NotNull(focus);
+            Assert.Equal(("stepper", "Border width"), (focus.GetLocalizedControlType(), focus.GetName()));
+            Assert.Equal(2, focus.GetProvider<IRangeValueProvider>()!.Value);
+            Assert.Equal("2 pixels", focus.GetProvider<IValueProvider>()!.Value);
+            Assert.True(focus.HasKeyboardFocus());
+        }
+
+        [AvaloniaFact]
+        public void AutomationPeer_UpArrow_RaisesOneRangeValueChange() {
+            using var fixture = new KitFixture();
+            Stepper stepper = BorderWidth();
+            AutomationPeer focus = AccessibleFocus.TabOnto(fixture.Window, stepper)!;
+            var events = AccessibleFocus.Record(focus);
+
+            fixture.Window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(3, stepper.Value);
+            AutomationPropertyChangedEventArgs change = Assert.Single(events, e => e.Property == RangeValuePatternIdentifiers.ValueProperty);
+            Assert.Equal((2d, 3d), ((double)change.OldValue!, (double)change.NewValue!));
+        }
     }
 
     [Collection(KitScaleGroup.Name)]

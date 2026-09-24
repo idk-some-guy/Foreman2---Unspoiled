@@ -1,6 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.Mac.Canvas;
@@ -59,7 +62,7 @@ namespace Foreman.Mac.UiTests.Views {
             Rectangle bounds = AnnotationLoader.GetExportBounds(viewer.Graph.Bounds, viewer.Annotations);
             int expectedX = GraphExportBounds.ScaledWidth(bounds, 1f);
             int expectedY = GraphExportBounds.ScaledHeight(bounds, 1f);
-            Assert.Equal($"{expectedX:N0} × {expectedY:N0} px", sheet.ImageSizeLabelControl.Text);
+            Assert.Equal($"{expectedX} × {expectedY} px", sheet.ImageSizeLabelControl.Text);
         }
 
         [AvaloniaFact]
@@ -73,7 +76,7 @@ namespace Foreman.Mac.UiTests.Views {
             Rectangle bounds = AnnotationLoader.GetExportBounds(viewer.Graph.Bounds, viewer.Annotations);
             int expectedX = GraphExportBounds.ScaledWidth(bounds, 0.5f);
             int expectedY = GraphExportBounds.ScaledHeight(bounds, 0.5f);
-            Assert.Equal($"{expectedX:N0} × {expectedY:N0} px", sheet.ImageSizeLabelControl.Text);
+            Assert.Equal($"{expectedX} × {expectedY} px", sheet.ImageSizeLabelControl.Text);
         }
 
         [AvaloniaFact]
@@ -83,13 +86,57 @@ namespace Foreman.Mac.UiTests.Views {
             sheet.ViewLimitCheckBoxControl.IsChecked = true;
 
             Assert.Equal("400 × 300 px", sheet.ImageSizeLabelControl.Text);
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(sheet.ImageSizeLabelControl);
+            Assert.Equal(("Image size", "400 × 300 px"), (peer.GetName(), peer.GetProvider<IValueProvider>()!.Value));
         }
 
         [AvaloniaFact]
-        public void ImageSizeLabel_EmptyGraphFullGraphMode_ShowsNothingToExportText() {
+        public void ImageSizeLabel_EmptyGraphFullGraphMode_ReadsNothingToExport_InTextTertiary() {
             var sheet = new ImageExportSheet(NewViewer(400, 300));
+            SheetFixture.Present(sheet);
 
-            Assert.Equal("— (nothing to export)", sheet.ImageSizeLabelControl.Text);
+            TextBlock label = sheet.ImageSizeLabelControl;
+            Assert.Equal("Nothing to export", label.Text);
+            Assert.Equal("Nothing to export", ControlAutomationPeer.CreatePeerForElement(label).GetProvider<IValueProvider>()!.Value);
+            Assert.Equal(Brush("Foreman.Color.TextTertiary"), label.Foreground?.ToImmutable());
+            Assert.DoesNotContain("—", label.Text);
+            Assert.DoesNotContain("(", label.Text);
+        }
+
+        private static Avalonia.Media.IImmutableBrush Brush(string key) {
+            Assert.True(Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? value));
+            return value switch {
+                Avalonia.Media.IBrush brush => brush.ToImmutable(),
+                Avalonia.Media.Color color => new Avalonia.Media.Immutable.ImmutableSolidColorBrush(color),
+                _ => throw new InvalidOperationException(key),
+            };
+        }
+
+        //Invariant digits with no thousands separator, U+00D7 between them, whatever the display culture.
+        [AvaloniaFact]
+        public void ImageSizeLabel_ReadsPlainDimensions_UnderEveryCulture() {
+            foreach (string culture in new[] { "de-DE", "en-US" })
+                AssertPlainDimensions(culture);
+        }
+
+        private static void AssertPlainDimensions(string culture) {
+            System.Globalization.CultureInfo previous = System.Globalization.CultureInfo.CurrentCulture;
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo(culture);
+            try {
+                GraphViewer viewer = NewViewer(400, 300);
+                viewer.AddAnnotationElement(new ShapeAnnotationElement(new Point(0, 0), 2040, 1260) { BorderWidth = 0 });
+                var sheet = new ImageExportSheet(viewer);
+                SheetFixture.Present(sheet);
+
+                TextBlock label = sheet.ImageSizeLabelControl;
+                Assert.Equal("2140 × 1360 px", label.Text);
+                Assert.Equal(Brush("Foreman.Color.TextSecondary"), label.Foreground?.ToImmutable());
+                Assert.Equal(Avalonia.Media.TextTrimming.CharacterEllipsis, label.TextTrimming);
+                Assert.Equal(0, label.MinWidth);
+                Assert.Equal("Image size", Avalonia.Automation.AutomationProperties.GetName(label));
+            } finally {
+                System.Globalization.CultureInfo.CurrentCulture = previous;
+            }
         }
 
         //---- pixel-sampled export: view-limit off vs. on (reference §3 ExportBitmap) --------------------
@@ -103,7 +150,7 @@ namespace Foreman.Mac.UiTests.Views {
             GraphViewer viewer = NewViewer(400, 300);
             AddSolidShape(viewer, new Point(2000, 0), 40, SKColors.Red);
             var sheet = new ImageExportSheet(viewer);
-            sheet.FileTextBoxControl.Text = TempPngPath();
+            sheet.SavePath = TempPngPath();
 
             await sheet.ExportAsync().WaitAsync(Timeout);
 
@@ -119,7 +166,7 @@ namespace Foreman.Mac.UiTests.Views {
             AddSolidShape(viewer, new Point(2000, 0), 40, SKColors.Red);
             var sheet = new ImageExportSheet(viewer);
             sheet.ViewLimitCheckBoxControl.IsChecked = true;
-            sheet.FileTextBoxControl.Text = TempPngPath();
+            sheet.SavePath = TempPngPath();
 
             await sheet.ExportAsync().WaitAsync(Timeout);
 
@@ -137,7 +184,7 @@ namespace Foreman.Mac.UiTests.Views {
             AddSolidShape(viewer, new Point(0, 0), 40, SKColors.Red);
             var sheet = new ImageExportSheet(viewer);
             sheet.TransparencyCheckBoxControl.IsChecked = true;
-            sheet.FileTextBoxControl.Text = TempPngPath();
+            sheet.SavePath = TempPngPath();
 
             await sheet.ExportAsync().WaitAsync(Timeout);
 
@@ -150,7 +197,7 @@ namespace Foreman.Mac.UiTests.Views {
             GraphViewer viewer = NewViewer(400, 300);
             AddSolidShape(viewer, new Point(0, 0), 40, SKColors.Red);
             var sheet = new ImageExportSheet(viewer);
-            sheet.FileTextBoxControl.Text = TempPngPath();
+            sheet.SavePath = TempPngPath();
 
             await sheet.ExportAsync().WaitAsync(Timeout);
 
@@ -168,7 +215,7 @@ namespace Foreman.Mac.UiTests.Views {
             var sheet = new ImageExportSheet(NewViewer(400, 300));
             (_, SheetHost host, Task<bool> result) = SheetFixture.Present(sheet);
             string path = TempPngPath();
-            sheet.FileTextBoxControl.Text = path;
+            sheet.SavePath = path;
 
             await sheet.ExportAsync().WaitAsync(Timeout);
             AnimationClock.Settle();
@@ -183,18 +230,18 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public async Task ExportAsync_FolderDoesNotExist_IsTheSaveToRowError_FocusesThePath_AndWritesNoFile() {
+        public async Task ExportAsync_FolderDoesNotExist_IsTheSaveToRowError_FocusesBrowse_AndWritesNoFile() {
             var sheet = new ImageExportSheet(NewViewer(400, 300));
             (_, SheetHost host, Task<bool> result) = SheetFixture.Present(sheet);
             string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "export.png");
-            sheet.FileTextBoxControl.Text = path;
+            sheet.SavePath = path;
 
             await sheet.ExportAsync().WaitAsync(Timeout);
 
             SheetFixture.AssertNoAlert(host);
             Assert.Equal("This folder doesn’t exist. Choose another location.", SaveToRow(sheet).Error);
             Assert.False(SaveToRow(sheet).ErrorIsWarning);
-            Assert.True(sheet.FileTextBoxControl.IsFocused);
+            Assert.True(sheet.BrowseButtonControl.IsFocused);
             Assert.False(result.IsCompleted);
             Assert.False(File.Exists(path));
         }
@@ -210,9 +257,9 @@ namespace Foreman.Mac.UiTests.Views {
             await sheet.ExportAsync().WaitAsync(Timeout);
             SheetFixture.AssertNoAlert(host);
             Assert.Equal("Choose where to save the image.", SaveToRow(sheet).Error);
-            Assert.True(sheet.FileTextBoxControl.IsFocused);
+            Assert.True(sheet.BrowseButtonControl.IsFocused);
 
-            sheet.FileTextBoxControl.Text = TempPngPath();
+            sheet.SavePath = TempPngPath();
             await sheet.ExportAsync().WaitAsync(Timeout);
             Assert.Null(SaveToRow(sheet).Error);
             Assert.True(await result);
@@ -231,7 +278,7 @@ namespace Foreman.Mac.UiTests.Views {
             Task<bool> task = host.ShowAsync(sheet);
             Dispatcher.UIThread.RunJobs();
             string path = TempPngPath();
-            sheet.FileTextBoxControl.Text = path;
+            sheet.SavePath = path;
 
             try {
                 await sheet.ExportAsync().WaitAsync(Timeout);
@@ -250,14 +297,14 @@ namespace Foreman.Mac.UiTests.Views {
         //---- Browse fills the textbox but does not export (reference §3 button1_Click) ------------------
 
         [AvaloniaFact]
-        public async Task BrowseAsync_StubReturnsPath_FillsTextBoxWithoutExporting() {
+        public async Task BrowseAsync_StubReturnsPath_FillsThePathWithoutExporting() {
             var sheet = new ImageExportSheet(NewViewer(400, 300));
             string path = TempPngPath();
             sheet.SaveFilePathStub = () => Task.FromResult<string?>(path);
 
             await sheet.BrowseAsync();
 
-            Assert.Equal(path, sheet.FileTextBoxControl.Text);
+            Assert.Equal(path, sheet.SavePath);
             Assert.False(File.Exists(path));
         }
 
@@ -278,10 +325,18 @@ namespace Foreman.Mac.UiTests.Views {
 
         //---- the kit sheet: named width, window-column rows, trailing button row, failed save ------------
 
+        //Tab starts on Browse…, skips the path label, and walks Scale, the two options and the buttons before wrapping.
         [AvaloniaFact]
-        public void ImageExport_Width_IsTheNamedSheetWidth() {
+        public void ImageExport_Width_IsTheNamedSheetWidth_AndTabWalksTheControls() {
             var sheet = new ImageExportSheet(NewViewer(400, 300));
-            (_, SheetHost host, _) = SheetFixture.Present(sheet);
+            (Window window, SheetHost host, _) = SheetFixture.Present(sheet);
+            Assert.True(sheet.BrowseButtonControl.IsFocused);
+            Button[] buttons = [.. sheet.Buttons!.Items.Cast<Button>()];
+            foreach (Control expected in new Control[] { sheet.ScaleSelectionBoxControl, sheet.TransparencyCheckBoxControl, sheet.ViewLimitCheckBoxControl, buttons[0], buttons[1], sheet.BrowseButtonControl }) {
+                Avalonia.Input.IInputElement? focused = window.FocusManager!.GetFocusedElement();
+                Foreman.Mac.UiTests.support.CanvasKeys.KeyDownOn((Control)focused!, Avalonia.Input.Key.Tab);
+                Assert.True(expected.IsKeyboardFocusWithin, $"Tab should reach {expected}, reached {window.FocusManager.GetFocusedElement()}");
+            }
 
             Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), SheetFixture.PanelOf(host, sheet).Bounds.Width, 0.5);
             Assert.Equal("Export an image", SheetFixture.FrameOf(host, sheet).Title);
@@ -291,17 +346,76 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal("Browse…", sheet.BrowseButtonControl.Content);
             Assert.Equal("Transparent background", sheet.TransparencyCheckBoxControl.Content);
             Assert.Equal("Limit to the visible area", sheet.ViewLimitCheckBoxControl.Content);
-            FormRow saveTo = rows[0];
+        }
+
+        //---- Save to row: a front-truncating path label with Browse… trailing at its natural width ----
+
+        private static string LongPathUnderHome() =>
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Documents", "Factorio", "Builds", "Megabase", "Iron and copper smelting columns", "west block", "iron-plate-line-final.png");
+
+        //At the default font and a wider Linux-like one (1.12x) the label absorbs the growth and Browse never overlaps it.
+        [AvaloniaFact]
+        public void SaveTo_LongPath_TruncatesTheLabel_AndBrowseKeepsItsNaturalWidthAtTheTrailingEdge() {
+            foreach (double fontFactor in new[] { 1.0, 1.12 })
+                AssertSaveToRowFits(fontFactor);
+        }
+
+        private static void AssertSaveToRowFits(double fontFactor) {
+            var sheet = new ImageExportSheet(NewViewer(400, 300));
+            foreach (string key in new[] { "Foreman.Type.Body.FontSize", "Foreman.Type.Callout.FontSize" })
+                sheet.Resources[key] = SheetFixture.Token(key) * fontFactor;
+            string path = LongPathUnderHome();
+            Assert.True(path.Length >= 120);
+            (_, SheetHost host, _) = SheetFixture.Present(sheet);
+            sheet.SavePath = path;
+            AnimationClock.Settle();
+
+            FormRow saveTo = SaveToRow(sheet);
+            Assert.Empty(saveTo.GetVisualDescendants().OfType<TextBox>());
             Grid rowGrid = saveTo.GetVisualDescendants().OfType<Grid>().First(g => g.Name == "PART_Grid");
             double columnRight = rowGrid.TranslatePoint(new Avalonia.Point(rowGrid.Bounds.Width, 0), sheet)!.Value.X;
             Button browse = sheet.BrowseButtonControl;
-            TextBox field = sheet.FileTextBoxControl;
-            Grid pair = (Grid)field.Parent!;
-            Assert.Equal(columnRight, pair.TranslatePoint(new Avalonia.Point(pair.Bounds.Width, 0), sheet)!.Value.X, 0.5);
-            Assert.Equal(columnRight, browse.TranslatePoint(new Avalonia.Point(browse.Bounds.Width, 0), sheet)!.Value.X, 0.5);
-            Assert.Equal(GridUnitType.Star, pair.ColumnDefinitions[0].Width.GridUnitType);
-            Assert.Equal(Avalonia.Layout.HorizontalAlignment.Stretch, field.HorizontalAlignment);
-            Assert.Equal(sheet.Bounds.Width, columnRight, 0.5);
+            TextBlock label = sheet.SavePathLabelControl;
+            double browseLeft = browse.TranslatePoint(new Avalonia.Point(0, 0), sheet)!.Value.X;
+            double labelRight = label.TranslatePoint(new Avalonia.Point(label.Bounds.Width, 0), sheet)!.Value.X;
+            Assert.Equal(browse.DesiredSize.Width - browse.Margin.Left - browse.Margin.Right, browse.Bounds.Width, 0.5);
+            Assert.Equal(columnRight, browseLeft + browse.Bounds.Width, 0.5);
+            Assert.True(labelRight + 8 <= browseLeft + 0.5, $"label right {labelRight}, browse left {browseLeft}");
+            Assert.Equal(22, ((Grid)browse.Parent!).Bounds.Height, 0.5);
+            Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), SheetFixture.PanelOf(host, sheet).Bounds.Width, 0.5);
+            Assert.Equal(Avalonia.Media.TextTrimming.LeadingCharacterEllipsis, label.TextTrimming);
+            Assert.Equal(Avalonia.Media.TextWrapping.NoWrap, label.TextWrapping);
+            Assert.Equal(0, label.MinWidth);
+            Assert.False(label.Focusable);
+        }
+
+        [AvaloniaFact]
+        public void SaveTo_Label_ReadsNotChosenThenTheTildePath_WithATooltipOnlyWhenTrimmed_AndBrowseSaysWhatItDoes() {
+            var sheet = new ImageExportSheet(NewViewer(400, 300));
+            SheetFixture.Present(sheet);
+            TextBlock label = sheet.SavePathLabelControl;
+            Assert.Equal("Not chosen", label.Text);
+            Assert.Equal(Brush("Foreman.Color.TextTertiary"), label.Foreground?.ToImmutable());
+            Assert.Null(ToolTip.GetTip(label));
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(label);
+            Assert.Equal(("Save to", "Not chosen"), (peer.GetName(), peer.GetProvider<IValueProvider>()!.Value));
+
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            sheet.SavePath = Path.Combine(home, "a");
+            AnimationClock.Settle();
+            Assert.Equal("~/a", label.Text);
+            Assert.Equal(("Save to", "~/a"), (peer.GetName(), peer.GetProvider<IValueProvider>()!.Value));
+            Assert.Null(ToolTip.GetTip(label));
+            Assert.Equal(Brush("Foreman.Color.Text"), label.Foreground?.ToImmutable());
+
+            sheet.SavePath = LongPathUnderHome();
+            AnimationClock.Settle();
+            Assert.StartsWith("~/", label.Text);
+            Assert.Equal(label.Text, ToolTip.GetTip(label));
+
+            Assert.Equal("Choose where to save the image.", Avalonia.Automation.AutomationProperties.GetHelpText(sheet.BrowseButtonControl));
+            Assert.Equal(ImageExportSheet.SavePanelTitle, sheet.Title);
         }
 
         [AvaloniaFact]
@@ -334,7 +448,7 @@ namespace Foreman.Mac.UiTests.Views {
             (_, SheetHost host, Task<bool> result) = SheetFixture.Present(sheet);
             string folder = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             Directory.CreateDirectory(folder);
-            sheet.FileTextBoxControl.Text = folder;
+            sheet.SavePath = folder;
 
             await sheet.ExportAsync().WaitAsync(Timeout);
             AnimationClock.Settle();
@@ -347,10 +461,10 @@ namespace Foreman.Mac.UiTests.Views {
             Button export = sheet.Buttons!.ResolveDefaultButton()!;
             Assert.Equal("Try Again", export.Content);
             Assert.True(export.IsEffectivelyEnabled);
-            Assert.True(sheet.FileTextBoxControl.IsEffectivelyVisible);
+            Assert.True(sheet.SavePathLabelControl.IsEffectivelyVisible);
 
             string path = TempPngPath();
-            sheet.FileTextBoxControl.Text = path;
+            sheet.SavePath = path;
             await sheet.ExportAsync().WaitAsync(Timeout);
             Assert.True(await result);
             File.Delete(path);
@@ -370,7 +484,7 @@ namespace Foreman.Mac.UiTests.Views {
             sheet.EncodeGate = () => { gated.TrySetResult(); return gate.Task; };
             sheet.WriteImageStub = (_, _) => { writes++; return Task.CompletedTask; };
             string path = TempPngPath();
-            sheet.FileTextBoxControl.Text = path;
+            sheet.SavePath = path;
 
             Task run = sheet.ExportAsync();
             await gated.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -406,7 +520,7 @@ namespace Foreman.Mac.UiTests.Views {
             sheet.EncodeGate = () => gate.Task;
             sheet.WriteImageStub = (p, b) => { writtenPath = p; writtenBytes = b; return Task.CompletedTask; };
             string path = TempPngPath();
-            sheet.FileTextBoxControl.Text = path;
+            sheet.SavePath = path;
 
             Task run = sheet.ExportAsync();
             Assert.False(result.IsCompleted);

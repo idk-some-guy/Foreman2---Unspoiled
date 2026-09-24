@@ -27,6 +27,16 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             return (window, host, sibling);
         }
 
+        //A host that wraps content of its own (a sheet frame's template) still draws its popovers on top.
+        [AvaloniaFact]
+        public void Surface_StaysAboveChildrenAddedAfterIt() {
+            var host = new PopoverHost();
+            var content = new Border { Width = 200, Height = 100, Background = Brushes.White };
+            host.Children.Add(content);
+
+            Assert.True(host.Surface.ZIndex > content.ZIndex);
+        }
+
         [AvaloniaFact]
         public void Constructed_HasNoBackground() {
             var host = new PopoverHost();

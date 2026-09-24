@@ -79,6 +79,9 @@ namespace Foreman.Mac.Kit.Controls {
         //Parallel to Items, matched by index - the per-item icon (Quality's badge). Unset for an iconless pop-up.
         public AvaloniaList<IImage?> ItemIcons { get; } = [];
 
+        //Parallel to Items, matched by index - the face each menu row draws its label in (a font menu). Unset keeps the menu's own.
+        public AvaloniaList<FontFamily?> ItemFontFamilies { get; } = [];
+
         public MenuPanel Menu { get; } = new();
 
         static PopUp() {
@@ -94,6 +97,7 @@ namespace Foreman.Mac.Kit.Controls {
             Menu.RequestClose += (_, _) => IsOpen = false;
             Items.CollectionChanged += OnItemsChanged;
             ItemIcons.CollectionChanged += OnItemsChanged;
+            ItemFontFamilies.CollectionChanged += OnItemsChanged;
             UpdateDisplayText();
         }
 
@@ -136,6 +140,7 @@ namespace Foreman.Mac.Kit.Controls {
                     Text = captured,
                     IsChecked = captured == SelectedItem,
                     Icon = i < ItemIcons.Count ? ItemIcons[i] : null,
+                    FontFamily = i < ItemFontFamilies.Count ? ItemFontFamilies[i] : null,
                     Activate = () => Commit(captured),
                 });
             }

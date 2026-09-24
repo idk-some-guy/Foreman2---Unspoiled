@@ -32,6 +32,26 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(typeof(TextBox), KitTextFieldTheme().TargetType);
         }
 
+        //A fixed prefix the field draws but never edits (the colour popover's "#").
+        [AvaloniaFact]
+        public void InnerLeftContent_SitsBeforeTheText_InsideTheBorder() {
+            using var fixture = new KitFixture();
+            TextBox field = Themed();
+            field.Width = 84;
+            var hash = new TextBlock { Text = "#" };
+            field.InnerLeftContent = hash;
+            field.Text = "FF9500";
+            fixture.Window.Content = field;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(hash.IsEffectivelyVisible);
+            Assert.Contains(BorderElement(field), hash.GetVisualAncestors());
+            TextPresenter presenter = field.GetVisualDescendants().OfType<TextPresenter>().Single();
+            double hashRight = hash.TranslatePoint(new Point(hash.Bounds.Width, 0), field)!.Value.X;
+            Assert.True(hashRight <= presenter.TranslatePoint(new Point(0, 0), field)!.Value.X);
+            Assert.True(hash.Bounds.Width > 0);
+        }
+
         [AvaloniaFact]
         public void Sizes_ComeFromTokens() {
             using var fixture = new KitFixture();

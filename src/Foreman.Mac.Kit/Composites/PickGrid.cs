@@ -466,6 +466,7 @@ namespace Foreman.Mac.Kit.Composites {
             cell.IsMissing = slot.IsMissing;
             cell.IsUnavailable = slot.IsUnavailable;
             cell.IsNone = slot.IsNone;
+            cell.Swatch = slot.Swatch;
             cell.IsEnabled = slot.IsEnabled;
             cell.AccessibleName = slot.Name;
             ApplyCellAutomation(cell, slot, index);
@@ -537,6 +538,7 @@ namespace Foreman.Mac.Kit.Composites {
                     IsMissing = slot.IsMissing,
                     IsUnavailable = slot.IsUnavailable,
                     IsNone = slot.IsNone,
+                    Swatch = slot.Swatch,
                     IsEnabled = slot.IsEnabled,
                     AccessibleName = slot.Name,
                     EmptyItemNoun = EmptyItemNoun,

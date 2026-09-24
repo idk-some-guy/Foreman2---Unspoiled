@@ -60,6 +60,10 @@
   <!-- PickCellSelected mirrors AccentSoft's value rather than referencing it, kept independent on purpose. -->
   <Color x:Key="Foreman.Color.PickCellSelected">#1F0068DA</Color>
   <Color x:Key="Foreman.Color.PickCellBorder">#24000000</Color>
+  <!-- Swatch chrome sits behind content colour, so both appearances share one value. -->
+  <Color x:Key="Foreman.Color.SwatchCheckerA">#FFFFFF</Color>
+  <Color x:Key="Foreman.Color.SwatchCheckerB">#D1D1D6</Color>
+  <Color x:Key="Foreman.Color.SwatchStroke">#24000000</Color>
 
   <!-- Status tokens: existing availability/similarity row coloring (GraphSummary, Enabled Objects), not part of the phase 9 visual-language contract. -->
   <Color x:Key="Foreman.Color.StatusForeground">#000000</Color>
@@ -86,6 +90,7 @@
 
   <!-- The 5px gap is a per-cell margin (half of it, 2.5, on each side), not a panel Spacing. -->
   <CornerRadius x:Key="Foreman.Radius.PickCell">5</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.Swatch">3</CornerRadius>
   <Thickness x:Key="Foreman.Thickness.PickCellGap">2.5</Thickness>
   <!-- Not Radius.Control 6 - the chooser cell has been a literal 8 in three or more places (addendum §12.2). -->
   <CornerRadius x:Key="Foreman.Radius.ChooserCell">8</CornerRadius>
@@ -153,6 +158,10 @@
   <x:Double x:Key="Foreman.Size.PickCell">26</x:Double>
   <!-- The module icon inside a pick cell; scales with the cell (18 -> 27 at 150%), unlike the cell's own border/radius. -->
   <x:Double x:Key="Foreman.Size.PickCellIcon">18</x:Double>
+  <x:Double x:Key="Foreman.Size.ColorWellWidth">44</x:Double>
+  <x:Double x:Key="Foreman.Size.ColorWellChevronColumn">14</x:Double>
+  <x:Double x:Key="Foreman.Size.ColorWellSwatchInset">2</x:Double>
+  <x:Double x:Key="Foreman.Size.SwatchChecker">4</x:Double>
   <x:Double x:Key="Foreman.Size.FormLabelColumn">132</x:Double>
   <x:Double x:Key="Foreman.Size.FormLabelColumnInspector">108</x:Double>
   <x:Double x:Key="Foreman.Size.FormLabelColumnPopover">86</x:Double>

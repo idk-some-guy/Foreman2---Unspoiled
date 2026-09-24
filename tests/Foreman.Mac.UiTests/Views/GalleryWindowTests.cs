@@ -135,6 +135,8 @@ namespace Foreman.Mac.UiTests.Views {
                  "Popover frame — anchored below, with a form group inside", "Popover frame — tail clamped near a corner",
                  "Radial ring — six slices, one armed",
                  "Popover frame & Radial ring (150%)",
+                 "Color well — rest, focused, open, 40 % alpha, none, disabled",
+                 "Color well & Color popover — Fill, None available", "Color well & Color popover (150%)",
                  "State panel — empty (inspector & new graph)", "State panel — no results",
                  "State panel — loading (determinate & compact)", "State panel — error", "State panel (150%)",
                  "Chooser grid — no results (State panel)", "Sheet frame — error (State panel)",
@@ -583,6 +585,71 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Equal(39, gridCell.Bounds.Width);
             Assert.Equal(new Thickness(2.5), gridCell.Margin);
+        }
+
+        [AvaloniaFact]
+        public void ColorWellStatesTile_DrawsTheSixStates() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Color well — rest, focused, open, 40 % alpha, none, disabled");
+            ColorWell[] wells = [.. tile.GetVisualDescendants().OfType<ColorWell>()];
+            Assert.Equal(6, wells.Length);
+            Assert.True(FocusRing.GetShowAlways(wells[1]));
+            Assert.Contains("gallery-open", wells[2].Classes);
+            Assert.True(wells[3].GetVisualDescendants().OfType<SwatchChecker>().Single().IsVisible);
+            Assert.True(wells[4].GetVisualDescendants().OfType<Viewbox>().Single(v => v.Name == "PART_NoneBox").IsVisible);
+            Assert.False(wells[5].IsEnabled);
+
+            //The wells sit in the tile's own popover host, so a click or Space opens a real popover instead of throwing.
+            ScrollIntoView(wells[0]);
+            AnimationClock.UntilReflowsSettled(window);
+            Point restCentre = wells[0].TranslatePoint(new Point(wells[0].Bounds.Width / 2, wells[0].Bounds.Height / 2), window)!.Value;
+            window.MouseDown(restCentre, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(restCentre, MouseButton.Left, RawInputModifiers.None);
+            AnimationClock.Settle(300);
+            Assert.True(wells[0].IsOpen);
+            Assert.True(tile.GetVisualDescendants().OfType<PopoverFrame>().Single(f => f.Anchor == wells[0]).IsOpen);
+            CanvasKeys.KeyDownOn(tile.GetVisualDescendants().OfType<PopoverFrame>().Single(f => f.Anchor == wells[0]), Key.Escape);
+            Assert.False(wells[0].IsOpen);
+
+            wells[1].Focus(NavigationMethod.Tab);
+            CanvasKeys.KeyDownOn(wells[1], Key.Space);
+            AnimationClock.Settle(300);
+            Assert.True(wells[1].IsOpen);
+            Assert.True(tile.GetVisualDescendants().OfType<PopoverFrame>().Single(f => f.Anchor == wells[1]).IsOpen);
+        }
+
+        [AvaloniaFact]
+        public void ColorPopoverTile_OpensTheFillPopover_WithTheNoneCellFirst() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            AnimationClock.Settle(300);
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Color well & Color popover — Fill, None available");
+            PopoverFrame frame = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+            Assert.True(frame.IsOpen);
+            PickCell[] cells = [.. frame.GetVisualDescendants().OfType<PickCell>()];
+            Assert.Equal(32, cells.Length);
+            Assert.True(cells[0].IsNone);
+            Assert.Equal("Fill colors", Avalonia.Automation.AutomationProperties.GetName(frame));
+        }
+
+        [AvaloniaFact]
+        public void ColorScaledTile_WellAndCheckerScaleByOneAndAHalf() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            AnimationClock.Settle(300);
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Color well & Color popover (150%)");
+            ColorWell well = tile.GetVisualDescendants().OfType<ColorWell>().Single();
+            Assert.Equal(new Size(66, 33), well.Bounds.Size);
+            Assert.Equal(6, well.GetVisualDescendants().OfType<SwatchChecker>().Single().SquareSize);
+            PopoverFrame frame = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+            Assert.Equal(39, frame.GetVisualDescendants().OfType<PickCell>().First().Bounds.Width);
         }
 
         [AvaloniaFact]

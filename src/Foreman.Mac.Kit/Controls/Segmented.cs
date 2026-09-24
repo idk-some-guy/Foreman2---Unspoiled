@@ -1,4 +1,7 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -136,7 +139,7 @@ namespace Foreman.Mac.Kit.Controls {
                 label.Classes.Add("segLabel");
                 labels.Add(label);
 
-                var segment = new Border {
+                var segment = new SegmentedItem(this, i) {
                     Child = label,
                     Background = Brushes.Transparent,
                     CornerRadius = itemRadius,
@@ -269,5 +272,61 @@ namespace Foreman.Mac.Kit.Controls {
             }
         }
 
+        protected override AutomationPeer OnCreateAutomationPeer() => new SegmentedAutomationPeer(this);
+
+        private string? ItemName(int index) =>
+            index >= 0 && index < Items.Count ? $"{Items[index]}, {index + 1} of {Items.Count}" : null;
+
+        //AppKit's segmented control reads as a radio group; Avalonia has no such type, so a single-selection list carries it, valued with the selected segment since the group takes focus.
+        private sealed class SegmentedAutomationPeer : ControlAutomationPeer, ISelectionProvider, IValueProvider {
+            public SegmentedAutomationPeer(Segmented owner) : base(owner) {
+                owner.PropertyChanged += OwnerPropertyChanged;
+            }
+
+            private Segmented Segmented => (Segmented)Owner;
+
+            private void OwnerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e) {
+                if (e.Property != SelectedIndexProperty)
+                    return;
+                RaisePropertyChangedEvent(SelectionPatternIdentifiers.SelectionProperty, null, null);
+                RaisePropertyChangedEvent(ValuePatternIdentifiers.ValueProperty, Segmented.ItemName((int)e.OldValue!), Segmented.ItemName((int)e.NewValue!));
+            }
+
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.List;
+            protected override string GetLocalizedControlTypeCore() => "radio group";
+
+            protected override IReadOnlyList<AutomationPeer>? GetChildrenCore() =>
+                [.. Segmented.segments.Select(ControlAutomationPeer.CreatePeerForElement)];
+
+            bool ISelectionProvider.CanSelectMultiple => false;
+            bool ISelectionProvider.IsSelectionRequired => true;
+
+            IReadOnlyList<AutomationPeer> ISelectionProvider.GetSelection() =>
+                Segmented.SelectedIndex >= 0 && Segmented.SelectedIndex < Segmented.segments.Count
+                    ? [ControlAutomationPeer.CreatePeerForElement(Segmented.segments[Segmented.SelectedIndex])]
+                    : [];
+
+            bool IValueProvider.IsReadOnly => true;
+            string? IValueProvider.Value => Segmented.ItemName(Segmented.SelectedIndex);
+            void IValueProvider.SetValue(string? value) { }
+        }
+
+        //One segment's hit surface: a Border to the theme, a radio button to VoiceOver.
+        private sealed class SegmentedItem(Segmented owner, int index) : Border {
+            protected override Type StyleKeyOverride => typeof(Border);
+
+            protected override AutomationPeer OnCreateAutomationPeer() => new SegmentedItemAutomationPeer(this, owner, index);
+        }
+
+        private sealed class SegmentedItemAutomationPeer(SegmentedItem item, Segmented owner, int index) : ControlAutomationPeer(item), ISelectionItemProvider {
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.RadioButton;
+            protected override string? GetNameCore() => owner.ItemName(index);
+
+            bool ISelectionItemProvider.IsSelected => owner.SelectedIndex == index;
+            ISelectionProvider? ISelectionItemProvider.SelectionContainer => ControlAutomationPeer.CreatePeerForElement(owner) as ISelectionProvider;
+            void ISelectionItemProvider.Select() => owner.SelectedIndex = index;
+            void ISelectionItemProvider.AddToSelection() => owner.SelectedIndex = index;
+            void ISelectionItemProvider.RemoveFromSelection() { }
+        }
     }
 }

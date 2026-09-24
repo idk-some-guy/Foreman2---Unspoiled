@@ -1,39 +1,42 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
              x:Class="Foreman.Mac.Views.Sheets.TextPropertiesSheet">
-  <StackPanel Spacing="10">
-    <TextBox Name="TextInput" AcceptsReturn="True" Height="70" TextWrapping="Wrap" />
-
-    <TextBlock Name="FontPreviewLabel" Text="AaBbYyZz" FontSize="18" HorizontalAlignment="Center" Margin="0,4" />
-
-    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-      <ComboBox Name="FontFamilyCombo" Grid.Column="0" HorizontalAlignment="Stretch" />
-      <NumericUpDown Name="FontSizeInput" Grid.Column="1" Width="90" Minimum="6" Maximum="288" Increment="1" />
-      <CheckBox Name="BoldCheckBox" Grid.Column="2" Content="B" Margin="4,0,0,0" />
-      <CheckBox Name="ItalicCheckBox" Grid.Column="3" Content="I" Margin="4,0,0,0" />
-    </Grid>
-
-    <StackPanel Orientation="Horizontal" Spacing="8">
-      <RadioButton Name="AlignLeftRadio" GroupName="TextAlign" Content="Left" />
-      <RadioButton Name="AlignCenterRadio" GroupName="TextAlign" Content="Center" />
-      <RadioButton Name="AlignRightRadio" GroupName="TextAlign" Content="Right" />
-    </StackPanel>
-
-    <TextBlock Text="Text color" FontWeight="Bold" />
-    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto">
-      <NumericUpDown Name="TextColorRedInput" Grid.Column="0" Width="72" Minimum="0" Maximum="255" />
-      <NumericUpDown Name="TextColorGreenInput" Grid.Column="1" Width="72" Minimum="0" Maximum="255" />
-      <NumericUpDown Name="TextColorBlueInput" Grid.Column="2" Width="72" Minimum="0" Maximum="255" />
-      <Border Name="TextColorSwatch" Grid.Column="3" Width="28" Height="28" Margin="8,0,0,0" BorderBrush="Gray" BorderThickness="1" />
-    </Grid>
-
-    <CheckBox Name="TransparentCheckBox" Content="Transparent background" />
-    <TextBlock Text="Background color" FontWeight="Bold" />
-    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto">
-      <NumericUpDown Name="BackColorRedInput" Grid.Column="0" Width="72" Minimum="0" Maximum="255" />
-      <NumericUpDown Name="BackColorGreenInput" Grid.Column="1" Width="72" Minimum="0" Maximum="255" />
-      <NumericUpDown Name="BackColorBlueInput" Grid.Column="2" Width="72" Minimum="0" Maximum="255" />
-      <Border Name="BackColorSwatch" Grid.Column="3" Width="28" Height="28" Margin="8,0,0,0" BorderBrush="Gray" BorderThickness="1" />
-    </Grid>
+  <StackPanel Spacing="{DynamicResource Foreman.Space.Space4}">
+    <TextBox Name="TextInput" Theme="{StaticResource Kit.TextField}"
+             AcceptsReturn="True" TextWrapping="Wrap"
+             Height="66" HorizontalAlignment="Stretch" VerticalContentAlignment="Top"
+             FontSize="{DynamicResource Foreman.Type.Body.FontSize}"
+             FontWeight="{DynamicResource Foreman.Type.Body.FontWeight}"
+             AutomationProperties.Name="Text" />
+    <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" TrailingGap="0">
+      <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Font" LabelColumn="Window">
+        <ctrl:PopUp Name="FontPopUp" Theme="{StaticResource Kit.PopUp}" HorizontalAlignment="Stretch" />
+      </kit:FormRow>
+      <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Size" LabelColumn="Window">
+        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Space.Space1}">
+          <ctrl:Stepper Name="FontSizeStepper" Theme="{StaticResource Kit.Stepper}"
+                        Minimum="6" Maximum="288" Increment="1" Decimals="0" SpokenUnit="points"
+                        AutomationProperties.Name="Size" />
+          <TextBlock Theme="{StaticResource Kit.Text}" Classes="callout secondary" Text="pt" VerticalAlignment="Center" />
+        </StackPanel>
+      </kit:FormRow>
+      <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Style" LabelColumn="Window">
+        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Space.Space4}">
+          <CheckBox Name="BoldCheckBox" Theme="{StaticResource Kit.CheckBox}" Content="Bold" />
+          <CheckBox Name="ItalicCheckBox" Theme="{StaticResource Kit.CheckBox}" Content="Italic" />
+        </StackPanel>
+      </kit:FormRow>
+      <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Alignment" LabelColumn="Window">
+        <ctrl:Segmented Name="AlignmentSegments" Theme="{StaticResource Kit.Segmented}" />
+      </kit:FormRow>
+      <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Color" LabelColumn="Window">
+        <ctrl:ColorWell Name="TextColorWell" Theme="{StaticResource Kit.ColorWell}" />
+      </kit:FormRow>
+      <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Background" LabelColumn="Window">
+        <ctrl:ColorWell Name="BackColorWell" Theme="{StaticResource Kit.ColorWell}" AllowsNone="True" />
+      </kit:FormRow>
+    </kit:FormGroup>
   </StackPanel>
 </UserControl>

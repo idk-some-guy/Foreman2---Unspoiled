@@ -6,6 +6,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Media.Immutable;
 using System;
 
 namespace Foreman.Mac.Kit.Composites {
@@ -40,6 +41,9 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<string?> AccessibleNameProperty =
             AvaloniaProperty.Register<PickCell, string?>(nameof(AccessibleName));
 
+        public static readonly StyledProperty<Color?> SwatchProperty =
+            AvaloniaProperty.Register<PickCell, Color?>(nameof(Swatch));
+
         //The empty-slot tooltip's noun ("module", "beacon", ...) - the kit itself names no consumer's
         //vocabulary, so a grid without one set reads as a plain "press Return to choose".
         public static readonly StyledProperty<string?> EmptyItemNounProperty =
@@ -51,6 +55,11 @@ namespace Foreman.Mac.Kit.Composites {
         public IImage? Icon {
             get => GetValue(IconProperty);
             set => SetValue(IconProperty, value);
+        }
+
+        public Color? Swatch {
+            get => GetValue(SwatchProperty);
+            set => SetValue(SwatchProperty, value);
         }
 
         public bool IsSelected {
@@ -107,6 +116,7 @@ namespace Foreman.Mac.Kit.Composites {
         public event EventHandler? Invoked;
 
         private Image? icon;
+        private Border? swatch;
 
         static PickCell() {
             IsSelectedProperty.Changed.AddClassHandler<PickCell>((c, _) => c.PseudoClasses.Set(":selected", c.IsSelected));
@@ -116,6 +126,7 @@ namespace Foreman.Mac.Kit.Composites {
             IsNoneProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
             IsFullAndUnarmedProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
             IconProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
+            SwatchProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyContentState());
             AccessibleNameProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyTooltip());
             EmptyItemNounProperty.Changed.AddClassHandler<PickCell>((c, _) => c.ApplyTooltip());
         }
@@ -123,6 +134,7 @@ namespace Foreman.Mac.Kit.Composites {
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
             base.OnApplyTemplate(e);
             icon = e.NameScope.Find<Image>("PART_Icon");
+            swatch = e.NameScope.Find<Border>("PART_Swatch");
             ApplyContentState();
         }
 
@@ -138,6 +150,10 @@ namespace Foreman.Mac.Kit.Composites {
             if (icon is not null) {
                 icon.Source = Icon;
                 icon.Opacity = (IsEmpty && !IsNone) || IsMissing ? 0 : 1;
+            }
+            if (swatch is not null) {
+                swatch.IsVisible = Swatch is not null && !IsNone;
+                swatch.Background = Swatch is Color color ? new ImmutableSolidColorBrush(color) : null;
             }
             ApplyTooltip();
         }

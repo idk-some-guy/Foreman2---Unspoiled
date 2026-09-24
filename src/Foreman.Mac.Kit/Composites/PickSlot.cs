@@ -12,5 +12,7 @@ namespace Foreman.Mac.Kit.Composites {
         public bool IsUnavailable { get; set; }
         //Choice mode: the leading "None" cell (Beacon) - a real, selectable member of the set, not an empty slot.
         public bool IsNone { get; set; }
+        //A colour cell draws this swatch in place of an icon.
+        public Color? Swatch { get; set; }
     }
 }

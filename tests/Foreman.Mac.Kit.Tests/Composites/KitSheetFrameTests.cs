@@ -9,6 +9,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
 using System;
 using System.Linq;
@@ -616,6 +617,188 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Contains(panel.Transitions!, t => t is TransformOperationsTransition);
             AnimationClock.Settle();
             Assert.Equal(openTop - 12, panel.TranslatePoint(new Point(0, 0), sheet)!.Value.Y, 3);
+        }
+
+        private static ColorWell OpenWellIn(out SheetFrame sheet) {
+            Assert.True(Application.Current!.TryGetResource("Kit.ColorWell", null, out object? wellTheme));
+            var well = new ColorWell { Theme = Assert.IsType<ControlTheme>(wellTheme), Color = Avalonia.Media.Color.Parse("#FF9500"), AccessibleLabel = "Fill" };
+            sheet = Themed(content: well);
+            sheet.IsOpen = true;
+            Shown(sheet);
+            AnimationClock.Settle();
+            well.IsOpen = true;
+            AnimationClock.Settle(300);
+            return well;
+        }
+
+        //A popover anchored in the body draws above the panel and takes the clicks over it.
+        [AvaloniaFact]
+        public void Popover_OpenedFromTheBody_IsHostedByTheFrame_AboveThePanel() {
+            using var fixture = new KitFixture();
+            ColorWell well = OpenWellIn(out SheetFrame sheet);
+
+            PopoverFrame popover = well.Frame!;
+            Assert.Same(sheet, popover.FindAncestorOfType<SheetFrame>());
+            PickCell cell = popover.GetVisualDescendants().OfType<PickCell>().First();
+            Window window = (Window)TopLevel.GetTopLevel(sheet)!;
+            Point centre = cell.TranslatePoint(new Point(cell.Bounds.Width / 2, cell.Bounds.Height / 2), window)!.Value;
+            Assert.Contains(cell, window.InputHitTest(centre) is Visual hit ? hit.GetSelfAndVisualAncestors() : []);
+        }
+
+        [AvaloniaFact]
+        public void Escape_WithAPopoverOpen_ClosesThePopover_NotTheSheet() {
+            using var fixture = new KitFixture();
+            ColorWell well = OpenWellIn(out SheetFrame sheet);
+            int cancelled = 0;
+            sheet.Cancelled += (_, _) => cancelled++;
+
+            fixture.StateOf(well.Popover!.Grid!).KeyDown(Key.Escape);
+
+            Assert.False(well.IsOpen);
+            Assert.Equal(0, cancelled);
+            Assert.True(sheet.IsOpen);
+        }
+
+        [AvaloniaFact]
+        public void Return_WithAPopoverOpen_NeverFiresTheDefault() {
+            using var fixture = new KitFixture();
+            ColorWell well = OpenWellIn(out SheetFrame sheet);
+            int closed = 0;
+            sheet.Closed += (_, _) => closed++;
+
+            fixture.StateOf(well.Popover!.HexField!).KeyDown(Key.Enter);
+
+            Assert.Equal(0, closed);
+            Assert.True(well.IsOpen);
+        }
+
+        //A multi-line field keeps plain Return for its newline; Command-Return still reaches the default button.
+        [AvaloniaFact]
+        public void CommandReturn_InAMultiLineField_FiresTheDefault_PlainReturnDoesNot() {
+            using var fixture = new KitFixture();
+            var field = new TextBox { AcceptsReturn = true };
+            SheetFrame sheet = Themed(content: field);
+            sheet.IsOpen = true;
+            Shown(sheet);
+            int closed = 0;
+            sheet.Closed += (_, _) => closed++;
+
+            fixture.StateOf(field).KeyDown(Key.Enter);
+            Assert.Equal(0, closed);
+
+            fixture.StateOf(field).KeyDown(Key.Enter, KeyModifiers.Meta);
+            Assert.Equal(1, closed);
+        }
+
+        private static ColorWell KitWell(string hex) {
+            Assert.True(Application.Current!.TryGetResource("Kit.ColorWell", null, out object? wellTheme));
+            return new ColorWell { Theme = Assert.IsType<ControlTheme>(wellTheme), Color = Avalonia.Media.Color.Parse(hex), AccessibleLabel = "Fill" };
+        }
+
+        private static InputElement? Focused(SheetFrame sheet) =>
+            TopLevel.GetTopLevel(sheet)?.FocusManager?.GetFocusedElement() as InputElement;
+
+        private static void AssertNotInAClosedPopover(SheetFrame sheet) {
+            InputElement? focused = Focused(sheet);
+            Assert.NotNull(focused);
+            PopoverFrame? frame = focused as PopoverFrame ?? focused!.FindAncestorOfType<PopoverFrame>();
+            Assert.True(frame is null || frame.IsOpen, $"focus landed in a closed popover ({focused})");
+        }
+
+        //A popover that opened once stays in the host's surface; closed, it must never join the sheet's tab cycle.
+        [AvaloniaFact]
+        public void Tab_AfterAPopoverOpenedAndClosed_StillWrapsBetweenTheBodyAndTheButtons() {
+            using var fixture = new KitFixture();
+            var field = new TextBox();
+            ColorWell well = KitWell("#FF9500");
+            ButtonRow row = RowWithCancelAndDefault();
+            SheetFrame sheet = Themed(content: new StackPanel { Children = { field, well } }, buttons: row);
+            sheet.IsOpen = true;
+            Shown(sheet);
+            AnimationClock.Settle();
+            well.IsOpen = true;
+            AnimationClock.Settle(300);
+            fixture.StateOf(well.Popover!.Grid!).KeyDown(Key.Escape);
+            AnimationClock.Settle(300);
+            Assert.False(well.IsOpen);
+
+            Button save = row.Items.OfType<Button>().Single(b => ButtonRow.GetRole(b) == ButtonRowRole.Default);
+            save.Focus(NavigationMethod.Tab);
+            Dispatcher.UIThread.RunJobs();
+            fixture.StateOf(save).KeyDown(Key.Tab);
+            AssertNotInAClosedPopover(sheet);
+            Assert.True(field.IsFocused, $"Tab off the last button should wrap to the first body control, not {Focused(sheet)}.");
+
+            fixture.StateOf(field).KeyDown(Key.Tab, KeyModifiers.Shift);
+            AssertNotInAClosedPopover(sheet);
+            Assert.True(save.IsFocused, $"Shift+Tab off the first body control should wrap to the last button, not {Focused(sheet)}.");
+        }
+
+        //Tab alternates between the grid and the Hex field; focus never leaves the popover for the sheet's controls.
+        [AvaloniaFact]
+        public void Tab_InsideAnOpenPopover_StaysInThePopover() {
+            using var fixture = new KitFixture();
+            ColorWell well = OpenWellIn(out SheetFrame sheet);
+            PickGrid grid = well.Popover!.Grid!;
+            TextBox hex = well.Popover.HexField!;
+            Assert.True(grid.IsKeyboardFocusWithin);
+
+            fixture.StateOf((Control)Focused(sheet)!).KeyDown(Key.Tab);
+            Assert.True(hex.IsKeyboardFocusWithin, $"Tab from the grid should reach the Hex field, not {Focused(sheet)}.");
+            fixture.StateOf(hex).KeyDown(Key.Tab);
+            Assert.True(grid.IsKeyboardFocusWithin, $"Tab from the Hex field should return to the grid, not {Focused(sheet)}.");
+            fixture.StateOf((Control)Focused(sheet)!).KeyDown(Key.Tab, KeyModifiers.Shift);
+            Assert.True(hex.IsKeyboardFocusWithin);
+            Assert.True(well.IsOpen);
+        }
+
+        //An Escape the sheet routes to an open popover from outside it cancels, the same as one pressed inside.
+        [AvaloniaFact]
+        public void Escape_FromOutsideAnOpenPopover_RestoresTheColourItHadWhenItOpened() {
+            using var fixture = new KitFixture();
+            ColorWell well = OpenWellIn(out SheetFrame sheet);
+            Avalonia.Media.Color opened = well.Color;
+            well.Color = Avalonia.Media.Color.Parse("#007AFF");
+            int cancelled = 0;
+            sheet.Cancelled += (_, _) => cancelled++;
+
+            fixture.StateOf(well).KeyDown(Key.Escape);
+
+            Assert.False(well.IsOpen);
+            Assert.Equal(opened, well.Color);
+            Assert.Equal(0, cancelled);
+        }
+
+        [AvaloniaFact]
+        public void CommandPeriod_WithAPopoverOpen_CancelsThePopoverFirst_FromInsideAndOutside_ThenTheSheet() {
+            using var fixture = new KitFixture();
+            ColorWell well = OpenWellIn(out SheetFrame sheet);
+            int sheetCancelled = 0;
+            sheet.Cancelled += (_, _) => sheetCancelled++;
+
+            foreach (bool fromGrid in new[] { true, false }) {
+                if (!well.IsOpen) {
+                    well.IsOpen = true;
+                    AnimationClock.Settle(300);
+                }
+                Avalonia.Media.Color opened = well.Color;
+                PopoverFrame popover = well.Frame!;
+                int popoverCancelled = 0;
+                popover.Cancelled += (_, _) => popoverCancelled++;
+                well.Color = Avalonia.Media.Color.Parse("#007AFF");
+
+                fixture.StateOf(fromGrid ? well.Popover!.Grid! : well).KeyDown(Key.OemPeriod, KeyModifiers.Meta);
+
+                Assert.False(well.IsOpen);
+                Assert.Equal(opened, well.Color);
+                Assert.Equal(1, popoverCancelled);
+                Assert.Equal(0, sheetCancelled);
+                Assert.True(sheet.IsOpen);
+            }
+
+            fixture.StateOf(well).KeyDown(Key.OemPeriod, KeyModifiers.Meta);
+
+            Assert.Equal(1, sheetCancelled);
         }
     }
 }

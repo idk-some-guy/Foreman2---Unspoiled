@@ -282,16 +282,14 @@ namespace Foreman.Mac.Views.Sheets {
 
             EnableProgressBar(true);
             string quoted = $"“{Dialogs.MiddleTruncate(NewPresetName, 24)}”";
+            string importing = $"Importing “{Dialogs.MiddleTruncate(NewPresetName, 40)}”";
             int percent = 0;
-            string stage = "";
-            ReportProgress($"Importing {quoted}.", 0);
+            ReportProgress(StageSentence(importing, 0), 0);
             var progress = new Progress<KeyValuePair<int, string>>(value => {
                 if (disposed || Activity?.Kind != SheetActivityKind.InProgress)
                     return;
                 percent = Math.Max(percent, value.Key);
-                if (!string.IsNullOrEmpty(value.Value))
-                    stage = StageClause(value.Value);
-                ReportProgress(stage.Length > 0 ? $"Importing {quoted} — {stage}." : $"Importing {quoted}.", percent / 100.0);
+                ReportProgress(StageSentence(importing, percent), percent / 100.0);
             });
 
             ImportStarted = true;
@@ -321,13 +319,14 @@ namespace Foreman.Mac.Views.Sheets {
             }
         }
 
-        //A pipeline progress stage as the clause after the em dash: one line, lower-cased lead, no closing period.
-        private static string StageClause(string message) {
-            string clause = string.Join(" ", message.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).TrimEnd('.', ' ');
-            if (clause.Length > 1 && char.IsUpper(clause[0]) && !char.IsUpper(clause[1]))
-                clause = char.ToLowerInvariant(clause[0]) + clause[1..];
-            return clause;
-        }
+        //The strip sentence comes from the reported percent band, never from the pipeline's own text.
+        private static string StageSentence(string importing, int percent) => percent switch {
+            < 10 => $"{importing}.",
+            < 20 => $"{importing} — starting Factorio (1 of 4).",
+            < 25 => $"{importing} — reading recipes and items from Factorio (2 of 4).",
+            < 30 => $"{importing} — saving the preset (3 of 4).",
+            _ => $"{importing} — creating icons (4 of 4).",
+        };
 
         private Task ShowLogAsync() {
             if (ShowLogStub is not null)

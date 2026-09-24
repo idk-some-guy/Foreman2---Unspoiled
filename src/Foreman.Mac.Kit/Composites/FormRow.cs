@@ -332,15 +332,16 @@ namespace Foreman.Mac.Kit.Composites {
                 ? content
                 : content.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c is TextBlock or TextPresenter && c.IsEffectivelyVisible);
 
-            double controlBaselineLocal;
-            if (textHost is not null && FirstLine(textHost) is TextLine hostLine) {
-                controlBaselineLocal = hostLine.Baseline;
-            } else {
-                double contentHeight = content.Bounds.Height > 0 ? content.Bounds.Height : content.DesiredSize.Height;
-                controlBaselineLocal = (contentHeight - labelLine.Height) / 2 + labelLine.Baseline;
-            }
+            double contentHeight = content.Bounds.Height > 0 ? content.Bounds.Height : content.DesiredSize.Height;
+            double controlBaselineLocal = textHost is not null && FirstLine(textHost) is TextLine hostLine
+                ? hostLine.Baseline
+                : (contentHeight - labelLine.Height) / 2 + labelLine.Baseline;
 
-            return Math.Max(0, controlBaselineLocal - labelLine.Baseline);
+            //Only the part of the shifted label that hangs below the row's own height needs room.
+            double shift = controlBaselineLocal - labelLine.Baseline;
+            double labelHeight = label.DesiredSize.Height;
+            double rowHeight = Math.Max(Math.Max(labelHeight, contentHeight), rowMinHeight);
+            return Math.Max(0, shift + labelHeight - rowHeight);
         }
 
         private static TextLine? FirstLine(Control control) => control switch {

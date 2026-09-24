@@ -480,6 +480,28 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             Assert.True(popup.IsKeyboardFocusWithin);
         }
+
+        //A font menu draws each family's name in that family; a row the consumer gives no face keeps the menu's own.
+        [AvaloniaFact]
+        public void MenuRows_DrawTheirLabelInTheItemsOwnFontFamily_WhenOneIsGiven() {
+            using var fixture = new KitFixture();
+            PopUp popup = Themed("Helvetica Neue", "Menlo", "Plain");
+            popup.ItemFontFamilies.Add(new FontFamily("Helvetica Neue"));
+            popup.ItemFontFamilies.Add(new FontFamily("Menlo"));
+            fixture.Window.Content = popup;
+            Dispatcher.UIThread.RunJobs();
+            popup.IsOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle(300);
+
+            StackPanel items = popup.Menu.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "PART_Items");
+            TextBlock[] labels = [.. items.Children.Select(row => row.GetVisualDescendants().OfType<TextBlock>().Single())];
+            Assert.Equal(["Helvetica Neue", "Menlo", "Plain"], labels.Select(l => l.Text));
+            Assert.Equal("Helvetica Neue", labels[0].FontFamily.Name);
+            Assert.Equal("Menlo", labels[1].FontFamily.Name);
+            Assert.False(labels[2].IsSet(TextBlock.FontFamilyProperty));
+            Assert.Equal(popup.Menu.FontFamily, labels[2].FontFamily);
+        }
     }
 
     [Collection(KitScaleGroup.Name)]

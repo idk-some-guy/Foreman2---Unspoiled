@@ -346,7 +346,7 @@ namespace Foreman.Mac.UiTests.Views {
             AnimationClock.Settle(500);
             StatePanel loading = SheetFixture.StripOf(host);
             Assert.Equal(StatePanelShape.Loading, loading.Shape);
-            Assert.Equal("Importing “Valid Name Here” — running Factorio - foreman export scripts.", loading.Sentence);
+            Assert.Equal("Importing “Valid Name Here” — reading recipes and items from Factorio (2 of 4).", loading.Sentence);
             Assert.Equal(0.2, loading.Progress!.Value, 3);
             Assert.False(sheet.OKButtonControl.IsEnabled);
             Assert.True(sheet.CancelButtonControl.IsEffectivelyEnabled);
@@ -376,6 +376,50 @@ namespace Foreman.Mac.UiTests.Views {
             sheet.OKButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.True(await result);
             Assert.False(sheet.ShowLogButtonControl.IsVisible);
+        }
+
+        //The sentence follows the reported percent band, never the pipeline's text; a lower band never moves it back, nor does Continue on the missing-icons confirm.
+        [AvaloniaFact]
+        public async Task PresetImport_StageSentences_FollowThePercentBands_AndNeverMoveBackward() {
+            var sheet = new PresetImportSheet([]);
+            sheet.FactorioLocationTextBoxControl.Text = NewValidatingFactorioInstall();
+            sheet.ModsLocationTextBoxControl.Text = WriteModsFolder();
+            sheet.PresetNameTextBoxControl.Text = "Valid Name Here";
+            var sentences = new List<string>();
+            sheet.ActivityChanged += (_, _) => {
+                if (sheet.Activity is { Kind: SheetActivityKind.InProgress } activity && (sentences.Count == 0 || sentences[^1] != activity.Sentence))
+                    sentences.Add(activity.Sentence);
+            };
+            var reported = new TaskCompletionSource();
+            var gate = new TaskCompletionSource();
+            sheet.ConfirmDialogStub = (_, _) => Task.FromResult(true);
+            sheet.ProcessPresetStub = async (_, _, _, name, _, progress, confirm, _) => {
+                foreach ((int percent, string message) in new[] { (10, "x"), (20, ""), (25, "y"), (60, ""), (22, "z") })
+                    progress.Report(new(percent, message));
+                await confirm(3, 400);
+                progress.Report(new(80, ""));
+                reported.TrySetResult();
+                await gate.Task;
+                return new PresetImporter.Result { Outcome = PresetImportOutcome.Ok, NewPresetName = name };
+            };
+
+            Task run = sheet.RunImportAsync();
+            await reported.Task.WaitAsync(Timeout);
+            AnimationClock.Settle(300);
+            gate.TrySetResult();
+            await run.WaitAsync(Timeout);
+
+            const string Lead = "Importing “Valid Name Here”";
+            Assert.Equal([
+                $"{Lead}.",
+                $"{Lead} — starting Factorio (1 of 4).",
+                $"{Lead} — reading recipes and items from Factorio (2 of 4).",
+                $"{Lead} — saving the preset (3 of 4).",
+                $"{Lead} — creating icons (4 of 4).",
+            ], sentences);
+            Assert.DoesNotContain(sentences, t => t.Contains("Running Factorio", StringComparison.Ordinal)
+                || t.Contains("foreman export", StringComparison.Ordinal) || t.Contains(" — x", StringComparison.Ordinal)
+                || t.Contains(" — z", StringComparison.Ordinal));
         }
 
         [AvaloniaFact]

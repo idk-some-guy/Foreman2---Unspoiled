@@ -231,7 +231,7 @@ namespace Foreman.Mac.UiTests {
                 window.ImageExportDialogStub = viewer => exportSheet = new ImageExportSheet(viewer);
                 await window.OpenImageExportAsync();
                 exportSheet!.TransparencyCheckBoxControl.IsChecked = true;
-                exportSheet.FileTextBoxControl.Text = pngPath;
+                exportSheet.SavePath = pngPath;
 
                 await exportSheet.ExportAsync();
 

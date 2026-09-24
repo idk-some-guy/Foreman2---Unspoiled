@@ -184,6 +184,9 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Popover frame — tail clamped near a corner", "Default", BuildPopoverFrameCornerTile));
             registry.Register(new GalleryTile("Kit", "Radial ring — six slices, one armed", "Default", BuildRadialRingTile));
             registry.Register(new GalleryTile("Kit", "Popover frame & Radial ring (150%)", "150%", BuildPopoverAndRadialScaledTile));
+            registry.Register(new GalleryTile("Kit", "Color well — rest, focused, open, 40 % alpha, none, disabled", "Default", BuildColorWellStatesTile));
+            registry.Register(new GalleryTile("Kit", "Color well & Color popover — Fill, None available", "Default", BuildColorPopoverTile));
+            registry.Register(new GalleryTile("Kit", "Color well & Color popover (150%)", "150%", BuildColorScaledTile));
             registry.Register(new GalleryTile("Kit", "State panel — empty (inspector & new graph)", "Default", BuildStatePanelEmptyTile));
             registry.Register(new GalleryTile("Kit", "State panel — no results", "Default", BuildStatePanelNoResultsTile));
             registry.Register(new GalleryTile("Kit", "State panel — loading (determinate & compact)", "Default", BuildStatePanelLoadingTile));
@@ -1706,6 +1709,67 @@ namespace Foreman.Mac.Views {
 
             container.Children.Add(BuildPopoverFrameTile());
             container.Children.Add(BuildRadialRingTile());
+            return container;
+        }
+
+        private static ColorWell KitColorWell(string hex, bool allowsNone = false, bool allowsAlpha = false) => new() {
+            Theme = KitTheme("Kit.ColorWell"),
+            Color = Color.Parse(hex),
+            AllowsNone = allowsNone,
+            AllowsAlpha = allowsAlpha,
+            AccessibleLabel = "Fill",
+        };
+
+        //The page's six well states side by side, each captioned, in a host so every live well opens its popover.
+        private static PopoverHost BuildColorWellStatesTile() {
+            ColorWell focused = KitColorWell("#FF9500");
+            FocusRing.SetShowAlways(focused, true);
+            ColorWell open = KitColorWell("#FF9500");
+            open.Classes.Add("gallery-open");
+            ColorWell disabled = KitColorWell("#FF9500");
+            disabled.IsEnabled = false;
+            (string Caption, ColorWell Well)[] states = [
+                ("rest", KitColorWell("#FF9500")),
+                ("focused", focused),
+                ("open", open),
+                ("40 % alpha", KitColorWell("#66007AFF", allowsNone: true, allowsAlpha: true)),
+                ("none", KitColorWell("#00007AFF", allowsNone: true, allowsAlpha: true)),
+                ("disabled", disabled),
+            ];
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 20, VerticalAlignment = VerticalAlignment.Top };
+            foreach ((string caption, ColorWell well) in states)
+                row.Children.Add(new StackPanel { Spacing = 6, Children = { well, KitText(caption, "caption", "tertiary") } });
+            return new PopoverHost { Width = 480, Height = 340, Children = { row } };
+        }
+
+        //A Fill well opened in its host, so the popover draws the None cell, the palette and the Hex row.
+        private static PopoverHost BuildColorPopoverTile() {
+            ColorWell well = KitColorWell("#007AFF", allowsNone: true, allowsAlpha: true);
+            well.Margin = new Thickness(40, 12, 0, 0);
+            well.VerticalAlignment = VerticalAlignment.Top;
+            well.IsOpen = true;
+            return new PopoverHost { Width = 340, Height = 300, Children = { well } };
+        }
+
+        private static readonly string[] ColorScaledSizeKeys = [
+            "Foreman.Size.ColorWellWidth", "Foreman.Size.ColorWellChevronColumn", "Foreman.Size.SwatchChecker",
+            "Foreman.Size.ControlHeightRegular", "Foreman.Size.Glyph10", "Foreman.Size.GlyphMicro",
+            "Foreman.Size.PickCell", "Foreman.Size.PickCellIcon", "Foreman.Size.PopoverWidth",
+            "Foreman.Size.FormLabelColumnPopover", "Foreman.Metrics.TextFieldMinWidth",
+            "Foreman.Type.Body.FontSize", "Foreman.Type.Callout.FontSize",
+        ];
+
+        private static StackPanel BuildColorScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in ColorScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            ColorWell well = KitColorWell("#66007AFF", allowsNone: true, allowsAlpha: true);
+            well.Margin = new Thickness(60, 12, 0, 0);
+            well.VerticalAlignment = VerticalAlignment.Top;
+            well.IsOpen = true;
+            container.Children.Add(new PopoverHost { Width = 480, Height = 400, Children = { well } });
             return container;
         }
 

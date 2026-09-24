@@ -165,6 +165,8 @@ namespace Foreman.Mac.Kit.Controls {
                     FontWeight = fontWeight,
                     VerticalAlignment = VerticalAlignment.Center,
                 };
+                if (item.FontFamily is not null)
+                    text.FontFamily = item.FontFamily;
                 content.Children.Add(text);
 
                 var row = new Border {

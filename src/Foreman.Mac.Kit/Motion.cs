@@ -25,6 +25,8 @@ namespace Foreman.Mac.Kit {
         public static readonly TimeSpan SheetCloseDuration = TimeSpan.FromMilliseconds(150);
 
         public static readonly TimeSpan PopoverDuration = TimeSpan.FromMilliseconds(120);
+        public static readonly TimeSpan PopoverCloseDuration = TimeSpan.FromMilliseconds(100);
+        public const double PopoverOpenScale = 0.97;
         public static readonly TimeSpan RadialSweepDuration = TimeSpan.FromMilliseconds(140);
         public static readonly TimeSpan RadialSweepCloseDuration = TimeSpan.FromMilliseconds(100);
         public static readonly TimeSpan SwitchKnobDuration = TimeSpan.FromMilliseconds(120);

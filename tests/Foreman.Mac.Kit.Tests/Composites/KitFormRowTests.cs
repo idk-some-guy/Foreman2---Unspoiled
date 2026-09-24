@@ -121,6 +121,20 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(expectedY, labelBaselineY, 2);
         }
 
+        //The label's baseline shift stays inside a 22 pt control, so the row stays 22 (a colour well, a stepper).
+        [AvaloniaFact]
+        public void RowHeight_StaysTheControlsHeight_WhenTheShiftedLabelStillFitsInside() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.Stepper", null, out object? stepperTheme));
+            var well = new Border { Width = 44, Height = 22 };
+            var stepper = new Foreman.Mac.Kit.Controls.Stepper { Theme = (ControlTheme)stepperTheme!, Value = 2 };
+            var stack = new StackPanel { Children = { Themed("Fill", well), Themed("Width", stepper) } };
+            fixture.Window.Content = stack;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.All(stack.Children, r => Assert.Equal(22, r.Bounds.Height, 0.5));
+        }
+
         [AvaloniaFact]
         public void Label_BaselineTracksTheContentsOwnArrangedHeight_NotTheFixedRowMinHeight() {
             using var fixture = new KitFixture();

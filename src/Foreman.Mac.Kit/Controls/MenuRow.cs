@@ -13,6 +13,8 @@ namespace Foreman.Mac.Kit.Controls {
         public Action? Activate { get; init; }
         //PopUp's optional leading icon (2026-09-17 building-picker ruling): the same slot leads the button and every menu item.
         public IImage? Icon { get; init; }
+        //Null keeps the menu's own face.
+        public FontFamily? FontFamily { get; init; }
 
         public static MenuRow Separator() => new() { Text = "", IsSeparator = true, HasCheckSlot = false, IsEnabled = false };
     }

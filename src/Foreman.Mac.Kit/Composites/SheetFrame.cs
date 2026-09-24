@@ -64,6 +64,7 @@ namespace Foreman.Mac.Kit.Composites {
         private ContentPresenter? stateHost;
         private Grid? footer;
         private ButtonRow? buttonRow;
+        private PopoverHost? popoverHost;
         private InputElement? focusToRestore;
         private IDisposable? widthBinding;
         private readonly List<IDisposable> tokenSubs = [];
@@ -100,6 +101,7 @@ namespace Foreman.Mac.Kit.Composites {
             contentHost = e.NameScope.Find<ContentPresenter>("PART_ContentHost");
             stateHost = e.NameScope.Find<ContentPresenter>("PART_StateHost");
             footer = e.NameScope.Find<Grid>("PART_Footer");
+            popoverHost = e.NameScope.Find<PopoverHost>("PART_PopoverHost");
             ApplyWidth();
             ApplyButtons(null);
             ApplyStateContent();
@@ -305,9 +307,17 @@ namespace Foreman.Mac.Kit.Composites {
         private void OnKeyDown(object? sender, KeyEventArgs e) {
             if (!IsOpen)
                 return;
+            //An open popover owns the keyboard: Escape and Command-period close it first, and Return and Tab stay inside it.
+            if (popoverHost?.OpenFrame is { } popover) {
+                if (PopoverFrame.IsCancelKey(e) && !(e.Source is Visual source && popover.IsVisualAncestorOf(source))) {
+                    popover.Cancel();
+                    e.Handled = true;
+                }
+                return;
+            }
             switch (e.Key) {
                 case Key.Enter:
-                    if (e.Source is TextBox { AcceptsReturn: true })
+                    if (e.Source is TextBox { AcceptsReturn: true } && !e.KeyModifiers.HasFlag(KeyModifiers.Meta))
                         return;
                     if (buttonRow?.TryInvokeDefault() == true)
                         e.Handled = true;
@@ -332,8 +342,11 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
+        //The cycle is the panel's own controls; the popover layer beside it is never part of it.
         private void TrapTab(KeyEventArgs e) {
-            InputElement[] focusables = [.. this.GetVisualDescendants().OfType<InputElement>().Where(c => c.Focusable && c.IsEffectivelyEnabled)];
+            if (panel is null)
+                return;
+            InputElement[] focusables = [.. panel.GetVisualDescendants().OfType<InputElement>().Where(c => c.Focusable && c.IsEffectivelyEnabled)];
             if (focusables.Length == 0)
                 return;
             InputElement? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as InputElement;

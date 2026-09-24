@@ -1,9 +1,13 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Provider;
+using Avalonia.Automation.Peers;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
+using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
@@ -260,6 +264,29 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(25, slider.Value);
         }
 
+        //A host that rules its own page step (the sheets' 10 % opacity) sets PageStep; unset keeps the quarter-range default.
+        [AvaloniaFact]
+        public void PageStep_WhenSet_ReplacesTheQuarterRangePage() {
+            using var fixture = new KitFixture();
+            Slider slider = Themed();
+            slider.Minimum = 0;
+            slider.Maximum = 100;
+            slider.Step = 1;
+            slider.PageStep = 10;
+            slider.Value = 50;
+            fixture.Window.Content = slider;
+            Dispatcher.UIThread.RunJobs();
+            fixture.StateOf(Thumb(slider)).Focus();
+
+            fixture.StateOf(Thumb(slider)).KeyDown(Key.PageUp);
+            Assert.Equal(60, slider.Value);
+            fixture.StateOf(Thumb(slider)).KeyDown(Key.PageDown);
+            fixture.StateOf(Thumb(slider)).KeyDown(Key.PageDown);
+            Assert.Equal(40, slider.Value);
+            fixture.StateOf(Thumb(slider)).KeyDown(Key.Right);
+            Assert.Equal(41, slider.Value);
+        }
+
         [AvaloniaFact]
         public void Escape_DuringADrag_CancelsBackToTheStartingValue() {
             using var fixture = new KitFixture();
@@ -345,7 +372,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             var label = slider.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_ValueLabel");
             Assert.True(label.IsVisible);
-            Assert.Equal("72 %", label.Text);
+            Assert.Equal("72\u202F%", label.Text);
         }
 
         [AvaloniaFact]
@@ -371,6 +398,96 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             var wideLabel = wide.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_ValueLabel");
 
             Assert.Equal(narrowWidth, wideLabel.Bounds.Width);
+        }
+
+        [AvaloniaFact]
+        public void AutomationPeer_IsASliderWithRangeValue_AndAValueDescriptionCarryingTheUnit() {
+            using var fixture = new KitFixture();
+            Slider slider = Themed();
+            slider.Minimum = 0;
+            slider.Maximum = 100;
+            slider.Step = 1;
+            slider.PageStep = 10;
+            slider.Unit = "%";
+            slider.Value = 40;
+            Avalonia.Automation.AutomationProperties.SetName(slider, "Opacity");
+            fixture.Window.Content = slider;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(slider);
+            Assert.Equal(AutomationControlType.Slider, peer.GetAutomationControlType());
+            Assert.Equal("Opacity", peer.GetName());
+            IRangeValueProvider range = peer.GetProvider<IRangeValueProvider>()!;
+            Assert.Equal((40d, 0d, 100d, 1d, 10d), (range.Value, range.Minimum, range.Maximum, range.SmallChange, range.LargeChange));
+            Assert.False(range.IsReadOnly);
+            Assert.Equal("40 percent", peer.GetProvider<IValueProvider>()!.Value);
+
+            range.SetValue(55);
+            Assert.Equal(55, slider.Value);
+            Assert.Equal("55 percent", peer.GetProvider<IValueProvider>()!.Value);
+        }
+
+        [AvaloniaFact]
+        public void AutomationPeer_ContinuousSmallChangeIsOnePercent_AndASpokenUnitReplacesTheSymbol() {
+            using var fixture = new KitFixture();
+            Slider slider = Themed();
+            slider.Minimum = 0;
+            slider.Maximum = 200;
+            slider.Unit = "px";
+            slider.SpokenUnit = "pixels";
+            slider.Value = 3;
+            fixture.Window.Content = slider;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(slider);
+            Assert.Equal(2, peer.GetProvider<IRangeValueProvider>()!.SmallChange);
+            Assert.Equal(50, peer.GetProvider<IRangeValueProvider>()!.LargeChange);
+            Assert.Equal("3 pixels", peer.GetProvider<IValueProvider>()!.Value);
+
+            slider.Unit = null;
+            slider.SpokenUnit = null;
+            Assert.Equal("3", peer.GetProvider<IValueProvider>()!.Value);
+        }
+
+        private static Slider Opacity() {
+            Slider slider = Themed();
+            slider.Minimum = 0;
+            slider.Maximum = 100;
+            slider.Step = 1;
+            slider.Unit = "%";
+            slider.Value = 40;
+            Avalonia.Automation.AutomationProperties.SetName(slider, "Opacity");
+            return slider;
+        }
+
+        [AvaloniaFact]
+        public void AccessibleFocus_AfterTab_IsTheSlider_WhileTheThumbKeepsKeyboardFocus() {
+            using var fixture = new KitFixture();
+            Slider slider = Opacity();
+
+            AutomationPeer? focus = AccessibleFocus.TabOnto(fixture.Window, slider);
+
+            Assert.True(Thumb(slider).IsFocused);
+            Assert.NotNull(focus);
+            Assert.Equal((AutomationControlType.Slider, "Opacity"), (focus.GetAutomationControlType(), focus.GetName()));
+            Assert.Equal(40, focus.GetProvider<IRangeValueProvider>()!.Value);
+            Assert.Equal("40 percent", focus.GetProvider<IValueProvider>()!.Value);
+            Assert.True(focus.HasKeyboardFocus());
+        }
+
+        [AvaloniaFact]
+        public void AutomationPeer_RightArrow_RaisesOneRangeValueChange() {
+            using var fixture = new KitFixture();
+            Slider slider = Opacity();
+            AutomationPeer focus = AccessibleFocus.TabOnto(fixture.Window, slider)!;
+            var events = AccessibleFocus.Record(focus);
+
+            fixture.Window.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(41, slider.Value);
+            AutomationPropertyChangedEventArgs change = Assert.Single(events, e => e.Property == RangeValuePatternIdentifiers.ValueProperty);
+            Assert.Equal((40d, 41d), ((double)change.OldValue!, (double)change.NewValue!));
         }
     }
 

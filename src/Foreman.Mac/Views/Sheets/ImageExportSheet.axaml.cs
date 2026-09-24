@@ -1,5 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
+using Avalonia.Media.TextFormatting;
 using Avalonia.Platform.Storage;
 using Foreman;
 using Foreman.DataCaching;
@@ -10,6 +12,7 @@ using Foreman.Mac.Services;
 using SkiaSharp;
 using System;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,7 +29,7 @@ namespace Foreman.Mac.Views.Sheets {
         private const int RasterBands = 8;
 
         private readonly GraphViewer viewer;
-        private readonly TextBox fileTextBox;
+        private readonly TextBlock savePathLabel;
         private readonly Button browseButton;
         private readonly PopUp scaleSelectionBox;
         private readonly CheckBox transparencyCheckBox;
@@ -35,6 +38,9 @@ namespace Foreman.Mac.Views.Sheets {
         private readonly Button exportButton;
         private readonly FormRow saveToRow;
         private readonly CancellationTokenSource exportCancellation = new();
+        private string savePath = "";
+
+        public const string SavePanelTitle = "Export an image";
 
         //Test-only seam: lets a test supply the Browse picker's result without a real modal SaveFileDialog
         //(same convention as MainWindow/GraphSummaryWindow's own SaveFilePathStub).
@@ -51,9 +57,9 @@ namespace Foreman.Mac.Views.Sheets {
         public ImageExportSheet(GraphViewer viewer) {
             InitializeComponent();
             this.viewer = viewer;
-            Title = "Export an image";
+            Title = SavePanelTitle;
 
-            fileTextBox = this.FindControl<TextBox>("FileTextBox")!;
+            savePathLabel = this.FindControl<TextBlock>("SavePathLabel")!;
             browseButton = this.FindControl<Button>("BrowseButton")!;
             scaleSelectionBox = this.FindControl<PopUp>("ScaleSelectionBox")!;
             transparencyCheckBox = this.FindControl<CheckBox>("TransparencyCheckBox")!;
@@ -69,6 +75,9 @@ namespace Foreman.Mac.Views.Sheets {
                 scaleSelectionBox.Items.Add(name);
             scaleSelectionBox.SelectedItem = MultiplierNames[DefaultScaleIndex];
             UpdateSizeLabel();
+            ShowSavePath();
+            TooltipWhenTrimmed(savePathLabel, () => savePath.Length > 0);
+            TooltipWhenTrimmed(imageSizeLabel, () => true);
 
             browseButton.Click += (_, _) => Async.Fire(BrowseAsync(), nameof(BrowseAsync));
             cancelButton.Click += (_, _) => Cancel();
@@ -86,8 +95,38 @@ namespace Foreman.Mac.Views.Sheets {
         internal async Task BrowseAsync() {
             string? path = await (SaveFilePathStub?.Invoke() ?? RealPickSaveImagePathAsync()).ConfigureAwait(true);
             if (path is not null)
-                fileTextBox.Text = path;
+                SavePath = path;
         }
+
+        //The chosen file; the row shows it read-only, home as "~", truncated from the front so the file name survives.
+        internal string SavePath {
+            get => savePath;
+            set {
+                savePath = value ?? "";
+                ShowSavePath();
+            }
+        }
+
+        private void ShowSavePath() {
+            bool chosen = savePath.Length > 0;
+            savePathLabel.Text = chosen ? HomeRelative(savePath) : "Not chosen";
+            savePathLabel.Classes.Set("tertiary", !chosen);
+        }
+
+        private static string HomeRelative(string path) {
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (home.Length > 0 && path.StartsWith(home + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                return "~" + path[home.Length..];
+            return path;
+        }
+
+        //The full text is the tooltip only while the label is trimmed; a tooltip never feeds back into layout.
+        private static void TooltipWhenTrimmed(TextBlock label, Func<bool> hasTip) => label.LayoutUpdated += (_, _) => {
+            using var full = new TextLayout(label.Text, new Typeface(label.FontFamily, label.FontStyle, label.FontWeight), label.FontSize, null);
+            string? tip = hasTip() && full.WidthIncludingTrailingWhitespace > label.Bounds.Width + 0.5 ? label.Text : null;
+            if (!Equals(ToolTip.GetTip(label), tip))
+                ToolTip.SetTip(label, tip);
+        };
 
         private async Task<string?> RealPickSaveImagePathAsync() {
             if (TopLevel.GetTopLevel(this)?.StorageProvider is not IStorageProvider storage)
@@ -95,7 +134,7 @@ namespace Foreman.Mac.Views.Sheets {
 
             Directory.CreateDirectory(AppPaths.ExportedGraphsDirectory);
             IStorageFile? file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions {
-                Title = "Export an Image",
+                Title = SavePanelTitle,
                 SuggestedFileName = "Foreman Production Flowchart.png",
                 DefaultExtension = "png",
                 ShowOverwritePrompt = true,
@@ -111,7 +150,7 @@ namespace Foreman.Mac.Views.Sheets {
         internal async Task ExportAsync() {
             ClearActivity();
             saveToRow.Error = null;
-            string path = fileTextBox.Text ?? "";
+            string path = savePath;
             string? directory = Path.GetDirectoryName(path);
             if (string.IsNullOrEmpty(path)) {
                 ShowPathProblem("Choose where to save the image.");
@@ -176,7 +215,7 @@ namespace Foreman.Mac.Views.Sheets {
 
         private void ShowPathProblem(string sentence) {
             saveToRow.Error = sentence;
-            fileTextBox.Focus();
+            browseButton.Focus();
         }
 
         private static string RenderingSentence(double fraction) =>
@@ -237,19 +276,17 @@ namespace Foreman.Mac.Views.Sheets {
                 ? ViewLimitedBounds()
                 : AnnotationLoader.GetExportBounds(viewer.Graph.Bounds, viewer.Annotations);
 
-            if (!GraphExportBounds.IsExportable(bounds)) {
-                imageSizeLabel.Text = "— (nothing to export)";
-                return;
-            }
-
-            int x = GraphExportBounds.ScaledWidth(bounds, scale);
-            int y = GraphExportBounds.ScaledHeight(bounds, scale);
-            imageSizeLabel.Text = $"{x:N0} × {y:N0} px";
+            bool exportable = GraphExportBounds.IsExportable(bounds);
+            imageSizeLabel.Classes.Set("secondary", exportable);
+            imageSizeLabel.Classes.Set("tertiary", !exportable);
+            imageSizeLabel.Text = exportable
+                ? string.Create(CultureInfo.InvariantCulture, $"{GraphExportBounds.ScaledWidth(bounds, scale)} × {GraphExportBounds.ScaledHeight(bounds, scale)} px")
+                : "Nothing to export";
         }
 
         //-------------------------------------------------------------------------------------------------------Test-only seams
 
-        internal TextBox FileTextBoxControl => fileTextBox;
+        internal TextBlock SavePathLabelControl => savePathLabel;
         internal Button BrowseButtonControl => browseButton;
         internal PopUp ScaleSelectionBoxControl => scaleSelectionBox;
         internal CheckBox TransparencyCheckBoxControl => transparencyCheckBox;

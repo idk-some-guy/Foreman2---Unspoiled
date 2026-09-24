@@ -194,6 +194,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   missing-icon and save-mod-mismatch confirms name their action, and the mismatch lists what is
   missing on each side. VoiceOver can press a science pack. When focus leaves an open sheet it returns
   to the control that last had it, or to the first visible control if that one is hidden.
+- Shape and Text properties pick colours with a colour well instead of red, green and blue steppers.
+  The well opens a popover with 32 fixed swatches and a Hex field that takes 3 or 6 digits; arrow keys
+  preview each swatch on the canvas, Return or a click keeps it, and Escape or ⌘. puts the old colour back.
+  "No fill" and "Transparent background" are the None swatch, fill alpha is an Opacity slider in
+  percent, the shape type and text alignment are segmented controls, Bold and Italic are spelled out,
+  and ⌘Return in the text field presses OK. Export shows the chosen path as a label that keeps the
+  file name visible, with "Not chosen" before one is picked, and sizes read like "2140 × 1360 px". The
+  import strip counts its four stages instead of repeating Factorio's own progress text. The Font menu
+  draws each family in its own face, VoiceOver reads sliders, steppers and segmented controls with
+  their values ("Opacity, 40 percent"), and the export path and size labels read their text as the
+  value. Every popover now opens with a small settle from 97 % scale, and Tab no longer lands in a
+  popover that has closed.
 
 ### Fixed
 

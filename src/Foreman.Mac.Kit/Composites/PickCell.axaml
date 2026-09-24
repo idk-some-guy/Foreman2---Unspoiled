@@ -36,6 +36,16 @@
                    Source="{TemplateBinding Icon}"
                    Transitions="{x:Static m:Motion.FormRowCrossFadeTransitions}" />
           </Border>
+          <Border x:Name="PART_Swatch"
+                  Width="{DynamicResource Foreman.Size.PickCellIcon}"
+                  Height="{DynamicResource Foreman.Size.PickCellIcon}"
+                  CornerRadius="{DynamicResource Foreman.Radius.Swatch}"
+                  BorderBrush="{DynamicResource Foreman.Color.SwatchStroke}"
+                  BorderThickness="1"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  IsHitTestVisible="False"
+                  IsVisible="False" />
           <Viewbox x:Name="PART_PlusBox"
                    Width="{DynamicResource Foreman.Size.GlyphMicro}"
                    Height="{DynamicResource Foreman.Size.GlyphMicro}"

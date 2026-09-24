@@ -78,15 +78,15 @@
               <ColumnDefinition Width="Auto" />
               <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBox x:Name="PART_ValueBox"
-                     Grid.Column="0"
-                     Theme="{StaticResource Kit.StepperValueField}"
-                     TextAlignment="Center"
-                     VerticalContentAlignment="Center"
-                     FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
-                     FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
-                     Foreground="{DynamicResource Foreman.Color.Text}"
-                     CaretBrush="{DynamicResource Foreman.Color.Accent}" />
+            <kit:StepperField x:Name="PART_ValueBox"
+                              Grid.Column="0"
+                              Theme="{StaticResource Kit.StepperValueField}"
+                              TextAlignment="Center"
+                              VerticalContentAlignment="Center"
+                              FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
+                              FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
+                              Foreground="{DynamicResource Foreman.Color.Text}"
+                              CaretBrush="{DynamicResource Foreman.Color.Accent}" />
             <TextBlock x:Name="PART_Unit"
                        Grid.Column="1"
                        Margin="0,0,6,0"

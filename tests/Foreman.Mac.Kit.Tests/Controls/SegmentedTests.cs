@@ -1,4 +1,7 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Provider;
+using Avalonia.Automation.Peers;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -480,6 +483,63 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(new Thickness(15, 4.5), Segments(segmented)[0].Padding);
+        }
+
+        [AvaloniaFact]
+        public void AutomationPeer_IsARadioGroup_WhoseChildrenAreRadioButtonsWithPosition() {
+            using var fixture = new KitFixture();
+            Segmented segmented = Themed("Rectangle", "Ellipse");
+            Avalonia.Automation.AutomationProperties.SetName(segmented, "Shape");
+            fixture.Window.Content = segmented;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(segmented);
+            Assert.Equal(AutomationControlType.List, peer.GetAutomationControlType());
+            Assert.Equal("radio group", peer.GetLocalizedControlType());
+            Assert.Equal("Shape", peer.GetName());
+            AutomationPeer[] children = [.. peer.GetChildren()];
+            Assert.Equal(2, children.Length);
+            Assert.All(children, c => Assert.Equal(AutomationControlType.RadioButton, c.GetAutomationControlType()));
+            Assert.Equal(["Rectangle, 1 of 2", "Ellipse, 2 of 2"], children.Select(c => c.GetName()));
+            Assert.True(children[0].GetProvider<ISelectionItemProvider>()!.IsSelected);
+            Assert.False(children[1].GetProvider<ISelectionItemProvider>()!.IsSelected);
+            Assert.Same(children[0], Assert.Single(peer.GetProvider<ISelectionProvider>()!.GetSelection()));
+
+            children[1].GetProvider<ISelectionItemProvider>()!.Select();
+            Assert.Equal(1, segmented.SelectedIndex);
+            Assert.True(children[1].GetProvider<ISelectionItemProvider>()!.IsSelected);
+        }
+
+        [AvaloniaFact]
+        public void AccessibleFocus_AfterTab_IsTheGroup_ReadingTheSelectedSegmentAsItsValue() {
+            using var fixture = new KitFixture();
+            Segmented segmented = Themed("Rectangle", "Ellipse");
+            Avalonia.Automation.AutomationProperties.SetName(segmented, "Shape");
+
+            AutomationPeer? focus = AccessibleFocus.TabOnto(fixture.Window, segmented);
+
+            Assert.True(segmented.IsFocused);
+            Assert.NotNull(focus);
+            Assert.Equal(("radio group", "Shape"), (focus.GetLocalizedControlType(), focus.GetName()));
+            Assert.Equal("Rectangle, 1 of 2", focus.GetProvider<IValueProvider>()!.Value);
+        }
+
+        [AvaloniaFact]
+        public void AutomationPeer_MovingTheSelection_RaisesSelectionAndValueChanges() {
+            using var fixture = new KitFixture();
+            Segmented segmented = Themed("Rectangle", "Ellipse");
+            Avalonia.Automation.AutomationProperties.SetName(segmented, "Shape");
+            AutomationPeer focus = AccessibleFocus.TabOnto(fixture.Window, segmented)!;
+            var events = AccessibleFocus.Record(focus);
+
+            fixture.Window.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(1, segmented.SelectedIndex);
+            Assert.Single(events, e => e.Property == SelectionPatternIdentifiers.SelectionProperty);
+            AutomationPropertyChangedEventArgs value = Assert.Single(events, e => e.Property == ValuePatternIdentifiers.ValueProperty);
+            Assert.Equal(("Rectangle, 1 of 2", "Ellipse, 2 of 2"), ((string)value.OldValue!, (string)value.NewValue!));
+            Assert.Equal("Ellipse, 2 of 2", focus.GetProvider<IValueProvider>()!.Value);
         }
     }
 

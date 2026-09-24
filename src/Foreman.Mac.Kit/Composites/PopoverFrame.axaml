@@ -16,8 +16,7 @@
                   Padding="14,10,14,14"
                   HorizontalAlignment="Left"
                   VerticalAlignment="Top"
-                  Opacity="0"
-                  RenderTransform="scale(0.9)">
+                  Opacity="0">
             <ContentPresenter Content="{TemplateBinding Content}" />
           </Border>
           <Border x:Name="PART_Tail"
@@ -32,7 +31,6 @@
 
     <Style Selector="^:open /template/ Border#PART_Panel">
       <Setter Property="Opacity" Value="1" />
-      <Setter Property="RenderTransform" Value="scale(1)" />
     </Style>
 
     <Style Selector="^:open /template/ Border#PART_Tail">

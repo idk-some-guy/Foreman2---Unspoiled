@@ -1,12 +1,17 @@
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views;
 using Foreman.Mac.Views.Sheets;
@@ -442,40 +447,173 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Same(shape, invoked[0]);
         }
 
-        //---- ShapePropertiesSheet / TextPropertiesSheet: live preview, Cancel-revert, OK-persists ----
+        //---- ShapePropertiesSheet / TextPropertiesSheet: kit form rows, colour wells, live preview, Cancel-revert, OK-persists ----
+
+        private static void ClickSwatch(AvaloniaWindow window, ColorWell well, int cell) {
+            well.IsOpen = true;
+            AnimationClock.Settle(300);
+            PickCell target = Avalonia.Controls.TopLevel.GetTopLevel(well)!.GetVisualDescendants().OfType<PickCell>()
+                .Where(c => c.FindAncestorOfType<PopoverFrame>()?.Anchor == well).ElementAt(cell);
+            SheetFixture.Click(window, target);
+        }
+
+        private static Avalonia.Input.IInputElement? Focused(Avalonia.Controls.Control inside) =>
+            Avalonia.Controls.TopLevel.GetTopLevel(inside)!.FocusManager!.GetFocusedElement();
+
+        //Tab from whatever holds focus and check each control in turn; a composite counts when focus is anywhere inside it.
+        private static AutomationPeer FocusedPeer(AvaloniaWindow window) =>
+            ((WindowBaseAutomationPeer)ControlAutomationPeer.CreatePeerForElement(window)).GetFocus()!;
+
+        private static void AssertTabVisits(Avalonia.Controls.Control inside, params Avalonia.Controls.Control[] order) {
+            foreach (Avalonia.Controls.Control expected in order) {
+                CanvasKeys.KeyDownOn((Avalonia.Controls.Control)Focused(inside)!, Key.Tab);
+                Assert.True(expected.IsKeyboardFocusWithin, $"Tab should reach {expected.Name ?? expected.GetType().Name}, reached {Focused(inside)}");
+            }
+        }
+
+        //A row is as tall as its control (22, the slider 26) or its label when a narrow font wraps it, never taller.
+        private static void AssertRowsHugTheirControls(FormRow[] rows) {
+            foreach (FormRow row in rows) {
+                double control = ((Avalonia.Controls.Control)row.Content!).Bounds.Height;
+                double label = row.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().First(t => t.Name == "PART_Label").Bounds.Height;
+                Assert.Equal(Math.Max(Math.Max(control, label), 22), row.Bounds.Height, 0.5);
+            }
+        }
 
         [AvaloniaFact]
-        public void ShapePropertiesSheet_FieldChange_AppliesLivePreviewImmediately() {
-            var shape = new ShapeAnnotationElement(new Point(0, 0), 200, 150);
+        public void ShapeProperties_Body_IsFiveFormRows_WithWellsInPlaceOfTheRgbInputsAndNoFillCheckbox() {
+            var sheet = new ShapePropertiesSheet(new ShapeAnnotationElement(new Point(0, 0), 200, 150));
+            (_, SheetHost host, _) = SheetFixture.Present(sheet);
+
+            FormRow[] rows = [.. sheet.GetVisualDescendants().OfType<FormRow>()];
+            Assert.Equal(["Shape", "Fill", "Opacity", "Border", "Border width"], rows.Select(r => r.Label));
+            Assert.All(rows, r => Assert.Equal(FormRowLabelColumn.Window, r.LabelColumn));
+            Assert.Empty(sheet.GetVisualDescendants().OfType<Avalonia.Controls.NumericUpDown>());
+            Assert.Empty(sheet.GetVisualDescendants().OfType<Avalonia.Controls.CheckBox>());
+            Assert.Empty(sheet.GetVisualDescendants().OfType<Avalonia.Controls.ComboBox>());
+            Assert.Equal(["Rectangle", "Ellipse"], sheet.ShapeSegmentsControl.Items);
+            Assert.True(sheet.FillWellControl.AllowsNone);
+            Assert.True(sheet.FillWellControl.AllowsAlpha);
+            Assert.False(sheet.BorderWellControl.AllowsNone);
+            Assert.False(sheet.BorderWellControl.AllowsAlpha);
+            Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), SheetFixture.PanelOf(host, sheet).Bounds.Width, 0.5);
+            Assert.Equal("Shape properties", SheetFixture.FrameOf(host, sheet).Title);
+            Assert.Equal([sheet.CancelButtonControl, sheet.OKButtonControl], sheet.Buttons!.Items.Cast<Avalonia.Controls.Button>());
+            Assert.Same(sheet.OKButtonControl, sheet.Buttons.ResolveDefaultButton());
+            AssertRowsHugTheirControls(rows);
+            Assert.Equal(SheetFixture.Token("Foreman.Size.SliderHeight"), rows[2].Bounds.Height, 0.5);
+            Slider slider = sheet.OpacitySliderControl;
+            Assert.Equal(sheet.Bounds.Width - 144, slider.Bounds.Width, 0.5);
+            Assert.Equal(slider.Bounds.Width - 44, slider.GetVisualDescendants().OfType<Avalonia.Controls.Border>().Single(b => b.Name == "PART_Track").Bounds.Width, 0.5);
+            Assert.Equal(rows.Sum(r => r.Bounds.Height) + 4 * 8, sheet.Bounds.Height, 0.5);
+            Avalonia.Controls.Control[] controls = [sheet.ShapeSegmentsControl, sheet.FillWellControl, sheet.OpacitySliderControl, sheet.BorderWellControl, sheet.BorderWidthStepperControl];
+            for (int i = 0; i < controls.Length; i++) {
+                Assert.Equal(144, Avalonia.VisualExtensions.TranslatePoint(controls[i], new AvaloniaPoint(0, 0), sheet)!.Value.X, 0.5);
+                Assert.Equal(rows[i].Label, Avalonia.Automation.AutomationProperties.GetName(controls[i]));
+            }
+        }
+
+        //Every row writes through to the shape as it changes; opacity is the fill's alpha in percent, 0 % reading as None.
+        [AvaloniaFact]
+        public void ShapeProperties_Fields_ApplyLive_OpacityIsTheFillAlphaInPercent() {
+            var shape = new ShapeAnnotationElement(new Point(0, 0), 200, 150) {
+                CurrentShapeType = ShapeAnnotationElement.ShapeType.Rectangle,
+                FillColor = new SkiaSharp.SKColor(0x00, 0x7A, 0xFF, 102),
+                BorderWidth = 2,
+            };
             var sheet = new ShapePropertiesSheet(shape);
-            new AvaloniaWindow { Content = sheet }.Show();
+            (AvaloniaWindow window, _, _) = SheetFixture.Present(sheet);
 
-            sheet.BorderWidthInputControl.Value = 40;
+            Assert.Equal(0, sheet.ShapeSegmentsControl.SelectedIndex);
+            AutomationPeer shapePeer = ControlAutomationPeer.CreatePeerForElement(sheet.ShapeSegmentsControl);
+            Assert.Equal("Shape", shapePeer.GetName());
+            AutomationPeer rectangle = shapePeer.GetChildren()[0];
+            Assert.Equal((AutomationControlType.RadioButton, "Rectangle, 1 of 2", true),
+                (rectangle.GetAutomationControlType(), rectangle.GetName(), rectangle.GetProvider<ISelectionItemProvider>()!.IsSelected));
+            AutomationPeer opacityPeer = ControlAutomationPeer.CreatePeerForElement(sheet.OpacitySliderControl);
+            Assert.Equal((AutomationControlType.Slider, "Opacity", "40 percent"),
+                (opacityPeer.GetAutomationControlType(), opacityPeer.GetName(), opacityPeer.GetProvider<IValueProvider>()!.Value));
+            AutomationPeer widthPeer = ControlAutomationPeer.CreatePeerForElement(sheet.BorderWidthStepperControl);
+            Assert.Equal(("stepper", "Border width", "2 pixels"),
+                (widthPeer.GetLocalizedControlType(), widthPeer.GetName(), widthPeer.GetProvider<IValueProvider>()!.Value));
+            sheet.ShapeSegmentsControl.SelectedIndex = 1;
+            Assert.Equal(ShapeAnnotationElement.ShapeType.Ellipse, shape.CurrentShapeType);
 
+            Slider slider = sheet.OpacitySliderControl;
+            Assert.Equal((0d, 100d, 1d, 10d), (slider.Minimum, slider.Maximum, slider.Step, slider.PageStep));
+            Assert.True(slider.IsEnabled);
+            Assert.Equal("40\u202F%", slider.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().Single(t => t.Name == "PART_ValueLabel").Text);
+            slider.Value = 75;
+            Assert.Equal(new SkiaSharp.SKColor(0x00, 0x7A, 0xFF, 191), shape.FillColor);
+            slider.Value = 0;
+            Assert.Equal(new SkiaSharp.SKColor(0x00, 0x7A, 0xFF, 0), shape.FillColor);
+            Assert.Equal("None", ((Avalonia.Automation.Provider.IValueProvider)Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(sheet.FillWellControl)).Value);
+            slider.Value = 100;
+            Assert.Equal(new SkiaSharp.SKColor(0x00, 0x7A, 0xFF, 255), shape.FillColor);
+
+            ClickSwatch(window, sheet.BorderWellControl, 13);
+            Assert.Equal(new SkiaSharp.SKColor(0x00, 0x7A, 0xFF, 255), shape.BorderColor);
+
+            Stepper stepper = sheet.BorderWidthStepperControl;
+            Assert.Equal((0d, 50d, 1d, 0), (stepper.Minimum, stepper.Maximum, stepper.Increment, stepper.Decimals));
+            AssertUnitFourAfter(sheet, stepper, "px");
+            stepper.Value = 40;
             Assert.Equal(40, shape.BorderWidth);
         }
 
         [AvaloniaFact]
-        public void ShapePropertiesSheet_Cancel_RevertsEveryFieldToTheConstructionSnapshot() {
-            var shape = new ShapeAnnotationElement(new Point(0, 0), 200, 150);
-            int originalBorderWidth = shape.BorderWidth;
+        public void ShapeProperties_ChoosingNoneInTheFillPopover_SetsAlphaZero_KeepsRgb_AndZeroesTheSlider() {
+            var shape = new ShapeAnnotationElement(new Point(0, 0), 200, 150) { FillColor = new SkiaSharp.SKColor(0x00, 0x7A, 0xFF, 102) };
             var sheet = new ShapePropertiesSheet(shape);
-            new AvaloniaWindow { Content = sheet }.Show();
-            sheet.BorderWidthInputControl.Value = 40;
-            sheet.FillColorRedInputControl.Value = 250;
+            (AvaloniaWindow window, _, Task<bool> result) = SheetFixture.Present(sheet);
 
-            sheet.Cancel();
+            ClickSwatch(window, sheet.FillWellControl, 0);
 
-            Assert.Equal(originalBorderWidth, shape.BorderWidth);
-            Assert.NotEqual((byte)250, shape.FillColor.Red);
+            Assert.Equal(new SkiaSharp.SKColor(0x00, 0x7A, 0xFF, 0), shape.FillColor);
+            Assert.Equal(0, sheet.OpacitySliderControl.Value);
+            Assert.False(sheet.FillWellControl.IsOpen);
+            Assert.False(result.IsCompleted);
+        }
+
+        private static void AssertUnitFourAfter(Avalonia.Controls.Control sheet, Avalonia.Controls.Control control, string unit) {
+            Avalonia.Controls.TextBlock label = ((Avalonia.Controls.Panel)control.Parent!).Children.OfType<Avalonia.Controls.TextBlock>().Single();
+            Assert.Equal(unit, label.Text);
+            double controlRight = Avalonia.VisualExtensions.TranslatePoint(control, new AvaloniaPoint(control.Bounds.Width, 0), sheet)!.Value.X;
+            Assert.Equal(controlRight + 4, Avalonia.VisualExtensions.TranslatePoint(label, new AvaloniaPoint(0, 0), sheet)!.Value.X, 0.5);
+            Assert.Contains("secondary", label.Classes);
+            Assert.Contains("callout", label.Classes);
         }
 
         [AvaloniaFact]
-        public void ShapePropertiesSheet_Ok_PersistsCurrentValuesToAppSettingsAndStatics() {
+        public void ShapeProperties_Cancel_RestoresTheSnapshotExactly() {
+            var shape = new ShapeAnnotationElement(new Point(0, 0), 200, 150) {
+                CurrentShapeType = ShapeAnnotationElement.ShapeType.Rectangle,
+                FillColor = new SkiaSharp.SKColor(10, 20, 30, 40),
+                BorderColor = new SkiaSharp.SKColor(50, 60, 70, 255),
+                BorderWidth = 3,
+            };
+            var sheet = new ShapePropertiesSheet(shape);
+            (AvaloniaWindow window, _, _) = SheetFixture.Present(sheet);
+            sheet.ShapeSegmentsControl.SelectedIndex = 1;
+            ClickSwatch(window, sheet.FillWellControl, 9);
+            sheet.OpacitySliderControl.Value = 90;
+            ClickSwatch(window, sheet.BorderWellControl, 13);
+            sheet.BorderWidthStepperControl.Value = 40;
+
+            sheet.Cancel();
+
+            Assert.Equal(ShapeAnnotationElement.ShapeType.Rectangle, shape.CurrentShapeType);
+            Assert.Equal(new SkiaSharp.SKColor(10, 20, 30, 40), shape.FillColor);
+            Assert.Equal(new SkiaSharp.SKColor(50, 60, 70, 255), shape.BorderColor);
+            Assert.Equal(3, shape.BorderWidth);
+        }
+
+        [AvaloniaFact]
+        public void ShapeProperties_Ok_PersistsCurrentValuesToAppSettingsAndStatics() {
             var shape = new ShapeAnnotationElement(new Point(0, 0), 200, 150);
             var sheet = new ShapePropertiesSheet(shape);
-            new AvaloniaWindow { Content = sheet }.Show();
-            sheet.BorderWidthInputControl.Value = 17;
+            SheetFixture.Present(sheet);
+            sheet.BorderWidthStepperControl.Value = 17;
             var settings = new Foreman.Mac.Services.AppSettings();
             sheet.Settings = settings;
 
@@ -487,39 +625,175 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [AvaloniaFact]
-        public void TextPropertiesSheet_FieldChange_AppliesLivePreviewImmediately() {
-            var text = new TextAnnotationElement(new Point(0, 0));
-            var sheet = new TextPropertiesSheet(text);
-            new AvaloniaWindow { Content = sheet }.Show();
+        public void ShapeProperties_Keyboard_StartsOnShape_TabWalksTheRows_AndAnOpenPopoverKeepsReturnAndEscape() {
+            var sheet = new ShapePropertiesSheet(new ShapeAnnotationElement(new Point(0, 0), 200, 150) {
+                CurrentShapeType = ShapeAnnotationElement.ShapeType.Rectangle,
+                FillColor = new SkiaSharp.SKColor(0x00, 0x7A, 0xFF, 102),
+                BorderWidth = 2,
+            });
+            (AvaloniaWindow window, _, Task<bool> result) = SheetFixture.Present(sheet);
+            Assert.True(sheet.ShapeSegmentsControl.IsKeyboardFocusWithin);
+            AssertTabVisits(sheet, sheet.FillWellControl, sheet.OpacitySliderControl);
+            AutomationPeer opacity = FocusedPeer(window);
+            Assert.Equal((AutomationControlType.Slider, "Opacity", 40d, "40 percent"),
+                (opacity.GetAutomationControlType(), opacity.GetName(), opacity.GetProvider<IRangeValueProvider>()!.Value, opacity.GetProvider<IValueProvider>()!.Value));
+            AssertTabVisits(sheet, sheet.BorderWellControl, sheet.BorderWidthStepperControl);
+            AutomationPeer width = FocusedPeer(window);
+            Assert.Equal(("stepper", "Border width", 2d, "2 pixels"),
+                (width.GetLocalizedControlType(), width.GetName(), width.GetProvider<IRangeValueProvider>()!.Value, width.GetProvider<IValueProvider>()!.Value));
+            AssertTabVisits(sheet, sheet.CancelButtonControl, sheet.OKButtonControl, sheet.ShapeSegmentsControl);
+            AutomationPeer shape = FocusedPeer(window);
+            Assert.Equal(("Shape", "Rectangle, 1 of 2"), (shape.GetName(), shape.GetProvider<IValueProvider>()!.Value));
 
-            sheet.TextInputControl.Text = "Changed";
-            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            foreach (Key key in new[] { Key.Enter, Key.Escape }) {
+                sheet.FillWellControl.IsOpen = true;
+                AnimationClock.Settle(300);
+                PickGrid grid = Avalonia.Controls.TopLevel.GetTopLevel(sheet)!.GetVisualDescendants().OfType<PickGrid>().Single(g => g.IsChoiceMode);
+                CanvasKeys.KeyDownOn(grid, key);
+                Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal("Changed", text.Text);
+                Assert.False(sheet.FillWellControl.IsOpen);
+                Assert.False(result.IsCompleted);
+            }
         }
 
         [AvaloniaFact]
-        public void TextPropertiesSheet_Cancel_RevertsTextAndFontSizeToTheConstructionSnapshot() {
-            var text = new TextAnnotationElement(new Point(0, 0)) { Text = "Original" };
+        public void TextProperties_Body_IsTheFullWidthTextField_ThenSixFormRows_WithNoPreviewTransparentCheckboxOrRgbInputs() {
+            var sheet = new TextPropertiesSheet(new TextAnnotationElement(new Point(0, 0)) { FontFamily = "Menlo" });
+            (_, SheetHost host, _) = SheetFixture.Present(sheet);
+
+            FormRow[] rows = [.. sheet.GetVisualDescendants().OfType<FormRow>()];
+            Assert.Equal(["Font", "Size", "Style", "Alignment", "Color", "Background"], rows.Select(r => r.Label));
+            Assert.Empty(sheet.GetVisualDescendants().OfType<Avalonia.Controls.NumericUpDown>());
+            Assert.Empty(sheet.GetVisualDescendants().OfType<Avalonia.Controls.RadioButton>());
+            Assert.DoesNotContain(sheet.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>(), t => t.Text == "AaBbYyZz");
+            Assert.DoesNotContain(sheet.GetVisualDescendants().OfType<Avalonia.Controls.CheckBox>(), c => Equals(c.Content, "Transparent background"));
+            Avalonia.Controls.TextBox text = sheet.TextInputControl;
+            Assert.Equal(sheet.Bounds.Width, text.Bounds.Width, 0.5);
+            Assert.Equal(66, text.Bounds.Height, 0.5);
+            Assert.Equal(16, Avalonia.VisualExtensions.TranslatePoint(rows[0], new AvaloniaPoint(0, 0), sheet)!.Value.Y - text.Bounds.Bottom, 0.5);
+            Assert.Equal("Text", Avalonia.Automation.AutomationProperties.GetName(text));
+            Assert.True(text.AcceptsReturn);
+            Assert.Equal(Avalonia.Media.TextWrapping.Wrap, text.TextWrapping);
+            Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), SheetFixture.PanelOf(host, sheet).Bounds.Width, 0.5);
+            Assert.Equal("Text properties", SheetFixture.FrameOf(host, sheet).Title);
+            Assert.Same(sheet.OKButtonControl, sheet.Buttons!.ResolveDefaultButton());
+            AssertRowsHugTheirControls(rows);
+            Assert.Equal(66 + 16 + rows.Sum(r => r.Bounds.Height) + 5 * 8, sheet.Bounds.Height, 0.5);
+            Assert.Equal(["Segoe UI", "Helvetica Neue", "Arial", "Times New Roman", "Courier New", "Menlo"], sheet.FontPopUpControl.Items);
+            Assert.Equal("Menlo", sheet.FontPopUpControl.SelectedItem);
+            Assert.Equal(Avalonia.Layout.HorizontalAlignment.Stretch, sheet.FontPopUpControl.HorizontalAlignment);
+            Assert.Equal(sheet.Bounds.Width - 144, sheet.FontPopUpControl.Bounds.Width, 0.5);
+            sheet.FontPopUpControl.IsOpen = true;
+            AnimationClock.Settle(300);
+            Avalonia.Controls.TextBlock[] fontRows = [.. sheet.FontPopUpControl.Menu.GetVisualDescendants().OfType<Avalonia.Controls.StackPanel>().Single(p => p.Name == "PART_Items")
+                .Children.Select(row => row.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().Single())];
+            Assert.Equal(6, fontRows.Length);
+            Assert.All(fontRows, row => Assert.Equal(row.Text, row.FontFamily.Name));
+            sheet.FontPopUpControl.IsOpen = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(6, sheet.FontSizeStepperControl.Minimum);
+            Assert.Equal(288, sheet.FontSizeStepperControl.Maximum);
+            AssertUnitFourAfter(sheet, sheet.FontSizeStepperControl, "pt");
+            Assert.Equal("Bold", sheet.BoldCheckBoxControl.Content);
+            Assert.Equal("Italic", sheet.ItalicCheckBoxControl.Content);
+            double boldRight = Avalonia.VisualExtensions.TranslatePoint(sheet.BoldCheckBoxControl, new AvaloniaPoint(sheet.BoldCheckBoxControl.Bounds.Width, 0), sheet)!.Value.X;
+            Assert.Equal(boldRight + 16, Avalonia.VisualExtensions.TranslatePoint(sheet.ItalicCheckBoxControl, new AvaloniaPoint(0, 0), sheet)!.Value.X, 0.5);
+            Assert.Equal(["Left", "Center", "Right"], sheet.AlignmentSegmentsControl.Items);
+            Assert.False(sheet.TextColorWellControl.AllowsNone);
+            Assert.False(sheet.TextColorWellControl.AllowsAlpha);
+            Assert.True(sheet.BackColorWellControl.AllowsNone);
+            Assert.False(sheet.BackColorWellControl.AllowsAlpha);
+            Avalonia.Controls.Control[] controls = [sheet.FontPopUpControl, sheet.FontSizeStepperControl, sheet.BoldCheckBoxControl, sheet.AlignmentSegmentsControl, sheet.TextColorWellControl, sheet.BackColorWellControl];
+            for (int i = 0; i < controls.Length; i++) {
+                Assert.Equal(144, Avalonia.VisualExtensions.TranslatePoint(controls[i], new AvaloniaPoint(0, 0), sheet)!.Value.X, 0.5);
+                if (controls[i] != sheet.BoldCheckBoxControl)
+                    Assert.Equal(rows[i].Label, Avalonia.Automation.AutomationProperties.GetName(controls[i]));
+            }
+        }
+
+        [AvaloniaFact]
+        public void TextProperties_FieldChanges_ApplyLive() {
+            var text = new TextAnnotationElement(new Point(0, 0));
             var sheet = new TextPropertiesSheet(text);
-            new AvaloniaWindow { Content = sheet }.Show();
+            (AvaloniaWindow window, _, _) = SheetFixture.Present(sheet);
+
+            sheet.TextInputControl.Text = "Changed";
+            Dispatcher.UIThread.RunJobs();
+            sheet.BoldCheckBoxControl.IsChecked = true;
+            sheet.ItalicCheckBoxControl.IsChecked = true;
+            sheet.AlignmentSegmentsControl.SelectedIndex = 2;
+            sheet.FontSizeStepperControl.Value = 30;
+            ClickSwatch(window, sheet.TextColorWellControl, 8);
+
+            Assert.Equal("Changed", text.Text);
+            Assert.Equal(3, text.FontStyleFlags);
+            Assert.Equal(2, text.TextAlign);
+            Assert.Equal(30f, text.FontSize);
+            Assert.Equal(new SkiaSharp.SKColor(0xFF, 0x3B, 0x30, 255), text.TextColor);
+        }
+
+        [AvaloniaFact]
+        public void TextProperties_BackgroundNone_IsAlphaZero_AndACellIsOpaque() {
+            var text = new TextAnnotationElement(new Point(0, 0)) { BackColor = new SkiaSharp.SKColor(0x00, 0x7A, 0xFF, 255) };
+            var sheet = new TextPropertiesSheet(text);
+            (AvaloniaWindow window, _, _) = SheetFixture.Present(sheet);
+
+            ClickSwatch(window, sheet.BackColorWellControl, 0);
+            Assert.Equal(new SkiaSharp.SKColor(0x00, 0x7A, 0xFF, 0), text.BackColor);
+
+            ClickSwatch(window, sheet.BackColorWellControl, 9);
+            Assert.Equal(new SkiaSharp.SKColor(0xFF, 0x95, 0x00, 255), text.BackColor);
+        }
+
+        //Command-Return reaching OK is the NSTextView convention for a sheet.
+        [AvaloniaFact]
+        public async Task TextProperties_Keyboard_OpensWithTheTextSelected_TabWalksTheRows_ReturnIsANewline_CommandReturnFiresOk() {
+            var text = new TextAnnotationElement(new Point(0, 0)) { Text = "Iron" };
+            var sheet = new TextPropertiesSheet(text);
+            (_, _, Task<bool> result) = SheetFixture.Present(sheet);
+            Avalonia.Controls.TextBox field = sheet.TextInputControl;
+            Assert.True(field.IsFocused);
+            Assert.Equal((0, 4), (Math.Min(field.SelectionStart, field.SelectionEnd), Math.Max(field.SelectionStart, field.SelectionEnd)));
+            AssertTabVisits(sheet, sheet.FontPopUpControl, sheet.FontSizeStepperControl, sheet.BoldCheckBoxControl, sheet.ItalicCheckBoxControl,
+                sheet.AlignmentSegmentsControl, sheet.TextColorWellControl, sheet.BackColorWellControl, sheet.CancelButtonControl, sheet.OKButtonControl, field);
+            Assert.Equal("Iron", field.Text);
+            field.CaretIndex = field.Text!.Length;
+            field.SelectionStart = field.SelectionEnd = field.CaretIndex;
+
+            CanvasKeys.KeyDownOn(field, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(result.IsCompleted);
+            Assert.Contains("\n", field.Text);
+
+            CanvasKeys.KeyDownOn(field, Key.Enter, KeyModifiers.Meta);
+            Assert.True(await result.WaitAsync(TimeSpan.FromSeconds(10)));
+        }
+
+        [AvaloniaFact]
+        public void TextProperties_Cancel_RevertsEveryFieldToTheConstructionSnapshot() {
+            var text = new TextAnnotationElement(new Point(0, 0)) { Text = "Original", BackColor = new SkiaSharp.SKColor(1, 2, 3, 255) };
+            var sheet = new TextPropertiesSheet(text);
+            (AvaloniaWindow window, _, _) = SheetFixture.Present(sheet);
             sheet.TextInputControl.Text = "Edited";
-            Avalonia.Threading.Dispatcher.UIThread.RunJobs(); //TextChanged needs a pump in headless tests, see the live-preview test above
-            sheet.FontSizeInputControl.Value = 40;
-            Assert.Equal("Edited", text.Text); //guards the revert assertion below against a no-op mutation
+            Dispatcher.UIThread.RunJobs();
+            sheet.FontSizeStepperControl.Value = 40;
+            ClickSwatch(window, sheet.BackColorWellControl, 0);
+            Assert.Equal("Edited", text.Text);
 
             sheet.Cancel();
 
             Assert.Equal("Original", text.Text);
             Assert.NotEqual(40f, text.FontSize);
+            Assert.Equal(new SkiaSharp.SKColor(1, 2, 3, 255), text.BackColor);
         }
 
         [AvaloniaFact]
-        public void TextPropertiesSheet_Ok_PersistsCurrentValuesToAppSettingsAndStatics() {
+        public void TextProperties_Ok_PersistsCurrentValuesToAppSettingsAndStatics() {
             var text = new TextAnnotationElement(new Point(0, 0));
             var sheet = new TextPropertiesSheet(text);
-            new AvaloniaWindow { Content = sheet }.Show();
-            sheet.FontSizeInputControl.Value = 33;
+            SheetFixture.Present(sheet);
+            sheet.FontSizeStepperControl.Value = 33;
             var settings = new Foreman.Mac.Services.AppSettings();
             sheet.Settings = settings;
 
@@ -528,28 +802,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal("33", settings.AnnotTextFontSize);
             var freshText = new TextAnnotationElement(new Point(500, 500));
             Assert.Equal(33f, freshText.FontSize);
-        }
-
-        [AvaloniaFact]
-        public void ShapeProperties_Width_IsTheNamedSheetWidth() {
-            var sheet = new ShapePropertiesSheet(new ShapeAnnotationElement(new Point(0, 0), 200, 150));
-            (_, SheetHost host, _) = SheetFixture.Present(sheet);
-
-            Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), SheetFixture.PanelOf(host, sheet).Bounds.Width, 0.5);
-            Assert.Equal("Shape properties", SheetFixture.FrameOf(host, sheet).Title);
-            Assert.Equal([sheet.CancelButtonControl, sheet.OKButtonControl], sheet.Buttons!.Items.Cast<Avalonia.Controls.Button>());
-            Assert.Same(sheet.OKButtonControl, sheet.Buttons.ResolveDefaultButton());
-        }
-
-        [AvaloniaFact]
-        public void TextProperties_Width_IsTheNamedSheetWidth() {
-            var sheet = new TextPropertiesSheet(new TextAnnotationElement(new Point(0, 0)));
-            (_, SheetHost host, _) = SheetFixture.Present(sheet);
-
-            Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), SheetFixture.PanelOf(host, sheet).Bounds.Width, 0.5);
-            Assert.Equal("Text properties", SheetFixture.FrameOf(host, sheet).Title);
-            Assert.Equal([sheet.CancelButtonControl, sheet.OKButtonControl], sheet.Buttons!.Items.Cast<Avalonia.Controls.Button>());
-            Assert.Same(sheet.OKButtonControl, sheet.Buttons.ResolveDefaultButton());
         }
 
         //---- annotation clipboard integration (reference §5/§9: merged node+annotation payload) ----

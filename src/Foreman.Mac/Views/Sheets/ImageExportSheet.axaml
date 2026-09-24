@@ -6,16 +6,21 @@
   <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
     <kit:FormRow Name="SaveToRow" Theme="{StaticResource Kit.FormRow}" Label="Save to" LabelColumn="Window">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Foreman.Space.Space2}">
-        <TextBox Name="FileTextBox" Grid.Column="0" Theme="{StaticResource Kit.TextField}" IsReadOnly="True" />
-        <Button Name="BrowseButton" Grid.Column="1" Theme="{StaticResource Kit.Button}" Content="Browse…" />
+        <ctrl:ValueText Name="SavePathLabel" Grid.Column="0" Theme="{StaticResource Kit.Text}" Classes="body"
+                   TextTrimming="LeadingCharacterEllipsis" TextWrapping="NoWrap" MinWidth="0"
+                   VerticalAlignment="Center" Focusable="False"
+                   AutomationProperties.Name="Save to" />
+        <Button Name="BrowseButton" Grid.Column="1" Theme="{StaticResource Kit.Button}" Content="Browse…"
+                AutomationProperties.HelpText="Choose where to save the image." />
       </Grid>
     </kit:FormRow>
     <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Scale" LabelColumn="Window">
-      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Space.Space2}">
-        <ctrl:PopUp Name="ScaleSelectionBox" Theme="{StaticResource Kit.PopUp}" />
-        <TextBlock Name="ImageSizeLabel" Theme="{StaticResource Kit.Text}" Classes="callout secondary"
-                   VerticalAlignment="Center" />
-      </StackPanel>
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource Foreman.Space.Space2}">
+        <ctrl:PopUp Name="ScaleSelectionBox" Grid.Column="0" Theme="{StaticResource Kit.PopUp}" />
+        <ctrl:ValueText Name="ImageSizeLabel" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="callout secondary"
+                   TextTrimming="CharacterEllipsis" MinWidth="0" VerticalAlignment="Center"
+                   AutomationProperties.Name="Image size" />
+      </Grid>
     </kit:FormRow>
     <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Options" LabelColumn="Window">
       <StackPanel Spacing="{DynamicResource Foreman.Space.Space05}">

@@ -1,4 +1,7 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -26,6 +29,9 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<string?> UnitProperty =
             AvaloniaProperty.Register<Stepper, string?>(nameof(Unit));
 
+        public static readonly StyledProperty<string?> SpokenUnitProperty =
+            AvaloniaProperty.Register<Stepper, string?>(nameof(SpokenUnit));
+
         public static readonly StyledProperty<int> DecimalsProperty =
             AvaloniaProperty.Register<Stepper, int>(nameof(Decimals), 0);
 
@@ -52,6 +58,11 @@ namespace Foreman.Mac.Kit.Controls {
         public string? Unit {
             get => GetValue(UnitProperty);
             set => SetValue(UnitProperty, value);
+        }
+
+        public string? SpokenUnit {
+            get => GetValue(SpokenUnitProperty);
+            set => SetValue(SpokenUnitProperty, value);
         }
 
         public int Decimals {
@@ -193,7 +204,49 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void RefreshValueDisplay() {
             if (valueBox is not null)
-                valueBox.Text = Value.ToString("F" + Decimals, CultureInfo.InvariantCulture);
+                valueBox.Text = FormattedValue;
+        }
+
+        private string FormattedValue => Value.ToString("F" + Decimals, CultureInfo.InvariantCulture);
+
+        protected override AutomationPeer OnCreateAutomationPeer() => new StepperAutomationPeer(this);
+
+        private sealed class StepperAutomationPeer : ControlAutomationPeer, IRangeValueProvider, IValueProvider {
+            public StepperAutomationPeer(Stepper owner) : base(owner) {
+                owner.PropertyChanged += OwnerPropertyChanged;
+            }
+
+            private Stepper Stepper => (Stepper)Owner;
+
+            private void OwnerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e) {
+                if (e.Property == ValueProperty)
+                    RaisePropertyChangedEvent(RangeValuePatternIdentifiers.ValueProperty, e.OldValue, e.NewValue);
+                else if (e.Property == MinimumProperty)
+                    RaisePropertyChangedEvent(RangeValuePatternIdentifiers.MinimumProperty, e.OldValue, e.NewValue);
+                else if (e.Property == MaximumProperty)
+                    RaisePropertyChangedEvent(RangeValuePatternIdentifiers.MaximumProperty, e.OldValue, e.NewValue);
+            }
+
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Spinner;
+            protected override string GetLocalizedControlTypeCore() => "stepper";
+
+            //The field shares this peer, so the stepper is a leaf and has focus whenever the field does.
+            protected override IReadOnlyList<AutomationPeer>? GetChildrenCore() => null;
+            protected override bool HasKeyboardFocusCore() => Stepper.IsKeyboardFocusWithin;
+            protected override bool IsKeyboardFocusableCore() => Stepper.valueBox?.Focusable == true;
+            protected override void SetFocusCore() => Stepper.valueBox?.Focus();
+
+            bool IRangeValueProvider.IsReadOnly => !Stepper.IsEnabled;
+            double IRangeValueProvider.Minimum => Stepper.Minimum;
+            double IRangeValueProvider.Maximum => Stepper.Maximum;
+            double IRangeValueProvider.Value => Stepper.Value;
+            double IRangeValueProvider.SmallChange => Stepper.Increment;
+            double IRangeValueProvider.LargeChange => Stepper.StepAmount(KeyModifiers.Shift);
+            void IRangeValueProvider.SetValue(double value) => Stepper.SetCurrentValue(ValueProperty, value);
+
+            bool IValueProvider.IsReadOnly => true;
+            string? IValueProvider.Value => SpokenValue.Describe(Stepper.FormattedValue, Stepper.Unit, Stepper.SpokenUnit);
+            void IValueProvider.SetValue(string? value) { }
         }
 
         private void RefreshUnitDisplay() {
@@ -205,5 +258,13 @@ namespace Foreman.Mac.Kit.Controls {
             unitText.Margin = hasUnit ? new Thickness(0, 0, glyphGap, 0) : default;
         }
 
+    }
+
+    //The field takes keyboard focus but answers to VoiceOver as the stepper it belongs to.
+    internal sealed class StepperField : TextBox {
+        protected override Type StyleKeyOverride => typeof(TextBox);
+
+        protected override AutomationPeer OnCreateAutomationPeer() =>
+            TemplatedParent is Control owner ? ControlAutomationPeer.CreatePeerForElement(owner) : base.OnCreateAutomationPeer();
     }
 }

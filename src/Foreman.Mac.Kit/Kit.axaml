@@ -19,6 +19,7 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Segmented.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/MenuPanel.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/PopUp.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/ColorWell.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/MenuButton.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/TextField.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/SearchField.axaml" />
@@ -48,6 +49,7 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/SheetFrame.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/AlertFrame.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/PopoverFrame.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ColorPopover.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/RadialRing.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/StatePanel.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ZoomStepper.axaml" />

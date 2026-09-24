@@ -8,7 +8,7 @@
     <Setter Property="VerticalAlignment" Value="Stretch" />
     <Setter Property="Template">
       <ControlTemplate>
-        <Panel>
+        <kit:PopoverHost x:Name="PART_PopoverHost">
           <kit:Scrim x:Name="PART_Scrim" TopInset="{TemplateBinding TopInset}" Opacity="0" />
           <Border x:Name="PART_Panel"
                   Background="{DynamicResource Foreman.Color.WindowBackground}"
@@ -40,7 +40,7 @@
               </Grid>
             </StackPanel>
           </Border>
-        </Panel>
+        </kit:PopoverHost>
       </ControlTemplate>
     </Setter>
 
