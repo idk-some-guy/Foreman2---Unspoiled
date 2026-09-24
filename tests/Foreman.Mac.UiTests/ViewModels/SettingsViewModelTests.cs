@@ -23,7 +23,7 @@ namespace Foreman.Mac.UiTests.ViewModels {
             vm.LoadFrom(original);
 
             vm.FlagDarkMode = ThemeMode.Dark; //tri-state enum
-            vm.HighLodChecked = true; //enum-backed (LevelOfDetail)
+            vm.LevelOfDetailIndex = 2; //enum-backed (LevelOfDetail)
             vm.LowPriorityPowerValue = 5.5m; //solver decimal, passes through unchanged
             vm.PullConsumerNodesPowerValue = 2.25m; //solver decimal, passes through unchanged
 
@@ -42,7 +42,7 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal(original.SimplePassthroughNodes, applied.SimplePassthroughNodes);
             Assert.Equal(original.DynamicLineWidth, applied.DynamicLineWidth);
             Assert.Equal(original.AbbreviateSciPacks, applied.AbbreviateSciPacks);
-            Assert.Equal(original.ShowRecipeToolTip, applied.ShowRecipeToolTip);
+            Assert.Equal(original.DefaultLinkRouting, applied.DefaultLinkRouting);
             Assert.Equal(original.RoundAssemblerCount, applied.RoundAssemblerCount);
             Assert.Equal(original.FlagOUSuppliedNodes, applied.FlagOUSuppliedNodes);
             Assert.Equal(original.ShowErrorArrows, applied.ShowErrorArrows);
@@ -132,7 +132,7 @@ namespace Foreman.Mac.UiTests.ViewModels {
             var vm = new SettingsViewModel();
             vm.LoadFrom(settings);
 
-            vm.HighLodChecked = true;
+            vm.LevelOfDetailIndex = 2;
 
             var applied = new AppSettings();
             vm.ApplyTo(applied);
@@ -140,35 +140,19 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal(ThemeMode.System, applied.FlagDarkMode);
         }
 
-        //UI Scale ComboBox (Task 3): discrete 100/110/125/150/200% steps map onto AppSettings.UiScale
-        //losslessly - the Task-2 clobber lesson (FlagDarkMode's System) applies here too, so a Confirm
-        //that never touches the scale control must still write back exactly the value LoadFrom read.
+        //An apply that never touches the scale control must write back exactly the value LoadFrom read.
         [Theory]
-        [InlineData(1.00, "100%")]
-        [InlineData(1.10, "110%")]
-        [InlineData(1.25, "125%")]
-        [InlineData(1.50, "150%")]
-        [InlineData(2.00, "200%")]
-        public void LoadFrom_UiScale_SelectsMatchingLabel(double scale, string expectedLabel) {
+        [InlineData(1.00, "100 %")]
+        [InlineData(1.10, "110 %")]
+        [InlineData(1.25, "125 %")]
+        [InlineData(1.50, "150 %")]
+        [InlineData(2.00, "200 %")]
+        public void LoadFromThenApplyTo_RoundTripsUiScaleThroughItsStepLabel(double scale, string expectedLabel) {
             var settings = new AppSettings { UiScale = scale };
             var vm = new SettingsViewModel();
-
             vm.LoadFrom(settings);
 
             Assert.Equal(expectedLabel, vm.UiScaleLabel);
-        }
-
-        [Theory]
-        [InlineData(1.00)]
-        [InlineData(1.10)]
-        [InlineData(1.25)]
-        [InlineData(1.50)]
-        [InlineData(2.00)]
-        public void LoadFromThenApplyTo_RoundTripsUiScaleLosslessly(double scale) {
-            var settings = new AppSettings { UiScale = scale };
-            var vm = new SettingsViewModel();
-            vm.LoadFrom(settings);
-
             var applied = new AppSettings();
             vm.ApplyTo(applied);
 
@@ -181,7 +165,7 @@ namespace Foreman.Mac.UiTests.ViewModels {
             var vm = new SettingsViewModel();
             vm.LoadFrom(settings);
 
-            vm.HighLodChecked = true;
+            vm.LevelOfDetailIndex = 2;
 
             var applied = new AppSettings();
             vm.ApplyTo(applied);
@@ -198,7 +182,7 @@ namespace Foreman.Mac.UiTests.ViewModels {
 
             vm.LoadFrom(settings);
 
-            Assert.Equal("150%", vm.UiScaleLabel);
+            Assert.Equal("150 %", vm.UiScaleLabel);
         }
 
         //M-7 (final fix wave): UiScaleLabel is plain string storage, not an enum - no real caller can put

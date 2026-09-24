@@ -224,7 +224,6 @@ namespace Foreman.Mac.UiTests.Views {
 
             var controlByAppSettingsProperty = new Dictionary<string, object?> {
                 [nameof(AppSettings.QualitySteps)] = general.QualityStepsStepperControl,
-                [nameof(AppSettings.ShowRecipeToolTip)] = general.ShowNodeRecipeSwitchControl,
                 [nameof(AppSettings.RoundAssemblerCount)] = general.RoundAssemblerCountSwitchControl,
                 [nameof(AppSettings.DefaultAssemblerOption)] = general.AssemblerSelectorStylePopUpControl,
                 [nameof(AppSettings.DefaultModuleOption)] = general.ModuleSelectorStylePopUpControl,
@@ -245,20 +244,16 @@ namespace Foreman.Mac.UiTests.Views {
                 [nameof(AppSettings.ShowOUSuppliedArrows)] = annotations.OUSuppliedArrowsSwitchControl,
                 [nameof(AppSettings.FlagOUSuppliedNodes)] = annotations.FlagOUSupplyNodesSwitchControl,
 
-                [nameof(AppSettings.LevelOfDetail)] = appearance.LowLodRadioButtonControl,
-                [nameof(AppSettings.NodeCountForSimpleView)] = appearance.NodeCountForSimpleViewInputControl,
-                [nameof(AppSettings.IconsSize)] = appearance.IconsSizeInputControl,
-                [nameof(AppSettings.ArrowsOnLinks)] = appearance.ArrowsOnLinksCheckBoxControl,
-                [nameof(AppSettings.DynamicLineWidth)] = appearance.DynamicLWCheckBoxControl,
-                [nameof(AppSettings.AbbreviateSciPacks)] = appearance.AbbreviateSciPackCheckBoxControl,
-                [nameof(AppSettings.FlagDarkMode)] = appearance.FlagDarkModeDropDownControl,
-                [nameof(AppSettings.UiScale)] = appearance.UiScaleDropDownControl,
+                [nameof(AppSettings.LevelOfDetail)] = appearance.LevelOfDetailSegmentedControl,
+                [nameof(AppSettings.NodeCountForSimpleView)] = appearance.NodeCountForSimpleViewStepperControl,
+                [nameof(AppSettings.IconsSize)] = appearance.IconsSizeStepperControl,
+                [nameof(AppSettings.ArrowsOnLinks)] = appearance.ArrowsOnLinksSwitchControl,
+                [nameof(AppSettings.DynamicLineWidth)] = appearance.DynamicLineWidthSwitchControl,
+                [nameof(AppSettings.AbbreviateSciPacks)] = appearance.AbbreviateSciPacksSwitchControl,
+                [nameof(AppSettings.FlagDarkMode)] = appearance.ThemeSegmentedControl,
+                [nameof(AppSettings.UiScale)] = appearance.UiScalePopUpControl,
+                [nameof(AppSettings.DefaultLinkRouting)] = appearance.LinkRoutingSegmentedControl,
             };
-
-            //LevelOfDetail is one AppSettings field but three radio buttons - checked alongside its primary
-            //entry above rather than a second dictionary key.
-            Assert.NotNull(appearance.MediumLodRadioButtonControl);
-            Assert.NotNull(appearance.HighLodRadioButtonControl);
 
             foreach ((string appSettingsProperty, object? control) in controlByAppSettingsProperty)
                 Assert.True(control is not null, $"{appSettingsProperty} has no bound control on any of General/Advanced/Annotations/Appearance.");
@@ -459,14 +454,15 @@ namespace Foreman.Mac.UiTests.Views {
 
         //--- Form grammar across the five panes --------------------------------------------------------------
 
-        private static readonly int[] FormPanes = [0, 1, 2, 3, 4];
+        private static readonly int[] FormPanes = [0, 1, 2, 3, 4, 5];
 
         private static UserControl PaneAt(SettingsWindow window, int index) => index switch {
             0 => window.PresetsTabControl,
             1 => window.EnabledObjectsTabControl,
             2 => window.GeneralTabControl,
             3 => window.AdvancedTabControl,
-            _ => window.AnnotationsTabControl,
+            4 => window.AnnotationsTabControl,
+            _ => window.AppearanceTabControl,
         };
 
         [AvaloniaFact]
@@ -508,10 +504,13 @@ namespace Foreman.Mac.UiTests.Views {
 
         private static void AssertThePaneScrollsAsOnePage(SettingsWindow window, UserControl pane, int index) {
             (string[] titles, Control belowFold) = index switch {
-                2 => (new[] { "New nodes", "Counts", "Canvas" }, (Control)window.GeneralTabControl.ShowNodeRecipeSwitchControl),
+                2 => (new[] { "New nodes", "Counts" }, (Control)window.GeneralTabControl.QualityStepsStepperControl),
                 3 => (new[] { "Calculations", "Data", "Solver" }, window.AdvancedTabControl.PullConsumerNodesPowerStepperControl),
-                _ => (new[] { "Guide arrows" }, window.AnnotationsTabControl.FlagOUSupplyNodesSwitchControl),
+                4 => (new[] { "Guide arrows" }, window.AnnotationsTabControl.FlagOUSupplyNodesSwitchControl),
+                _ => (new[] { "Appearance", "Links", "Nodes" }, window.AppearanceTabControl.AbbreviateSciPacksSwitchControl),
             };
+            Assert.DoesNotContain(pane.GetVisualDescendants(), v => v is ComboBox or RadioButton or NumericUpDown
+                || (v is CheckBox && v.GetType() == typeof(CheckBox)));
             var scroller = Assert.IsType<ScrollViewer>(pane.Content);
             Assert.Equal(ScrollBarVisibility.Disabled, scroller.HorizontalScrollBarVisibility);
             Assert.Equal(ScrollBarVisibility.Auto, scroller.VerticalScrollBarVisibility);
@@ -1414,9 +1413,16 @@ namespace Foreman.Mac.UiTests.Views {
         //section's own comment on that).
 
         [AvaloniaFact]
-        public void GeneralAndAdvancedTabs_CarryTheRuledValuesAndUpstreamRanges() {
+        public void SettingsPanes_CarryTheRuledValuesAndUpstreamRanges() {
             var general = new GeneralTab { DataContext = new SettingsViewModel() };
             var advanced = new AdvancedTab { DataContext = new SettingsViewModel() };
+            var appearance = new AppearanceTab { DataContext = new SettingsViewModel() };
+
+            Assert.Equal(["Low", "Medium", "High"], appearance.LevelOfDetailSegmentedControl.Items);
+            Assert.Equal((0d, 2000d, 25d, 0), (appearance.NodeCountForSimpleViewStepperControl.Minimum, appearance.NodeCountForSimpleViewStepperControl.Maximum,
+                appearance.NodeCountForSimpleViewStepperControl.Increment, appearance.NodeCountForSimpleViewStepperControl.Decimals));
+            Assert.Equal((8d, 256d, 1d, 0), (appearance.IconsSizeStepperControl.Minimum, appearance.IconsSizeStepperControl.Maximum,
+                appearance.IconsSizeStepperControl.Increment, appearance.IconsSizeStepperControl.Decimals));
 
             Assert.Equal(AssemblerSelector.StyleNames, general.AssemblerSelectorStylePopUpControl.Items);
             Assert.Equal(ModuleSelector.StyleNames, general.ModuleSelectorStylePopUpControl.Items);
@@ -1458,42 +1464,6 @@ namespace Foreman.Mac.UiTests.Views {
             tab.PullConsumerNodesSwitchControl.IsChecked = true;
             Assert.True(vm.PullConsumerNodesChecked);
             Assert.True(tab.PullConsumerNodesPowerStepperControl.IsEnabled);
-        }
-
-        [AvaloniaFact]
-        public void AppearanceTab_NodeCountForSimpleViewInput_MatchesUpstreamRange() {
-            var tab = new AppearanceTab { DataContext = new SettingsViewModel() };
-
-            Assert.Equal(25m, tab.NodeCountForSimpleViewInputControl.Increment);
-            Assert.Equal(2000m, tab.NodeCountForSimpleViewInputControl.Maximum);
-        }
-
-        //LOD's mutual exclusion is SettingsViewModel's job (OnXxxLodCheckedChanged); this just pins the
-        //three RadioButtons actually share one GroupName, or that VM-level exclusion has nothing to bind to.
-        [AvaloniaFact]
-        public void AppearanceTab_LevelOfDetailRadioButtons_ShareOneGroupName() {
-            var tab = new AppearanceTab { DataContext = new SettingsViewModel() };
-
-            Assert.Equal(tab.LowLodRadioButtonControl.GroupName, tab.MediumLodRadioButtonControl.GroupName);
-            Assert.Equal(tab.LowLodRadioButtonControl.GroupName, tab.HighLodRadioButtonControl.GroupName);
-        }
-
-        //UI-level pin: the ComboBox itself carries exactly the three ThemeMode values, in enum order.
-        [AvaloniaFact]
-        public void AppearanceTab_FlagDarkModeDropDown_ShowsExactlyTheThreeThemeModes() {
-            var tab = new AppearanceTab { DataContext = new SettingsViewModel() };
-
-            Assert.Equal<object>([ThemeMode.System, ThemeMode.Light, ThemeMode.Dark],
-                tab.FlagDarkModeDropDownControl.ItemsSource!.Cast<object>());
-        }
-
-        //UI-level pin: the ComboBox carries exactly the five discrete steps, in ascending order.
-        [AvaloniaFact]
-        public void AppearanceTab_UiScaleDropDown_ShowsExactlyTheFiveSteps() {
-            var tab = new AppearanceTab { DataContext = new SettingsViewModel() };
-
-            Assert.Equal<object>(["100%", "110%", "125%", "150%", "200%"],
-                tab.UiScaleDropDownControl.ItemsSource!.Cast<object>());
         }
 
         [AvaloniaFact]

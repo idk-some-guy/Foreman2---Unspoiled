@@ -118,7 +118,7 @@ namespace Foreman.Mac.Views {
             footerText = this.FindControl<TextBlock>("FooterText")!;
             footerText.Text = "Foreman 2 · " + AppVersion.VersionedDisplay;
             footerRow = this.FindControl<DockPanel>("FooterRow")!;
-            tabBody.AddHandler(GotFocusEvent, BringFocusedRowIntoView);
+            tabBody.AddHandler<FocusChangedEventArgs>(GotFocusEvent, BringFocusedRowIntoView);
             restoreDefaultsButton = this.FindControl<Button>("RestoreDefaultsButton")!;
 
             paneStrip = this.FindControl<TabStrip>("PaneStrip")!;
@@ -184,10 +184,9 @@ namespace Foreman.Mac.Views {
             UpdateRestoreDefaults();
         }
 
-        private bool focusingAfterRestore;
-
-        private void BringFocusedRowIntoView(object? sender, RoutedEventArgs e) {
-            if (!focusingAfterRestore && tabBody.Content is UserControl { Content: ScrollViewer } && e.Source is Visual source)
+        private void BringFocusedRowIntoView(object? sender, FocusChangedEventArgs e) {
+            if (e.NavigationMethod is NavigationMethod.Tab or NavigationMethod.Directional
+                && tabBody.Content is UserControl { Content: ScrollViewer } && e.Source is Visual source)
                 source.FindAncestorOfType<Kit.Composites.FormRow>(includeSelf: true)?.BringIntoView();
         }
 
@@ -248,15 +247,13 @@ namespace Foreman.Mac.Views {
                 FocusWithoutScrolling(first);
         }
 
-        private void FocusWithoutScrolling(InputElement target) {
+        private static void FocusWithoutScrolling(InputElement target) {
             //Focus raises RequestBringIntoView on the focused control; handling it at the source keeps the offset.
             EventHandler<RequestBringIntoViewEventArgs> keep = static (_, e) => e.Handled = true;
             target.AddHandler(RequestBringIntoViewEvent, keep);
-            focusingAfterRestore = true;
             try {
                 target.Focus();
             } finally {
-                focusingAfterRestore = false;
                 target.RemoveHandler(RequestBringIntoViewEvent, keep);
             }
         }

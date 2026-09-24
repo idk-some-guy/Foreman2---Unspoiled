@@ -10,7 +10,6 @@ using Switch = Foreman.Mac.Kit.Controls.Switch;
 namespace Foreman.Mac.Views.Settings {
     public partial class GeneralTab : UserControl {
         private readonly Stepper qualityStepsStepper;
-        private readonly Switch showNodeRecipeSwitch;
         private readonly Switch roundAssemblerCountSwitch;
         private readonly PopUp assemblerSelectorStylePopUp;
         private readonly PopUp moduleSelectorStylePopUp;
@@ -22,7 +21,6 @@ namespace Foreman.Mac.Views.Settings {
             InitializeComponent();
 
             qualityStepsStepper = this.FindControl<Stepper>("QualityStepsStepper")!;
-            showNodeRecipeSwitch = this.FindControl<Switch>("ShowNodeRecipeSwitch")!;
             roundAssemblerCountSwitch = this.FindControl<Switch>("RoundAssemblerCountSwitch")!;
             assemblerSelectorStylePopUp = this.FindControl<PopUp>("AssemblerSelectorStylePopUp")!;
             moduleSelectorStylePopUp = this.FindControl<PopUp>("ModuleSelectorStylePopUp")!;
@@ -41,7 +39,6 @@ namespace Foreman.Mac.Views.Settings {
 
         //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
         internal Stepper QualityStepsStepperControl => qualityStepsStepper;
-        internal Switch ShowNodeRecipeSwitchControl => showNodeRecipeSwitch;
         internal Switch RoundAssemblerCountSwitchControl => roundAssemblerCountSwitch;
         internal PopUp AssemblerSelectorStylePopUpControl => assemblerSelectorStylePopUp;
         internal PopUp ModuleSelectorStylePopUpControl => moduleSelectorStylePopUp;

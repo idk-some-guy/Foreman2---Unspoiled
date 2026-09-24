@@ -33,7 +33,7 @@
         </kit:FormRow>
       </kit:FormGroup>
 
-      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Counts">
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Counts" TrailingGap="0">
         <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Round buildings"
                      Note="Show whole buildings instead of fractional counts such as ×4.37.">
           <ctrl:Switch Name="RoundAssemblerCountSwitch" Theme="{StaticResource Kit.Switch}"
@@ -44,14 +44,6 @@
           <ctrl:Stepper Name="QualityStepsStepper" Theme="{StaticResource Kit.Stepper}"
                         Minimum="1" Maximum="20" Increment="1" Decimals="0"
                         Value="{Binding QualityStepsValue, Mode=TwoWay}" />
-        </kit:FormRow>
-      </kit:FormGroup>
-
-      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Canvas" TrailingGap="0">
-        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Recipe tooltips"
-                     Note="Shows a node's recipe in a tooltip when the pointer rests on the node.">
-          <ctrl:Switch Name="ShowNodeRecipeSwitch" Theme="{StaticResource Kit.Switch}"
-                       IsChecked="{Binding ShowNodeRecipeChecked, Mode=TwoWay}" />
         </kit:FormRow>
       </kit:FormGroup>
     </StackPanel>

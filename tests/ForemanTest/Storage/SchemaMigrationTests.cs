@@ -1,6 +1,8 @@
 using Foreman.DataCaching.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 
@@ -107,7 +109,7 @@ namespace ForemanTest.Storage {
         }
 
         [TestMethod]
-        public void Open_V1Db_AddsUiScaleAndInspectorPinnedColumns_PreservesData_BumpsVersionToThree() {
+        public void Open_V1Db_AddsUiScaleAndInspectorPinnedColumns_PreservesData_BumpsVersionToFour() {
             string dbPath = BuildV1Fixture();
 
             using ForemanDbContext context = ForemanDbContext.Open(dbPath);
@@ -117,7 +119,7 @@ namespace ForemanTest.Storage {
             Assert.AreEqual(99, row.IconsSize);
             Assert.AreEqual(1.0, row.UiScale);
             Assert.IsFalse(row.InspectorPinned);
-            Assert.AreEqual(3, context.SchemaVersions.Single().Version);
+            Assert.AreEqual(4, context.SchemaVersions.Single().Version);
         }
 
         [TestMethod]
@@ -127,7 +129,7 @@ namespace ForemanTest.Storage {
             using (ForemanDbContext.Open(dbPath)) { }
 
             using ForemanDbContext reopened = ForemanDbContext.Open(dbPath);
-            Assert.AreEqual(3, reopened.SchemaVersions.Single().Version);
+            Assert.AreEqual(4, reopened.SchemaVersions.Single().Version);
             Assert.AreEqual("pre-migration-preset", reopened.Settings.Single().CurrentPresetName);
         }
 
@@ -152,7 +154,7 @@ namespace ForemanTest.Storage {
             Assert.AreEqual("pre-migration-preset", row.CurrentPresetName);
             Assert.AreEqual(99, row.IconsSize);
             Assert.AreEqual(1.0, row.UiScale);
-            Assert.AreEqual(3, context.SchemaVersions.Single().Version);
+            Assert.AreEqual(4, context.SchemaVersions.Single().Version);
         }
 
         //Phase 9 C2a Task 3: the v2->v3 additive migration (Settings.InspectorPinned). LegacyV2Context
@@ -240,7 +242,7 @@ namespace ForemanTest.Storage {
         }
 
         [TestMethod]
-        public void Open_V2Db_AddsInspectorPinnedColumn_PreservesData_BumpsVersionToThree() {
+        public void Open_V2Db_AddsInspectorPinnedColumn_PreservesData_BumpsVersionToFour() {
             string dbPath = BuildV2Fixture();
 
             using ForemanDbContext context = ForemanDbContext.Open(dbPath);
@@ -249,7 +251,7 @@ namespace ForemanTest.Storage {
             Assert.AreEqual("pre-migration-preset", row.CurrentPresetName);
             Assert.AreEqual(1.25, row.UiScale);
             Assert.IsFalse(row.InspectorPinned);
-            Assert.AreEqual(3, context.SchemaVersions.Single().Version);
+            Assert.AreEqual(4, context.SchemaVersions.Single().Version);
         }
 
         [TestMethod]
@@ -259,7 +261,7 @@ namespace ForemanTest.Storage {
             using (ForemanDbContext.Open(dbPath)) { }
 
             using ForemanDbContext reopened = ForemanDbContext.Open(dbPath);
-            Assert.AreEqual(3, reopened.SchemaVersions.Single().Version);
+            Assert.AreEqual(4, reopened.SchemaVersions.Single().Version);
             Assert.AreEqual("pre-migration-preset", reopened.Settings.Single().CurrentPresetName);
         }
 
@@ -281,7 +283,98 @@ namespace ForemanTest.Storage {
             SettingsRow row = context.Settings.Single();
             Assert.AreEqual("pre-migration-preset", row.CurrentPresetName);
             Assert.AreEqual(1.25, row.UiScale);
-            Assert.AreEqual(3, context.SchemaVersions.Single().Version);
+            Assert.AreEqual(4, context.SchemaVersions.Single().Version);
+        }
+
+        private string BuildV3Fixture() {
+            string dbPath = BuildV2Fixture();
+            using var legacy = new LegacyV2Context(dbPath);
+            legacy.Database.ExecuteSqlRaw("ALTER TABLE Settings ADD COLUMN InspectorPinned INTEGER NOT NULL DEFAULT 0");
+            legacy.Database.ExecuteSqlRaw("UPDATE Settings SET InspectorPinned = 1, ShowRecipeToolTip = 1, RecipeNameOnlyFilter = 1");
+            legacy.Database.ExecuteSqlRaw("UPDATE SchemaVersions SET Version = 3");
+            return dbPath;
+        }
+
+        private static string[] SettingsColumns(ForemanDbContext context) {
+            IDbConnection connection = context.Database.GetDbConnection();
+            if (connection.State != ConnectionState.Open)
+                connection.Open();
+            using IDbCommand command = connection.CreateCommand();
+            command.CommandText = "PRAGMA table_info(Settings)";
+            using IDataReader reader = command.ExecuteReader();
+            var names = new List<string>();
+            while (reader.Read())
+                names.Add(reader.GetString(reader.GetOrdinal("name")));
+            return [.. names];
+        }
+
+        [TestMethod]
+        public void V3Database_OpensMigratesToV4Once_AndRoundTrips() {
+            string dbPath = BuildV3Fixture();
+
+            using (ForemanDbContext context = ForemanDbContext.Open(dbPath)) {
+                Assert.AreEqual(4, context.SchemaVersions.Single().Version);
+                string[] columns = SettingsColumns(context);
+                CollectionAssert.DoesNotContain(columns, "ShowRecipeToolTip");
+                CollectionAssert.DoesNotContain(columns, "RecipeNameOnlyFilter");
+                CollectionAssert.AreEquivalent(
+                    typeof(SettingsRow).GetProperties().Select(p => p.Name).ToArray(), columns);
+
+                SettingsRow row = context.Settings.Single();
+                Assert.AreEqual("pre-migration-preset", row.CurrentPresetName);
+                Assert.AreEqual(99, row.IconsSize);
+                Assert.AreEqual(1.25, row.UiScale);
+                Assert.IsTrue(row.InspectorPinned);
+                Assert.AreEqual(300, row.InspectorWidth);
+                Assert.AreEqual(760, row.BrowserWidth);
+                Assert.AreEqual(520, row.BrowserHeight);
+                Assert.AreEqual("", row.BrowserItemsGroup);
+                Assert.AreEqual("", row.BrowserRecipesGroup);
+                Assert.IsNull(row.SettingsEnabledObjectsWidth);
+                Assert.IsNull(row.SettingsEnabledObjectsHeight);
+                Assert.IsNull(row.SettingsAdvancedWidth);
+                Assert.IsNull(row.SettingsAdvancedHeight);
+                Assert.AreEqual(0, row.DefaultLinkRouting);
+
+                row.InspectorWidth = 333;
+                row.BrowserItemsGroup = "logistics";
+                row.SettingsAdvancedWidth = 700;
+                row.SettingsAdvancedHeight = 640;
+                row.DefaultLinkRouting = 1;
+                context.SaveChanges();
+            }
+
+            using (ForemanDbContext reopened = ForemanDbContext.Open(dbPath)) {
+                Assert.AreEqual(4, reopened.SchemaVersions.Single().Version);
+                SettingsRow row = reopened.Settings.Single();
+                Assert.AreEqual("pre-migration-preset", row.CurrentPresetName);
+                Assert.IsTrue(row.InspectorPinned);
+                Assert.AreEqual(333, row.InspectorWidth);
+                Assert.AreEqual("logistics", row.BrowserItemsGroup);
+                Assert.AreEqual(700, row.SettingsAdvancedWidth);
+                Assert.AreEqual(640, row.SettingsAdvancedHeight);
+                Assert.IsNull(row.SettingsEnabledObjectsWidth);
+                Assert.AreEqual(1, row.DefaultLinkRouting);
+            }
+        }
+
+        [TestMethod]
+        public void V4Database_IsLeftAlone() {
+            string dbPath = StoragePaths.DbPath(tempRoot);
+            using (ForemanDbContext created = ForemanDbContext.Open(dbPath)) {
+                created.Settings.Add(new SettingsRow { Id = 1, CurrentPresetName = "v4-preset", InspectorWidth = 280 });
+                created.SaveChanges();
+                //A column the v3->v4 step drops: it survives only if that step never runs on a v4 db.
+                created.Database.ExecuteSqlRaw("ALTER TABLE Settings ADD COLUMN ShowRecipeToolTip INTEGER NOT NULL DEFAULT 1");
+            }
+
+            using ForemanDbContext reopened = ForemanDbContext.Open(dbPath);
+
+            Assert.AreEqual(4, reopened.SchemaVersions.Single().Version);
+            CollectionAssert.Contains(SettingsColumns(reopened), "ShowRecipeToolTip");
+            SettingsRow row = reopened.Settings.Single();
+            Assert.AreEqual("v4-preset", row.CurrentPresetName);
+            Assert.AreEqual(280, row.InspectorWidth);
         }
     }
 }

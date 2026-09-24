@@ -6,6 +6,7 @@ using Foreman.Models;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Xunit;
@@ -37,12 +38,10 @@ namespace Foreman.Mac.UiTests {
             ShowHidden = true,
             IgnoreAssemblerStatus = true,
             DynamicLineWidth = true,
-            RecipeNameOnlyFilter = true,
             LevelOfDetail = 2,
             DefaultAssemblerOption = AssemblerSelector.Style.Best,
             DefaultRateUnit = ProductionGraph.RateUnit.Per1Min,
             LastSaveFileLocation = "/Users/test/Saved Graphs/factory.fjson",
-            ShowRecipeToolTip = false,
             ShowUnavailable = true,
             NodeCountForSimpleView = 500,
             UseRecipeBWfilters = false,
@@ -77,6 +76,17 @@ namespace Foreman.Mac.UiTests {
             PullConsumerNodes = true,
             PullConsumerNodesPower = 3.5m,
             UiScale = 1.5,
+            InspectorPinned = true,
+            InspectorWidth = 333,
+            BrowserWidth = 900,
+            BrowserHeight = 640,
+            BrowserItemsGroup = "logistics",
+            BrowserRecipesGroup = "production",
+            SettingsEnabledObjectsWidth = 700,
+            SettingsEnabledObjectsHeight = 600,
+            SettingsAdvancedWidth = 800,
+            SettingsAdvancedHeight = 700,
+            DefaultLinkRouting = LinkRouting.Orthogonal,
         };
 
         [Fact]
@@ -88,6 +98,23 @@ namespace Foreman.Mac.UiTests {
             var actual = service.Load();
 
             Assert.Equal(JsonSerializer.Serialize(expected, ComparisonOptions), JsonSerializer.Serialize(actual, ComparisonOptions));
+        }
+
+        [Fact]
+        public void SettingsService_RetiredFields_AreAbsentFromRowIo() {
+            string[] retired = ["ShowRecipeToolTip", "RecipeNameOnlyFilter"];
+            string[] settingsFields = [.. typeof(AppSettings).GetProperties().Select(p => p.Name).Order()];
+            string[] rowColumns = [.. typeof(SettingsRow).GetProperties().Select(p => p.Name).Where(n => n != nameof(SettingsRow.Id)).Order()];
+
+            Assert.Equal(settingsFields, rowColumns);
+            Assert.Empty(settingsFields.Intersect(retired));
+
+            string home = NewTempHome();
+            string settingsPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+            File.WriteAllText(settingsPath, "{ \"ShowRecipeToolTip\": false, \"RecipeNameOnlyFilter\": true, \"IconsSize\": 40 }");
+            Assert.Equal(40, new SettingsService(home).Load().IconsSize);
+            Assert.Equal(40, new SettingsService(home).Load().IconsSize);
         }
 
         [Fact]

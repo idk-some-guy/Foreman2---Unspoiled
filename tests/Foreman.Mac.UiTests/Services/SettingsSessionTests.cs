@@ -49,7 +49,7 @@ namespace Foreman.Mac.UiTests.Services {
             var session = NewSession(settings);
 
             session.Apply("SmartNodeDirectionChecked");
-            session.Apply("ShowNodeRecipeChecked");
+            session.Apply("RoundAssemblerCountChecked");
             await session.FlushAsync();
 
             Assert.Equal(1, session.SaveCallCount);

@@ -1,7 +1,7 @@
 using System;
 
 namespace Foreman.DataCaching.Storage {
-    //One typed column per AppSettings property (Foreman.Mac/Services/AppSettings.cs, 47 currently).
+    //One typed column per AppSettings property (Foreman.Mac/Services/AppSettings.cs).
     //Foreman.Core can't reference Foreman.Mac, so columns mirror the property SHAPES: enums as int,
     //decimals as decimal. Keep this in lockstep with AppSettings when either one changes.
     public sealed class SettingsRow {
@@ -15,12 +15,10 @@ namespace Foreman.DataCaching.Storage {
         public bool ShowHidden { get; set; }
         public bool IgnoreAssemblerStatus { get; set; }
         public bool DynamicLineWidth { get; set; }
-        public bool RecipeNameOnlyFilter { get; set; }
         public int LevelOfDetail { get; set; }
         public int DefaultAssemblerOption { get; set; }
         public int DefaultRateUnit { get; set; }
         public string LastSaveFileLocation { get; set; } = "";
-        public bool ShowRecipeToolTip { get; set; }
         public bool ShowUnavailable { get; set; }
         public int NodeCountForSimpleView { get; set; }
         public bool UseRecipeBWfilters { get; set; }
@@ -60,6 +58,18 @@ namespace Foreman.DataCaching.Storage {
 
         //Added schema version 3 (phase 9 C2a Task 3) - see ForemanDbContext.Open's v2->v3 ALTER TABLE step.
         public bool InspectorPinned { get; set; }
+
+        //Added schema version 4 with ShowRecipeToolTip and RecipeNameOnlyFilter dropped.
+        public double InspectorWidth { get; set; }
+        public double BrowserWidth { get; set; }
+        public double BrowserHeight { get; set; }
+        public string BrowserItemsGroup { get; set; } = "";
+        public string BrowserRecipesGroup { get; set; } = "";
+        public double? SettingsEnabledObjectsWidth { get; set; }
+        public double? SettingsEnabledObjectsHeight { get; set; }
+        public double? SettingsAdvancedWidth { get; set; }
+        public double? SettingsAdvancedHeight { get; set; }
+        public int DefaultLinkRouting { get; set; }
     }
 
     //A single imported preset, compressed with zstd; CustomOverlayJson holds the presetCustom

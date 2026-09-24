@@ -37,6 +37,11 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         }
 
         [AvaloniaFact]
+        public void Steps_AreTheFiveContractSteps_InAscendingOrder() {
+            Assert.Equal([1.0, 1.1, 1.25, 1.5, 2.0], ScaleContract.Steps);
+        }
+
+        [AvaloniaFact]
         public void Apply_AtOneFifty_MultipliesTheTypeRamp() {
             ScaleContract.Apply(1.5);
 

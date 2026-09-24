@@ -1,8 +1,11 @@
 using Avalonia;
+using System.Collections.Generic;
 
 namespace Foreman.Mac.Kit.Appearance {
     //A20 contract: multiplies sizing tokens by the UiScale step, re-pushed into Application.Resources.
     public static class ScaleContract {
+        public static IReadOnlyList<double> Steps { get; } = [1.0, 1.1, 1.25, 1.5, 2.0];
+
         private static readonly string[] MultipliedKeys = [
             "Foreman.Type.LargeTitle.FontSize",
             "Foreman.Type.SectionHeader.FontSize",

@@ -25,8 +25,8 @@ using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Canvas {
     //Exercises GraphCanvasControl.HitTest's node/annotation picking precedence (reference §6), the
-    //PointerMoved -> InvalidateVisual hover wiring (risk 5), and RecipeNodeElement's ShowRecipeToolTip-gated
-    //recipe tooltip against a real vanilla recipe (risk 4, RecipePainter).
+    //PointerMoved -> InvalidateVisual hover wiring (risk 5), and RecipeNodeElement's help tooltip and
+    //RecipePainter against a real vanilla recipe (risk 4).
     public class HitTestAndTooltipTests {
         private const int Half = 200;
 
@@ -278,17 +278,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             return fx.Session.View.Nodes.OfType<IRecipeNodeViewModel>().Single();
         }
 
-        //Task 9 (contract §03): the recipe hover card is retired - it folds into the inspector's identity
-        //header (RecipeCardView) instead, so hovering a recipe node never produces a tooltip element for
-        //it, regardless of AppSettings.ShowRecipeToolTip (which stays persisted but no longer gates
-        //anything here). Only the help tooltip remains.
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task GetToolTips_HoverRecipeNode_NeverShowsRecipeCard_RegardlessOfShowRecipeToolTip(bool showRecipeToolTip) {
+        //The recipe hover card folds into the inspector's identity header; only the help tooltip remains.
+        [Fact]
+        public async Task GetToolTips_HoverRecipeNode_NeverShowsRecipeCard() {
             RecipeFixture fx = NewRecipeFixture(await GetRecipeCacheAsync());
             IRecipeNodeViewModel viewModel = MakeIronGearWheelNode(fx);
-            fx.Context.ShowRecipeToolTip = showRecipeToolTip;
             var element = new RecipeNodeElement(fx.Context, viewModel);
 
             //Far outside every subelement (tabs/assembler/beacon), so the cascade falls through to

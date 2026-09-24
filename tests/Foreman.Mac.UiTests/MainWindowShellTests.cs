@@ -976,7 +976,7 @@ namespace Foreman.Mac.UiTests {
         //Regression: ApplyLoadedSettings only ever wired the gridline/rate-unit/icon-view/pause-updates
         //controls into the canvas; everything else upstream's MainForm_Load also applies at launch
         //(LevelOfDetail, ArrowsOnLinks, NodeCountForSimpleView, IconsSize, DynamicLineWidth,
-        //FlagOUSuppliedNodes, RoundAssemblerCount, AbbreviateSciPacks, ShowRecipeToolTip, and the four
+        //FlagOUSuppliedNodes, RoundAssemblerCount, AbbreviateSciPacks, and the four
         //guide-arrow toggles) stayed at code-level defaults regardless of what was saved.
         [AvaloniaFact]
         public void ApplyLoadedSettings_NonDefaultSettings_SeedsContextViewerAndArrowRenderer() {
@@ -991,7 +991,6 @@ namespace Foreman.Mac.UiTests {
                 FlagOUSuppliedNodes = true,
                 RoundAssemblerCount = true,
                 AbbreviateSciPacks = false,
-                ShowRecipeToolTip = false,
                 ShowErrorArrows = true,
                 ShowWarningArrows = true,
                 ShowDisconnectedArrows = true,
@@ -1008,7 +1007,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(context.FlagOUSuppliedNodes);
             Assert.True(context.RoundAssemblerCount);
             Assert.False(context.AbbreviateSciPacks);
-            Assert.False(context.ShowRecipeToolTip);
             Assert.Equal(42, window.GraphCanvas.Viewer.NodeCountForSimpleView);
 
             PointingArrowRenderer arrows = window.GraphCanvas.Viewer.ArrowRenderer;
@@ -1123,7 +1121,7 @@ namespace Foreman.Mac.UiTests {
             window.SettingsDialogStub = w => settingsWindow = w;
             window.ShowSettings();
 
-            settingsWindow!.AppearanceTabControl.FlagDarkModeDropDownControl.SelectedItem = ThemeMode.System;
+            settingsWindow!.AppearanceTabControl.ThemeSegmentedControl.SelectedIndex = (int)ThemeMode.System;
 
             Assert.Equal(ThemeVariant.Light, Application.Current!.ActualThemeVariant);
             Assert.Equal(new SKColor(0xFA, 0xFA, 0xFA), window.GraphCanvas.Viewer.BackgroundColor);

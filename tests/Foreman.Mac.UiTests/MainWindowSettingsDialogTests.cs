@@ -4,13 +4,17 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
+using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
+using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Sheets;
@@ -21,6 +25,9 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
+using PopUp = Foreman.Mac.Kit.Controls.PopUp;
+using Segmented = Foreman.Mac.Kit.Controls.Segmented;
+using Switch = Foreman.Mac.Kit.Controls.Switch;
 
 namespace Foreman.Mac.UiTests {
     //C2c Task 4: Settings applies live now - there's no more Confirm/Cancel cascade to test (that whole
@@ -312,13 +319,14 @@ namespace Foreman.Mac.UiTests {
         private static readonly Dictionary<int, string[]> PaneFields = new() {
             [2] = [nameof(AppSettings.DefaultAssemblerOption), nameof(AppSettings.DefaultModuleOption), nameof(AppSettings.DefaultNodeDirection),
                 nameof(AppSettings.SmartNodeDirection), nameof(AppSettings.SimplePassthroughNodes), nameof(AppSettings.RoundAssemblerCount),
-                nameof(AppSettings.QualitySteps), nameof(AppSettings.ShowRecipeToolTip)],
+                nameof(AppSettings.QualitySteps)],
             [3] = [nameof(AppSettings.EnableExtraProductivityForNonMiners), nameof(AppSettings.ShowUnavailable), nameof(AppSettings.UseRecipeBWfilters),
                 nameof(AppSettings.LowPriorityPower), nameof(AppSettings.PullConsumerNodes), nameof(AppSettings.PullConsumerNodesPower)],
             [4] = [nameof(AppSettings.ShowErrorArrows), nameof(AppSettings.ShowWarningArrows), nameof(AppSettings.ShowDisconnectedArrows),
                 nameof(AppSettings.ShowOUSuppliedArrows), nameof(AppSettings.FlagOUSuppliedNodes)],
             [5] = [nameof(AppSettings.FlagDarkMode), nameof(AppSettings.UiScale), nameof(AppSettings.LevelOfDetail), nameof(AppSettings.NodeCountForSimpleView),
-                nameof(AppSettings.IconsSize), nameof(AppSettings.ArrowsOnLinks), nameof(AppSettings.DynamicLineWidth), nameof(AppSettings.AbbreviateSciPacks)],
+                nameof(AppSettings.IconsSize), nameof(AppSettings.ArrowsOnLinks), nameof(AppSettings.DynamicLineWidth), nameof(AppSettings.AbbreviateSciPacks),
+                nameof(AppSettings.DefaultLinkRouting)],
         };
 
         private static Dictionary<string, object?> Snapshot(AppSettings settings) =>
@@ -330,7 +338,7 @@ namespace Foreman.Mac.UiTests {
                 QualitySteps = 5, SmartNodeDirection = false,
                 LowPriorityPower = 2, PullConsumerNodes = true,
                 ShowErrorArrows = false, FlagOUSuppliedNodes = true,
-                IconsSize = 32, ArrowsOnLinks = true,
+                IconsSize = 32, ArrowsOnLinks = true, DefaultLinkRouting = LinkRouting.Orthogonal,
             };
             var window = NewWindowReadyForSettings(settings);
             SettingsWindow opened = OpenSettings(window);
@@ -425,6 +433,143 @@ namespace Foreman.Mac.UiTests {
             Assert.False(SheetHost.For(opened).IsOpen);
             Assert.Equal(defaults.ShowErrorArrows, settings.ShowErrorArrows);
             Assert.False(restore.IsEnabled);
+        }
+
+        private static SettingsWindow OpenAppearance(MainWindow window) {
+            SettingsWindow opened = OpenSettings(window);
+            opened.Show(window);
+            opened.SimulateTabClick(5);
+            AnimationClock.UntilReflowsSettled(opened);
+            return opened;
+        }
+
+        private static void ClickSegment(Window window, Segmented segmented, string label) =>
+            SheetFixture.Click(window, segmented.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == label));
+
+        [AvaloniaFact]
+        public void Appearance_Theme_IsASegmentedSystemLightDark_WritingThroughAppApplyTheme() {
+            var app = (App)Application.Current!;
+            var settings = new AppSettings();
+            SettingsWindow opened = OpenAppearance(NewWindowReadyForSettings(settings));
+            Segmented theme = opened.AppearanceTabControl.ThemeSegmentedControl;
+
+            try {
+                Assert.Equal(["System", "Light", "Dark"], theme.Items);
+                Assert.Equal(0, theme.SelectedIndex);
+
+                ClickSegment(opened, theme, "Dark");
+                Assert.Equal(ThemeMode.Dark, settings.FlagDarkMode);
+                Assert.Equal(ThemeVariant.Dark, app.RequestedThemeVariant);
+                Assert.Equal(ThemeVariant.Dark, app.ActualThemeVariant);
+
+                ClickSegment(opened, theme, "Light");
+                Assert.Equal(ThemeMode.Light, settings.FlagDarkMode);
+                Assert.Equal(ThemeVariant.Light, app.ActualThemeVariant);
+
+                ClickSegment(opened, theme, "System");
+                Assert.Equal(ThemeMode.System, settings.FlagDarkMode);
+                Assert.Equal(0, theme.SelectedIndex);
+                Assert.Equal(ThemeVariant.Default, app.RequestedThemeVariant);
+            } finally {
+                app.ApplyTheme(ThemeMode.System);
+            }
+        }
+
+        [AvaloniaFact]
+        public void Appearance_InterfaceScale_ListsTheFiveScaleContractSteps_AndWritesThroughWindowScalerSetScale() {
+            var settings = new AppSettings();
+            SettingsWindow opened = OpenAppearance(NewWindowReadyForSettings(settings));
+            PopUp scale = opened.AppearanceTabControl.UiScalePopUpControl;
+
+            try {
+                Assert.Equal(ScaleContract.Steps.Select(s => $"{s * 100:0} %"), scale.Items);
+                Assert.Equal(["100 %", "110 %", "125 %", "150 %", "200 %"], scale.Items);
+                Assert.Equal("100 %", scale.SelectedItem);
+
+                scale.SelectedItem = "150 %";
+                Assert.Equal(1.5, settings.UiScale);
+                Assert.Equal(1.5, WindowScaler.CurrentScale);
+
+                scale.SelectedItem = "110 %";
+                Assert.Equal(1.1, settings.UiScale);
+                Assert.Equal(1.1, WindowScaler.CurrentScale);
+            } finally {
+                WindowScaler.SetScale(1.0);
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task Appearance_LinkRoutingDefault_PersistsAcrossAReload() {
+            string home = NewTempDir();
+            var settings = new AppSettings();
+            MainWindow window = NewWindowReadyForSettings(settings);
+            window.SettingsService = new SettingsService(home);
+            SettingsWindow opened = OpenAppearance(window);
+            Segmented routing = opened.AppearanceTabControl.LinkRoutingSegmentedControl;
+
+            Assert.Equal(["Rounded", "Orthogonal"], routing.Items);
+            Assert.Equal(0, routing.SelectedIndex);
+            Assert.Equal(LinkRouting.Rounded, settings.DefaultLinkRouting);
+
+            ClickSegment(opened, routing, "Orthogonal");
+            Assert.Equal(LinkRouting.Orthogonal, settings.DefaultLinkRouting);
+            await window.CurrentSettingsSession!.FlushAsync();
+
+            AppSettings reloaded = new SettingsService(home).Load();
+            Assert.Equal(LinkRouting.Orthogonal, reloaded.DefaultLinkRouting);
+            var fresh = new SettingsViewModel();
+            fresh.LoadFrom(reloaded);
+            Assert.Equal(1, fresh.LinkRoutingIndex);
+        }
+
+        [AvaloniaFact]
+        public void Appearance_WidthByThroughput_DefaultsOff_AndAPointerClickBelowTheFoldDoesNotScroll() {
+            var settings = new AppSettings();
+            Assert.False(settings.DynamicLineWidth);
+            MainWindow window = NewWindowReadyForSettings(settings);
+            SettingsWindow opened = OpenAppearance(window);
+            Switch width = opened.AppearanceTabControl.DynamicLineWidthSwitchControl;
+
+            Assert.False(width.IsChecked);
+            Assert.False(window.GraphCanvas.Viewer.Context.DynamicLinkWidth);
+            FormRow row = width.FindLogicalAncestorOfType<FormRow>()!;
+            Assert.Equal("Width by throughput", row.Label);
+
+            var scroller = (ScrollViewer)opened.AppearanceTabControl.Content!;
+            double TopIn(Control c) => c.TranslatePoint(default, scroller)!.Value.Y;
+            double ContentBottom(Control c) => TopIn(c) + c.Bounds.Height + scroller.Offset.Y;
+            scroller.Offset = new Vector(0, ContentBottom(width) + 2 - scroller.Viewport.Height);
+            AnimationClock.UntilReflowsSettled(opened);
+            double before = scroller.Offset.Y;
+            Assert.True(TopIn(width) >= 0 && TopIn(width) + width.Bounds.Height <= scroller.Viewport.Height, "the switch starts fully in view");
+            Assert.True(TopIn(row) + row.Bounds.Height > scroller.Viewport.Height, "the note starts below the fold");
+
+            TextBlock label = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Label" && t.TemplatedParent == row);
+            Assert.False(width.IsFocused);
+            SheetFixture.Click(opened, label);
+            Assert.True(width.IsFocused);
+            Assert.Equal(before, scroller.Offset.Y, 0.5);
+
+            SheetFixture.Click(opened, width);
+            Assert.True(width.IsChecked);
+            Assert.True(settings.DynamicLineWidth);
+            Assert.True(window.GraphCanvas.Viewer.Context.DynamicLinkWidth);
+            Assert.Equal(before, scroller.Offset.Y, 0.5);
+
+            opened.ViewModel.RestoreDefaults(SettingsPane.Appearance);
+            Assert.False(width.IsChecked);
+            Assert.False(settings.DynamicLineWidth);
+
+            Switch packs = opened.AppearanceTabControl.AbbreviateSciPacksSwitchControl;
+            FormRow packsRow = packs.FindAncestorOfType<FormRow>()!;
+            const double clip = 4;
+            scroller.Offset = new Vector(0, ContentBottom(packs) - clip - scroller.Viewport.Height);
+            AnimationClock.UntilReflowsSettled(opened);
+            before = scroller.Offset.Y;
+            Assert.Equal(scroller.Viewport.Height - packs.Bounds.Height + clip, TopIn(packs), 0.5);
+            SheetFixture.Click(opened, packs);
+            Assert.True(scroller.Offset.Y - before <= clip + 0.5, $"the pane scrolled {scroller.Offset.Y - before} for a {clip} pt clip");
+            Assert.True(TopIn(packsRow) + packsRow.Bounds.Height > scroller.Viewport.Height, "the note stays below the fold");
         }
     }
 }

@@ -5,6 +5,8 @@ namespace Foreman.Mac.Services {
     //Upstream only had a bool FlagDarkMode; we widen it to a tri-state to follow the OS theme by default.
     public enum ThemeMode { System, Light, Dark }
 
+    public enum LinkRouting { Rounded, Orthogonal }
+
     //Names and defaults are verbatim from upstream Properties.Settings.Designer.cs.
     public sealed class AppSettings {
         public string CurrentPresetName { get; set; } = "";
@@ -15,12 +17,10 @@ namespace Foreman.Mac.Services {
         public bool ShowHidden { get; set; }
         public bool IgnoreAssemblerStatus { get; set; }
         public bool DynamicLineWidth { get; set; }
-        public bool RecipeNameOnlyFilter { get; set; }
         public int LevelOfDetail { get; set; }
         public AssemblerSelector.Style DefaultAssemblerOption { get; set; } = AssemblerSelector.Style.Worst;
         public ProductionGraph.RateUnit DefaultRateUnit { get; set; } = ProductionGraph.RateUnit.Per1Sec;
         public string LastSaveFileLocation { get; set; } = "";
-        public bool ShowRecipeToolTip { get; set; } = true;
         public bool ShowUnavailable { get; set; }
         public int NodeCountForSimpleView { get; set; } = 300;
         public bool UseRecipeBWfilters { get; set; } = true;
@@ -82,5 +82,8 @@ namespace Foreman.Mac.Services {
         public double? SettingsEnabledObjectsHeight { get; set; }
         public double? SettingsAdvancedWidth { get; set; }
         public double? SettingsAdvancedHeight { get; set; }
+
+        //A10: the routing a new link takes.
+        public LinkRouting DefaultLinkRouting { get; set; } = LinkRouting.Rounded;
     }
 }

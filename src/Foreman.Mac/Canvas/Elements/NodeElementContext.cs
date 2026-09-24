@@ -27,7 +27,6 @@ namespace Foreman.Mac.Canvas.Elements {
         public LevelOfDetail LevelOfDetail { get; set; } = LevelOfDetail.Medium;
         public bool RoundAssemblerCount { get; set; }
         public bool EnableExtraProductivityForNonMiners { get; set; }
-        public bool ShowRecipeToolTip { get; set; } = true;
         public bool AbbreviateSciPacks { get; set; } = true;
 
         public float StaticLinkWidth { get; set; } = 3f;

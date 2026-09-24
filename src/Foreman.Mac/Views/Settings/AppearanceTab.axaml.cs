@@ -1,51 +1,53 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
-using System;
+using PopUp = Foreman.Mac.Kit.Controls.PopUp;
+using Segmented = Foreman.Mac.Kit.Controls.Segmented;
+using Stepper = Foreman.Mac.Kit.Controls.Stepper;
+using Switch = Foreman.Mac.Kit.Controls.Switch;
 
 namespace Foreman.Mac.Views.Settings {
     public partial class AppearanceTab : UserControl {
-        private readonly ComboBox flagDarkModeDropDown;
-        private readonly ComboBox uiScaleDropDown;
-        private readonly RadioButton lowLodRadioButton;
-        private readonly RadioButton mediumLodRadioButton;
-        private readonly RadioButton highLodRadioButton;
-        private readonly NumericUpDown nodeCountForSimpleViewInput;
-        private readonly NumericUpDown iconsSizeInput;
-        private readonly CheckBox arrowsOnLinksCheckBox;
-        private readonly CheckBox dynamicLWCheckBox;
-        private readonly CheckBox abbreviateSciPackCheckBox;
+        private readonly Segmented themeSegmented;
+        private readonly PopUp uiScalePopUp;
+        private readonly Segmented linkRoutingSegmented;
+        private readonly Switch dynamicLineWidthSwitch;
+        private readonly Switch arrowsOnLinksSwitch;
+        private readonly Segmented levelOfDetailSegmented;
+        private readonly Stepper nodeCountForSimpleViewStepper;
+        private readonly Stepper iconsSizeStepper;
+        private readonly Switch abbreviateSciPacksSwitch;
 
         public AppearanceTab() {
             InitializeComponent();
 
-            flagDarkModeDropDown = this.FindControl<ComboBox>("FlagDarkModeDropDown")!;
-            uiScaleDropDown = this.FindControl<ComboBox>("UiScaleDropDown")!;
-            lowLodRadioButton = this.FindControl<RadioButton>("LowLodRadioButton")!;
-            mediumLodRadioButton = this.FindControl<RadioButton>("MediumLodRadioButton")!;
-            highLodRadioButton = this.FindControl<RadioButton>("HighLodRadioButton")!;
-            nodeCountForSimpleViewInput = this.FindControl<NumericUpDown>("NodeCountForSimpleViewInput")!;
-            iconsSizeInput = this.FindControl<NumericUpDown>("IconsSizeInput")!;
-            arrowsOnLinksCheckBox = this.FindControl<CheckBox>("ArrowsOnLinksCheckBox")!;
-            dynamicLWCheckBox = this.FindControl<CheckBox>("DynamicLWCheckBox")!;
-            abbreviateSciPackCheckBox = this.FindControl<CheckBox>("AbbreviateSciPackCheckBox")!;
+            themeSegmented = this.FindControl<Segmented>("ThemeSegmented")!;
+            uiScalePopUp = this.FindControl<PopUp>("UiScalePopUp")!;
+            linkRoutingSegmented = this.FindControl<Segmented>("LinkRoutingSegmented")!;
+            dynamicLineWidthSwitch = this.FindControl<Switch>("DynamicLineWidthSwitch")!;
+            arrowsOnLinksSwitch = this.FindControl<Switch>("ArrowsOnLinksSwitch")!;
+            levelOfDetailSegmented = this.FindControl<Segmented>("LevelOfDetailSegmented")!;
+            nodeCountForSimpleViewStepper = this.FindControl<Stepper>("NodeCountForSimpleViewStepper")!;
+            iconsSizeStepper = this.FindControl<Stepper>("IconsSizeStepper")!;
+            abbreviateSciPacksSwitch = this.FindControl<Switch>("AbbreviateSciPacksSwitch")!;
 
-            flagDarkModeDropDown.ItemsSource = Enum.GetValues<ThemeMode>();
-            uiScaleDropDown.ItemsSource = SettingsViewModel.UiScaleLabels;
+            themeSegmented.Items.AddRange(["System", "Light", "Dark"]);
+            uiScalePopUp.Items.AddRange(SettingsViewModel.UiScaleLabels);
+            linkRoutingSegmented.Items.AddRange(["Rounded", "Orthogonal"]);
+            levelOfDetailSegmented.Items.AddRange(["Low", "Medium", "High"]);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        internal ComboBox FlagDarkModeDropDownControl => flagDarkModeDropDown;
-        internal ComboBox UiScaleDropDownControl => uiScaleDropDown;
-        internal RadioButton LowLodRadioButtonControl => lowLodRadioButton;
-        internal RadioButton MediumLodRadioButtonControl => mediumLodRadioButton;
-        internal RadioButton HighLodRadioButtonControl => highLodRadioButton;
-        internal NumericUpDown NodeCountForSimpleViewInputControl => nodeCountForSimpleViewInput;
-        internal NumericUpDown IconsSizeInputControl => iconsSizeInput;
-        internal CheckBox ArrowsOnLinksCheckBoxControl => arrowsOnLinksCheckBox;
-        internal CheckBox DynamicLWCheckBoxControl => dynamicLWCheckBox;
-        internal CheckBox AbbreviateSciPackCheckBoxControl => abbreviateSciPackCheckBox;
+        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
+        internal Segmented ThemeSegmentedControl => themeSegmented;
+        internal PopUp UiScalePopUpControl => uiScalePopUp;
+        internal Segmented LinkRoutingSegmentedControl => linkRoutingSegmented;
+        internal Switch DynamicLineWidthSwitchControl => dynamicLineWidthSwitch;
+        internal Switch ArrowsOnLinksSwitchControl => arrowsOnLinksSwitch;
+        internal Segmented LevelOfDetailSegmentedControl => levelOfDetailSegmented;
+        internal Stepper NodeCountForSimpleViewStepperControl => nodeCountForSimpleViewStepper;
+        internal Stepper IconsSizeStepperControl => iconsSizeStepper;
+        internal Switch AbbreviateSciPacksSwitchControl => abbreviateSciPacksSwitch;
     }
 }

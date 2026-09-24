@@ -274,6 +274,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   unreadable save file use the new wording. Long kit lists now scroll without building every row,
   a kit button row can hold several ordinary buttons, and a stretched kit group box gives its rows
   the extra height.
+- The Appearance pane uses the same form layout in three groups. Theme is a System, Light and Dark
+  segmented control, Interface scale is a pop-up with the five scale steps, and a new Default
+  routing control (Rounded or Orthogonal) is saved with the other settings. Width by throughput is
+  a switch and stays off by default. Level of detail, Simplify above, Icon size, Link arrows and
+  Science packs sit under Links and Nodes. The pane scrolls as one page like General. The unused
+  Recipe tooltips setting and the recipe name filter setting are gone, and the General pane loses
+  its Canvas group. The settings database moves to version 4: it drops those two columns and
+  stores the inspector width, the add browser's size and last categories, and the two resizable
+  panes' sizes, so they now survive a restart.
 
 ### Fixed
 

@@ -1,12 +1,14 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Foreman;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
 using Foreman.Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 
@@ -25,6 +27,7 @@ namespace Foreman.Mac.ViewModels {
             nameof(AssemblerObjects), nameof(MinerObjects), nameof(PowerObjects), nameof(BeaconObjects),
             nameof(ModuleObjects), nameof(RecipeObjects), nameof(QualityObjects),
             nameof(EnabledObjectsCategoryIndex), nameof(EnabledObjectsShowIndex), nameof(VisibleObjects), nameof(EnabledObjectsCategoryLabels),
+            nameof(ThemeIndex),
         ];
 
         public event Action<string>? SettingChanged;
@@ -38,38 +41,13 @@ namespace Foreman.Mac.ViewModels {
         [ObservableProperty]
         private decimal? qualityStepsValue;
 
+        //0 Low, 1 Medium, 2 High (LevelOfDetail).
         [ObservableProperty]
-        private bool lowLodChecked;
+        private int levelOfDetailIndex = (int)LevelOfDetail.Medium;
 
+        //0 Rounded, 1 Orthogonal (LinkRouting).
         [ObservableProperty]
-        private bool mediumLodChecked;
-
-        [ObservableProperty]
-        private bool highLodChecked;
-
-        //Mutual exclusion normally comes free from the RadioButtons sharing a GroupName in XAML - these
-        //hooks keep the VM internally consistent even when a property is set directly (tests, or a future
-        //caller that isn't a bound RadioButton).
-        partial void OnLowLodCheckedChanged(bool value) {
-            if (value) {
-                MediumLodChecked = false;
-                HighLodChecked = false;
-            }
-        }
-
-        partial void OnMediumLodCheckedChanged(bool value) {
-            if (value) {
-                LowLodChecked = false;
-                HighLodChecked = false;
-            }
-        }
-
-        partial void OnHighLodCheckedChanged(bool value) {
-            if (value) {
-                LowLodChecked = false;
-                MediumLodChecked = false;
-            }
-        }
+        private int linkRoutingIndex;
 
         [ObservableProperty]
         private decimal? nodeCountForSimpleViewValue;
@@ -87,16 +65,20 @@ namespace Foreman.Mac.ViewModels {
         private bool abbreviateSciPackChecked;
 
         [ObservableProperty]
-        private bool showNodeRecipeChecked;
-
-        [ObservableProperty]
         private bool roundAssemblerCountChecked;
 
         [ObservableProperty]
         private bool flagOUSupplyNodesChecked;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(ThemeIndex))]
         private ThemeMode flagDarkMode;
+
+        //The Theme segmented control's index; FlagDarkMode carries the change.
+        public int ThemeIndex {
+            get => (int)FlagDarkMode;
+            set => FlagDarkMode = (ThemeMode)value;
+        }
 
         [ObservableProperty]
         private bool errorArrowsChecked;
@@ -143,17 +125,13 @@ namespace Foreman.Mac.ViewModels {
         [ObservableProperty]
         private decimal? pullConsumerNodesPowerValue;
 
-        //UI Scale ComboBox (Task 3): discrete steps only, so the widget carries a formatted label rather
-        //than the raw double - keeps the XAML side identical in shape to FlagDarkModeDropDown's plain
-        //ItemsSource/SelectedItem binding.
-        private static readonly (string Label, double Scale)[] UiScaleSteps = [
-            ("100%", 1.00), ("110%", 1.10), ("125%", 1.25), ("150%", 1.50), ("200%", 2.00),
-        ];
+        private static readonly string[] ScaleLabels =
+            [.. ScaleContract.Steps.Select(step => string.Format(CultureInfo.InvariantCulture, "{0:0} %", step * 100))];
 
-        public static IReadOnlyList<string> UiScaleLabels { get; } = [.. UiScaleSteps.Select(s => s.Label)];
+        public static IReadOnlyList<string> UiScaleLabels => ScaleLabels;
 
         [ObservableProperty]
-        private string uiScaleLabel = "100%";
+        private string uiScaleLabel = ScaleLabels[0];
 
         //Ports LoadGraphOptionsTab (reference SettingsWindow.axaml.cs): seeds every widget-backing
         //property from an AppSettings snapshot. NodeCountForSimpleView/LowPriorityPower/
@@ -161,9 +139,8 @@ namespace Foreman.Mac.ViewModels {
         //XAML (2000/6/5) - a stale value above the visible range would otherwise show past it.
         public void LoadFrom(AppSettings settings) {
             QualityStepsValue = settings.QualitySteps;
-            LowLodChecked = settings.LevelOfDetail == (int)LevelOfDetail.Low;
-            HighLodChecked = settings.LevelOfDetail == (int)LevelOfDetail.High;
-            MediumLodChecked = !LowLodChecked && !HighLodChecked;
+            LevelOfDetailIndex = Enum.IsDefined(typeof(LevelOfDetail), settings.LevelOfDetail) ? settings.LevelOfDetail : (int)LevelOfDetail.Medium;
+            LinkRoutingIndex = settings.DefaultLinkRouting == LinkRouting.Orthogonal ? 1 : 0;
             NodeCountForSimpleViewValue = Math.Min(2000m, settings.NodeCountForSimpleView);
             IconsSizeValue = settings.IconsSize;
 
@@ -171,7 +148,6 @@ namespace Foreman.Mac.ViewModels {
             SimplePassthroughNodesChecked = settings.SimplePassthroughNodes;
             DynamicLWChecked = settings.DynamicLineWidth;
             AbbreviateSciPackChecked = settings.AbbreviateSciPacks;
-            ShowNodeRecipeChecked = settings.ShowRecipeToolTip;
             RoundAssemblerCountChecked = settings.RoundAssemblerCount;
             FlagOUSupplyNodesChecked = settings.FlagOUSuppliedNodes;
             FlagDarkMode = settings.FlagDarkMode;
@@ -194,15 +170,16 @@ namespace Foreman.Mac.ViewModels {
             PullConsumerNodesChecked = settings.PullConsumerNodes;
             PullConsumerNodesPowerValue = Math.Min(5m, settings.PullConsumerNodesPower);
 
-            UiScaleLabel = UiScaleSteps.OrderBy(step => Math.Abs(step.Scale - settings.UiScale)).First().Label;
+            UiScaleLabel = ScaleLabels[ScaleContract.Steps.Select((step, i) => (Distance: Math.Abs(step - settings.UiScale), Index: i)).Min().Index];
         }
 
         //Ports CommitGraphOptionsTab (reference SettingsWindow.axaml.cs). FlagDarkMode round-trips
-        //losslessly through the tri-state ComboBox - unlike upstream's strictly binary SetDarkMode/
-        //SetLightMode pair, System survives a Confirm that never touched appearance.
+        //losslessly through the tri-state Theme control - unlike upstream's strictly binary SetDarkMode/
+        //SetLightMode pair, System survives an apply that never touched appearance.
         public void ApplyTo(AppSettings settings) {
             settings.QualitySteps = (int)QualityStepsValue.GetValueOrDefault();
-            settings.LevelOfDetail = (int)(LowLodChecked ? LevelOfDetail.Low : HighLodChecked ? LevelOfDetail.High : LevelOfDetail.Medium);
+            settings.LevelOfDetail = LevelOfDetailIndex;
+            settings.DefaultLinkRouting = LinkRoutingIndex == 1 ? LinkRouting.Orthogonal : LinkRouting.Rounded;
             settings.NodeCountForSimpleView = (int)NodeCountForSimpleViewValue.GetValueOrDefault();
             settings.IconsSize = (int)IconsSizeValue.GetValueOrDefault();
 
@@ -210,7 +187,6 @@ namespace Foreman.Mac.ViewModels {
             settings.SimplePassthroughNodes = SimplePassthroughNodesChecked;
             settings.DynamicLineWidth = DynamicLWChecked;
             settings.AbbreviateSciPacks = AbbreviateSciPackChecked;
-            settings.ShowRecipeToolTip = ShowNodeRecipeChecked;
             settings.RoundAssemblerCount = RoundAssemblerCountChecked;
             settings.FlagOUSuppliedNodes = FlagOUSupplyNodesChecked;
             settings.FlagDarkMode = FlagDarkMode;
@@ -233,11 +209,8 @@ namespace Foreman.Mac.ViewModels {
             settings.PullConsumerNodes = PullConsumerNodesChecked;
             settings.PullConsumerNodesPower = PullConsumerNodesPowerValue.GetValueOrDefault();
 
-            //M-7 (final fix wave): FirstOrDefault, not First - UiScaleLabel is free-form storage even
-            //though every real caller only ever puts a list-matching value in it, so a mismatch falls back
-            //to 100% instead of throwing.
-            (string Label, double Scale) fallbackStep = ("100%", 1.0);
-            settings.UiScale = UiScaleSteps.FirstOrDefault(step => step.Label == UiScaleLabel, fallbackStep).Scale;
+            int step = Array.IndexOf(ScaleLabels, UiScaleLabel);
+            settings.UiScale = ScaleContract.Steps[Math.Max(step, 0)];
         }
 
         //--- Restore Defaults ----------------------------------------------------------------------------
@@ -246,14 +219,14 @@ namespace Foreman.Mac.ViewModels {
         private static readonly Dictionary<SettingsPane, string[]> PaneProperties = new() {
             [SettingsPane.General] = [nameof(AssemblerSelectorStyleIndex), nameof(ModuleSelectorStyleIndex), nameof(NodeDirectionIndex),
                 nameof(SmartNodeDirectionChecked), nameof(SimplePassthroughNodesChecked), nameof(RoundAssemblerCountChecked),
-                nameof(QualityStepsValue), nameof(ShowNodeRecipeChecked)],
+                nameof(QualityStepsValue)],
             [SettingsPane.Advanced] = [nameof(ShowProductivityBonusOnAllChecked), nameof(ShowUnavailablesChecked), nameof(LowPriorityPowerValue),
                 nameof(PullConsumerNodesChecked), nameof(PullConsumerNodesPowerValue), nameof(LoadBarrelingChecked)],
             [SettingsPane.Annotations] = [nameof(ErrorArrowsChecked), nameof(WarningArrowsChecked), nameof(DisconnectedArrowsChecked),
                 nameof(OuSuppliedArrowsChecked), nameof(FlagOUSupplyNodesChecked)],
-            [SettingsPane.Appearance] = [nameof(FlagDarkMode), nameof(UiScaleLabel), nameof(LowLodChecked), nameof(MediumLodChecked),
-                nameof(HighLodChecked), nameof(NodeCountForSimpleViewValue), nameof(IconsSizeValue), nameof(ArrowsOnLinksChecked),
-                nameof(DynamicLWChecked), nameof(AbbreviateSciPackChecked)],
+            [SettingsPane.Appearance] = [nameof(FlagDarkMode), nameof(UiScaleLabel), nameof(LinkRoutingIndex), nameof(DynamicLWChecked),
+                nameof(ArrowsOnLinksChecked), nameof(LevelOfDetailIndex), nameof(NodeCountForSimpleViewValue), nameof(IconsSizeValue),
+                nameof(AbbreviateSciPackChecked)],
         };
 
         private static SettingsViewModel Defaults() {

@@ -27,10 +27,8 @@ namespace Foreman.DataCaching.Storage {
         //safe to run from two threads at once against the same not-yet-existing file.
         private static readonly object BootstrapLock = new();
 
-        //Bumped for the Settings.InspectorPinned column (phase 9 C2a Task 3). EnsureCreated only creates
-        //a db from scratch - it never alters an existing file's schema - so a db already on disk needs
-        //its own ALTER TABLE step to pick up a new column; see MigrateToCurrent below.
-        private const int CurrentSchemaVersion = 3;
+        //EnsureCreated never alters an existing file's schema, so each bump needs its own step in MigrateToCurrent.
+        private const int CurrentSchemaVersion = 4;
 
         //Opens (creating if needed) the db at dbPath and seeds SchemaVersion=1 (or migrates a v1 db
         //forward to CurrentSchemaVersion) exactly once; idempotent across repeated calls on the same path.
@@ -72,6 +70,9 @@ namespace Foreman.DataCaching.Storage {
             if (versionRow.Version < 3 && !ColumnExists(context, "Settings", "InspectorPinned")) {
                 context.Database.ExecuteSqlRaw("ALTER TABLE Settings ADD COLUMN InspectorPinned INTEGER NOT NULL DEFAULT 0");
             }
+            if (versionRow.Version < 4) {
+                MigrateToV4(context);
+            }
 
             context.SchemaVersions.Remove(versionRow);
             context.SchemaVersions.Add(new SchemaVersionRow { Version = CurrentSchemaVersion });
@@ -79,6 +80,34 @@ namespace Foreman.DataCaching.Storage {
 
             transaction.Commit();
         }
+
+        private static readonly (string Column, string Definition)[] V4AddedColumns = [
+            ("InspectorWidth", "REAL NOT NULL DEFAULT 300"),
+            ("BrowserWidth", "REAL NOT NULL DEFAULT 760"),
+            ("BrowserHeight", "REAL NOT NULL DEFAULT 520"),
+            ("BrowserItemsGroup", "TEXT NOT NULL DEFAULT ''"),
+            ("BrowserRecipesGroup", "TEXT NOT NULL DEFAULT ''"),
+            ("SettingsEnabledObjectsWidth", "REAL NULL"),
+            ("SettingsEnabledObjectsHeight", "REAL NULL"),
+            ("SettingsAdvancedWidth", "REAL NULL"),
+            ("SettingsAdvancedHeight", "REAL NULL"),
+            ("DefaultLinkRouting", "INTEGER NOT NULL DEFAULT 0"),
+        ];
+
+        private static readonly string[] V4DroppedColumns = ["ShowRecipeToolTip", "RecipeNameOnlyFilter"];
+
+        private static void MigrateToV4(ForemanDbContext context) {
+            foreach ((string column, string definition) in V4AddedColumns) {
+                if (!ColumnExists(context, "Settings", column))
+                    Execute(context, "ALTER TABLE Settings ADD COLUMN " + column + " " + definition);
+            }
+            foreach (string column in V4DroppedColumns) {
+                if (ColumnExists(context, "Settings", column))
+                    Execute(context, "ALTER TABLE Settings DROP COLUMN " + column);
+            }
+        }
+
+        private static void Execute(ForemanDbContext context, string sql) => context.Database.ExecuteSqlRaw(sql);
 
         private static bool ColumnExists(ForemanDbContext context, string table, string column) {
             IDbConnection connection = context.Database.GetDbConnection();

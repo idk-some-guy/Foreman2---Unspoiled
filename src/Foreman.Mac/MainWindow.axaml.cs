@@ -700,7 +700,6 @@ namespace Foreman.Mac {
             context.FlagOUSuppliedNodes = settings.FlagOUSuppliedNodes;
             context.RoundAssemblerCount = settings.RoundAssemblerCount;
             context.AbbreviateSciPacks = settings.AbbreviateSciPacks;
-            context.ShowRecipeToolTip = settings.ShowRecipeToolTip;
 
             settings.IconsSize = Math.Clamp(settings.IconsSize, 8, 256);
             context.IconsDrawSize = settings.IconsSize;
