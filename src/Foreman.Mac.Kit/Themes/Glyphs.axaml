@@ -228,6 +228,9 @@
   <StreamGeometry x:Key="Kit.Glyph.NoResults.16">M10.72,6.56 A4.16,4.16 0 1,1 2.4,6.56 A4.16,4.16 0 1,1 10.72,6.56 Z M4.72,6.56 H8.4 M12,12 L9.52,9.52</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.NoResults.32">M21.44,13.12 A8.32,8.32 0 1,1 4.8,13.12 A8.32,8.32 0 1,1 21.44,13.12 Z M9.44,13.12 H16.8 M24,24 L19.04,19.04</StreamGeometry>
 
+  <!-- Chooser cell's undecodable-icon placeholder (browser icon placeholder ruling 2026-09-24): 20pt master only, scaled by a Viewbox on Glyph20. -->
+  <StreamGeometry x:Key="Kit.Glyph.IconMissing.20">M5,4.5 H15 A2,2 0 0,1 17,6.5 V13.5 A2,2 0 0,1 15,15.5 H5 A2,2 0 0,1 3,13.5 V6.5 A2,2 0 0,1 5,4.5 Z M3.5,12.5 L7,9 L11.5,13.5 M10,12 L12,10 L15.5,13.5 M11.75,7.75 A1.25,1.25 0 1,0 14.25,7.75 A1.25,1.25 0 1,0 11.75,7.75 Z</StreamGeometry>
+
   <!-- Search field's own 13pt step (addendum §04), below the shared Search.16/17/18/20 ladder. -->
   <StreamGeometry x:Key="Kit.Glyph.Search.13">M1.95,5.33 A3.38,3.38 0 1,1 8.71,5.33 A3.38,3.38 0 1,1 1.95,5.33 Z M9.75,9.75 L7.605,7.605</StreamGeometry>
 

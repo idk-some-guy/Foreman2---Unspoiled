@@ -1,175 +1,61 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Foreman.Mac.ViewModels"
-        xmlns:conv="using:Foreman.Mac.Converters"
-        xmlns:motion="using:Foreman.Mac.Kit"
+        xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+        xmlns:kit="using:Foreman.Mac.Kit.Composites"
         x:Class="Foreman.Mac.Views.AddBrowserWindow"
-        x:Name="RootWindow"
         x:DataType="vm:AddBrowserViewModel"
         Title="Add to Graph"
-        Width="760" Height="540" MinWidth="640" MinHeight="440"
+        Width="760" Height="520" MinWidth="760" MinHeight="520"
         WindowStartupLocation="CenterOwner"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaTitleBarHeightHint="44"
         Background="{DynamicResource Foreman.Color.WindowBackground}">
-  <Grid RowDefinitions="Auto,Auto,*,Auto">
-    <Grid Grid.Row="0" Height="{Binding #RootWindow.ExtendClientAreaTitleBarHeightHint}"
-          ColumnDefinitions="Auto,*,Auto" ClipToBounds="True" ZIndex="1"
-          Background="{DynamicResource Foreman.Color.TitlebarBackground}"
-          PointerPressed="OnTitleBarPointerPressed">
-      <TextBlock Grid.Column="0" Text="Add to Graph" Classes="foreman-window-title" VerticalAlignment="Center"
-                 Margin="{Binding #RootWindow.WindowDecorationMargin, Converter={x:Static conv:TrafficLightInsetConverter.Instance}}" />
-      <Border Grid.Column="2" Classes="foreman-seg-mini" VerticalAlignment="Center" Margin="0,0,12,0">
-        <StackPanel Orientation="Horizontal" Spacing="2">
-          <RadioButton Name="ItemsSegment" GroupName="AddBrowserSegment" Content="Items" Classes="foreman-seg-mini-item" />
-          <RadioButton Name="RecipesSegment" GroupName="AddBrowserSegment" Content="Recipes" Classes="foreman-seg-mini-item" />
-        </StackPanel>
-      </Border>
-    </Grid>
-
-    <Border Grid.Row="1" Classes="foreman-browser-toolbar">
-      <Grid ColumnDefinitions="*,Auto,Auto">
-        <Grid Grid.Column="0" ColumnDefinitions="Auto,*" Margin="0,0,10,0">
-          <Viewbox Grid.Column="0" Width="14" Height="14" Margin="0,0,8,0">
-            <Canvas Width="20" Height="20">
-              <Path Data="{StaticResource Foreman.Icon.Search}" Classes="foreman-toolbar-glyph" Fill="{x:Null}" />
-            </Canvas>
-          </Viewbox>
-          <TextBox Grid.Column="1" Name="SearchBox" Classes="foreman-search-field"
-                    Text="{Binding SearchText, Mode=TwoWay}" PlaceholderText="{Binding SearchPlaceholder}" />
-        </Grid>
-        <Border Grid.Column="1" Classes="foreman-filter-chip" IsVisible="{Binding HasChip}" Margin="0,0,10,0">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <TextBlock Text="{Binding ChipText}" Classes="foreman-filter-chip-text" />
-            <Button Content="✕" Classes="foreman-filter-chip-x" Click="OnClearChipClick" />
-          </StackPanel>
-        </Border>
-        <Button Grid.Column="2" Name="QualityButton" Classes="foreman-mini-select" IsVisible="{Binding ShowsQuality}">
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Classes="foreman-mini-select-text" Text="{Binding QualityLabel}" TextTrimming="CharacterEllipsis" />
-            <Path Grid.Column="1" Classes="foreman-chevron" Data="{StaticResource Foreman.Icon.Chevron}" Width="8" Height="5" Margin="6,0,0,0" />
-          </Grid>
-          <Button.Flyout>
-            <Flyout Placement="Bottom">
-              <ItemsControl Name="QualityList" ItemsSource="{Binding Qualities}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Button Classes="foreman-qa-row" Content="{Binding FriendlyName}" Click="OnQualityItemClick" />
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </Flyout>
-          </Button.Flyout>
-        </Button>
+  <DockPanel>
+    <Border Name="ToolbarRow" DockPanel.Dock="Top" Padding="14,8"
+            Background="{DynamicResource Foreman.Color.TitlebarBackground}"
+            BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
+        <ctrl:Segmented Grid.Column="0" Name="ModeSwitch" Theme="{StaticResource Kit.Segmented}" VerticalAlignment="Center" />
+        <ctrl:SearchField Grid.Column="1" Name="SearchBox" Theme="{StaticResource Kit.SearchField}"
+                          MaxWidth="260" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                          Text="{Binding SearchText, Mode=TwoWay}" PlaceholderText="{Binding SearchPlaceholder}" />
+        <ctrl:Chip Grid.Column="2" Name="ConstraintChip" Theme="{StaticResource Kit.Chip}" VerticalAlignment="Center"
+                   MaxWidth="260" Label="{Binding ChipText}" IsVisible="{Binding HasChip}" RemoveAccessibleName="Remove Constraint" />
+        <ctrl:PopUp Grid.Column="3" Name="QualityPopUp" Theme="{StaticResource Kit.PopUp}" VerticalAlignment="Center"
+                    Label="{Binding QualityLabel}" IsVisible="{Binding ShowsQuality}" />
+        <ctrl:MenuButton Grid.Column="4" Name="FilterButton" Theme="{StaticResource Kit.MenuButton}" VerticalAlignment="Center"
+                         Label="Filter" Glyph="{StaticResource Kit.Glyph.Filter.14}" />
       </Grid>
     </Border>
 
-    <DockPanel Grid.Row="2" LastChildFill="True">
-      <Border Name="Sidebar" DockPanel.Dock="Left" Width="{DynamicResource Foreman.Size.BrowserSidebar}" Padding="10,8"
-              Background="{DynamicResource Foreman.Color.SidebarBackground}">
-        <ScrollViewer>
-          <ItemsControl Name="GroupsList" ItemsSource="{Binding Groups}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate DataType="vm:BrowserGroup">
-                <Button Classes="foreman-browser-group" Classes.selected="{Binding IsSelected}">
-                  <Grid ColumnDefinitions="Auto,*">
-                    <Image Grid.Column="0" Source="{Binding Icon}" Width="16" Height="16" />
-                    <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" Margin="8,0,0,0" />
-                  </Grid>
-                </Button>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </ScrollViewer>
-      </Border>
-
-      <!-- Gate fix 8, item 2b: the segment switch cross-fades instead of jumping. Content is bound to
-           Segment itself (not Sections) so only an Items<->Recipes switch retriggers it, never a filter
-           keystroke - those mutate Sections in place without the Segment value changing. ContentTemplate
-           rebinds DataContext to that Content value, so everything inside reaches back to the window's own
-           AddBrowserViewModel by ElementName instead - classic (non-compiled) bindings throughout. -->
-      <TransitioningContentControl Name="SegmentHost" Content="{Binding Segment}">
-        <TransitioningContentControl.PageTransition>
-          <CrossFade Duration="{x:Static motion:Motion.CrossFadeDuration}"
-                     FadeInEasing="{x:Static motion:Motion.CrossFadeEasing}"
-                     FadeOutEasing="{x:Static motion:Motion.CrossFadeEasing}" />
-        </TransitioningContentControl.PageTransition>
-        <TransitioningContentControl.ContentTemplate>
-          <DataTemplate x:CompileBindings="False">
-            <ScrollViewer>
-              <ItemsControl Name="SectionsList" ItemsSource="{Binding DataContext.Sections, ElementName=RootWindow}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate DataType="vm:BrowserSection">
-                    <StackPanel Spacing="0" Margin="12,10,12,0">
-                      <TextBlock Text="{Binding Heading}" Classes="foreman-browser-subhead" />
-                      <!-- Gate fix 8/11, item 2c: each cell fades in once it's actually attached (OnCellLoaded) -
-                           TransitioningContentControl's cross-fade realizes this DataTemplate's content ahead of
-                           the visible swap, so an ItemsControl-level ContainerPrepared here fires against a
-                           throwaway instance; the Button's own Loaded always fires against the real one. -->
-                      <ItemsControl ItemsSource="{Binding Cells}">
-                        <ItemsControl.ItemsPanel>
-                          <ItemsPanelTemplate>
-                            <WrapPanel ItemWidth="{DynamicResource Foreman.Size.BrowserCellPitch}"
-                                       ItemHeight="{DynamicResource Foreman.Size.BrowserCellRowHeight}" />
-                          </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                          <DataTemplate DataType="vm:BrowserCell">
-                            <Button Classes="foreman-browser-cell" Classes.unavailable="{Binding !IsAvailable}" Classes.selected="{Binding IsSelected}"
-                                    ToolTip.Tip="{Binding TooltipText}" Loaded="OnCellLoaded">
-                              <StackPanel Spacing="6" HorizontalAlignment="Center">
-                                <Border Classes="foreman-browser-cell-icon"
-                                        Width="{DynamicResource Foreman.Size.BrowserCell}" Height="{DynamicResource Foreman.Size.BrowserCell}">
-                                  <Image Source="{Binding Icon}" Stretch="Uniform" />
-                                </Border>
-                                <TextBlock Text="{Binding Label}" Classes="foreman-browser-cell-label"
-                                           TextWrapping="Wrap" TextAlignment="Center" />
-                              </StackPanel>
-                            </Button>
-                          </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                      </ItemsControl>
-                    </StackPanel>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </ScrollViewer>
-          </DataTemplate>
-        </TransitioningContentControl.ContentTemplate>
-      </TransitioningContentControl>
-    </DockPanel>
-
-    <Border Grid.Row="3" Classes="foreman-browser-footer">
-      <StackPanel Spacing="10">
-        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding RolesVisible}">
-          <Button Content="Source" Classes="foreman-browser-role" IsVisible="{Binding CanSource}" Click="OnSourceClick" />
-          <Button Content="Pass-Through" Classes="foreman-browser-role" IsVisible="{Binding CanPassthrough}" Click="OnPassthroughClick" />
-          <Button Content="Output" Classes="foreman-browser-role" IsVisible="{Binding CanOutput}" Click="OnOutputClick" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding RolesVisible}">
-          <Button Content="UnSpoil" Classes="foreman-browser-role" IsVisible="{Binding CanUnspoil}" Click="OnUnspoilClick" />
-          <Button Content="UnPlant" Classes="foreman-browser-role" IsVisible="{Binding CanUnplant}" Click="OnUnplantClick" />
-          <Button Content="Spoil" Classes="foreman-browser-role" IsVisible="{Binding CanSpoil}" Click="OnSpoilClick" />
-          <Button Content="Plant" Classes="foreman-browser-role" IsVisible="{Binding CanPlant}" Click="OnPlantClick" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal" Spacing="16">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <ToggleSwitch Name="ShowUnavailableSwitch" Classes="foreman-mini-switch" OnContent="{x:Null}" OffContent="{x:Null}"
-                          IsChecked="{Binding ShowUnavailable, Mode=TwoWay}" />
-            <TextBlock Text="Show Unavailable" Classes="foreman-row-label" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <ToggleSwitch Name="ShowHiddenSwitch" Classes="foreman-mini-switch" OnContent="{x:Null}" OffContent="{x:Null}"
-                          IsChecked="{Binding ShowHidden, Mode=TwoWay}" />
-            <TextBlock Text="Show Hidden" Classes="foreman-row-label" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <ToggleSwitch Name="IgnoreAssemblerSwitch" Classes="foreman-mini-switch" OnContent="{x:Null}" OffContent="{x:Null}"
-                          IsChecked="{Binding IgnoreAssembler, Mode=TwoWay}" />
-            <TextBlock Text="Ignore Assembler" Classes="foreman-row-label" />
-          </StackPanel>
-        </StackPanel>
-      </StackPanel>
+    <Border Name="Sidebar" DockPanel.Dock="Left" Width="{DynamicResource Foreman.Size.BrowserSidebar}" Padding="0,8"
+            Background="{DynamicResource Foreman.Color.SidebarBackground}"
+            BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,0,1,0">
+      <ScrollViewer>
+        <ItemsControl Name="GroupsList" ItemsSource="{Binding Groups}" KeyboardNavigation.TabNavigation="Once">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="vm:BrowserGroup">
+              <ctrl:SidebarRow Theme="{StaticResource Kit.SidebarRow}" Label="{Binding Name}" Icon="{Binding Icon}"
+                               IsSelected="{Binding IsSelected}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
     </Border>
-  </Grid>
+
+    <Grid RowDefinitions="*,Auto">
+      <kit:ChooserGrid Grid.Row="0" Name="Grid" Theme="{StaticResource Kit.ChooserGrid}" />
+      <Border Grid.Row="1" Name="Footer" Padding="16,8"
+              BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,1,0,0">
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+          <TextBlock Grid.Column="0" Name="AddAsLabel" Theme="{StaticResource Kit.Text}" Classes="callout secondary"
+                     Text="Add as" VerticalAlignment="Center" IsVisible="{Binding RolesVisible}" />
+          <ctrl:PopUp Grid.Column="1" Name="RolePopUp" Theme="{StaticResource Kit.PopUp}" VerticalAlignment="Center"
+                      AutomationProperties.Name="Add as" IsVisible="{Binding RolesVisible}" />
+          <TextBlock Grid.Column="2" Name="SelectionCaption" Theme="{StaticResource Kit.Text}" Classes="caption tertiary"
+                     Text="{Binding SelectionCaption}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          <kit:ButtonRow Grid.Column="3" Name="FooterButtons" Theme="{StaticResource Kit.ButtonRow}" VerticalAlignment="Center" />
+        </Grid>
+      </Border>
+    </Grid>
+  </DockPanel>
 </Window>

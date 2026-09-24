@@ -7,6 +7,9 @@ namespace Foreman.Mac.Kit.Composites {
         public IImage? Icon { get; set; }
         public string? Name { get; set; }
         public bool IsEnabled { get; set; } = true;
+        public bool IsAvailable { get; set; } = true;
+        //Set when the icon failed to decode; a null Icon alone still means it is loading.
+        public bool IsIconMissing { get; set; }
     }
 
     //One heading plus the items under it; Group/Subgroup stay apart so the grid can pick either depending on whether a search Query is active.

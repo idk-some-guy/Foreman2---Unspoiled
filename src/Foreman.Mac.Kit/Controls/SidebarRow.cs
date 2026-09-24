@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
@@ -6,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Foreman.Mac.Kit.Controls {
     public class SidebarRow : TemplatedControl {
@@ -16,6 +18,9 @@ namespace Foreman.Mac.Kit.Controls {
 
         public static readonly StyledProperty<Geometry?> GlyphProperty =
             AvaloniaProperty.Register<SidebarRow, Geometry?>(nameof(Glyph));
+
+        public static readonly StyledProperty<IImage?> IconProperty =
+            AvaloniaProperty.Register<SidebarRow, IImage?>(nameof(Icon));
 
         public static readonly StyledProperty<bool> IsSelectedProperty =
             AvaloniaProperty.Register<SidebarRow, bool>(nameof(IsSelected));
@@ -33,6 +38,11 @@ namespace Foreman.Mac.Kit.Controls {
             set => SetValue(GlyphProperty, value);
         }
 
+        public IImage? Icon {
+            get => GetValue(IconProperty);
+            set => SetValue(IconProperty, value);
+        }
+
         public bool IsSelected {
             get => GetValue(IsSelectedProperty);
             set => SetValue(IsSelectedProperty, value);
@@ -46,9 +56,10 @@ namespace Foreman.Mac.Kit.Controls {
         private Border? frame;
         private Border? fill;
         private Border? selectionFill;
-        private StackPanel? iconRow;
+        private DockPanel? iconRow;
         private TextBlock? labelText;
         private Path? glyphPath;
+        private Border? iconWell;
         private bool hovering;
         private bool hasKeyboardFocus;
         private double iconGap = 8;
@@ -67,6 +78,8 @@ namespace Foreman.Mac.Kit.Controls {
             FocusableProperty.OverrideDefaultValue<SidebarRow>(true);
             IsSelectedProperty.Changed.AddClassHandler<SidebarRow>((r, _) => r.ApplyState());
             IsKeyProperty.Changed.AddClassHandler<SidebarRow>((r, e) => r.ApplyState());
+            IconProperty.Changed.AddClassHandler<SidebarRow>((r, _) => r.ApplyIconSlot());
+            AffectsArrange<SidebarRow>(LabelProperty);
             IsPointerOverProperty.Changed.AddClassHandler<SidebarRow>((r, e) => {
                 r.hovering = e.NewValue is true;
                 r.ApplyState();
@@ -91,9 +104,11 @@ namespace Foreman.Mac.Kit.Controls {
             frame = e.NameScope.Find<Border>("PART_Frame");
             fill = e.NameScope.Find<Border>("PART_Fill");
             selectionFill = e.NameScope.Find<Border>("PART_SelectionFill");
-            iconRow = e.NameScope.Find<StackPanel>("PART_IconRow");
+            iconRow = e.NameScope.Find<DockPanel>("PART_IconRow");
             labelText = e.NameScope.Find<TextBlock>("PART_Label");
             glyphPath = e.NameScope.Find<Path>("PART_Glyph");
+            iconWell = e.NameScope.Find<Border>("PART_IconWell");
+            ApplyIconSlot();
             ApplyIconGap();
             ApplyState();
             UpdateRing();
@@ -101,8 +116,27 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void ApplyIconGap() {
             if (iconRow is not null)
-                iconRow.Spacing = iconGap;
+                iconRow.HorizontalSpacing = iconGap;
         }
+
+        private void ApplyIconSlot() {
+            if (glyphPath is not null)
+                glyphPath.IsVisible = Icon is null;
+            if (iconWell is not null)
+                iconWell.IsVisible = Icon is not null;
+        }
+
+        //The label only reports its trim once arranged, and a new label at the same width moves no bounds.
+        protected override Size ArrangeOverride(Size finalSize) {
+            Size arranged = base.ArrangeOverride(finalSize);
+            bool trimmed = labelText is not null && labelText.TextLayout.TextLines.Any(l => l.HasCollapsed);
+            string? tip = trimmed ? Label : null;
+            if (!Equals(ToolTip.GetTip(this), tip))
+                ToolTip.SetTip(this, tip);
+            return arranged;
+        }
+
+        protected override AutomationPeer OnCreateAutomationPeer() => new SidebarRowAutomationPeer(this);
 
         private void UpdateRing() {
             if (frame is not null)
@@ -158,6 +192,13 @@ namespace Foreman.Mac.Kit.Controls {
 
             if (glyphPath is not null)
                 glyphPath.Stroke = glyphForeground;
+        }
+
+        private sealed class SidebarRowAutomationPeer(SidebarRow owner) : ControlAutomationPeer(owner) {
+            protected override string? GetNameCore() {
+                string? name = base.GetNameCore();
+                return string.IsNullOrEmpty(name) ? ((SidebarRow)Owner).Label : name;
+            }
         }
     }
 }

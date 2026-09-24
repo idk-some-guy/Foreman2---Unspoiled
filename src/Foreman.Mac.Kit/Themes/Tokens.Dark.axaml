@@ -128,21 +128,15 @@
   <x:Double x:Key="Foreman.Type.RadialLabel.FontSize">11</x:Double>
   <FontWeight x:Key="Foreman.Type.RadialLabel.FontWeight">600</FontWeight>
 
-  <!-- Per-surface sizes with no ramp-step match; K4 deletes each as its surface migrates onto the ramp. -->
+  <!-- Per-surface sizes with no ramp-step match. -->
   <x:Double x:Key="Foreman.Type.Legacy.About.Name.FontSize">15</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.About.Tagline.FontSize">10.5</x:Double>
   <x:Double x:Key="Foreman.Type.Legacy.About.Version.FontSize">11.5</x:Double>
-  <x:Double x:Key="Foreman.Type.Legacy.Browser.Row.FontSize">12.5</x:Double>
-  <x:Double x:Key="Foreman.Type.Legacy.SearchField.FontSize">12.5</x:Double>
   <!-- Kit.ToolbarItem's icon+label caption; hig-critique ruling keeps it legacy at 9.5, not folded into the ramp. -->
   <x:Double x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontSize">9.5</x:Double>
   <FontWeight x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontWeight">500</FontWeight>
 
-  <!-- Forwarders read only by src/Foreman.Mac/Themes/Foreman.Styles.axaml; K4 deletes each as its surface migrates. -->
   <StaticResource x:Key="Foreman.Type.WindowTitle.FontSize" ResourceKey="Foreman.Type.EmphasizedBody.FontSize" />
-  <StaticResource x:Key="Foreman.Type.WindowTitle.FontWeight" ResourceKey="Foreman.Type.EmphasizedBody.FontWeight" />
-  <StaticResource x:Key="Foreman.Type.Browser.Subhead.FontSize" ResourceKey="Foreman.Type.Caption.FontSize" />
-  <StaticResource x:Key="Foreman.Type.SmallBody.FontSize" ResourceKey="Foreman.Type.Callout.FontSize" />
 
   <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
   <x:Double x:Key="Foreman.Size.InspectorWidthMin">260</x:Double>
@@ -227,7 +221,6 @@
   <!-- Shared 10pt chevron glyph (menu button, pop-up pull-down). -->
   <x:Double x:Key="Foreman.Size.Glyph10">10</x:Double>
 
-  <!-- glyph drawn sizes; scaled by the scale contract; no consumer until K4 -->
   <x:Double x:Key="Foreman.Size.Glyph16">16</x:Double>
   <x:Double x:Key="Foreman.Size.Glyph17">17</x:Double>
   <x:Double x:Key="Foreman.Size.Glyph18">18</x:Double>
@@ -249,10 +242,8 @@
   <!-- Find node ruling §06: viewport inset a match must sit inside before the canvas declines to pan. -->
   <x:Double x:Key="Foreman.Metrics.FindPanMargin">80</x:Double>
 
-  <!-- Overlay sidebar's soft left shadow and a pick cell's selected-ring, both BoxShadows so light/dark
-       can each carry their own opacity. -->
+  <!-- Overlay sidebar's soft left shadow, a BoxShadows so light/dark can each carry their own opacity. -->
   <BoxShadows x:Key="Foreman.Shadow.Sidebar">-2 0 10 0 #40000000</BoxShadows>
-  <BoxShadows x:Key="Foreman.Shadow.PickSelectedRing">0 0 0 1 #0A84FF</BoxShadows>
 
   <x:Double x:Key="Foreman.Size.PaletteWidth">272</x:Double>
   <x:Double x:Key="Foreman.Size.PaletteRowIcon">22</x:Double>
@@ -262,11 +253,7 @@
   <x:Double x:Key="Foreman.Size.BrowserSidebarMax">320</x:Double>
   <x:Double x:Key="Foreman.Size.BrowserCell">40</x:Double>
   <x:Double x:Key="Foreman.Size.ChooserCell">88</x:Double>
-  <!-- Forwarder read only by src/Foreman.Mac/Views/AddBrowserWindow.axaml and Foreman.Styles.axaml; K4 deletes it as the browser migrates. -->
-  <StaticResource x:Key="Foreman.Size.BrowserCellPitch" ResourceKey="Foreman.Size.ChooserCell" />
-  <x:Double x:Key="Foreman.Size.BrowserCellRowHeight">78</x:Double>
   <x:Double x:Key="Foreman.Size.BrowserCellLabelHeight">24</x:Double>
-  <CornerRadius x:Key="Foreman.Radius.SearchField">7</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Pill">100</CornerRadius>
 
   <!-- Sheet overlay (C2c #modals): scrim alpha is identical in both themes, so it isn't a per-theme color. -->
@@ -275,7 +262,7 @@
   <CornerRadius x:Key="Foreman.Radius.SheetBottom">0,0,10,10</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Node">10</CornerRadius>
 
-  <!-- Window chrome shadow; no consumer yet. Alpha confirmed against Shadow.Popover's own (K3): same #3D/#99 pair in both themes. -->
+  <!-- Window chrome shadow; no consumer yet. Alpha confirmed against Shadow.Popover's own: same #3D/#99 pair in both themes. -->
   <BoxShadows x:Key="Foreman.Shadow.Window">0 30 60 -20 #99000000</BoxShadows>
 
   <!-- Canvas node card shadow; cards carry no shadow in dark, so Dark's alpha is zero. -->
@@ -295,7 +282,7 @@
   <!-- Kit.ButtonRow (K3 composites addendum §05): a button never shrinks below this. -->
   <x:Double x:Key="Foreman.Metrics.ButtonMinWidth">64</x:Double>
 
-  <!-- TextField (addendum context, task 6): plain 22pt well field, min-width its own token. -->
+  <!-- TextField (addendum context): plain 22pt well field, min-width its own token. -->
   <x:Double x:Key="Foreman.Metrics.TextFieldMinWidth">84</x:Double>
   <Thickness x:Key="Foreman.Thickness.TextFieldPadding">8,0</Thickness>
 
@@ -330,7 +317,7 @@
 
   <!-- List/sidebar row (addendum §07): three selection states reuse existing color tokens; only bounds are new. -->
   <x:Double x:Key="Foreman.Size.ListRowHeight">26</x:Double>
-  <!-- Recent row (addendum §09): welcome-window library entry, new in K3. -->
+  <!-- Recent row (addendum §09): welcome-window library entry. -->
   <x:Double x:Key="Foreman.Size.RecentRowHeight">46</x:Double>
   <x:Double x:Key="Foreman.Size.RecentRowIcon">30</x:Double>
   <x:Double x:Key="Foreman.Size.SidebarRowHeight">28</x:Double>

@@ -220,7 +220,8 @@ namespace Foreman.Mac.UiTests.Theming {
             int baseline = app.Hub.SubscriberCount;
             var window = new AddBrowserWindow { DataContext = vm };
             window.Show();
-            Assert.True(app.Hub.SubscriberCount > baseline);
+            int shown = app.Hub.SubscriberCount;
+            Assert.True(shown > baseline);
 
             var sidebar = window.FindControl<Border>("Sidebar")!;
             Color beforeColor = ColorOf(sidebar.Background!);
@@ -229,8 +230,9 @@ namespace Foreman.Mac.UiTests.Theming {
 
             Assert.NotEqual(beforeColor, ColorOf(sidebar.Background!));
 
+            //Close hides this window; the kit grid still in its tree keeps its own subscription.
             window.Close();
-            Assert.Equal(baseline, app.Hub.SubscriberCount);
+            Assert.Equal(shown - 1, app.Hub.SubscriberCount);
         }
 
         //MainWindow owns browserIconCache and hands AddBrowserViewModel a bake delegate closed over it -

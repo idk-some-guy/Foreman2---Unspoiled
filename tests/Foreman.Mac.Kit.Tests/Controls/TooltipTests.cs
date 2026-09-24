@@ -40,6 +40,24 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void UnkeyedToolTip_TakesKitTooltipAsItsImplicitTheme() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource(typeof(ToolTip), null, out object? implicitTheme));
+            Assert.Same(KitTooltipTheme(), implicitTheme);
+
+            //A window without the fixture's scoped FluentTheme, so the lookup reaches the application the way the app's windows do.
+            var window = new Window { Width = 200, Height = 100 };
+            var tip = new ToolTip { Content = "Iron chest" };
+            window.Content = tip;
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(fixture.Brush("Foreman.Color.TooltipMaterial").ToImmutable(), tip.Background?.ToImmutable());
+            Assert.Equal(260, tip.MaxWidth);
+            window.Close();
+        }
+
+        [AvaloniaFact]
         public void ReduceTransparency_SwapsBackgroundToOpaqueFallback() {
             using var fixture = new KitFixture();
             var hub = new AppearanceHub((Application)Application.Current!, fixture.Appearance);

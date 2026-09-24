@@ -216,6 +216,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   chip widens the search and places the next node unlinked at the drop point. Return places the node
   and keeps the palette open. A node placed from the palette or the browser flashes once with an
   accent ring so you can see where it landed. Reduce Motion keeps the flash and only softens its fade.
+- The Add to Graph browser is rebuilt on the kit. The Items/Recipes switch moved out of the titlebar
+  into the toolbar row, next to the search field, the Quality pop-up and a new Filter menu. The Filter
+  menu holds Show unavailable, Show hidden and Ignore assembler plus Reset to defaults, and shows how
+  many filters are on. The seven role buttons are now one "Add as" pop-up beside the selection and the
+  Close and Add buttons. It always lists Source, Passthrough, Output, Spoil, Unspoil, Plant and Unplant
+  in that order, dims the roles the selected item can't take, and remembers your last pick; ⌘1 to ⌘7
+  pick the role at that position. Add is the default and double-clicking a cell does the same. The
+  Quality pop-up shows each quality's badge. Cells are a uniform 88 pt with the full name in a tooltip,
+  and unavailable items are dimmed but can still be added. Search results sit under "Group · Subgroup"
+  headings that stay pinned while you scroll. The category sidebar grows to fit its names, trims past
+  its maximum width with the full name as a tooltip and as its VoiceOver name, and moves with ↑↓. When
+  the Filter menu hides every match, the grid says so and offers Show All; a search that matches
+  nothing offers Clear Search. If the preset can't be read or searched, the grid says which and offers
+  Try Again. Try Again keeps the message in place while it retries, and a repeat failure is read out
+  again to VoiceOver. An icon that can't be decoded shows a picture placeholder instead of an empty
+  well. When typing empties the results, focus moves to the panel's button. Opened from a link, the
+  browser explains what the link hides and offers Remove Constraint, Show All or Show Item (add the
+  linked item itself) where one of them helps. Icons that are still loading show a spinner in the grid while the sidebar stays usable. The window's minimum size is 760 × 520, and it
+  remembers its size and last category. ⌘F focuses the search field and Escape closes the window.
 
 ### Fixed
 

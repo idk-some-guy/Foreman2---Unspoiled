@@ -222,6 +222,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         }
 
         private static void Click(AvaloniaWindow window, Control control) {
+            AnimationClock.UntilReflowsSettled(window);
             Avalonia.Point center = new(control.Bounds.Width / 2, control.Bounds.Height / 2);
             Avalonia.Point screen = Avalonia.VisualExtensions.TranslatePoint(control, center, window) ?? center;
             window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);

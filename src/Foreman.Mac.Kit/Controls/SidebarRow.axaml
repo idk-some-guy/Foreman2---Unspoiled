@@ -24,11 +24,12 @@
                     Opacity="0"
                     IsHitTestVisible="False"
                     Transitions="{x:Static m:Motion.RowSelectionTransitions}" />
-            <StackPanel x:Name="PART_IconRow"
-                        Orientation="Horizontal"
-                        VerticalAlignment="Center"
-                        Margin="{DynamicResource Foreman.Thickness.SidebarRowPadding}">
+            <DockPanel x:Name="PART_IconRow"
+                       LastChildFill="True"
+                       VerticalAlignment="Center"
+                       Margin="{DynamicResource Foreman.Thickness.SidebarRowPadding}">
               <Path x:Name="PART_Glyph"
+                    DockPanel.Dock="Left"
                     Data="{TemplateBinding Glyph}"
                     Width="{DynamicResource Foreman.Size.Glyph17}"
                     Height="{DynamicResource Foreman.Size.Glyph17}"
@@ -36,11 +37,25 @@
                     StrokeThickness="1.5"
                     StrokeLineCap="Round"
                     StrokeJoin="Round" />
+              <Border x:Name="PART_IconWell"
+                      DockPanel.Dock="Left"
+                      IsVisible="False"
+                      Width="{DynamicResource Foreman.Size.Glyph18}"
+                      Height="{DynamicResource Foreman.Size.Glyph18}"
+                      CornerRadius="{DynamicResource Foreman.Radius.ListRowIcon}"
+                      BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
+                      BorderThickness="1"
+                      ClipToBounds="True">
+                <Image Source="{TemplateBinding Icon}" Stretch="Uniform" />
+              </Border>
               <TextBlock x:Name="PART_Label"
                          Text="{TemplateBinding Label}"
                          FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
+                         TextTrimming="CharacterEllipsis"
+                         TextWrapping="NoWrap"
+                         MaxLines="1"
                          VerticalAlignment="Center" />
-            </StackPanel>
+            </DockPanel>
           </Panel>
         </Border>
       </ControlTemplate>

@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
@@ -501,6 +502,63 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal("Menlo", labels[1].FontFamily.Name);
             Assert.False(labels[2].IsSet(TextBlock.FontFamilyProperty));
             Assert.Equal(popup.Menu.FontFamily, labels[2].FontFamily);
+        }
+
+        [AvaloniaFact]
+        public void EmptyList_RendersDisabled_ReadingNoOptions_AndReenablesWhenFilled() {
+            using var fixture = new KitFixture();
+            PopUp popup = Themed();
+            popup.Label = "Quality: Normal";
+            fixture.Window.Content = popup;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(popup.IsEnabled);
+            Assert.Equal("No options", popup.DisplayText);
+            Assert.Equal("No options", Label(popup).Text);
+
+            popup.Items.Add("Normal");
+            Assert.True(popup.IsEnabled);
+            Assert.Equal("Quality: Normal", popup.DisplayText);
+
+            popup.IsEnabled = false;
+            popup.Items.Clear();
+            popup.Items.Add("Normal");
+            Assert.False(popup.IsEnabled);
+        }
+
+        [AvaloniaFact]
+        public void DisabledItems_StayListedButCannotBeChosenByPointerOrArrows_AndReadAsDisabled() {
+            using var fixture = new KitFixture();
+            PopUp popup = Themed("Source", "Passthrough", "Output");
+            popup.DisabledItems.Add("Passthrough");
+            var command = new TestCommand();
+            popup.Command = command;
+            fixture.Window.Content = popup;
+            fixture.StateOf(popup).Focus();
+
+            fixture.StateOf(popup).KeyDown(Key.Down);
+            Assert.Equal("Output", popup.SelectedItem);
+            fixture.StateOf(popup).KeyDown(Key.Up);
+            Assert.Equal("Source", popup.SelectedItem);
+
+            fixture.StateOf(popup).KeyDown(Key.Space);
+            Assert.Equal(["Source", "Passthrough", "Output"], popup.Menu.Items.Select(r => r.Text));
+            Assert.Equal([true, false, true], popup.Menu.Items.Select(r => r.IsEnabled));
+            fixture.StateOf(popup).KeyDown(Key.Down);
+            Assert.Equal(2, popup.Menu.HighlightedIndex);
+
+            Border passthrough = popup.Menu.GetVisualDescendants().OfType<Border>()
+                .Single(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Passthrough");
+            Assert.False(ControlAutomationPeer.CreatePeerForElement(passthrough).IsEnabled());
+            command.Invoked = false;
+            fixture.StateOf(passthrough).Click();
+            Assert.Equal("Source", popup.SelectedItem);
+            Assert.False(command.Invoked);
+
+            popup.SelectedItem = "Passthrough";
+            popup.IsOpen = false;
+            popup.IsOpen = true;
+            Assert.Equal(0, popup.Menu.HighlightedIndex);
         }
     }
 

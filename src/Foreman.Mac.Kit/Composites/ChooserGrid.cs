@@ -352,6 +352,8 @@ namespace Foreman.Mac.Kit.Composites {
                 Label = item.Name,
                 FullName = item.Name,
                 IsEnabled = item.IsEnabled,
+                IsUnavailable = !item.IsAvailable,
+                IsIconMissing = item.IsIconMissing,
                 Margin = new Thickness(0, 0, 8, 8),
             };
             if (cellTheme is not null)

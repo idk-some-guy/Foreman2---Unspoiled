@@ -49,6 +49,9 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<bool> MovesFocusOnAppearProperty =
             AvaloniaProperty.Register<StatePanel, bool>(nameof(MovesFocusOnAppear));
 
+        public static readonly StyledProperty<TimeSpan> LoadingDelayProperty =
+            AvaloniaProperty.Register<StatePanel, TimeSpan>(nameof(LoadingDelay), Motion.StatePanelDelay);
+
         public static readonly DirectProperty<StatePanel, bool> IsCompactProperty =
             AvaloniaProperty.RegisterDirect<StatePanel, bool>(nameof(IsCompact), o => o.IsCompact);
 
@@ -65,6 +68,9 @@ namespace Foreman.Mac.Kit.Composites {
 
         //Opt-in: moves focus to the primary button on appear; left false, Return still activates it wherever focus already is.
         public bool MovesFocusOnAppear { get => GetValue(MovesFocusOnAppearProperty); set => SetValue(MovesFocusOnAppearProperty, value); }
+
+        //A host that already waited out the grace before showing .loading sets this to zero.
+        public TimeSpan LoadingDelay { get => GetValue(LoadingDelayProperty); set => SetValue(LoadingDelayProperty, value); }
 
         private bool isCompact;
         public bool IsCompact { get => isCompact; private set => SetAndRaise(IsCompactProperty, ref isCompact, value); }
@@ -380,13 +386,17 @@ namespace Foreman.Mac.Kit.Composites {
 
         //Fades in on the cross-fade clock; .loading also waits StatePanelDelay so a fast solve never flashes one.
         private void ApplyAppear() {
-            TimeSpan delay = Shape == StatePanelShape.Loading ? Motion.StatePanelDelay : TimeSpan.Zero;
+            TimeSpan delay = Shape == StatePanelShape.Loading ? LoadingDelay : TimeSpan.Zero;
             Opacity = 0;
             Transitions = Motion.Transition(TransitionKind.CrossFade, Motion.CrossFadeDuration, delay: delay);
             Opacity = 1;
             if (MovesFocusOnAppear)
                 Dispatcher.UIThread.Post(FocusPrimary, DispatcherPriority.Loaded);
         }
+
+        //The same shape shown again (a repeat failure): the live region speaks it once more, with no fade.
+        public void Reannounce() =>
+            ControlAutomationPeer.CreatePeerForElement(this).RaisePropertyChangedEvent(AutomationElementIdentifiers.NameProperty, null, Headline);
 
         private void FocusPrimary() => Buttons?.ResolveDefaultButton()?.Focus();
     }

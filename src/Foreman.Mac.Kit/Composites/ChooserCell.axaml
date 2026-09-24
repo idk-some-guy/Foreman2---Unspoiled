@@ -26,7 +26,25 @@
                     BorderThickness="1"
                     ClipToBounds="True"
                     HorizontalAlignment="Center">
-              <Image x:Name="PART_Icon" Stretch="Uniform" Source="{TemplateBinding Icon}" />
+              <Panel>
+                <Image x:Name="PART_Icon" Stretch="Uniform" Source="{TemplateBinding Icon}" />
+                <Viewbox x:Name="PART_Placeholder"
+                         Width="{DynamicResource Foreman.Size.Glyph20}"
+                         Height="{DynamicResource Foreman.Size.Glyph20}"
+                         Stretch="Uniform" StretchDirection="Both"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         IsHitTestVisible="False"
+                         AutomationProperties.AccessibilityView="Raw"
+                         IsVisible="False">
+                  <Path x:Name="PART_PlaceholderGlyph"
+                        Theme="{StaticResource Kit.Glyph}"
+                        Data="{StaticResource Kit.Glyph.IconMissing.20}"
+                        Width="20" Height="20"
+                        Stretch="None"
+                        AutomationProperties.AccessibilityView="Raw" />
+                </Viewbox>
+              </Panel>
             </Border>
             <TextBlock x:Name="PART_Label"
                        Theme="{StaticResource Kit.Text}"
@@ -58,6 +76,22 @@
     </Style>
     <Style Selector="^:disabled">
       <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+    <!-- The frame dims, not the cell: the cell's own Opacity is the entrance fade's. -->
+    <Style Selector="^:unavailable /template/ Border#PART_Frame">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Unavailable}" />
+    </Style>
+    <Style Selector="^:icon-missing /template/ Border#PART_IconFrame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.WellBackground}" />
+    </Style>
+    <Style Selector="^:icon-missing /template/ Image#PART_Icon">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:icon-missing /template/ Viewbox#PART_Placeholder">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:selected /template/ Path#PART_PlaceholderGlyph">
+      <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.TextSecondary}" />
     </Style>
     <Style Selector="^.entering">
       <Setter Property="Opacity" Value="0" />

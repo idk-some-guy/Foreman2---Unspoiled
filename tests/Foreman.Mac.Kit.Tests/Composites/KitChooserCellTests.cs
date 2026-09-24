@@ -3,6 +3,7 @@ using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -226,6 +227,96 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
             Assert.True(invoked);
         }
+
+        [AvaloniaFact]
+        public void Unavailable_DimsTheFrameToTheUnavailableToken_StaysEnabled_AndReadsUnavailable() {
+            using var fixture = new KitFixture();
+            ChooserCell cell = Themed();
+            cell.FullName = "Steel chest";
+            fixture.Window.Content = cell;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, Frame(cell).Opacity);
+
+            cell.IsUnavailable = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Application.Current!.TryGetResource("Foreman.Opacity.Unavailable", Application.Current.ActualThemeVariant, out object? unavailable);
+            Assert.Equal(Assert.IsType<double>(unavailable), Frame(cell).Opacity);
+            Assert.True(cell.IsEnabled);
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(cell);
+            Assert.True(peer.IsEnabled());
+            Assert.Equal("Steel chest", peer.GetName());
+            Assert.Equal("Unavailable", peer.GetHelpText());
+
+            cell.IsUnavailable = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, Frame(cell).Opacity);
+            Assert.NotEqual("Unavailable", peer.GetHelpText());
+        }
+
+        private static Viewbox Placeholder(ChooserCell cell) =>
+            cell.GetVisualDescendants().OfType<Viewbox>().Single(v => v.Name == "PART_Placeholder");
+
+        private static Image IconImage(ChooserCell cell) =>
+            cell.GetVisualDescendants().OfType<Image>().Single(i => i.Name == "PART_Icon");
+
+        private static bool IsTransparent(IBrush? brush) =>
+            brush is null || (brush is ISolidColorBrush solid && solid.Color.A == 0);
+
+        [AvaloniaFact]
+        public void IconMissing_DrawsThePictureGlyphAtTwentyCentredInAWellFilledFrame_AndReadsTheLabelAlone() {
+            using var fixture = new KitFixture();
+            ChooserCell cell = Themed();
+            cell.Label = "Iron Plate";
+            cell.FullName = "Iron Plate";
+            cell.IsIconMissing = true;
+            fixture.Window.Content = cell;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Contains(":icon-missing", cell.Classes);
+            Viewbox placeholder = Placeholder(cell);
+            Assert.True(placeholder.IsVisible);
+            Assert.False(IconImage(cell).IsVisible);
+            Path glyph = placeholder.GetVisualDescendants().OfType<Path>().Single();
+            Assert.True(Application.Current!.TryGetResource("Kit.Glyph.IconMissing.20", null, out object? data));
+            Assert.Same(data, glyph.Data);
+            Assert.Equal(fixture.Brush("Foreman.Color.TextTertiary").ToImmutable(), glyph.Stroke?.ToImmutable());
+
+            Border iconFrame = IconFrame(cell);
+            Assert.Equal(fixture.Brush("Foreman.Color.WellBackground").ToImmutable(), iconFrame.Background?.ToImmutable());
+            Point topLeft = placeholder.TranslatePoint(new Point(0, 0), iconFrame) ?? default;
+            Assert.Equal(20, placeholder.Bounds.Width, 0.5);
+            Assert.Equal(20, placeholder.Bounds.Height, 0.5);
+            Assert.Equal((iconFrame.Bounds.Width - 20) / 2, topLeft.X, 0.5);
+            Assert.Equal((iconFrame.Bounds.Height - 20) / 2, topLeft.Y, 0.5);
+
+            Assert.Equal("Iron Plate", Label(cell).Text);
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(cell);
+            Assert.Equal("Iron Plate", peer.GetName());
+            Assert.DoesNotContain("icon", peer.GetName(), System.StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("missing", peer.GetName(), System.StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(peer.GetChildren(), c => c.GetName() is { Length: > 0 } || c.GetAutomationControlType() == AutomationControlType.Image);
+
+            cell.IsSelected = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(fixture.Brush("Foreman.Color.TextSecondary").ToImmutable(), glyph.Stroke?.ToImmutable());
+        }
+
+        [AvaloniaFact]
+        public void PendingIcon_KeepsTheWellTransparent_WithNoPlaceholder() {
+            using var fixture = new KitFixture();
+            ChooserCell cell = Themed();
+            cell.Label = "Iron Plate";
+            cell.FullName = "Iron Plate";
+            fixture.Window.Content = cell;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.DoesNotContain(":icon-missing", cell.Classes);
+            Assert.False(Placeholder(cell).IsVisible);
+            Assert.True(IsTransparent(IconFrame(cell).Background));
+            Assert.Equal("Iron Plate", Label(cell).Text);
+            Assert.Equal("Iron Plate", ControlAutomationPeer.CreatePeerForElement(cell).GetName());
+        }
     }
 
     [Collection(KitScaleGroup.Name)]
@@ -249,6 +340,27 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(60, iconFrame.Width);
             Assert.Equal(radiusBefore, frame.CornerRadius);
             Assert.Equal(new CornerRadius(8), iconFrame.CornerRadius);
+        }
+
+        [AvaloniaFact]
+        public void IconMissing_PlaceholderScalesToThirtyInsideTheSixtyWell() {
+            using var fixture = new KitFixture();
+            Assert.True(Application.Current!.TryGetResource("Kit.ChooserCell", null, out object? theme));
+            var cell = new ChooserCell { Theme = (ControlTheme)theme!, IsIconMissing = true };
+            fixture.Window.Content = cell;
+            Dispatcher.UIThread.RunJobs();
+
+            ScaleContract.Apply(1.5);
+            Dispatcher.UIThread.RunJobs();
+
+            Border iconFrame = cell.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_IconFrame");
+            Viewbox placeholder = cell.GetVisualDescendants().OfType<Viewbox>().Single(v => v.Name == "PART_Placeholder");
+            Assert.Equal(60, iconFrame.Bounds.Width, 0.5);
+            Assert.Equal(30, placeholder.Bounds.Width, 0.5);
+            Assert.Equal(30, placeholder.Bounds.Height, 0.5);
+            Point topLeft = placeholder.TranslatePoint(new Point(0, 0), iconFrame) ?? default;
+            Assert.Equal(15, topLeft.X, 0.5);
+            Assert.Equal(15, topLeft.Y, 0.5);
         }
     }
 }

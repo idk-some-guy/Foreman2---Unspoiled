@@ -6,7 +6,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
-using Avalonia.Styling;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -110,8 +109,6 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void Subscribe() {
             Unsubscribe();
-            //The tip's ToolTip finds its implicit theme through the chip, so the kit look reaches it without a global style.
-            subs.Add(this.GetResourceObservable("Kit.Tooltip").Subscribe(new ResourceSinks.Sink<ControlTheme?>(theme => Resources[typeof(ToolTip)] = theme, null)));
             subs.Add(this.GetResourceObservable("Foreman.Opacity.ChipCloseIdle").Subscribe(new ResourceSinks.DoubleSink(v => { glyphIdleOpacity = v; ApplyCloseState(); }, glyphIdleOpacity)));
         }
 

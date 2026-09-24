@@ -63,6 +63,17 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void AnItemMarkedIconMissing_BuildsItsCellIconMissing_AndOnlyThatCell() {
+            using var fixture = new KitFixture();
+            ChooserGrid grid = TwoSectionGrid();
+            grid.Sections[0].Items[1].IsIconMissing = true;
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(["Copper plate"], Cells(grid).Where(c => c.IsIconMissing).Select(c => c.FullName));
+        }
+
+        [AvaloniaFact]
         public void AutoFillColumns_WrapsAtThePitchAndStaysLeadingAligned() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
@@ -601,6 +612,33 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             fixture.StateOf(grid).Type("I");
 
             Assert.Equal(grid.Sections[0].Items[0], grid.SelectedItem); //Iron plate, not Ice pack
+        }
+
+        [AvaloniaFact]
+        public void UnavailableItem_IsDimmedButChoosable_AClickSelectsIt_AndReturnActivatesIt() {
+            using var fixture = new KitFixture();
+            ChooserGrid grid = TwoSectionGrid();
+            ChooserItem steel = grid.Sections[0].Items[2];
+            steel.IsAvailable = false;
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+
+            ChooserCell cell = Cells(grid).Single(c => c.FullName == "Steel plate");
+            Assert.True(cell.IsUnavailable);
+            Assert.True(cell.IsEnabled);
+            Border frame = cell.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Frame");
+            Application.Current!.TryGetResource("Foreman.Opacity.Unavailable", Application.Current.ActualThemeVariant, out object? unavailable);
+            Assert.Equal(Assert.IsType<double>(unavailable), frame.Opacity);
+            Assert.All(Cells(grid).Where(c => c != cell), c => Assert.False(c.IsUnavailable));
+
+            fixture.StateOf(cell).Click();
+            Assert.Same(steel, grid.SelectedItem);
+
+            ChooserItem? activated = null;
+            grid.Activated += (_, item) => activated = item;
+            fixture.StateOf(grid).KeyDown(Key.Return);
+            Assert.Same(steel, activated);
         }
     }
 }

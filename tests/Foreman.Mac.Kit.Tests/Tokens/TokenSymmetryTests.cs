@@ -38,7 +38,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Empty(onlyInLight);
             Assert.Empty(onlyInDark);
-            Assert.Equal(284, lightKeys.Count);
+            Assert.Equal(275, lightKeys.Count);
         }
 
         //Ruling §06 token 1: the find ring is Accent at 55 % dark / 50 % light, never NodeSelected amber or the 16 % AccentSoft fill.

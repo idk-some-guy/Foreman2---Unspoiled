@@ -288,7 +288,8 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Contains(label.TextLayout.TextLines, l => l.HasCollapsed);
             Assert.Equal(LongLabel, ToolTip.GetTip(chip));
             Assert.False(ToolTip.GetServiceEnabled(CloseBox(chip)));
-            Assert.True(chip.TryFindResource(typeof(ToolTip), out object? tipTheme));
+            Assert.False(chip.Resources.ContainsKey(typeof(ToolTip)));
+            Assert.True(Application.Current!.TryGetResource(typeof(ToolTip), null, out object? tipTheme));
             Assert.Same(KitTheme("Kit.Tooltip"), tipTheme);
             Assert.Equal(LongLabel, ControlAutomationPeer.CreatePeerForElement(chip).GetName());
         }

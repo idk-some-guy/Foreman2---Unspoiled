@@ -82,10 +82,14 @@ namespace Foreman.Mac.Kit.Controls {
         //Parallel to Items, matched by index - the face each menu row draws its label in (a font menu). Unset keeps the menu's own.
         public AvaloniaList<FontFamily?> ItemFontFamilies { get; } = [];
 
+        //Listed but dimmed and unchoosable, so menu positions (and any shortcuts onto them) never shift.
+        public AvaloniaList<string> DisabledItems { get; } = [];
+
         public MenuPanel Menu { get; } = new();
 
         static PopUp() {
             FocusableProperty.OverrideDefaultValue<PopUp>(true);
+            IsEnabledProperty.OverrideMetadata<PopUp>(new StyledPropertyMetadata<bool>(coerce: (o, enabled) => enabled && ((PopUp)o).Items.Count > 0));
             IsPullDownProperty.Changed.AddClassHandler<PopUp>((p, _) => p.PseudoClasses.Set(":pulldown", p.IsPullDown));
             IsOpenProperty.Changed.AddClassHandler<PopUp>((p, e) => p.OnIsOpenChanged((bool)e.NewValue!));
             IconProperty.Changed.AddClassHandler<PopUp>((p, _) => p.PseudoClasses.Set(":hasicon", p.Icon is not null));
@@ -98,6 +102,12 @@ namespace Foreman.Mac.Kit.Controls {
             Items.CollectionChanged += OnItemsChanged;
             ItemIcons.CollectionChanged += OnItemsChanged;
             ItemFontFamilies.CollectionChanged += OnItemsChanged;
+            DisabledItems.CollectionChanged += OnItemsChanged;
+            Items.CollectionChanged += (_, _) => {
+                CoerceValue(IsEnabledProperty);
+                UpdateDisplayText();
+            };
+            CoerceValue(IsEnabledProperty);
             UpdateDisplayText();
         }
 
@@ -130,7 +140,9 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e) => RebuildMenu();
 
-        private void UpdateDisplayText() => SetAndRaise(DisplayTextProperty, ref displayText, Label ?? SelectedItem);
+        private void UpdateDisplayText() => SetAndRaise(DisplayTextProperty, ref displayText, Items.Count == 0 ? "No options" : Label ?? SelectedItem);
+
+        private bool IsChoosable(int index) => index >= 0 && index < Items.Count && !DisabledItems.Contains(Items[index]);
 
         private void RebuildMenu() {
             Menu.Items.Clear();
@@ -141,6 +153,7 @@ namespace Foreman.Mac.Kit.Controls {
                     IsChecked = captured == SelectedItem,
                     Icon = i < ItemIcons.Count ? ItemIcons[i] : null,
                     FontFamily = i < ItemFontFamilies.Count ? ItemFontFamilies[i] : null,
+                    IsEnabled = !DisabledItems.Contains(captured),
                     Activate = () => Commit(captured),
                 });
             }
@@ -166,7 +179,7 @@ namespace Foreman.Mac.Kit.Controls {
 
             RebuildMenu();
             int current = Items.ToList().IndexOf(SelectedItem ?? "");
-            Menu.HighlightedIndex = current >= 0 ? current : (Items.Count > 0 ? 0 : -1);
+            Menu.HighlightedIndex = IsChoosable(current) ? current : Enumerable.Range(0, Items.Count).FirstOrDefault(IsChoosable, -1);
         }
 
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
@@ -230,8 +243,12 @@ namespace Foreman.Mac.Kit.Controls {
                 return;
 
             int current = Items.ToList().IndexOf(SelectedItem ?? "");
-            int next = Math.Clamp((current < 0 ? 0 : current) + step, 0, Items.Count - 1);
-            Commit(Items[next]);
+            for (int next = (current < 0 ? 0 : current) + step; next >= 0 && next < Items.Count; next += step) {
+                if (IsChoosable(next)) {
+                    Commit(Items[next]);
+                    return;
+                }
+            }
         }
     }
 }

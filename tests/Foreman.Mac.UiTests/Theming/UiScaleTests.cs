@@ -144,8 +144,8 @@ namespace Foreman.Mac.UiTests.Theming {
             WindowScaler.SetScale(1.5);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(960.0, window.MinWidth);
-            Assert.Equal(660.0, window.MinHeight);
+            Assert.Equal(1140.0, window.MinWidth);
+            Assert.Equal(780.0, window.MinHeight);
         }
 
         [AvaloniaFact]
@@ -175,8 +175,8 @@ namespace Foreman.Mac.UiTests.Theming {
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(960.0, window.MinWidth);
-            Assert.Equal(660.0, window.MinHeight);
+            Assert.Equal(1140.0, window.MinWidth);
+            Assert.Equal(780.0, window.MinHeight);
         }
 
         [AvaloniaFact]

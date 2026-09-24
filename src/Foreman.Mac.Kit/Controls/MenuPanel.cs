@@ -175,6 +175,7 @@ namespace Foreman.Mac.Kit.Controls {
                     Padding = itemPadding,
                     CornerRadius = itemRadius,
                     Cursor = item.IsEnabled ? HandCursor : Cursor.Default,
+                    IsEnabled = item.IsEnabled,
                     Child = content,
                 };
                 AutomationProperties.SetName(row, item.Text);

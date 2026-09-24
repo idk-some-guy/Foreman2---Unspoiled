@@ -447,6 +447,45 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void Reannounce_OnAShownError_RaisesTheLiveRegionNameChange_WithoutRefadingOrRestartingTransitions() {
+            using var fixture = new KitFixture();
+            StatePanel panel = NewPanel(StatePanelShape.Error, headline: "Couldn’t search this preset");
+            Shown(panel);
+            AnimationClock.Settle(250);
+            Assert.Equal(1, panel.Opacity);
+            Transitions? transitions = panel.Transitions;
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(panel);
+            var raised = new System.Collections.Generic.List<AutomationPropertyChangedEventArgs>();
+            peer.PropertyChanged += (_, e) => raised.Add(e);
+            int opacityWrites = 0;
+            panel.PropertyChanged += (_, e) => { if (e.Property == Visual.OpacityProperty) opacityWrites++; };
+
+            panel.Reannounce();
+
+            AutomationPropertyChangedEventArgs change = Assert.Single(raised);
+            Assert.Equal(AutomationElementIdentifiers.NameProperty, change.Property);
+            Assert.Equal("Couldn’t search this preset", change.NewValue);
+            Assert.Equal(1, panel.Opacity);
+            Assert.Equal(0, opacityWrites);
+            Assert.Same(transitions, panel.Transitions);
+        }
+
+        [AvaloniaFact]
+        public void LoadingDelay_Zero_AppearsWithoutTheGrace_TheDefaultIsStatePanelDelay() {
+            using var fixture = new KitFixture();
+            Assert.Equal(Motion.StatePanelDelay, NewPanel(StatePanelShape.Loading).LoadingDelay);
+            StatePanel panel = NewPanel(StatePanelShape.Loading);
+            panel.LoadingDelay = TimeSpan.Zero;
+            Shown(panel);
+
+            var opacity = Assert.Single(panel.Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
+            Assert.Equal(TimeSpan.Zero, opacity.Delay);
+            AnimationClock.Settle(250);
+            Assert.Equal(1, panel.Opacity);
+        }
+
+        [AvaloniaFact]
         public void Detach_Reattach_ResubscribesTheGlyphResource() {
             using var fixture = new KitFixture();
             StatePanel panel = NewPanel(StatePanelShape.Empty);

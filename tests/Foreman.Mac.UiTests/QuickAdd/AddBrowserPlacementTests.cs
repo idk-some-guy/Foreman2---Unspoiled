@@ -7,6 +7,7 @@ using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
@@ -27,6 +28,9 @@ namespace Foreman.Mac.UiTests.QuickAdd {
     //temperature filtering, and link-drag tab-offset coverage were re-covered through the palette path
     //instead (QuickAddCanvasTests.cs, AddBrowserWindowTests.cs, AddCatalogTests.cs - Task 7).
     public sealed class AddBrowserPlacementTests {
+        private static ChooserCell CellFor(AddBrowserWindow window, BrowserCell cell) =>
+            window.GetVisualDescendants().OfType<ChooserCell>().First(c => c.FullName == cell.Label);
+
         [AvaloniaFact]
         public void SourcePassthroughOutputPlaceTheMatchingNodeKinds_AndKeepTheWindowOpen() {
             using ShellFixture shell = ShellFixture.Open();
@@ -149,8 +153,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Dispatcher.UIThread.RunJobs();
 
             AddBrowserWindow window = shell.Window.BrowserWindow!;
-            Button cellButton = window.GetVisualDescendants().OfType<Button>()
-                .First(b => b.DataContext is BrowserCell bc && bc.Candidate.Equals(originCell.Candidate));
+            ChooserCell cellButton = CellFor(window, originCell);
             CanvasKeys.KeyDownOn(cellButton, Key.Enter);
 
             SpoilNode node = Assert.Single(shell.Graph.Nodes.OfType<SpoilNode>());
@@ -259,8 +262,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Dispatcher.UIThread.RunJobs();
 
             AddBrowserWindow window = shell.Window.BrowserWindow!;
-            Button cellButton = window.GetVisualDescendants().OfType<Button>()
-                .First(b => b.DataContext is BrowserCell bc && bc.Candidate.Equals(cell.Candidate));
+            ChooserCell cellButton = CellFor(window, cell);
             RealClick.On(cellButton);
 
             Assert.Single(shell.Graph.Nodes.OfType<RecipeNode>());
@@ -281,8 +283,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             AnimationClock.Settle();
 
             AddBrowserWindow window = shell.Window.BrowserWindow!;
-            Button cellButton = window.GetVisualDescendants().OfType<Button>()
-                .First(b => b.DataContext is BrowserCell bc && bc.Candidate.Equals(cell.Candidate));
+            ChooserCell cellButton = CellFor(window, cell);
             RealClick.DoubleClick(cellButton);
 
             Assert.Single(shell.Graph.Nodes.OfType<RecipeNode>());
@@ -298,8 +299,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Dispatcher.UIThread.RunJobs();
 
             AddBrowserWindow window = shell.Window.BrowserWindow!;
-            Button cellButton = window.GetVisualDescendants().OfType<Button>()
-                .First(b => b.DataContext is BrowserCell bc && bc.Candidate.Equals(cell.Candidate));
+            ChooserCell cellButton = CellFor(window, cell);
             RealClick.TwoSeparateClicks(cellButton);
 
             Assert.Equal(2, shell.Graph.Nodes.OfType<RecipeNode>().Count());
@@ -314,8 +314,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Dispatcher.UIThread.RunJobs();
 
             AddBrowserWindow window = shell.Window.BrowserWindow!;
-            Button cellButton = window.GetVisualDescendants().OfType<Button>()
-                .First(b => b.DataContext is BrowserCell bc && bc.Candidate.Equals(cell.Candidate));
+            ChooserCell cellButton = CellFor(window, cell);
             RealClick.On(cellButton);
 
             Assert.Empty(shell.Graph.Nodes);
@@ -332,8 +331,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Dispatcher.UIThread.RunJobs();
 
             AddBrowserWindow window = shell.Window.BrowserWindow!;
-            Button cellButton = window.GetVisualDescendants().OfType<Button>()
-                .First(b => b.DataContext is BrowserCell bc && bc.Candidate.Equals(cell.Candidate));
+            ChooserCell cellButton = CellFor(window, cell);
             CanvasKeys.KeyDownOn(cellButton, Key.Enter);
 
             Assert.Single(shell.Graph.Nodes);

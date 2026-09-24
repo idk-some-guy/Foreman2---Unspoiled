@@ -28,4 +28,6 @@
     </Setter>
   </ControlTheme>
 
+  <StaticResource x:Key="{x:Type ToolTip}" ResourceKey="Kit.Tooltip" />
+
 </ResourceDictionary>

@@ -70,5 +70,11 @@ namespace Foreman.Mac.Services {
 
         //Logical units, independent of UiScale; clamped 260-380 on read (SettingsService.HealLoadedDefaults).
         public double InspectorWidth { get; set; } = 300;
+
+        //The Add to Graph browser's size in logical units and the last category picked per segment (by group Name).
+        public double BrowserWidth { get; set; } = 760;
+        public double BrowserHeight { get; set; } = 520;
+        public string BrowserItemsGroup { get; set; } = "";
+        public string BrowserRecipesGroup { get; set; } = "";
     }
 }

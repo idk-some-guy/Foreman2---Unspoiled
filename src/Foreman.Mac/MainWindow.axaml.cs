@@ -605,7 +605,9 @@ namespace Foreman.Mac {
             if (browser is null) {
                 var vm = new AddBrowserViewModel(new AddCatalog(cache, settings), cache, settings,
                     (bmp, size) => IconBaker.GetOrBake(browserIconCache, bmp, size),
-                    GraphCanvas.Viewer.Graph.DefaultAssemblerQuality);
+                    GraphCanvas.Viewer.Graph.DefaultAssemblerQuality,
+                    resolve => Dispatcher.UIThread.Post(resolve, DispatcherPriority.Background));
+                vm.ImportPresetRequested += (_, _) => ShowSettings(selectPresetsPane: true);
                 browser = new AddBrowserWindow { DataContext = vm };
                 vm.PlaceRequested += (_, pick) => {
                     if (BrowserRequest is not AddRequest activeRequest)
