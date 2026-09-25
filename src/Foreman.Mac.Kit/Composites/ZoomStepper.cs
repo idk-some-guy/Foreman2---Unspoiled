@@ -211,7 +211,7 @@ namespace Foreman.Mac.Kit.Composites {
         private static string FormatPercentWords(double value) =>
             string.Format(CultureInfo.InvariantCulture, "{0} percent", (int)Math.Round(value, MidpointRounding.AwayFromZero));
 
-        //Roving order for the row's peer tree (K3 addendum §08 VoiceOver row): Zoom Out, the readout, Zoom In.
+        //Roving order for the row's peer tree (composites addendum §08 VoiceOver row): Zoom Out, the readout, Zoom In.
         internal IEnumerable<Control> AutomationChildren() {
             if (minusButton is not null)
                 yield return minusButton;

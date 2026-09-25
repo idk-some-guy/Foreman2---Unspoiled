@@ -10,7 +10,7 @@ namespace Foreman.Mac {
 
     //Minimal UserMessages.Show substitution for Avalonia (no built-in MessageBox). Every alert presents as
     //an AlertSheet on the owner's own SheetHost, via ShowStackedAsync - stacking on top when that host is
-    //already showing another sheet (e.g. a Task 2 sheet's own pre-flight warning) instead of queuing behind
+    //already showing another sheet (e.g. a sheet's own pre-flight warning) instead of queuing behind
     //its dismissal, which would deadlock.
     public static class Dialogs {
         public static Task ShowWarningAsync(Window owner, string title, string message) =>

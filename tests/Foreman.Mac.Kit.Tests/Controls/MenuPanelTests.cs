@@ -277,7 +277,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
-        public void MenuWithNoIcons_MatchesTheK2Baseline_LabelXIs34_NoIconChild() {
+        public void MenuWithNoIcons_LabelXIs34_NoIconChild() {
             using var fixture = new KitFixture();
             var panel = new MenuPanel { Theme = KitMenuPanelTheme() };
             panel.Items.Add(new MenuRow { Text = "Show hidden objects", IsChecked = true });

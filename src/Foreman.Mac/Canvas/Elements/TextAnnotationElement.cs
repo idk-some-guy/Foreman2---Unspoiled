@@ -7,11 +7,11 @@ using System.Drawing;
 using System.Globalization;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/TextAnnotationElement.cs in full. P3 ported Draw/ToSaveData/
-    //FromSaveData; this task adds the P4 half: mutable properties for live editing, font-size resize math,
+    //Ports ProductionGraphView/Elements/TextAnnotationElement.cs in full: Draw/ToSaveData/
+    //FromSaveData plus the editing half: mutable properties for live editing, font-size resize math,
     //the blank "Add Text" constructor, and SaveDefaults/ApplyDefaults wired to AppSettings' AnnotText* fields
-    //(present since phase 2, unused until now). GDI's StringFormat with NoWrap+Trimming.None+
-    //LineAlignment.Center is still reproduced directly (see the P3 header note); font family resolution still
+    //(present from early on, unused until now). GDI's StringFormat with NoWrap+Trimming.None+
+    //LineAlignment.Center is still reproduced directly; font family resolution still
     //goes through AnnotationFontResolver.
     public sealed class TextAnnotationElement : AnnotationElement {
         private const int DefaultWidth = 200;

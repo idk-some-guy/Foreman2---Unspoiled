@@ -150,7 +150,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(EqualFlowBorder, SamplePixel(surface, -70, 0));
         }
 
-        //Phase 7 task 2 (perf-packaging-reference.md §1b): pins the selection-overlay tint's exact blended
+        //perf-packaging-reference.md §1b: pins the selection-overlay tint's exact blended
         //pixel so converting its Fill(SelectionOverlayColor) call site to a cached static paint can't drift it.
         [Fact]
         public void SupplierNodeElement_Highlighted_TintsBaseFillWithSelectionOverlay() {
@@ -296,7 +296,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new SKColor(10, 20, 30), SamplePixel(surface, 0, 0));
         }
 
-        //Phase 7 task 2 (perf-packaging-reference.md §1b): pins the simple-draw highlight stroke's exact
+        //perf-packaging-reference.md §1b: pins the simple-draw highlight stroke's exact
         //blended pixel so converting its per-frame `new SKPaint` at PassthroughNodeElement.cs:71 to a cached,
         //mutate-reset per-instance paint can't drift it.
         [Fact]

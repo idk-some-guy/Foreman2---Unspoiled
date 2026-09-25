@@ -34,7 +34,7 @@ namespace Foreman.DataCaching.DataTypes {
         private readonly string[] OrderCompareArray = [.. order.Split(orderSeparators).Where(s => !string.IsNullOrEmpty(s))];
 
         //Stores the pair rather than pulling .Icon out immediately - that keeps a lazily-decoded
-        //IconColorPair (phase 9 Task 6) lazy past this call, decoding only when Icon is actually read.
+        //IconColorPair lazy past this call, decoding only when Icon is actually read.
         private IconColorPair? iconColorPair;
 
         public void SetIconAndColor(IconColorPair icp) {

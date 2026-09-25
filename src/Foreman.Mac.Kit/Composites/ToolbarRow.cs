@@ -13,7 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.Kit.Composites {
-    //The unified titlebar row (K3 composites addendum §08): title · groups · flexible gap · search · zoom; collapses as width shrinks, title and zoom never collapse.
+    //The unified titlebar row (composites addendum §08): title · groups · flexible gap · search · zoom; collapses as width shrinks, title and zoom never collapse.
     public class ToolbarRow : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(ToolbarRow);
 
@@ -131,7 +131,7 @@ namespace Foreman.Mac.Kit.Composites {
             SetRovingTabStop(null);
         }
 
-        //One tab stop for the roving group (K3 composites addendum §08 keyboard row): a null target falls back to the leading visible one.
+        //One tab stop for the roving group (composites addendum §08 keyboard row): a null target falls back to the leading visible one.
         private void SetRovingTabStop(Control? target) {
             if (panel is null)
                 return;
@@ -169,7 +169,7 @@ namespace Foreman.Mac.Kit.Composites {
             e.Handled = true;
         }
 
-        //The trailing group's own commands, mirrored as plain overflow actions (K3 composites addendum §08: "the least-used trailing group moves into a Kit.MenuButton overflow").
+        //The trailing group's own commands, mirrored as plain overflow actions (composites addendum §08: "the least-used trailing group moves into a Kit.MenuButton overflow").
         private void PopulateOverflow(ToolbarGroup group) {
             OverflowButton.ActionItems.Clear();
             foreach (ToolbarItem item in group.Items) {

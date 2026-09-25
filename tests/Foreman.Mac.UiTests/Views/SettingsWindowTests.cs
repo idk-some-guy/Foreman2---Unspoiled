@@ -41,7 +41,7 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //C2c Task 4: SettingsWindow is a non-modal, toolbar-tabbed shell now - Presets and Enabled Objects keep
+    //SettingsWindow is a non-modal, toolbar-tabbed shell now - Presets and Enabled Objects keep
     //their old content and behavior (just reachable through their own tab UserControl), the old single
     //Graph Options tab splits across General/Advanced/Annotations/Appearance, and there's no more Confirm/
     //Cancel: every widget writes straight through SettingsViewModel. MainWindow-level live-apply (save/
@@ -197,7 +197,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(AppVersion.VersionedDisplay, about.VersionTextBlockControl.Text);
         }
 
-        //R5: closing hides nothing behind it and needs no Confirm - Esc/⌘W both just close this instance
+        //Closing hides nothing behind it and needs no Confirm - Esc/⌘W both just close this instance
         //(MainWindow.ShowSettings hands out a fresh one next time).
         [AvaloniaFact]
         public async Task EscapeKey_ClosesTheWindow() {
@@ -285,7 +285,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Null(window.PresetsTabControl.PresetListBoxControl.SelectedItem);
         }
 
-        //Minor#2 (final fix wave, upstream SettingsForm.cs:263-265): bold marks "this is the active preset",
+        //Bold marks "this is the active preset" (upstream SettingsForm.cs:263-265),
         //so it drops once the list picks out a different candidate and returns once that pick is cleared.
         [AvaloniaFact]
         public async Task CurrentPresetLabel_BoldOnlyWhenPresetListSelectionIsEmpty() {
@@ -630,7 +630,7 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         //--- Preset switch via double-click / select menu item --------------------------------------------
-        //R5: picking a preset swaps the whole live DataCache, so it no longer closes with a bool result -
+        //Picking a preset swaps the whole live DataCache, so it no longer closes with a bool result -
         //it sets SelectedPreset and asks MainWindow (via ReloadRequested) to close/reload/reopen.
 
         [AvaloniaFact]
@@ -721,7 +721,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains(spared, options.Presets!);
         }
 
-        //--- Delete preset db cleanup (Task 7 fix round) --------------------------------------------------
+        //--- Delete preset db cleanup --------------------------------------------------
 
         private static ForemanDbContext OpenSharedDb() =>
             ForemanDbContext.Open(StoragePaths.DbPath(PresetProcessor.ResolveUserDataDirectory()));
@@ -939,7 +939,7 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         //--- Enabled Objects tab: sub-tab shell -------------------------------------------------------------
-        //R5: TransitioningContentControl only wires its Content into the logical tree (and so propagates
+        //TransitioningContentControl only wires its Content into the logical tree (and so propagates
         //DataContext to it) once the control tree is actually rooted - Show() first, matching what a real
         //click always gets for free (the window is already on screen by the time anyone can click a tab).
         //Enabled Objects also now writes straight onto DataObject.Enabled on toggle (R5 live apply) - the
@@ -1173,7 +1173,7 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         //--- Enabled Objects tab: live check toggle -----------------------------------------------------------
-        //R5: a checked row now writes straight onto the live DataObject.Enabled too, not just the Options
+        //A checked row now writes straight onto the live DataObject.Enabled too, not just the Options
         //buffer - both are asserted below.
 
         [AvaloniaFact]
@@ -1282,7 +1282,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Empty(window.Options.EnabledObjects);
         }
 
-        //Linux branch of the platform fork above (docs/upstream-divergences.md, phase 8 Task 2): Ctrl+A on
+        //Linux branch of the platform fork above (docs/upstream-divergences.md): Ctrl+A on
         //Linux does the same thing Cmd+A does on macOS, via the UseIsMacOs seam.
         [AvaloniaFact]
         public async Task CtrlA_OnActiveSubTab_OnLinux_SelectsEveryRowWithoutCheckingThem() {
@@ -1407,7 +1407,7 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         //--- General/Advanced/Annotations/Appearance tabs: standalone binding + wiring checks ------------------
-        //These four are plain SettingsViewModel-bound UserControls (reference task-4-brief.md's R7 split) -
+        //These four are plain SettingsViewModel-bound UserControls (the R7 split) -
         //no window services involved, so they're exercised directly with an explicit DataContext rather than
         //through the full SettingsWindow (which only attaches the active tab - see the Enabled Objects
         //section's own comment on that).

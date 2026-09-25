@@ -40,11 +40,10 @@ namespace ForemanTest {
             Assert.AreEqual("{\"source\":\"bundle\"}", File.ReadAllText(resolvedPath));
         }
 
-        //Fix round 2: GetUserPresetPath's own default fell straight to AppPaths.UserPresetsDirectory,
-        //bypassing ResolveUserDataDirectory's test-assembly override (set in ForemanTestAssemblySetup /
-        //UiTestAssemblySetup) - the one seam every other no-override caller in this class already goes
-        //through. A caller with no explicit override must land under that same seam, not under the real
-        //user directory.
+        //GetUserPresetPath's default must go through ResolveUserDataDirectory's test-assembly override
+        //(set in ForemanTestAssemblySetup / UiTestAssemblySetup), the one seam every other no-override
+        //caller in this class already goes through. A caller with no explicit override must land under
+        //that same seam, not under the real user directory.
         [TestMethod]
         public void GetUserPresetPath_NoOverride_ResolvesUnderResolveUserDataDirectory() {
             string expected = Path.Combine(PresetProcessor.ResolveUserDataDirectory(), "Presets", "Some Preset.pjson");

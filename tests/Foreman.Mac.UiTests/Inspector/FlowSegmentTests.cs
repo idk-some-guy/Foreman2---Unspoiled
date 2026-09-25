@@ -22,7 +22,7 @@ using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Migrates every EditFlowPanelTests.cs behavior onto the docked FlowSegmentView (Task 4): the non-recipe
+    //Migrates every EditFlowPanelTests.cs behavior onto the docked FlowSegmentView: the non-recipe
     //node editor now lives in the inspector sidebar instead of a floating panel. Rate value (SelectedRateUnit-
     //aware, already handled by Foreman.Core's ActualRate/DesiredRate), fixed/auto toggle, simple-passthrough
     //toggle, and key-node controls all go through FlowSegmentViewModel, which calls the same controllers

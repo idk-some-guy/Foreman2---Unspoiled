@@ -15,7 +15,7 @@ using System.Linq;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Theming {
-    //Phase 9 Task 7: the scale contract - asserts against ScaleContract's token values and live bindings.
+    //The scale contract: asserts against ScaleContract's token values and live bindings.
     [Collection(ScaleTestGroup.Name)]
     public class UiScaleTests : IDisposable {
         public UiScaleTests() => WindowScaler.SetScale(1.0);

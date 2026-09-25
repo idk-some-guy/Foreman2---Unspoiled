@@ -95,7 +95,7 @@ namespace Foreman.Mac.Views {
         //SettingsViewModel property does via SettingChanged.
         public SettingsSession? Session { get; set; }
 
-        //R5: picking a preset (or an import that overwrites the active one) swaps the whole live DataCache,
+        //Picking a preset (or an import that overwrites the active one) swaps the whole live DataCache,
         //which this window's own Enabled Objects lists are built against - MainWindow closes this window,
         //reloads, and reopens a fresh instance in response, rather than trying to keep a stale DataCache's
         //controls alive underneath a live reload.
@@ -520,7 +520,7 @@ namespace Foreman.Mac.Views {
 
         private PresetComparatorWindow? comparatorWindow;
 
-        //R9: PresetComparatorWindow is non-modal too, one instance, reused/activated on a second click.
+        //PresetComparatorWindow is non-modal too, one instance, reused/activated on a second click.
         private Task ShowComparePresetsAsync() {
             if (!presetsTab.ComparePresetsButtonControl.IsEnabled)
                 return Task.CompletedTask;

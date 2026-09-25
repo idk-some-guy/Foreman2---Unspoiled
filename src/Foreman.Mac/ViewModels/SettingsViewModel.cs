@@ -16,7 +16,7 @@ namespace Foreman.Mac.ViewModels {
     public enum SettingsPane { Presets, EnabledObjects, General, Advanced, Annotations, Appearance }
 
     //Settings window's Graph Options tab and Enabled Objects lists, split off SettingsWindow.axaml.cs's
-    //former LoadGraphOptionsTab/CommitGraphOptionsTab/UpdateFilteredLists (Task 6). Presets-tab
+    //former LoadGraphOptionsTab/CommitGraphOptionsTab/UpdateFilteredLists. Presets-tab
     //orchestration (window services: dialogs, preset-list rebuilds) stays in the code-behind.
     public sealed partial class SettingsViewModel : ObservableObject {
         //R5 live apply: every AppSettings-backed property raises this on change so SettingsSession can

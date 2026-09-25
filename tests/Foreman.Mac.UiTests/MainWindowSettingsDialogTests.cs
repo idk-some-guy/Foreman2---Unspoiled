@@ -30,7 +30,7 @@ using Segmented = Foreman.Mac.Kit.Controls.Segmented;
 using Switch = Foreman.Mac.Kit.Controls.Switch;
 
 namespace Foreman.Mac.UiTests {
-    //C2c Task 4: Settings applies live now - there's no more Confirm/Cancel cascade to test (that whole
+    //Settings applies live now - there's no more Confirm/Cancel cascade to test (that whole
     //buffer-everything-then-commit-once model is gone). This covers MainWindow.ShowSettings's own seams:
     //seeding the new window from live AppSettings, reusing the one instance, and SettingsSession's
     //save/resolve reaction to a real property change (theme/scale immediacy is SettingsSessionTests.cs's
@@ -83,7 +83,7 @@ namespace Foreman.Mac.UiTests {
             Assert.False(opened.ViewModel.SmartNodeDirectionChecked);
         }
 
-        //R5: every change writes onto AppSettings at once; the save itself coalesces 300ms - FlushAsync is
+        //Every change writes onto AppSettings at once; the save itself coalesces 300ms - FlushAsync is
         //the deterministic seam, no real timer wait needed.
         [AvaloniaFact]
         public async Task TogglingSmartDirection_ChangesSettingsAtOnce_AndSavesExactlyOnceAfterFlush() {
@@ -127,9 +127,8 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(AssemblerSelector.Style.Best, styleAtSolve); //re-solve must run after the new value is already live
         }
 
-        //Review fix round 1, critical: closing the window used to null the session straight away, dropping
-        //whatever save/resolve was still mid-debounce. OnClosing now flushes first - this proves it without
-        //the test ever calling FlushAsync itself.
+        //OnClosing flushes the session before closing, so whatever save/resolve was still mid-debounce isn't
+        //dropped - this proves it without the test ever calling FlushAsync itself.
         [AvaloniaFact]
         public async Task ClosingWithinTheCoalesceWindow_StillSavesExactlyOnceWithTheNewValue() {
             var settings = new AppSettings { SmartNodeDirection = true };
@@ -216,7 +215,7 @@ namespace Foreman.Mac.UiTests {
             Assert.True(reopened.PresetsTabControl.RetryPresetReadButtonControl.IsEffectivelyVisible);
         }
 
-        //Phase 7 deferred-minors sweep: the non-live-apply Enabled-Objects sync used to index
+        //The non-live-apply Enabled-Objects sync used to index
         //cache.Assemblers["rocket-silo"] directly, a KeyNotFoundException on any preset without a rocket
         //silo entity. RocketAssembler itself is a synthetic pseudo-assembler DataCacheBootstrap always
         //creates regardless of preset content, so its own null-conditional assignment never short-circuits

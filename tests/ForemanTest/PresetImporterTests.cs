@@ -85,7 +85,7 @@ namespace ForemanTest {
             Assert.IsFalse(File.Exists(Path.Combine(MacOsDirOf(installPath), "temp-save.zip")));
         }
 
-        //---- FOIC write lands the real bytes on disk and in the db (Task 7 fix round) ----------------------
+        //---- FOIC write lands the real bytes on disk and in the db ----------------------
 
         [TestMethod]
         public async Task ProcessPreset_ResolvedIcon_RealBytesLandOnDiskAndInDb() {
@@ -473,7 +473,7 @@ namespace ForemanTest {
             Assert.IsTrue(File.Exists(basePath + ".dat"));
         }
 
-        //---- db import failure after a completed export must not discard the result (final-review I4) ----
+        //---- db import failure after a completed export must not discard the result ----
 
         //The .pjson/.json/.dat are already safely on disk by the time the db import runs - PrepPreset's
         //own reimport-on-cache-miss picks them up on the next load regardless, so a db write failure here

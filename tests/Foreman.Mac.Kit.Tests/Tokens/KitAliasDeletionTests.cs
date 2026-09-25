@@ -24,7 +24,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         }
 
         private static readonly string[] AddendumKeys = [
-            // K2 primitives addendum §10 Token changes
+            // primitives addendum §10 Token changes
             "Foreman.Color.PopoverMaterial",
             "Foreman.Color.SliderThumb",
             "Foreman.Color.Text",
@@ -48,7 +48,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             "Foreman.Type.SectionHeader.LetterSpacing",
             "Foreman.Type.TabLabel.FontSize",
             "Foreman.Type.TabLabel.FontWeight",
-            // K3 composites addendum §12 Token changes
+            // composites addendum §12 Token changes
             "Foreman.Color.AccentSoft",
             "Foreman.Color.PopoverMaterialOpaque",
             "Foreman.Color.SidebarBackground",
@@ -150,6 +150,15 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             ];
 
             Assert.Empty(missing);
+        }
+
+        [Fact]
+        public void TokenFiles_DeclareNoForwardingAlias() {
+            foreach (string file in new[] { "Tokens.Light.axaml", "Tokens.Dark.axaml" }) {
+                string text = File.ReadAllText(Path.Combine(RepoRoot, "src", "Foreman.Mac.Kit", "Themes", file));
+                string[] forwards = [.. Regex.Matches(text, @"<StaticResource\s+x:Key=""([^""]+)""").Select(m => m.Groups[1].Value)];
+                Assert.Empty(forwards);
+            }
         }
 
         [Fact]

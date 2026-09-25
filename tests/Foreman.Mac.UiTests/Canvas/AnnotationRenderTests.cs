@@ -143,7 +143,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new SKColor(60, 100, 200), SamplePixel(surface, -100, -91));
         }
 
-        //Phase 7 task 2 (perf-packaging-reference.md §1b): pins DrawSelectionHighlight's translucent-blue
+        //perf-packaging-reference.md §1b: pins DrawSelectionHighlight's translucent-blue
         //stroke pixel so converting its per-frame `new SKPaint` (AnnotationElement.cs:251) to a mutate-reset
         //per-instance paint (its StrokeWidth tracks 2.5/ViewScale every frame) can't drift it.
         [Fact]
@@ -407,11 +407,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             Directory.CreateDirectory(workspaceDir);
             using SKImage image = surface.Snapshot();
             using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
-            using FileStream file = File.OpenWrite(Path.Combine(workspaceDir, "task-5-annotations.png"));
+            using FileStream file = File.OpenWrite(Path.Combine(workspaceDir, "annotations.png"));
             data.SaveTo(file);
             surface.Dispose();
 
-            Assert.True(File.Exists(Path.Combine(workspaceDir, "task-5-annotations.png")));
+            Assert.True(File.Exists(Path.Combine(workspaceDir, "annotations.png")));
         }
     }
 }

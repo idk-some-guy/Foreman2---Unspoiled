@@ -21,12 +21,12 @@ using Xunit;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.QuickAdd {
-    //Task 6: the browser's footer role buttons, recipe double-click/Enter placement, and the two filter
+    //The browser's footer role buttons, recipe double-click/Enter placement, and the two filter
     //chips (link-drag "Compatible with", UnSpoil/UnPlant "Origins of"), all routed through
     //GraphCanvasControl.PlaceCandidate/ProcessNodeRequest exactly like the palette. Supersedes the retired
     //on-canvas chooser's footer/origin-picker coverage for this surface; its quality-picker population,
     //temperature filtering, and link-drag tab-offset coverage were re-covered through the palette path
-    //instead (QuickAddCanvasTests.cs, AddBrowserWindowTests.cs, AddCatalogTests.cs - Task 7).
+    //instead (QuickAddCanvasTests.cs, AddBrowserWindowTests.cs, AddCatalogTests.cs).
     public sealed class AddBrowserPlacementTests {
         private static ChooserCell CellFor(AddBrowserWindow window, BrowserCell cell) =>
             window.GetVisualDescendants().OfType<ChooserCell>().First(c => c.FullName == cell.Label);
@@ -122,7 +122,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(300, 0), AddScope.All, consumerLink));
             AddBrowserViewModel vm = shell.BrowserVm;
-            //Gate fix 7, item 3: a link-drag "Add..." now opens on Recipes by default - role buttons are
+            //A link-drag "Add..." now opens on Recipes by default - role buttons are
             //Items-only, so switch back for this role-direction check.
             vm.Segment = BrowserSegment.Items;
             vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First());
@@ -167,7 +167,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             using ShellFixture shell = ShellFixture.OpenWithVanillaAndOneSupplier(out AddLinkContext link);
             shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(300, 0), AddScope.All, link));
             AddBrowserViewModel vm = shell.BrowserVm;
-            //Gate fix 7, item 3: a link-drag "Add..." now opens on Recipes by default - this test's own
+            //A link-drag "Add..." now opens on Recipes by default - this test's own
             //subject is the chip/filtering behaviour on each segment, starting from Items as before.
             vm.Segment = BrowserSegment.Items;
 
@@ -252,7 +252,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.All(labels, l => Assert.Contains("gear", l, StringComparison.CurrentCultureIgnoreCase));
         }
 
-        //Gate fix 3: a recipe has no options to choose, so one click places it.
+        //A recipe has no options to choose, so one click places it.
         [AvaloniaFact]
         public void RealPointerClickOnARecipeCellPlacesItImmediately() {
             using ShellFixture shell = ShellFixture.Open();
@@ -269,7 +269,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.True(window.IsVisible);
         }
 
-        //Gate fix 11: the cell now genuinely slides into place on entry, so its rendered position moves for
+        //The cell now genuinely slides into place on entry, so its rendered position moves for
         //the entrance's own duration - settle that first, or the two synthetic clicks below would land at
         //two different points (RealClick recomputes screen position per click) and never count as a real
         //double-click. A real double-click doesn't have this problem: the mouse doesn't move between clicks.
@@ -289,7 +289,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Single(shell.Graph.Nodes.OfType<RecipeNode>());
         }
 
-        //Round 1: two genuinely separate clicks, unlike the double-click sequence above, must both place.
+        //Two genuinely separate clicks, unlike the double-click sequence above, must both place.
         [AvaloniaFact]
         public void TwoSeparateSingleClicksOnARecipeCellPlaceTwice() {
             using ShellFixture shell = ShellFixture.Open();

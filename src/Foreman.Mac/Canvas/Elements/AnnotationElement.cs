@@ -6,11 +6,11 @@ using System.Collections.Generic;
 using System.Drawing;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/AnnotationElement.cs in full. P3 ported the read-only slice (bounds,
-    //Draw helpers, ToSaveData/FromSaveData); this task adds the P4 half: 8-handle resize, drag, mouse
+    //Ports ProductionGraphView/Elements/AnnotationElement.cs in full: the read-only slice (bounds,
+    //Draw helpers, ToSaveData/FromSaveData) plus the editing half: 8-handle resize, drag, mouse
     //routing, the right-click menu, lasso-edge intersection, and the now-real selection/handle drawing.
-    //Context replaces upstream's constructor-injected graphViewer field (Task 3 dropped it since annotations
-    //are built by static factories with no viewer in scope) - GraphViewer.AddAnnotationElement assigns it once
+    //Context replaces upstream's constructor-injected graphViewer field, since annotations
+    //are built by static factories with no viewer in scope - GraphViewer.AddAnnotationElement assigns it once
     //the element joins the live tree, the same way NodeElementContext is threaded onto BaseNodeElement.
     public abstract class AnnotationElement : GraphElement {
         public bool IsSelected { get; set; }
@@ -255,7 +255,7 @@ namespace Foreman.Mac.Canvas.Elements {
 
         //----------------------------------------------Drawing helpers for subclasses
 
-        //Real now (was no-op'd for the P3 read-only path): a translucent blue rectangle around graphRect,
+        //Real now (was no-op'd for the read-only path): a translucent blue rectangle around graphRect,
         //stroke width compensated for zoom so it stays a constant screen thickness.
         protected void DrawSelectionHighlight(SKCanvas canvas, Rectangle graphRect) {
             if (!IsSelected)

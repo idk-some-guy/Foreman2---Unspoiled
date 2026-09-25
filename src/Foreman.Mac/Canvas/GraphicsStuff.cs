@@ -8,8 +8,8 @@ namespace Foreman.Mac.Canvas {
     //Ports Controls/GraphicsStuff.cs: rounded-rect fill/stroke (GraphicsPath's 4-arc construction collapses
     //to SKCanvas.DrawRoundRect), the shrink-to-fit DrawText loop, and the number-formatting helpers.
     //BuildingQuantityToText moved here from Elements/GraphElement.cs (its only home upstream) since it's a
-    //plain formatting helper with no element-tree dependency, and this task doesn't port GraphElement's
-    //subclasses that call it yet.
+    //plain formatting helper with no element-tree dependency, and GraphElement's
+    //subclasses that call it aren't ported yet.
     public enum TextHorizontalAlign { Near, Center }
     public enum TextVerticalAlign { Near, Center, Far }
 
@@ -18,8 +18,8 @@ namespace Foreman.Mac.Canvas {
 
         //DrawText/DrawStringAtPoint run on two real threads - the Avalonia compositor's render thread for
         //the live canvas and the UI thread for ImageExportWindow's direct viewer.Paint() call - so a shared
-        //static paint/font would reintroduce the cross-thread mutation hazard the phase-7 Task 2 review
-        //flagged in GridManager. [ThreadStatic] gives each thread its own instance with no locking, and
+        //static paint/font would reintroduce the cross-thread mutation hazard seen in GridManager.
+        //[ThreadStatic] gives each thread its own instance with no locking, and
         //every call fully overwrites color/typeface/size before drawing, so reuse never leaks a stale value
         //across calls on the same thread.
         [ThreadStatic]

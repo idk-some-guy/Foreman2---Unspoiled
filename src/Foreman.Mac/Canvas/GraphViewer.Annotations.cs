@@ -6,10 +6,10 @@ using System.Linq;
 
 namespace Foreman.Mac.Canvas {
     //Ports the annotation-selection/lifecycle half of ProductionGraphViewer.Annotations.cs (reference §6):
-    //selectedAnnotations already lives on the main GraphViewer.cs partial (added in Task 2 for the node-drag
+    //selectedAnnotations already lives on the main GraphViewer.cs partial (added for the node-drag
     //follower loop). This keeps a second, parallel selection system rather than folding it into
-    //SetSelection/UpdateSelection/CommitLassoSelection - matching upstream's own two-collections split and
-    //this task's explicit brief not to unify them. AnnotationSelectionModifiers' three static bools aren't
+    //SetSelection/UpdateSelection/CommitLassoSelection - matching upstream's own two-collections split, kept
+    //intentionally separate rather than unified. AnnotationSelectionModifiers' three static bools aren't
     //re-ported as their own type: this port already has the identical Alt=Remove/Ctrl=Add/neither=Replace
     //translation as SelectionModifier+GraphCanvasControl.ModifierFor, reused here for the modifier-reading
     //half only - the selection STATE stays on its own SelectedAnnotations set and its own commit methods.
@@ -20,7 +20,7 @@ namespace Foreman.Mac.Canvas {
         public Action<AnnotationElement>? ShowAnnotationPropertiesDialog { get; set; }
 
         //Ports AddAnnotationElement/RemoveAnnotationElement (reference §6): wires up the Context seam every
-        //annotation needs for its own right-click menu and handle sizing (Task 3 dropped the constructor-time
+        //annotation needs for its own right-click menu and handle sizing (there's no constructor-time
         //graphViewer reference, so this is assigned once the element joins the live tree instead).
         public void AddAnnotationElement(AnnotationElement element) {
             element.Context = new AnnotationElementContext {
@@ -106,7 +106,7 @@ namespace Foreman.Mac.Canvas {
             ApplyAnnotationZoneSelection(GetAnnotationsIntersectingLasso(lasso), modifier, commit: true);
 
         //Ports ApplyAnnotationZoneSelection (reference §1/§6): same preview/commit split as the node lasso,
-        //kept as its own method rather than reusing UpdateSelection/CommitLassoSelection per this task's brief.
+        //kept as its own method rather than reusing UpdateSelection/CommitLassoSelection.
         private void ApplyAnnotationZoneSelection(HashSet<AnnotationElement> zoneAnnotations, SelectionModifier modifier, bool commit) {
             if (modifier == SelectionModifier.Remove) {
                 if (commit) {
@@ -192,8 +192,8 @@ namespace Foreman.Mac.Canvas {
 
         //Ports ImportAnnotationsWithOffset (reference §9): a fixed-offset counterpart to ImportAnnotationsAtOrigin
         //(upstream's Import Graph menu action uses this one, paste uses the centroid version above). Not wired
-        //to anything in this port yet - MainWindow's Import command is still an unimplemented stub
-        //(task 12/P5 scope), ported here so the clipboard/import pairing stays complete per the reference.
+        //to anything in this port yet - MainWindow's Import command is still an unimplemented stub,
+        //ported here so the clipboard/import pairing stays complete per the reference.
         public void ImportAnnotationsWithOffset(IReadOnlyList<Foreman.Serialization.AnnotationSaveData> annotations, Size offset) {
             foreach (Foreman.Serialization.AnnotationSaveData data in annotations) {
                 if (!AnnotationLoader.TryCreateAnnotationFromSave(data, dpiScale: 1f, out AnnotationElement? ann))

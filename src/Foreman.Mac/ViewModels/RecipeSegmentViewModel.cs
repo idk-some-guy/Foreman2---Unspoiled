@@ -83,7 +83,7 @@ namespace Foreman.Mac.ViewModels {
         public string CurrentQualityName { get; private set; } = "";
         public SKBitmap? CurrentQualityIcon { get; private set; }
 
-        //Recipe card fold (Task 9): the identity header's own card, built once per assembler/recipe change
+        //Recipe card fold: the identity header's own card, built once per assembler/recipe change
         //from the same recipe data RecipePainter used - null for a recipe with no base recipe resolved.
         public RecipeCardViewModel? Card { get; private set; }
         public bool HasCard => Card is not null;

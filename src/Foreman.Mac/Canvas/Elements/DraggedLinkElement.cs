@@ -12,7 +12,7 @@ namespace Foreman.Mac.Canvas.Elements {
     //to a live tab, the other tracking the cursor) and the drag lifecycle (start/track/end/cancel, plus the
     //Cmd+drag passthrough-bus fan-out) are new.
     //
-    //Holds a GraphCanvasControl reference rather than NodeElementContext alone (unlike every other P3/P4
+    //Holds a GraphCanvasControl reference rather than NodeElementContext alone (unlike every other
     //element in this file): upstream's single ProductionGraphViewer class owns everything a dragged link
     //needs (GetNodeAtPoint, SelectedNodes, Session, Grid, Graph, StartLinkDrag/DisposeLinkDrag/
     //AddPassthroughNodesFromSelection); this port splits that across GraphViewer (session/graph state) and
@@ -105,8 +105,8 @@ namespace Foreman.Mac.Canvas.Elements {
         }
 
         //Ports EndDrag's three outcomes (reference §3): (a) both ends bound -> real link, (b) unresolved with
-        //slave links present -> passthrough-bus drop, (c) unresolved with no slaves -> the P5-chooser stub
-        //hook (Task 7 wires the real chooser; records the request and disposes). A "both null" MouseUp/
+        //slave links present -> passthrough-bus drop, (c) unresolved with no slaves -> the chooser stub
+        //hook (records the request and disposes; the real chooser isn't wired yet). A "both null" MouseUp/
         //MouseDown is unreachable through this port's own routing (upstream guards it with Trace.Fail), so it
         //falls back to a plain cancel instead of asserting.
         private void EndDrag(Point graphPoint) {

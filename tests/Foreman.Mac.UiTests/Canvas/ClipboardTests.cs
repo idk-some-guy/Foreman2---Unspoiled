@@ -417,7 +417,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Single(fx.Control.Viewer.NodeElements); //Cmd+C doesn't delete
         }
 
-        //Linux branch of the platform fork above (docs/upstream-divergences.md, phase 8 Task 2): Ctrl+C on
+        //Linux branch of the platform fork above (docs/upstream-divergences.md): Ctrl+C on
         //Linux does the same thing Cmd+C does on macOS, via the UseIsMacOs seam.
         [AvaloniaFact]
         public async Task CtrlC_OnLinux_CopiesSelectionFragmentToClipboard() {

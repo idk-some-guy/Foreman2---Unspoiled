@@ -31,7 +31,7 @@ namespace Foreman.Graph {
         public event EventHandler? GraphCleared;
         public event EventHandler? NodeValuesUpdated;
 
-        //Task 8: fires once per real graph mutation - node/link add/remove, every node-property setter,
+        //Fires once per real graph mutation - node/link add/remove, every node-property setter,
         //a committed node drag, an annotation add/remove/edit. A plain solve (NodeValuesUpdated) never
         //raises this; that was the old dirty wiring's bug.
         public event EventHandler? GraphMutated;

@@ -9,9 +9,8 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Covers the final-review C2 finding: MainWindow.Closing only ever saved settings (ShellBootstrapper's
-    //own subscription) - an unsaved graph was discarded silently on window close, unlike New/Load, which
-    //both already gate through TestGraphSavedStatusAsync. Wires the same cancel-then-reclose pattern
+    //Closing the window gates an unsaved graph through TestGraphSavedStatusAsync, like New/Load, instead of
+    //only saving settings (ShellBootstrapper's own subscription). It uses the cancel-then-reclose pattern
     //DataLoadWindow.OnClosing already uses (io-reference.md's own precedent): the first Close cancels and
     //awaits the gate; a confirmed second Close goes through.
     public class MainWindowClosingTests {

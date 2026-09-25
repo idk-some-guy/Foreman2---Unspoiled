@@ -9,8 +9,8 @@ namespace Foreman {
 
         private static bool IsMacOs => isMacOsOverride ?? OperatingSystem.IsMacOS();
 
-        //Test-only seam: forces the platform branch below without depending on the host OS (phase 8 Task 2 -
-        //this box only ever runs the tests on macOS, so the Linux branch needs its own way in).
+        //Test-only seam: forces the platform branch below without depending on the host OS (this box
+        //only ever runs the tests on macOS, so the Linux branch needs its own way in).
         internal static void SetIsMacOsOverride(bool? isMacOs) => isMacOsOverride = isMacOs;
 
         private static string Home => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);

@@ -33,9 +33,9 @@ using AvaloniaPoint = Avalonia.Point;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //Task 7's phase gate: builds a small factory purely through synthesized interactions - the chooser path,
+    //Builds a small factory purely through synthesized interactions - the chooser path,
     //link drag, clipboard, annotations, and the Delete key all in one flow - then proves it round-trips
-    //through a real save/reload (reference §11 step 12's "P4 demoable end-to-end" goal).
+    //through a real save/reload (reference §11 step 12's "demoable end-to-end" goal).
     public class EditingEndToEndTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private const int Half = 400;
@@ -69,7 +69,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             return control;
         }
 
-        //C2b: Add Recipe now opens the Quick Add palette scoped to recipes - searching the recipe's own
+        //Add Recipe now opens the Quick Add palette scoped to recipes - searching the recipe's own
         //friendly name and pressing Enter picks the top (and only) match. Closes the palette afterward (it
         //stays open by design for a second pick) so callers get back a clean canvas.
         private static Task<RecipeNodeElement> AddRecipeViaChooser(GraphCanvasControl control, DataCache cache, string recipeName, Point location) {
@@ -100,7 +100,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         //Plain click (MouseDown+MouseUp at the same screen point, no drag) - drives the real click-to-edit
-        //path (Task 6) rather than Click(Control)'s direct-to-control synth above, which is for panel-internal
+        //path rather than Click(Control)'s direct-to-control synth above, which is for panel-internal
         //buttons once a panel is already open.
         private static void ClickCanvasPoint(GraphCanvasControl control, Point screenPoint) {
             var window = (AvaloniaWindow)Avalonia.Controls.TopLevel.GetTopLevel(control)!;
@@ -286,8 +286,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(originalLocations, reloadedLocations);
         }
 
-        //---- demo render for the SDD workspace (task 7's own visual-gate substitute, same offscreen
-        //technique GraphViewerIntegrationTests' phase-3 gate already established) ----
+        //---- demo render for the SDD workspace (this file's own visual-gate substitute, same offscreen
+        //technique GraphViewerIntegrationTests' gate already established) ----
 
         [AvaloniaFact]
         public async Task VisualGate_BuiltFactory_OverviewRendersToSddWorkspace() {
@@ -315,11 +315,11 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             string workspaceDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".superpowers", "sdd", "2026-09-01-phase4-editing");
             Directory.CreateDirectory(workspaceDir);
-            File.WriteAllBytes(Path.Combine(workspaceDir, "task-7-overview.png"), data.ToArray());
-            File.WriteAllText(Path.Combine(workspaceDir, "task-7-render-metrics.txt"),
+            File.WriteAllBytes(Path.Combine(workspaceDir, "editing-overview.png"), data.ToArray());
+            File.WriteAllText(Path.Combine(workspaceDir, "editing-render-metrics.txt"),
                 $"Synthesized factory: {control.NodeElements.Count} nodes, {control.LinkElements.Count} links, {control.Viewer.Annotations.Count} annotations{Environment.NewLine}");
 
-            Assert.True(File.Exists(Path.Combine(workspaceDir, "task-7-overview.png")));
+            Assert.True(File.Exists(Path.Combine(workspaceDir, "editing-overview.png")));
         }
     }
 }

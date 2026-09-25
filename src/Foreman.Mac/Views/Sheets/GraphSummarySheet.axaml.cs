@@ -25,8 +25,8 @@ using System.Threading.Tasks;
 namespace Foreman.Mac.Views.Sheets {
     //Ports Forms/GraphSummaryForm.cs(+.Designer.cs) (reference §6): a read-only report over the whole
     //current graph (both constructor overloads collapse to the node-list one below, matching upstream -
-    //MainForm always passes the whole session, never a subset). C2c Task 3 moved this off GraphSummaryWindow
-    //onto SheetHost: there's no OK/Cancel distinction, so Close and Escape both just dismiss the sheet.
+    //MainForm always passes the whole session, never a subset). This lives on SheetHost, not
+    //GraphSummaryWindow: there's no OK/Cancel distinction, so Close and Escape both just dismiss the sheet.
     public partial class GraphSummarySheet : SheetContent<bool>, IThemeAware {
         //Resolved fresh by RebuildRows below (constructor, then every AppearanceHub notification) against
         //the app's active theme variant - the row records' Foreground initializers read this field.
@@ -35,7 +35,7 @@ namespace Foreman.Mac.Views.Sheets {
 
         internal GraphSummaryViewModel ViewModel { get; } = new GraphSummaryViewModel();
 
-        //Kept so RebuildRows (Task 5's theme-flip hook) can re-derive every row against freshly resolved
+        //Kept so RebuildRows (the theme-flip hook) can re-derive every row against freshly resolved
         //brushes without the caller re-supplying the node set. Materialized once - this sheet is a
         //point-in-time report, not a live view of the graph.
         private readonly List<INodeViewModel> nodes;

@@ -6,7 +6,7 @@ using System.Linq;
 using System.Runtime.Versioning;
 
 namespace ForemanTest.Storage {
-    //Exercises ForemanDbContext's lifecycle (phase 9 Task 1): temp-dir-only, never touches real
+    //Exercises ForemanDbContext's lifecycle: temp-dir-only, never touches real
     //~/Library. No production consumer yet - this proves the EF plumbing on its own.
     [TestClass]
     public class ForemanDbContextTests {

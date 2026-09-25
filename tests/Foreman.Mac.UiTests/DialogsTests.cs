@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Covers Dialogs.cs's own routing decision (C2c Task 3): every alert presents as an AlertSheet on the
+    //Covers Dialogs.cs's own routing decision: every alert presents as an AlertSheet on the
     //owner's own SheetHost via ShowStackedAsync - directly when that host is free, stacked on top of
     //whatever's already open otherwise (the deadlock a queued-behind AlertSheet would hit - see
     //SheetHostTests' own stacking coverage). AlertSheetTests covers AlertSheet's own button/default/Escape

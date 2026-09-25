@@ -26,7 +26,7 @@ namespace Foreman.Mac.UiTests.Canvas {
     //(IconCache.GetIcon resolving its Graphics/*.png path against the wrong working directory - see
     //IconPipelineTests.cs and the upstream-divergences.md entry for the fix). These tests pin that the
     //extraction recipe and its group stay reachable through AddCatalog/AddBrowserViewModel, the retired
-    //on-canvas chooser panel's C2b successors.
+    //on-canvas chooser panel's successors.
     public class SpaceAgeExtractionRecipeTests {
         private const string PresetName = "Factorio 2.0 Space Age";
 

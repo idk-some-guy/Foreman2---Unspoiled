@@ -7,7 +7,6 @@
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <ResourceInclude Source="avares://Foreman.Mac.Kit/Kit.axaml" />
-        <ResourceInclude Source="avares://Foreman.Mac/Themes/ToolbarIcons.axaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>

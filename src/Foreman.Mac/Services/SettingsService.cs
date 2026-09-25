@@ -33,7 +33,7 @@ namespace Foreman.Mac.Services {
         private readonly string settingsFilePath;
         private readonly string dbPath;
 
-        //Linux equivalent mirrors AppPaths.UserDataDirectory (docs/upstream-divergences.md, phase 8 Task 2):
+        //Linux equivalent mirrors AppPaths.UserDataDirectory (docs/upstream-divergences.md):
         //$XDG_DATA_HOME/Foreman, falling back to ~/.local/share/Foreman when unset.
         public SettingsService(string? baseDirectoryOverride = null, bool? isMacOsOverride = null) {
             string home = baseDirectoryOverride ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);

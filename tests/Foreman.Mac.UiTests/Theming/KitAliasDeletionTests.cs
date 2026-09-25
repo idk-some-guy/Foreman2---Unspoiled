@@ -82,6 +82,16 @@ namespace Foreman.Mac.UiTests.Theming {
         }
 
         [Fact]
+        public void AppResources_MergeTheKitAndNothingElse() {
+            string app = File.ReadAllText(Path.Combine(AppSourceDirectory, "App.axaml"));
+            string[] includes = [.. Regex.Matches(app, @"<(?:ResourceInclude|StyleInclude)\s+Source=""([^""]+)""").Select(m => m.Groups[1].Value)];
+
+            Assert.Equal(["avares://Foreman.Mac.Kit/Kit.axaml"], includes);
+            Assert.Contains("<FluentTheme />", app);
+            Assert.False(Directory.Exists(Path.Combine(AppSourceDirectory, "Themes")));
+        }
+
+        [Fact]
         public void Scan_MatchesNonForemanPrefixedKeys() {
             var referenced = AxamlFiles()
                 .SelectMany(file => ResourceReference.Matches(File.ReadAllText(file)).Select(m => m.Groups[1].Value));

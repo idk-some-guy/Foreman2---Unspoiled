@@ -261,7 +261,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Contains("Failed to save settings", File.ReadAllText(ErrorLogging.LogFilePath));
         }
 
-        //Settings now persist to foreman.db rather than settings.json (phase 9 Task 2); these three
+        //Settings now persist to foreman.db rather than settings.json; these three
         //cases keep verifying Save lands under the right platform root, against the new medium.
         [Fact]
         public void Save_WritesToLibraryApplicationSupportForemanDb() {
@@ -274,7 +274,7 @@ namespace Foreman.Mac.UiTests {
             Assert.True(File.Exists(expectedPath));
         }
 
-        //Linux branch of the platform fork above (docs/upstream-divergences.md, phase 8 Task 2), exercised
+        //Linux branch of the platform fork above (docs/upstream-divergences.md), exercised
         //via the isMacOsOverride seam since this box only ever runs the tests on macOS.
         [Fact]
         public void Save_OnLinux_NoXdgDataHome_WritesToDotLocalShareForemanDb() {
@@ -340,7 +340,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(4m, afterRestart.LowPriorityPower);
         }
 
-        //Final-review C1: a garbage foreman.db (disk corruption, a killed write) must not brick every
+        //A garbage foreman.db (disk corruption, a killed write) must not brick every
         //future launch - the db is a rebuildable cache, so a bad file gets quarantined and Load falls
         //back to the legacy json/defaults path instead of throwing.
         [Fact]
@@ -375,7 +375,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal("From Db", loaded.CurrentPresetName);
         }
 
-        //Reproduces a Task-B2-era db (pre-Task-3, no UiScale column) via EF's own DDL generator so this
+        //Reproduces an older db (no UiScale column) via EF's own DDL generator so this
         //stays faithful to the real schema instead of hand-guessed SQL - see ForemanDbContext.Open's
         //v1->v2 ALTER TABLE step, which SettingsService.Load relies on transparently through Open.
         private sealed class LegacyV1Context(string dbPath) : DbContext {

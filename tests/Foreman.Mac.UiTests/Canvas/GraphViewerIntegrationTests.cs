@@ -16,7 +16,7 @@ using Xunit;
 using AvaloniaPoint = Avalonia.Point;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //THE phase-3 acceptance path (task-7 brief): a repo sample .fjson through the real Load path
+    //THE acceptance path: a repo sample .fjson through the real Load path
     //(GraphViewer.LoadDocument, GraphSaveLoader under the hood - reference §8.12), rendered end to end.
     //Also pins the two carried requirements from earlier task reviews: element-lifecycle disposal on graph
     //clear, and that GetPaintingOrder's node order stays lockstep with HitTest's reverse-iteration pick.
@@ -157,7 +157,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.NotEqual(before, after);
         }
 
-        //---- carried requirement 1: element lifecycle/teardown (Task 6 review) ----
+        //---- carried requirement 1: element lifecycle/teardown ----
 
         [AvaloniaFact]
         public async Task ClearGraph_DisposesNodeAndLinkElements_NotJustDropsThemFromTheLists() {
@@ -173,7 +173,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Empty(firstNode.SubElements); //proves Dispose() ran (cascaded into the node's own subelement tree), not just list removal
         }
 
-        //---- carried requirement 2: NodeValuesUpdated resyncs node state (final-review finding 3) ----
+        //---- carried requirement 2: NodeValuesUpdated resyncs node state ----
 
         [AvaloniaFact]
         public async Task RateUnitChange_FiresNodeValuesUpdatedOnly_StillResyncsNodeState() {
@@ -196,12 +196,12 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.True(firstNode.UpdateStateCallCount > baseline);
         }
 
-        //---- the phase-3 visual gate, offscreen substitute ----
+        //---- the visual gate, offscreen substitute ----
         //
         //The brief's real-app gate (boot the live window, screenshot it via osascript/screencapture) needs a
         //working Avalonia.Native GPU render loop; this sandbox's WindowServer session can't provide one (any
         //Avalonia app, this one included, aborts in AppBuilder.Setup with "Avalonia.Native was not able to
-        //start the RenderTimer" before a single line of app code runs - confirmed independent of this task's
+        //start the RenderTimer" before a single line of app code runs - confirmed independent of these
         //changes). This test exercises the identical code path (GraphViewer.LoadDocument -> fit-to-view ->
         //zoom-in render) through the same offscreen SKSurface technique every other Canvas/ test already
         //uses, and writes both frames plus wall-clock timings to the SDD workspace for the eyeball pass.
@@ -229,16 +229,16 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             string workspaceDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".superpowers", "sdd", "2026-09-01-phase3-canvas-readonly");
             Directory.CreateDirectory(workspaceDir);
-            File.WriteAllBytes(Path.Combine(workspaceDir, "task-7-overview.png"), overviewPng);
-            File.WriteAllBytes(Path.Combine(workspaceDir, "task-7-detail-zoom.png"), detailPng);
-            File.WriteAllText(Path.Combine(workspaceDir, "task-7-render-metrics.txt"),
+            File.WriteAllBytes(Path.Combine(workspaceDir, "graph-viewer-overview.png"), overviewPng);
+            File.WriteAllBytes(Path.Combine(workspaceDir, "graph-viewer-detail-zoom.png"), detailPng);
+            File.WriteAllText(Path.Combine(workspaceDir, "graph-viewer-render-metrics.txt"),
                 $"Flowchart.fjson: {control.NodeElements.Count} nodes, {control.LinkElements.Count} links{Environment.NewLine}" +
                 $"Load (LoadDocument, incl. solve): {loadElapsedMs} ms{Environment.NewLine}" +
                 $"Overview render: {overviewRenderMs} ms{Environment.NewLine}" +
                 $"Detail-zoom render: {detailRenderMs} ms{Environment.NewLine}");
 
-            Assert.True(File.Exists(Path.Combine(workspaceDir, "task-7-overview.png")));
-            Assert.True(File.Exists(Path.Combine(workspaceDir, "task-7-detail-zoom.png")));
+            Assert.True(File.Exists(Path.Combine(workspaceDir, "graph-viewer-overview.png")));
+            Assert.True(File.Exists(Path.Combine(workspaceDir, "graph-viewer-detail-zoom.png")));
         }
     }
 }

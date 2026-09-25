@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.Kit.Appearance {
-    //Re-pushes platform-driven token overrides into Application resources and notifies Task 5's subscriber list.
+    //Re-pushes platform-driven token overrides into Application resources and notifies the subscriber list.
     public sealed class AppearanceHub : IDisposable {
         //Set by the app at startup, mirroring Application.Current - lets ThemeAware.Attach reach the one
         //live hub without every call site threading it through.

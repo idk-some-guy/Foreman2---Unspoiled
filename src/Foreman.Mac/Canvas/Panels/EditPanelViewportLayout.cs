@@ -6,7 +6,7 @@ namespace Foreman.Mac.Canvas.Panels {
     //Adapts upstream ProductionGraphView/EditPanelViewportLayout.cs (docs/panels-reference.md §7) to
     //Avalonia. The natural-size-then-clamp arithmetic (max = viewer size minus margin*2, final = min
     //(natural, max)) is verbatim; WinForms' AutoScroll scroll-host (EnsureScrollHost/LayoutScrollableContent)
-    //has no port here, since Task 1 validates against a fixed-size placeholder panel with nothing to
+    //has no port here, since this validates against a fixed-size placeholder panel with nothing to
     //overflow - a real ScrollViewer wrapper is deferred to whichever later panel first needs it.
     public static class EditPanelViewportLayout {
         public static AvaloniaSize MeasureNaturalSize(AvaloniaControl content) {

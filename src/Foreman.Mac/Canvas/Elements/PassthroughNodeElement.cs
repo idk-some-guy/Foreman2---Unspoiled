@@ -10,7 +10,7 @@ using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
     //Ports ProductionGraphView/Elements/PassthroughNodeElement.cs draw path, including the simple-draw
-    //line-only mode. The simple-draw toggle right-click menu (AddRClickMenuOptions) is P4 and stays out.
+    //line-only mode. The simple-draw toggle right-click menu (AddRClickMenuOptions) stays out.
     //
     //Upstream sizes the simple-draw line from the connected LinkElements' live LinkWidth; this reads
     //Context.GetLinkWidth, which GraphViewer wires to the real LinkElementDictionary lookup.

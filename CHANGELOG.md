@@ -557,6 +557,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   is already chosen by the selected node's type. The identity header now sits at the top instead.
 - The on-canvas item/recipe chooser panels, replaced by the Quick Add palette, the "Add to Graph"
   browser, and the radial menu. The Recipe Only filter setting no longer gates anything.
+- The app's last legacy theme file and the one leftover alias token: every window now takes its
+  styles and tokens from the component kit alone.
 
 ## [1.0.0] - 2026-09-03
 

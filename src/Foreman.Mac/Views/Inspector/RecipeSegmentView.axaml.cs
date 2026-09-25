@@ -281,8 +281,8 @@ namespace Foreman.Mac.Views.Inspector {
         }
 
         //HasBeacon flipping is the only trigger for a code-driven IsExpanded change - a plain re-solve with
-        //the beacon unchanged must not re-collapse or re-expand a group the user set by hand (fix round: a
-        //live {Binding HasBeacon} used to re-push on every RefreshComputed, undoing a manual collapse).
+        //the beacon unchanged must not re-collapse or re-expand a group the user set by hand (a live
+        //{Binding HasBeacon} would re-push on every RefreshComputed, undoing a manual collapse).
         private void OnRecipeViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e) {
             if (ViewModel is not null) {
                 SyncSlots(equippedGrid, ViewModel.EquippedModules, ViewModel.ModuleSlotCount);

@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Foreman.DataCaching {
-    //Icon and Color pair. The Icon side can be an already-decoded bitmap, or (phase 9 Task 6) PNG
+    //Icon and Color pair. The Icon side can be an already-decoded bitmap, or PNG
     //bytes that decode on first .Icon access - the Lazy<T> is shared across every copy of the struct,
     //so a dictionary entry and whatever DataObjectBase stores from it decode once, thread-safely
     //(ExecutionAndPublication), and every later read reuses the same SKBitmap.
@@ -46,7 +46,7 @@ namespace Foreman.DataCaching {
     }
 
     public static class IconCache {
-        //Testable seam (phase 9 Task 6): counts PNG decodes that lazy IconColorPair.Icon access triggers.
+        //Testable seam: counts PNG decodes that lazy IconColorPair.Icon access triggers.
         internal static int LazyDecodeCount => Volatile.Read(ref lazyDecodeCount);
         private static int lazyDecodeCount;
         internal static void ResetLazyDecodeCount() => Volatile.Write(ref lazyDecodeCount, 0);
@@ -75,7 +75,7 @@ namespace Foreman.DataCaching {
             plantingIcon = new Lazy<SKBitmap?>(LoadPlantingIcon, LazyThreadSafetyMode.ExecutionAndPublication);
         }
 
-        //No longer warmed eagerly at load (Task 6), so first touch can come from concurrent render
+        //No longer warmed eagerly at load, so first touch can come from concurrent render
         //threads; Lazy with ExecutionAndPublication guarantees one load and one shared bitmap, the same
         //mode IconColorPair's own lazy decode above already uses.
         private static Lazy<SKBitmap> unknownIcon = new(LoadUnknownIcon, LazyThreadSafetyMode.ExecutionAndPublication);
@@ -186,7 +186,7 @@ namespace Foreman.DataCaching {
             }
         }
 
-        //Db-first counterpart to LoadIconCache (phase 9 Task 5), made lazy in Task 6: builds the icon
+        //Db-first, lazy counterpart to LoadIconCache: builds the icon
         //dictionary straight from IconStore.ReadPresetIcons' undecoded PNG bytes without touching
         //SKBitmap.Decode - each entry's pixels decode (and cache) on first IconColorPair.Icon access.
         public static Task<Dictionary<string, IconColorPair>> LoadIconCacheFromStore(

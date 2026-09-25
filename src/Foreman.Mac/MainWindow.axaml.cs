@@ -47,7 +47,7 @@ namespace Foreman.Mac {
         public ShellViewModel Commands { get; }
         public MainWindowViewModel ViewModel { get; }
 
-        //Task 7 (contract #toolbar's zoom stepper, marked "(new)"): wraps MenuZoomIn/MenuZoomOut so the
+        //Wraps MenuZoomIn/MenuZoomOut (contract #toolbar's zoom stepper, marked "(new)") so the
         //stepper's own buttons and BuildNativeMenu's View > Zoom In/Zoom Out items share one command
         //instance each - the same shared-instance pattern Commands.SaveCommand etc. already use across the
         //toolbar and the native menu (see Bind/MenuItem below).
@@ -109,7 +109,7 @@ namespace Foreman.Mac {
         //window is fully constructed and wired (ViewModel, Session, ReloadRequested) either way.
         internal Action<SettingsWindow>? SettingsDialogStub { get; set; }
 
-        //R5/R9: MainWindow owns one Settings instance and one comparator-adjacent session for the app's
+        //MainWindow owns one Settings instance and one comparator-adjacent session for the app's
         //lifetime - ⌘, reuses/activates it rather than stacking a second window.
         private SettingsWindow? settingsWindow;
         private SettingsSession? settingsSession;
@@ -204,7 +204,7 @@ namespace Foreman.Mac {
             Inspector.PickAnotherRecipeRequested += (_, node) =>
                 OpenBrowser(new AddRequest(node.Location, AddScope.Recipes, SeedText: node.BaseRecipe.FriendlyName ?? ""));
             Inspector.RateUnitChanged += (_, unit) => SetRateUnit(unit);
-            //Task 7: keeps AlignSelectionCommand's CanExecute in step with the canvas's live selection -
+            //Keeps AlignSelectionCommand's CanExecute in step with the canvas's live selection -
             //GraphViewer.SelectionChanged is the aggregate signal every selection-mutating method raises.
             GraphCanvas.Viewer.SelectionChanged += (_, _) => Commands.AlignSelectionCommand.NotifyCanExecuteChanged();
 
@@ -236,10 +236,10 @@ namespace Foreman.Mac {
                     viewOptionsPopover.IsOpen = ViewModel.IsViewOptionsOpen;
             };
 
-            //Task 8 (contract #toolbar's Save .on dirty-tint state): one genuine graph-mutated signal -
+            //One genuine graph-mutated signal (contract #toolbar's Save .on dirty-tint state) -
             //node/link add/remove, node-property edits, a committed node drag, annotation add/remove/edit.
-            //Replaces the five-event wiring the C1 gate flagged (M-4): NodeValuesUpdated fired on a plain
-            //solve too, so Save lit up with nothing to save - a UI hint only, never the close-confirmation gate.
+            //Replaces the old five-event wiring: NodeValuesUpdated fired on a plain solve too, so Save lit
+            //up with nothing to save - a UI hint only, never the close-confirmation gate.
             GraphCanvas.Viewer.Session.GraphMutated += (_, _) => ViewModel.IsDirty = true;
 
             BuildToolbarRow();
@@ -712,7 +712,7 @@ namespace Foreman.Mac {
 
             //DCache/DefaultAssemblerQuality previously stayed unset until the first Load (LoadDocument was the
             //only assigner) - a fresh/New graph had neither, so recipe-node creation (CreateRecipeNode throws
-            //without DefaultAssemblerQuality) and this task's Add Item/Add Recipe choosers (need DCache) were
+            //without DefaultAssemblerQuality) and the Add Item/Add Recipe choosers (need DCache) were
             //unreachable before ever opening a file. Both belong here alongside the rest of this boot-time seed.
             if (DataCache is Foreman.DataCaching.DataCache cache) {
                 GraphCanvas.Viewer.Context.DCache = cache;
@@ -724,7 +724,7 @@ namespace Foreman.Mac {
             GraphCanvas.Viewer.Context.EnableExtraProductivityForNonMiners = settings.EnableExtraProductivityForNonMiners;
             GraphCanvas.Viewer.IconsOnly = settings.IconsOnlyView;
 
-            //C-1 (final fix wave): WindowScaler.SetScale moved here from OpenSettingsAsync's own Confirm
+            //WindowScaler.SetScale moved here from OpenSettingsAsync's own Confirm
             //tail - this is the same seam (boot, preset reload, every Settings Confirm) the theme seed
             //below already replays through, so a persisted UiScale now takes effect at cold start instead
             //of only after the user opens Settings once.
@@ -732,7 +732,7 @@ namespace Foreman.Mac {
 
             ApplyCanvasTheme();
 
-            //Phase 9 C2a Task 3: seeds the pin the same way UiScale/theme are seeded above - boot, preset
+            //Seeds the pin the same way UiScale/theme are seeded above - boot, preset
             //reload, and every Settings Confirm all replay through this one seam.
             ViewModel.Inspector.IsPinned = settings.InspectorPinned;
             ViewModel.Inspector.Width = Math.Clamp(settings.InspectorWidth, 260, 380) * WindowScaler.CurrentScale;
@@ -1132,7 +1132,7 @@ namespace Foreman.Mac {
         }
 
         //Ports NewGraph's dirty-gate and path-reset (reference: upstream MainForm.cs:243-264); the preset
-        //switch upstream's NewGraph also performs has no equivalent here yet (out of this task's scope, see
+        //switch upstream's NewGraph also performs has no equivalent here yet (out of scope here, see
         //the New command's own pre-existing behavior).
         internal async Task NewGraphAsync() {
             if (!await TestGraphSavedStatusAsync().ConfigureAwait(true))
@@ -1334,8 +1334,8 @@ namespace Foreman.Mac {
         //Ports SettingsButton_Click's post-close cascade (reference upstream MainForm.cs:355-440): builds
         //Options from live state, shows the dialog, then on OK applies a preset switch/reload before always
         //persisting settings.json - matching upstream's presetReloaded branch and its unconditional
-        //Properties.Settings.Default.Save() at the end of ApplySettingsDialogChanges. Tasks 2/3 extend the
-        //non-preset-reload branch as their tabs' widgets gain something to apply.
+        //Properties.Settings.Default.Save() at the end of ApplySettingsDialogChanges. The non-preset-reload
+        //branch extends as its tabs' widgets gain something to apply.
         internal void ShowSettings(bool selectPresetsPane = false, string? failedPreset = null) {
             //Toolbar/native-menu clicks never reach GraphCanvasControl.OnPointerPressed's own click-outside-
             //closes-panel guard (they're not canvas pointer events at all), so a panel left open under this
@@ -1463,7 +1463,7 @@ namespace Foreman.Mac {
 
         //Ports GraphSummaryButton_Click (reference upstream MainForm.cs:564-569): always the whole session,
         //matching MainForm's own call (the node-subset constructor overload has no live caller upstream
-        //either). C2c Task 3 moved this off GraphSummaryWindow onto SheetHost.
+        //either). This lives on SheetHost, not GraphSummaryWindow.
         internal Task OpenGraphSummaryAsync() {
             //See OpenSettingsAsync's own close-first comment: same toolbar-bypasses-canvas-pointer-events gap.
             GraphCanvas.ClosePanels();
@@ -1503,8 +1503,8 @@ namespace Foreman.Mac {
         }
 
         //Foreman 2 > About Foreman 2 (contract #menubar): the ratified About panel (design doc .about-card),
-        //carrying ViewModel.VersionLabel (== AppVersion.VersionedDisplay). I-4 (final fix wave): the
-        //titlebar's own version TextBlock is gone, so this panel is now the label's only reader.
+        //carrying ViewModel.VersionLabel (== AppVersion.VersionedDisplay). The titlebar's own version
+        //TextBlock is gone, so this panel is now the label's only reader.
         private void ShowAbout() => Async.Fire(ShowAboutAsync(), nameof(ShowAboutAsync));
 
         internal Task ShowAboutAsync() {
@@ -1556,9 +1556,9 @@ namespace Foreman.Mac {
         //mirrors upstream attaching this as MainForm's own delegate rather than folding it into
         //ProductionGraphViewer_KeyDown itself, since it needs to reach the toolbar's gridlines checkbox.
         private void OnGraphCanvasKeyDown(object? sender, KeyEventArgs e) {
-            //Gate fix 8: GraphCanvasControl's own OnKeyDown no longer marks a panel-bound key Handled (that
-            //was what broke live typing into the search box), so Space typed there now reaches this
-            //subscription too - this guard is what keeps it from toggling gridlines while the panel is open.
+            //GraphCanvasControl's OnKeyDown does not mark a panel-bound key Handled, so Space typed into the
+            //search box now reaches this subscription too - this guard is what keeps it from toggling
+            //gridlines while the panel is open.
             if (GraphCanvas.IsPanelOpen)
                 return;
             if (e.Key != Key.Space)
@@ -2122,7 +2122,7 @@ namespace Foreman.Mac {
             return menu;
         }
 
-        //M-3 (final fix wave): TryShutdown, not Shutdown - Shutdown tears every window down unconditionally,
+        //TryShutdown, not Shutdown - Shutdown tears every window down unconditionally,
         //bypassing MainWindow.OnClosing's own unsaved-changes gate the same way ⌘W's Close command doesn't.
         //TryShutdown closes each open window first (raising the ordinary Closing event on every one of
         //them), so a dirty graph still prompts on ⌘Q exactly as it does on ⌘W or the traffic-light close.

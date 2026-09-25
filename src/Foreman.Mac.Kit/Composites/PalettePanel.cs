@@ -30,7 +30,7 @@ namespace Foreman.Mac.Kit.Composites {
         public string? Description { get; set; }
     }
 
-    //Addendum §09's quick-add popover body: search header, staggered rows, a compact no-results StatePanel and a key-hint footer, replacing foreman-qa-row*/-qa-hint-row/-qa-hint-text; the host owns filtering, the top row is always the default selection.
+    //Addendum §09's quick-add popover body: search header, staggered rows, a compact no-results StatePanel and a key-hint footer; the host owns filtering, the top row is always the default selection.
     public class PalettePanel : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(PalettePanel);
 

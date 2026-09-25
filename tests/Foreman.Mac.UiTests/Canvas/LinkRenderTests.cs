@@ -200,7 +200,7 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //---- dynamic width: LinkWidth is a plain settable property BaseLinkElement.Draw honors directly;
         //the flow -> width mapping itself lives in the not-yet-ported viewer (reference §5), so this exercises
-        //the stroke-thickness contract Task 4 owns: whatever LinkWidth is set to is what gets drawn. ----
+        //the stroke-thickness contract: whatever LinkWidth is set to is what gets drawn. ----
 
         private static int MeasureStrokeThicknessAt(SKSurface surface, int graphX, int graphYCenter, SKColor lineColor) {
             using SKImage image = surface.Snapshot();
@@ -239,7 +239,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             using SKSurface thinSurface = RenderLink(link);
             int thinThickness = MeasureStrokeThicknessAt(thinSurface, 200, -171, lineColor);
 
-            link.LinkWidth = 24f; //simulates what the future flow->width mapping (task 12) would assign
+            link.LinkWidth = 24f; //simulates what the future flow->width mapping would assign
             using SKSurface wideSurface = RenderLink(link);
             int wideThickness = MeasureStrokeThicknessAt(wideSurface, 200, -171, lineColor);
 
@@ -292,8 +292,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(CanvasBackground, SamplePixel(surface, 3, -73));
         }
 
-        //---- allocation: BaseLinkElement.Draw reuses a per-instance SKPath instead of building one per call
-        //(fix-round item 4, task-2-report.md's fold-in) ----
+        //---- allocation: BaseLinkElement.Draw reuses a per-instance SKPath instead of building one per call ----
 
         [Fact]
         public void LinkElement_RepeatedPaint_KeepsPerDrawAllocationLow() {
@@ -420,11 +419,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             Directory.CreateDirectory(workspaceDir);
             using SKImage image = surface.Snapshot();
             using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
-            using FileStream file = File.OpenWrite(Path.Combine(workspaceDir, "task-4-links-simple-and-ushape.png"));
+            using FileStream file = File.OpenWrite(Path.Combine(workspaceDir, "links-simple-and-ushape.png"));
             data.SaveTo(file);
             surface.Dispose();
 
-            Assert.True(File.Exists(Path.Combine(workspaceDir, "task-4-links-simple-and-ushape.png")));
+            Assert.True(File.Exists(Path.Combine(workspaceDir, "links-simple-and-ushape.png")));
         }
     }
 }

@@ -10,7 +10,7 @@ namespace Foreman.Mac.Canvas {
     //CurrentGridUnit doesn't default from AppSettings.MinorGridlines here (deferred to the toolbar-wiring
     //task); the fresh-install default is 0 either way, so this matches upstream's own cold-start behavior.
     //
-    //Fix-round item 2 (task-2-report.md): these paints used to be static, shared across every GridManager.
+    //These paints used to be static, shared across every GridManager.
     //ImageExportWindow's own GridManager is never actually reachable from Paint (fullGraph:true skips
     //Grid.Paint entirely - GraphViewer.Paint's `if (!fullGraph) Grid.Paint(...)` guard), so a shared static
     //here was never racing across threads. The real benefit of per-instance fields is GalleryWindow: it

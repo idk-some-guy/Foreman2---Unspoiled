@@ -27,7 +27,7 @@ namespace Foreman.Mac.ViewModels {
             AddItemCommand = new RelayCommand(onAddItem);
             AddRecipeCommand = new RelayCommand(onAddRecipe);
             AutoconnectCommand = new RelayCommand(onAutoconnect);
-            //Task 7 (contract #toolbar): Align Selected's .disabled empty-selection state - defaults to
+            //Align Selected's .disabled empty-selection state (contract #toolbar) defaults to
             //always-enabled so ShellViewModelTests' plain constructor call keeps working unchanged.
             AlignSelectionCommand = new RelayCommand(onAlignSelection, canExecuteAlignSelection ?? (() => true));
             SettingsCommand = new RelayCommand(onSettings);

@@ -22,7 +22,7 @@
       </kit:FormGroup>
     </kit:InspectorGroup>
 
-    <Border Classes="foreman-inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
+    <Border Classes="inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
 
     <kit:InspectorGroup Header="Node" Theme="{StaticResource Kit.InspectorGroup}">
       <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">

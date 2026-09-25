@@ -15,14 +15,14 @@ using System.Text.RegularExpressions;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Gate-failure fix (2026-09-03 phase9 diagnosis): the live gate found the unified titlebar collapsed on
+    //The unified titlebar once collapsed on
     //real macOS because Margin bound straight to WindowDecorationMargin reads a top inset there, not a left
     //one, arranging the toolbar group at zero height. Headless never catches this because
     //AvaloniaHeadlessPlatformOptions always reports a zero margin - this rig drives the same layout math
-    //with simulated nonzero metrics instead (proven equivalent by the probe behind the diagnosis).
+    //with simulated nonzero metrics instead.
     [Collection(ScaleTestGroup.Name)]
     public class TitleBarChromeMetricsTests {
-        //Diagnosis test-strategy item 3: mutating the proxy after Show() must still reach the leading group's Margin.
+        //Mutating the proxy after Show() must still reach the leading group's Margin.
         [AvaloniaFact]
         public void DecorationMarginProxy_MutatedAfterShow_StillReachesLeadingGroup() {
             var window = new SimulatedChromeWindow();
@@ -52,7 +52,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(TrafficLightInsetConverter.TrafficLightInsetWidth, window.LeadingGroup.Margin.Left);
         }
 
-        //Diagnosis fix set item 3: TitleBarRow.Height must derive from the window's own
+        //TitleBarRow.Height must derive from the window's own
         //ExtendClientAreaTitleBarHeightHint instead of repeating the "52" literal, so the two can't drift.
         [AvaloniaFact]
         public void MainWindow_TitleBarRowHeight_MatchesExtendClientAreaTitleBarHeightHint() {
@@ -131,7 +131,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(expected.Y, actual.Y, 0.5);
         }
 
-        //Diagnosis fix set item 2: TitleBarRow must out-rank GraphViewerHost in paint order, so the canvas
+        //TitleBarRow must out-rank GraphViewerHost in paint order, so the canvas
         //can never end up drawn over the chrome regardless of declaration order in the XAML.
         [AvaloniaFact]
         public void MainWindow_TitleBarRow_PaintsAboveGraphViewerHost() {
@@ -143,8 +143,8 @@ namespace Foreman.Mac.UiTests {
             Assert.True(titleBar.ZIndex > window.GraphViewerHost.ZIndex);
         }
 
-        //Diagnosis test-strategy item 5: stops the exact mistake from returning - a bare Margin bound
-        //straight to WindowDecorationMargin (no converter) is the root cause of the live-gate failure.
+        //Stops the exact mistake from returning - a bare Margin bound
+        //straight to WindowDecorationMargin (no converter) is the root cause of the missing margin.
         [Fact]
         public void NoAxamlFile_BindsMarginDirectlyToWindowDecorationMargin() {
             string repoRoot = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..");

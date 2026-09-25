@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Task 7 (contract #toolbar): MainWindowViewModel.IsDirty is a cheap UI-hint flag, not the authoritative
+    //MainWindowViewModel.IsDirty (contract #toolbar) is a cheap UI-hint flag, not the authoritative
     //dirty gate - TestGraphSavedStatusAsync's content-hash compare (MainWindowSaveLoadTests.cs) stays the
     //one that gates New/Load/Close, untouched by this file. IsDirty only drives the Save button's tint.
     public class MainWindowDirtyStateTests {

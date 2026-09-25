@@ -29,7 +29,7 @@
     </Grid>
 
     <!-- Inspector's IsVisible is set from MainWindow.axaml.cs, not bound here. Overlay, not a column
-         (contract §03, Jozef's live-gate ruling over the mock's own sidebar-as-column reading): the canvas
+         (contract §03, ruled over the mock's own sidebar-as-column reading): the canvas
          fills the whole row, and the sidebar sits in the same cell, right-aligned and above it in z-order -
          showing or hiding it never resizes the canvas underneath. -->
     <Grid Grid.Row="1">

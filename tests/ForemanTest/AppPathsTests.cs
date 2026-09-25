@@ -4,7 +4,7 @@ using System;
 using System.IO;
 
 namespace ForemanTest {
-    //Exercises AppPaths' platform fork (docs/upstream-divergences.md, phase 8 Task 2): macOS keeps
+    //Exercises AppPaths' platform fork (docs/upstream-divergences.md): macOS keeps
     //~/Documents and ~/Library/Application Support, Linux honors XDG_DOCUMENTS_DIR/XDG_DATA_HOME with
     //~/Documents and ~/.local/share fallbacks. The isMacOsOverride seam exercises both branches on this
     //macOS-only box; nothing here reads or writes a real user path.

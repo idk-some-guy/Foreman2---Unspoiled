@@ -6,7 +6,7 @@ using AvaloniaSize = Avalonia.Size;
 
 namespace Foreman.Mac.Canvas {
     //Ports ProductionGraphView/FloatingTooltipRenderer.cs's plain-text/custom-draw Paint path (reference §8
-    //step 11). FloatingTooltipControl's floating-panel half (pinned edit-panel tooltips, P5-panel) isn't
+    //step 11). FloatingTooltipControl's floating-panel half (pinned edit-panel tooltips) isn't
     //ported, so there's no floatingTooltipControls dictionary or paintAll/showOverride distinction to keep -
     //this only ever draws one live-hover TooltipInfo at a time, the shape GraphElement.GetToolTips returns.
     public static class FloatingTooltipRenderer {

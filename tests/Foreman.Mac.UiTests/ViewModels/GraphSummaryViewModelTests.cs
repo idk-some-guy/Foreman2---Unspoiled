@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.ViewModels {
-    //Task 7: GraphSummaryWindow.axaml.cs's row-assembly moved into GraphSummaryViewModel. Fixture helpers
+    //GraphSummaryWindow.axaml.cs's row-assembly moved into GraphSummaryViewModel. Fixture helpers
     //below are the same solved-graph recipe used by Views/GraphSummaryWindowTests.cs (RateType.Manual +
     //SetDesiredSetValue pins an isolated node's rate exactly - see that file's header comment for why every
     //count/beacon expectation below is exact and hand-checkable).

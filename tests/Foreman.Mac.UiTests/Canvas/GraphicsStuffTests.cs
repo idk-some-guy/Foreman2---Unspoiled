@@ -169,7 +169,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.False(AnyInkInRegion(surface, 0, 0, 20, 60));
         }
 
-        //Task 2b: DrawText caches its SKPaint/SKFont per thread ([ThreadStatic]) instead of allocating fresh
+        //DrawText caches its SKPaint/SKFont per thread ([ThreadStatic]) instead of allocating fresh
         //ones per call, and every call fully overwrites color/typeface/size before drawing. This proves the
         //reuse doesn't leak a stale color from one call into the next on the same thread.
         [Fact]
@@ -186,7 +186,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.False(ContainsColor(surface, 100, 0, 100, 60, SKColors.Red));
         }
 
-        //Task 2b: DrawText's [ThreadStatic] cache is the fix for the two real render paths - the Avalonia
+        //DrawText's [ThreadStatic] cache handles the two real render paths - the Avalonia
         //compositor's render thread for the live canvas and the UI thread for ImageExportWindow's direct
         //call - potentially drawing at the same time. Each thread gets its own paint/font instance, so
         //concurrent draws with different colors must never bleed into each other's surface.

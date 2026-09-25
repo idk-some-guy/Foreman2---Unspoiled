@@ -180,8 +180,7 @@ namespace Foreman.DataCaching {
         }
 
         //Eager whole-atlas decode for the raw-file path (ReadAsync, still used by the FOIC round trip
-        //and tests). The db-backed path (IconCache.LoadIconCacheFromStore) decodes lazily instead - see
-        //phase 9 Task 6.
+        //and tests). The db-backed path (IconCache.LoadIconCacheFromStore) decodes lazily instead.
         internal static async Task<Dictionary<string, IconColorPair>> DecodeEntriesAsync(
             IReadOnlyList<FoicEntry> entries,
             IProgress<(int Decoded, int Total)>? progress,

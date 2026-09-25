@@ -19,7 +19,7 @@
       </Grid>
     </kit:InspectorGroup>
 
-    <Border Classes="foreman-inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
+    <Border Classes="inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
 
     <kit:InspectorGroup Header="Rate" Theme="{StaticResource Kit.InspectorGroup}">
       <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
@@ -47,7 +47,7 @@
       </kit:FormGroup>
     </kit:InspectorGroup>
 
-    <Border Classes="foreman-inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
+    <Border Classes="inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
 
     <kit:InspectorGroup Header="Assembler" Theme="{StaticResource Kit.InspectorGroup}">
       <StackPanel Spacing="0">
@@ -80,7 +80,7 @@
       </StackPanel>
     </kit:InspectorGroup>
 
-    <Border Classes="foreman-inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
+    <Border Classes="inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
 
     <kit:InspectorGroup Header="Fuel" IsVisible="{Binding ShowsFuel}" Theme="{StaticResource Kit.InspectorGroup}">
       <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
@@ -100,7 +100,7 @@
         </kit:FormRow>
       </kit:FormGroup>
     </kit:InspectorGroup>
-    <Border Classes="foreman-inspector-group-rule" Height="1" IsVisible="{Binding ShowsFuel}"
+    <Border Classes="inspector-group-rule" Height="1" IsVisible="{Binding ShowsFuel}"
             Background="{DynamicResource Foreman.Color.Border}" />
 
     <kit:InspectorGroup Name="ModulesGroup" Header="{Binding ModulesTitle}" IsVisible="{Binding HasModuleSlots}" Theme="{StaticResource Kit.InspectorGroup}">
@@ -116,7 +116,7 @@
       </kit:FormGroup>
     </kit:InspectorGroup>
 
-    <Border Classes="foreman-inspector-group-rule" Height="1" IsVisible="{Binding HasModuleSlots}"
+    <Border Classes="inspector-group-rule" Height="1" IsVisible="{Binding HasModuleSlots}"
             Background="{DynamicResource Foreman.Color.Border}" />
 
     <kit:InspectorGroup Name="BeaconGroup" Header="Beacon" Theme="{StaticResource Kit.InspectorGroup}">

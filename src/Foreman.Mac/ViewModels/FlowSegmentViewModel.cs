@@ -5,7 +5,7 @@ using Foreman.Models.Nodes;
 using System;
 
 namespace Foreman.Mac.ViewModels {
-    //Backs FlowSegmentView (Task 4): the non-recipe node editor, ported from the retired EditFlowPanel onto
+    //Backs FlowSegmentView: the non-recipe node editor, ported from the retired EditFlowPanel onto
     //the docked inspector. Setters call the same BaseNodeController/PassthroughNodeController methods
     //EditFlowPanel called directly - suppressWrites keeps Refresh() (reading node state back into these
     //properties) from bouncing those same writes back out at the node.

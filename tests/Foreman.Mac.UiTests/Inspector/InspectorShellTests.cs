@@ -112,7 +112,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(expected, window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text);
         }
 
-        // Floating recipe panels retired; in-inspector Recipe segment handles selection (Task 7).
+        // A recipe node click selects into the inspector's Recipe segment; no floating panel opens.
         [AvaloniaFact]
         public async Task ClickingRecipeNode_SelectsAndShowsRecipeSegment_NoFloatingPanel() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -176,7 +176,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.True(visibilityTransitions[0]);
         }
 
-        // MouseDown and MouseUp both trigger SetSelection; requires deduplication (Gate fix 3).
+        // MouseDown and MouseUp both trigger SetSelection, so selection changes are deduplicated.
         [AvaloniaFact]
         public async Task ClickingBetweenNodes_RaisesSelectionChangedExactlyOncePerClick() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -213,7 +213,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(2, raiseCount);
         }
 
-        //Fix round: picking the already-selected assembler/quality cell used to dirty the document even
+        //Picking the already-selected assembler/quality cell used to dirty the document even
         //though nothing changed - RecipeNodeController.SetAssembler always ends with Mutated().
         [AvaloniaFact]
         public async Task PickAssembler_AlreadySelected_RaisesNoGraphMutated_AndStaysClean() {
@@ -488,7 +488,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             var recipeView = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
             var groups = recipeView.GetVisualDescendants().OfType<InspectorGroup>().Where(g => g.IsVisible).ToList();
             var rules = recipeView.GetVisualDescendants().OfType<Border>()
-                .Where(b => b.Classes.Contains("foreman-inspector-group-rule") && b.IsVisible).ToList();
+                .Where(b => b.Classes.Contains("inspector-group-rule") && b.IsVisible).ToList();
 
             Assert.Equal(groups.Count - 1, rules.Count);
             Assert.All(rules, r => Assert.Equal(1, r.Bounds.Height));
@@ -750,7 +750,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             }
         }
 
-        //Fix round: deleting the inspected node used to leave the inspector on a dead node - neither
+        //Deleting the inspected node used to leave the inspector on a dead node - neither
         //OnNodeViewModelRemoved nor TryDeleteSelection raised SelectionChanged, so nothing told the
         //inspector its selection was gone.
         [AvaloniaFact]
@@ -780,7 +780,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(window.Inspector.IsVisible);
         }
 
-        //Fix round: bakedIconCache kept every baked identity-icon Bitmap alive for the life of the process -
+        //bakedIconCache kept every baked identity-icon Bitmap alive for the life of the process -
         //nothing ever disposed them, even once the window (and the icons with it) was gone.
         [AvaloniaFact]
         public async Task WindowClose_DisposesBakedIdentityIcons() {

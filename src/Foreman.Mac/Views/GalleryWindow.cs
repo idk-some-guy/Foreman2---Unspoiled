@@ -59,22 +59,18 @@ namespace Foreman.Mac.Views {
             foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Canvas"))
                 tiles.Children.Add(Tile(tile.Name, tile.Build()));
 
-            //K2's dev-only kit primitives section: type ramp, glyph sheet, a 150% row, focus ring.
+            //Dev-only kit primitives section: type ramp, glyph sheet, a 150% row, focus ring.
             var kitTiles = new WrapPanel { Orientation = Orientation.Horizontal, Width = TileColumnWidth };
             foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Kit"))
                 kitTiles.Children.Add(Tile(tile.Name, tile.Build()));
 
-            //Task 6 (Plan C1 gate tool): the retokened toolbar/popover/row surfaces, live-toggleable between
-            //Light and Dark so Jozef's gate pass can eyeball both variants of every one without leaving the
-            //gallery. ThemeToggleButton flips the app's RequestedThemeVariant (there's only ever one window
-            //open in gallery mode, so this is safe) and rebuilds the section against the freshly active theme.
+            //ThemeToggleButton flips the app's RequestedThemeVariant (gallery mode only ever has one window open,
+            //so this is safe) and rebuilds the section against the freshly active theme.
             themeShowcaseHost = new ContentControl { Name = "ThemeShowcaseHost", Content = BuildThemeShowcaseSection() };
-            //M-6 (final fix wave): this header used to hardcode Brushes.Black, so it stayed black through a
-            //theme toggle while every retokened surface below it flipped - resolved once at construction
-            //isn't enough on its own (nothing here re-renders on a resource change the way a real
-            //DynamicResource binding would), so RefreshTheme below re-resolves it explicitly too.
+            //Resolved once here, so RefreshTheme below re-resolves it on every theme flip: nothing re-renders
+            //on a resource change the way a DynamicResource binding would.
             themeHeader = new TextBlock {
-                Text = "Design language (Task 6 gate)",
+                Text = "Design language",
                 Foreground = ThemeResources.ResolveBrush("Foreman.Color.Text", Colors.Black),
                 FontWeight = FontWeight.Bold,
             };
@@ -122,8 +118,8 @@ namespace Foreman.Mac.Views {
             return wrap;
         }
 
-        //Today's dev-only tile set, one registration per panel the window shows - the declarative seam K6's
-        //future showcase additions register into instead of GalleryWindow growing more inline Build* calls.
+        //The dev-only tile set, one registration per panel the window shows; new showcase tiles register here
+        //instead of GalleryWindow growing more inline Build* calls.
         private static GalleryRegistry BuildRegistry() {
             var registry = new GalleryRegistry();
             registry.Register(new GalleryTile("Theme", "Graph Summary rows", "Default", BuildSummaryRowsShowcaseTile));
@@ -1176,7 +1172,7 @@ namespace Foreman.Mac.Views {
             };
         }
 
-        //Closes the two K2 deferrals this task owns: SearchField's loading spinner slot and Chip's owner-handoff contract.
+        //SearchField's loading spinner slot and Chip's owner-handoff contract.
         private static StackPanel BuildFormRowSearchAndChipTile() {
             SearchField loading = KitSearchField();
             loading.IsLoading = true;
@@ -1257,7 +1253,19 @@ namespace Foreman.Mac.Views {
             return new StackPanel { Spacing = 8, Children = { KitText("Inspector group", "caption", "tertiary"), stack } };
         }
 
-        private static Border SplitPane() => new() { Width = 90, Height = 120, Background = new SolidColorBrush(Color.Parse("#11000000")) };
+        private static Border SplitPane() {
+            var pane = new Border { Width = 90, Height = 120 };
+            pane.Bind(Border.BackgroundProperty, pane.GetResourceObservable("Foreman.Color.InspectorBackground", ToBrush));
+            return pane;
+        }
+
+        //The token is a Color; a Brush property drops it without a conversion.
+        private static object? ToBrush(object? value) =>
+            value switch {
+                Color color => new SolidColorBrush(color),
+                IBrush brush => brush,
+                _ => null,
+            };
 
         private static StackPanel BuildSplitDividerTile() {
             SplitDivider rest = new() { Theme = KitTheme("Kit.SplitDivider"), Height = 120 };
@@ -1712,9 +1720,15 @@ namespace Foreman.Mac.Views {
             return container;
         }
 
-        private static ColorWell KitColorWell(string hex, bool allowsNone = false, bool allowsAlpha = false) => new() {
+        //Sample values are palette swatches, so the tiles carry no colour literal of their own.
+        private static Color SwatchColor(string name, byte alpha) {
+            Color rgb = ColorPopover.Swatches(allowsNone: false).Single(s => s.Name == name).Color!.Value;
+            return Color.FromArgb(alpha, rgb.R, rgb.G, rgb.B);
+        }
+
+        private static ColorWell KitColorWell(string swatch, byte alpha = 255, bool allowsNone = false, bool allowsAlpha = false) => new() {
             Theme = KitTheme("Kit.ColorWell"),
-            Color = Color.Parse(hex),
+            Color = SwatchColor(swatch, alpha),
             AllowsNone = allowsNone,
             AllowsAlpha = allowsAlpha,
             AccessibleLabel = "Fill",
@@ -1722,18 +1736,18 @@ namespace Foreman.Mac.Views {
 
         //The page's six well states side by side, each captioned, in a host so every live well opens its popover.
         private static PopoverHost BuildColorWellStatesTile() {
-            ColorWell focused = KitColorWell("#FF9500");
+            ColorWell focused = KitColorWell("Orange");
             FocusRing.SetShowAlways(focused, true);
-            ColorWell open = KitColorWell("#FF9500");
+            ColorWell open = KitColorWell("Orange");
             open.Classes.Add("gallery-open");
-            ColorWell disabled = KitColorWell("#FF9500");
+            ColorWell disabled = KitColorWell("Orange");
             disabled.IsEnabled = false;
             (string Caption, ColorWell Well)[] states = [
-                ("rest", KitColorWell("#FF9500")),
+                ("rest", KitColorWell("Orange")),
                 ("focused", focused),
                 ("open", open),
-                ("40 % alpha", KitColorWell("#66007AFF", allowsNone: true, allowsAlpha: true)),
-                ("none", KitColorWell("#00007AFF", allowsNone: true, allowsAlpha: true)),
+                ("40 % alpha", KitColorWell("Blue", alpha: 0x66, allowsNone: true, allowsAlpha: true)),
+                ("none", KitColorWell("Blue", alpha: 0, allowsNone: true, allowsAlpha: true)),
                 ("disabled", disabled),
             ];
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 20, VerticalAlignment = VerticalAlignment.Top };
@@ -1744,7 +1758,7 @@ namespace Foreman.Mac.Views {
 
         //A Fill well opened in its host, so the popover draws the None cell, the palette and the Hex row.
         private static PopoverHost BuildColorPopoverTile() {
-            ColorWell well = KitColorWell("#007AFF", allowsNone: true, allowsAlpha: true);
+            ColorWell well = KitColorWell("Blue", allowsNone: true, allowsAlpha: true);
             well.Margin = new Thickness(40, 12, 0, 0);
             well.VerticalAlignment = VerticalAlignment.Top;
             well.IsOpen = true;
@@ -1765,7 +1779,7 @@ namespace Foreman.Mac.Views {
                 if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
                     container.Resources[key] = value * 1.5;
 
-            ColorWell well = KitColorWell("#66007AFF", allowsNone: true, allowsAlpha: true);
+            ColorWell well = KitColorWell("Blue", alpha: 0x66, allowsNone: true, allowsAlpha: true);
             well.Margin = new Thickness(60, 12, 0, 0);
             well.VerticalAlignment = VerticalAlignment.Top;
             well.IsOpen = true;
@@ -1861,7 +1875,7 @@ namespace Foreman.Mac.Views {
             return container;
         }
 
-        //Slot delegation (Task 7): the state panel fills the StateContent slot each earlier composite already exposes.
+        //Slot delegation: the state panel fills the StateContent slot the composite exposes.
         private static StackPanel BuildChooserGridNoResultsTile() {
             var grid = new ChooserGrid { Theme = KitTheme("Kit.ChooserGrid"), Width = 360, Height = 260 };
             grid.StateContent = KitStatePanel(StatePanelShape.NoResults, "No results for “beacn”",
@@ -1897,7 +1911,7 @@ namespace Foreman.Mac.Views {
         }
 
         //Addendum §02 states row: "Unavailable recipe -> the Recipe group renders with Kit.StatePanel.error in its body."
-        //The group's Content is a FormGroup; the state panel fills that body's own StateContent slot (Task 7 delegation).
+        //The group's Content is a FormGroup; the state panel fills that body's own StateContent slot.
         private static StackPanel BuildInspectorGroupBodyStateTile() {
             InspectorGroup group = KitInspectorGroup("Recipe", true, []);
             var body = (FormGroup)group.Content!;
@@ -2247,7 +2261,7 @@ namespace Foreman.Mac.Views {
             };
 
         //Same TryGetResource(key, variant, fallback) shape as ThemeResources.ResolveColor, typed for the
-        //Thickness/CornerRadius resources this task added - both dictionaries define every key this calls,
+        //Thickness/CornerRadius resources - both token dictionaries define every key this calls,
         //so a miss here means a real bug, not a themeable fallback.
         private static T Resource<T>(string key) {
             Application app = Application.Current!;

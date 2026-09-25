@@ -12,7 +12,7 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
 namespace ForemanTest.Storage {
-    //Covers phase 9 Task 5 (db-first preset read wiring): DataCache.LoadAllData routes through
+    //Covers db-first preset read wiring: DataCache.LoadAllData routes through
     //PresetProcessor's db-backed read path now, importing a preset into PresetStore/IconStore the
     //first time it's loaded and reading straight from the db afterward. The pjson here is a byte-for-byte
     //copy of the real bundled Vanilla preset (same reasoning as DataCacheImportedPresetTests: a
@@ -135,7 +135,7 @@ namespace ForemanTest.Storage {
             CollectionAssert.AreEqual(controlIronPngBytes, iconEntries.Single(entry => entry.Name == IconName).PngBytes);
         }
 
-        //Final-review I2: presetCustom.json going missing between runs must not read back as "the
+        //presetCustom.json going missing between runs must not read back as "the
         //overlay was cleared" - a deleted file is no news, not an edit, and the stored overlay must
         //keep applying.
         [TestMethod]
@@ -152,8 +152,7 @@ namespace ForemanTest.Storage {
 
             //Needs a .dat too - otherwise PresetIcons never gets a row for this preset name, the preset
             //never counts as cached, and every load falls through ReadOrImportPreset's own reimport
-            //branch regardless of this test's overlay-diff fix (that behavior is Task 5's own gap, not
-            //this one's).
+            //branch regardless of the overlay diff under test.
             using SKBitmap ironBitmap = SolidBitmap(200, 40, 40);
             var icons = new Dictionary<string, IconColorPair> {
                 [IconName] = new IconColorPair(ironBitmap, Color.FromArgb(255, 10, 20, 30)),
@@ -171,9 +170,9 @@ namespace ForemanTest.Storage {
                 "overlay should still apply from the db after presetCustom.json is deleted");
         }
 
-        //Final-review I5: a preset row alone should cache the pjson, independent of whether any icon
+        //A preset row alone should cache the pjson, independent of whether any icon
         //rows exist yet - a preset with no .dat file must still stop re-reading .pjson off disk after
-        //its first load, the same one-time-import Task 5 already gives every other preset.
+        //its first load, the same one-time-import every other preset already gets.
         [TestMethod]
         public void PrepPreset_NoDatFile_CachesPjsonOnFirstLoad_SecondLoadSurvivesPjsonDeletion() {
             if (!VanillaDataCacheFixture.PresetsAvailable)
@@ -223,7 +222,7 @@ namespace ForemanTest.Storage {
             Assert.AreEqual(1, iconEntries.Count);
         }
 
-        //Final-review C1: PrepPreset must recover from a corrupt foreman.db the same way SettingsService
+        //PrepPreset must recover from a corrupt foreman.db the same way SettingsService
         //does - quarantine the bad file and reimport straight from the legacy .pjson/.dat still on disk.
         [TestMethod]
         public void PrepPreset_CorruptDbFile_QuarantinesAndReimportsFromDisk() {

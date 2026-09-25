@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.ViewModels {
-    //One flow-row cell (Task 9): either an ingredient/product icon+count+name, or the "→" separator
+    //One flow-row cell: either an ingredient/product icon+count+name, or the "→" separator
     //between the ingredient and product runs.
     public sealed class RecipeCardFlowItem {
         public bool IsArrow { get; init; }
@@ -15,7 +15,7 @@ namespace Foreman.Mac.ViewModels {
         public string Text { get; init; } = "";
     }
 
-    //Backs RecipeCardView (Task 9, contract §03 CSS 708-718): the recipe card folded into the inspector's
+    //Backs RecipeCardView (contract §03 CSS 708-718): the recipe card folded into the inspector's
     //identity header, replacing the canvas's retired hover tooltip. Reads the same recipe data
     //RecipePainter used (Canvas/RecipePainter.cs) rather than re-deriving anything.
     public sealed class RecipeCardViewModel {

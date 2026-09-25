@@ -21,8 +21,8 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Phase 6's own gate (docs/superpowers/plans/2026-09-02-phase6-file-preset-io.md, Task 9): Tasks 1-8 each
-    //land their own window/pipeline clean in isolation - this covers the seams BETWEEN them instead: a save
+    //Covers docs/superpowers/plans/2026-09-02-phase6-file-preset-io.md: each window/pipeline
+    //lands clean in isolation - this covers the seams BETWEEN them instead: a save
     //feeding a dirty-prompted load, an import landing on top of a load, an export rendering a loaded graph,
     //a preset import becoming visible to the resolver, and a cross-preset load picking the right path.
     [UnsupportedOSPlatform("windows")]

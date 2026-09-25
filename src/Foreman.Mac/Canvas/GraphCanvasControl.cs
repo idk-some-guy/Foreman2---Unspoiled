@@ -70,7 +70,7 @@ namespace Foreman.Mac.Canvas {
         public List<LinkElement> LinkElements => Viewer.LinkElements;
         public List<AnnotationElement> Annotations => Viewer.Annotations;
 
-        //Fix round 1: mouse-wheel zoom is the one Viewport.ViewScale-changing path that doesn't go through
+        //Mouse-wheel zoom is the one Viewport.ViewScale-changing path that doesn't go through
         //a MainWindow method, so it's the one path MainWindow.ResyncZoomLabel's four call sites couldn't
         //reach directly. Mirrors GraphViewer.SelectionChanged's shape for the same reason - a minimal signal
         //MainWindow subscribes to, rather than making Viewport itself bindable.
@@ -81,7 +81,7 @@ namespace Foreman.Mac.Canvas {
         internal bool ViewBeingDragged { get; private set; }
 
         //Ports draggedLinkElement (reference §3) and SmartNodeDirection (reference §8) - the latter isn't
-        //wired from settings yet (that's task 11's auto-placement polish), so it defaults false, matching
+        //wired from settings yet, so it defaults false, matching
         //upstream's own cold-start default before MainForm_Load reads the setting.
         internal DraggedLinkElement? DraggedLink { get; private set; }
         internal bool SmartNodeDirection { get; set; }
@@ -89,7 +89,7 @@ namespace Foreman.Mac.Canvas {
         //Stands in for upstream's global Control.ModifierKeys read inside UpdateSlaveLinks (reference §3):
         //Avalonia has no such global query, so this tracks the most recently observed KeyModifiers from
         //every pointer/key event and is read from PrePaint instead. Upstream's Ctrl maps to Cmd/Meta here
-        //per this task's plan (docs/interaction-reference.md §7's Cmd-mapping note doesn't cover this
+        //(docs/interaction-reference.md §7's Cmd-mapping note doesn't cover this
         //specific in-drag modifier, since it isn't a selection idiom).
         internal bool IsPassthroughBusModifierHeld { get; private set; }
 
@@ -168,9 +168,9 @@ namespace Foreman.Mac.Canvas {
 
         //Ports EditNode's dispatch entry point (reference §8/§9 step 6, upstream ProductionGraphViewer.cs
         //512-586): every node type just selects on a body click now. The paired floating recipe editor and
-        //its standalone recipe card upstream opened for a RecipeNodeElement (Task 5-6's port) and the
-        //earlier EditFlowPanel for everything else (Task 4) both live in the inspector sidebar's Recipe/Flow
-        //segments today (Task 7 retired the recipe pair).
+        //its standalone recipe card upstream opened for a RecipeNodeElement, and the earlier EditFlowPanel
+        //for everything else, both live in the inspector sidebar's Recipe/Flow segments today (the recipe
+        //pair is retired).
         internal void EditNode(BaseNodeElement node) {
             if (Viewer.Context.DCache is not DataCache)
                 return;
@@ -516,8 +516,8 @@ namespace Foreman.Mac.Canvas {
             InvalidateVisual();
         }
 
-        //Final-review I2: Viewer/Grid were IDisposable with no caller - dead code, and a real ownership trap
-        //had anything ever called it from outside this control, since ImageExportWindow (MainWindow.axaml.cs's
+        //Viewer/Grid are disposed here and nowhere else: calling it from outside this control would be an
+        //ownership trap, since ImageExportWindow (MainWindow.axaml.cs's
         //`new ImageExportWindow(GraphCanvas.Viewer)`) holds the SAME live Viewer for its export paint and never
         //disposes it itself. This control is the one place that constructs that Viewer (constructor above), so
         //disposing it here at its own natural teardown is safe as the sole owner - the only way this control
@@ -555,7 +555,8 @@ namespace Foreman.Mac.Canvas {
         //Ports ProductionGraphViewer_MouseDown (reference §1). ToolTipRenderer.ClearFloatingControls() and
         //the chooser-panel close-on-outside-click have no equivalent here - this port's hover tooltip is a
         //pure per-frame function of hoverScreenPoint, never a floating control, and there's no chooser panel
-        //yet. Annotation_OnMouseDownDoubleClick/OnMouseDown is also out: annotation click routing is Task 6.
+        //yet. Annotation_OnMouseDownDoubleClick/OnMouseDown is also out: annotation click routing lives
+        //elsewhere.
         //A Left click on a node claims MouseDownElement and forwards to BaseNodeElement.MouseDown (reference
         //§2); Focus() picks up keyboard input (arrow keys, Shift axis-lock) the same click starts.
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
@@ -617,7 +618,7 @@ namespace Foreman.Mac.Canvas {
                 return;
             }
 
-            //C2b: double-clicking empty canvas opens the Quick Add palette scoped to everything - guarded on
+            //Double-clicking empty canvas opens the Quick Add palette scoped to everything - guarded on
             //!inDrawShapeMode so a shape draw's own click-to-place sequence can't misfire this instead.
             if (properties.IsLeftButtonPressed && e.ClickCount == 2 && clickedElement is null && !inDrawShapeMode) {
                 ResetPointerDragState();
@@ -787,7 +788,7 @@ namespace Foreman.Mac.Canvas {
                     break;
             }
 
-            //Carried from Task 1's review (reference §2): only hard-limit the pan to Graph.Bounds while
+            //Reference §2: only hard-limit the pan to Graph.Bounds while
             //nothing is being dragged, matching upstream's UpdateGraphBounds(MouseDownElement == null).
             if (ViewBeingDragged) {
                 Viewport.PanTo(screenPoint, viewDragOriginGraphPoint, MouseDownElement is null ? Viewer.Graph.Bounds : null);
@@ -800,7 +801,7 @@ namespace Foreman.Mac.Canvas {
         //Ports ProductionGraphViewer_MouseUp (reference §1/§4/§6). A plain left click with no modifiers
         //forwards to the clicked node's own MouseUp routing (reference §4, upstream lines 258-269), same as a
         //plain right click does - a node click reaching here without a tab/error-notice claim now opens its
-        //real edit panel (reference §8, Task 6's EditNode below). Annotation routing
+        //real edit panel (reference §8, EditNode below). Annotation routing
         //(double-click already short-circuited in OnPointerPressed) mirrors Annotation_OnMouseUpLeft: a
         //tracked annotation (MouseDownElement claimed it because it was already selected) toggles/replaces via
         //HandleTrackedAnnotationMouseUp, an untracked one clicked without a drag selects singly - both only
@@ -847,7 +848,7 @@ namespace Foreman.Mac.Canvas {
                     //DragOperation.Item) straight into element.MouseUp, so a right-click release mid node-
                     //drag (reachable via a chorded left-drag-then-right-release) opens no menu, same as the
                     //Selection case just below it already didn't. Ports the background menu (reference §4a,
-                    //"Add Item"/"Add Recipe" omitted - their P5 choosers don't exist yet, task 12's job) and
+                    //"Add Item"/"Add Recipe" omitted - their choosers don't exist yet) and
                     //the annotation right-click menu (reference §4f) alongside the existing node menu.
                     if (ViewBeingDragged) {
                         ViewBeingDragged = false;
@@ -881,7 +882,7 @@ namespace Foreman.Mac.Canvas {
                         if (!ViewBeingDragged)
                             releaseGhost.MouseUp(graphPoint, MouseButton.Left);
                     } else if (CurrentDragOperation == DragOperation.Item) {
-                        //Task 8: OnPointerMoved already committed every intermediate position straight to
+                        //OnPointerMoved already committed every intermediate position straight to
                         //the domain node/annotation (real-time drag rendering) - GraphMutated only fires
                         //once here, at release, so a drag dirties the document once instead of per pixel.
                         Viewer.Session.NotifyMutated();
@@ -917,7 +918,7 @@ namespace Foreman.Mac.Canvas {
             InvalidateVisual();
         }
 
-        //Gate fix 7, item 2: a click that opens a new top-level window mid-press (the browser, from a
+        //A click that opens a new top-level window mid-press (the browser, from a
         //radial/palette Add...) can lose capture without this control ever seeing a matching
         //OnPointerReleased - left alone, CurrentDragOperation stays armed and the next plain PointerMoved
         //(no button down at all) drags a stray rubber-band across the canvas.
@@ -992,7 +993,7 @@ namespace Foreman.Mac.Canvas {
             MenuEntry.Item("Add Shape", () => BeginDrawShape(graphPoint)),
         ];
 
-        //C2b: MainWindow's toolbar and BuildBackgroundMenu's "Add Item"/"Add Recipe" both just open a
+        //MainWindow's toolbar and BuildBackgroundMenu's "Add Item"/"Add Recipe" both just open a
         //scoped Quick Add palette now - ShowQuickAdd/PlaceCandidate below do the rest.
         internal void AddItemAsync(DrawingPoint graphPoint, AvaloniaPoint? screenAnchor = null) => ShowQuickAdd(new AddRequest(graphPoint, AddScope.Items), screenAnchor);
         internal void AddRecipeAsync(DrawingPoint graphPoint, AvaloniaPoint? screenAnchor = null) => ShowQuickAdd(new AddRequest(graphPoint, AddScope.Recipes), screenAnchor);
@@ -1406,7 +1407,7 @@ namespace Foreman.Mac.Canvas {
                     e.Handled = true;
                     return;
                 }
-                //Gate fix 8: a KeyDown marked Handled never reaches the native TextInput that follows it,
+                //A KeyDown marked Handled never reaches the native TextInput that follows it,
                 //so once the key actually originates inside the panel's own controls (its search box, most
                 //of all) the canvas has to leave it alone rather than eating it like every other hotkey.
                 if (FocusIsInsideFloatingPanel(e))

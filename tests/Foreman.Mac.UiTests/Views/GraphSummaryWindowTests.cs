@@ -142,7 +142,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal("Items/Fluids ( per minute)", window.ItemsFluidsTabItemControl.Header);
         }
 
-        //Phase5b hands-on gate (Finding 1): Building/Beacon/Item rows bind Background (White for
+        //Building/Beacon/Item rows bind Background (White for
         //available, Pink for unavailable) but never bound Foreground, same white-on-white trap as
         //SettingsWindow's Enabled Objects rows. KeyNodeRow rows have no per-row Background at all (they
         //inherit the window's own dark background), so they're deliberately left off this check.
@@ -513,7 +513,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.DoesNotContain(window.UnfilteredMinerList[0].Name.Replace(" ", ""), csv.Replace(" ", ""));
         }
 
-        //---- SheetHost contract (C2c Task 3): declared size, clamped to a small owner -------------------
+        //---- SheetHost contract: declared size, clamped to a small owner -------------------
 
         [AvaloniaFact]
         public async Task SheetWidth_Is780_AndSheetHeight_Is540() {
@@ -544,7 +544,7 @@ namespace Foreman.Mac.UiTests.Views {
 
         //The one sheet outside the three named widths: it keeps 780 until it moves to its own window, rather than snapping to Wide.
         [AvaloniaFact]
-        public async Task GraphSummarySheet_KeepsItsShippedWidth_PendingItsK5WindowMove_AndHeadlinesFactorySummary() {
+        public async Task GraphSummarySheet_KeepsItsShippedWidth_PendingItsWindowMove_AndHeadlinesFactorySummary() {
             var fx = NewFixture(await GetCacheAsync());
             var sheet = NewWindow(fx);
             var owner = new Window { Width = 1000, Height = 800 };

@@ -299,7 +299,7 @@ namespace Foreman.Mac.Canvas.Elements {
             exclusive ? [new TooltipInfo(new Avalonia.Point(10, 10), Direction.None, text)] : [];
 
         //Ports MouseDown's location-snapshot half (reference §2) - claiming graphViewer.MouseDownElement is
-        //GraphCanvasControl's job, inlined at the pointer-press site same as Task 1 left it.
+        //GraphCanvasControl's job, inlined at the pointer-press site rather than the constructor.
         public void MouseDown(Point graphPoint) {
             mouseDownLocation = graphPoint;
             mouseDownNodeLocation = Location;

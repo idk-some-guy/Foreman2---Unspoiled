@@ -73,7 +73,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.False(fx.Control.IsPanelOpen);
         }
 
-        //Gate fix 7, item 2: opening the browser (a new top-level window, from a link-drag's radial Add.../
+        //Opening the browser (a new top-level window, from a link-drag's radial Add.../
         //the palette's Cmd+Enter) mid-press can steal the pointer before this control ever sees a matching
         //PointerReleased - left alone, CurrentDragOperation/the rubber-band stay armed, so a later plain
         //PointerMoved (no button down at all) keeps dragging a selection rectangle. Arms a real rubber-band
@@ -230,7 +230,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(dropGraphPoint.Y + (created.Height / 2), created.ViewModel.Location.Y);
         }
 
-        //Gate fix 3, item 3: MainWindow's own Space-toggles-gridlines handler is a separate KeyDown
+        //MainWindow's own Space-toggles-gridlines handler is a separate KeyDown
         //subscription on GraphCanvas (not the control's own OnKeyDown override), so it used to fire even
         //while the palette's search box had focus.
         [AvaloniaFact]
@@ -249,10 +249,10 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(" ", ((QuickAddViewModel)window.GraphCanvas.OpenPalette!.DataContext!).Query);
         }
 
-        //Gate fix 8, item 1 (the live regression): the canvas used to mark every non-Escape KeyDown Handled
-        //while a panel was open, even one sourced from the search box's own TextBox. A handled KeyDown never
-        //reaches the native TextInput that follows it, so live typing died - "quick add now doesnt accept
-        //input at all". window.KeyPressQwerty drives the real window keyboard path (a RawKeyEventArgs through
+        //A handled KeyDown never reaches the native TextInput that follows it, so the canvas marking a
+        //non-Escape KeyDown Handled while a panel is open would silently break live typing, even for input
+        //sourced from the search box's own TextBox ("quick add now doesnt accept input at all").
+        //window.KeyPressQwerty drives the real window keyboard path (a RawKeyEventArgs through
         //KeyboardDevice.ProcessRawEvent) rather than CanvasKeys' direct RaiseEvent, so it is what actually
         //surfaces whether the canvas swallowed the key.
         [AvaloniaFact]
@@ -303,7 +303,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(offsetBefore, window.GraphCanvas.Viewport.ViewOffset);
         }
 
-        //Gate fix 8: the canvas no longer marks a panel-bound KeyDown Handled (that was the typing
+        //The canvas no longer marks a panel-bound KeyDown Handled (that was the typing
         //regression), so a generic GraphCanvas.KeyDown subscriber does see the event now - it has to, or
         //real characters would never reach the search box either. What still has to hold is that nothing
         //downstream acts on it as a canvas hotkey; OnGraphCanvasKeyDown's own guard is what keeps Space

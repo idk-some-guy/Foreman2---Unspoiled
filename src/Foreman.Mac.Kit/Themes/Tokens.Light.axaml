@@ -65,7 +65,7 @@
   <Color x:Key="Foreman.Color.SwatchCheckerB">#D1D1D6</Color>
   <Color x:Key="Foreman.Color.SwatchStroke">#24000000</Color>
 
-  <!-- Status tokens: Graph Summary's availability row colouring until it migrates, not part of the phase 9 visual-language contract. -->
+  <!-- Status tokens: Graph Summary's availability row colouring until it migrates, not part of the visual-language contract. -->
   <Color x:Key="Foreman.Color.StatusForeground">#000000</Color>
   <Color x:Key="Foreman.Color.StatusWarningBackground">#FFC0CB</Color>
 
@@ -130,8 +130,6 @@
   <x:Double x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontSize">9.5</x:Double>
   <FontWeight x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontWeight">500</FontWeight>
 
-  <StaticResource x:Key="Foreman.Type.WindowTitle.FontSize" ResourceKey="Foreman.Type.EmphasizedBody.FontSize" />
-
   <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
   <x:Double x:Key="Foreman.Size.InspectorWidthMin">260</x:Double>
   <x:Double x:Key="Foreman.Size.InspectorWidthMax">380</x:Double>
@@ -153,9 +151,9 @@
   <x:Double x:Key="Foreman.Size.FormLabelColumnPopover">86</x:Double>
   <x:Double x:Key="Foreman.Size.ToolbarItemWidth">44</x:Double>
   <x:Double x:Key="Foreman.Size.ToolbarItemHeight">40</x:Double>
-  <!-- Toolbar collapse step 1 (K3 composites addendum §08): icon-only min width once the label drops. -->
+  <!-- Toolbar collapse step 1 (composites addendum §08): icon-only min width once the label drops. -->
   <x:Double x:Key="Foreman.Size.ToolbarItemIconOnlyWidth">28</x:Double>
-  <!-- The unified titlebar row (K3 composites addendum §08/§12); the readout's fixed box keeps 25%/400% from reflowing it. -->
+  <!-- The unified titlebar row (composites addendum §08/§12); the readout's fixed box keeps 25%/400% from reflowing it. -->
   <x:Double x:Key="Foreman.Size.ToolbarRowHeight">52</x:Double>
   <x:Double x:Key="Foreman.Size.ZoomReadoutWidth">42</x:Double>
   <x:Double x:Key="Foreman.Size.ZoomReadoutHeight">16</x:Double>
@@ -182,7 +180,7 @@
   <CornerRadius x:Key="Foreman.Radius.SegmentItem">4</CornerRadius>
   <Thickness x:Key="Foreman.Thickness.SegmentTrackPadding">2</Thickness>
   <Thickness x:Key="Foreman.Thickness.SegmentItemPadding">10,3</Thickness>
-  <!-- .mini's drawn 11.5/500; the regular segment uses Type.Callout instead (task-5-context §mock). -->
+  <!-- .mini's drawn 11.5/500; the regular segment uses Type.Callout instead. -->
   <x:Double x:Key="Foreman.Type.SegmentMini.FontSize">11.5</x:Double>
   <FontWeight x:Key="Foreman.Type.SegmentMini.FontWeight">500</FontWeight>
 
@@ -250,7 +248,7 @@
   <x:Double x:Key="Foreman.Size.BrowserCellLabelHeight">24</x:Double>
   <CornerRadius x:Key="Foreman.Radius.Pill">100</CornerRadius>
 
-  <!-- Sheet overlay (C2c #modals): scrim alpha is identical in both themes, so it isn't a per-theme color. -->
+  <!-- Sheet overlay (#modals): scrim alpha is identical in both themes, so it isn't a per-theme color. -->
   <Color x:Key="Foreman.Color.SheetScrim">#80000000</Color>
   <BoxShadows x:Key="Foreman.Shadow.Sheet">0 34 60 -12 #26000000</BoxShadows>
   <CornerRadius x:Key="Foreman.Radius.SheetBottom">0,0,10,10</CornerRadius>
@@ -266,14 +264,14 @@
        that doesn't follow the app theme either. -->
   <Color x:Key="Foreman.Color.GalleryChrome">#000000</Color>
 
-  <!-- Sheet widths (K3 composites addendum §12.9): replaces the shipped 340/348/360/460/780. -->
+  <!-- Sheet widths (composites addendum §12.9). -->
   <x:Double x:Key="Foreman.Metrics.SheetWidthAlert">300</x:Double>
   <x:Double x:Key="Foreman.Metrics.SheetWidthStandard">360</x:Double>
   <x:Double x:Key="Foreman.Metrics.SheetWidthWide">460</x:Double>
   <!-- Kit.SheetFrame (v2 §04 Motion): the closed panel sits this far above its place and slides down on open. -->
   <x:Double x:Key="Foreman.Metrics.SheetSlide">12</x:Double>
 
-  <!-- Kit.ButtonRow (K3 composites addendum §05): a button never shrinks below this. -->
+  <!-- Kit.ButtonRow (composites addendum §05): a button never shrinks below this. -->
   <x:Double x:Key="Foreman.Metrics.ButtonMinWidth">64</x:Double>
 
   <!-- TextField (addendum context): plain 22pt well field, min-width its own token. -->
@@ -289,7 +287,7 @@
   <Thickness x:Key="Foreman.Thickness.SearchFieldGlyphMargin">8,0,6,0</Thickness>
   <Thickness x:Key="Foreman.Thickness.SearchFieldClearMargin">0,0,4,0</Thickness>
 
-  <!-- Stepper (kit mock §01, task-6-context): 40pt field, 15pt arrow column; cell height is ControlHeightRegular / 2 at runtime, not its own token. -->
+  <!-- Stepper (kit mock §01): 40pt field, 15pt arrow column; cell height is ControlHeightRegular / 2 at runtime, not its own token. -->
   <x:Double x:Key="Foreman.Size.StepperFieldWidth">40</x:Double>
   <x:Double x:Key="Foreman.Size.StepperArrowColumn">15</x:Double>
 

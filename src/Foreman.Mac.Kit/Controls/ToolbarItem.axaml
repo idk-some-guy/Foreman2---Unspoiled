@@ -70,7 +70,7 @@
       <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
     </Style>
 
-    <!-- Toolbar collapse step 1 (K3 composites addendum §08): the label drops, the tooltip carries it instead. -->
+    <!-- Toolbar collapse step 1 (composites addendum §08): the label drops, the tooltip carries it instead. -->
     <Style Selector="^.icon-only">
       <Setter Property="MinWidth" Value="{DynamicResource Foreman.Size.ToolbarItemIconOnlyWidth}" />
     </Style>

@@ -31,7 +31,7 @@ namespace Foreman.Mac.UiTests.Services {
             Assert.Empty(new AddCatalog(fx.Cache, new AppSettings()).Search("", AddScope.All, null));
         }
 
-        //Gate fix 2: the radial's Source/Output/UnSpoil/UnPlant slices own the dragged item's own row now,
+        //The radial's Source/Output/UnSpoil/UnPlant slices own the dragged item's own row now,
         //so a link-scoped search lists only the recipes AddCatalog.IsCompatible allows - no item row.
         [AvaloniaFact]
         public void LinkContext_ListsOnlyCompatibleRecipes() {

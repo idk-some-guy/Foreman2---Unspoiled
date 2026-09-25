@@ -13,7 +13,7 @@ using Xunit;
 
 namespace Foreman.Mac.UiTests.ViewModels {
     public class SettingsViewModelTests {
-        //Round-trip contract (Task 6 Step 1): LoadFrom seeds every widget-backing property from an
+        //Round-trip contract: LoadFrom seeds every widget-backing property from an
         //AppSettings snapshot, ApplyTo writes them back onto a fresh snapshot - mutating a property before
         //ApplyTo must change only that field, leaving everything else exactly as LoadFrom read it.
         [Fact]
@@ -122,10 +122,9 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal(mode, applied.FlagDarkMode);
         }
 
-        //Regression (fix round 1): the old bool FlagDarkModeChecked read System as unchecked and wrote
-        //back only Light/Dark, so any Confirm - even one that never touched appearance - silently
-        //clobbered System into Light. Loading System and applying after an unrelated edit must still
-        //come out as System.
+        //FlagDarkModeChecked is tri-state, not bool: Confirm must round-trip System correctly - even one
+        //that never touched appearance - rather than collapsing it into Light. Loading System and applying
+        //after an unrelated edit must still come out as System.
         [Fact]
         public void ApplyTo_SystemLoadedThenUnrelatedSettingChanged_StaysSystem() {
             var settings = new AppSettings { FlagDarkMode = ThemeMode.System };
@@ -185,7 +184,7 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal("150 %", vm.UiScaleLabel);
         }
 
-        //M-7 (final fix wave): UiScaleLabel is plain string storage, not an enum - no real caller can put
+        //UiScaleLabel is plain string storage, not an enum - no real caller can put
         //a value in it that isn't one of UiScaleSteps' own labels, but ApplyTo must not throw if one ever
         //does (a future widget bug, a bad test double); FirstOrDefault falls back to 100% instead.
         [Fact]

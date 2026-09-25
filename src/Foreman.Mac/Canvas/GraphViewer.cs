@@ -26,10 +26,10 @@ namespace Foreman.Mac.Canvas {
     //Ports ProductionGraphViewer's element-lifecycle wiring (Session_NodeViewModelAdded/Removed,
     //Session_LinkViewModelAdded/Removed, Session_GraphCleared - reference §2) and its paint orchestration
     //(GetPaintingOrder, Paint, LOD/IconsOnly/NodeCountForSimpleView style selection, DynamicLinkWidth
-    //pre-pass - reference §3, §8.12). Mouse-drag/selection/right-click/DraggedLinkElement concerns are P4
-    //and stay out; this only drives the read-only element tree from session events plus the read-only half
+    //pre-pass - reference §3, §8.12). Mouse-drag/selection/right-click/DraggedLinkElement concerns
+    //stay out; this only drives the read-only element tree from session events plus the read-only half
     //of the paint pipeline. GraphCanvasControl owns the Avalonia control surface, pointer input, and the
-    //hover-tooltip overlay (already built in Task 6); this class owns everything upstream's viewer keeps in
+    //hover-tooltip overlay (already built); this class owns everything upstream's viewer keeps in
     //graph/session/element-collection state.
     public sealed partial class GraphViewer : IDisposable {
         private static float MinLinkWidth => KitSkia.TokenBridge.Scaled(3f);
@@ -63,9 +63,9 @@ namespace Foreman.Mac.Canvas {
         public HashSet<BaseNodeElement> SelectedNodes { get; } = [];
         public HashSet<BaseNodeElement> CurrentSelectionNodes { get; } = [];
 
-        //Ports selectedAnnotations (reference §1/§2): annotation selection itself is Task 6's job, but node
-        //dragging's follower loop already needs somewhere to read a mixed selection's annotations from, so
-        //this exists now, empty until Task 6 starts populating it.
+        //Ports selectedAnnotations (reference §1/§2): annotation selection is a separate job from node
+        //dragging, whose follower loop already needs somewhere to read a mixed selection's annotations from,
+        //so this exists now, empty until annotation selection starts populating it.
         public HashSet<AnnotationElement> SelectedAnnotations { get; } = [];
 
         //Ports SelectionZone (reference §1): null whenever no lasso is being dragged, so Paint's draw guard
@@ -256,7 +256,7 @@ namespace Foreman.Mac.Canvas {
 
         //----------------------------------------------Selection functions (reference §1)
 
-        //Task 7 (contract #toolbar's Align Selected .disabled empty-selection state): the aggregate signal
+        //The aggregate signal (contract #toolbar's Align Selected .disabled empty-selection state)
         //AlignSelectionCommand's CanExecute re-queries on, raised from every method below that touches
         //SelectedNodes plus the two raw toggle-select mutations GraphCanvasControl still does directly.
         public event EventHandler? SelectionChanged;
@@ -421,8 +421,8 @@ namespace Foreman.Mac.Canvas {
             Grid.SetGridColors(bg, fg);
         }
 
-        //Foreman.Color.CanvasBackground per active variant (Task 1's token, not this class' own fallback
-        //constants) - resolved explicitly off the passed-in dark flag rather than ActualThemeVariant, since
+        //Foreman.Color.CanvasBackground per active variant (the shared design token, not this class' own
+        //fallback constants) - resolved explicitly off the passed-in dark flag rather than ActualThemeVariant, since
         //callers (ApplyLoadedSettings, Settings Confirm) already compute dark from FlagDarkMode themselves.
         private static SKColor ResolveBackgroundColor(bool dark) {
             SKColor fallback = dark ? DarkBackground : LightBackground;
@@ -503,7 +503,7 @@ namespace Foreman.Mac.Canvas {
             canvas.DrawRect(0, 0, (float)Viewport.Width - 3, (float)Viewport.Height - 3, PausedBorderPaint);
         }
 
-        //Final-review I2: GraphCanvasControl.OnDetachedFromVisualTree is this class's only caller now (it
+        //GraphCanvasControl.OnDetachedFromVisualTree is this class's only caller (it
         //owns the GraphViewer it constructs), and Avalonia can raise a detach more than once across a
         //control's lifetime (e.g. a reattach cycle) - the guard keeps a second call a no-op instead of a
         //double-dispose of _selectionZonePaint/Grid's own SKPaints.

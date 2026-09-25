@@ -140,7 +140,7 @@ namespace Foreman.DataCaching.Loading {
 
             if (store.IconCache != null) {
                 //DisposeIfDecoded, not iconset.Icon?.Dispose(): a lazily-decoded IconColorPair
-                //(phase 9 Task 6) that nothing ever read must not get force-decoded just to be thrown away.
+                //that nothing ever read must not get force-decoded just to be thrown away.
                 foreach (var iconset in store.IconCache.Values)
                     iconset.DisposeIfDecoded();
                 store.IconCache.Clear();

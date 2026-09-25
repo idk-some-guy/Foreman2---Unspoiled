@@ -153,7 +153,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         //Choice mode's own rebuild path (Rebuild() swaps Grid<->WrapPanel and rebinds every cell) never
-        //loops or grows unbounded across repeated Slots writes (K3 addendum's pumping rule).
+        //loops or grows unbounded across repeated Slots writes (composites addendum's pumping rule).
         [AvaloniaFact]
         public void Choice_RebuildPumping_StaysBounded() {
             using var fixture = new KitFixture();
@@ -170,8 +170,8 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(grid.Bounds.Width > 0);
         }
 
-        //A25 Loading state (§05 States): icons unresolved renders plain cells, no per-cell spinner - the K3
-        //rule carried into choice mode.
+        //A25 Loading state (§05 States): icons unresolved renders plain cells, no per-cell spinner, the
+        //composites addendum rule carried into choice mode.
         [AvaloniaFact]
         public void Choice_LoadingState_IconsUnresolved_RendersPlainCells_NoGlyphOrSpinner() {
             using var fixture = new KitFixture();

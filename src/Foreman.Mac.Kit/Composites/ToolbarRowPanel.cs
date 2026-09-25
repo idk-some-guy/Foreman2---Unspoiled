@@ -131,7 +131,7 @@ namespace Foreman.Mac.Kit.Composites {
         internal double IconOnlyWidthOf(ToolbarItem item) => iconOnlyWidths.GetValueOrDefault(item);
         internal double RequiredWidthAtStep(int step) => requiredByStep[step];
 
-        //Roving-tabindex order (K3 composites addendum §08 keyboard row): visible items group by group, the overflow button when it's showing, then the zoom stepper's three buttons.
+        //Roving-tabindex order (composites addendum §08 keyboard row): visible items group by group, the overflow button when it's showing, then the zoom stepper's three buttons.
         internal List<Control> FocusTargets() => FocusCandidates(onlyVisible: true);
 
         //Every possible roving-group member regardless of visibility - clears a stale IsTabStop left on a member whose group just folded away.

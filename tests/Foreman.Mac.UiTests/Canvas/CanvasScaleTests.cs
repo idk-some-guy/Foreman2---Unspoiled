@@ -105,7 +105,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(heightAtDefault * 1.5, element.Bounds.Height, 0);
         }
 
-        //Round 1 left AssemblerElement's own Width/Height at their construction-time size (concerns #2):
         //RecipeNodeElement.UpdateState now calls AssemblerElement.UpdateSize the same way it already
         //recomputes its own Width/Height, so the icon rect (Height mirrors AssemblerIconSize exactly) scales.
         [AvaloniaFact]
@@ -159,7 +158,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(heightAtDefault, element.Bounds.Height);
         }
 
-        //Fix round 3: module icon size/spacing inside the assembler, previously fixed regardless of scale
+        //Module icon size/spacing inside the assembler, previously fixed regardless of scale
         //(a 1x module row inside a now-1.5x assembler icon), now scale through the same UpdateSize path.
         [AvaloniaFact]
         public void SetScale_AtOneFifty_AssemblerModuleGridScalesAndRepositions() {
@@ -186,7 +185,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(offsetAtDefault, AssemblerElement.ModuleOffset);
         }
 
-        //Fix round 4: the module-location arrays are read every Draw call, so they are cached per scale
+        //The module-location arrays are read every Draw call, so they are cached per scale
         //rather than rebuilt (and reallocated) on each read.
         [AvaloniaFact]
         public void ModuleLocations_AreCachedPerScaleAndRefreshedOnScaleChange() {
@@ -211,7 +210,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(beaconAtDefault[0], BeaconElement.ModuleLocations[0]);
         }
 
-        //Fix round 3: the full visual footprint of a recipe node - its own box plus every sub-element that
+        //The full visual footprint of a recipe node - its own box plus every sub-element that
         //paints outside it (assembler/beacon icons offset to the side, item tabs above/below) - must scale
         //together, or the pieces drift apart relative to each other at higher scale even though each one's
         //own size is individually correct.

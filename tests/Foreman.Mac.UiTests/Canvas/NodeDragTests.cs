@@ -20,7 +20,7 @@ using AvaloniaWindow = Avalonia.Controls.Window;
 namespace Foreman.Mac.UiTests.Canvas {
     //Exercises reference §2's node-dragging semantics: leader grid-snap/axis-lock, raw-delta followers
     //(nodes and annotations), tab-vs-node disambiguation, arrow-key steps, and the carried Viewport.PanTo
-    //hard-limit seam from Task 1's review.
+    //hard-limit seam.
     public class NodeDragTests {
         private const int Half = 200;
 
@@ -223,7 +223,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Point tabGraphPoint = node.LocalToGraph(tab.Location);
 
             node.MouseDown(tabGraphPoint);
-            node.Dragged(tabGraphPoint + new Size(20, 0), fx.Control.Grid); //first call off a tab hit: never arms (would redirect to a link drag once Task 3+ exists)
+            node.Dragged(tabGraphPoint + new Size(20, 0), fx.Control.Grid); //first call off a tab hit: never arms a link drag
             node.Dragged(tabGraphPoint + new Size(40, 0), fx.Control.Grid); //tabHit re-checks the fixed MouseDown location every call, so this still doesn't arm
 
             Assert.Equal(new Point(0, 0), node.Location);
@@ -335,7 +335,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new Point(origin.X, origin.Y + 50), fx.Control.Viewport.ViewOffset); //10*5
         }
 
-        //---- Viewport.PanTo's hard-limit seam (reference §2's carried note from Task 1's review) ----
+        //---- Viewport.PanTo's hard-limit seam (reference §2's carried note) ----
 
         [AvaloniaFact]
         public void PlainPan_NearCanvasEdge_ClampsViewOffsetToGraphBounds() {

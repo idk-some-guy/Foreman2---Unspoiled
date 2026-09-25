@@ -11,7 +11,7 @@ namespace Foreman.Mac.Services {
         private readonly string presetsDirectory;
         //File-location policy (docs/upstream-divergences.md): imported presets write to the user's writable
         //Presets directory; this resolver reads both it and the bundle-shipped one, user directory winning
-        //on a name collision (Task 7's own import-over-the-active-preset case).
+        //on a name collision (the import-over-the-active-preset case).
         private readonly string userPresetsDirectory;
 
         public PresetResolver(string? presetsDirectoryOverride = null, string? userPresetsDirectoryOverride = null) {

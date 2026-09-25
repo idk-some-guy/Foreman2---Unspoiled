@@ -38,7 +38,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Empty(onlyInLight);
             Assert.Empty(onlyInDark);
-            Assert.Equal(270, lightKeys.Count);
+            Assert.Equal(269, lightKeys.Count);
         }
 
         //Ruling §06 token 1: the find ring is Accent at 55 % dark / 50 % light, never NodeSelected amber or the 16 % AccentSoft fill.
@@ -54,7 +54,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         //The semantic rebind adds these on top of the existing 25 colour keys, and renames Selection to
         //NodeSelected.
         [AvaloniaFact]
-        public void TokenFiles_DeclareTheNewK1ColorKeys() {
+        public void TokenFiles_DeclareTheSemanticColorKeys() {
             var lightKeys = LoadThemeFile("Tokens.Light.axaml").Keys.Cast<string>().ToHashSet();
             string[] newKeys = [
                 "Foreman.Color.FocusRing",

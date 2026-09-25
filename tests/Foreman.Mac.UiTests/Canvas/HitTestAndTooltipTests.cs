@@ -161,7 +161,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Same(annotation, fx.Control.HitTest(fx.Control.Viewport.GraphToScreen(Point.Empty)));
         }
 
-        //Task 7 carried requirement: once GraphViewer's real GetPaintingOrder exists, HitTest's reverse
+        //With GraphViewer's real GetPaintingOrder, HitTest's reverse
         //iteration over NodeElements must still pick the topmost (last-painted) node on overlap - this
         //drives the nodes through the control's own live Graph/session sync (not manually-added elements
         //like the fixture above) so the regression actually exercises GetPaintingOrder's node segment.

@@ -16,7 +16,6 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Type.SegmentMini.FontSize",
             "Foreman.Type.Caption.FontSize",
             "Foreman.Type.Caption.LineHeight",
-            "Foreman.Type.WindowTitle.FontSize",
             "Foreman.Type.Legacy.ToolbarItem.Label.FontSize",
             "Foreman.Type.Canvas.FontSize",
             "Foreman.Size.InspectorWidth",

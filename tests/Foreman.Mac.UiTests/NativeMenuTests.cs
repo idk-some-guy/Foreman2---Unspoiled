@@ -23,11 +23,11 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Task 5 (contract #menubar): the full six-menu structure - every action in the 22-row table, exact
+    //The full six-menu structure (contract #menubar): every action in the 22-row table, exact
     //gestures, the conflict resolutions verbatim, and the grid-dots/inspector/undo placeholders the table
-    //marks as later-plan surfaces. MainWindowShellTests.cs keeps the four Task-4-era native menu tests
+    //marks as later-plan surfaces. MainWindowShellTests.cs keeps the four older native menu tests
     //(top-level headers, Save's gesture on both platforms, File's enabled state) - this file covers
-    //everything Task 5 added on top of that.
+    //everything beyond that baseline.
     public class NativeMenuTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
 
@@ -521,7 +521,7 @@ namespace Foreman.Mac.UiTests {
             return dir;
         }
 
-        //Task 5: after ApplyLoadedSettings, every menu checkmark/radio-selection must reflect the settings
+        //After ApplyLoadedSettings, every menu checkmark/radio-selection must reflect the settings
         //that were actually loaded, not BuildNativeMenu's construction-time snapshot (taken before Settings
         //is even assigned).
         [AvaloniaFact]
@@ -543,7 +543,7 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.ViewModel.Inspector.IsPinned);
         }
 
-        //Show/Pin Inspector (contract #menubar): the inspector panel itself landed in C2a Tasks 1-2, so
+        //Show/Pin Inspector (contract #menubar): the inspector panel itself already exists, so
         //these are live toggles now - Show flips ShowOverride only, Pin flips IsPinned and persists it.
         [AvaloniaFact]
         public void ViewMenu_ShowInspector_IsCheckboxToggleThatOverridesVisibility() {

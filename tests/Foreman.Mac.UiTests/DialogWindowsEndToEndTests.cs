@@ -31,8 +31,8 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Task 6's phase gate (docs/superpowers/plans/2026-09-02-phase5b-dialog-windows.md), since extended by
-    //C2c Task 4's non-modal live-apply Settings rewrite: the dialog windows (Settings/GraphSummary/
+    //Covers docs/superpowers/plans/2026-09-02-phase5b-dialog-windows.md, since extended by the
+    //non-modal live-apply Settings rewrite: the dialog windows (Settings/GraphSummary/
     //PresetComparator) are each review-clean on their own; this covers the seams between them and the real
     //MainWindow - live-apply persisting and re-solving, a preset switch with a live graph, a summary
     //reopened after an edit, Compare launched from Settings, and repeated open/close cycles - rather than
@@ -229,8 +229,8 @@ namespace Foreman.Mac.UiTests {
         }
 
         //================================================================================================
-        // Seam 2: preset-switch cascade with an existing graph (Task 1 remap x Task 2 pre-population).
-        // Picking a preset still closes and reopens Settings (R5: it swaps the whole live DataCache), fired
+        // Seam 2: preset-switch cascade with an existing graph.
+        // Picking a preset still closes and reopens Settings (it swaps the whole live DataCache), fired
         // through MainWindow's own event handler - WaitUntilAsync polls for the reload landing since there's
         // no deterministic seam for a real DataCache load the way SettingsSession's debounce has FlushAsync.
         //================================================================================================
@@ -273,7 +273,7 @@ namespace Foreman.Mac.UiTests {
             Assert.DoesNotContain(recipeDataObjects, o => ReferenceEquals(o, vanilla.Recipes["iron-plate"]));
         }
 
-        //Phase 6 Task 8: ReloadForPresetAsync now serializes through GraphViewerSaveAssembler.BuildSaveDocument
+        //ReloadForPresetAsync now serializes through GraphViewerSaveAssembler.BuildSaveDocument
         //instead of a bare ProductionGraphSaveDocument wrapper, so annotations and the viewport round-trip
         //across a preset switch same as a real save/load (docs/upstream-divergences.md, the entry this test
         //closes out).
@@ -309,7 +309,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(2.5f, window.GraphCanvas.Viewport.ViewScale);
         }
 
-        //Final fix wave I2: MainWindow.axaml.cs's ReloadForPresetAsync call passes setEnablesFromJson: false
+        //MainWindow.axaml.cs's ReloadForPresetAsync call passes setEnablesFromJson: false
         //deliberately (see its own comment) so the freshly booted cache's own default-enabled state survives
         //a preset switch, instead of Vanilla's serialized enabled-recipe NAMES zeroing out anything in Space
         //Age that doesn't share one. A recipe that exists only in Space Age (never in Vanilla's Recipes
@@ -385,7 +385,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(7, copperRow.InValue, 3);
         }
 
-        //Phase5b hands-on gate (Finding 3): the human reported a solved factory summing to 0 buildings.
+        //A human reported a solved factory summing to 0 buildings.
         //Every prior summary test either has zero recipe nodes or pins the recipe node's own rate by hand -
         //neither exercises what MainWindow hands GraphSummarySheet for an auto-solved recipe node reached
         //through the real chooser flow (AddRecipeViaChooser), which is what "a solved graph with real recipe
@@ -444,7 +444,7 @@ namespace Foreman.Mac.UiTests {
             MainWindow window = NewReadyWindow(vanilla, settings, tempHome, presetsOverride: null); //real Presets dir: need the real >=2-preset guard to pass
 
             window.GraphCanvas.Focus();
-            //Fix round 1 (popover redo): GridlinesCheckbox lives inside the View Options popover now, not a
+            //GridlinesCheckbox lives inside the View Options popover now, not a
             //visual descendant of the window until it's open.
             window.ViewModel.ToggleViewOptionsCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
@@ -479,7 +479,7 @@ namespace Foreman.Mac.UiTests {
 
         //================================================================================================
         // Seam 5: open/close cycles leak check - repeat each window 3x through the real commands, then
-        // confirm one real trigger still produces exactly one solve (Task 3's bind-once lesson). Settings
+        // confirm one real trigger still produces exactly one solve. Settings
         // is non-modal now (one MainWindow-owned instance, freshly constructed and rewired every reopen -
         // reference ShowSettings), so this proves the same "no duplicate subscriptions after repeated
         // open/close" property the old Confirm/Cancel cascade did, just without a Confirm/Cancel click.
@@ -520,7 +520,7 @@ namespace Foreman.Mac.UiTests {
             int solveCount = 0;
             window.GraphCanvas.Viewer.Graph.NodeValuesUpdated += (_, _) => solveCount++;
 
-            //Fix round 1 (popover redo): RateOptionsDropDown lives inside the View Options popover now, not a
+            //RateOptionsDropDown lives inside the View Options popover now, not a
             //visual descendant of the window until it's open. A real commit (not a plain SelectedItem write)
             //is what fires Kit.PopUp's Command, so this mirrors PopUp.Commit's own two-step write.
             window.ViewModel.ToggleViewOptionsCommand.Execute(null);
@@ -534,10 +534,10 @@ namespace Foreman.Mac.UiTests {
         }
 
         //================================================================================================
-        // Seam 6: Imp#3 (final fix wave) - ShowSettings/RealShowGraphSummaryAsync's own GraphCanvas.Focus()
+        // Seam 6: ShowSettings/RealShowGraphSummaryAsync's own GraphCanvas.Focus()
         // calls, driven through the real (unstubbed) child Window.Show / SheetHost.ShowAsync rather than the
         // SettingsDialogStub/GraphSummaryDialogStub every other seam above uses (a stub never reaches either
-        // real method, so it can't exercise this focus-restore at all). Minor#5 rides along: the same two
+        // real method, so it can't exercise this focus-restore at all). The same two
         // call sites must not steal focus from an already-open floating panel.
         //================================================================================================
 
@@ -548,7 +548,7 @@ namespace Foreman.Mac.UiTests {
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(cache, settings, tempHome);
 
-            //Any other focusable control proves the point; task 4 moved GridlinesCheckbox behind the
+            //Any other focusable control proves the point; GridlinesCheckbox moved behind the
             //collapsed View Options panel, so it's no longer a plain always-focusable toolbar control.
             Button newGraphButton = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "NewGraphButton");
             newGraphButton.Focus();
@@ -568,7 +568,7 @@ namespace Foreman.Mac.UiTests {
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(cache, settings, tempHome);
 
-            //Any other focusable control proves the point; task 4 moved GridlinesCheckbox behind the
+            //Any other focusable control proves the point; GridlinesCheckbox moved behind the
             //collapsed View Options panel, so it's no longer a plain always-focusable toolbar control.
             Button newGraphButton = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "NewGraphButton");
             newGraphButton.Focus();
@@ -582,7 +582,7 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.GraphCanvas.IsFocused);
         }
 
-        //Phase 7 deferred-minors sweep (toolbar-staleness fix, widened scope): ShowSettings closes any open
+        //ShowSettings closes any open
         //floating panel before it opens itself - a toolbar/menu click never reaches
         //GraphCanvasControl.OnPointerPressed's own click-outside-closes-panel guard, so a panel left open
         //under Settings used to stay stale once the window closed.

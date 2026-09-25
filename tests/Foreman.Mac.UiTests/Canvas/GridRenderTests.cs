@@ -102,7 +102,7 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //Ports MainForm.SetDarkMode's ChangeTheme(bg, fg, this) call into ProductionGraphViewer
         //(upstream MainForm.cs:60-63): GridManager.SetGridColors(bg, fg) recolors the fallback fill
-        //(_gridFillPaint) and major-gridline pen (_gridMajorPaint) - per-instance since fix-round item 2, so
+        //(_gridFillPaint) and major-gridline pen (_gridMajorPaint) - per-instance now, so
         //each GridManager needs its own call and no cross-test restore is needed.
         [Fact]
         public void SetGridColors_RecolorsFallbackFillAndMajorGridPaint() {
@@ -119,7 +119,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.True(ColorPresentNear(majorSurface, 40, 5, new SKColor(124, 124, 124)));
         }
 
-        //Reviewer fold-in (fix-round item 2, task-2-report.md): GridPaint/GridMajorPaint/ZeroAxisPaint/
+        //GridPaint/GridMajorPaint/ZeroAxisPaint/
         //LockedAxisPaint used to be static, with StrokeWidth mutated per Paint() call from the caller's
         //ViewScale - shared across every GridManager, so ImageExportWindow's direct-call paint and the
         //canvas's own compositor-thread paint could corrupt each other's stroke width. LockedAxisPaint's

@@ -275,7 +275,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.False(element.BeaconElement.Visible);
         }
 
-        //---- EnableExtraProductivityForNonMiners (final-review finding 5) ----
+        //---- EnableExtraProductivityForNonMiners ----
 
         [Fact]
         public async Task LoadDocument_ExtraProdForNonMinersOn_RecipeNodeDrawsExtraProductivityTickAtLODLow() {
@@ -371,11 +371,11 @@ namespace Foreman.Mac.UiTests.Canvas {
                 using SKSurface surface = Render(element);
                 using SKImage image = surface.Snapshot();
                 using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
-                using FileStream file = File.OpenWrite(Path.Combine(workspaceDir, $"task-3-recipe-node-{suffix}.png"));
+                using FileStream file = File.OpenWrite(Path.Combine(workspaceDir, $"recipe-node-{suffix}.png"));
                 data.SaveTo(file);
             }
 
-            Assert.True(File.Exists(Path.Combine(workspaceDir, "task-3-recipe-node-high.png")));
+            Assert.True(File.Exists(Path.Combine(workspaceDir, "recipe-node-high.png")));
         }
     }
 }

@@ -351,8 +351,8 @@ namespace Foreman.Mac.UiTests.Views {
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            //Scoped to the two Focus ring tiles - later composites (K3) legitimately reuse "Save" as a
-            //Kit.ButtonRow default-button label elsewhere in the gallery.
+            //Scoped to the two Focus ring tiles: composites legitimately reuse "Save" as a Kit.ButtonRow
+            //default-button label elsewhere in the gallery.
             StackPanel[] focusRingTiles = [.. window.GetVisualDescendants().OfType<StackPanel>()
                 .Where(s => s.Name is "Focus ring" or "Focus ring (150%)")];
             Button[] saveButtons = [.. focusRingTiles.SelectMany(t => t.GetVisualDescendants().OfType<Button>())
@@ -372,7 +372,7 @@ namespace Foreman.Mac.UiTests.Views {
         //both variants, making every kit tile impossible to judge against its own background. It now binds
         //the same live WindowBackground every other window does, re-resolved by RefreshTheme on every flip.
         [AvaloniaFact]
-        public void Background_TracksWindowBackgroundTokenLiveAcrossThemeToggle() {
+        public void Backgrounds_TrackTheirTokensLiveAcrossThemeToggle() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
             window.Show();
@@ -380,12 +380,24 @@ namespace Foreman.Mac.UiTests.Views {
 
             Color expectedBefore = ThemeResources.ResolveColor("Foreman.Color.WindowBackground", app.ActualThemeVariant, Colors.White);
             Assert.Equal(expectedBefore, Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color);
+            Color paneBefore = ThemeResources.ResolveColor("Foreman.Color.InspectorBackground", app.ActualThemeVariant, Colors.White);
+            Assert.Equal(paneBefore, Assert.IsAssignableFrom<ISolidColorBrush>(SplitDividerPane(window).Background).Color);
 
             RealClick(window, FindByName(window, "ThemeToggleButton"));
+            Dispatcher.UIThread.RunJobs();
 
             Color expectedAfter = ThemeResources.ResolveColor("Foreman.Color.WindowBackground", app.ActualThemeVariant, Colors.White);
             Assert.NotEqual(expectedBefore, expectedAfter);
             Assert.Equal(expectedAfter, Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color);
+            Color paneAfter = ThemeResources.ResolveColor("Foreman.Color.InspectorBackground", app.ActualThemeVariant, Colors.White);
+            Assert.NotEqual(paneBefore, paneAfter);
+            Assert.Equal(paneAfter, Assert.IsAssignableFrom<ISolidColorBrush>(SplitDividerPane(window).Background).Color);
+        }
+
+        private static Border SplitDividerPane(GalleryWindow window) {
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Split divider — rest, hovered, dragging, focused");
+            SplitDivider divider = tile.GetVisualDescendants().OfType<SplitDivider>().First();
+            return Assert.IsType<Border>(((StackPanel)divider.GetVisualParent()!).Children[0]);
         }
 
         //The gallery joins AppearanceHub like every other window; scale never wraps Content in a LayoutTransformControl.
@@ -437,8 +449,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.DoesNotContain("Enabled Objects rows", captions);
         }
 
-        //The toggle is the gate tool's whole point (task-6-brief: "genuinely useful for eyeballing both
-        //themes quickly") - a real click has to flip the live app theme and rebuild the section against it.
+        //A real click on the toggle flips the live app theme and rebuilds the section against it.
         [AvaloniaFact]
         public void ThemeToggleButton_RealClick_FlipsRequestedThemeVariantAndRebuildsShowcase() {
             DataCache cache = NewFixtureCache();
@@ -456,9 +467,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.NotSame(contentBefore, host.Content);
         }
 
-        //M-6 (final fix wave): the header used to hardcode Brushes.Black, staying black through a theme
-        //toggle while every retokened surface below it flipped - it now reads Foreman.Color.Text like the
-        //rest of the showcase, so it tracks the toggle too.
+        //The header reads Foreman.Color.Text like the rest of the showcase, so it tracks a theme toggle.
         [AvaloniaFact]
         public void DesignLanguageHeader_ForegroundTracksThemedTextToken() {
             DataCache cache = NewFixtureCache();
@@ -466,7 +475,7 @@ namespace Foreman.Mac.UiTests.Views {
             window.Show();
             Application app = Application.Current!;
 
-            TextBlock Header() => window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Design language (Task 6 gate)");
+            TextBlock Header() => window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Design language");
 
             Color expectedBefore = ThemeResources.ResolveColor("Foreman.Color.Text", app.ActualThemeVariant, Colors.Black);
             Assert.Equal(expectedBefore, Assert.IsType<ImmutableSolidColorBrush>(Header().Foreground).Color);

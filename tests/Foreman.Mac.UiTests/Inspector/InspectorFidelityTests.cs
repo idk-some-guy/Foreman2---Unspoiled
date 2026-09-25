@@ -27,7 +27,7 @@ using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Task 9 gate-fix fidelity pass: structural assertions from the brief's own checklist that don't belong
+    //Structural assertions from the brief's own checklist that don't belong
     //to any one segment's existing test file - only the body scrolls, group titles read uppercase, only
     //Assembler/Modules/Beacon collapse, and toggle rows carry no "On"/"Off" text.
     public class InspectorFidelityTests {

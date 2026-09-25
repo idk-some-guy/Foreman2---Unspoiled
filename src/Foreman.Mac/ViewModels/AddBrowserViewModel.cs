@@ -76,7 +76,7 @@ namespace Foreman.Mac.ViewModels {
         //The UnSpoil/UnPlant multi-origin chip's remembered target and its origin choices.
         private sealed record PendingOrigin(AddCandidate Target, NodeType Role, IReadOnlyCollection<IItem> Origins);
 
-        //R5: defaults to the graph's own DefaultAssemblerQuality when the caller has one (MainWindow reads
+        //Defaults to the graph's own DefaultAssemblerQuality when the caller has one (MainWindow reads
         //GraphCanvas.Viewer.Graph), falling back to the cache default only when it doesn't. With a defer,
         //cell icons not yet baked resolve in a later dispatcher pass while the sidebar is already live.
         public AddBrowserViewModel(AddCatalog catalog, DataCache cache, AppSettings settings, Func<SKBitmap, int, IImage?> bake, IQuality? defaultAssemblerQuality = null, Action<Action>? defer = null) {
@@ -406,7 +406,7 @@ namespace Foreman.Mac.ViewModels {
             RaiseChipChanged();
         }
 
-        //R9: the x clears both the link and any origins filter, and later picks land disconnected.
+        //The x clears both the link and any origins filter, and later picks land disconnected.
         public void ClearChip() {
             pendingOrigin = null;
             if (request is not null)
@@ -555,7 +555,7 @@ namespace Foreman.Mac.ViewModels {
             OnPropertyChanged(nameof(State));
         }
 
-        //R11: a group only appears once it has at least one visible-by-availability entry for the segment.
+        //A group only appears once it has at least one visible-by-availability entry for the segment.
         private void RefreshGroups() {
             CatalogueFault?.Invoke();
             var sorted = new List<IGroup>();
@@ -794,7 +794,7 @@ namespace Foreman.Mac.ViewModels {
             }
         }
 
-        //R10: a recipe search also matches on ingredient/product name, not just the recipe's own name.
+        //A recipe search also matches on ingredient/product name, not just the recipe's own name.
         private void BuildSearchSection(List<BrowserSection> target, string text, AddCatalog source) {
             SearchFault?.Invoke(text);
             AddScope scope = Segment == BrowserSegment.Items ? AddScope.Items : AddScope.Recipes;

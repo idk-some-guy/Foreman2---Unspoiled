@@ -28,7 +28,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             return pixmap.GetPixelColor(x, y);
         }
 
-        //Phase 7 task 2 (perf-packaging-reference.md §1b): pins GraphViewer.cs:432/458's per-frame `new
+        //perf-packaging-reference.md §1b: pins GraphViewer.cs:432/458's per-frame `new
         //SKPaint` call sites' exact pixel output so converting them to cached paints (a fixed static one for
         //PaintPausedBorder, a mutate-reset per-viewer one for the lasso's ViewScale-dependent stroke width)
         //can't drift either.
@@ -55,8 +55,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new SKColor(100, 100, 200), SamplePixel(surface, Size / 2 + 10, Size / 2 + 35));
         }
 
-        //Task 2: the clear color is now Foreman.Color.CanvasBackground (#1E1E20 dark / #FAFAFA light),
-        //not the pre-token literal (23,23,23)/white - see task-2-report.md's light-value-equivalence table.
+        //The clear color is now Foreman.Color.CanvasBackground (#1E1E20 dark / #FAFAFA light),
+        //not the pre-token literal (23,23,23)/white.
         //Every other test in the suite that touches Application.Current's theme resources runs under
         //[AvaloniaFact], which blocks until Avalonia.Headless's HeadlessUnitTestSession singleton has set
         //Application.Current up; these two ran under plain [Fact] instead, so whether Foreman.Color.

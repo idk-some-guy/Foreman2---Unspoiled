@@ -7,10 +7,10 @@ using System.IO;
 using System.Linq;
 
 namespace ForemanTest.Storage {
-    //Proves the v1->v2 additive migration (phase 9 Task 3): EF's EnsureCreated is a no-op against an
+    //Proves the v1->v2 additive migration: EF's EnsureCreated is a no-op against an
     //already-existing db file, so a column added to SettingsRow (UiScale) never reaches a db written by
-    //Task B2-era code without a real ALTER TABLE step. LegacyV1Context below reproduces that exact
-    //pre-Task-3 schema (every SettingsRow column except UiScale) via EF's own DDL generator, so the
+    //older code without a real ALTER TABLE step. LegacyV1Context below reproduces that exact
+    //pre-migration schema (every SettingsRow column except UiScale) via EF's own DDL generator, so the
     //fixture is faithful rather than hand-guessed SQL.
     [TestClass]
     public class SchemaMigrationTests {
@@ -157,8 +157,8 @@ namespace ForemanTest.Storage {
             Assert.AreEqual(4, context.SchemaVersions.Single().Version);
         }
 
-        //Phase 9 C2a Task 3: the v2->v3 additive migration (Settings.InspectorPinned). LegacyV2Context
-        //reproduces the post-Task-3(UiScale) pre-Task-3(InspectorPinned) schema the same way LegacyV1Context
+        //The v2->v3 additive migration (Settings.InspectorPinned). LegacyV2Context
+        //reproduces the schema with UiScale present but InspectorPinned absent, the same way LegacyV1Context
         //reproduces the schema before it.
         private sealed class SettingsRowV2 {
             public int Id { get; set; }

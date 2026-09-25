@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 
 namespace ForemanTest.Storage {
-    //Exercises PresetStore (phase 9 Task 4): a small structural pjson sample, never the bundled
+    //Exercises PresetStore with a small structural pjson sample, never the bundled
     //1.1MB preset file. Temp dir only.
     [TestClass]
     public class PresetStoreTests {

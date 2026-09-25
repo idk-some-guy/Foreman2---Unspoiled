@@ -95,8 +95,8 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(expected, Assert.IsAssignableFrom<ISolidColorBrush>(path.Fill).Color);
         }
 
-        //K3 composites addendum §10/§14: Plus/Minus land as their own 12pt masters, SlotAdd is the pick
-        //cell's own name for Plus - one geometry, two keys.
+        //Composites addendum §10/§14: Plus/Minus land as their own 12pt masters, SlotAdd is the pick
+        //cell's own name for Plus, one geometry, two keys.
         [AvaloniaFact]
         public void PlusAndMinus_ExistAtTwelvePoints() {
             using var fixture = new KitFixture();

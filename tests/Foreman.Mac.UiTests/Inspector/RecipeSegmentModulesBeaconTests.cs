@@ -569,7 +569,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.True(equippedGrid.IsFocused);
         }
 
-        //Pumping (K3 addendum): a notification storm where nothing actually changed must trigger zero
+        //Pumping (composites addendum): a notification storm where nothing actually changed must trigger zero
         //PickGrid rebuilds - SyncSlots only ever writes to Slots when a slot's content differs, so
         //Slots.CollectionChanged is the direct proxy for "did the grid rebuild" (an unbounded
         //Slots.Clear()+rebuild on every solve, which this replaced, fires that event on every iteration).
@@ -646,7 +646,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(beaconGroup.IsExpanded); //HasBeacon flipped false - collapses on its own too
         }
 
-        //Fix round: a live {Binding HasBeacon} used to re-push IsExpanded on every RefreshComputed, snapping
+        //A live {Binding HasBeacon} used to re-push IsExpanded on every RefreshComputed, snapping
         //a manual collapse back open on the next unrelated solve.
         [AvaloniaFact]
         public void BeaconGroup_ManualCollapse_SurvivesASolveWithBeaconUnchanged() {
@@ -855,7 +855,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(4, node.BeaconsConst, 3);
         }
 
-        //Kit.PickGrid's own keyboard contract (K3 addendum §03): Delete empties a filled slot, Return
+        //Kit.PickGrid's own keyboard contract (composites addendum §03): Delete empties a filled slot, Return
         //opens the chooser for the focused slot - here that's the options grid right below the equipped
         //one, so Return moves focus onto it rather than acting on the slot itself.
         [AvaloniaFact]

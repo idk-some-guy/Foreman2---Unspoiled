@@ -104,9 +104,9 @@ namespace Foreman.Mac.UiTests {
             Assert.All(items, item => Assert.NotEqual(0, item.Bounds.Height));
         }
 
-        //Task 4 (phase 9 toolbar rebuild): Help's toolbar button was retired along with Save As/Import Graph
+        //Help's toolbar button was retired along with Save As/Import Graph
         //(menu-bar-only now), so every remaining toolbar button is a wired, enabled command. Align Selected
-        //is excluded here since task 7 gives it a selection-driven CanExecute (contract #toolbar's
+        //is excluded here since it has a selection-driven CanExecute (contract #toolbar's
         //.disabled empty-selection state) - a fresh window has no selection, so it starts disabled; its own
         //states are asserted separately below.
         [AvaloniaFact]
@@ -916,7 +916,7 @@ namespace Foreman.Mac.UiTests {
             Assert.NotEqual(before, window.GraphCanvas.Viewport.ViewOffset);
         }
 
-        //Linux branch of the platform fork above (docs/upstream-divergences.md, phase 8 Task 2): Ctrl+S gates
+        //Linux branch of the platform fork above (docs/upstream-divergences.md): Ctrl+S gates
         //the pan on Linux the same way Cmd+S does on macOS, via the UseIsMacOs seam.
         //Dispatches via RaiseEvent rather than KeyPressQwerty for the same ambient-focus reason as the test above.
         [AvaloniaFact]
@@ -1018,7 +1018,7 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.GraphCanvas.Viewer.Context.EnableExtraProductivityForNonMiners);
         }
 
-        //Regression (task 7, reference §8): SmartNodeDirection/DefaultNodeDirection were never read off
+        //Regression (reference §8): SmartNodeDirection/DefaultNodeDirection were never read off
         //AppSettings anywhere - GraphCanvas.SmartNodeDirection stayed permanently false and Graph.
         //DefaultNodeDirection stayed permanently Up regardless of what was saved.
         [AvaloniaFact]
@@ -1080,16 +1080,15 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(new SKColor(0xFA, 0xFA, 0xFA), window.GraphCanvas.Viewer.BackgroundColor);
         }
 
-        //I-1 (final fix wave regression): OpenSettingsAsync's own tail used to run ApplyLoadedSettings
-        //(which reads Application.Current.ActualThemeVariant for FlagDarkMode.System's isDark check)
-        //before App.ApplyTheme actually updated RequestedThemeVariant, so a System Confirm read the stale
-        //pre-Confirm variant instead of the one it had just committed. With the app forced Dark going in
-        //and nothing else overriding this headless harness's own Light platform default, a correctly
+        //OpenSettingsAsync's tail must run App.ApplyTheme before ApplyLoadedSettings reads
+        //Application.Current.ActualThemeVariant for FlagDarkMode.System's isDark check, so a System Confirm
+        //reads the variant it just committed, not the stale pre-Confirm one. With the app forced Dark going
+        //in and nothing else overriding this headless harness's own Light platform default, a correctly
         //ordered live-apply to System must land the canvas Light, not stay stuck on the pre-change Dark.
-        //C2c Task 4: still asserting the pre-Task-4 contract, now driven through the non-modal
-        //ShowSettings/live-apply path instead of a Confirm click - see the fork report on this task for
-        //whether the ordering still holds under MainWindow.OnSettingsChanged (ApplyLoadedSettings runs
-        //before SettingsSession.Apply, which is what actually calls App.ApplyTheme for FlagDarkMode).
+        //This still asserts that contract, now driven through the non-modal ShowSettings/live-apply path
+        //instead of a Confirm click - the ordering must still hold under MainWindow.OnSettingsChanged
+        //(ApplyLoadedSettings runs before SettingsSession.Apply, which is what actually calls App.ApplyTheme
+        //for FlagDarkMode).
         [AvaloniaFact]
         public async Task ShowSettings_LiveApplyFlagDarkModeSystemWhileAppCurrentlyDark_CanvasResolvesLight() {
             var app = (App)Application.Current!;
@@ -1119,9 +1118,9 @@ namespace Foreman.Mac.UiTests {
             return dir;
         }
 
-        //Regression (task 7): DCache/DefaultAssemblerQuality were only ever assigned inside LoadDocument, so
-        //a fresh/New graph had neither before the first file load - blocking recipe-node creation and this
-        //task's Add Item/Add Recipe choosers (both need Viewer.Context.DCache) from ever working at boot.
+        //Regression: DCache/DefaultAssemblerQuality were only ever assigned inside LoadDocument, so
+        //a fresh/New graph had neither before the first file load - blocking recipe-node creation and the
+        //Add Item/Add Recipe choosers (both need Viewer.Context.DCache) from ever working at boot.
         [AvaloniaFact]
         public void ApplyLoadedSettings_DataCacheAssigned_SeedsViewerDCacheAndGraphDefaultAssemblerQuality() {
             var window = new MainWindow();
@@ -1217,7 +1216,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(1, solveCount);
         }
 
-        //Minor#4 (final fix wave): BindViewOptionControls wrote rateOptions.SelectedIndex directly, with the
+        //BindViewOptionControls wrote rateOptions.SelectedIndex directly, with the
         //handler already subscribed after the first bind - a second ApplyLoadedSettings call (e.g. a preset-
         //switching Confirm) that also changed settings.DefaultRateUnit re-solved on top of the apply-tail's
         //own explicit solve. Kit.PopUp's Command only fires on a real user commit, so this is now moot for
@@ -1266,8 +1265,8 @@ namespace Foreman.Mac.UiTests {
             Assert.NotEmpty(window.GraphCanvas.Viewer.NodeElements);
         }
 
-        //IMPORTANT 4 (final fix wave): New left an open panel bound to a node the clear just deleted -
-        //upstream's ClearFloatingControls has no equivalent on this port's own New path.
+        //NewCommand must close any open floating panel bound to a node the clear just deleted - upstream's
+        //ClearFloatingControls has no equivalent on this port's own New path.
         [AvaloniaFact]
         public void NewGraphCommand_Execute_ClosesOpenFloatingPanel() {
             var window = new MainWindow();
@@ -1280,9 +1279,9 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
         }
 
-        //IMPORTANT 4 (final fix wave): loading a save over a graph with an open edit panel left it bound to
-        //a now-dead node, same gap as New above - GraphCanvasControl.LoadDocument wraps Viewer.LoadDocument
-        //so LoadGraphAsync's real call site gets the close for free instead of duplicating it there.
+        //Loading a save over a graph with an open edit panel must close it too, same gap as New above -
+        //GraphCanvasControl.LoadDocument wraps Viewer.LoadDocument so LoadGraphAsync's real call site gets
+        //the close for free instead of duplicating it there.
         [AvaloniaFact]
         public async Task GraphCanvasLoadDocument_ClosesOpenFloatingPanel() {
             var window = new MainWindow();
@@ -1297,7 +1296,7 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
         }
 
-        //Phase 7 deferred-minors sweep (widened toolbar-staleness scope): a toolbar button click is a plain
+        //A toolbar button click is a plain
         //Avalonia Button press, never a canvas pointer event, so it never reached GraphCanvasControl.
         //OnPointerPressed's own click-outside-closes-panel guard - the panel just sat open and stale behind
         //whatever the button did. Real MouseDown/MouseUp at the button's own screen position (not
@@ -1332,7 +1331,7 @@ namespace Foreman.Mac.UiTests {
             window.Show();
             DataCache cache = await GetCacheAsync();
             window.GraphCanvas.Viewer.LoadDocument(cache, FlowchartJson());
-            window.GraphCanvas.Viewer.SetSelection([.. window.GraphCanvas.Viewer.NodeElements.Take(2)]); //a selection-gated button (task 7) needs one to be clickable at all
+            window.GraphCanvas.Viewer.SetSelection([.. window.GraphCanvas.Viewer.NodeElements.Take(2)]); //a selection-gated button needs one to be clickable at all
             window.GraphCanvas.FloatingPanelHost.Show(new Border { Width = 50, Height = 50, Focusable = true }, new System.Drawing.Point(0, 0));
             Assert.True(window.GraphCanvas.FloatingPanelHost.IsOpen);
 
@@ -1341,7 +1340,7 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
         }
 
-        //Task 7 (contract #toolbar's Align Selected .disabled empty-selection state): CanExecute now tracks
+        //Align Selected's .disabled empty-selection state (contract #toolbar): CanExecute now tracks
         //the canvas's live selection instead of always being true.
         [AvaloniaFact]
         public void AlignSelectionCommand_EmptySelection_CanExecuteIsFalse() {
@@ -1391,10 +1390,10 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(redrawCountBefore, window.GraphCanvas.RedrawRequestCount); //onAlignSelection's own RequestRedraw never ran
         }
 
-        //---- Zoom stepper (task 7, contract #toolbar's zoom stepper marked "(new)") -----------------------
+        //---- Zoom stepper (contract #toolbar's zoom stepper marked "(new)") -----------------------
 
-        //The stepper must not open a second zoom path alongside the View menu's Zoom In/Zoom Out (task 5,
-        //NativeMenuTests.ViewMenu_ZoomIn_IncreasesViewScale) - both bind the exact same MainWindow command
+        //The stepper must not open a second zoom path alongside the View menu's Zoom In/Zoom Out
+        //(NativeMenuTests.ViewMenu_ZoomIn_IncreasesViewScale) - both bind the exact same MainWindow command
         //instance, so this proves it structurally rather than just observing the same end effect twice.
         [AvaloniaFact]
         public void ZoomStepper_InAndOutButtons_ShareCommandInstancesWithViewMenu() {
@@ -1435,11 +1434,10 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.GraphCanvas.Viewport.ViewScale < before);
         }
 
-        //Fix round 1: mouse-wheel zoom went through GraphCanvasControl.OnPointerWheelChanged directly,
-        //bypassing every one of ResyncZoomLabel's four call sites, so the readout went stale on a wheel-zoom
-        //session until the next stepper/menu click. Exercises the real input pipeline (MouseWheel, not a
-        //direct Viewport.ZoomAt call) so it only passes once GraphCanvasControl's own wheel handler notifies
-        //MainWindow the same way a stepper click does.
+        //GraphCanvasControl's own wheel handler notifies MainWindow the same way a stepper click does, so
+        //ResyncZoomLabel's readout stays synced through a wheel-zoom session instead of going stale until
+        //the next stepper/menu click. Exercises the real input pipeline (MouseWheel, not a
+        //direct Viewport.ZoomAt call) so it only passes once that notification actually happens.
         [AvaloniaFact]
         public void ZoomValueLabel_TracksViewScaleAfterMouseWheelZoom() {
             var window = new MainWindow();
@@ -1490,9 +1488,9 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
         }
 
-        //I-4 (final fix wave): the titlebar's own VersionLabel TextBlock is gone (contract #toolbar retired
+        //The titlebar's own VersionLabel TextBlock is gone (contract #toolbar retired
         //it in favor of the About panel) - this test moves to the real window ShowAboutAsync opens.
-        //Task 10: the panel became a real AboutWindow (design doc .about-card) instead of a MessageDialog.
+        //The panel is a real AboutWindow (design doc .about-card) instead of a MessageDialog.
         [AvaloniaFact]
         public async Task AboutPanel_ShowsAppVersion() {
             var window = new MainWindow();
@@ -1523,7 +1521,7 @@ namespace Foreman.Mac.UiTests {
             var window = new MainWindow();
 
             var fileMenu = NativeMenu.GetMenu(window)!.Items.OfType<NativeMenuItem>().Single(i => i.Header == "File").Menu!;
-            //Task 5: File now has separators (contract #menubar) - NativeMenuItemSeparator is itself a
+            //File now has separators (contract #menubar) - NativeMenuItemSeparator is itself a
             //NativeMenuItem (Header "-"), so it has to be filtered out explicitly before grouping by Header.
             var items = fileMenu.Items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator).ToDictionary(i => i.Header!, i => i.IsEnabled);
 
@@ -1681,7 +1679,7 @@ namespace Foreman.Mac.UiTests {
             public event EventHandler? Changed { add => changed += value; remove => changed -= value; }
         }
 
-        //---- Task 8: GraphMutated replaces the five-event dirty wiring ------------------------------------
+        //---- GraphMutated drives dirty tracking ----
 
         [AvaloniaFact]
         public async Task NodeDrag_SetsDirty() {
@@ -1708,8 +1706,8 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.ViewModel.IsDirty);
         }
 
-        //Regression for the C1 gate's M-4 finding: NodeValuesUpdated used to drive IsDirty directly, so a
-        //plain solve (no edit at all) lit the Save tint with nothing new to save.
+        //NodeValuesUpdated alone must not drive IsDirty: a plain solve (no edit at all) must not light the
+        //Save tint with nothing new to save.
         [AvaloniaFact]
         public void SolveWithoutChange_DoesNotSetDirty() {
             var window = new MainWindow();
@@ -1735,7 +1733,7 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.ViewModel.IsDirty);
         }
 
-        //Fix round 1 (C2c Task 3 carry-over): every field on these two sheets applies live onto the domain
+        //Every field on these two sheets applies live onto the domain
         //element as the user types - OK persists it, Cancel reverts it. A sheet has no window chrome to
         //close from, so Escape (SheetHost's own handling, which calls the sheet's Cancel()) is now the only
         //non-OK dismissal path and the one this guards. Drives the real sheet (not TextPropertiesDialogStub)

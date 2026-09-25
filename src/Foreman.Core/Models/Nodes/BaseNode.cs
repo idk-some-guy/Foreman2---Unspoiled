@@ -148,7 +148,7 @@ namespace Foreman {
         private readonly BaseNode MyNode = myNode;
         private bool suppressMutated;
 
-        //Task 8: the session's GraphMutated (dirty tint) traces back to here. A node not yet part of the
+        //The session's GraphMutated (dirty tint) traces back to here. A node not yet part of the
         //graph (mid-construction, e.g. RecipeNode auto-selecting its assembler before NodeAdded fires)
         //notifies nobody - there's no session listening for it yet either way.
         protected void Mutated() {

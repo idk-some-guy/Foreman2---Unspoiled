@@ -17,7 +17,7 @@ using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //Covers io-reference.md §2's Import Graph merge algorithm (phase 6 Task 2): ReadGraphPayload's
+    //Covers io-reference.md §2's Import Graph merge algorithm: ReadGraphPayload's
     //dual-accept (bare fragment or full viewer save), the centroid/grid-align/selection algorithm shared
     //with NodeClipboard's paste path (upstream ProductionGraphViewer.cs:1311-1363), and MainWindow's
     //no-dirty-check wiring.

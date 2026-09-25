@@ -16,7 +16,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.ViewModels {
-    //Splits GraphSummaryWindow.axaml.cs's row-assembly off into its own VM (Task 7): every
+    //Splits GraphSummaryWindow.axaml.cs's row-assembly off into its own VM: every
     //BuildingRow/BeaconRow/ItemRow/KeyNodeRow the window shows starts life here, rebuilt from scratch by
     //Refresh. Filter/sort UI plumbing, header-total labels, and CSV export all read window control state
     //directly and stay in the code-behind; RowContainsFilter/FilterBuildingRows/FilterBeaconRows moved over
@@ -33,7 +33,7 @@ namespace Foreman.Mac.ViewModels {
         }
 
         //Resolved fresh at the top of every Refresh() call (below) against the app's active theme variant -
-        //not readonly, since a light-only literal here is exactly the phase-5b bug this task fixes.
+        //not readonly, since a light-only literal here would silently break dark mode.
         private static IBrush AvailableRowBrush = new ImmutableSolidColorBrush(Color.FromRgb(255, 255, 255));
         private static IBrush UnavailableRowBrush = new ImmutableSolidColorBrush(Color.FromRgb(255, 192, 203));
 
@@ -60,8 +60,8 @@ namespace Foreman.Mac.ViewModels {
         [ObservableProperty]
         private IReadOnlyList<KeyNodeRow> keyNodes = [];
 
-        //Ports the constructor's four LoadUnfiltered* calls (reference GraphSummaryWindow.axaml.cs before
-        //Task 7). Every property is reassigned to a brand-new list on every call. GraphSummaryWindow never
+        //Ports the constructor's four LoadUnfiltered* calls (reference GraphSummaryWindow.axaml.cs).
+        //Every property is reassigned to a brand-new list on every call. GraphSummaryWindow never
         //binds to these properties; it copies them into its own fields and rebuilds fresh filtered lists
         //before each ItemsSource assignment, which is where the reference-equality short-circuit lives.
         public void Refresh(IEnumerable<INodeViewModel> nodes) {

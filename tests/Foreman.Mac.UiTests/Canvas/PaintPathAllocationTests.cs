@@ -12,10 +12,10 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //Phase 7 task 2 (perf-packaging-reference.md §1b): proves the SKPaint-caching pass across the seven
+    //perf-packaging-reference.md §1b: proves the SKPaint-caching pass across the seven
     //audited draw-path files (BaseNodeElement, PassthroughNodeElement, BaseLinkElement, TextAnnotationElement,
     //ShapeAnnotationElement, AnnotationElement, GraphViewer) is allocation-behavior-preserving. The demo graph
-    //is the same Flowchart.fjson fixture GraphViewerIntegrationTests' phase-3 acceptance path already
+    //is the same Flowchart.fjson fixture GraphViewerIntegrationTests' acceptance path already
     //established - reusing it here keeps "the established demo graph" the plan calls for literal, not a new
     //one-off fixture.
     public class PaintPathAllocationTests {
@@ -25,11 +25,11 @@ namespace Foreman.Mac.UiTests.Canvas {
         private const int MeasuredFrames = 100;
 
         //Ceiling for allocated bytes per frame across the 100-frame loop. Pre-caching baseline: 209,113
-        //bytes/frame over this same demo graph (65 nodes, 106 links). Post-caching (task-2-report.md): ~187,700.
-        //The fix-round's item 4 fold-in (BaseLinkElement's per-link SKPath now reused instead of rebuilt)
+        //bytes/frame over this same demo graph (65 nodes, 106 links). Post-caching: ~187,700.
+        //BaseLinkElement's per-link SKPath is now reused instead of rebuilt, which
         //dropped that further to ~179,200-179,250 bytes/frame, stable across 3 repeated runs.
         //
-        //Task 2b converts GraphicsStuff.DrawText/DrawStringAtPoint (~40 call sites) from a fresh SKPaint+
+        //GraphicsStuff.DrawText/DrawStringAtPoint (~40 call sites) converts from a fresh SKPaint+
         //SKFont per call to [ThreadStatic]-cached instances mutate-reset per call. Measured 132,536
         //bytes/frame, identical across 4 repeated runs (no jitter observed on this machine).
         //

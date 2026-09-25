@@ -25,7 +25,7 @@ using InputPointer = Avalonia.Input.Pointer;
 namespace Foreman.Mac.UiTests.Canvas {
     //Exercises reference §3's DraggedLinkElement lifecycle: starting a drag from a tab, endpoint tracking,
     //EndDrag's three outcomes (connect / new-node chooser stub / cancel), and the Cmd+drag passthrough-bus
-    //fan-out (upstream Ctrl, mapped to Cmd per this task's plan).
+    //fan-out (upstream Ctrl, mapped to Cmd).
     public class LinkDragTests {
         private const int Half = 300;
 
@@ -168,7 +168,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.True(fx.Control.Viewer.LinkElementDictionary.ContainsKey(link.Id));
         }
 
-        //---- EndDrag outcome (b): unresolved (reference §3 "Completion", the P5-stub branch) ----
+        //---- EndDrag outcome (b): unresolved (reference §3 "Completion", the chooser-stub branch) ----
 
         [AvaloniaFact]
         public void ReleaseOverIncompatibleNode_DoesNotCreateLink_RecordsNewNodeRequest() {
@@ -380,7 +380,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new SKColor(210, 90, 30), pixel); //the bezier's free endpoint is always exactly on-path
         }
 
-        //---- C2b: a link-drag release opens the radial menu ----
+        //---- a link-drag release opens the radial menu ----
 
         //These four used to drive the retired on-canvas chooser's footer buttons off a link-drag release; that release now opens RadialMenu instead.
         [AvaloniaFact]

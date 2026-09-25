@@ -144,13 +144,6 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         }
 
         [AvaloniaFact]
-        public void Apply_AtOneFifty_MultipliesAliasedTypeKeysToo() {
-            ScaleContract.Apply(1.5);
-
-            Assert.Equal(19.5, ResourceDouble("Foreman.Type.WindowTitle.FontSize"));
-        }
-
-        [AvaloniaFact]
         public void Apply_AtOneFifty_LeavesBordersRadiiFocusRingAndScrimFixed() {
             ScaleContract.Apply(1.5);
 

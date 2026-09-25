@@ -168,7 +168,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.False(node.Highlighted);
         }
 
-        //Linux branch of the platform fork above (docs/upstream-divergences.md, phase 8 Task 2): Ctrl-click
+        //Linux branch of the platform fork above (docs/upstream-divergences.md): Ctrl-click
         //on Linux does the same thing Cmd-click does on macOS, via the UseIsMacOs seam.
         [AvaloniaFact]
         public void CtrlClick_OnUnselectedNode_OnLinux_TogglesItIntoSelection() {
@@ -259,7 +259,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         public void MiddleButtonChord_DuringSelectionDrag_StillPansTheView() {
             Fixture fx = NewFixture();
             //Keeps fx.Control.Viewer.Graph.Bounds non-empty, away from the lasso's click path, so the plain
-            //pan below isn't reset to (0,0) by Task 2's Graph.Bounds clamp (reference §2's carried note).
+            //pan below isn't reset to (0,0) by the Graph.Bounds clamp (reference §2's carried note).
             //Goes straight through fx.Control.Viewer's own graph/editor, not the AddSupplier helper's
             //separate fx.Graph, since that's the graph Viewport.PanTo now reads bounds from.
             ItemPrototype farItem = fx.NewItem("far-iron-ore");
@@ -368,7 +368,7 @@ namespace Foreman.Mac.UiTests.Canvas {
                 Assert.Equal(fx.Control.Viewer.SelectedNodes.Contains(node), node.Highlighted);
         }
 
-        //---- graph-bounds clamp wired at zoom and post-load fit (final-review item 2's missing call sites) ----
+        //---- graph-bounds clamp wired at zoom and post-load fit ----
 
         [AvaloniaFact]
         public void MouseWheelZoom_FarOutsideGraphBounds_ClampsViewBackToTheGraph() {

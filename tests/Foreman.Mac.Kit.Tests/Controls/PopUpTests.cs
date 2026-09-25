@@ -159,7 +159,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
-        public void NoIcon_IconFrameIsHidden_AndTheLeadingInsetIsTheK2Baseline() {
+        public void NoIcon_IconFrameIsHidden_AndTheLeadingInsetIs10() {
             using var fixture = new KitFixture();
             PopUp popup = Themed("Items / s");
             popup.Width = 200;

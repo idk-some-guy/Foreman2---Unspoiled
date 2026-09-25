@@ -35,8 +35,8 @@ using FormRow = Foreman.Mac.Kit.Composites.FormRow;
 using InspectorGroup = Foreman.Mac.Kit.Composites.InspectorGroup;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Rate/Assembler/Fuel/priority/key-node coverage for the docked RecipeSegmentView (Task 5, part 1).
-    //Modules/Beacon/quality live in the sibling files from Task 6. Lightweight custom-DataCache fixture (no
+    //Rate/Assembler/Fuel/priority/key-node coverage for the docked RecipeSegmentView.
+    //Modules/Beacon/quality live in the sibling files. Lightweight custom-DataCache fixture (no
     //vanilla preset load needed) so this file's own assembler/fuel mix - one electric, one burner, one
     //preset-disabled - stays under direct control.
     public class RecipeSegmentRateAssemblerTests {
@@ -367,7 +367,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(burnerItem.IsAvailable);
         }
 
-        //Gate fix 4, item 2: SelectedAssembler.Icon/.Name bind through a nullable two-hop path (same shape
+        //SelectedAssembler.Icon/.Name bind through a nullable two-hop path (same shape
         //as SelectedBeaconIcon), flattened here the same way and re-checked after an assembler change.
         [AvaloniaFact]
         public void SelectedAssemblerIconAndName_MirrorSelectedAssembler_AndUpdateOnChange() {

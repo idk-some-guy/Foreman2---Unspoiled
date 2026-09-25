@@ -8,7 +8,7 @@ using Xunit;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.QuickAdd {
-    //Jozef, live: two similarly named recipes turned up side by side under one "RESULTS" heading, the
+    //Two similarly named recipes used to turn up side by side under one "RESULTS" heading, the
     //second truncated to look identical to the first. A search now groups its matches one section per
     //subgroup, titled "Group · Subgroup".
     public sealed class SearchGroupingTests {

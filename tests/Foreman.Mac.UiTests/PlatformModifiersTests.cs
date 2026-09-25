@@ -12,8 +12,8 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Exercises PlatformModifiers.Primary's platform fork directly (docs/upstream-divergences.md, phase 8
-    //Task 2) - the UseIsMacOs seam forces each branch without depending on the host OS, since this box only
+    //Exercises PlatformModifiers.Primary's platform fork directly (docs/upstream-divergences.md) - the
+    //UseIsMacOs seam forces each branch without depending on the host OS, since this box only
     //ever runs the tests on macOS.
     public class PlatformModifiersTests {
         [Fact]

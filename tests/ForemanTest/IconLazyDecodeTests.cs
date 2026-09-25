@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 namespace ForemanTest {
-    //Phase 9 Task 6: lazy per-icon decode. LoadIconCacheFromStore now hands out undecoded PNG bytes
+    //Lazy per-icon decode. LoadIconCacheFromStore hands out undecoded PNG bytes
     //behind IconColorPair.Icon, which decodes (and caches) only on first access.
     [TestClass]
     public class IconLazyDecodeTests {
@@ -106,7 +106,7 @@ namespace ForemanTest {
             Assert.AreEqual(1, IconCache.LazyDecodeCount, "re-reading .Icon must not redecode.");
         }
 
-        //Final-review M1: UnknownIcon/SpoilageIcon/PlantingIcon are no longer warmed eagerly at load, so
+        //UnknownIcon/SpoilageIcon/PlantingIcon are no longer warmed eagerly at load, so
         //their first touch can now come from concurrent render threads racing an unsynchronized
         //`field ??= GetIcon(...)`. Mirrors the lazy-decode concurrency test above for the same guarantee:
         //exactly one load, every caller sharing the same bitmap.

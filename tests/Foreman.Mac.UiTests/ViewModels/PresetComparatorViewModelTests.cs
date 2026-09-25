@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.ViewModels {
-    //Covers PresetComparatorViewModel's row-assembly split off PresetComparatorWindow.axaml.cs (Task 8):
+    //Covers PresetComparatorViewModel's row-assembly split off PresetComparatorWindow.axaml.cs:
     //ProcessMods/ProcessObjects/EvaluateSimilarity stay on the window (existing tests call them there
     //unchanged) and feed straight into RebuildTab here, matching how the window itself will wire it.
     public class PresetComparatorViewModelTests {

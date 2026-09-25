@@ -425,7 +425,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Null(fx.Control.LastContextMenuEntries);
         }
 
-        //---- redraw after a menu action (fix round: upstream's per-handler Invalidate() calls,
+        //---- redraw after a menu action (upstream's per-handler Invalidate() calls,
         //ProductionGraphViewer.cs:488,497,819 - a menu click fires from Avalonia's own popup loop, after
         //the pointer handler that would normally invalidate has already returned) ----
 
@@ -493,7 +493,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.True(fx.Control.RedrawRequestCount > redrawsBefore);
         }
 
-        //---- right-click during an in-progress node drag opens no menu (fix round: mirrors
+        //---- right-click during an in-progress node drag opens no menu (mirrors
         //BaseNodeElement.MouseUp's wasDragged early-return, upstream lines 259-268 - reachable via a
         //chorded left-drag-then-right-release) ----
 

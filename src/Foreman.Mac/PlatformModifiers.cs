@@ -3,7 +3,7 @@ using System;
 using System.Threading;
 
 namespace Foreman.Mac {
-    //Platform-conditional keyboard modifier (docs/upstream-divergences.md, phase 8 Task 2): this port's own
+    //Platform-conditional keyboard modifier (docs/upstream-divergences.md): this port's own
     //Cmd mapping is macOS-only - Linux keeps Ctrl, exactly like upstream and every other Linux app. Every
     //hardcoded KeyModifiers.Meta site (shortcuts, drag/lasso modifiers, menu gestures) reads Primary instead.
     public static class PlatformModifiers {

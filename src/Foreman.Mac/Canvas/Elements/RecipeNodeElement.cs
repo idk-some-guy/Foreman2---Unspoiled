@@ -13,7 +13,7 @@ using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
     //Ports ProductionGraphView/Elements/RecipeNodeElement.cs: Draw/DetailsDraw/UpdateState/UpdateValues/
-    //tooltips (P3), plus the ~280-line paste-options right-click menu, AddRClickMenuOptions (P4, reference
+    //tooltips, plus the ~280-line paste-options right-click menu, AddRClickMenuOptions (reference
     //§4c) - the only node subclass whose AddRClickMenuOptions isn't the base no-op.
     public sealed class RecipeNodeElement : BaseNodeElement {
         protected override SKPaint CleanBgPaint => RecipeBgPaint;
@@ -278,7 +278,7 @@ namespace Foreman.Mac.Canvas.Elements {
             entries.Add(MenuEntry.Divider);
         }
 
-        //Task 9 (contract §03): the recipe hover card is retired - it folds into the inspector's own
+        //The recipe hover card is retired (contract §03) - it folds into the inspector's own
         //identity header (RecipeCardView) instead. Help tooltips stay.
         protected override List<TooltipInfo> GetMyToolTips(Point graphPoint, bool exclusive) {
             var tooltips = new List<TooltipInfo>();

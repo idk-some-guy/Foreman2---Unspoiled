@@ -11,7 +11,7 @@ using Foreman.Mac.ViewModels;
 using System;
 
 namespace Foreman.Mac.Views.Inspector {
-    //Docked replacement for EditFlowPanel (Task 4): rate + node groups for every non-recipe node. RateMode
+    //Docked replacement for EditFlowPanel: rate + node groups for every non-recipe node. RateMode
     //isn't bound in XAML - Kit.Segmented has no data-bindable SelectedItem, so its SelectedIndex is synced
     //by hand both ways here, same shape as the RadioButton pair it replaces.
     public partial class FlowSegmentView : UserControl {

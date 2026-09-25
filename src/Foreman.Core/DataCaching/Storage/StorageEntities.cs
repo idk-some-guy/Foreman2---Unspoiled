@@ -53,10 +53,10 @@ namespace Foreman.DataCaching.Storage {
         public bool PullConsumerNodes { get; set; }
         public decimal PullConsumerNodesPower { get; set; }
 
-        //Added schema version 2 (phase 9 Task 3) - see ForemanDbContext.Open's v1->v2 ALTER TABLE step.
+        //Added schema version 2 - see ForemanDbContext.Open's v1->v2 ALTER TABLE step.
         public double UiScale { get; set; }
 
-        //Added schema version 3 (phase 9 C2a Task 3) - see ForemanDbContext.Open's v2->v3 ALTER TABLE step.
+        //Added schema version 3 - see ForemanDbContext.Open's v2->v3 ALTER TABLE step.
         public bool InspectorPinned { get; set; }
 
         //Added schema version 4 with ShowRecipeToolTip and RecipeNameOnlyFilter dropped.

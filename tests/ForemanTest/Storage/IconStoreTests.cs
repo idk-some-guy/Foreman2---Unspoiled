@@ -8,7 +8,7 @@ using System.IO;
 using System.Linq;
 
 namespace ForemanTest.Storage {
-    //Exercises IconStore (phase 9 Task 3): content-hash dedup over a miniature FOIC file built with
+    //Exercises IconStore's content-hash dedup over a miniature FOIC file built with
     //the real writer. Never touches the bundled 25MB preset .dat - temp dir only.
     [TestClass]
     public class IconStoreTests {
@@ -120,7 +120,7 @@ namespace ForemanTest.Storage {
             Assert.AreEqual(2, db.PresetIcons.Count(row => row.PresetName == "preset-2"));
         }
 
-        //Final-review I3/M2: re-importing a preset whose icon set changed must sweep any IconBlob no
+        //Re-importing a preset whose icon set changed must sweep any IconBlob no
         //PresetIconRow references anymore - the same orphan sweep DeletePresetDbRows already ran on
         //delete, now shared into ImportFoic itself so a re-import gets it too.
         [TestMethod]

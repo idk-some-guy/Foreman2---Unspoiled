@@ -9,9 +9,9 @@ using System.Drawing;
 using System.Linq;
 
 namespace ForemanTest.Graph {
-    // Task 8: ProductionGraphSession.GraphMutated replaces the five-event dirty wiring. Each test below
-    // covers one mutation entry point and asserts it raises the event exactly once, plus the negative
-    // case (a solve with no mutation raises none) that the old NodeValuesUpdated wiring got wrong.
+    // ProductionGraphSession.GraphMutated drives dirty tracking. Each test below covers one mutation
+    // entry point and asserts it raises the event exactly once, plus the negative case (a solve with no
+    // mutation raises none).
     [TestClass]
     public class GraphMutatedTests : ForemanTestBase {
         [TestMethod]
