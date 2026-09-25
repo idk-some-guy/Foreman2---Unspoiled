@@ -38,17 +38,97 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Empty(onlyInLight);
             Assert.Empty(onlyInDark);
-            Assert.Equal(269, lightKeys.Count);
+            Assert.Equal(298, lightKeys.Count);
         }
 
-        //Ruling §06 token 1: the find ring is Accent at 55 % dark / 50 % light, never NodeSelected amber or the 16 % AccentSoft fill.
+        //The find ring is opaque Accent, never NodeSelected amber or the AccentSoft fill.
         [AvaloniaFact]
         public void FindMatchRing_CarriesTheRuledHexInBothThemes() {
             var light = LoadThemeFile("Tokens.Light.axaml");
             var dark = LoadThemeFile("Tokens.Dark.axaml");
 
-            Assert.Equal(Color.Parse("#80007AFF"), Assert.IsType<Color>(light["Foreman.Color.FindMatchRing"]));
-            Assert.Equal(Color.Parse("#8C0A84FF"), Assert.IsType<Color>(dark["Foreman.Color.FindMatchRing"]));
+            Assert.Equal(Color.Parse("#FF007AFF"), Assert.IsType<Color>(light["Foreman.Color.FindMatchRing"]));
+            Assert.Equal(Color.Parse("#FF0A84FF"), Assert.IsType<Color>(dark["Foreman.Color.FindMatchRing"]));
+        }
+
+        [AvaloniaFact]
+        public void NodeSelected_Light_IsC86A00() {
+            var light = LoadThemeFile("Tokens.Light.axaml");
+            var dark = LoadThemeFile("Tokens.Dark.axaml");
+
+            Assert.Equal(Color.Parse("#C86A00"), Assert.IsType<Color>(light["Foreman.Color.NodeSelected"]));
+            Assert.Equal(Color.Parse("#FF9F0A"), Assert.IsType<Color>(dark["Foreman.Color.NodeSelected"]));
+        }
+
+        public static IEnumerable<object[]> CanvasColorKeys() {
+            yield return ["Foreman.Color.NodeRecipe", "#1D8878", "#45C4B0"];
+            yield return ["Foreman.Color.NodeSupplier", "#8E4A90", "#CF7FD0"];
+            yield return ["Foreman.Color.NodeConsumer", "#9A7318", "#E0B34D"];
+            yield return ["Foreman.Color.NodePassthrough", "#77777C", "#9A9A9E"];
+            yield return ["Foreman.Color.NodeTabBorder", "#73000000", "#73FFFFFF"];
+            yield return ["Foreman.Color.NodeTabBorderContrast", "#99000000", "#99FFFFFF"];
+            yield return ["Foreman.Color.TextOnWarning", "#FFFFFF", "#1A1A1A"];
+        }
+
+        [AvaloniaTheory]
+        [MemberData(nameof(CanvasColorKeys))]
+        public void CanvasColorKey_CarriesItsLightAndDarkHex(string key, string lightHex, string darkHex) {
+            Assert.Equal(Color.Parse(lightHex), Assert.IsType<Color>(LoadThemeFile("Tokens.Light.axaml")[key]));
+            Assert.Equal(Color.Parse(darkHex), Assert.IsType<Color>(LoadThemeFile("Tokens.Dark.axaml")[key]));
+        }
+
+        public static IEnumerable<object[]> CanvasDoubleKeys() {
+            yield return ["Foreman.Opacity.NodeUnavailable", 0.6];
+            yield return ["Foreman.Size.NodeIcon", 26.0];
+            yield return ["Foreman.Size.NodeBuildingIcon", 20.0];
+            yield return ["Foreman.Size.NodeTabIcon", 16.0];
+            yield return ["Foreman.Size.NodeInsetTop", 18.0];
+            yield return ["Foreman.Size.NodeInsetSide", 12.0];
+            yield return ["Foreman.Size.NodeInsetBottom", 22.0];
+            yield return ["Foreman.Size.NodeTypeStrip", 3.0];
+            yield return ["Foreman.Size.NodeTypeStripInset", 12.0];
+            yield return ["Foreman.Size.NodeTabHeight", 22.0];
+            yield return ["Foreman.Size.NodeTabMinWidth", 44.0];
+            yield return ["Foreman.Size.NodeTabOverhang", 13.0];
+            yield return ["Foreman.Size.NodeBadgeHeight", 16.0];
+            yield return ["Foreman.Size.NodePip", 6.0];
+            yield return ["Foreman.Size.LinkWidth", 3.0];
+            yield return ["Foreman.Size.LinkWidthMax", 35.0];
+            yield return ["Foreman.Size.LinkHitWidth", 12.0];
+            yield return ["Foreman.Size.WaypointDiameter", 10.0];
+            yield return ["Foreman.Size.WaypointHitTarget", 20.0];
+            yield return ["Foreman.Metrics.CanvasMinTextSize", 7.0];
+            yield return ["Foreman.Metrics.GridMinScreenSpacing", 8.0];
+        }
+
+        [AvaloniaTheory]
+        [MemberData(nameof(CanvasDoubleKeys))]
+        public void CanvasDoubleKey_CarriesItsValueInBothThemes(string key, double value) {
+            Assert.Equal(value, Assert.IsType<double>(LoadThemeFile("Tokens.Light.axaml")[key]));
+            Assert.Equal(value, Assert.IsType<double>(LoadThemeFile("Tokens.Dark.axaml")[key]));
+        }
+
+        [AvaloniaFact]
+        public void CanvasRadiiWeightAndDash_CarryTheirValuesInBothThemes() {
+            foreach (string file in new[] { "Tokens.Light.axaml", "Tokens.Dark.axaml" }) {
+                var tokens = LoadThemeFile(file);
+                Assert.Equal(new CornerRadius(6), tokens["Foreman.Radius.NodeTab"]);
+                Assert.Equal(new CornerRadius(4), tokens["Foreman.Radius.LinkCorner"]);
+                Assert.Equal(FontWeight.SemiBold, tokens["Foreman.Type.Canvas.Emphasized.FontWeight"]);
+                Assert.Equal("5,3", Assert.IsType<string>(tokens["Foreman.Metrics.FindRingDash"]));
+            }
+        }
+
+        [AvaloniaFact]
+        public void RetiredCanvasBorderKeys_AreInNeitherDictionary() {
+            string[] retired = ["Foreman.Color.CanvasTabBorder", "Foreman.Color.CanvasChipBorder", "Foreman.Color.CanvasErrorBorder"];
+            var lightKeys = LoadThemeFile("Tokens.Light.axaml").Keys.Cast<string>().ToHashSet();
+            var darkKeys = LoadThemeFile("Tokens.Dark.axaml").Keys.Cast<string>().ToHashSet();
+
+            foreach (string key in retired) {
+                Assert.DoesNotContain(key, lightKeys);
+                Assert.DoesNotContain(key, darkKeys);
+            }
         }
 
         //The semantic rebind adds these on top of the existing 25 colour keys, and renames Selection to

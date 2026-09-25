@@ -116,6 +116,45 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             Assert.Equal(15.0, ResourceDouble("Foreman.Type.Canvas.FontSize"));
         }
 
+        private static readonly string[] CanvasMultipliedKeys = [
+            "Foreman.Size.NodeIcon", "Foreman.Size.NodeBuildingIcon", "Foreman.Size.NodeTabIcon",
+            "Foreman.Size.NodeInsetTop", "Foreman.Size.NodeInsetSide", "Foreman.Size.NodeInsetBottom",
+            "Foreman.Size.NodeTypeStrip", "Foreman.Size.NodeTypeStripInset",
+            "Foreman.Size.NodeTabHeight", "Foreman.Size.NodeTabMinWidth", "Foreman.Size.NodeTabOverhang",
+            "Foreman.Size.NodeBadgeHeight", "Foreman.Size.NodePip",
+            "Foreman.Size.LinkWidth", "Foreman.Size.LinkWidthMax", "Foreman.Size.LinkHitWidth",
+            "Foreman.Size.WaypointDiameter", "Foreman.Size.WaypointHitTarget",
+        ];
+
+        private static readonly string[] CanvasFixedDoubleKeys = [
+            "Foreman.Opacity.NodeUnavailable", "Foreman.Metrics.CanvasMinTextSize", "Foreman.Metrics.GridMinScreenSpacing",
+        ];
+
+        [AvaloniaFact]
+        public void MultipliedKeys_ListsEverySizeRow_AndNoFixedRow() {
+            var baseValues = new System.Collections.Generic.Dictionary<string, double>();
+            foreach (string key in CanvasMultipliedKeys)
+                baseValues[key] = ResourceDouble(key);
+            foreach (string key in CanvasFixedDoubleKeys)
+                baseValues[key] = ResourceDouble(key);
+            Application.Current!.TryGetResource("Foreman.Metrics.FindRingDash", Application.Current.ActualThemeVariant, out object? dashBefore);
+
+            ScaleContract.Apply(1.5);
+
+            foreach (string key in CanvasMultipliedKeys)
+                Assert.True(baseValues[key] * 1.5 == ResourceDouble(key), key);
+            foreach (string key in CanvasFixedDoubleKeys)
+                Assert.True(baseValues[key] == ResourceDouble(key), key);
+            Application.Current!.TryGetResource("Foreman.Radius.NodeTab", Application.Current.ActualThemeVariant, out object? tabRadius);
+            Application.Current!.TryGetResource("Foreman.Radius.LinkCorner", Application.Current.ActualThemeVariant, out object? cornerRadius);
+            Application.Current!.TryGetResource("Foreman.Type.Canvas.Emphasized.FontWeight", Application.Current.ActualThemeVariant, out object? weight);
+            Application.Current!.TryGetResource("Foreman.Metrics.FindRingDash", Application.Current.ActualThemeVariant, out object? dashAfter);
+            Assert.Equal(new CornerRadius(6), tabRadius);
+            Assert.Equal(new CornerRadius(4), cornerRadius);
+            Assert.Equal(FontWeight.SemiBold, weight);
+            Assert.Same(dashBefore, dashAfter);
+        }
+
         [AvaloniaFact]
         public void Apply_AtOneFifty_MultipliesTheGlyphSizeTokens() {
             ScaleContract.Apply(1.5);

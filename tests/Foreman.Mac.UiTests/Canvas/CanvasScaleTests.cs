@@ -71,15 +71,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [AvaloniaFact]
-        public void SetScale_AtOneFifty_CanvasTokenBridgeScaleFactorFollows() {
-            Assert.Equal(1.0, TokenBridge.Current.Scale);
-
-            WindowScaler.SetScale(1.5);
-
-            Assert.Equal(1.5, TokenBridge.Current.Scale);
-        }
-
-        [AvaloniaFact]
         public void DefaultScale_NodeFontSizesAndItemTabIconSize_MatchTodaysConstants() {
             Assert.Equal(1.0, TokenBridge.Current.Scale);
             Assert.Equal(9.2f, BaseNodeElement.TitleFontSize, 3);

@@ -125,6 +125,34 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         }
 
         [AvaloniaFact]
+        public void ContrastHigh_PromotesNodeTabBorderContrastOntoNodeTabBorder_AndRestoresItWhenContrastDrops() {
+            MergeKitIntoApplication();
+            var appearance = new FakeAppearance();
+            var hub = new AppearanceHub((Application)Application.Current!, appearance);
+            try {
+                Application.Current!.TryGetResource("Foreman.Color.NodeTabBorder", Application.Current.ActualThemeVariant, out object? declared);
+                Application.Current!.TryGetResource("Foreman.Color.NodeTabBorderContrast", Application.Current.ActualThemeVariant, out object? contrast);
+                Assert.False(hub.IncreaseContrast);
+
+                appearance.ContrastPreference = ColorContrastPreference.High;
+                appearance.Raise();
+
+                Application.Current!.TryGetResource("Foreman.Color.NodeTabBorder", Application.Current.ActualThemeVariant, out object? promoted);
+                Assert.Equal(Assert.IsType<Color>(contrast), Assert.IsType<Color>(promoted));
+                Assert.True(hub.IncreaseContrast);
+
+                appearance.ContrastPreference = ColorContrastPreference.NoPreference;
+                appearance.Raise();
+
+                Application.Current!.TryGetResource("Foreman.Color.NodeTabBorder", Application.Current.ActualThemeVariant, out object? restored);
+                Assert.Equal(Assert.IsType<Color>(declared), Assert.IsType<Color>(restored));
+                Assert.False(hub.IncreaseContrast);
+            } finally {
+                hub.Dispose();
+            }
+        }
+
+        [AvaloniaFact]
         public void ReduceTransparency_PopoverMaterialResolvesToOpaqueValue() {
             MergeKitIntoApplication();
             var appearance = new FakeAppearance();
@@ -177,6 +205,7 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.FocusRing"));
             Assert.False(Application.Current!.Resources.ContainsKey("Foreman.FocusRing.Width"));
             Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.Border"));
+            Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.NodeTabBorder"));
             Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.PopoverMaterial"));
             Assert.False(Application.Current!.Resources.ContainsKey("Foreman.Color.TooltipMaterial"));
         }

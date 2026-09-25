@@ -44,15 +44,15 @@ namespace Foreman.Mac.Canvas.Elements {
         private static readonly SKPaint ManualRateFilterPaint = Fill(new SKColor(0, 0, 0, 50));
 
         private static readonly SKPaint EqualFlowBorderPaint = Fill(new SKColor(0, 100, 0));
-        private static readonly SKPaint OverproducingFlowBorderPaint = Fill(TokenBridge.Current.ChipBorder);
-        private static readonly SKPaint UndersuppliedFlowBorderPaint = Fill(TokenBridge.Current.ErrorBorder);
+        private static readonly SKPaint OverproducingFlowBorderPaint = Fill(TokenBridge.Current.Warning);
+        private static readonly SKPaint UndersuppliedFlowBorderPaint = Fill(TokenBridge.Current.Error);
 
         //The two paints above bake TokenBridge's border colours once at type-init; keep them live on every
         //theme/scale/contrast change.
         static BaseNodeElement() {
             TokenBridge.Changed += (_, _) => {
-                OverproducingFlowBorderPaint.Color = TokenBridge.Current.ChipBorder;
-                UndersuppliedFlowBorderPaint.Color = TokenBridge.Current.ErrorBorder;
+                OverproducingFlowBorderPaint.Color = TokenBridge.Current.Warning;
+                UndersuppliedFlowBorderPaint.Color = TokenBridge.Current.Error;
             };
         }
 

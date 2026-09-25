@@ -35,9 +35,9 @@ namespace Foreman.Mac.Canvas.Elements {
         private static float TextFontSize => TokenBridge.Scaled(6f);
 
         private static readonly SKPaint DirectionPaint = new() { Color = new SKColor(0, 0, 0, 40), Style = SKPaintStyle.Fill, IsAntialias = true };
-        private static readonly SKPaint RegularBorderPaint = StrokePaint(TokenBridge.Current.TabBorder);
-        private static readonly SKPaint OverproducedBorderPaint = StrokePaint(TokenBridge.Current.ChipBorder);
-        private static readonly SKPaint DisconnectedBorderPaint = StrokePaint(TokenBridge.Current.ErrorBorder);
+        private static readonly SKPaint RegularBorderPaint = StrokePaint(TokenBridge.Current.NodeTabBorder);
+        private static readonly SKPaint OverproducedBorderPaint = StrokePaint(TokenBridge.Current.Warning);
+        private static readonly SKPaint DisconnectedBorderPaint = StrokePaint(TokenBridge.Current.Error);
         private static readonly SKPaint FillPaint = new() { Color = SKColors.White, Style = SKPaintStyle.Fill, IsAntialias = true };
 
         //The three paints above bake Border's StrokeWidth and TokenBridge's border colours once at type-init; this handler keeps both live.
@@ -46,9 +46,9 @@ namespace Foreman.Mac.Canvas.Elements {
                 RegularBorderPaint.StrokeWidth = Border;
                 OverproducedBorderPaint.StrokeWidth = Border;
                 DisconnectedBorderPaint.StrokeWidth = Border;
-                RegularBorderPaint.Color = TokenBridge.Current.TabBorder;
-                OverproducedBorderPaint.Color = TokenBridge.Current.ChipBorder;
-                DisconnectedBorderPaint.Color = TokenBridge.Current.ErrorBorder;
+                RegularBorderPaint.Color = TokenBridge.Current.NodeTabBorder;
+                OverproducedBorderPaint.Color = TokenBridge.Current.Warning;
+                DisconnectedBorderPaint.Color = TokenBridge.Current.Error;
             };
         }
 

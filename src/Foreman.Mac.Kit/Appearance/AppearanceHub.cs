@@ -38,8 +38,10 @@ namespace Foreman.Mac.Kit.Appearance {
         //baseline after a window closes instead of poking at the weak-reference list directly.
         public int SubscriberCount => subscribers.Count(w => w.TryGetTarget(out _));
 
+        public bool IncreaseContrast => appearance.ContrastPreference == ColorContrastPreference.High;
+
         public void Refresh() {
-            bool highContrast = appearance.ContrastPreference == ColorContrastPreference.High;
+            bool highContrast = IncreaseContrast;
             bool reduceTransparency = appearance.ReduceTransparency || highContrast;
 
             ApplyAccent();
@@ -88,10 +90,15 @@ namespace Foreman.Mac.Kit.Appearance {
         }
 
         private void ApplyBorderPromotion(bool highContrast) {
-            if (highContrast && app.TryGetResource("Foreman.Color.BorderStrong", app.ActualThemeVariant, out object? borderStrong))
-                app.Resources["Foreman.Color.Border"] = borderStrong!;
+            Promote("Foreman.Color.Border", "Foreman.Color.BorderStrong", highContrast);
+            Promote("Foreman.Color.NodeTabBorder", "Foreman.Color.NodeTabBorderContrast", highContrast);
+        }
+
+        private void Promote(string key, string sourceKey, bool highContrast) {
+            if (highContrast && app.TryGetResource(sourceKey, app.ActualThemeVariant, out object? source))
+                app.Resources[key] = source!;
             else
-                app.Resources.Remove("Foreman.Color.Border");
+                app.Resources.Remove(key);
         }
 
         //SplitDivider's grip is opacity-0 at rest and hover-revealed; Increase Contrast keeps it visible at rest.
@@ -140,6 +147,7 @@ namespace Foreman.Mac.Kit.Appearance {
             resources.Remove("Foreman.Color.FocusRing");
             resources.Remove("Foreman.FocusRing.Width");
             resources.Remove("Foreman.Color.Border");
+            resources.Remove("Foreman.Color.NodeTabBorder");
             resources.Remove("Foreman.Color.PopoverMaterial");
             resources.Remove("Foreman.Color.TooltipMaterial");
             resources.Remove("Foreman.Color.PaletteMaterial");

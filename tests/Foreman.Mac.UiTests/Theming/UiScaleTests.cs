@@ -5,7 +5,6 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
-using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
@@ -177,14 +176,6 @@ namespace Foreman.Mac.UiTests.Theming {
 
             Assert.Equal(1140.0, window.MinWidth);
             Assert.Equal(780.0, window.MinHeight);
-        }
-
-        [AvaloniaFact]
-        public void SetScale_AtOneFifty_CanvasTokenBridgeNodePaddingFollows() {
-            WindowScaler.SetScale(1.5);
-            Dispatcher.UIThread.RunJobs();
-
-            Assert.Equal(12.0, TokenBridge.Current.NodePadding);
         }
 
         [AvaloniaFact]

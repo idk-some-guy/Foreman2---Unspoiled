@@ -88,45 +88,10 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new SKColor(0xFA, 0xFA, 0xFA), SamplePixel(surface, 5, 5));
         }
 
-        //TabBorder/ChipBorder/ErrorBorder carry the painters' three former literal hexes as tokens -
-        //assertions below read the live resource dictionary and pin the exact contract hex, so a drifted
-        //token file fails here instead of silently keeping the old fallback.
-        private static SKColor ResolveCanvasBorderToken(string key) {
-            Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? value);
-            var color = (AvColor)value!;
-            return new SKColor(color.R, color.G, color.B, color.A);
-        }
-
-        private static SKColor ResolveCanvasBorderToken(string key, ThemeVariant variant) {
-            Application.Current!.TryGetResource(key, variant, out object? value);
-            var color = (AvColor)value!;
-            return new SKColor(color.R, color.G, color.B, color.A);
-        }
-
-        private static void AssertBridgeMatchesTokens() {
-            Assert.Equal(ResolveCanvasBorderToken("Foreman.Color.CanvasTabBorder"), TokenBridge.Current.TabBorder);
-            Assert.Equal(ResolveCanvasBorderToken("Foreman.Color.CanvasChipBorder"), TokenBridge.Current.ChipBorder);
-            Assert.Equal(ResolveCanvasBorderToken("Foreman.Color.CanvasErrorBorder"), TokenBridge.Current.ErrorBorder);
-        }
-
-        //Contract hexes, hardcoded here rather than read back from the dictionary - AssertBridgeMatchesTokens
-        //already proves the bridge tracks the dictionary; this proves the dictionary itself still holds
-        //the spec's exact values.
-        private static readonly SKColor ContractTabBorder = new(0x69, 0x69, 0x69);
-        private static readonly SKColor ContractChipBorder = new(0xB8, 0x86, 0x0B);
-        private static readonly SKColor ContractErrorBorder = new(0x8B, 0x00, 0x00);
-
-        private static void AssertTokensMatchContractLiterals() {
-            Assert.Equal(ContractTabBorder, TokenBridge.Current.TabBorder);
-            Assert.Equal(ContractChipBorder, TokenBridge.Current.ChipBorder);
-            Assert.Equal(ContractErrorBorder, TokenBridge.Current.ErrorBorder);
-        }
-
-        private const string MovedTokenKey = "Foreman.Color.CanvasTabBorder";
+        private const string MovedTokenKey = "Foreman.Color.NodeRecipe";
         private static readonly AvColor MovedTokenValue = AvColor.FromRgb(0x01, 0x02, 0x03);
 
-        //Both dictionaries carry the same canvas border hexes, so no appearance change moves one on its
-        //own; staging an override the bridge has not resolved yet puts it in the state one that does would.
+        //Staging an override the bridge has not resolved yet puts it in the state an appearance change would.
         private static void StageMovedCanvasToken() {
             TokenBridge.Refresh();
             Application.Current!.Resources[MovedTokenKey] = MovedTokenValue;
@@ -152,37 +117,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             } finally {
                 TokenBridge.Changed -= handler;
                 ClearMovedCanvasToken();
-            }
-        }
-
-        [AvaloniaFact]
-        public void CanvasBorderTokens_LightAndDarkDictionaries_MatchContractLiterals() {
-            Assert.Equal(ContractTabBorder, ResolveCanvasBorderToken("Foreman.Color.CanvasTabBorder", ThemeVariant.Light));
-            Assert.Equal(ContractChipBorder, ResolveCanvasBorderToken("Foreman.Color.CanvasChipBorder", ThemeVariant.Light));
-            Assert.Equal(ContractErrorBorder, ResolveCanvasBorderToken("Foreman.Color.CanvasErrorBorder", ThemeVariant.Light));
-
-            Assert.Equal(ContractTabBorder, ResolveCanvasBorderToken("Foreman.Color.CanvasTabBorder", ThemeVariant.Dark));
-            Assert.Equal(ContractChipBorder, ResolveCanvasBorderToken("Foreman.Color.CanvasChipBorder", ThemeVariant.Dark));
-            Assert.Equal(ContractErrorBorder, ResolveCanvasBorderToken("Foreman.Color.CanvasErrorBorder", ThemeVariant.Dark));
-        }
-
-        [AvaloniaFact]
-        public void TokenBridge_AtDefaultScale_CanvasBorderColorsMatchTheirTokens() {
-            TokenBridge.Refresh();
-
-            AssertBridgeMatchesTokens();
-            AssertTokensMatchContractLiterals();
-        }
-
-        [AvaloniaFact]
-        public void TokenBridge_AtOneFifty_CanvasBorderColorsStayPinnedToTheirTokens() {
-            try {
-                WindowScaler.SetScale(1.5);
-
-                AssertBridgeMatchesTokens();
-                AssertTokensMatchContractLiterals();
-            } finally {
-                WindowScaler.SetScale(1.0);
             }
         }
 
@@ -318,24 +252,6 @@ namespace Foreman.Mac.UiTests.Canvas {
                 realHub.Changed -= hubHandler;
                 ClearMovedCanvasToken();
                 app.ApplyTheme(ThemeMode.System);
-            }
-        }
-
-        [AvaloniaFact]
-        public void TokenBridge_UnderIncreaseContrast_CanvasBorderColorsStayPinnedToTheirTokens() {
-            AppearanceHub? previousCurrent = AppearanceHub.Current;
-            AppearanceHub? hub = null;
-            try {
-                hub = new AppearanceHub((App)Application.Current!, new HighContrastAppearance());
-                AppearanceHub.Current = hub;
-                hub.Refresh();
-                TokenBridge.Refresh();
-
-                AssertBridgeMatchesTokens();
-                AssertTokensMatchContractLiterals();
-            } finally {
-                hub?.Dispose();
-                AppearanceHub.Current = previousCurrent;
             }
         }
 

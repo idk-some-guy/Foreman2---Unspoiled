@@ -2,9 +2,13 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <Color x:Key="Foreman.Color.CanvasBackground">#1E1E20</Color>
-  <Color x:Key="Foreman.Color.CanvasTabBorder">#696969</Color>
-  <Color x:Key="Foreman.Color.CanvasChipBorder">#B8860B</Color>
-  <Color x:Key="Foreman.Color.CanvasErrorBorder">#8B0000</Color>
+  <Color x:Key="Foreman.Color.NodeRecipe">#45C4B0</Color>
+  <Color x:Key="Foreman.Color.NodeSupplier">#CF7FD0</Color>
+  <Color x:Key="Foreman.Color.NodeConsumer">#E0B34D</Color>
+  <Color x:Key="Foreman.Color.NodePassthrough">#9A9A9E</Color>
+  <Color x:Key="Foreman.Color.NodeTabBorder">#73FFFFFF</Color>
+  <!-- AppearanceHub copies this over NodeTabBorder under Increase Contrast. -->
+  <Color x:Key="Foreman.Color.NodeTabBorderContrast">#99FFFFFF</Color>
   <Color x:Key="Foreman.Color.WindowBackground">#29292B</Color>
   <Color x:Key="Foreman.Color.TitlebarBackground">#323234</Color>
   <Color x:Key="Foreman.Color.SidebarBackground">#2C2C2E</Color>
@@ -24,8 +28,8 @@
   <Color x:Key="Foreman.Color.AccentHover">#0B8FFF</Color>
   <Color x:Key="Foreman.Color.AccentPressed">#0974E0</Color>
   <Color x:Key="Foreman.Color.NodeSelected">#FF9F0A</Color>
-  <!-- Find node ring (2026-09-16 ruling): Accent at 55% in dark, must not reuse NodeSelected or AccentSoft. -->
-  <Color x:Key="Foreman.Color.FindMatchRing">#8C0A84FF</Color>
+  <!-- Opaque Accent, drawn dashed; must not reuse NodeSelected or AccentSoft. -->
+  <Color x:Key="Foreman.Color.FindMatchRing">#FF0A84FF</Color>
   <Color x:Key="Foreman.Color.Error">#FF453A</Color>
   <Color x:Key="Foreman.Color.ErrorHover">#FF4B3F</Color>
   <Color x:Key="Foreman.Color.ErrorPressed">#E03D33</Color>
@@ -40,6 +44,7 @@
   <Color x:Key="Foreman.Color.SelectionInactive">#21FFFFFF</Color>
   <Color x:Key="Foreman.Color.ControlBackgroundPressed">#3F3F43</Color>
   <Color x:Key="Foreman.Color.TextOnAccent">#FFFFFF</Color>
+  <Color x:Key="Foreman.Color.TextOnWarning">#1A1A1A</Color>
 
   <!-- PopoverMaterial and TitlebarMaterialOpaque have no contract hex; they reuse ControlBackground / TitlebarBackground -->
   <Color x:Key="Foreman.Color.PopoverMaterial">#3D3D40</Color>
@@ -56,6 +61,7 @@
   <x:Double x:Key="Foreman.Opacity.Disabled">0.38</x:Double>
   <!-- "Choosable but not researched" (2026-09-17 building-picker ruling), lighter than Opacity.Disabled. -->
   <x:Double x:Key="Foreman.Opacity.Unavailable">0.55</x:Double>
+  <x:Double x:Key="Foreman.Opacity.NodeUnavailable">0.6</x:Double>
 
   <!-- PickCellSelected mirrors AccentSoft's value rather than referencing it, kept independent on purpose. -->
   <Color x:Key="Foreman.Color.PickCellSelected">#290A84FF</Color>
@@ -227,10 +233,34 @@
   <Thickness x:Key="Foreman.Thickness.StatePanelCompactSentenceMargin">8,0,0,0</Thickness>
   <Thickness x:Key="Foreman.Thickness.StatePanelCompactButtonsMargin">6,0,0,0</Thickness>
 
-  <!-- A minimal Skia-canvas bridge (KitSkia.TokenBridge) - no consumer yet, same as Foreman.Shadow.Window
-       below, pending the fuller canvas migration dependency graph risk 6 flags. -->
+  <!-- Canvas painters read these through KitSkia.TokenBridge. Radii, weight and screen-point metrics stay fixed. -->
   <x:Double x:Key="Foreman.Size.NodePadding">8</x:Double>
   <x:Double x:Key="Foreman.Type.Canvas.FontSize">10</x:Double>
+  <FontWeight x:Key="Foreman.Type.Canvas.Emphasized.FontWeight">600</FontWeight>
+  <x:Double x:Key="Foreman.Size.NodeIcon">26</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeBuildingIcon">20</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeTabIcon">16</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeInsetTop">18</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeInsetSide">12</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeInsetBottom">22</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeTypeStrip">3</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeTypeStripInset">12</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeTabHeight">22</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeTabMinWidth">44</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeTabOverhang">13</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeBadgeHeight">16</x:Double>
+  <x:Double x:Key="Foreman.Size.NodePip">6</x:Double>
+  <x:Double x:Key="Foreman.Size.LinkWidth">3</x:Double>
+  <x:Double x:Key="Foreman.Size.LinkWidthMax">35</x:Double>
+  <x:Double x:Key="Foreman.Size.LinkHitWidth">12</x:Double>
+  <x:Double x:Key="Foreman.Size.WaypointDiameter">10</x:Double>
+  <x:Double x:Key="Foreman.Size.WaypointHitTarget">20</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.NodeTab">6</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.LinkCorner">4</CornerRadius>
+  <x:Double x:Key="Foreman.Metrics.CanvasMinTextSize">7</x:Double>
+  <x:Double x:Key="Foreman.Metrics.GridMinScreenSpacing">8</x:Double>
+  <!-- On,off dash lengths in screen points. -->
+  <x:String x:Key="Foreman.Metrics.FindRingDash">5,3</x:String>
   <!-- Find node ruling §06: viewport inset a match must sit inside before the canvas declines to pan. -->
   <x:Double x:Key="Foreman.Metrics.FindPanMargin">80</x:Double>
 

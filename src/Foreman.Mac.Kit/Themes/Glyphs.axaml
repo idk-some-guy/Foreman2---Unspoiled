@@ -276,6 +276,20 @@
   <!-- SlotAdd is not a sixth master, it is the pick cell's own name for Plus - same geometry, two keys. -->
   <StreamGeometry x:Key="Kit.Glyph.SlotAdd.12">M5.46,2.64 H6.54 V5.46 H9.36 V6.54 H6.54 V9.36 H5.46 V6.54 H2.64 V5.46 H5.46 Z</StreamGeometry>
 
+  <!-- Canvas masters (addendum §12); Node.* also ship a 10pt master, the 20pt path scaled by 10/20, stroked at 1.4. -->
+  <StreamGeometry x:Key="Kit.Glyph.Node.Over.20">M10,16 V4.5 M5.5,9 L10,4.5 L14.5,9</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Node.Over.10">M5,8 V2.25 M2.75,4.5 L5,2.25 L7.25,4.5</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Node.Short.20">M10,4 V15.5 M5.5,11 L10,15.5 L14.5,11</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Node.Short.10">M5,2 V7.75 M2.75,5.5 L5,7.75 L7.25,5.5</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Node.Error.20">M10,4 V11.5 M10,15.6 V15.7</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Node.Error.10">M5,2 V5.75 M5,7.8 V7.85</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Node.Key.20">M2.8,10 A3.2,3.2 0 1,0 9.2,10 A3.2,3.2 0 1,0 2.8,10 Z M9.2,10 H17 M14,10 V13 M16.5,10 V12.5</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Node.Key.10">M1.4,5 A1.6,1.6 0 1,0 4.6,5 A1.6,1.6 0 1,0 1.4,5 Z M4.6,5 H8.5 M7,5 V6.5 M8.25,5 V6.25</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Canvas.Paused.20">M7.5,5 V15 M12.5,5 V15</StreamGeometry>
+  <!-- The waypoint circle (cx 9, cy 10, r 1.8) is part of the one stroked geometry. -->
+  <StreamGeometry x:Key="Kit.Glyph.Link.Orthogonal.20">M3,15 H9 V5 H17 M7.2,10 A1.8,1.8 0 1,0 10.8,10 A1.8,1.8 0 1,0 7.2,10 Z</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Link.Rounded.20">M3,15 C9,15 11,5 17,5</StreamGeometry>
+
   <!-- Clear button (addendum §04/§08): disc fill plus a separate knockout X, drawn in the field's own background. -->
   <StreamGeometry x:Key="Kit.Glyph.Clear.16">M1.2,8 A6.8,6.8 0 1,1 14.8,8 A6.8,6.8 0 1,1 1.2,8 Z</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Clear.Knockout.16">M5.28,5.28 L10.72,10.72 M10.72,5.28 L5.28,10.72</StreamGeometry>

@@ -1,3 +1,4 @@
+using Avalonia.Headless.XUnit;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
@@ -5,6 +6,7 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using SkiaSharp;
@@ -24,8 +26,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         private static readonly SKColor PassthroughBg = new(200, 200, 200);
         private static readonly SKColor ErrorBg = new(255, 127, 80); //Brushes.Coral
         private static readonly SKColor EqualFlowBorder = new(0, 100, 0); //Brushes.DarkGreen
-        private static readonly SKColor OverproducingBorder = new(184, 134, 11); //Brushes.DarkGoldenrod
-        private static readonly SKColor UndersuppliedBorder = new(139, 0, 0); //Brushes.DarkRed
 
         //---- fixture plumbing: builds a minimal DataCache + graph + session, mirroring
         //ForemanTest/Graph/GraphSessionTestHelper's idiom without depending on that test project. Only the
@@ -190,8 +190,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(ErrorBg, SamplePixel(surface, -64, -40));
         }
 
-        [Fact]
-        public void SupplierNodeElement_ManualNoOutputLinks_BorderIsOverproducingGoldenrod() {
+        [AvaloniaFact]
+        public void SupplierNodeElement_ManualNoOutputLinks_BorderIsWarning() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("plastic-bar");
             ISupplierNodeViewModel viewModel = MakeSupplier(fx, fx.Pair(item));
@@ -203,7 +203,7 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             using SKSurface surface = Render(element);
 
-            Assert.Equal(OverproducingBorder, SamplePixel(surface, -70, 0));
+            Assert.Equal(TokenBridge.Current.Warning, SamplePixel(surface, -70, 0));
         }
 
         //---- base fill: Consumer/Spoil/Plant/Passthrough ----
@@ -220,8 +220,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(ConsumerBg, SamplePixel(surface, 0, 35));
         }
 
-        [Fact]
-        public void ConsumerNodeElement_ManualRateNotMet_BorderIsUndersuppliedDarkRed() {
+        [AvaloniaFact]
+        public void ConsumerNodeElement_ManualRateNotMet_BorderIsError() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("plate");
             IConsumerNodeViewModel viewModel = MakeConsumer(fx, fx.Pair(item));
@@ -233,7 +233,7 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             using SKSurface surface = Render(element);
 
-            Assert.Equal(UndersuppliedBorder, SamplePixel(surface, -70, 0));
+            Assert.Equal(TokenBridge.Current.Error, SamplePixel(surface, -70, 0));
         }
 
         [Fact]

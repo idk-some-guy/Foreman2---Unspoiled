@@ -15,6 +15,7 @@ using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
@@ -24,6 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Xml.Linq;
 using Xunit;
 using Slider = Foreman.Mac.Kit.Controls.Slider;
 using Spinner = Foreman.Mac.Kit.Controls.Spinner;
@@ -181,7 +183,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains("Stepper", captions);
             Assert.Contains("Slider", captions);
             Assert.Contains("Text field, Search field, Stepper & Slider (150%)", captions);
-            //A sample from each end of the 37-glyph sheet, proving the full set rendered with name labels.
+            //A sample from each end of the shared glyph set, proving the full set rendered with name labels.
             Assert.Contains("New", captions);
             Assert.Contains("Category.Modules", captions);
         }
@@ -194,6 +196,56 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Contains(window.GetVisualDescendants().OfType<Button>(), b => Equals(b.Content, "Cancel") && b.Height == 33);
             Assert.Contains(window.GetVisualDescendants().OfType<ToolbarItem>(), i => i.Height == 60 && i.MinWidth == 66);
+        }
+
+        //Addendum §12 "New glyphs": the path column, on the 20 grid.
+        private static readonly (string Name, string Path)[] CanvasMasters = [
+            ("Node.Over", "M10,16 V4.5 M5.5,9 L10,4.5 L14.5,9"),
+            ("Node.Short", "M10,4 V15.5 M5.5,11 L10,15.5 L14.5,11"),
+            ("Node.Error", "M10,4 V11.5 M10,15.6 V15.7"),
+            ("Node.Key", "M2.8,10 A3.2,3.2 0 1,0 9.2,10 A3.2,3.2 0 1,0 2.8,10 Z M9.2,10 H17 M14,10 V13 M16.5,10 V12.5"),
+            ("Canvas.Paused", "M7.5,5 V15 M12.5,5 V15"),
+            ("Link.Orthogonal", "M3,15 H9 V5 H17 M7.2,10 A1.8,1.8 0 1,0 10.8,10 A1.8,1.8 0 1,0 7.2,10 Z"),
+            ("Link.Rounded", "M3,15 C9,15 11,5 17,5"),
+        ];
+
+        //The tile draws each canvas master from the kit geometry; GlyphPaths hands the painters the same shapes.
+        [AvaloniaFact]
+        public void GlyphsTile_DrawsTheSevenCanvasMasters_ThatGlyphPathsMirrors() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Glyphs");
+            foreach ((string name, string addendumPath) in CanvasMasters) {
+                Application.Current!.TryGetResource($"Kit.Glyph.{name}.20", null, out object? resource);
+                StackPanel cell = tile.GetVisualDescendants().OfType<StackPanel>()
+                    .Single(c => c.Children.OfType<TextBlock>().Any(t => t.Text == name));
+                Path path = cell.GetVisualDescendants().OfType<Path>().Single();
+                Assert.Same(Assert.IsAssignableFrom<Geometry>(resource), path.Data);
+                Assert.True(path.Bounds.Width > 0 && path.Bounds.Height > 0, name);
+
+                using SkiaSharp.SKPath expected = SkiaSharp.SKPath.ParseSvgPathData(addendumPath);
+                string key = $"Kit.Glyph.{name}";
+                Assert.Equal(expected.ToSvgPathData(), GlyphPaths.Get(key).ToSvgPathData());
+                Assert.Equal(GlyphPaths.Get(key).ToSvgPathData(), SvgOfKitText($"{key}.20"));
+                if (name.StartsWith("Node.", StringComparison.Ordinal)) {
+                    expected.Transform(SkiaSharp.SKMatrix.CreateScale(0.5f, 0.5f));
+                    Assert.Equal(expected.ToSvgPathData(), GlyphPaths.GetBadge(key).ToSvgPathData());
+                    Assert.Equal(GlyphPaths.GetBadge(key).ToSvgPathData(), SvgOfKitText($"{key}.10"));
+                }
+            }
+            Assert.Same(GlyphPaths.Get("Kit.Glyph.Node.Key"), GlyphPaths.Get("Kit.Glyph.Node.Key"));
+        }
+
+        private static string SvgOfKitText(string key) {
+            string root = System.IO.Path.GetFullPath(System.IO.Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+            XDocument glyphs = XDocument.Load(System.IO.Path.Combine(root, "src", "Foreman.Mac.Kit", "Themes", "Glyphs.axaml"));
+            XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+            string text = glyphs.Descendants().Single(e => (string?)e.Attribute(x + "Key") == key).Value;
+            using SkiaSharp.SKPath parsed = SkiaSharp.SKPath.ParseSvgPathData(text);
+            return parsed.ToSvgPathData();
         }
 
         [AvaloniaFact]

@@ -226,7 +226,7 @@ namespace Foreman.Mac.Views {
             return stack;
         }
 
-        //All 37 shared masters (Themes/Glyphs.axaml) at the 20 pt drawn size, named.
+        //All 44 20 pt masters (Themes/Glyphs.axaml), named: the 37 shared glyphs and the seven canvas masters.
         private static readonly string[] GlyphSheetNames = [
             "New", "Open", "Save", "Item", "Recipe", "Connect", "Align", "Export", "Summary",
             "View", "View.Fill", "Passthrough", "Beacon", "Beacon.Fill",
@@ -237,6 +237,7 @@ namespace Foreman.Mac.Views {
             "Settings.Advanced", "Settings.Annotations", "Settings.Appearance",
             "Category.Mods", "Category.Items", "Category.Recipes", "Category.Assemblers",
             "Category.Miners", "Category.Power", "Category.Modules",
+            "Node.Over", "Node.Short", "Node.Error", "Node.Key", "Canvas.Paused", "Link.Orthogonal", "Link.Rounded",
         ];
 
         private static WrapPanel BuildGlyphSheetTile() {

@@ -22,7 +22,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         [InlineData("Tokens.Light.axaml", "Foreman.Color.CanvasBackground", "#FAFAFA")]
         [InlineData("Tokens.Light.axaml", "Foreman.Color.Accent", "#007AFF")]
         [InlineData("Tokens.Dark.axaml", "Foreman.Color.NodeSelected", "#FF9F0A")]
-        [InlineData("Tokens.Light.axaml", "Foreman.Color.NodeSelected", "#D97A06")]
+        [InlineData("Tokens.Light.axaml", "Foreman.Color.NodeSelected", "#C86A00")]
         [InlineData("Tokens.Dark.axaml", "Foreman.Color.Warning", "#FF9F0A")]
         [InlineData("Tokens.Light.axaml", "Foreman.Color.Warning", "#B25000")]
         [InlineData("Tokens.Dark.axaml", "Foreman.Color.TextOnAccent", "#FFFFFF")]

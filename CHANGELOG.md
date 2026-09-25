@@ -549,6 +549,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Internal: every window now registers its minimum-size scaling with the same appearance hub it
   already used for theme, instead of a separate tracking list; the main window gains one shared
   popover overlay layer for future popovers to anchor against. No visible change.
+- Canvas colours now come from the app's theme tokens in both light and dark: item tab outlines
+  use a new tab border colour that gets stronger with Increase Contrast, and overproduced and
+  undersupplied node borders use the standard warning and error colours.
 
 ### Removed
 
