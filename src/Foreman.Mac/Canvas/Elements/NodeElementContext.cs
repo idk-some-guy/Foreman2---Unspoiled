@@ -34,6 +34,15 @@ namespace Foreman.Mac.Canvas.Elements {
 
         public float GetLinkWidth(LinkId id) => LinkWidthLookup?.Invoke(id) ?? StaticLinkWidth;
 
+        public Func<ProductionGraph.RateUnit>? RateUnitLookup { get; set; }
+        public ProductionGraph.RateUnit RateUnit => RateUnitLookup?.Invoke() ?? ProductionGraph.RateUnit.Per1Sec;
+
+        //The canvas's shared count/rate cross-fade clock: a node raises LabelValuesChanged on the UI thread, the canvas
+        //bumps the generation and drives the progress, and the painters read both on whichever thread paints.
+        public Action? LabelValuesChanged { get; set; }
+        public int LabelFadeGeneration { get; set; }
+        public double LabelFadeProgress { get; set; } = 1;
+
         //Seam for BaseNodeElement.SetLocation (upstream reaches these off `graphViewer` directly - this
         //port's node elements only ever see NodeElementContext, so the editor and the id->element lookup
         //ride along here instead).

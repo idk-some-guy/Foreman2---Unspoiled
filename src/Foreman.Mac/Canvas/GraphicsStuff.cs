@@ -7,9 +7,6 @@ using System.Drawing;
 namespace Foreman.Mac.Canvas {
     //Ports Controls/GraphicsStuff.cs: rounded-rect fill/stroke (GraphicsPath's 4-arc construction collapses
     //to SKCanvas.DrawRoundRect), the shrink-to-fit DrawText loop, and the number-formatting helpers.
-    //BuildingQuantityToText moved here from Elements/GraphElement.cs (its only home upstream) since it's a
-    //plain formatting helper with no element-tree dependency, and GraphElement's
-    //subclasses that call it aren't ported yet.
     public enum TextHorizontalAlign { Near, Center }
     public enum TextVerticalAlign { Near, Center, Far }
 
@@ -261,16 +258,6 @@ namespace Foreman.Mac.Canvas {
                 : Math.Abs(value) >= 1000
                 ? (value / 1000).ToString("0.##", DisplayCulture.Format) + " K" + unit
                 : value.ToString("0.##", DisplayCulture.Format) + " " + unit;
-        }
-
-        public static string BuildingQuantityToText(double quantity, bool roundAssemblerCount) {
-            if (quantity >= 10000)
-                return quantity.ToString("0.##e0", DisplayCulture.Format);
-            if (roundAssemblerCount)
-                return Math.Ceiling(quantity).ToString("0", DisplayCulture.Format);
-            if (quantity >= 0.1)
-                return quantity.ToString("0.#", DisplayCulture.Format);
-            return quantity != 0 ? "<0.1" : "0";
         }
     }
 }

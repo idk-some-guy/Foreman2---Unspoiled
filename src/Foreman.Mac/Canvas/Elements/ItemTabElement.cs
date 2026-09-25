@@ -5,16 +5,15 @@ using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Models;
 using SkiaSharp;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/ItemTabElement.cs: draw/tooltip path plus the right-click delete-
-    //connection menu (reference §4d).
+    //Ports ProductionGraphView/Elements/ItemTabElement.cs on the §01 tab, plus the right-click delete-connection menu (reference §4d).
     public sealed class ItemTabElement : GraphElement {
-        public static int TabWidth => IconSize + (Border * 3);
-        public static int TabBorder => Border;
+        private enum TabStroke { Regular, Overproduced, Disconnected }
 
         public LinkType LinkType { get; }
         public ItemQualityPair Item { get; }
@@ -23,56 +22,53 @@ namespace Foreman.Mac.Canvas.Elements {
 
         public bool HideItemTab { get; set; }
 
-        //Scaled read-time, like BaseNodeElement's own font/padding constants.
-        internal static int IconSize => TokenBridge.ScaledInt(32);
-        internal static int Border => TokenBridge.ScaledInt(3);
-
-        //Matches upstream's DrawString anchor point, which reduces algebraically to Bounds.Top + 2 (output)
-        //or Bounds.Bottom - 2 (input) regardless of text height - see the Draw() comment below.
-        private static int TextEdgeInset => TokenBridge.ScaledInt(2);
-
-        private static readonly SKTypeface TextTypeface = SKTypeface.Default;
-        private static float TextFontSize => TokenBridge.Scaled(6f);
-
-        private static readonly SKPaint DirectionPaint = new() { Color = new SKColor(0, 0, 0, 40), Style = SKPaintStyle.Fill, IsAntialias = true };
-        private static readonly SKPaint RegularBorderPaint = StrokePaint(TokenBridge.Current.NodeTabBorder);
-        private static readonly SKPaint OverproducedBorderPaint = StrokePaint(TokenBridge.Current.Warning);
-        private static readonly SKPaint DisconnectedBorderPaint = StrokePaint(TokenBridge.Current.Error);
-        private static readonly SKPaint FillPaint = new() { Color = SKColors.White, Style = SKPaintStyle.Fill, IsAntialias = true };
-
-        //The three paints above bake Border's StrokeWidth and TokenBridge's border colours once at type-init; this handler keeps both live.
-        static ItemTabElement() {
-            TokenBridge.Changed += (_, _) => {
-                RegularBorderPaint.StrokeWidth = Border;
-                OverproducedBorderPaint.StrokeWidth = Border;
-                DisconnectedBorderPaint.StrokeWidth = Border;
-                RegularBorderPaint.Color = TokenBridge.Current.NodeTabBorder;
-                OverproducedBorderPaint.Color = TokenBridge.Current.Warning;
-                DisconnectedBorderPaint.Color = TokenBridge.Current.Error;
-            };
-        }
-
-        private static SKPaint StrokePaint(SKColor color) => new() { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = Border, IsAntialias = true };
-
         private readonly NodeElementContext context;
         private readonly INodeViewModel nodeViewModel;
+        private readonly LabelFade rate = new();
 
-        private SKPaint borderPaint;
-        private string text = "";
+        private TabStroke stroke;
+        private NodeText rateText;
 
         public ItemTabElement(ItemQualityPair item, LinkType type, NodeElementContext context, BaseNodeElement node) : base(node) {
             this.context = context;
             nodeViewModel = node.ViewModel;
             Item = item;
             LinkType = type;
-
-            borderPaint = RegularBorderPaint;
-            using var measureFont = new SKFont(TextTypeface, TextFontSize);
-            int measuredTextHeight = (int)(measureFont.Metrics.Descent - measureFont.Metrics.Ascent);
-            Width = TabWidth;
-            Height = IconSize + measuredTextHeight + Border + 3;
+            Layout();
             X = 0;
             Y = 0;
+        }
+
+        internal NodeText RateText => rateText;
+        internal LabelState RateLabel => rate.State(context);
+
+        public void UpdateValues(double recipeRate, double outputRate, bool isOverproduced) {
+            stroke = isOverproduced ? TabStroke.Overproduced : !Links.Any() ? TabStroke.Disconnected : TabStroke.Regular;
+            rate.Set(NodeCardPainter.Rate(recipeRate, context.RateUnit), context);
+            Layout();
+        }
+
+        //22 tall, at least 44 wide: 3 leading · icon 16 · 4 · rate · 6 trailing; the tab grows and never trims the rate.
+        private void Layout() {
+            CanvasTokens tokens = TokenBridge.Current;
+            int weight = tokens.CanvasEmphasizedWeight;
+            float textWidth = NodeCardPainter.Measure(rate.Text, tokens.CanvasFontSize, weight);
+            float textInset = tokens.NodeGapTight + tokens.NodeTabIcon + tokens.Space1;
+            Width = (int)Math.Ceiling(Math.Max(tokens.NodeTabMinWidth, textInset + textWidth + tokens.Space15));
+            Height = (int)Math.Round(tokens.NodeTabHeight);
+            float textLeft = (-Width / 2f) + textInset;
+            rateText = new NodeText(NodeTextRole.TabRate, rate.Text, new SKRect(textLeft, -Height / 2f, textLeft + textWidth, Height / 2f), tokens.CanvasFontSize, weight, tokens.Text);
+        }
+
+        public TabGeometry TabGeometry() {
+            CanvasTokens tokens = TokenBridge.Current;
+            Point centre = LocalToGraph(new Point(0, 0));
+            SKColor strokeColor = stroke switch {
+                TabStroke.Overproduced => tokens.Warning,
+                TabStroke.Disconnected => tokens.Error,
+                _ => tokens.NodeTabBorder,
+            };
+            return new TabGeometry(SKRect.Create(centre.X - (Width / 2f), centre.Y - (Height / 2f), Width, Height), tokens.NodeTabRadius, NodeCardPainter.TabStrokeWidth, strokeColor, tokens.WellBackground, tokens.NodeTabOverhang);
         }
 
         public Point GetConnectionPoint() =>
@@ -80,71 +76,21 @@ namespace Foreman.Mac.Canvas.Elements {
                 ? LocalToGraph(new Point(0, Height / 2))
                 : LocalToGraph(new Point(0, -Height / 2));
 
-        public void UpdateValues(double recipeRate, double outputRate, bool isOverproduced) {
-            borderPaint = RegularBorderPaint;
-            text = GraphicsStuff.DoubleToString(recipeRate);
-            int textHeight = 10;
-            if (isOverproduced) {
-                borderPaint = OverproducedBorderPaint;
-                text = GraphicsStuff.DoubleToString(outputRate) + "\n" + text;
-                textHeight += 10;
-            } else if (!Links.Any())
-                borderPaint = DisconnectedBorderPaint;
-
-            Width = TabWidth;
-            Height = IconSize + textHeight + Border + 3;
-        }
-
         protected override void Draw(SKCanvas canvas, NodeDrawingStyle style) {
             if (style == NodeDrawingStyle.IconsOnly || HideItemTab)
                 return;
 
-            Point trans = LocalToGraph(new Point(0, 0));
-            int halfW = Bounds.Width / 2;
-            int halfH = Bounds.Height / 2;
-
-            GraphicsStuff.FillRoundRect(canvas, trans.X - halfW, trans.Y - halfH, Bounds.Width, Bounds.Height, Border, FillPaint);
-
-            if (context.DynamicLinkWidth || !context.ArrowsOnLinks) {
-                using var path = new SKPath();
-                if (nodeViewModel.NodeDirection == NodeDirection.Up) {
-                    path.MoveTo(trans.X - halfW, trans.Y + halfH);
-                    path.LineTo(trans.X + halfW, trans.Y + halfH);
-                    path.LineTo(trans.X, trans.Y - halfH);
-                } else {
-                    path.MoveTo(trans.X - halfW, trans.Y - halfH);
-                    path.LineTo(trans.X + halfW, trans.Y - halfH);
-                    path.LineTo(trans.X, trans.Y + halfH);
-                }
-                path.Close();
-                canvas.DrawPath(path, DirectionPaint);
-            }
-
-            GraphicsStuff.DrawRoundRect(canvas, trans.X - halfW, trans.Y - halfH, Bounds.Width, Bounds.Height, Border, borderPaint);
+            TabGeometry geometry = TabGeometry();
+            NodeCardPainter.DrawRoundedBox(canvas, geometry.Rect, geometry.Radius, geometry.Fill, geometry.StrokeWidth, geometry.Stroke);
 
             if (style != NodeDrawingStyle.Regular && style != NodeDrawingStyle.PrintStyle)
                 return;
 
-            //Upstream anchors the text via a point + StringFormat.LineAlignment (Near for output/top-format,
-            //Far for input/bottom-format) rather than a box; its point formula reduces to a fixed 2px inset
-            //from the tab's own top/bottom edge regardless of text height. The border stroke centers on
-            //that same edge (StrokeWidth = Border = 3, so it bleeds ~1.5px inward) - text anchored flush at
-            //the edge collides with it, so both slots below carry the same TextEdgeInset and the input slot
-            //now uses the matching Far alignment instead of a Near approximation.
-            if (LinkType == LinkType.Output) {
-                var textSlot = new Rectangle(trans.X - halfW, trans.Y - halfH + TextEdgeInset, Bounds.Width, Bounds.Height - IconSize - Border - TextEdgeInset);
-                GraphicsStuff.DrawText(canvas, SKColors.Black, TextTypeface, TextFontSize, textSlot, text, TextHorizontalAlign.Center, TextVerticalAlign.Near);
-                DrawIcon(canvas, trans.X - halfW + (int)(Border * 1.5), trans.Y + halfH - Border - IconSize);
-            } else {
-                var textSlot = new Rectangle(trans.X - halfW, trans.Y - halfH + IconSize + Border, Bounds.Width, Bounds.Height - IconSize - Border - TextEdgeInset);
-                GraphicsStuff.DrawText(canvas, SKColors.Black, TextTypeface, TextFontSize, textSlot, text, TextHorizontalAlign.Center, TextVerticalAlign.Far);
-                DrawIcon(canvas, trans.X - halfW + (int)(Border * 1.5), trans.Y - halfH + Border);
-            }
-        }
-
-        private void DrawIcon(SKCanvas canvas, int x, int y) {
-            SKBitmap icon = Item.Icon ?? IconCache.UnknownIcon;
-            canvas.DrawBitmap(icon, SKRect.Create(x, y, IconSize, IconSize));
+            CanvasTokens tokens = TokenBridge.Current;
+            float iconLeft = geometry.Rect.Left + tokens.NodeGapTight;
+            NodeCardPainter.DrawIcon(canvas, Item.Icon ?? IconCache.UnknownIcon, SKRect.Create(iconLeft, geometry.Rect.MidY - (tokens.NodeTabIcon / 2), tokens.NodeTabIcon, tokens.NodeTabIcon));
+            Point centre = LocalToGraph(new Point(0, 0));
+            NodeCardPainter.DrawLabel(canvas, rateText, centre.X, centre.Y, rate.State(context));
         }
 
         public override List<TooltipInfo> GetToolTips(Point graphPoint) {

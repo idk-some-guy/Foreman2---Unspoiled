@@ -10,6 +10,7 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Kit;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.QuickAdd;
@@ -247,7 +248,12 @@ namespace Foreman.Mac.UiTests.Canvas {
             BaseNodeElement offGridUnselected = fx.AddConsumer("iron-ore", new Point(7, 9));
             fx.Control.Viewer.SetSelection([offGridSelected]);
 
-            fx.Control.Viewer.AlignSelected();
+            Motion.ReduceMotion = true;
+            try {
+                fx.Control.AlignSelection();
+            } finally {
+                Motion.ReduceMotion = false;
+            }
 
             Assert.Equal(fx.Control.Grid.AlignToGrid(new Point(5, 41)), offGridSelected.ViewModel.Location);
             Assert.Equal(new Point(7, 9), offGridUnselected.ViewModel.Location);

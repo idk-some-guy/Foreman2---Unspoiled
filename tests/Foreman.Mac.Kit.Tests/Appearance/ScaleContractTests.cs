@@ -112,7 +112,7 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
         public void Apply_AtOneFifty_MultipliesTheCanvasBridgeTokens() {
             ScaleContract.Apply(1.5);
 
-            Assert.Equal(12.0, ResourceDouble("Foreman.Size.NodePadding"));
+            Assert.Equal(27.0, ResourceDouble("Foreman.Size.NodeInsetTop"));
             Assert.Equal(15.0, ResourceDouble("Foreman.Type.Canvas.FontSize"));
         }
 
@@ -121,7 +121,7 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             "Foreman.Size.NodeInsetTop", "Foreman.Size.NodeInsetSide", "Foreman.Size.NodeInsetBottom",
             "Foreman.Size.NodeTypeStrip", "Foreman.Size.NodeTypeStripInset",
             "Foreman.Size.NodeTabHeight", "Foreman.Size.NodeTabMinWidth", "Foreman.Size.NodeTabOverhang",
-            "Foreman.Size.NodeBadgeHeight", "Foreman.Size.NodePip",
+            "Foreman.Size.NodeBadgeHeight", "Foreman.Size.NodePip", "Foreman.Size.NodeGapTight",
             "Foreman.Size.LinkWidth", "Foreman.Size.LinkWidthMax", "Foreman.Size.LinkHitWidth",
             "Foreman.Size.WaypointDiameter", "Foreman.Size.WaypointHitTarget",
         ];

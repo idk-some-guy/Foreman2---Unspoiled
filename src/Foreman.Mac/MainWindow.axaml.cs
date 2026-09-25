@@ -195,7 +195,7 @@ namespace Foreman.Mac {
                 onAddItem: () => GraphCanvas.AddItemAsync(ViewportCentre(), PaletteAnchorUnder("AddItemButton")),
                 onAddRecipe: () => GraphCanvas.AddRecipeAsync(ViewportCentre(), PaletteAnchorUnder("AddRecipeButton")),
                 onAutoconnect: () => { GraphCanvas.ClosePanels(); GraphCanvas.Viewer.AutoconnectDisconnectedInputs(); GraphCanvas.RequestRedraw(); },
-                onAlignSelection: () => { GraphCanvas.ClosePanels(); GraphCanvas.Viewer.AlignSelected(); GraphCanvas.RequestRedraw(); },
+                onAlignSelection: () => { GraphCanvas.ClosePanels(); GraphCanvas.AlignSelection(); GraphCanvas.RequestRedraw(); },
                 onSettings: () => ShowSettings(),
                 onGraphSummary: () => Async.Fire(OpenGraphSummaryAsync(), nameof(OpenGraphSummaryAsync)),
                 canExecuteAlignSelection: () => GraphCanvas.Viewer.SelectedNodes.Count > 0);

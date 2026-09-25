@@ -552,6 +552,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Canvas colours now come from the app's theme tokens in both light and dark: item tab outlines
   use a new tab border colour that gets stronger with Increase Contrast, and overproduced and
   undersupplied node borders use the standard warning and error colours.
+- Every node on the canvas is now one card: the theme's control background with a thin border,
+  a coloured strip on its leading edge for its type, the node's icon and name, and a detail row.
+  Recipes show the building, its count and a status row with a beacon badge, productivity pips
+  and bonus productivity; suppliers, consumers and passthroughs read "Source", "Output" and
+  "Passthrough", or a "Fixed 90/s" or "Limit 240/s" chip once their rate is set, and a recipe
+  with a set building count shows "Fixed ×4". Item tabs are 22 pt tall with a 16 pt icon and a
+  10 pt rate, and they grow to fit it. Every rate unit has its own suffix (/s, /min, /5 min,
+  /10 min, /30 min, /h), and rates use one number format with k, M and G from 10 000 instead of
+  scientific notation. Recipe, supplier, consumer and spoil footprints are unchanged. A passthrough
+  shown as a card is now 144 wide; it was 72 in both modes and stays 72 while it draws as a bar.
+  A card with a long chip grows to fit it. Width changes keep each node's centre, so saved graphs
+  open where they were saved. A node placed from a link drag moves along the flow away from its
+  source until it clears the source by 24 pt. Counts and rates cross-fade when they change, and
+  Align Selected glides nodes into place; both happen instantly under Reduce Motion.
 
 ### Removed
 

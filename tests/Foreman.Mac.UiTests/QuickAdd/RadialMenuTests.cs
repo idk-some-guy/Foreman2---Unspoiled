@@ -8,6 +8,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
@@ -212,6 +213,60 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             hub.MoveAndClickAt(hubCenter + Polar(125, 10));
             Assert.Null(hub.Control.OpenRadial);
             Assert.Single(hub.Viewer.Graph.Nodes);
+
+            //A tip drop clears the source by 24 along the flow axis; a side drop stays put and snaps outward on the grid.
+            foreach (double step in new[] { 1.0, 1.5 }) {
+                foreach (RadialChoice choice in new[] { RadialChoice.Passthrough, RadialChoice.Output }) {
+                    float s = (float)step;
+                    using var near = CanvasFixture.WithVanillaAndOneSupplier(out _);
+                    (BaseNodeElement source, BaseNodeElement placed, System.Drawing.Point dropped) = DropBeside(near, step, choice, 0, -10 * s, 0);
+                    Assert.Equal(dropped.X, placed.Location.X);
+                    Assert.InRange(FlowGap(source, placed, s), (24 * s) - 0.001f, (24 * s) + 1);
+                    int cleared = placed.Location.Y;
+
+                    using var side = CanvasFixture.WithVanillaAndOneSupplier(out _);
+                    (_, BaseNodeElement aside, System.Drawing.Point sideDrop) = DropBeside(side, step, choice, 200 * s, 0, 0);
+                    Assert.Equal(new System.Drawing.Point(sideDrop.X, sideDrop.Y - (choice == RadialChoice.Output ? aside.Height / 2 : 0)), aside.Location);
+
+                    int unit = Enumerable.Range(5, 200).First(u => Nearest(cleared, u) > cleared);
+                    using var gridded = CanvasFixture.WithVanillaAndOneSupplier(out _);
+                    (BaseNodeElement gridSource, BaseNodeElement snapped, _) = DropBeside(gridded, step, choice, 0, -10 * s, unit);
+                    Assert.Equal(0, snapped.Location.Y % unit);
+                    Assert.True(snapped.Location.Y < cleared);
+                    Assert.True(FlowGap(gridSource, snapped, s) >= 24 * s);
+                }
+            }
+        }
+
+        private static int Nearest(int value, int unit) {
+            value += Math.Sign(value) * unit / 2;
+            return value - (value % unit);
+        }
+
+        private static float FlowGap(BaseNodeElement source, BaseNodeElement placed, float s) =>
+            (source.Location.Y - (source.Height / 2f) - (13 * s)) - (placed.Location.Y + (placed.Height / 2f) + (13 * s));
+
+        private static (BaseNodeElement Source, BaseNodeElement Placed, System.Drawing.Point Dropped) DropBeside(CanvasFixture fx, double step, RadialChoice choice, float dx, float dy, int gridUnit) {
+            WindowScaler.SetScale(step);
+            fx.Control.Grid.ShowGrid = gridUnit > 0;
+            fx.Control.Grid.CurrentGridUnit = gridUnit;
+            BaseNodeElement source = fx.Viewer.NodeElementDictionary.Values.Single();
+            source.RequestStateUpdate();
+            source.PrePaint();
+            ItemTabElement sourceTab = source.SubElements.OfType<ItemTabElement>().Single();
+            AvaloniaPoint tab = fx.Control.Viewport.GraphToScreen(source.LocalToGraph(sourceTab.Location));
+            SkiaSharp.SKRect tip = sourceTab.TabGeometry().Rect;
+            float x = dx == 0 ? tip.MidX : tip.Right + dx;
+            float y = dx == 0 ? tip.Top + dy : tip.MidY;
+            fx.DragFrom(tab).To(fx.Control.Viewport.GraphToScreen(new System.Drawing.Point((int)Math.Round(x), (int)Math.Round(y)))).Release();
+            ClickSlice(fx, fx.Control.OpenRadial!, choice);
+
+            System.Drawing.Point dropped = fx.Control.LastNewNodeLinkDragRequest!.Value.EndpointLocation;
+            BaseNodeElement placed = fx.Viewer.NodeElementDictionary.Values.Single(node => node != source);
+            placed.RequestStateUpdate();
+            placed.PrePaint();
+            WindowScaler.SetScale(1.0);
+            return (source, placed, dropped);
         }
 
         private static AvaloniaVector Polar(double radius, double angleDeg) =>

@@ -1,3 +1,4 @@
+using Avalonia.Headless.XUnit;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
@@ -111,14 +112,13 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         //---- LineType.Simple: supplier below consumer, both NodeDirection.Up ----
-        //Supplier at (0,150), consumer at (0,-150). Output/input tab connection points land 71px outside
-        //each node's own center along its facing edge (BaseSimpleHeight/2=48 + tab Height/2=24, tab Height
-        //settles at 48 = IconSize(32)+textHeight(10)+Border(3)+3 once UpdateValues runs) -> supplierOrigin
-        //(0,79), consumerOrigin (0,-79). Both pull points collapse to the graph origin by construction
-        //(max((79-(-79))/2,20) = 79, pulled back the full distance from each origin), so the cubic is exactly
-        //symmetric about (0,0) and its parametric midpoint lands there too.
+        //Supplier at (0,150), consumer at (0,-150). Output/input tab connection points land 61px outside
+        //each node's own center along its facing edge (BaseSimpleHeight/2=48 + the tab's 13 overhang)
+        //-> supplierOrigin (0,89), consumerOrigin (0,-89). Both pull points collapse to the graph origin by
+        //construction (max((89-(-89))/2,20) = 89, pulled back the full distance from each origin), so the cubic
+        //is exactly symmetric about (0,0) and its parametric midpoint lands there too.
 
-        [Fact]
+        [AvaloniaFact]
         public void LinkElement_SimpleShape_PathPassesThroughDerivedEndpointsAndMidpoint() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("iron-plate");
@@ -130,19 +130,19 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             Assert.Equal(BaseLinkElement.LineType.Simple, link.Type);
             var lineColor = new SKColor(200, 40, 40);
-            Assert.Equal(lineColor, SamplePixel(surface, 0, 79));
-            Assert.Equal(lineColor, SamplePixel(surface, 0, -79));
+            Assert.Equal(lineColor, SamplePixel(surface, 0, 89));
+            Assert.Equal(lineColor, SamplePixel(surface, 0, -89));
             Assert.Equal(lineColor, SamplePixel(surface, 0, 0));
         }
 
         //---- LineType.UShape: opposite directions, wide-enough X gap to keep the flat top non-degenerate ----
-        //Supplier at (0,0) facing Up, consumer at (400,0) facing Down -> supplierOrigin (0,-71), consumerOrigin
-        //(400,-71) (Down flips which edge the input tab sits on, landing at the same -71 offset). xOffset caps
-        //at circlePull*2=200 (since |Δx|=400 > 200), so midUB=(100,-171) and midUC=(300,-171) stay distinct -
+        //Supplier at (0,0) facing Up, consumer at (400,0) facing Down -> supplierOrigin (0,-61), consumerOrigin
+        //(400,-61) (Down flips which edge the input tab sits on, landing at the same -61 offset). xOffset caps
+        //at circlePull*2=200 (since |Δx|=400 > 200), so midUB=(100,-161) and midUC=(300,-161) stay distinct -
         //that top segment is a straight line (its control points collapse onto its own endpoints), so its true
-        //midpoint (200,-171) sits exactly on the path.
+        //midpoint (200,-161) sits exactly on the path.
 
-        [Fact]
+        [AvaloniaFact]
         public void LinkElement_UShape_PathPassesThroughDerivedEndpointsAndFlatTopMidpoint() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("copper-plate");
@@ -154,19 +154,19 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             Assert.Equal(BaseLinkElement.LineType.UShape, link.Type);
             var lineColor = new SKColor(40, 120, 200);
-            Assert.Equal(lineColor, SamplePixel(surface, 0, -71));
-            Assert.Equal(lineColor, SamplePixel(surface, 400, -71));
-            Assert.Equal(lineColor, SamplePixel(surface, 200, -171));
+            Assert.Equal(lineColor, SamplePixel(surface, 0, -61));
+            Assert.Equal(lineColor, SamplePixel(surface, 400, -61));
+            Assert.Equal(lineColor, SamplePixel(surface, 200, -161));
         }
 
         //---- LineType.NShape: same direction, wrong order, wide X gap ----
         //Supplier at (-300,-200) facing Up, consumer at (300,200) facing Up, so consumerOrigin.Y > supplierOrigin.Y
-        //while both face Up - the "wrong order" that forces the N-shaped detour. supplierOrigin (-300,-271),
-        //consumerOrigin (300,271); |Δx|=600 > 2*circlePull so midX is the plain X midpoint (0). midNC=(0,-271)
-        //and midND=(0,271) are connected by a straight segment (again a collapsed-control-point line), so its
+        //while both face Up - the "wrong order" that forces the N-shaped detour. supplierOrigin (-300,-261),
+        //consumerOrigin (300,261); |Δx|=600 > 2*circlePull so midX is the plain X midpoint (0). midNC=(0,-261)
+        //and midND=(0,261) are connected by a straight segment (again a collapsed-control-point line), so its
         //midpoint (0,0) sits exactly on the path.
 
-        [Fact]
+        [AvaloniaFact]
         public void LinkElement_NShape_PathPassesThroughDerivedEndpointsAndStraightMidSegmentMidpoint() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("steel-plate");
@@ -178,14 +178,14 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             Assert.Equal(BaseLinkElement.LineType.NShape, link.Type);
             var lineColor = new SKColor(90, 90, 90);
-            Assert.Equal(lineColor, SamplePixel(surface, -300, -271));
-            Assert.Equal(lineColor, SamplePixel(surface, 300, 271));
+            Assert.Equal(lineColor, SamplePixel(surface, -300, -261));
+            Assert.Equal(lineColor, SamplePixel(surface, 300, 261));
             Assert.Equal(lineColor, SamplePixel(surface, 0, 0));
         }
 
         //---- color: item's average color, independent of link state ----
 
-        [Fact]
+        [AvaloniaFact]
         public void LinkElement_Draw_UsesItemAverageColorRegardlessOfLinkGeometry() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("plastic-bar");
@@ -195,7 +195,7 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             using SKSurface surface = RenderLink(link);
 
-            Assert.Equal(new SKColor(12, 200, 12), SamplePixel(surface, 0, 79));
+            Assert.Equal(new SKColor(12, 200, 12), SamplePixel(surface, 0, 89));
         }
 
         //---- dynamic width: LinkWidth is a plain settable property BaseLinkElement.Draw honors directly;
@@ -212,7 +212,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             return count;
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void LinkElement_LinkWidth_ConstantDefault_Is3PxWideStroke() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("wood");
@@ -223,11 +223,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(3f, link.LinkWidth); //static default, matching upstream's "3px when DynamicLinkWidth is off"
 
             using SKSurface surface = RenderLink(link);
-            int thickness = MeasureStrokeThicknessAt(surface, 200, -171, new SKColor(150, 90, 30)); //flat top of the U, a straight run
+            int thickness = MeasureStrokeThicknessAt(surface, 200, -161, new SKColor(150, 90, 30)); //flat top of the U, a straight run
             Assert.InRange(thickness, 2, 5);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void LinkElement_LinkWidth_WiderValue_DrawsThickerStroke() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("wood");
@@ -237,21 +237,21 @@ namespace Foreman.Mac.UiTests.Canvas {
             var lineColor = new SKColor(150, 90, 30);
 
             using SKSurface thinSurface = RenderLink(link);
-            int thinThickness = MeasureStrokeThicknessAt(thinSurface, 200, -171, lineColor);
+            int thinThickness = MeasureStrokeThicknessAt(thinSurface, 200, -161, lineColor);
 
             link.LinkWidth = 24f; //simulates what the future flow->width mapping would assign
             using SKSurface wideSurface = RenderLink(link);
-            int wideThickness = MeasureStrokeThicknessAt(wideSurface, 200, -171, lineColor);
+            int wideThickness = MeasureStrokeThicknessAt(wideSurface, 200, -161, lineColor);
 
             Assert.True(wideThickness > thinThickness + 10, $"expected a visibly thicker stroke: thin={thinThickness}, wide={wideThickness}");
         }
 
         //---- direction arrows: ArrowsOnLinks && !DynamicLinkWidth && !iconOnlyDraw gates the arrowhead ----
-        //Reusing the Simple-shape fixture: consumerOrigin (0,-79), consumerPull (0,0) (its tangent anchor), so
-        //the arrowhead triangle for the default LinkWidth=3 has vertices tip(0,-79), (6,-70), (-6,-70) - a
-        //point at (3,-73) sits inside that triangle but outside the plain 3px-wide line (|x|<=1.5).
+        //Reusing the Simple-shape fixture: consumerOrigin (0,-89), consumerPull (0,0) (its tangent anchor), so
+        //the arrowhead triangle for the default LinkWidth=3 has vertices tip(0,-89), (6,-80), (-6,-80) - a
+        //point at (3,-83) sits inside that triangle but outside the plain 3px-wide line (|x|<=1.5).
 
-        [Fact]
+        [AvaloniaFact]
         public void LinkElement_ArrowsOnLinksTrue_DrawsArrowheadNearConsumerEndpoint() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("iron-gear-wheel");
@@ -262,10 +262,10 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             using SKSurface surface = RenderLink(link);
 
-            Assert.Equal(new SKColor(220, 60, 60), SamplePixel(surface, 3, -73));
+            Assert.Equal(new SKColor(220, 60, 60), SamplePixel(surface, 3, -83));
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void LinkElement_ArrowsOnLinksFalse_NoArrowheadNearConsumerEndpoint() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("iron-gear-wheel");
@@ -275,10 +275,10 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             using SKSurface surface = RenderLink(link);
 
-            Assert.Equal(CanvasBackground, SamplePixel(surface, 3, -73));
+            Assert.Equal(CanvasBackground, SamplePixel(surface, 3, -83));
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void LinkElement_DynamicLinkWidthTrue_SuppressesArrowheadEvenWhenArrowsOnLinksTrue() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("iron-gear-wheel");
@@ -289,12 +289,12 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             using SKSurface surface = RenderLink(link);
 
-            Assert.Equal(CanvasBackground, SamplePixel(surface, 3, -73));
+            Assert.Equal(CanvasBackground, SamplePixel(surface, 3, -83));
         }
 
         //---- allocation: BaseLinkElement.Draw reuses a per-instance SKPath instead of building one per call ----
 
-        [Fact]
+        [AvaloniaFact]
         public void LinkElement_RepeatedPaint_KeepsPerDrawAllocationLow() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("iron-plate");
@@ -339,7 +339,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         //collapses to x=100 here (both node and viewport center share x=100), so the guide arrow's line runs
         //straight down the vertical centerline from y=158 to the border at y=190.
 
-        [Fact]
+        [AvaloniaFact]
         public void PointingArrowRenderer_ShowDisconnectedArrowsOn_DrawsArrowTowardOffscreenNode() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("water");
@@ -351,7 +351,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.NotEqual(CanvasBackground, SampleScreenPixel(surface, 100, 174));
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void PointingArrowRenderer_WrongGate_DoesNotDrawArrow() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("water");
@@ -363,7 +363,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(CanvasBackground, SampleScreenPixel(surface, 100, 174));
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void PointingArrowRenderer_AllGatesOff_DrawsNothing() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("water");
@@ -377,7 +377,7 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //---- reference render: two connected node pairs (one Simple, one UShape) with arrows on, for the SDD workspace ----
 
-        [Fact]
+        [AvaloniaFact]
         public void RenderConnectedNodePairs_SimpleAndUShape_WritesReferencePngToSddWorkspace() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("iron-plate");

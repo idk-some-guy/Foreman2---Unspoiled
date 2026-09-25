@@ -6,11 +6,8 @@ using System.Collections.Generic;
 using System.Drawing;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/ConsumerNodeElement.cs in full - "Infinite Sink:" / "Required Output:" node.
+    //Ports ProductionGraphView/Elements/ConsumerNodeElement.cs on the §01 card: "Output", or a "Fixed {rate}" chip.
     public sealed class ConsumerNodeElement : BaseNodeElement {
-        protected override SKPaint CleanBgPaint => ConsumerBgPaint;
-        private static readonly SKPaint ConsumerBgPaint = Fill(new SKColor(249, 237, 195));
-
         private IConsumerNodeViewModel ConsumerViewModel => (IConsumerNodeViewModel)ViewModel;
         private string ItemName => ConsumerViewModel.ConsumedItem.FriendlyName ?? "";
 
@@ -19,25 +16,23 @@ namespace Foreman.Mac.Canvas.Elements {
             Height = BaseSimpleHeight;
         }
 
-        //No tab-driven width here (unlike RecipeNodeElement), just the fixed-size re-derive a scale change needs.
         protected override void UpdateState() {
-            Width = MinWidth;
             Height = BaseSimpleHeight;
             base.UpdateState();
         }
 
+        protected override string DisplayName => ItemName;
+        protected override SKBitmap? TitleIcon => ConsumerViewModel.ConsumedItem.Icon;
+        protected override SKColor StripColor(CanvasTokens tokens) => tokens.NodeConsumer;
+
+        private string? Chip => ConsumerViewModel.RateType == RateType.Manual ? "Fixed " + RateText(ConsumerViewModel.DesiredRate) : null;
+
+        protected override int ComputeWidth() => WidthForChip(Chip);
+
+        private protected override void LayoutDetail(CanvasTokens tokens, List<NodeText> detail) =>
+            LayoutSubRow(tokens, detail, null, Chip ?? "Output", Chip is not null);
+
         protected override SKBitmap? NodeIcon() => ConsumerViewModel.ConsumedItem.Icon;
-
-        protected override void DetailsDraw(SKCanvas canvas, Point trans) {
-            int edgeInset = TokenBridge.ScaledInt(5);
-            int titleHeight = TokenBridge.ScaledInt(20);
-            int yoffset = ConsumerViewModel.NodeDirection == NodeDirection.Up ? edgeInset : TokenBridge.ScaledInt(28);
-            var titleSlot = new Rectangle(trans.X - (Width / 2) + edgeInset, trans.Y - (Height / 2) + yoffset, Width - (edgeInset * 2), titleHeight);
-            var textSlot = new Rectangle(titleSlot.X, titleSlot.Y + titleHeight, titleSlot.Width, (Height / 2) - edgeInset);
-
-            GraphicsStuff.DrawText(canvas, TextColor, BoldTypeface, TitleFontSize, titleSlot, ConsumerViewModel.RateType == RateType.Auto ? "Infinite Sink:" : "Required Output:", TextHorizontalAlign.Center, TextVerticalAlign.Near);
-            GraphicsStuff.DrawText(canvas, TextColor, RegularTypeface, BaseFontSize, textSlot, ItemName, TextHorizontalAlign.Center, TextVerticalAlign.Near);
-        }
 
         protected override List<TooltipInfo> GetMyToolTips(Point graphPoint, bool exclusive) =>
             ExclusiveHelpTooltip($"Left click on this node to edit quantity of {ItemName} required.\nRight click for options.", exclusive);

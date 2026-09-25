@@ -195,7 +195,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         public void LinkDragFromAnOutputTab_PlacingAPick_CentersTheNodeAboveTheDropPoint() {
             using var fx = CanvasFixture.WithVanillaAndOneSupplierOf("iron-plate", out AvaloniaPoint outputTab);
             var before = fx.Viewer.NodeElements.ToList();
-            var dropScreenPoint = new AvaloniaPoint(400, 300);
+            var dropScreenPoint = outputTab + new AvaloniaVector(0, -200);
             fx.DragFrom(outputTab).To(dropScreenPoint).Release();
             fx.MoveAndClickAt(fx.Control.OpenRadial!.Ring.Bounds.Center + new AvaloniaVector(0, -64));
 
@@ -215,7 +215,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         public void LinkDragFromAnInputTab_PlacingAPick_CentersTheNodeBelowTheDropPoint() {
             using var fx = CanvasFixture.WithVanillaAndOneConsumerOf("iron-plate", out AvaloniaPoint inputTab);
             var before = fx.Viewer.NodeElements.ToList();
-            var dropScreenPoint = new AvaloniaPoint(400, 300);
+            var dropScreenPoint = inputTab + new AvaloniaVector(0, 200);
             fx.DragFrom(inputTab).To(dropScreenPoint).Release();
             fx.MoveAndClickAt(fx.Control.OpenRadial!.Ring.Bounds.Center + new AvaloniaVector(0, -64));
 

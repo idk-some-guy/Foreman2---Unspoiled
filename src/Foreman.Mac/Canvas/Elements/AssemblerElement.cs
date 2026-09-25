@@ -1,196 +1,69 @@
 using Foreman;
-using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Models;
 using SkiaSharp;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //New for this port: the module-count density tier a module display chose, exposed for test
-    //introspection (canvas-reference.md §4 calls for behavior tests on the boundary, not only pixels).
-    //Draw keeps its own literal count comparisons rather than consuming this, to preserve transcription
-    //fidelity with upstream's inline branching.
-    public enum ModuleDisplayTier { Icons, Dots, Tally }
-
-    //Ports ProductionGraphView/Elements/AssemblerElement.cs in full: assembler icon + module icons/dots/
-    //letter-tally at the 3 density tiers + the LOD-High stat readout.
+    //The status row's productivity pips and extra-productivity text (§01).
     public sealed class AssemblerElement : GraphElement {
-        //Scaled read-time, so UpdateSize's recompute moves the icon rect, module grid and Bounds together.
-        private static int AssemblerIconSize => TokenBridge.ScaledInt(54);
-        internal static int ModuleIconSize => TokenBridge.ScaledInt(13);
-        internal static int ModuleSpacing => TokenBridge.ScaledInt(12);
-        private static int IconGutter => TokenBridge.ScaledInt(2);
-
-        //0,0 here is the top-left corner, matching upstream's local layout convention for this element.
-        private static Point[] moduleLocations = BuildModuleLocations();
-        private static Point moduleOffset = BuildModuleOffset();
-
-        //Cached per scale, not rebuilt per read: Draw reads these every paint frame.
-        internal static Point[] ModuleLocations => moduleLocations;
-        internal static Point ModuleOffset => moduleOffset;
-
-        private static Point[] BuildModuleLocations() => [new(ModuleSpacing, 0), new(ModuleSpacing, ModuleSpacing), new(ModuleSpacing, ModuleSpacing * 2), new(0, 0), new(0, ModuleSpacing), new(0, ModuleSpacing * 2)];
-        private static Point BuildModuleOffset() => new(0, TokenBridge.ScaledInt(5));
-
-        private static readonly SKPaint SpeedModulePaint = StrokePaint(new SKColor(0, 0, 139));
-        private static readonly SKPaint ProdModulePaint = StrokePaint(new SKColor(139, 0, 0));
-        private static readonly SKPaint EffModulePaint = StrokePaint(new SKColor(0, 100, 0));
-        private static readonly SKPaint QualityModulePaint = StrokePaint(new SKColor(255, 215, 0));
-        private static readonly SKPaint UnknownModulePaint = StrokePaint(SKColors.Black);
-        private static readonly SKTypeface ModuleTypeface = SKTypeface.FromFamilyName(null, SKFontStyle.Bold);
-        private static float ModuleFontSize => TokenBridge.Scaled(6f);
-
-        //The paints' StrokeWidth and the module layout above both bake in the scale once; keep them live.
-        static AssemblerElement() {
-            TokenBridge.Changed += (_, _) => {
-                float width = TokenBridge.Scaled(3f);
-                SpeedModulePaint.StrokeWidth = width;
-                ProdModulePaint.StrokeWidth = width;
-                EffModulePaint.StrokeWidth = width;
-                QualityModulePaint.StrokeWidth = width;
-                UnknownModulePaint.StrokeWidth = width;
-                moduleLocations = BuildModuleLocations();
-                moduleOffset = BuildModuleOffset();
-            };
-        }
-
-        private static readonly SKTypeface InfoTypeface = SKTypeface.Default;
-        private static float InfoFontSize => TokenBridge.Scaled(5f);
-        private static readonly SKTypeface CounterTypeface = SKTypeface.Default;
-        private static float CounterFontSize => TokenBridge.Scaled(14f);
-        private static readonly SKColor TextColor = SKColors.Black;
-
-        private static SKPaint StrokePaint(SKColor color) => new() { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = TokenBridge.Scaled(3f), IsAntialias = true };
-
         private IRecipeNodeViewModel RecipeViewModel => (IRecipeNodeViewModel)parent.ViewModel;
         private readonly RecipeNodeElement parent;
         private readonly NodeElementContext context;
-
-        internal ModuleDisplayTier ModuleTier => RecipeViewModel.AssemblerModules.Count <= moduleLocations.Length ? ModuleDisplayTier.Icons
-            : RecipeViewModel.AssemblerModules.Count <= 4 * 7 ? ModuleDisplayTier.Dots
-            : ModuleDisplayTier.Tally;
+        private List<SKRect> pips = [];
 
         public AssemblerElement(NodeElementContext context, RecipeNodeElement parent) : base(parent) {
             this.context = context;
             this.parent = parent;
-
-            UpdateSize();
-        }
-
-        //Called from RecipeNodeElement.UpdateState so a scale change lands before the next ContainsPoint/Draw.
-        internal void UpdateSize() {
-            Width = AssemblerIconSize + (ModuleSpacing * 2) + IconGutter;
-            Height = AssemblerIconSize;
         }
 
         public void SetVisibility(bool visible) => Visible = visible;
 
-        protected override void Draw(SKCanvas canvas, NodeDrawingStyle style) {
-            if (style == NodeDrawingStyle.IconsOnly || style == NodeDrawingStyle.Simple)
+        //Takes the pip and extra-productivity items of the parent's status row, in the parent's local space.
+        internal void Place(IEnumerable<StatusItem> items) {
+            List<StatusItem> placed = [.. items];
+            if (placed.Count == 0) {
+                pips = [];
+                Width = 0;
+                Height = 0;
                 return;
-
-            Point trans = LocalToGraph(new Point(-Width / 2, -Height / 2));
-
-            if (RecipeViewModel.SelectedAssembler.Icon is SKBitmap assemblerIcon)
-                canvas.DrawBitmap(assemblerIcon, SKRect.Create(trans.X + (ModuleSpacing * 2) + IconGutter, trans.Y, AssemblerIconSize, AssemblerIconSize));
-
-            if (RecipeViewModel.AssemblerModules.Count <= 6) {
-                for (int i = 0; i < moduleLocations.Length && i < RecipeViewModel.AssemblerModules.Count; i++)
-                    if (RecipeViewModel.AssemblerModules[i].Icon is SKBitmap moduleIcon)
-                        canvas.DrawBitmap(moduleIcon, SKRect.Create(trans.X + moduleLocations[i].X + moduleOffset.X, trans.Y + moduleLocations[i].Y + moduleOffset.Y, ModuleIconSize, ModuleIconSize));
-            } else if (RecipeViewModel.AssemblerModules.Count <= 4 * 7) { //4x7 dot grid, 28 modules max
-                int dotSize = TokenBridge.ScaledInt(3);
-                int dotPitch = TokenBridge.ScaledInt(7);
-                for (int x = 0; x < 4; x++) {
-                    for (int y = 0; y < 7; y++) {
-                        if (RecipeViewModel.AssemblerModules.Count > (x * 7) + y) {
-                            SKPaint marker = RecipeViewModel.AssemblerModules[(x * 7) + y].Module.GetProductivityBonus() > 0 ? ProdModulePaint :
-                                RecipeViewModel.AssemblerModules[(x * 7) + y].Module.GetQualityBonus() > 0 ? QualityModulePaint :
-                                RecipeViewModel.AssemblerModules[(x * 7) + y].Module.GetConsumptionBonus() < 0 ? EffModulePaint :
-                                RecipeViewModel.AssemblerModules[(x * 7) + y].Module.GetSpeedBonus() > 0 ? SpeedModulePaint :
-                                UnknownModulePaint;
-                            canvas.DrawOval(SKRect.Create(trans.X + moduleOffset.X + ModuleSpacing + ModuleIconSize - dotSize - (x * dotPitch), trans.Y + moduleOffset.Y + (y * dotPitch), dotSize, dotSize), marker);
-                        }
-                    }
-                }
-            } else {
-                int prodModules = RecipeViewModel.AssemblerModules.Count(m => m.Module.GetProductivityBonus() > 0);
-                int qualityModules = RecipeViewModel.AssemblerModules.Count(m => m.Module.GetQualityBonus() > 0 && m.Module.GetProductivityBonus() <= 0);
-                int efficiencyModules = RecipeViewModel.AssemblerModules.Count(m => m.Module.GetConsumptionBonus() < 0 && m.Module.GetProductivityBonus() <= 0 && m.Module.GetQualityBonus() <= 0);
-                int speedModules = RecipeViewModel.AssemblerModules.Count(m => m.Module.GetSpeedBonus() > 0 && m.Module.GetConsumptionBonus() >= 0 && m.Module.GetProductivityBonus() <= 0 && m.Module.GetQualityBonus() <= 0);
-                int unknownModules = RecipeViewModel.AssemblerModules.Count - prodModules - efficiencyModules - speedModules - qualityModules;
-                int lineStep = TokenBridge.ScaledInt(10);
-                GraphicsStuff.DrawStringAtPoint(canvas, new SKColor(0, 0, 139), ModuleTypeface, ModuleFontSize, string.Create(DisplayCulture.Format, $"S:{speedModules}"), trans.X, trans.Y + lineStep);
-                GraphicsStuff.DrawStringAtPoint(canvas, new SKColor(0, 100, 0), ModuleTypeface, ModuleFontSize, string.Create(DisplayCulture.Format, $"E:{efficiencyModules}"), trans.X, trans.Y + (lineStep * 2));
-                GraphicsStuff.DrawStringAtPoint(canvas, new SKColor(139, 0, 0), ModuleTypeface, ModuleFontSize, string.Create(DisplayCulture.Format, $"P:{prodModules}"), trans.X, trans.Y + (lineStep * 3));
-                GraphicsStuff.DrawStringAtPoint(canvas, new SKColor(255, 215, 0), ModuleTypeface, ModuleFontSize, string.Create(DisplayCulture.Format, $"Q:{qualityModules}"), trans.X, trans.Y + (lineStep * 4));
-                GraphicsStuff.DrawStringAtPoint(canvas, SKColors.Black, ModuleTypeface, ModuleFontSize, string.Create(DisplayCulture.Format, $"U:{unknownModules}"), trans.X, trans.Y + (lineStep * 5));
             }
+            SKRect span = placed.Select(item => item.Rect).Aggregate(SKRect.Union);
+            Location = new Point((int)Math.Round(span.MidX), (int)Math.Round(span.MidY));
+            Width = (int)Math.Ceiling(span.Width);
+            Height = (int)Math.Ceiling(span.Height);
+            pips = [.. placed.Where(item => item.Kind == StatusItemKind.Pip).Select(item => item.Rect)];
+        }
 
-            int infoLineHeight = TokenBridge.ScaledInt(10);
-            int infoColumnGap = TokenBridge.ScaledInt(26);
-            int counterBoxHeight = TokenBridge.ScaledInt(30);
-            int counterBoxInset = TokenBridge.ScaledInt(6);
-
-            int parentHalfWidth = Parent is RecipeNodeElement recipeParent ? recipeParent.Width : Width;
-            var textbox = new Rectangle(trans.X + Width, trans.Y + infoLineHeight, (parentHalfWidth / 2) - X - (Width / 2) - counterBoxInset, counterBoxHeight);
-            if (context.LevelOfDetail == LevelOfDetail.High && (RecipeViewModel.SelectedAssembler.Assembler.EntityType == EntityType.Assembler || RecipeViewModel.SelectedAssembler.Assembler.EntityType == EntityType.Miner || RecipeViewModel.SelectedAssembler.Assembler.EntityType == EntityType.OffshorePump)) {
-                if (RecipeViewModel.GetQualityMultiplier() > 0) {
-                    GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize, "Speed:\nProd:\nPower:\nQuality:", trans.X + Width + IconGutter, trans.Y);
-                    GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize,
-                        string.Create(DisplayCulture.Format, $"{RecipeViewModel.GetSpeedMultiplier() - 1:+0%; -0%; 0%}\n{RecipeViewModel.GetProductivityMultiplier() - 1:+0%; -0%; 0%}\n{RecipeViewModel.GetConsumptionMultiplier() - 1:+0%; -0%; 0%}\n{RecipeViewModel.GetQualityMultiplier():+0%; -0%; 0%}"),
-                        trans.X + Width + infoColumnGap, trans.Y);
-                } else {
-                    GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize, "Speed:\nProd:\nPower:", trans.X + Width + IconGutter, trans.Y);
-                    GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize,
-                        string.Create(DisplayCulture.Format, $"{RecipeViewModel.GetSpeedMultiplier() - 1:+0%; -0%; 0%}\n{RecipeViewModel.GetProductivityMultiplier() - 1:+0%; -0%; 0%}\n{RecipeViewModel.GetConsumptionMultiplier() - 1:+0%; -0%; 0%}"),
-                        trans.X + Width + infoColumnGap, trans.Y);
-                }
-
-                textbox.Y = trans.Y + TokenBridge.ScaledInt(28);
-            } else if (context.LevelOfDetail == LevelOfDetail.High && RecipeViewModel.SelectedAssembler.Assembler.EntityType == EntityType.Generator) {
-                GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize, "Power:", trans.X + Width, trans.Y + infoLineHeight);
-                double generatorEffectivity = RecipeViewModel.GetGeneratorEffectivity();
-                GraphicsStuff.DrawStringAtPoint(canvas, TextColor, InfoTypeface, InfoFontSize, string.Create(DisplayCulture.Format, $"{generatorEffectivity:P0}"), trans.X + Width + infoColumnGap, trans.Y + infoLineHeight);
-
-                textbox.Y = trans.Y + TokenBridge.ScaledInt(24);
+        protected override void Draw(SKCanvas canvas, NodeDrawingStyle style) {
+            if (style != NodeDrawingStyle.Regular && style != NodeDrawingStyle.PrintStyle)
+                return;
+            Point centre = parent.LocalToGraph(new Point(0, 0));
+            SKColor color = TokenBridge.Current.TextSecondary;
+            foreach (SKRect pip in pips) {
+                SKRect drawn = pip;
+                drawn.Offset(centre.X, centre.Y);
+                NodeCardPainter.DrawPip(canvas, drawn, color);
             }
-
-            string text = "x";
-            if (RecipeViewModel.SelectedAssembler.Assembler.IsMissing)
-                text += "---";
-            else
-                text += GraphicsStuff.BuildingQuantityToText(RecipeViewModel.ActualSetValue, context.RoundAssemblerCount);
-
-            GraphicsStuff.DrawText(canvas, TextColor, CounterTypeface, CounterFontSize, textbox, text, TextHorizontalAlign.Near, TextVerticalAlign.Near, singleLine: true);
         }
 
         public override List<TooltipInfo> GetToolTips(Point graphPoint) {
-            if (!Visible)
+            if (!Visible || RecipeViewModel.AssemblerModules.Count == 0)
                 return [];
 
-            var tooltips = new List<TooltipInfo>();
+            string text = "Assembler Modules:";
+            var moduleCounter = new Dictionary<ModuleQualityPair, int>();
+            foreach (ModuleQualityPair m in RecipeViewModel.AssemblerModules)
+                moduleCounter[m] = moduleCounter.TryGetValue(m, out int count) ? count + 1 : 1;
+            foreach (ModuleQualityPair m in moduleCounter.Keys.OrderBy(m => m.Module.FriendlyName).ThenBy(m => m.Quality.Level).ThenBy(m => m.Quality.FriendlyName))
+                text += string.Create(DisplayCulture.Format, $"\n   {moduleCounter[m]} :{m.FriendlyName}");
 
-            Point localPoint = Point.Add(GraphToLocal(graphPoint), new Size(Width / 2, Height / 2));
-            if (localPoint.X < (ModuleSpacing * 2) + IconGutter && RecipeViewModel.AssemblerModules.Count > 0) { //over modules
-                string text = "Assembler Modules:";
-                var moduleCounter = new Dictionary<ModuleQualityPair, int>();
-                foreach (ModuleQualityPair m in RecipeViewModel.AssemblerModules)
-                    moduleCounter[m] = moduleCounter.TryGetValue(m, out int count) ? count + 1 : 1;
-                foreach (ModuleQualityPair m in moduleCounter.Keys.OrderBy(m => m.Module.FriendlyName).ThenBy(m => m.Quality.Level).ThenBy(m => m.Quality.FriendlyName))
-                    text += string.Create(DisplayCulture.Format, $"\n   {moduleCounter[m]} :{m.FriendlyName}");
-
-                Avalonia.Point screen = context.Viewport.GraphToScreen(LocalToGraph(new Point(TokenBridge.ScaledInt(1) + (RecipeViewModel.AssemblerModules.Count > 3 ? RecipeViewModel.AssemblerModules.Count > 6 ? ModuleSpacing * 3 / 2 : ModuleSpacing : ModuleSpacing * 3 / 2) - (Width / 2), -Height / 2)));
-                tooltips.Add(new TooltipInfo(screen, Direction.Down, text));
-            } else { //over assembler
-                Avalonia.Point screen = context.Viewport.GraphToScreen(LocalToGraph(new Point((ModuleSpacing * 2) + IconGutter + (AssemblerIconSize / 2) - (Width / 2), -Height / 2)));
-                tooltips.Add(new TooltipInfo(screen, Direction.Down, RecipeViewModel.SelectedAssembler.FriendlyName ?? ""));
-            }
-
-            return tooltips;
+            Avalonia.Point screen = context.Viewport.GraphToScreen(LocalToGraph(new Point(0, -Height / 2)));
+            return [new TooltipInfo(screen, Direction.Down, text)];
         }
     }
 }

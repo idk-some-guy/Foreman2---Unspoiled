@@ -95,6 +95,7 @@ namespace Foreman.Mac.Canvas {
             Session = new ProductionGraphSession(Graph);
             Context = new NodeElementContext(Session.View, viewport) {
                 LinkWidthLookup = GetLinkWidth,
+                RateUnitLookup = () => Graph.SelectedRateUnit,
                 Editor = Session.Editor,
                 GetNodeElement = id => NodeElementDictionary.TryGetValue(id, out BaseNodeElement? element) ? element : null,
                 SelectedNodes = SelectedNodes,
@@ -354,18 +355,18 @@ namespace Foreman.Mac.Canvas {
             }
         }
 
-        //Ports AlignSelected (reference §8/§11 step 11's Align Selected wiring): grid-snaps every selected
-        //node in place, no-op for anything not on the grid already.
-        public void AlignSelected() {
-            bool moved = false;
-            foreach (BaseNodeElement node in SelectedNodes) {
-                Point aligned = Grid.AlignToGrid(node.Location);
-                if (aligned == node.Location)
-                    continue;
-                node.SetLocation(aligned);
-                moved = true;
-            }
-            if (moved)
+        public readonly record struct AlignMove(BaseNodeElement Node, Point From, Point To);
+
+        //Grid-snaps every selected node in place; a node already on the grid does not move.
+        public IReadOnlyList<AlignMove> PlanAlignSelection() =>
+            [.. SelectedNodes.Select(node => new AlignMove(node, node.Location, Grid.AlignToGrid(node.Location))).Where(move => move.From != move.To)];
+
+        public void ApplyAlign(IReadOnlyList<AlignMove> moves, double progress, bool notify) {
+            foreach (AlignMove move in moves)
+                move.Node.SetLocation(new Point(
+                    move.From.X + (int)Math.Round((move.To.X - move.From.X) * progress),
+                    move.From.Y + (int)Math.Round((move.To.Y - move.From.Y) * progress)));
+            if (notify && moves.Count > 0)
                 Session.NotifyMutated();
         }
 

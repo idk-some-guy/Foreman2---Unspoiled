@@ -57,6 +57,13 @@ namespace Foreman.Mac.UiTests.Canvas {
                 Assert.Equal(2f, TokenBridge.Current.CardShadowOffsetY);
                 Assert.Equal(8f, TokenBridge.Current.CardShadowBlur);
                 Assert.Equal(Sk("#12000000"), TokenBridge.Current.CardShadowColor);
+                Assert.Equal(15f, TokenBridge.Current.Glyph10);
+                Assert.Equal(18f, TokenBridge.Current.GlyphMicro);
+                Assert.Equal(4.5f, TokenBridge.Current.NodeGapTight);
+                Assert.Equal((6f, 9f, 12f, 18f), (TokenBridge.Current.Space1, TokenBridge.Current.Space15, TokenBridge.Current.Space2, TokenBridge.Current.Space3));
+                Assert.Equal(100f, TokenBridge.Current.PillRadius);
+                Assert.Equal(3f, TokenBridge.Current.NodeTypeStripRadius);
+                Assert.Equal(4f, TokenBridge.Current.NodeBeaconBadgeRadius);
             } finally {
                 WindowScaler.SetScale(1.0);
                 app.ApplyTheme(ThemeMode.System);
@@ -69,6 +76,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             app.ApplyTheme(ThemeMode.Light);
             TokenBridge.Refresh();
             CanvasTokens light = TokenBridge.Current;
+            SKColor lightAccentText = ResolveSk("Foreman.Color.AccentText");
 
             int changedCount = 0;
             EventHandler handler = (_, _) => changedCount++;
@@ -87,6 +95,11 @@ namespace Foreman.Mac.UiTests.Canvas {
                 Assert.Equal(Sk("#FFFFFF"), light.TextOnWarning);
                 Assert.Equal(Sk("#1A1A1A"), dark.TextOnWarning);
                 Assert.Equal(light.NodeTabHeight, dark.NodeTabHeight);
+                Assert.Equal(Sk("#0068DA"), lightAccentText);
+                Assert.Equal(lightAccentText, light.AccentText);
+                Assert.Equal(ResolveSk("Foreman.Color.AccentText"), dark.AccentText);
+                Assert.Equal(1.0, light.Scale);
+                Assert.Equal((100f, 100f), (light.PillRadius, dark.PillRadius));
             } finally {
                 TokenBridge.Changed -= handler;
                 app.ApplyTheme(ThemeMode.System);

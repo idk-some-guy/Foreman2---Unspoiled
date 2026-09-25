@@ -21,10 +21,12 @@ namespace Foreman.Mac.Canvas.KitSkia {
         float NodeUnavailableOpacity, float CanvasFontSize, float CalloutFontSize, float EmphasizedBodyFontSize, int CanvasEmphasizedWeight,
         float NodeIcon, float NodeBuildingIcon, float NodeTabIcon,
         float NodeInsetTop, float NodeInsetSide, float NodeInsetBottom, float NodeTypeStrip, float NodeTypeStripInset,
-        float NodeTabHeight, float NodeTabMinWidth, float NodeTabOverhang, float NodeBadgeHeight, float NodePip,
+        float NodeTabHeight, float NodeTabMinWidth, float NodeTabOverhang, float NodeBadgeHeight, float NodePip, float NodeGapTight,
         float LinkWidth, float LinkWidthMax, float LinkHitWidth, float WaypointDiameter, float WaypointHitTarget,
         float NodeRadius, float NodeTabRadius, float LinkCornerRadius, float CanvasMinTextSize, float GridMinScreenSpacing,
-        float FindRingDashOn, float FindRingDashOff);
+        float FindRingDashOn, float FindRingDashOff, SKColor AccentText, float PillRadius,
+        float Glyph10, float GlyphMicro, float Space1, float Space15, float Space2, float Space3, float Space5,
+        float NodeTypeStripRadius, float NodeBeaconBadgeRadius);
 
     public static class TokenBridge {
         private static CanvasTokens? current;
@@ -58,8 +60,9 @@ namespace Foreman.Mac.Canvas.KitSkia {
             BoxShadow cardShadow = Resource("Foreman.Shadow.Card") is BoxShadows { Count: > 0 } shadows ? shadows[0] : default;
             (float dashOn, float dashOff) = ParseDash(Resource("Foreman.Metrics.FindRingDash") as string);
 
+            double scale = WindowScaler.CurrentScale;
             return new CanvasTokens(
-                WindowScaler.CurrentScale, AppearanceHub.Current?.IncreaseContrast ?? false,
+                scale, AppearanceHub.Current?.IncreaseContrast ?? false,
                 ColorOf("Foreman.Color.NodeRecipe"), ColorOf("Foreman.Color.NodeSupplier"), ColorOf("Foreman.Color.NodeConsumer"), ColorOf("Foreman.Color.NodePassthrough"),
                 ColorOf("Foreman.Color.NodeTabBorder"), ColorOf("Foreman.Color.NodeSelected"), ColorOf("Foreman.Color.FindMatchRing"), ColorOf("Foreman.Color.FocusRing"),
                 ColorOf("Foreman.Color.Accent"), ColorOf("Foreman.Color.AccentSoft"), ColorOf("Foreman.Color.Warning"), ColorOf("Foreman.Color.Error"),
@@ -74,12 +77,16 @@ namespace Foreman.Mac.Canvas.KitSkia {
                 Number("Foreman.Size.NodeInsetTop"), Number("Foreman.Size.NodeInsetSide"), Number("Foreman.Size.NodeInsetBottom"),
                 Number("Foreman.Size.NodeTypeStrip"), Number("Foreman.Size.NodeTypeStripInset"),
                 Number("Foreman.Size.NodeTabHeight"), Number("Foreman.Size.NodeTabMinWidth"), Number("Foreman.Size.NodeTabOverhang"),
-                Number("Foreman.Size.NodeBadgeHeight"), Number("Foreman.Size.NodePip"),
+                Number("Foreman.Size.NodeBadgeHeight"), Number("Foreman.Size.NodePip"), Number("Foreman.Size.NodeGapTight"),
                 Number("Foreman.Size.LinkWidth"), Number("Foreman.Size.LinkWidthMax"), Number("Foreman.Size.LinkHitWidth"),
                 Number("Foreman.Size.WaypointDiameter"), Number("Foreman.Size.WaypointHitTarget"),
                 Radius("Foreman.Radius.Node"), Radius("Foreman.Radius.NodeTab"), Radius("Foreman.Radius.LinkCorner"),
                 Number("Foreman.Metrics.CanvasMinTextSize"), Number("Foreman.Metrics.GridMinScreenSpacing"),
-                dashOn, dashOff);
+                dashOn, dashOff, ColorOf("Foreman.Color.AccentText"), Radius("Foreman.Radius.Pill"),
+                Number("Foreman.Size.Glyph10"), Number("Foreman.Size.GlyphMicro"),
+                Space("Foreman.Space.Space1", scale), Space("Foreman.Space.Space15", scale), Space("Foreman.Space.Space2", scale),
+                Space("Foreman.Space.Space3", scale), Space("Foreman.Space.Space5", scale),
+                Radius("Foreman.Radius.NodeTypeStrip"), Radius("Foreman.Radius.NodeBeaconBadge"));
         }
 
         //Off the UI thread ActualThemeVariant throws, so we resolve against Light there, as ThemeResources does.
@@ -96,6 +103,9 @@ namespace Foreman.Mac.Canvas.KitSkia {
         private static SKColor ToSk(AvColor color) => new(color.R, color.G, color.B, color.A);
 
         private static float Number(string key) => Resource(key) is double value ? (float)value : 0f;
+
+        //The Space ladder stays unscaled for Thickness bindings, so the canvas multiplies it here.
+        private static float Space(string key, double scale) => (float)(Number(key) * scale);
 
         private static float Radius(string key) => Resource(key) is CornerRadius radius ? (float)radius.TopLeft : 0f;
 

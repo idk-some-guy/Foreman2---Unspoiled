@@ -9,51 +9,58 @@ using System.Drawing;
 using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/PassthroughNodeElement.cs draw path, including the simple-draw
-    //line-only mode. The simple-draw toggle right-click menu (AddRClickMenuOptions) stays out.
-    //
-    //Upstream sizes the simple-draw line from the connected LinkElements' live LinkWidth; this reads
-    //Context.GetLinkWidth, which GraphViewer wires to the real LinkElementDictionary lookup.
+    //Ports ProductionGraphView/Elements/PassthroughNodeElement.cs: a §01 card ("Passthrough", or a "Limit {rate}" chip),
+    //or with simple draw on the 72 × 96 bar, a line in the item's colour at the widest link's width.
     public sealed class PassthroughNodeElement : BaseNodeElement {
-        protected override SKPaint CleanBgPaint => PassthroughBgPaint;
-        private static readonly SKPaint PassthroughBgPaint = Fill(new SKColor(200, 200, 200));
-
         private IPassthroughNodeViewModel PassthroughViewModel => (IPassthroughNodeViewModel)ViewModel;
         private string ItemName => PassthroughViewModel.PassthroughItem.FriendlyName ?? "";
+        private bool isBar;
 
         public PassthroughNodeElement(NodeElementContext context, IPassthroughNodeViewModel viewModel) : base(context, viewModel) {
-            Width = PassthroughNodeWidth;
+            Width = MinWidth;
             Height = BaseSimpleHeight;
         }
 
-        //No tab-driven width here (unlike RecipeNodeElement), just the fixed-size re-derive a scale change needs.
         protected override void UpdateState() {
-            Width = PassthroughNodeWidth;
             Height = BaseSimpleHeight;
             base.UpdateState();
         }
 
+        private bool BarActive =>
+            PassthroughViewModel.SimpleDraw
+            && PassthroughViewModel.RateType == RateType.Auto
+            && !PassthroughViewModel.KeyNode
+            && !PassthroughViewModel.IsOverproducing()
+            && !PassthroughViewModel.ManualRateNotMet()
+            && PassthroughViewModel.InputLinks.Count > 0
+            && PassthroughViewModel.OutputLinks.Count > 0;
+
+        protected override bool HasCard => !isBar;
+        protected override bool SimpleDraw => PassthroughViewModel.SimpleDraw;
+
+        protected override int ComputeWidth() {
+            isBar = BarActive;
+            InputTabs[0].HideItemTab = isBar;
+            OutputTabs[0].HideItemTab = isBar;
+            return isBar ? PassthroughNodeWidth : WidthForChip(Chip);
+        }
+
+        protected override string DisplayName => ItemName;
+        protected override SKBitmap? TitleIcon => PassthroughViewModel.PassthroughItem.Icon;
+        protected override SKColor StripColor(CanvasTokens tokens) => tokens.NodePassthrough;
+
+        private string? Chip => PassthroughViewModel.RateType == RateType.Manual ? "Limit " + RateText(PassthroughViewModel.DesiredRate) : null;
+
+        private protected override void LayoutDetail(CanvasTokens tokens, List<NodeText> detail) =>
+            LayoutSubRow(tokens, detail, null, Chip ?? "Passthrough", Chip is not null);
+
         protected override SKBitmap? NodeIcon() => null;
 
         protected override void Draw(SKCanvas canvas, NodeDrawingStyle style) {
-            bool simpleDrawActive = style != NodeDrawingStyle.IconsOnly
-                && PassthroughViewModel.SimpleDraw
-                && PassthroughViewModel.RateType == RateType.Auto
-                && !PassthroughViewModel.KeyNode
-                && !PassthroughViewModel.IsOverproducing()
-                && !PassthroughViewModel.ManualRateNotMet()
-                && PassthroughViewModel.InputLinks.Count > 0
-                && PassthroughViewModel.OutputLinks.Count > 0;
-
-            if (!simpleDrawActive) {
-                InputTabs[0].HideItemTab = false;
-                OutputTabs[0].HideItemTab = false;
+            if (!isBar || style == NodeDrawingStyle.IconsOnly) {
                 base.Draw(canvas, style);
                 return;
             }
-
-            InputTabs[0].HideItemTab = true;
-            OutputTabs[0].HideItemTab = true;
 
             float maxLineWidth = PassthroughViewModel.InputLinks.Concat(PassthroughViewModel.OutputLinks).Select(l => Context.GetLinkWidth(l.Id)).Max();
             Point inputPoint = InputTabs[0].GetConnectionPoint();
@@ -68,12 +75,11 @@ namespace Foreman.Mac.Canvas.Elements {
             if (style != NodeDrawingStyle.Regular)
                 return;
 
+            //The caps sit on the tab points, where the hidden tabs are centred.
             SKPaint capFillPaint = GraphicsStuff.RentFillPaint(lineColor);
-            float capY1 = Math.Min(outputPoint.Y, inputPoint.Y) + (ItemTabElement.TabWidth / 2f);
-            float capY2 = Math.Max(outputPoint.Y, inputPoint.Y) - (ItemTabElement.TabWidth / 2f);
             int capRadius = TokenBridge.ScaledInt(6);
-            canvas.DrawCircle(inputPoint.X, capY1, capRadius, capFillPaint);
-            canvas.DrawCircle(inputPoint.X, capY2, capRadius, capFillPaint);
+            canvas.DrawCircle(inputPoint.X, InputTabs[0].LocalToGraph(new Point(0, 0)).Y, capRadius, capFillPaint);
+            canvas.DrawCircle(inputPoint.X, OutputTabs[0].LocalToGraph(new Point(0, 0)).Y, capRadius, capFillPaint);
 
             //maxLineWidth follows Context.GetLinkWidth, not UiScale, so its highlight padding stays unscaled.
             if (Highlighted) {
@@ -83,21 +89,6 @@ namespace Foreman.Mac.Canvas.Elements {
         }
 
         private static SKColor ToSkColor(Color color) => new(color.R, color.G, color.B, color.A);
-
-        protected override void DetailsDraw(SKCanvas canvas, Point trans) {
-            if (PassthroughViewModel.RateType != RateType.Manual)
-                return;
-
-            int edgeInset = TokenBridge.ScaledInt(5);
-            int titleHeight = TokenBridge.ScaledInt(18);
-            int textHeight = TokenBridge.ScaledInt(20);
-            int yoffset = PassthroughViewModel.NodeDirection == NodeDirection.Up ? TokenBridge.ScaledInt(28) : TokenBridge.ScaledInt(32);
-            var titleSlot = new Rectangle(trans.X - (Width / 2) + edgeInset, trans.Y - (Height / 2) + yoffset, Width - (edgeInset * 2), titleHeight);
-            var textSlot = new Rectangle(titleSlot.X, titleSlot.Y + titleHeight, titleSlot.Width, textHeight);
-
-            GraphicsStuff.DrawText(canvas, TextColor, BoldTypeface, TitleFontSize, titleSlot, "-Limit-", TextHorizontalAlign.Center, TextVerticalAlign.Near);
-            GraphicsStuff.DrawText(canvas, TextColor, RegularTypeface, BaseFontSize, textSlot, GraphicsStuff.DoubleToString(PassthroughViewModel.DesiredRate), TextHorizontalAlign.Center, TextVerticalAlign.Near);
-        }
 
         protected override List<TooltipInfo> GetMyToolTips(Point graphPoint, bool exclusive) =>
             ExclusiveHelpTooltip($"Left click on this node to edit the throughput of {ItemName}.\nRight click for options.", exclusive);

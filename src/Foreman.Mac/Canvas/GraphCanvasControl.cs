@@ -107,6 +107,8 @@ namespace Foreman.Mac.Canvas {
         static GraphCanvasControl() {
             PanProgressProperty.Changed.AddClassHandler<GraphCanvasControl>((c, e) => c.OnPanProgress(e.GetNewValue<double>()));
             PlacementFlashProgressProperty.Changed.AddClassHandler<GraphCanvasControl>((c, e) => c.OnPlacementFlashProgress(e.GetNewValue<double>()));
+            LabelFadeProgressProperty.Changed.AddClassHandler<GraphCanvasControl>((c, e) => c.OnLabelFadeProgress(e.GetNewValue<double>()));
+            AlignProgressProperty.Changed.AddClassHandler<GraphCanvasControl>((c, e) => c.OnAlignProgress(e.GetNewValue<double>()));
         }
 
         public GraphCanvasControl() {
@@ -138,6 +140,7 @@ namespace Foreman.Mac.Canvas {
             Viewer.Context.GetClipboardText = GetClipboardText;
             Viewer.Context.StartLinkDrag = StartLinkDrag;
             Viewer.Context.EditNode = EditNode;
+            Viewer.Context.LabelValuesChanged = StartLabelFade;
             Viewer.ShowAnnotationPropertiesDialog = ShowAnnotationProperties;
             ClipToBounds = true;
             Focusable = true;
@@ -398,6 +401,7 @@ namespace Foreman.Mac.Canvas {
         internal void CreatePassthroughFromLinkDrag(NewNodeLinkDragRequest request) {
             NodeId newNodeId = Viewer.Session.Editor.CreatePassthroughNode(request.Item, request.EndpointLocation);
             Viewer.Session.Editor.SetDirection(newNodeId, request.Direction);
+            ClearOfOrigin(newNodeId, request.OriginElement);
             if (request.NodeType == NewNodeType.Consumer)
                 Viewer.Session.Editor.CreateLink(request.OriginElement.ViewModel.Id, newNodeId, request.Item);
             else
@@ -409,6 +413,31 @@ namespace Foreman.Mac.Canvas {
                 Viewer.SetSelection([element]);
             DisposeLinkDrag();
             RequestRedraw();
+        }
+
+        //Only tab-inflated bounds within 24 of the origin's on both axes move: along the flow axis to a 24 gap, keeping the cross axis, then snapped outward.
+        private void ClearOfOrigin(NodeId placedId, BaseNodeElement origin) {
+            if (!Viewer.NodeElementDictionary.TryGetValue(placedId, out BaseNodeElement? placed) || placed == origin)
+                return;
+            KitSkia.CanvasTokens tokens = KitSkia.TokenBridge.Current;
+            DrawingPoint at = placed.Location;
+            DrawingPoint from = origin.Location;
+            int away = at.Y < from.Y ? -1 : 1;
+            float placedReach = (placed.Height / 2f) + tokens.NodeTabOverhang;
+            float originReach = (origin.Height / 2f) + tokens.NodeTabOverhang;
+            float gap = (away * (at.Y - from.Y)) - placedReach - originReach;
+            float crossGap = Math.Abs(at.X - from.X) - (placed.Width / 2f) - (origin.Width / 2f) - (2 * tokens.NodeTabOverhang);
+            if (gap >= tokens.Space5 || crossGap >= tokens.Space5)
+                return;
+
+            int y = at.Y + (away * (int)Math.Ceiling(tokens.Space5 - gap));
+            if (Grid.ShowGrid && Grid.CurrentGridUnit > 0) {
+                int snapped = Grid.AlignToGrid(y);
+                if ((snapped - y) * away < 0)
+                    snapped += away * Grid.CurrentGridUnit;
+                y = snapped;
+            }
+            Viewer.Session.Editor.SetLocation(placedId, new DrawingPoint(at.X, y));
         }
 
         //Adapts Avalonia's async IClipboard to the plain synchronous delegates BaseNodeElement's menu
@@ -529,6 +558,8 @@ namespace Foreman.Mac.Canvas {
             panCancellation?.Cancel();
             panCancellation = null;
             EndPlacementFlash();
+            FinishAlign();
+            EndLabelFade();
             Viewer.Dispose();
             foreach (Bitmap bitmap in addIconCache.Values)
                 bitmap.Dispose();
@@ -561,6 +592,7 @@ namespace Foreman.Mac.Canvas {
         //§2); Focus() picks up keyboard input (arrow keys, Shift axis-lock) the same click starts.
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
             base.OnPointerPressed(e);
+            FinishAlign();
             if (IsInsidePalette(e.Source))
                 return;
             if (IsInsideRadial(e.Source)) {
@@ -1115,6 +1147,115 @@ namespace Foreman.Mac.Canvas {
             return (next, placed);
         }
 
+        //---- node motion (§01): count/rate cross-fade and the Align tween, on the same animation clock as the placement flash ----
+
+        internal static readonly StyledProperty<double> LabelFadeProgressProperty =
+            AvaloniaProperty.Register<GraphCanvasControl, double>("LabelFadeProgress");
+        internal static readonly StyledProperty<double> AlignProgressProperty =
+            AvaloniaProperty.Register<GraphCanvasControl, double>("AlignProgress");
+
+        private CancellationTokenSource? labelFadeCancellation;
+        private CancellationTokenSource? alignCancellation;
+        private IReadOnlyList<GraphViewer.AlignMove>? alignMoves;
+
+        //One solve changes many nodes at once; they share a single fade that each change restarts.
+        private void StartLabelFade() {
+            if (KitMotion.ReduceMotion)
+                return;
+            if (labelFadeCancellation is not null && Viewer.Context.LabelFadeProgress <= 0)
+                return;
+            labelFadeCancellation?.Cancel();
+            var cancellation = new CancellationTokenSource();
+            labelFadeCancellation = cancellation;
+            Viewer.Context.LabelFadeGeneration++;
+            Viewer.Context.LabelFadeProgress = 0;
+            _ = RunLabelFade(cancellation);
+        }
+
+        private async Task RunLabelFade(CancellationTokenSource cancellation) {
+            var clock = new Animation {
+                Duration = KitMotion.TabLabelCrossFadeDuration,
+                Easing = KitMotion.CrossFadeEasing,
+                Children = {
+                    new KeyFrame { Cue = new Cue(0), Setters = { new Avalonia.Styling.Setter(LabelFadeProgressProperty, 0d) } },
+                    new KeyFrame { Cue = new Cue(1), Setters = { new Avalonia.Styling.Setter(LabelFadeProgressProperty, 1d) } },
+                },
+            };
+            try {
+                await clock.RunAsync(this, cancellation.Token);
+            } catch (OperationCanceledException) {
+                return;
+            }
+            if (!cancellation.IsCancellationRequested && labelFadeCancellation == cancellation)
+                EndLabelFade();
+        }
+
+        private void OnLabelFadeProgress(double progress) {
+            if (labelFadeCancellation is null)
+                return;
+            Viewer.Context.LabelFadeProgress = progress;
+            RequestRedraw();
+        }
+
+        private void EndLabelFade() {
+            labelFadeCancellation?.Cancel();
+            labelFadeCancellation = null;
+            Viewer.Context.LabelFadeProgress = 1;
+            RequestRedraw();
+        }
+
+        //Align moves the selection over AlignTweenDuration; under Reduce Motion, or at the next press, it lands at once.
+        public void AlignSelection() {
+            FinishAlign();
+            IReadOnlyList<GraphViewer.AlignMove> moves = Viewer.PlanAlignSelection();
+            if (moves.Count == 0)
+                return;
+            if (KitMotion.ReduceMotion) {
+                Viewer.ApplyAlign(moves, 1, notify: true);
+                RequestRedraw();
+                return;
+            }
+            alignMoves = moves;
+            var cancellation = new CancellationTokenSource();
+            alignCancellation = cancellation;
+            _ = RunAlign(cancellation);
+        }
+
+        private async Task RunAlign(CancellationTokenSource cancellation) {
+            var tween = new Animation {
+                Duration = KitMotion.AlignTweenDuration,
+                Easing = KitMotion.EntranceEasing,
+                Children = {
+                    new KeyFrame { Cue = new Cue(0), Setters = { new Avalonia.Styling.Setter(AlignProgressProperty, 0d) } },
+                    new KeyFrame { Cue = new Cue(1), Setters = { new Avalonia.Styling.Setter(AlignProgressProperty, 1d) } },
+                },
+            };
+            try {
+                await tween.RunAsync(this, cancellation.Token);
+            } catch (OperationCanceledException) {
+                return;
+            }
+            if (!cancellation.IsCancellationRequested && alignCancellation == cancellation)
+                FinishAlign();
+        }
+
+        private void OnAlignProgress(double progress) {
+            if (alignMoves is not { } moves)
+                return;
+            Viewer.ApplyAlign(moves, progress, notify: false);
+            RequestRedraw();
+        }
+
+        private void FinishAlign() {
+            alignCancellation?.Cancel();
+            alignCancellation = null;
+            if (alignMoves is not { } moves)
+                return;
+            alignMoves = null;
+            Viewer.ApplyAlign(moves, 1, notify: true);
+            RequestRedraw();
+        }
+
         internal static readonly StyledProperty<double> PlacementFlashProgressProperty =
             AvaloniaProperty.Register<GraphCanvasControl, double>("PlacementFlashProgress");
 
@@ -1312,6 +1453,8 @@ namespace Foreman.Mac.Canvas {
                 yoffset *= ctx.NewNodeDirection == NodeDirection.Up ? 1 : -1;
                 if (yoffset != 0)
                     Viewer.Session.Editor.SetLocation(newNodeId, new DrawingPoint(ctx.NewLocation.X, ctx.NewLocation.Y + yoffset));
+                if (originStillExists)
+                    ClearOfOrigin(newNodeId, ctx.OriginElement!);
             }
 
             if (ctx.OuterNodeType == NewNodeType.Consumer && originStillExists)

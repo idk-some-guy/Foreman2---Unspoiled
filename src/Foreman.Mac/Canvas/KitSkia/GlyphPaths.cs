@@ -13,6 +13,10 @@ namespace Foreman.Mac.Canvas.KitSkia {
             ["Kit.Glyph.Canvas.Paused"] = "M7.5,5 V15 M12.5,5 V15",
             ["Kit.Glyph.Link.Orthogonal"] = "M3,15 H9 V5 H17 M7.2,10 A1.8,1.8 0 1,0 10.8,10 A1.8,1.8 0 1,0 7.2,10 Z",
             ["Kit.Glyph.Link.Rounded"] = "M3,15 C9,15 11,5 17,5",
+            ["Kit.Glyph.Beacon"] = "M10,4 v3 M6,9 h8 M7,9 l-2,7 h10 l-2,-7",
+            ["Kit.Glyph.Beacon.Fill"] = "M11.2,2.6 A1.2,1.2 0 1,0 8.8,2.6 A1.2,1.2 0 1,0 11.2,2.6 Z",
+            ["Kit.Glyph.RadialSpoil"] = "M9.5,2 V11 M5,7 L9.5,11 L14,7 M4,14 Q7,12 9.5,14 Q12,16 15,14",
+            ["Kit.Glyph.RadialPlant"] = "M9.5,17 V8 M9.5,10 Q5,9 4,4 M9.5,10 Q14,9 15,4",
         };
 
         private static readonly Dictionary<string, string> BadgeMasters = new() {
