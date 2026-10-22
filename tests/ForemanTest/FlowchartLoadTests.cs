@@ -25,7 +25,7 @@ namespace ForemanTest {
             Assert.IsNotNull(TestContext);
             GraphViewerSaveDocument? saveDocument = GraphSaveTestUi.ReadViewer(await File.ReadAllTextAsync(path, TestContext.CancellationToken).ConfigureAwait(false));
             Assert.IsNotNull(saveDocument, "Flowchart.fjson should parse as a viewer save document.");
-            Assert.AreEqual(GraphSaveFormat.SaveFormatVersion, saveDocument.Version);
+            Assert.AreEqual(8, saveDocument.Version);
             Assert.AreEqual(FlowchartSample.PresetName, saveDocument.SavedPresetName);
 
             ProductionGraphSaveDocument productionGraph = saveDocument.ProductionGraph;

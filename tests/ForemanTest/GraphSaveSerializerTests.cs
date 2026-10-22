@@ -1,10 +1,12 @@
 using Foreman;
 using Foreman.DataCaching.DataTypes;
+using Foreman.Models;
 using Foreman.Models.Nodes;
 using Foreman.Serialization;
 using ForemanTest.support;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -322,6 +324,79 @@ namespace ForemanTest {
 
             Assert.IsNotNull(restored);
             Assert.IsNull(restored.Ui, "Ui should remain null after wire round-trip when source Ui was null");
+        }
+
+        [TestMethod]
+        public void MixedRoutingAndWaypoints_RoundTrip() {
+            var data = BuildSimpleChain();
+            NodeLink[] links = [.. data.Graph.NodeLinks];
+            Point[] waypoints = [new Point(10, -20), new Point(30, 40)];
+            links[0].Controller.SetRouting(LinkRouting.Orthogonal);
+            links[0].Controller.SetWaypoints(waypoints);
+            Dictionary<string, (LinkRouting Routing, Point[] Waypoints)> expected = links.ToDictionary(l => l.Item.Item!.Name, l => (l.Routing, l.Waypoints.ToArray()));
+
+            string json = GraphSaveCodec.WriteProductionGraphToString(data.Graph, writeIndented: false);
+            JsonElement wire = JsonDocument.Parse(json).RootElement.GetProperty("NodeLinks")[0];
+            Assert.AreEqual("Orthogonal", wire.GetProperty("Routing").GetString());
+            Assert.AreEqual("[[10,-20],[30,40]]", wire.GetProperty("Waypoints").GetRawText());
+
+            ProductionGraphSaveDocument? document = GraphSaveCodec.ReadProductionGraph(json);
+            Assert.IsNotNull(document);
+            foreach (var node in data.Graph.Nodes.ToList())
+                data.Graph.DeleteNode(node);
+            var imported = data.Graph.InsertNodesFromDocument(data.Cache, document, applySolverSettings: true);
+
+            Assert.HasCount(2, imported.NewLinks);
+            foreach (NodeLink link in imported.NewLinks) {
+                (LinkRouting routing, Point[] points) = expected[link.Item.Item!.Name];
+                Assert.AreEqual(routing, link.Routing);
+                CollectionAssert.AreEqual(points, link.Waypoints.ToArray());
+            }
+        }
+
+        [TestMethod]
+        public void Version8Fixture_LoadsWithNullRoutingAndNoWaypoints() {
+            GraphViewerSaveDocument? document = GraphSaveCodec.ReadViewer(File.ReadAllText(FlowchartSample.ResolvePath()));
+
+            Assert.IsNotNull(document);
+            Assert.AreEqual(8, document.Version);
+            Assert.IsNotEmpty(document.ProductionGraph.Links);
+            Assert.IsTrue(document.ProductionGraph.Links.All(l => l.Routing is null && l.Waypoints.Count == 0));
+        }
+
+        [TestMethod]
+        public void NullRouting_LoadsAsTheCallersDefault() {
+            var data = BuildSimpleChain();
+            string json = GraphSaveCodec.WriteProductionGraphToString(data.Graph, writeIndented: false);
+            JsonNode root = JsonNode.Parse(json)!;
+            foreach (JsonNode? link in root["NodeLinks"]!.AsArray()) {
+                link!.AsObject().Remove("Routing");
+                link.AsObject().Remove("Waypoints");
+            }
+            ProductionGraphSaveDocument? document = GraphSaveCodec.ReadProductionGraph(root.ToJsonString());
+            Assert.IsNotNull(document);
+            foreach (var node in data.Graph.Nodes.ToList())
+                data.Graph.DeleteNode(node);
+
+            var imported = data.Graph.InsertNodesFromDocument(data.Cache, document, applySolverSettings: true, defaultLinkRouting: LinkRouting.Orthogonal);
+
+            Assert.HasCount(2, imported.NewLinks);
+            Assert.IsTrue(imported.NewLinks.All(l => l.Routing == LinkRouting.Orthogonal && l.Waypoints.Count == 0));
+        }
+
+        [TestMethod]
+        public void LinkController_SetRoutingAndSetWaypoints_RaiseNodeMutated() {
+            var data = BuildSimpleChain();
+            NodeLink link = data.Graph.NodeLinks.First();
+            int raised = 0;
+            data.Graph.NodeMutated += (_, _) => raised++;
+
+            link.Controller.SetRouting(LinkRouting.Orthogonal);
+            link.Controller.SetWaypoints([new Point(1, 2)]);
+            link.Controller.SetWaypoints([]);
+
+            Assert.AreEqual(3, raised);
+            Assert.IsEmpty(link.Waypoints);
         }
 
         private static GraphBuilder.BuiltData BuildSimpleChain() {

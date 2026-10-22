@@ -97,6 +97,8 @@ namespace Foreman.Serialization {
         public int ConsumerID { get; set; }
         public string? Item { get; set; }
         public string? Quality { get; set; }
+        public string? Routing { get; set; }
+        public int[][]? Waypoints { get; set; }
     }
 
     /// <summary>Flat node wire (all node types share one shape; discriminated by NodeType).</summary>

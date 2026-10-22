@@ -55,7 +55,7 @@ namespace Foreman.Mac.Canvas {
     //input, and delegates painting to it. Link-drag lifecycle (reference §3: StartLinkDrag/DisposeLinkDrag,
     //the ghost's MouseDownElement redirection, passthrough-bus creation) lives here too, alongside the rest
     //of the drag/mouse-routing state (MouseDownElement, CurrentDragOperation) rather than on GraphViewer.
-    public sealed class GraphCanvasControl : Decorator {
+    public sealed partial class GraphCanvasControl : Decorator {
         //DrawShape never triggers yet: inDrawShapeMode stays false until that mode lands.
         internal enum DragOperation { None, Item, Selection, DrawShape }
 
@@ -102,6 +102,7 @@ namespace Foreman.Mac.Canvas {
         private AvaloniaPoint mouseDownStartScreenPoint;
         private DrawingPoint viewDragOriginGraphPoint;
         private DrawingPoint selectionZoneOriginGraphPoint;
+        private bool linkBodyPressed;
         private AvaloniaPoint? hoverScreenPoint;
 
         static GraphCanvasControl() {
@@ -587,6 +588,8 @@ namespace Foreman.Mac.Canvas {
         protected override void OnPointerExited(PointerEventArgs e) {
             base.OnPointerExited(e);
             TrackHoverTarget(null);
+            if (Viewer.SetHoveredLink(null))
+                RequestRedraw();
             if (Viewer.Context.HoveredTab is null)
                 return;
             Viewer.Context.HoveredTab = null;
@@ -667,6 +670,9 @@ namespace Foreman.Mac.Canvas {
                 return;
             }
 
+            if (TryPressLink(clickedElement, e, properties, graphPoint))
+                return;
+
             if (clickedElement is DraggedLinkElement dragGhost) {
                 dragGhost.MouseDown(graphPoint, ButtonFrom(properties));
             } else if (properties.IsLeftButtonPressed && clickedElement is AnnotationElement clickedAnnotation) {
@@ -728,6 +734,7 @@ namespace Foreman.Mac.Canvas {
             BaseNodeElement? hoveredNode = GetNodeAtPoint(graphPoint);
             Viewer.Context.HoveredTab = hoveredNode?.SubElements.OfType<ItemTabElement>().FirstOrDefault(tab => tab.ContainsPoint(graphPoint));
             TrackHoverTarget(hoveredNode?.HoverTargetAt(graphPoint) ?? AnnotationLoader.GetAnnotationAtPoint(Annotations, graphPoint));
+            UpdateLinkHover(graphPoint, hoveredNode);
             PointerPointProperties properties = e.GetCurrentPoint(this).Properties;
             UpdateModifiers(e.KeyModifiers);
             ApplyAxisLockModifier(e.KeyModifiers); //Same stuck-Shift self-heal as OnPointerPressed
@@ -762,7 +769,7 @@ namespace Foreman.Mac.Canvas {
 
                         if (MouseDownElement is not null && !inDrawShapeMode)
                             CurrentDragOperation = DragOperation.Item;
-                        else if (properties.IsLeftButtonPressed)
+                        else if (properties.IsLeftButtonPressed && !linkBodyPressed)
                             CurrentDragOperation = inDrawShapeMode ? DragOperation.DrawShape : DragOperation.Selection;
                     }
                     break;
@@ -800,6 +807,8 @@ namespace Foreman.Mac.Canvas {
                         } else {
                             draggedAnnotation.Dragged(graphPoint);
                         }
+                    } else if (MouseDownElement is WaypointElement draggedWaypoint) {
+                        draggedWaypoint.Link.PreviewWaypoint(draggedWaypoint.Index, WaypointElement.DragTarget(graphPoint, Grid));
                     } else if (MouseDownElement is BaseNodeElement soloNode) {
                         soloNode.Dragged(graphPoint, Grid);
                     }
@@ -901,6 +910,11 @@ namespace Foreman.Mac.Canvas {
                             ShowContextMenu(rightClickedNode.MouseUpRight(graphPoint));
                         else if (rightClickTarget is AnnotationElement rightClickedAnnotation)
                             ShowContextMenu(rightClickedAnnotation.BuildRightClickMenu());
+                        else if (LinkOf(rightClickTarget) is LinkElement rightClickedLink) {
+                            if (!Viewer.SelectedLinks.Contains(rightClickedLink))
+                                Viewer.SelectLink(rightClickedLink, additive: false);
+                            ShowContextMenu(BuildLinkMenu(rightClickedLink, graphPoint));
+                        }
                         else if (CurrentDragOperation == DragOperation.None)
                             ShowContextMenu(BuildBackgroundMenu(graphPoint));
                     }
@@ -925,10 +939,11 @@ namespace Foreman.Mac.Canvas {
                         if (!ViewBeingDragged)
                             releaseGhost.MouseUp(graphPoint, MouseButton.Left);
                     } else if (CurrentDragOperation == DragOperation.Item) {
-                        //OnPointerMoved already committed every intermediate position straight to
-                        //the domain node/annotation (real-time drag rendering) - GraphMutated only fires
-                        //once here, at release, so a drag dirties the document once instead of per pixel.
-                        Viewer.Session.NotifyMutated();
+                        //Nodes and annotations were committed live by OnPointerMoved, so GraphMutated fires once here; a waypoint drag commits its preview.
+                        if (MouseDownElement is WaypointElement releasedWaypoint)
+                            Viewer.CommitWaypointPreview(releasedWaypoint.Link);
+                        else
+                            Viewer.Session.NotifyMutated();
                     } else if (CurrentDragOperation == DragOperation.None && MouseDownElement is BaseNodeElement clickedNode) {
                         SelectionModifier modifier = ModifierFor(e.KeyModifiers);
                         if (modifier == SelectionModifier.Remove) {
@@ -974,7 +989,9 @@ namespace Foreman.Mac.Canvas {
             CurrentDragOperation = DragOperation.None;
             MouseDownElement = null;
             ViewBeingDragged = false;
+            linkBodyPressed = false;
             Viewer.SelectionZone = null;
+            Viewer.DiscardWaypointPreviews();
         }
 
         //Ports Annotation_FinishDrawShape (reference §1/§6): commits the drawn rectangle (30-graph-unit
@@ -1643,9 +1660,14 @@ namespace Foreman.Mac.Canvas {
         }
 
         public void DeleteSelection() {
+            if (Viewer.RemoveSelectedWaypoint())
+                return;
+            bool hadLinks = Viewer.SelectedLinks.Count > 0;
+            if (hadLinks)
+                Viewer.DeleteSelectedLinks();
             if (Viewer.SelectedAnnotations.Count > 0)
                 Viewer.TryDeleteSelection();
-            else
+            else if (Viewer.SelectedNodes.Count > 0 || !hadLinks)
                 Viewer.TryDeleteSelectedNodes();
         }
 
@@ -1693,8 +1715,12 @@ namespace Foreman.Mac.Canvas {
 
             Grid.LockDragToAxis = lockDragAxis;
             Grid.DragOrigin = Grid.AlignToGrid(MouseDownElement?.Location ?? new DrawingPoint());
-            if (CurrentDragOperation == DragOperation.Item && MouseDownElement is BaseNodeElement node && hoverScreenPoint is AvaloniaPoint hover)
-                node.Dragged(Viewport.ScreenToGraph(hover), Grid);
+            if (CurrentDragOperation == DragOperation.Item && hoverScreenPoint is AvaloniaPoint hover) {
+                if (MouseDownElement is BaseNodeElement node)
+                    node.Dragged(Viewport.ScreenToGraph(hover), Grid);
+                else if (MouseDownElement is WaypointElement waypoint)
+                    waypoint.Link.PreviewWaypoint(waypoint.Index, WaypointElement.DragTarget(Viewport.ScreenToGraph(hover), Grid));
+            }
         }
 
         //Ports ProcessCmdKey's arrow/WASD block (reference §2/§7): moveUnit/panUnit step sizes and the
@@ -1836,7 +1862,11 @@ namespace Foreman.Mac.Canvas {
         //win over annotations on overlap, mirroring ProductionGraphViewer_MouseDown/Up's probe order.
         public GraphElement? HitTest(AvaloniaPoint screenPoint) {
             DrawingPoint graphPoint = Viewport.ScreenToGraph(screenPoint);
-            return (GraphElement?)GetNodeAtPoint(graphPoint) ?? AnnotationLoader.GetAnnotationAtPoint(Annotations, graphPoint);
+            if (GetNodeAtPoint(graphPoint) is BaseNodeElement node)
+                return node;
+            if (Viewer.LinkTargetAt(graphPoint) is ({ } link, var waypoint))
+                return (GraphElement?)waypoint ?? link;
+            return AnnotationLoader.GetAnnotationAtPoint(Annotations, graphPoint);
         }
 
         internal BaseNodeElement? GetNodeAtPoint(DrawingPoint point) {

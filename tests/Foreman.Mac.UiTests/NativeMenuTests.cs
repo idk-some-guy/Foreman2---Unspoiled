@@ -7,8 +7,10 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac;
+using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
@@ -767,17 +769,47 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(new KeyGesture(Key.W, KeyModifiers.Meta | KeyModifiers.Shift), welcome.Gesture);
         }
 
-        //Per-link routing and waypoints land with the canvas (A10); the submenu mirrors a selected link, and none can be selected yet.
         [AvaloniaFact]
-        public void ViewMenu_LinkRouting_IsARadioSubmenuWithClearWaypoints_DisabledUntilLinksAreSelectable() {
+        public void LinkRouting_DisabledWithNoLink_CheckedWhenAllSelectedAgree_UncheckedWhenMixed_ClearWaypointsNeedsWaypoints() {
             var window = new MainWindow();
-
+            using LinkFixture fx = LinkFixture.Over(window.GraphCanvas);
             NativeMenu linkRouting = SubMenu(SubMenu(TopMenu(window), "View"), "Link Routing");
+            NativeMenuItem rounded = ItemNamed(linkRouting, "Rounded");
+            NativeMenuItem orthogonal = ItemNamed(linkRouting, "Orthogonal");
+            NativeMenuItem clear = ItemNamed(linkRouting, "Clear Waypoints");
+            ItemPrototype item = fx.NewItem("iron-plate");
+            LinkElement first = fx.AddLink(item, new System.Drawing.Point(0, 300), NodeDirection.Up, new System.Drawing.Point(0, -300), NodeDirection.Up);
+            LinkElement second = fx.AddLink(item, new System.Drawing.Point(600, 300), NodeDirection.Up, new System.Drawing.Point(600, -300), NodeDirection.Up, LinkRouting.Orthogonal);
 
             Assert.Equal(["Rounded", "Orthogonal", "-", "Clear Waypoints"], linkRouting.Items.OfType<NativeMenuItem>().Select(i => i.Header));
-            Assert.Equal(MenuItemToggleType.Radio, ItemNamed(linkRouting, "Rounded").ToggleType);
-            Assert.Equal(MenuItemToggleType.Radio, ItemNamed(linkRouting, "Orthogonal").ToggleType);
+            Assert.Equal(MenuItemToggleType.Radio, rounded.ToggleType);
+            Assert.Equal(MenuItemToggleType.Radio, orthogonal.ToggleType);
             Assert.All(RealItems(linkRouting), i => Assert.False(i.IsEnabled, i.Header));
+
+            fx.Viewer.SelectLink(second, additive: false);
+            Assert.True(rounded.IsEnabled);
+            Assert.True(orthogonal.IsEnabled);
+            Assert.False(rounded.IsChecked);
+            Assert.True(orthogonal.IsChecked);
+            Assert.False(clear.IsEnabled);
+
+            fx.Viewer.SetWaypoints(second, [new System.Drawing.Point(600, 0)]);
+            OpenMenu(linkRouting);
+            Assert.True(clear.IsEnabled);
+
+            fx.Viewer.SelectLink(first, additive: true);
+            Assert.False(rounded.IsChecked);
+            Assert.False(orthogonal.IsChecked);
+
+            rounded.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.All<LinkElement>([first, second], link => Assert.Equal(LinkRouting.Rounded, link.ViewModel.Routing));
+            Assert.True(rounded.IsChecked);
+
+            clear.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(second.ViewModel.Waypoints);
+            Assert.False(clear.IsEnabled);
         }
 
         [AvaloniaFact]

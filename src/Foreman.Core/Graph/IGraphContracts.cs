@@ -62,6 +62,8 @@ namespace Foreman.Graph {
         NodeDirection SupplierDirection { get; }
         NodeDirection ConsumerDirection { get; }
         bool IsValid { get; }
+        LinkRouting Routing { get; }
+        IReadOnlyList<Point> Waypoints { get; }
     }
 
     public interface ISupplierNodeViewModel : INodeViewModel {
@@ -131,7 +133,10 @@ namespace Foreman.Graph {
         NodeId CreateRecipeNode(RecipeQualityPair recipe, Point location);
         NodeId CreateSpoilNode(ItemQualityPair inputItem, IItem outputItem, Point location);
         NodeId CreatePlantNode(IPlantProcess plantProcess, IQuality quality, Point location);
-        LinkId CreateLink(NodeId supplierId, NodeId consumerId, ItemQualityPair item);
+        LinkRouting DefaultLinkRouting { get; set; }
+        LinkId CreateLink(NodeId supplierId, NodeId consumerId, ItemQualityPair item, LinkRouting? routing = null);
+        void SetLinkRouting(LinkId id, LinkRouting routing);
+        void SetLinkWaypoints(LinkId id, IReadOnlyList<Point> waypoints);
         void DeleteNode(NodeId id);
         void DeleteLink(LinkId id);
         void SetLocation(NodeId id, Point location);

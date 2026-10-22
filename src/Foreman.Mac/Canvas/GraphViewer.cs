@@ -5,6 +5,8 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
+using Foreman.Models;
+using Foreman.Models.Nodes;
 using Foreman.Serialization;
 using SkiaSharp;
 using System;
@@ -32,8 +34,6 @@ namespace Foreman.Mac.Canvas {
     //hover-tooltip overlay (already built); this class owns everything upstream's viewer keeps in
     //graph/session/element-collection state.
     public sealed partial class GraphViewer : IDisposable {
-        private static float MinLinkWidth => KitSkia.TokenBridge.Scaled(3f);
-        private static float MaxLinkWidth => KitSkia.TokenBridge.Scaled(35f);
         //stands in for upstream's Control.DeviceDpi (reference: AnnotationLoader's header comment); internal
         //so GraphViewerSaveAssembler (same assembly, Canvas/ folder) can read it back out on save.
         internal const int AnnotationDeviceDpi = 96;
@@ -67,6 +67,13 @@ namespace Foreman.Mac.Canvas {
         //dragging, whose follower loop already needs somewhere to read a mixed selection's annotations from,
         //so this exists now, empty until annotation selection starts populating it.
         public HashSet<AnnotationElement> SelectedAnnotations { get; } = [];
+
+        public HashSet<LinkElement> SelectedLinks { get; } = [];
+
+        public LinkRouting DefaultLinkRouting {
+            get => Session.Editor.DefaultLinkRouting;
+            set => Session.Editor.DefaultLinkRouting = value;
+        }
 
         //Ports SelectionZone (reference §1): null whenever no lasso is being dragged, so Paint's draw guard
         //collapses to a single null check instead of also tracking DragOperation itself.
@@ -174,7 +181,7 @@ namespace Foreman.Mac.Canvas {
             foreach (AnnotationElement annotation in AnnotationLoader.LoadFromSave(document.Annotations, document.AnnotationDpi, AnnotationDeviceDpi))
                 AddAnnotationElement(annotation);
 
-            ProductionGraph.NewNodeBatch batch = GraphSaveLoader.LoadProductionGraph(Graph, cache, document.ProductionGraph, applySolverSettings: true);
+            ProductionGraph.NewNodeBatch batch = GraphSaveLoader.LoadProductionGraph(Graph, cache, document.ProductionGraph, applySolverSettings: true, DefaultLinkRouting);
             if (batch.NewNodes.Count == 0 && document.ProductionGraph.Nodes.Count > 0)
                 return GraphLoadResult.Failure("The production graph in this save could not be loaded (nodes failed to import).");
 
@@ -216,7 +223,7 @@ namespace Foreman.Mac.Canvas {
         //real merge.
         public int ImportNodesFromDocument(DataCache cache, ProductionGraphSaveDocument document, Point origin, bool applySolverSettings) {
             HashSet<NodeId> existingIds = [.. NodeElementDictionary.Keys];
-            ProductionGraph.NewNodeBatch batch = Graph.InsertNodesFromDocument(cache, document, applySolverSettings);
+            ProductionGraph.NewNodeBatch batch = Graph.InsertNodesFromDocument(cache, document, applySolverSettings, DefaultLinkRouting);
             if (batch.NewNodes.Count == 0)
                 return 0;
 
@@ -235,6 +242,8 @@ namespace Foreman.Mac.Canvas {
 
             foreach (BaseNodeElement element in importedElements)
                 element.SetLocation(Point.Add(element.ViewModel.Location, (Size)offset));
+            foreach (NodeLink link in batch.NewLinks.Where(link => link.Waypoints.Count > 0))
+                link.Controller.SetWaypoints([.. link.Waypoints.Select(waypoint => Point.Add(waypoint, (Size)offset))]);
 
             SetSelection(importedElements);
             Viewport.UpdateGraphBounds(Graph.Bounds);
@@ -265,9 +274,14 @@ namespace Foreman.Mac.Canvas {
         internal void RaiseSelectionChanged() => SelectionChanged?.Invoke(this, EventArgs.Empty);
 
         public void SetSelection(IEnumerable<BaseNodeElement> newSelection) {
+            bool hadLinks = SelectedLinks.Count > 0;
+            ClearLinkSelection();
             HashSet<BaseNodeElement> updated = newSelection as HashSet<BaseNodeElement> ?? [.. newSelection];
-            if (SelectedNodes.SetEquals(updated))
+            if (SelectedNodes.SetEquals(updated)) {
+                if (hadLinks)
+                    RaiseSelectionChanged();
                 return;
+            }
 
             foreach (BaseNodeElement element in SelectedNodes)
                 element.Highlighted = false;
@@ -329,6 +343,7 @@ namespace Foreman.Mac.Canvas {
             SelectedNodes.Clear();
             CurrentSelectionNodes.Clear();
             ClearAnnotationSelection();
+            ClearLinkSelection();
             RaiseSelectionChanged();
         }
 
@@ -527,9 +542,11 @@ namespace Foreman.Mac.Canvas {
         }
 
         private void UpdateLinkWidths() {
+            KitSkia.CanvasTokens tokens = KitSkia.TokenBridge.Current;
+            float minWidth = tokens.LinkWidth, maxWidth = tokens.LinkWidthMax;
             if (!Context.DynamicLinkWidth) {
                 foreach (LinkElement element in LinkElements)
-                    element.LinkWidth = MinLinkWidth;
+                    element.LinkWidth = minWidth;
                 return;
             }
 
@@ -548,8 +565,8 @@ namespace Foreman.Mac.Canvas {
 
             foreach (LinkElement element in LinkElements)
                 element.LinkWidth = element.Item.Item is IFluid
-                    ? (float)Math.Min(MinLinkWidth + ((MaxLinkWidth - MinLinkWidth) * (element.ViewModel.Throughput / fluidMax)), MaxLinkWidth)
-                    : (float)Math.Min(MinLinkWidth + ((MaxLinkWidth - MinLinkWidth) * (element.ViewModel.Throughput / itemMax)), MaxLinkWidth);
+                    ? (float)Math.Min(minWidth + ((maxWidth - minWidth) * (element.ViewModel.Throughput / fluidMax)), maxWidth)
+                    : (float)Math.Min(minWidth + ((maxWidth - minWidth) * (element.ViewModel.Throughput / itemMax)), maxWidth);
         }
 
         private void OnNodeViewModelAdded(object? sender, NodeViewModelEventArgs e) {
@@ -591,6 +608,8 @@ namespace Foreman.Mac.Canvas {
 
             LinkElementDictionary.Remove(e.ViewModel.Id);
             LinkElements.Remove(element);
+            if (SelectedLinks.Remove(element))
+                RaiseSelectionChanged();
             element.Dispose();
 
             if (NodeElementDictionary.TryGetValue(e.ViewModel.SupplierId, out BaseNodeElement? supplier))
@@ -608,6 +627,7 @@ namespace Foreman.Mac.Canvas {
             NodeElements.Clear();
             LinkElementDictionary.Clear();
             LinkElements.Clear();
+            SelectedLinks.Clear();
             ClearAnnotations();
         }
 

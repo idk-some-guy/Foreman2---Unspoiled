@@ -45,7 +45,10 @@ namespace Foreman.Serialization {
             link.SupplierNode.NodeID,
             link.ConsumerNode.NodeID,
             link.Item.Item?.Name ?? "ItemNameError",
-            link.Item.Quality?.Name ?? "QualityError");
+            link.Item.Quality?.Name ?? "QualityError") {
+            Routing = link.Routing,
+            Waypoints = link.Waypoints
+        };
 
         private static GraphNodeSaveData WriteNode(BaseNode node) {
             var baseFields = new NodeFields(

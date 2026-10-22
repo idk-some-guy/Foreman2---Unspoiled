@@ -188,13 +188,13 @@ namespace Foreman {
             return node;
         }
 
-        public NodeLink CreateLink(BaseNode supplier, BaseNode consumer, ItemQualityPair item) {
+        public NodeLink CreateLink(BaseNode supplier, BaseNode consumer, ItemQualityPair item, LinkRouting routing = LinkRouting.Rounded) {
             if (!nodes.Contains(supplier) || !nodes.Contains(consumer) || !supplier.Outputs.Contains(item) || !consumer.Inputs.Contains(item))
                 Trace.Fail(string.Format(CultureInfo.InvariantCulture, "Node link creation called with invalid parameters! consumer:{0}. supplier:{1}. item:{2}.", consumer, supplier, item));
             if (supplier.OutputLinks.Any(l => l.Item == item && l.ConsumerNode == consumer))
                 return supplier.OutputLinks.First(l => l.Item == item && l.ConsumerNode == consumer);
 
-            var link = new NodeLink(this, supplier, consumer, item);
+            var link = new NodeLink(this, supplier, consumer, item, routing);
             supplier.OutputLinks.Add(link);
             consumer.InputLinks.Add(link);
             LinkChangeUpdateImpactedNodeStates(link, LinkType.Input);
@@ -349,12 +349,13 @@ namespace Foreman {
         public NewNodeBatch InsertNodesFromDocument(
             DataCache cache,
             ProductionGraphSaveDocument document,
-            bool applySolverSettings) =>
-            GraphSaveLoader.LoadProductionGraph(this, cache, document, applySolverSettings);
+            bool applySolverSettings,
+            LinkRouting defaultLinkRouting = LinkRouting.Rounded) =>
+            GraphSaveLoader.LoadProductionGraph(this, cache, document, applySolverSettings, defaultLinkRouting);
 
-        public NewNodeBatch InsertNodesFromFragment(DataCache cache, string json, bool applySolverSettings) {
+        public NewNodeBatch InsertNodesFromFragment(DataCache cache, string json, bool applySolverSettings, LinkRouting defaultLinkRouting = LinkRouting.Rounded) {
             ProductionGraphSaveDocument? document = GraphSaveCodec.ReadGraphPayload(json);
-            return document is null ? new NewNodeBatch() : InsertNodesFromDocument(cache, document, applySolverSettings);
+            return document is null ? new NewNodeBatch() : InsertNodesFromDocument(cache, document, applySolverSettings, defaultLinkRouting);
         }
 
         internal RecipeNode CreateRecipeNodeWithSetup(

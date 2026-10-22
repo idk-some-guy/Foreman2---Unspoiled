@@ -14,6 +14,8 @@ namespace Foreman.Serialization {
         public int ConsumerId { get; } = consumerId;
         public string ItemName { get; } = itemName;
         public string QualityName { get; } = qualityName;
+        public LinkRouting? Routing { get; init; }
+        public IReadOnlyList<Point> Waypoints { get; init; } = [];
     }
 
     public abstract class GraphNodeSaveData {

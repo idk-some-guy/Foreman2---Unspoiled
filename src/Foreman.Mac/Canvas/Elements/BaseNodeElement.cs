@@ -416,7 +416,9 @@ namespace Foreman.Mac.Canvas.Elements {
             return local;
         }
 
-        private bool FlowUndersupplied => ViewModel.ManualRateNotMet() && this is not SupplierNodeElement;
+        internal bool FlowUndersupplied => ViewModel.ManualRateNotMet() && this is not SupplierNodeElement;
+
+        internal string NodeName => DisplayName;
 
         //---- the three ring lanes (§02): border ±1, lane A +2…+4, lane B +6…+9; radii and strokes stay fixed ----
 

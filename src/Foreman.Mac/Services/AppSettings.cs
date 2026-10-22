@@ -5,8 +5,6 @@ namespace Foreman.Mac.Services {
     //Upstream only had a bool FlagDarkMode; we widen it to a tri-state to follow the OS theme by default.
     public enum ThemeMode { System, Light, Dark }
 
-    public enum LinkRouting { Rounded, Orthogonal }
-
     //Names and defaults are verbatim from upstream Properties.Settings.Designer.cs.
     public sealed class AppSettings {
         public string CurrentPresetName { get; set; } = "";

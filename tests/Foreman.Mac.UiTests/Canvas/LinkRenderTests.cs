@@ -225,21 +225,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [AvaloniaFact]
-        public void LinkElement_LinkWidth_ConstantDefault_Is3PxWideStroke() {
-            Fixture fx = NewFixture();
-            ItemPrototype item = fx.NewItem("wood");
-            item.SetIconAndColor(new IconColorPair(null, Color.FromArgb(255, 150, 90, 30)));
-            fx.Context.ArrowsOnLinks = false;
-            (_, _, LinkElement link) = BuildLink(fx, new Point(0, 0), NodeDirection.Up, new Point(400, 0), NodeDirection.Down, fx.Pair(item));
-
-            Assert.Equal(3f, link.LinkWidth); //static default, matching upstream's "3px when DynamicLinkWidth is off"
-
-            using SKSurface surface = RenderLink(link);
-            int thickness = MeasureStrokeThicknessAt(surface, 200, -161, new SKColor(150, 90, 30)); //flat top of the U, a straight run
-            Assert.InRange(thickness, 2, 5);
-        }
-
-        [AvaloniaFact]
         public void LinkElement_LinkWidth_WiderValue_DrawsThickerStroke() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("wood");

@@ -5,6 +5,7 @@ using Foreman.Graph;
 using Foreman.Models;
 using ForemanTest.support;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Linq;
 
 namespace ForemanTest.Graph {
     [TestClass]
@@ -49,6 +50,40 @@ namespace ForemanTest.Graph {
             Assert.IsNotNull(linkVm);
             Assert.AreEqual(supplierId, linkVm.SupplierId);
             Assert.AreEqual(consumerId, linkVm.ConsumerId);
+        }
+
+        [TestMethod]
+        public void CreateLink_TakesTheEditorDefaultRouting_AndExplicitRoutingWins() {
+            var graph = new ProductionGraph();
+            var session = new ProductionGraphSession(graph);
+            session.Attach();
+            ItemQualityPair iron = TestItem();
+            NodeId supplierId = session.Editor.CreateSupplierNode(iron, new System.Drawing.Point(0, 0));
+            NodeId firstConsumer = session.Editor.CreateConsumerNode(iron, new System.Drawing.Point(100, 0));
+            NodeId secondConsumer = session.Editor.CreateConsumerNode(iron, new System.Drawing.Point(200, 0));
+
+            session.Editor.DefaultLinkRouting = LinkRouting.Orthogonal;
+            LinkId fromDefault = session.Editor.CreateLink(supplierId, firstConsumer, iron);
+            LinkId explicitRounded = session.Editor.CreateLink(supplierId, secondConsumer, iron, LinkRouting.Rounded);
+
+            Assert.IsTrue(session.View.TryGetLink(fromDefault, out INodeLinkViewModel? defaulted));
+            Assert.IsTrue(session.View.TryGetLink(explicitRounded, out INodeLinkViewModel? rounded));
+            Assert.AreEqual(LinkRouting.Orthogonal, defaulted!.Routing);
+            Assert.AreEqual(LinkRouting.Rounded, rounded!.Routing);
+
+            session.Editor.SetLinkRouting(fromDefault, LinkRouting.Rounded);
+            session.Editor.SetLinkWaypoints(fromDefault, [new System.Drawing.Point(4, 5)]);
+            Assert.AreEqual(LinkRouting.Rounded, defaulted.Routing);
+            CollectionAssert.AreEqual(new[] { new System.Drawing.Point(4, 5) }, defaulted.Waypoints.ToArray());
+
+            int mutations = 0;
+            session.GraphMutated += (_, _) => mutations++;
+            session.Editor.SetLinkRouting(fromDefault, LinkRouting.Rounded);
+            session.Editor.SetLinkWaypoints(fromDefault, [new System.Drawing.Point(4, 5)]);
+            Assert.AreEqual(0, mutations);
+            session.Editor.SetLinkRouting(fromDefault, LinkRouting.Orthogonal);
+            session.Editor.SetLinkWaypoints(fromDefault, []);
+            Assert.AreEqual(2, mutations);
         }
 
         [TestMethod]

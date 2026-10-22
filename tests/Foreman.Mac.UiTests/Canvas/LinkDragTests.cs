@@ -13,6 +13,7 @@ using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using SkiaSharp;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -377,7 +378,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             using SKImage image = surface.Snapshot();
             using SKPixmap pixmap = image.PeekPixels();
             SKColor pixel = pixmap.GetPixelColor((int)farPoint.X, (int)farPoint.Y);
-            Assert.Equal(new SKColor(210, 90, 30), pixel); //the bezier's free endpoint is always exactly on-path
+            SKColor ground = fx.Control.Viewer.BackgroundColor;
+            byte Blend(byte stroke, byte back) => (byte)Math.Round((stroke * 0.6) + (back * 0.4));
+            Assert.Equal(new SKColor(Blend(210, ground.Red), Blend(90, ground.Green), Blend(30, ground.Blue)), pixel); //the ghost is the item colour at 60 %
         }
 
         //---- a link-drag release opens the radial menu ----

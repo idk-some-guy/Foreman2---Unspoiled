@@ -1,5 +1,7 @@
 ﻿using Foreman.Models;
 using Foreman.Models.Nodes;
+using System.Collections.Generic;
+using System.Drawing;
 
 namespace Foreman.Graph {
     internal sealed class NodeLinkViewModel : INodeLinkViewModel {
@@ -22,5 +24,7 @@ namespace Foreman.Graph {
         public NodeDirection SupplierDirection => _link.SupplierNode.NodeDirection;
         public NodeDirection ConsumerDirection => _link.ConsumerNode.NodeDirection;
         public bool IsValid => _link.IsValid;
+        public LinkRouting Routing => _link.Routing;
+        public IReadOnlyList<Point> Waypoints => _link.Waypoints;
     }
 }

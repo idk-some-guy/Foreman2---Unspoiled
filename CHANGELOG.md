@@ -587,6 +587,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   shrink to the icon, badges shrink to their glyph, and node names and counts go last. The simple
   view, used when zoomed far out or with over 200 nodes, now draws just the card, type strip, icon
   and border.
+- Links can be selected and carry their own routing, Rounded or Orthogonal, with waypoints you add
+  by double-clicking the link or from its context menu, drag onto the grid, and remove by
+  double-click or Delete. New links take the default routing from Settings, and View > Link Routing
+  now applies to the selected links. A selected link gets a casing, a hovered one a halo, a link
+  short of supply turns red and dashed, and its hit band stays at least 12 pt wide whatever the
+  stroke width. Saved files move to format version 9; older files open with the current default
+  routing and no waypoints.
 
 ### Removed
 

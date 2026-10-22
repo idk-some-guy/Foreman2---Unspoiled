@@ -22,14 +22,21 @@ namespace Foreman.Mac.Canvas {
         //MenuItem to still exist by then.
         public MenuCheckboxState? Checkbox { get; }
 
-        private MenuEntry(string? caption, bool enabled, Action? invoke, MenuCheckboxState? checkbox) {
+        //A radio entry shows its check from Selected and closes the menu like a plain item.
+        public bool IsRadio { get; }
+        public bool Selected { get; }
+
+        private MenuEntry(string? caption, bool enabled, Action? invoke, MenuCheckboxState? checkbox, bool isRadio = false, bool selected = false) {
             Caption = caption;
             Enabled = enabled;
             Invoke = invoke;
             Checkbox = checkbox;
+            IsRadio = isRadio;
+            Selected = selected;
         }
 
         public static MenuEntry Item(string caption, Action invoke, bool enabled = true) => new(caption, enabled, invoke, null);
+        public static MenuEntry Radio(string caption, bool selected, Action invoke, bool enabled = true) => new(caption, enabled, invoke, null, isRadio: true, selected: selected);
         public static MenuEntry Checkable(string caption, MenuCheckboxState state, bool enabled = true) => new(caption, enabled, null, state);
         public static readonly MenuEntry Divider = new(null, true, null, null);
     }
@@ -68,6 +75,11 @@ namespace Foreman.Mac.Canvas {
                         item.IsChecked = checkboxState.Checked;
                     };
                 } else {
+                    if (entry.IsRadio) {
+                        item.ToggleType = MenuItemToggleType.Radio;
+                        item.GroupName = "Radio";
+                        item.IsChecked = entry.Selected;
+                    }
                     Action? invoke = entry.Invoke;
                     if (invoke is not null)
                         item.Click += (_, _) => {

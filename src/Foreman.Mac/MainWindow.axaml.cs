@@ -77,6 +77,9 @@ namespace Foreman.Mac {
         private bool showToolbar = true;
         private bool searchRevealsToolbar;
         private NativeMenuItem? showToolbarMenuItem;
+        private NativeMenuItem? roundedRoutingMenuItem;
+        private NativeMenuItem? orthogonalRoutingMenuItem;
+        private NativeMenuItem? clearWaypointsMenuItem;
         private RelayCommand presetComparatorCommand = null!;
         private readonly PopoverHost contentPopoverHost;
         private ToolbarItem viewOptionsItem = null!;
@@ -761,6 +764,7 @@ namespace Foreman.Mac {
             settings.LevelOfDetail = (int)context.LevelOfDetail;
             context.ArrowsOnLinks = settings.ArrowsOnLinks;
             context.DynamicLinkWidth = settings.DynamicLineWidth;
+            GraphCanvas.Viewer.DefaultLinkRouting = settings.DefaultLinkRouting;
             context.FlagOUSuppliedNodes = settings.FlagOUSuppliedNodes;
             context.RoundAssemblerCount = settings.RoundAssemblerCount;
             context.AbbreviateSciPacks = settings.AbbreviateSciPacks;
@@ -1981,14 +1985,20 @@ namespace Foreman.Mac {
                 Command = new DeferredMenuCommand(new RelayCommand(MenuToggleShowToolbar)),
             };
 
+            roundedRoutingMenuItem = RoutingItem("Rounded", LinkRouting.Rounded);
+            orthogonalRoutingMenuItem = RoutingItem("Orthogonal", LinkRouting.Orthogonal);
+            clearWaypointsMenuItem = ActionItem("Clear Waypoints", MenuClearWaypoints);
+            clearWaypointsMenuItem.IsEnabled = false;
             var linkRoutingMenu = new NativeMenu {
                 Items = {
-                    new NativeMenuItem("Rounded") { ToggleType = MenuItemToggleType.Radio, IsEnabled = false },
-                    new NativeMenuItem("Orthogonal") { ToggleType = MenuItemToggleType.Radio, IsEnabled = false },
+                    roundedRoutingMenuItem,
+                    orthogonalRoutingMenuItem,
                     new NativeMenuItemSeparator(),
-                    DisabledItem("Clear Waypoints"),
+                    clearWaypointsMenuItem,
                 },
             };
+            linkRoutingMenu.Opening += (_, _) => UpdateLinkRoutingMenu();
+            GraphCanvas.Viewer.SelectionChanged += (_, _) => UpdateLinkRoutingMenu();
 
             NativeMenuItemBase[] canvasHalf = [
                 MenuItem("Zoom In", ZoomInCommand, new KeyGesture(Key.OemPlus, PlatformModifiers.Primary)),
@@ -2008,6 +2018,7 @@ namespace Foreman.Mac {
                 pinInspectorMenuItem,
             ];
             var viewMenu = new NativeMenu();
+            viewMenu.Opening += (_, _) => UpdateLinkRoutingMenu();
             foreach (NativeMenuItemBase item in canvasHalf)
                 viewMenu.Items.Add(item);
             viewMenu.Items.Add(new NativeMenuItemSeparator());
@@ -2079,6 +2090,7 @@ namespace Foreman.Mac {
                     foreach ((NativeMenuItem item, bool enabled) in enabledBeforeNoDocument)
                         item.IsEnabled = enabled;
                     enabledBeforeNoDocument.Clear();
+                    UpdateLinkRoutingMenu();
                     return;
                 }
                 foreach (NativeMenuItem item in documentScopedMenuItems) {
@@ -2093,6 +2105,39 @@ namespace Foreman.Mac {
 
         private static NativeMenuItem ActionItem(string header, Action action, KeyGesture? gesture = null) =>
             new(header) { Command = new DeferredMenuCommand(new RelayCommand(action)), Gesture = gesture };
+
+        private NativeMenuItem RoutingItem(string header, LinkRouting routing) =>
+            new(header) {
+                ToggleType = MenuItemToggleType.Radio,
+                Command = new DeferredMenuCommand(new RelayCommand(() => MenuSetLinkRouting(routing))),
+                IsEnabled = false,
+            };
+
+        private void MenuSetLinkRouting(LinkRouting routing) {
+            GraphCanvas.Viewer.SetSelectedLinksRouting(routing);
+            UpdateLinkRoutingMenu();
+            GraphCanvas.RequestRedraw();
+        }
+
+        private void MenuClearWaypoints() {
+            GraphCanvas.Viewer.ClearSelectedWaypoints();
+            UpdateLinkRoutingMenu();
+            GraphCanvas.RequestRedraw();
+        }
+
+        //Rounded and Orthogonal act on the selected links and show a check only when every one of them agrees.
+        internal void UpdateLinkRoutingMenu() {
+            if (roundedRoutingMenuItem is null || orthogonalRoutingMenuItem is null || clearWaypointsMenuItem is null)
+                return;
+
+            HashSet<LinkElement> selected = GraphCanvas.Viewer.SelectedLinks;
+            bool any = isDocumentOpen && selected.Count > 0;
+            roundedRoutingMenuItem.IsEnabled = any;
+            orthogonalRoutingMenuItem.IsEnabled = any;
+            roundedRoutingMenuItem.IsChecked = any && selected.All(link => link.ViewModel.Routing == LinkRouting.Rounded);
+            orthogonalRoutingMenuItem.IsChecked = any && selected.All(link => link.ViewModel.Routing == LinkRouting.Orthogonal);
+            clearWaypointsMenuItem.IsEnabled = isDocumentOpen && selected.Any(link => link.ViewModel.Waypoints.Count > 0);
+        }
 
         private static NativeMenuItem DisabledItem(string header, KeyGesture? gesture = null) =>
             new(header) { IsEnabled = false, Gesture = gesture };
