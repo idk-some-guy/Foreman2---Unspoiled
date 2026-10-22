@@ -596,7 +596,7 @@ namespace Foreman.Mac.UiTests {
 
             Assert.Equal(
                 ["Zoom In", "Zoom Out", "Actual Size", "Fit to Graph", "-",
-                    "Show Gridlines", "Minor Gridlines", "Major Gridlines", "Rate Unit", "Link Routing", "Icon View", "Pause All Calculations", "-",
+                    "Show Gridlines", "Minor Gridlines", "Major Gridlines", "Rate Unit", "Link Routing", "Icon View", "Pause All Calculations", "Show Solve Error", "-",
                     "Show Inspector", "Pin Inspector", "-",
                     "Show Toolbar", "Customize Toolbar\u2026", "Enter Full Screen"],
                 view.Items.OfType<NativeMenuItem>().Select(i => i.Header));
@@ -971,9 +971,9 @@ namespace Foreman.Mac.UiTests {
             Assert.False(SheetHost.For(window).IsOpen);
         }
 
-        //§14 ruling 4: a running solve first, then the frontmost popover or radial (Escape's own order), then the frontmost sheet.
+        //§14 ruling 4: the frontmost popover or radial (Escape's own order), then the frontmost sheet; the running-solve half is SolveStatusTrackerTests'.
         [AvaloniaFact]
-        public async Task CmdPeriod_WithASolveInFlight_CancelsTheSolve_AndOtherwiseDismissesTheFrontmostSheet() {
+        public async Task CmdPeriod_DismissesTheFrontmostPopover_ThenThePalette_ThenTheFrontmostSheet() {
             MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
             OpenViewOptions(window);
             window.GraphCanvas.AddItemAsync(new System.Drawing.Point(300, 200));
@@ -981,15 +981,9 @@ namespace Foreman.Mac.UiTests {
             var alert = new AlertSheet("Probe", "message", AlertButtons.YesNo);
             Task<ConfirmChoice> result = SheetHost.For(window).ShowAsync(alert);
             Dispatcher.UIThread.RunJobs();
-            window.Toolbar.ZoomStepper.IsSolving = true;
             PopoverFrame viewOptions = window.GetVisualDescendants().OfType<PopoverFrame>().Single(f => f.Name == "ViewOptionsPopover");
             Assert.True(viewOptions.IsOpen);
             Assert.NotNull(window.GraphCanvas.OpenPalette);
-
-            CanvasKeys.KeyDownOn(alert.YesButtonControl, Key.OemPeriod, KeyModifiers.Meta);
-            Assert.False(window.Toolbar.ZoomStepper.IsSolving);
-            Assert.True(viewOptions.IsOpen);
-            Assert.False(result.IsCompleted);
 
             CanvasKeys.KeyDownOn(alert.YesButtonControl, Key.OemPeriod, KeyModifiers.Meta);
             Assert.False(viewOptions.IsOpen);
@@ -1003,6 +997,64 @@ namespace Foreman.Mac.UiTests {
             CanvasKeys.KeyDownOn(alert.YesButtonControl, Key.OemPeriod, KeyModifiers.Meta);
             Assert.True(result.IsCompleted);
             Assert.Equal(ConfirmChoice.No, await result);
+        }
+
+        [AvaloniaFact]
+        public async Task CmdPeriod_CancelledSolve_ReturnsToIdleNotFailed() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
+            var clock = new ManualTimeProvider();
+            window.UseSolveTracker(new SolveStatusTracker(clock));
+            OpenViewOptions(window);
+            window.SolveTracker.OnSolveStarted();
+            clock.Advance(TimeSpan.FromMilliseconds(400));
+            Assert.Equal(SolveStatusState.Solving, window.Toolbar.ZoomStepper.SolveStatus.State);
+            PopoverFrame viewOptions = window.GetVisualDescendants().OfType<PopoverFrame>().Single(f => f.Name == "ViewOptionsPopover");
+
+            CanvasKeys.KeyDownOn(window.GraphCanvas, Key.OemPeriod, KeyModifiers.Meta);
+            Assert.Equal(SolveStatusState.Idle, window.SolveTracker.State);
+            Assert.Equal(SolveStatusState.Idle, window.Toolbar.ZoomStepper.SolveStatus.State);
+            Assert.True(viewOptions.IsOpen);
+
+            window.SolveTracker.OnSolveEnded([new Foreman.Models.Solver.SolveFailure([1], Foreman.Models.Solver.SolveFailureReason.Infeasible)]);
+            Assert.Equal(SolveStatusState.Idle, window.Toolbar.ZoomStepper.SolveStatus.State);
+            Assert.Equal(SolveStatusState.Idle, window.TitleBarSolveStatus.State);
+            Assert.False(ItemNamed(SubMenu(TopMenu(window), "View"), "Show Solve Error").IsEnabled);
+        }
+
+        [AvaloniaFact]
+        public async Task ShowSolveError_MenuItem_EnabledOnlyWhileFailed_OpensThePopover() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
+            NativeMenuItem item = ItemNamed(SubMenu(TopMenu(window), "View"), "Show Solve Error");
+            Assert.Null(item.Gesture);
+            Assert.False(item.IsEnabled);
+
+            window.SolveTracker.OnSolveEnded([new Foreman.Models.Solver.SolveFailure([1], Foreman.Models.Solver.SolveFailureReason.Infeasible)]);
+            Assert.True(item.IsEnabled);
+
+            item.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            PopoverFrame popover = window.GetVisualDescendants().OfType<PopoverFrame>().Single(f => f.Anchor == window.Toolbar.ZoomStepper.SolveStatus);
+            Assert.True(popover.IsOpen);
+
+            window.SolveTracker.OnSolveStarted();
+            window.SolveTracker.OnSolveEnded([]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(item.IsEnabled);
+            Assert.False(popover.IsOpen);
+        }
+
+        [AvaloniaFact]
+        public async Task ShowSolveError_WithTheToolbarHidden_OpensThePopoverFromTheTitleBar() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
+            window.Settings = new AppSettings { ShowToolbar = false };
+            Dispatcher.UIThread.RunJobs();
+            window.SolveTracker.OnSolveEnded([new Foreman.Models.Solver.SolveFailure([1], Foreman.Models.Solver.SolveFailureReason.Infeasible)]);
+
+            ItemNamed(SubMenu(TopMenu(window), "View"), "Show Solve Error").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            PopoverFrame popover = window.GetVisualDescendants().OfType<PopoverFrame>().Single(f => f.Anchor == window.TitleBarSolveStatus);
+            Assert.True(popover.IsOpen);
         }
 
         //A25: with no document the ruled items disable, and leaving that state restores each item's own prior enablement.

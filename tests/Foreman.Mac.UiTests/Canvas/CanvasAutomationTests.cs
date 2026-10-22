@@ -79,14 +79,19 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Contains(", fixed, key node Cables", cable.AutomationName);
         }
 
+        private static void SetSolveState(CanvasFixture fx, BaseNodeElement element, NodeSolveState state) {
+            fx.Viewer.Session.TryGetDomainNode(element.ViewModel.Id, out BaseNode? node);
+            node!.SolveState = state;
+        }
+
         [AvaloniaFact]
         public void NeverSolvedNode_ReadsNotYetSolved_AndStaleRatesAreCalledOutOfDate() {
             using CanvasFixture fx = CanvasFixture.WithVanilla();
             BaseNodeElement source = KeyboardRig.AddSupplier(fx, "iron-ore", new Point(0, 0));
-            source.StaleOverride = NodeSolveState.NeverSolved;
+            SetSolveState(fx, source, NodeSolveState.NeverSolved);
             Assert.Equal("Iron ore, source, not yet solved", source.AutomationName);
 
-            source.StaleOverride = NodeSolveState.Stale;
+            SetSolveState(fx, source, NodeSolveState.Stale);
             Assert.EndsWith(", rates out of date", source.AutomationName);
         }
 

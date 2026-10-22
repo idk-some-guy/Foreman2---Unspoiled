@@ -250,6 +250,7 @@ namespace Foreman.Mac {
             GraphCanvas.Viewer.Session.GraphMutated += (_, _) => ViewModel.IsDirty = true;
 
             BuildToolbarRow();
+            InitializeSolveStatus();
             BuildViewOptionsPopover();
             this.FindControl<Grid>("TitleBarRow")!.Children.Add(searchAnnouncer);
             toolbar.Title = ViewModel.DocumentTitle;
@@ -489,8 +490,8 @@ namespace Foreman.Mac {
         private void OnCancelInFlightKeyDown(object? sender, KeyEventArgs e) {
             if (replayingCancelKey || e.Key != Key.OemPeriod || e.KeyModifiers != PlatformModifiers.Primary)
                 return;
-            if (toolbar.ZoomStepper.IsSolving) {
-                toolbar.ZoomStepper.IsSolving = false;
+            if (solveTracker.State == SolveStatusState.Solving) {
+                solveTracker.OnSolveCancelled();
                 e.Handled = true;
             } else if (contentPopoverHost.Surface.Children.OfType<PopoverFrame>().LastOrDefault(f => f.IsOpen) is { } popover) {
                 e.Handled = ReplayCancelKey(popover);
@@ -1857,6 +1858,10 @@ namespace Foreman.Mac {
             ExtendClientAreaTitleBarHeightHint = height;
             toolbar.IsVisible = shown;
             titleBarTitle.IsVisible = !shown;
+            if (titleBarSolveStatus is not null) {
+                titleBarSolveStatus.IsVisible = !shown;
+                (shown ? titleBarSolveStatus : toolbar.ZoomStepper.SolveStatus).IsErrorPopoverOpen = false;
+            }
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
@@ -2069,6 +2074,7 @@ namespace Foreman.Mac {
             viewMenu.Opening += (_, _) => UpdateLinkRoutingMenu();
             foreach (NativeMenuItemBase item in canvasHalf)
                 viewMenu.Items.Add(item);
+            viewMenu.Items.Insert(viewMenu.Items.IndexOf(pauseCalculationsMenuItem) + 1, showSolveErrorMenuItem);
             viewMenu.Items.Add(new NativeMenuItemSeparator());
             viewMenu.Items.Add(showToolbarMenuItem);
             viewMenu.Items.Add(DisabledItem("Customize Toolbar…"));

@@ -10,6 +10,8 @@ namespace Foreman.Models.Solver {
     public class ProductionSolver {
         public double LowPriorityMultiplier { get; set; }
 
+        public LpSolveStatus LastStatus { get; private set; } = LpSolveStatus.Optimal;
+
         private readonly double outputObjectiveCoefficient; //we want to maximize the output of each automatic consumer node.
         private readonly double factoryObjectiveCoefficient; //we want to minimize the number of buildings (of all recipe nodes), but not at the expense of oversupply or errors
 
@@ -82,8 +84,9 @@ namespace Foreman.Models.Solver {
             //solver.Solve(); //<<---------------------------------- Cyclic recipes with 'not enough provided' can lead to no-solution. Cyclic recipes with 'extra left' lead to an over-supply (solution found)
             //ex: coal liquifaction produces more heavy oil than is required (25->90) -> solution will be found (if it is connected back to itself only), but there will be an over-production of heavy oil.
             //    Kovarex enrichment produces less Uranium 238 than is required (5->2) -> solution will be 0 (if it is connected back to itself only), as there is no way to satisfy the inputs. In a more complicated case with multiple nodes (instead of one recipe looped back to itself), this can lead to a null-solution (error)
-            if (solver.Solve() != LpSolveStatus.Optimal)
-                return null; //error solution -> sets all values to 0 and records the error
+            LastStatus = solver.Solve();
+            if (LastStatus != LpSolveStatus.Optimal)
+                return null; //error solution -> the caller keeps the last good values and records the failure
 
             var nodeSolutions = nodes
                 .ToDictionary(x => x, x => SolutionFor(Tuple.Create(x, RateType.ACTUAL)));

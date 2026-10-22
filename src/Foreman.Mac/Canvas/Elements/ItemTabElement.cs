@@ -4,6 +4,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Models;
+using Foreman.Models.Nodes;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;

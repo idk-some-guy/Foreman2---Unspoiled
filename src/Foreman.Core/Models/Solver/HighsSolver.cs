@@ -51,17 +51,28 @@ namespace Foreman.Models.Solver {
 
             HighsStatus runStatus = solver.run();
             HighsModelStatus modelStatus = solver.GetModelStatus();
-            if (!IsUsableSolution(runStatus, modelStatus))
-                return LpSolveStatus.NotOptimal;
-
-            solution = solver.getSolution();
-            return LpSolveStatus.Optimal;
+            LpSolveStatus status = StatusFor(runStatus, modelStatus);
+            if (status == LpSolveStatus.Optimal)
+                solution = solver.getSolution();
+            return status;
         }
 
         // kWarning can still carry an optimal solution (e.g. postsolve residuals) - only kError
         // means there is nothing to read back.
         internal static bool IsUsableSolution(HighsStatus runStatus, HighsModelStatus modelStatus) =>
             runStatus != HighsStatus.kError && modelStatus == HighsModelStatus.kOptimal;
+
+        internal static LpSolveStatus StatusFor(HighsStatus runStatus, HighsModelStatus modelStatus) {
+            if (IsUsableSolution(runStatus, modelStatus))
+                return LpSolveStatus.Optimal;
+            if (runStatus == HighsStatus.kError)
+                return LpSolveStatus.NotOptimal;
+            return modelStatus switch {
+                HighsModelStatus.kInfeasible => LpSolveStatus.Infeasible,
+                HighsModelStatus.kUnbounded => LpSolveStatus.Unbounded,
+                _ => LpSolveStatus.NotOptimal,
+            };
+        }
 
         internal double SolutionValueFor(int column) {
             double[]? values = solution?.colvalue;

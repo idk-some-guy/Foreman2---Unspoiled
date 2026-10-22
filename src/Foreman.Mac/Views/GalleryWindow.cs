@@ -20,6 +20,7 @@ using Foreman.Mac.Kit.Gallery;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
+using Foreman.Models.Solver;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -193,6 +194,8 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Zoom stepper — at rest, hovered, solving, solve failed", "Default", BuildZoomStepperTile));
             registry.Register(new GalleryTile("Kit", "Zoom stepper — solve-error popover", "Default", BuildZoomStepperPopoverTile));
             registry.Register(new GalleryTile("Kit", "Zoom stepper (150%)", "150%", BuildZoomStepperScaledTile));
+            registry.Register(new GalleryTile("Kit", "Solve status — idle, solving, failed, popover", "Default", BuildSolveStatusTile));
+            registry.Register(new GalleryTile("Kit", "Solve status (150%)", "150%", BuildSolveStatusScaledTile));
             registry.Register(new GalleryTile("Kit", "Toolbar row — full, labels dropped, overflowed", "Default", BuildToolbarRowTile));
             registry.Register(new GalleryTile("Kit", "Toolbar row (150%)", "150%", BuildToolbarRowScaledTile));
             registry.Register(new GalleryTile("Kit", "Palette panel — quick-add results", "Default", BuildPalettePanelTile));
@@ -1944,10 +1947,10 @@ namespace Foreman.Mac.Views {
                 hovered.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Readout").Classes.Add("gallery-hover");
 
             ZoomStepper solving = KitZoomStepper();
-            solving.IsSolving = true;
+            solving.SolveStatus.State = SolveStatusState.Solving;
 
             ZoomStepper error = KitZoomStepper();
-            error.HasSolveError = true;
+            error.SolveStatus.State = SolveStatusState.Failed;
 
             var row = new StackPanel {
                 Orientation = Orientation.Horizontal, Spacing = 16,
@@ -1961,25 +1964,20 @@ namespace Foreman.Mac.Views {
             return new StackPanel { Spacing = 8, Children = { KitText("Zoom stepper", "caption", "tertiary"), row } };
         }
 
-        //The stepper owns its error popover (addendum §08): opened here once the template exists, carrying a host-supplied Kit.StatePanel.error, the same slot a real solve failure fills.
+        //The stepper's hosted SolveStatus owns the error popover; it opens once the status attaches, carrying the same panel a real solve failure builds.
         private static Border BuildZoomStepperPopoverTile() {
             ZoomStepper stepper = KitZoomStepper();
-            var errorPanel = KitStatePanel(StatePanelShape.Error, "Solve failed",
-                "Beacon count must be 0 or more.",
-                KitButtonRow(KitRowButton("Fix It", ButtonRowRole.Default)));
-            stepper.ErrorPopoverContent = errorPanel;
-            stepper.TemplateApplied += (_, _) => {
-                stepper.HasSolveError = true;
-                stepper.IsErrorPopoverOpen = true;
-            };
+            stepper.SolveStatus.ErrorContent = SolveErrorPanel.Build(new SolveFailure([1], SolveFailureReason.Unknown), () => { }, () => { });
+            stepper.SolveStatus.State = SolveStatusState.Failed;
+            stepper.SolveStatus.IsErrorPopoverOpen = true;
 
-            var host = new PopoverHost { Width = 320, Height = 160 };
+            var host = new PopoverHost { Width = 320, Height = 200 };
             Avalonia.Controls.Canvas.SetLeft(stepper, 40);
             Avalonia.Controls.Canvas.SetTop(stepper, 20);
             host.Surface.Children.Add(stepper);
 
             return new Border {
-                Width = 320, Height = 160,
+                Width = 320, Height = 200,
                 Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
                 BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
                 BorderThickness = new Thickness(1),
@@ -1987,10 +1985,70 @@ namespace Foreman.Mac.Views {
             };
         }
 
+        private static SolveStatus KitSolveStatus(SolveStatusState state) =>
+            new() { Theme = KitTheme("Kit.SolveStatus"), State = state };
+
+        private static StackPanel SolveStatusColumn(string caption, SolveStatus status) {
+            var slot = new Border {
+                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.Border", Colors.Gray),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(6),
+                Child = status,
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            return new StackPanel { Spacing = 6, Children = { KitText(caption, "caption", "tertiary"), slot } };
+        }
+
+        //Addendum §11: one 16 pt slot in three states, and the popover the triangle opens (anchored, never a sheet).
+        private static StackPanel BuildSolveStatusTile() {
+            var row = new StackPanel {
+                Orientation = Orientation.Horizontal, Spacing = 16,
+                Children = {
+                    SolveStatusColumn("Idle (width 0)", KitSolveStatus(SolveStatusState.Idle)),
+                    SolveStatusColumn("Solving", KitSolveStatus(SolveStatusState.Solving)),
+                    SolveStatusColumn("Failed", KitSolveStatus(SolveStatusState.Failed)),
+                },
+            };
+
+            SolveStatus open = KitSolveStatus(SolveStatusState.Failed);
+            open.ErrorContent = SolveErrorPanel.Build(new SolveFailure([1], SolveFailureReason.Unknown), () => { }, () => { });
+            open.IsErrorPopoverOpen = true;
+            var host = new PopoverHost { Width = 340, Height = 190 };
+            Avalonia.Controls.Canvas.SetLeft(open, 280);
+            Avalonia.Controls.Canvas.SetTop(open, 12);
+            host.Surface.Children.Add(open);
+            var popoverFrame = new Border {
+                Width = 340, Height = 190,
+                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
+                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
+                BorderThickness = new Thickness(1),
+                Child = host,
+            };
+
+            return new StackPanel { Spacing = 8, Children = { KitText("Solve status — idle, solving, failed, popover", "caption", "tertiary"), row, popoverFrame } };
+        }
+
+        private static readonly string[] SolveStatusScaledSizeKeys = [
+            "Foreman.Size.Glyph16", "Foreman.Size.SpinnerSmall", "Foreman.Size.SpinnerStrokeSmall", "Foreman.Size.PopoverWidth",
+            "Foreman.Size.GlyphState", "Foreman.Metrics.StatePanelMaxWidth", "Foreman.Metrics.StatePanelSentenceMaxWidth",
+            "Foreman.Type.EmphasizedBody.FontSize", "Foreman.Type.Callout.FontSize", "Foreman.Type.Callout.LineHeight",
+            "Foreman.Size.ControlHeightRegular", "Foreman.Type.Body.FontSize",
+        ];
+
+        private static StackPanel BuildSolveStatusScaledTile() {
+            var container = new StackPanel { Spacing = 16 };
+            foreach (string key in SolveStatusScaledSizeKeys)
+                if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
+                    container.Resources[key] = value * 1.5;
+
+            container.Children.Add(BuildSolveStatusTile());
+            return container;
+        }
+
         private static readonly string[] ZoomStepperScaledSizeKeys = [
             "Foreman.Size.ControlHeightRegular", "Foreman.Size.ZoomReadoutWidth", "Foreman.Size.ZoomReadoutHeight",
             "Foreman.Size.ZoomStepperMicroButtonWidth", "Foreman.Size.ZoomStepperMicroButtonHeight",
-            "Foreman.Size.GlyphMicro", "Foreman.Size.SpinnerSmall", "Foreman.Size.SpinnerStrokeSmall",
+            "Foreman.Size.GlyphMicro", "Foreman.Size.Glyph16", "Foreman.Size.SpinnerSmall", "Foreman.Size.SpinnerStrokeSmall",
             "Foreman.Type.Caption.FontSize", "Foreman.Type.Callout.FontSize",
         ];
 

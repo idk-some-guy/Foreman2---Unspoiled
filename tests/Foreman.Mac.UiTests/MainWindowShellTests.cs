@@ -1640,6 +1640,61 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.Toolbar.IsVisible);
         }
 
+        //Hidden-toolbar assertion 4 / addendum §11: the status sits at the row's trailing edge, 12 from the right, centred in the 28 row.
+        [AvaloniaFact]
+        public void HiddenToolbar_Solving_SolveStatusInTitleBarRow_RightEdgeRowWidthMinus12_CentreY14_Failed_OpensThePopover() {
+            var window = new MainWindow { Settings = new AppSettings { ShowToolbar = false } };
+            window.Show();
+            var clock = new ManualTimeProvider();
+            window.UseSolveTracker(new SolveStatusTracker(clock));
+            Dispatcher.UIThread.RunJobs();
+            Grid titleBar = window.FindControl<Grid>("TitleBarRow")!;
+            SolveStatus status = window.TitleBarSolveStatus;
+            Assert.Same(titleBar, status.GetVisualParent());
+            Assert.Equal(0, status.Bounds.Width);
+
+            window.SolveTracker.OnSolveStarted();
+            clock.Advance(TimeSpan.FromMilliseconds(400));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(SolveStatusState.Solving, status.State);
+            Assert.Equal(28, titleBar.Bounds.Height, 0.5);
+            Assert.Equal(titleBar.Bounds.Width - 12, status.Bounds.Right, 1);
+            Assert.Equal(14, status.Bounds.Y + status.Bounds.Height / 2, 0.5);
+            Assert.Equal(new Size(16, 16), status.Bounds.Size);
+
+            window.SolveTracker.OnSolveEnded([new Foreman.Models.Solver.SolveFailure([1], Foreman.Models.Solver.SolveFailureReason.Infeasible)]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(SolveStatusState.Failed, status.State);
+            Button triangle = status.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "PART_Triangle");
+            Assert.False(triangle.IsTabStop);
+
+            ((IInvokeProvider)ControlAutomationPeer.CreatePeerForElement(triangle)).Invoke();
+            Dispatcher.UIThread.RunJobs();
+
+            PopoverFrame popover = window.GetVisualDescendants().OfType<PopoverFrame>().Single(f => f.Anchor == status);
+            Assert.True(popover.IsOpen);
+            Assert.Equal("Couldn\u2019t solve this graph", popover.GetVisualDescendants().OfType<StatePanel>().Single().Headline);
+        }
+
+        [AvaloniaFact]
+        public void ToolbarShown_TitleBarSolveStatusHides_AndTheStepperHostsIt() {
+            var window = new MainWindow();
+            window.Show();
+            window.SolveTracker.OnSolveEnded([new Foreman.Models.Solver.SolveFailure([1], Foreman.Models.Solver.SolveFailureReason.Infeasible)]);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(window.TitleBarSolveStatus.IsVisible);
+            Assert.Equal(SolveStatusState.Failed, window.Toolbar.ZoomStepper.SolveStatus.State);
+            Assert.Equal(16, window.Toolbar.ZoomStepper.SolveStatus.Bounds.Width);
+
+            window.Settings = new AppSettings { ShowToolbar = false };
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(window.TitleBarSolveStatus.IsVisible);
+            Assert.Equal(16, window.TitleBarSolveStatus.Bounds.Width);
+        }
+
         [AvaloniaFact]
         public void Constructor_SetsWindowStateMaximized() {
             var window = new MainWindow();

@@ -13,21 +13,37 @@ using System.Linq;
 namespace Foreman {
     public partial class ProductionGraph {
         private int updateCounter;
+
+        public IReadOnlyList<SolveFailure> LastSolveFailures { get; private set; } = [];
+        public event EventHandler? SolveStarted;
+        public event EventHandler? SolveEnded;
+
+        internal Func<ILpSolver> LpSolverFactory { get; set; } = () => HighsSolver.Create();
+
         public void OptimizeGraphNodeValues() {
-            foreach (var nodeGroup in GetConnectedComponents(false))
-                OptimiseNodeGroup(nodeGroup);
+            SolveStarted?.Invoke(this, EventArgs.Empty);
+            List<SolveFailure> failures = [];
+            try {
+                foreach (var nodeGroup in GetConnectedComponents(false))
+                    if (OptimiseNodeGroup(nodeGroup) is { } failure)
+                        failures.Add(failure);
+            } finally {
+                LastSolveFailures = failures;
+                SolveEnded?.Invoke(this, EventArgs.Empty);
+            }
 
             Debug.WriteLine("UPDATE #" + updateCounter++);
         }
 
-        private void OptimiseNodeGroup(IEnumerable<BaseNode> nodeGroup) {
+        private SolveFailure? OptimiseNodeGroup(IEnumerable<BaseNode> nodeGroup) {
+            List<BaseNode> nodes = [.. nodeGroup];
             double minRatio = 0.1;
-            foreach (RecipeNode node in nodeGroup.Where(n => n is RecipeNode))
+            foreach (RecipeNode node in nodes.Where(n => n is RecipeNode))
                 minRatio = Math.Min(minRatio, node.GetMinOutputRatio());
 
-            var solver = new ProductionSolver(PullOutputNodes, Math.Pow(10, PullOutputNodesPower), minRatio, Math.Pow(10, Math.Min(LowPriorityPower, 6)), HighsSolver.Create()); //capped at the UI's max (6); an uncapped value like the legacy 1e5 default overflows Math.Pow to Infinity and fails the whole node group
+            var solver = new ProductionSolver(PullOutputNodes, Math.Pow(10, PullOutputNodesPower), minRatio, Math.Pow(10, Math.Min(LowPriorityPower, 6)), LpSolverFactory()); //capped at the UI's max (6); an uncapped value like the legacy 1e5 default overflows Math.Pow to Infinity and fails the whole node group
 
-            foreach (BaseNode node in nodeGroup)
+            foreach (BaseNode node in nodes)
                 node.AddConstraints(solver);
 
             var solution = solver.Solve();
@@ -43,13 +59,23 @@ namespace Foreman {
                 //ErrorLogging.LogLine(solver.ToString(CultureInfo.InvariantCulture));
                 //Console.WriteLine(solver.ToString(CultureInfo.InvariantCulture));
                 ErrorLogging.LogLine("Solver failed to find a solution for a connected node group");
+
+                foreach (BaseNode node in nodes)
+                    node.MarkSolveStale();
+                return new SolveFailure([.. nodes.Select(n => n.NodeID)], solver.LastStatus switch {
+                    LpSolveStatus.Infeasible => SolveFailureReason.Infeasible,
+                    LpSolveStatus.Unbounded => SolveFailureReason.Unbounded,
+                    _ => SolveFailureReason.Unknown,
+                });
             }
 
-            foreach (BaseNode node in nodeGroup) {
-                node.SetSolvedRate(solution?.ActualRate(node) ?? 0);
+            foreach (BaseNode node in nodes) {
+                node.SolveState = NodeSolveState.Current;
+                node.SetSolvedRate(solution.ActualRate(node));
                 foreach (NodeLink link in node.OutputLinks)
-                    link.ThroughputPerSec = solution?.Throughput(link) ?? 0;
+                    link.ThroughputPerSec = solution.Throughput(link);
             }
+            return null;
         }
     }
 

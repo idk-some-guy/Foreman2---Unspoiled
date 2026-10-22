@@ -1,0 +1,106 @@
+using Avalonia.Controls;
+using Avalonia.Threading;
+using CommunityToolkit.Mvvm.Input;
+using Foreman.Graph;
+using Foreman.Mac.Canvas;
+using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Services;
+using Foreman.Mac.Views;
+using Foreman.Models.Solver;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Foreman.Mac {
+    public partial class MainWindow {
+        private SolveStatusTracker solveTracker = new(TimeProvider.System);
+        private SolveStatus titleBarSolveStatus = null!;
+        private RelayCommand showSolveErrorCommand = null!;
+        private NativeMenuItem showSolveErrorMenuItem = null!;
+        private SolveFailure? builtFailure;
+        private SolveStatusState lastSolveState;
+
+        internal SolveStatusTracker SolveTracker => solveTracker;
+        internal SolveStatus TitleBarSolveStatus => titleBarSolveStatus;
+
+        internal void UseSolveTracker(SolveStatusTracker tracker) {
+            solveTracker.Changed -= OnSolveTrackerChanged;
+            solveTracker.Disarm();
+            solveTracker = tracker;
+            solveTracker.Changed += OnSolveTrackerChanged;
+            ApplySolveStatus();
+        }
+
+        private void InitializeSolveStatus() {
+            titleBarSolveStatus = this.FindControl<SolveStatus>("TitleBarSolveStatus")!;
+            titleBarSolveStatus.PopoverHost = contentPopoverHost;
+            toolbar.ZoomStepper.SolveStatus.PopoverHost = contentPopoverHost;
+            titleBarSolveStatus.IsVisible = !(showToolbar || searchRevealsToolbar);
+
+            showSolveErrorCommand = new RelayCommand(ShowSolveError, () => solveTracker.State == SolveStatusState.Failed);
+            showSolveErrorMenuItem = new NativeMenuItem("Show Solve Error") {
+                Command = new DeferredMenuCommand(showSolveErrorCommand),
+                IsEnabled = false,
+            };
+
+            solveTracker.Changed += OnSolveTrackerChanged;
+            ProductionGraph graph = GraphCanvas.Viewer.Graph;
+            graph.SolveStarted += (_, _) => solveTracker.OnSolveStarted();
+            graph.SolveEnded += (_, _) => solveTracker.OnSolveEnded(graph.LastSolveFailures);
+            Closed += (_, _) => solveTracker.Disarm();
+        }
+
+        //The grace timer fires on a pool thread.
+        private void OnSolveTrackerChanged(object? sender, EventArgs e) {
+            if (Dispatcher.UIThread.CheckAccess())
+                ApplySolveStatus();
+            else
+                Dispatcher.UIThread.Post(ApplySolveStatus);
+        }
+
+        private void ApplySolveStatus() {
+            SolveStatusState state = solveTracker.State;
+            SolveFailure? failure = solveTracker.Failure;
+            SolveStatus[] statuses = [toolbar.ZoomStepper.SolveStatus, titleBarSolveStatus];
+
+            if (!ReferenceEquals(failure, builtFailure)) {
+                builtFailure = failure;
+                foreach (SolveStatus status in statuses) {
+                    SolveStatus owner = status;
+                    owner.ErrorContent = failure is null ? null : SolveErrorPanel.Build(failure,
+                        showNode: () => { owner.IsErrorPopoverOpen = false; ShowFailedNodes(); },
+                        tryAgain: () => { owner.IsErrorPopoverOpen = false; GraphCanvas.Viewer.Graph.UpdateNodeValues(); });
+                }
+            }
+            foreach (SolveStatus status in statuses)
+                status.State = state;
+
+            showSolveErrorMenuItem.IsEnabled = state == SolveStatusState.Failed;
+            showSolveErrorCommand.NotifyCanExecuteChanged();
+            if (state == SolveStatusState.Failed && lastSolveState != SolveStatusState.Failed)
+                Announce(SolveErrorPanel.Announcement);
+            lastSolveState = state;
+        }
+
+        private SolveStatus VisibleSolveStatus => showToolbar || searchRevealsToolbar ? toolbar.ZoomStepper.SolveStatus : titleBarSolveStatus;
+
+        private void ShowSolveError() {
+            if (solveTracker.State == SolveStatusState.Failed)
+                VisibleSolveStatus.IsErrorPopoverOpen = true;
+        }
+
+        private void ShowFailedNodes() {
+            if (solveTracker.Failure is not { } failure)
+                return;
+            HashSet<int> ids = [.. failure.NodeIds];
+            BaseNodeElement[] elements = [.. GraphCanvas.Viewer.NodeElementDictionary.Values.Where(e => ids.Contains(e.ViewModel.Id.Value))];
+            if (elements.Length == 0)
+                return;
+            System.Drawing.Rectangle bounds = elements.Select(CanvasTraversal.WorldBounds).Aggregate(System.Drawing.Rectangle.Union);
+            GraphCanvas.Viewer.SetSelection(elements);
+            GraphCanvas.PanIntoView(bounds, GraphCanvasControl.FindPanMargin);
+            GraphCanvas.RequestRedraw();
+        }
+    }
+}

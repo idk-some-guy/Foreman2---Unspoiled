@@ -5,6 +5,7 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Models;
+using Foreman.Models.Nodes;
 using Foreman.Serialization;
 using SkiaSharp;
 using System;
@@ -178,9 +179,7 @@ namespace Foreman.Mac.Canvas.Elements {
         public bool ShowsKeyboardFocus { get; set; }
         public bool IsFindMatch { get; set; }
 
-        //Stands in for the Core solve state until the solver reports it per node.
-        internal NodeSolveState? StaleOverride { get; set; }
-        internal NodeSolveState SolveState => StaleOverride ?? NodeSolveState.Solved;
+        internal NodeSolveState SolveState => ViewModel.SolveState;
 
         protected virtual bool Unavailable => false;
 

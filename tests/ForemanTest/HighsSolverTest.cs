@@ -69,6 +69,30 @@ namespace ForemanTest {
         }
 
         [TestMethod]
+        [DataRow(HighsStatus.kOk, HighsModelStatus.kOptimal, LpSolveStatus.Optimal)]
+        [DataRow(HighsStatus.kWarning, HighsModelStatus.kOptimal, LpSolveStatus.Optimal)]
+        [DataRow(HighsStatus.kOk, HighsModelStatus.kInfeasible, LpSolveStatus.Infeasible)]
+        [DataRow(HighsStatus.kOk, HighsModelStatus.kUnbounded, LpSolveStatus.Unbounded)]
+        [DataRow(HighsStatus.kOk, HighsModelStatus.kUnboundedOrInfeasible, LpSolveStatus.NotOptimal)]
+        [DataRow(HighsStatus.kOk, HighsModelStatus.kIterationLimit, LpSolveStatus.NotOptimal)]
+        [DataRow(HighsStatus.kError, HighsModelStatus.kInfeasible, LpSolveStatus.NotOptimal)]
+        public void StatusFor_MapsInfeasibleAndUnbounded_AndEverythingElseToNotOptimal(
+                HighsStatus runStatus, HighsModelStatus modelStatus, LpSolveStatus expected) {
+            Assert.AreEqual(expected, HighsSolver.StatusFor(runStatus, modelStatus));
+        }
+
+        [TestMethod]
+        public void Solve_ContradictoryConstraint_ReportsInfeasible() {
+            var solver = new HighsSolver();
+            ILpVariable x = solver.MakeNumVar(0, double.PositiveInfinity);
+            ILpConstraint constraint = solver.MakeConstraint(-1, -1);
+            constraint.SetCoefficient(x, 1);
+            solver.SetMinimization();
+
+            Assert.AreEqual(LpSolveStatus.Infeasible, solver.Solve());
+        }
+
+        [TestMethod]
         public void SolutionValueFor_ColumnBeyondTheSolutionArray_ReturnsZeroInsteadOfThrowing() {
             var solver = new HighsSolver();
             FieldInfo solutionField = ReflectionTestHelper.RequireField(typeof(HighsSolver), "solution", BindingFlags.NonPublic | BindingFlags.Instance);

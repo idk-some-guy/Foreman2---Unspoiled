@@ -31,6 +31,7 @@ namespace Foreman.Graph {
         string KeyNodeTitle { get; }
         RateType RateType { get; }
         NodeState State { get; }
+        NodeSolveState SolveState { get; }
         IEnumerable<ItemQualityPair> Inputs { get; }
         IEnumerable<ItemQualityPair> Outputs { get; }
         IReadOnlyList<INodeLinkViewModel> InputLinks { get; }

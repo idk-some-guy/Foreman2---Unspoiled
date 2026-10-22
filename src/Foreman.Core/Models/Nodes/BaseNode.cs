@@ -14,6 +14,7 @@ namespace Foreman {
         public abstract BaseNodeController Controller { get; }
         public ProductionGraph MyGraph { get; }
         public int NodeID { get; }
+        public NodeSolveState SolveState { get; internal set; } = NodeSolveState.NeverSolved;
         public bool IsClean { get; protected set; } //if true then this node hasnt changed (internal values or links) since last solver solution
 
         private bool keyNode;
@@ -109,6 +110,13 @@ namespace Foreman {
 
         protected virtual void OnNodeStateChanged() { NodeStateChanged?.Invoke(this, EventArgs.Empty); }
         protected virtual void OnNodeValuesChanged() { NodeValuesChanged?.Invoke(this, EventArgs.Empty); }
+
+        internal void MarkSolveStale() {
+            if (SolveState != NodeSolveState.Current)
+                return;
+            SolveState = NodeSolveState.Stale;
+            OnNodeValuesChanged();
+        }
 
         public abstract double GetConsumeRate(ItemQualityPair item); //calculated rate a given item is consumed by this node (may not match desired amount)
         public abstract double GetSupplyRate(ItemQualityPair item); //calculated rate a given item is supplied by this note (may not match desired amount)
@@ -218,4 +226,8 @@ namespace Foreman {
         public void Delete() => MyNode.MyGraph.DeleteNode(MyNode);
         public override string ToString() => "C: " + MyNode.ToString();
     }
+}
+
+namespace Foreman.Models.Nodes {
+    public enum NodeSolveState { NeverSolved, Current, Stale }
 }

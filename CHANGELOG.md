@@ -320,6 +320,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   and placement announcements are spoken.
 - Find now rings every matching node on the canvas with a dashed accent outline just outside the
   card, 2 pt wide at any zoom, so matches show on a zoomed-out graph and in image export.
+- A solve-status indicator beside the zoom readout shows a solve in progress and a failed solve with
+  a warning triangle. With the toolbar hidden it sits at the right end of the titlebar. The triangle
+  opens a popover headed "Couldn't solve this graph" with Show Node, which selects the failed group
+  and pans to it, and Try Again. View > Show Solve Error opens it from the keyboard, Cmd-period
+  cancels a solve, and VoiceOver announces the failure.
 
 ### Fixed
 
@@ -606,6 +611,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   one point wide, the Shift axis-lock guide is a dashed accent line, and the lasso is an accent
   outline over a soft accent fill. Pausing calculations draws a 2 pt warning frame and a
   "Calculations paused" capsule at the top of the canvas that resumes them when clicked.
+- A graph the solver cannot solve keeps the rates and link throughputs from its last good solve,
+  shown in secondary italic as out of date, instead of dropping to zero. Nodes that were never
+  solved still read as not yet solved.
 
 ### Removed
 

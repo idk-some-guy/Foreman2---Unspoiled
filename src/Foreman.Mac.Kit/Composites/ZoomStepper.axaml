@@ -96,22 +96,7 @@
                            Classes="caption secondary"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center" />
-                <Viewbox Width="{DynamicResource Foreman.Size.SpinnerSmall}"
-                         Height="{DynamicResource Foreman.Size.SpinnerSmall}"
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center">
-                  <ctrl:Spinner x:Name="PART_Spinner" Theme="{StaticResource Kit.Spinner}" Classes="sm" IsVisible="False" Opacity="0" />
-                </Viewbox>
-                <Viewbox Width="{DynamicResource Foreman.Size.GlyphMicro}" Height="{DynamicResource Foreman.Size.GlyphMicro}"
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center"
-                         Stretch="Uniform" StretchDirection="Both">
-                  <Path x:Name="PART_ErrorGlyph"
-                        Theme="{StaticResource Kit.Glyph}"
-                        Data="{StaticResource Kit.Glyph.Alert.12}"
-                        Stroke="{DynamicResource Foreman.Color.Error}"
-                        Width="12" Height="12" Stretch="None" Opacity="0" />
-                </Viewbox>
+                <Panel x:Name="PART_SolveStatusHost" HorizontalAlignment="Center" VerticalAlignment="Center" />
               </Grid>
             </kit:ZoomStepperReadout>
 

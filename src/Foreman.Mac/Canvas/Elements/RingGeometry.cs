@@ -7,6 +7,4 @@ namespace Foreman.Mac.Canvas.Elements {
     public enum NodeBadgeKind { Unavailable, Error, Undersupplied, Warning, Over }
 
     public readonly record struct NodeBadge(NodeBadgeKind Kind, string Text);
-
-    internal enum NodeSolveState { Solved, Stale, NeverSolved }
 }

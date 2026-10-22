@@ -144,7 +144,8 @@ namespace Foreman.Mac.UiTests.Views {
                  "Chooser grid — no results (State panel)", "Sheet frame — error (State panel)",
                  "Form group — load failure (State panel)", "Inspector group — body delegation (State panel)",
                  "Zoom stepper — at rest, hovered, solving, solve failed", "Zoom stepper — solve-error popover",
-                 "Zoom stepper (150%)", "Toolbar row — full, labels dropped, overflowed", "Toolbar row (150%)",
+                 "Zoom stepper (150%)", "Solve status — idle, solving, failed, popover", "Solve status (150%)",
+                 "Toolbar row — full, labels dropped, overflowed", "Toolbar row (150%)",
                  "Palette panel — quick-add results", "Palette panel — no results", "Palette panel (150%)",
                  "Recent row — selected, hovered, inactive, unavailable & focused", "Recent row (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
@@ -897,6 +898,70 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(24, readout.Bounds.Height);
             Assert.Equal(30, minus.Bounds.Width);
             Assert.Equal(24, minus.Bounds.Height);
+        }
+
+        [AvaloniaFact]
+        public void ZoomStepperTile_SolvingAndFailedColumns_DriveTheHostedSolveStatus() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Zoom stepper — at rest, hovered, solving, solve failed");
+
+            Assert.Equal(
+                [SolveStatusState.Idle, SolveStatusState.Idle, SolveStatusState.Solving, SolveStatusState.Failed],
+                tile.GetVisualDescendants().OfType<ZoomStepper>().Select(z => z.SolveStatus.State));
+        }
+
+        [AvaloniaFact]
+        public void ZoomStepperPopoverTile_OpensTheHostedStatusPopover_WithTheRuledPanel() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Zoom stepper — solve-error popover");
+            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+
+            Assert.True(popover.IsOpen);
+            Assert.Equal("Couldn\u2019t solve this graph", Assert.IsType<StatePanel>(popover.Content).Headline);
+        }
+
+        [AvaloniaFact]
+        public void SolveStatusTile_ShowsIdleSolvingFailedAndAnOpenPopover() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Solve status — idle, solving, failed, popover");
+            SolveStatus[] statuses = [.. tile.GetVisualDescendants().OfType<SolveStatus>()];
+
+            Assert.Equal([SolveStatusState.Idle, SolveStatusState.Solving, SolveStatusState.Failed, SolveStatusState.Failed], statuses.Select(s => s.State));
+            Assert.Equal(0, statuses[0].Bounds.Width);
+            Assert.Equal(new Size(16, 16), statuses[1].Bounds.Size);
+            PopoverFrame popover = tile.GetVisualDescendants().OfType<PopoverFrame>().Single();
+            Assert.True(popover.IsOpen);
+            Assert.Same(statuses[3], popover.Anchor);
+            Assert.Equal(["Show Node", "Try Again"], Assert.IsType<StatePanel>(popover.Content).Buttons!.Items.OfType<Button>().Select(b => (string)b.Content!));
+        }
+
+        [AvaloniaFact]
+        public void SolveStatusScaledTile_ResolvesSlotAndSpinner_AtOneAndAHalfScale() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Solve status (150%)");
+            SolveStatus solving = tile.GetVisualDescendants().OfType<SolveStatus>().First(s => s.State == SolveStatusState.Solving);
+            Panel slot = solving.GetVisualDescendants().OfType<Panel>().Single(p => p.Name == "PART_Slot");
+            Foreman.Mac.Kit.Controls.Spinner spinner = solving.GetVisualDescendants().OfType<Foreman.Mac.Kit.Controls.Spinner>().Single();
+
+            Assert.Equal(new Size(24, 24), slot.Bounds.Size);
+            Assert.Equal(21, spinner.Diameter, 3);
+            Assert.Equal(2.25, spinner.StrokeWidth, 3);
         }
 
         [AvaloniaFact]

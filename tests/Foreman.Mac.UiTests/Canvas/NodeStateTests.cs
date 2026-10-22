@@ -85,6 +85,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             return new Fixture { Cache = cache, Subgroup = subgroup, Quality = quality, Graph = graph, Session = session, Context = context };
         }
 
+        private static void SetSolveState(ProductionGraphSession session, BaseNodeElement element, NodeSolveState state) {
+            session.TryGetDomainNode(element.ViewModel.Id, out BaseNode? node);
+            node!.SolveState = state;
+        }
+
         private static T Painted<T>(T element) where T : BaseNodeElement {
             element.PrePaint();
             return element;
@@ -155,6 +160,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             }
 
             public NodeState State => state ?? inner.State;
+            public NodeSolveState SolveState => inner.SolveState;
             public List<string> GetErrors() => State == NodeState.Error ? ["> Some links are invalid!"] : [];
             public List<string> GetWarnings() => State == NodeState.Warning ? ["Stubbed warning"] : [];
 
@@ -537,7 +543,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             SKColor secondary = Resolve("Foreman.Color.TextSecondary");
             Assert.All(tabs, tab => Assert.False(tab.RateText.Italic));
 
-            recipe.StaleOverride = NodeSolveState.Stale;
+            SetSolveState(fx.Viewer.Session, recipe, NodeSolveState.Stale);
             recipe.PrePaint();
             Assert.Equal(rates, tabs.Select(tab => tab.RateText.Text));
             Assert.Equal(count, Count().Text);
@@ -547,12 +553,12 @@ namespace Foreman.Mac.UiTests.Canvas {
                 Assert.NotEqual(SKFontStyleSlant.Upright, NodeCardPainter.Typeface(rate.Weight, rate.Italic).FontStyle.Slant);
             }
 
-            recipe.StaleOverride = NodeSolveState.NeverSolved;
+            SetSolveState(fx.Viewer.Session, recipe, NodeSolveState.NeverSolved);
             recipe.PrePaint();
             Assert.All(tabs, tab => Assert.Equal("—", tab.RateText.Text));
             Assert.Equal("—", Count().Text);
 
-            recipe.StaleOverride = null;
+            SetSolveState(fx.Viewer.Session, recipe, NodeSolveState.Current);
             recipe.PrePaint();
             Assert.Equal(rates, tabs.Select(tab => tab.RateText.Text));
             Assert.Equal(count, Count().Text);
@@ -561,22 +567,24 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             Fixture small = NewFixture();
             foreach ((BaseNodeElement node, string word) in new (BaseNodeElement, string)[] { (Spoil(small), "Spoil"), (Plant(small), "Plant") }) {
+                SetSolveState(small.Session, node, NodeSolveState.Current);
+                node.PrePaint();
                 NodeText Sub() => node.Texts.Single(t => t.Role == NodeTextRole.Detail);
                 string before = Sub().Text;
                 Assert.StartsWith(word + " · ×", before);
                 Assert.False(Sub().Italic);
 
-                node.StaleOverride = NodeSolveState.Stale;
+                SetSolveState(small.Session, node, NodeSolveState.Stale);
                 node.PrePaint();
                 Assert.Equal(before, Sub().Text);
                 Assert.True(Sub().Italic);
                 Assert.Equal(secondary, Sub().Color);
 
-                node.StaleOverride = NodeSolveState.NeverSolved;
+                SetSolveState(small.Session, node, NodeSolveState.NeverSolved);
                 node.PrePaint();
                 Assert.Equal(word + " · —", Sub().Text);
 
-                node.StaleOverride = null;
+                SetSolveState(small.Session, node, NodeSolveState.Current);
                 node.PrePaint();
                 Assert.Equal(before, Sub().Text);
                 Assert.False(Sub().Italic);

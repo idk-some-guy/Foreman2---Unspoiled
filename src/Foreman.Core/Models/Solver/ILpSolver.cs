@@ -2,6 +2,8 @@ namespace Foreman.Models.Solver {
     public enum LpSolveStatus {
         Optimal,
         NotOptimal,
+        Infeasible,
+        Unbounded,
     }
 
     public interface ILpVariable {

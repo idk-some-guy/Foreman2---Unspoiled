@@ -26,6 +26,8 @@
       <TextBlock Name="TitleBarTitle" Theme="{StaticResource Kit.Text}" Classes="headline" Text="{Binding WindowTitle}" IsVisible="False"
                  HorizontalAlignment="Center" VerticalAlignment="Center" Margin="80,0" TextWrapping="NoWrap" TextTrimming="PrefixCharacterEllipsis"
                  IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+      <composites:SolveStatus x:Name="TitleBarSolveStatus" Theme="{StaticResource Kit.SolveStatus}"
+                              HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" IsVisible="False" />
     </Grid>
 
     <!-- Inspector's IsVisible is set from MainWindow.axaml.cs, not bound here. Overlay, not a column

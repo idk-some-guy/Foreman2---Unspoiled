@@ -106,7 +106,10 @@ namespace Foreman.Mac.UiTests.Canvas {
             return new Fixture { Cache = cache, Subgroup = subgroup, Quality = quality, Graph = graph, Session = session, Context = context };
         }
 
-        private static T Last<T>(Fixture fx) where T : INodeViewModel => fx.Session.View.Nodes.OfType<T>().Last();
+        private static T Last<T>(Fixture fx) where T : INodeViewModel {
+            fx.Graph.UpdateNodeValues();
+            return fx.Session.View.Nodes.OfType<T>().Last();
+        }
 
         private static SupplierNodeElement Supplier(Fixture fx, string itemName) {
             fx.Graph.CreateSupplierNode(fx.Pair(fx.NewItem(itemName)), DrawingPoint.Empty);
@@ -482,6 +485,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             ItemQualityPair pair = fx.Pair(fx.NewItem("ore"));
             BaseNode supplierNode = fx.Graph.CreateSupplierNode(pair, DrawingPoint.Empty);
             fx.Graph.CreateLink(supplierNode, fx.Graph.CreateConsumerNode(pair, new DrawingPoint(0, 200)), pair);
+            fx.Graph.UpdateNodeValues();
             SupplierNodeElement supplier = Primed(new SupplierNodeElement(fx.Context, fx.Session.View.Nodes.OfType<ISupplierNodeViewModel>().Single()));
             ItemTabElement tab = supplier.SubElements.OfType<ItemTabElement>().Single();
 
