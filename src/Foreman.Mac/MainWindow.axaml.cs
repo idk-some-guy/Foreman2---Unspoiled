@@ -841,12 +841,16 @@ namespace Foreman.Mac {
                 GraphCanvas.InvalidateVisual();
             };
             pauseUpdatesCheckBox.IsCheckedChanged += (_, _) => {
-                GraphCanvas.Viewer.Graph.PauseUpdates = pauseUpdatesCheckBox.IsChecked == true;
-                if (!GraphCanvas.Viewer.Graph.PauseUpdates)
-                    GraphCanvas.Viewer.Graph.UpdateNodeValues();
+                bool paused = pauseUpdatesCheckBox.IsChecked == true;
+                if (GraphCanvas.Viewer.IsPaused != paused) {
+                    GraphCanvas.Viewer.IsPaused = paused;
+                    if (!paused)
+                        GraphCanvas.Viewer.Graph.UpdateNodeValues();
+                }
                 ResyncNativeMenuCheckedStates();
                 GraphCanvas.InvalidateVisual();
             };
+            GraphCanvas.CalculationsResumed += (_, _) => pauseUpdatesCheckBox.IsChecked = false;
         }
 
         //Kit.PopUp.Command fires only on a real user commit, never on a SelectedItem write.
@@ -1708,10 +1712,10 @@ namespace Foreman.Mac {
         }
 
         private void MenuTogglePauseCalculations() {
-            GraphCanvas.Viewer.Graph.PauseUpdates = !GraphCanvas.Viewer.Graph.PauseUpdates;
-            if (!GraphCanvas.Viewer.Graph.PauseUpdates)
+            GraphCanvas.Viewer.IsPaused = !GraphCanvas.Viewer.IsPaused;
+            if (!GraphCanvas.Viewer.IsPaused)
                 GraphCanvas.Viewer.Graph.UpdateNodeValues();
-            pauseUpdatesCheckBox.IsChecked = GraphCanvas.Viewer.Graph.PauseUpdates;
+            pauseUpdatesCheckBox.IsChecked = GraphCanvas.Viewer.IsPaused;
             ResyncNativeMenuCheckedStates();
             GraphCanvas.InvalidateVisual();
         }

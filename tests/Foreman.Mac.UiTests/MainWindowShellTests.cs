@@ -1216,6 +1216,56 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(1, solveCount);
         }
 
+        [AvaloniaFact]
+        public void PausedCapsule_PointerClick_ResumesOnceAndClearsEveryPauseControl() {
+            var window = new MainWindow();
+            window.Show();
+            window.Settings = new AppSettings();
+            window.ApplyLoadedSettings();
+            OpenViewOptions(window);
+            NativeMenuItem pauseItem = AllNativeMenuItems(NativeMenu.GetMenu(window)!).Single(i => i.Header == "Pause All Calculations");
+            var pauseCheckbox = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "PauseUpdatesCheckbox");
+            pauseCheckbox.IsChecked = true;
+            PausedCapsule capsule = window.GraphCanvas.GetVisualDescendants().OfType<PausedCapsule>().Single();
+            Assert.True(capsule.IsVisible);
+            OpenViewOptions(window);
+            window.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Avalonia.Point centre = capsule.TranslatePoint(new Avalonia.Point(capsule.Bounds.Width / 2, capsule.Bounds.Height / 2), window)!.Value;
+            int solveCount = 0;
+            window.GraphCanvas.Viewer.Graph.NodeValuesUpdated += (_, _) => solveCount++;
+
+            window.MouseDown(centre, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(centre, MouseButton.Left, RawInputModifiers.None);
+
+            Assert.False(window.GraphCanvas.Viewer.IsPaused);
+            Assert.False(pauseCheckbox.IsChecked);
+            Assert.False(pauseItem.IsChecked);
+            Assert.False(capsule.IsVisible);
+            Assert.Equal(1, solveCount);
+        }
+
+        [AvaloniaFact]
+        public void MenuTogglePauseCalculations_Unpausing_SolvesExactlyOnce() {
+            var window = new MainWindow();
+            window.Show();
+            window.Settings = new AppSettings();
+            window.ApplyLoadedSettings();
+            NativeMenuItem pauseItem = AllNativeMenuItems(NativeMenu.GetMenu(window)!).Single(i => i.Header == "Pause All Calculations");
+            pauseItem.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(window.GraphCanvas.Viewer.IsPaused);
+            int solveCount = 0;
+            window.GraphCanvas.Viewer.Graph.NodeValuesUpdated += (_, _) => solveCount++;
+
+            pauseItem.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(window.GraphCanvas.Viewer.IsPaused);
+            Assert.False(pauseItem.IsChecked);
+            Assert.Equal(1, solveCount);
+        }
+
         //BindViewOptionControls wrote rateOptions.SelectedIndex directly, with the
         //handler already subscribed after the first bind - a second ApplyLoadedSettings call (e.g. a preset-
         //switching Confirm) that also changed settings.DefaultRateUnit re-solved on top of the apply-tail's

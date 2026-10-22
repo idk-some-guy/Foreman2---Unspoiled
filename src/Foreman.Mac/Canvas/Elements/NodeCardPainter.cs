@@ -211,7 +211,7 @@ namespace Foreman.Mac.Canvas.Elements {
 
         internal static void BeginOpacityLayer(SKCanvas canvas, float opacity) {
             SKPaint paint = threadLayerPaint ??= new SKPaint();
-            paint.Color = SKColors.Black.WithAlpha((byte)Math.Round(255 * Math.Clamp(opacity, 0, 1)));
+            paint.Color = paint.Color.WithAlpha((byte)Math.Round(255 * Math.Clamp(opacity, 0, 1)));
             canvas.SaveLayer(paint);
         }
 

@@ -5,6 +5,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.UiTests.support;
 using Foreman.Models;
@@ -124,11 +125,10 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new Point(30, 40), node.Location); //overshoot flips it: |dy|>|dx| now -> X pinned back to DragOrigin, Y free
         }
 
-        //---- locked-axis line rendering (GridManager.Paint's draggedNodeActive gate, reference §2/§8.12's
-        //Grid.Paint call) - GraphViewer.Paint now threads GraphCanvasControl's own drag state through so
-        //this can ever draw at all ----
+        //---- axis-lock guide gating (GridManager.Paint's draggedNodeActive gate, reference §2/§8.12's
+        //Grid.Paint call) ----
 
-        private static readonly SKColor LockedAxisColor = new(180, 80, 80);
+        private static SKColor LockedAxisColor => TokenBridge.Current.Accent;
 
         private static bool ContainsColor(SKSurface surface, SKColor color) {
             using SKImage image = surface.Snapshot();
@@ -141,7 +141,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [AvaloniaFact]
-        public void ShiftAxisLock_DuringItemDrag_RendersLockedAxisLine() {
+        public void ShiftAxisLock_DuringItemDrag_RendersAccentGuideThroughControlRender() {
             Fixture fx = NewFixture();
             fx.Control.Grid.ShowGrid = true;
             fx.Control.Grid.CurrentGridUnit = 10;
@@ -150,9 +150,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             AvaloniaPoint start = fx.Control.Viewport.GraphToScreen(node.Location);
 
             fx.Window.MouseDown(start, MouseButton.Left, RawInputModifiers.None);
-            fx.Window.MouseMove(start + new AvaloniaPoint(30, 0), RawInputModifiers.LeftMouseButton); //threshold
-            fx.Window.MouseMove(start + new AvaloniaPoint(30, 0), RawInputModifiers.LeftMouseButton); //arm
-            fx.Window.MouseMove(start + new AvaloniaPoint(30, 0), RawInputModifiers.LeftMouseButton); //move to (30,0)
+            fx.Window.MouseMove(start + new AvaloniaPoint(30, 0), RawInputModifiers.LeftMouseButton);
+            fx.Window.MouseMove(start + new AvaloniaPoint(30, 0), RawInputModifiers.LeftMouseButton);
+            fx.Window.MouseMove(start + new AvaloniaPoint(30, 0), RawInputModifiers.LeftMouseButton);
 
             fx.Control.Focus();
             CanvasKeys.KeyDownOnCanvas(fx.Control, Key.LeftShift, KeyModifiers.Shift);

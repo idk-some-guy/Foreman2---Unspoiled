@@ -13,7 +13,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using AvColor = Avalonia.Media.Color;
 
 namespace Foreman.Mac.Canvas {
     public sealed record GraphLoadResult(bool Success, string? ErrorMessage) {
@@ -79,21 +78,29 @@ namespace Foreman.Mac.Canvas {
         //collapses to a single null check instead of also tracking DragOperation itself.
         public Rectangle? SelectionZone { get; set; }
 
-        //Ports MainForm's dark bg (23,23,23)/fg (124,124,124) constants (upstream MainForm.cs:37) - the
-        //canvas half of ChangeTheme's control-tree walk, since this control has no WinForms BackColor of its
-        //own to inherit the recursive BackColor/ForeColor assignment from.
-        private static readonly SKColor DarkBackground = new(23, 23, 23);
-        private static readonly SKColor DarkForeground = new(124, 124, 124);
-        private static readonly SKColor LightBackground = SKColors.White;
-        private static readonly SKColor LightForeground = new(200, 200, 200);
+        private SKColor? backgroundOverride;
 
-        public SKColor BackgroundColor { get; private set; } = LightBackground;
+        public SKColor BackgroundColor => backgroundOverride ?? KitSkia.TokenBridge.Current.CanvasBackground;
 
-        //Fixed color/width, safe as a shared static across every viewer.
-        private static readonly SKPaint PausedBorderPaint = new() { Color = new SKColor(255, 80, 80), Style = SKPaintStyle.Stroke, StrokeWidth = 5 };
+        internal SKPaint PausedFramePaint { get; } = new() { Style = SKPaintStyle.Stroke, StrokeWidth = 2 };
 
-        //Per-viewer mutate-reset paint: StrokeWidth tracks this viewer's own ViewScale per frame.
-        private readonly SKPaint _selectionZonePaint = new() { Color = new SKColor(100, 100, 200), Style = SKPaintStyle.Stroke, IsAntialias = true };
+        internal SKPaint LassoStrokePaint { get; } = new() { Style = SKPaintStyle.Stroke, IsAntialias = true };
+
+        internal SKPaint LassoFillPaint { get; } = new() { Style = SKPaintStyle.Fill, IsAntialias = true };
+
+        public bool IsPaused {
+            get => Graph.PauseUpdates;
+            set {
+                if (Graph.PauseUpdates == value)
+                    return;
+                Graph.PauseUpdates = value;
+                PausedChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public event EventHandler? PausedChanged;
+
+        public string PausedValueSuffix => IsPaused ? ", calculations paused" : "";
 
         public GraphViewer(Viewport viewport, GridManager grid) {
             Viewport = viewport;
@@ -419,33 +426,9 @@ namespace Foreman.Mac.Canvas {
                 yield return element;
         }
 
-        //Ports Paint(Graphics, FullGraph) (reference §3 steps 2-8): visibility pass, grid, DynamicLinkWidth
-        //pre-pass, PrePaint pass, then the style-selected main draw loop. Doesn't include steps 9-12 (the
-        //ResetTransform-and-beyond screen-space overlays); those are PaintOverlays/PaintPausedBorder below,
-        //called separately so GraphCanvasControl can interleave its own hover-tooltip draw between them in
-        //upstream's exact z-order (arrows, tooltip, paused border last/topmost).
-        //Ports MainForm.SetDarkMode/SetLightMode (upstream MainForm.cs:36-46): recolors the canvas clear
-        //color and hands the same bg/fg pair to GridManager.SetGridColors, matching ChangeTheme's own call
-        //into ProductionGraphViewer's grid when it walks the control tree. Unlike upstream's dark-restores-
-        //to-DefaultBackColor/DefaultForeColor split (WinForms SystemColors with no Avalonia/macOS
-        //equivalent), the light path here returns to this port's own cold-start light constants - see
-        //docs/upstream-divergences.md.
-        public void ApplyTheme(bool dark) {
-            SKColor bg = ResolveBackgroundColor(dark);
-            SKColor fg = dark ? DarkForeground : LightForeground;
-            BackgroundColor = bg;
-            Grid.SetGridColors(bg, fg);
-        }
-
-        //Foreman.Color.CanvasBackground per active variant (the shared design token, not this class' own
-        //fallback constants) - resolved explicitly off the passed-in dark flag rather than ActualThemeVariant, since
-        //callers (ApplyLoadedSettings, Settings Confirm) already compute dark from FlagDarkMode themselves.
-        private static SKColor ResolveBackgroundColor(bool dark) {
-            SKColor fallback = dark ? DarkBackground : LightBackground;
-            AvColor avFallback = new(fallback.Alpha, fallback.Red, fallback.Green, fallback.Blue);
-            AvColor color = ThemeResources.ResolveColor("Foreman.Color.CanvasBackground", dark ? ThemeVariant.Dark : ThemeVariant.Light, avFallback);
-            return new SKColor(color.R, color.G, color.B, color.A);
-        }
+        //The explicit variant covers callers that apply a theme before the app's own variant has flipped.
+        public void ApplyTheme(bool dark) =>
+            backgroundOverride = KitSkia.TokenBridge.ColorIn("Foreman.Color.CanvasBackground", dark ? ThemeVariant.Dark : ThemeVariant.Light);
 
         //Ports ImageExportForm.ExportBitmap's two transform variants (reference §3): upstream sets its own
         //Graphics.Transform before calling graphViewer.Paint(fullGraph: true), since ProductionGraphViewer.
@@ -460,6 +443,11 @@ namespace Foreman.Mac.Canvas {
             : (visibleNodes > NodeCountForSimpleView || viewScale < 0.2f) ? NodeDrawingStyle.Simple
             : NodeDrawingStyle.Regular;
 
+        //Ports Paint(Graphics, FullGraph) (reference §3 steps 2-8): visibility pass, grid, DynamicLinkWidth
+        //pre-pass, PrePaint pass, then the style-selected main draw loop. Doesn't include steps 9-12 (the
+        //ResetTransform-and-beyond screen-space overlays); those are PaintOverlays/PaintPausedFrame below,
+        //called separately so GraphCanvasControl can interleave its own hover-tooltip draw between them in
+        //upstream's exact z-order (arrows, tooltip, paused frame last/topmost).
         public void Paint(SKCanvas canvas, bool fullGraph = false, bool draggedNodeActive = false, GraphElement? draggedLink = null, bool clearBackground = true, ExportTransform? exportTransform = null) {
             if (clearBackground)
                 canvas.Clear(BackgroundColor);
@@ -494,12 +482,14 @@ namespace Foreman.Mac.Canvas {
                 foreach (GraphElement element in GetPaintingOrder(draggedLink))
                     element.Paint(canvas, style);
 
-                //selection zone (reference §1 Paint: selectionPen, RGB(100,100,200), 2 screen-px wide regardless
-                //of zoom - hence the ViewScale-compensated stroke width, drawn in the same graph-space transform
-                //as everything above so it tracks pan/zoom like the elements it's lassoing).
                 if (!fullGraph && SelectionZone is Rectangle zone && zone.Width > 0 && zone.Height > 0) {
-                    _selectionZonePaint.StrokeWidth = 2f / Viewport.ViewScale;
-                    canvas.DrawRect(SKRect.Create(zone.X, zone.Y, zone.Width, zone.Height), _selectionZonePaint);
+                    KitSkia.CanvasTokens tokens = KitSkia.TokenBridge.Current;
+                    SKRect zoneRect = SKRect.Create(zone.X, zone.Y, zone.Width, zone.Height);
+                    LassoFillPaint.Color = tokens.AccentSoft;
+                    LassoStrokePaint.Color = tokens.Accent;
+                    LassoStrokePaint.StrokeWidth = 1f / Viewport.ViewScale;
+                    canvas.DrawRect(zoneRect, LassoFillPaint);
+                    canvas.DrawRect(zoneRect, LassoStrokePaint);
                 }
             } finally {
                 Context.ExportViewScale = null;
@@ -522,14 +512,15 @@ namespace Foreman.Mac.Canvas {
             }
         }
 
-        public void PaintPausedBorder(SKCanvas canvas) {
-            canvas.DrawRect(0, 0, (float)Viewport.Width - 3, (float)Viewport.Height - 3, PausedBorderPaint);
+        public void PaintPausedFrame(SKCanvas canvas) {
+            PausedFramePaint.Color = KitSkia.TokenBridge.Current.Warning;
+            canvas.DrawRect(1, 1, (float)Viewport.Width - 2, (float)Viewport.Height - 2, PausedFramePaint);
         }
 
         //GraphCanvasControl.OnDetachedFromVisualTree is this class's only caller (it
         //owns the GraphViewer it constructs), and Avalonia can raise a detach more than once across a
         //control's lifetime (e.g. a reattach cycle) - the guard keeps a second call a no-op instead of a
-        //double-dispose of _selectionZonePaint/Grid's own SKPaints.
+        //double-dispose of the viewer's and Grid's own SKPaints.
         public bool IsDisposed { get; private set; }
 
         public void Dispose() {
@@ -537,7 +528,9 @@ namespace Foreman.Mac.Canvas {
                 return;
             IsDisposed = true;
             KitSkia.TokenBridge.Changed -= OnTokenBridgeChanged;
-            _selectionZonePaint.Dispose();
+            PausedFramePaint.Dispose();
+            LassoStrokePaint.Dispose();
+            LassoFillPaint.Dispose();
             Grid.Dispose();
         }
 

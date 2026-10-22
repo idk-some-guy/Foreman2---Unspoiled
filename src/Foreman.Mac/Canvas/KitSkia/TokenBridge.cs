@@ -101,6 +101,8 @@ namespace Foreman.Mac.Canvas.KitSkia {
 
         private static SKColor ColorOf(string key) => ToSk(ThemeResources.ResolveColor(key, default));
 
+        internal static SKColor ColorIn(string key, ThemeVariant variant) => ToSk(ThemeResources.ResolveColor(key, variant, default));
+
         private static SKColor ToSk(AvColor color) => new(color.R, color.G, color.B, color.A);
 
         private static float Number(string key) => Resource(key) is double value ? (float)value : 0f;

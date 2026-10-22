@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views;
@@ -179,30 +180,22 @@ namespace Foreman.Mac.UiTests.Views {
         //---- transparency (reference §3 ExportBitmap's conditional Clear) ------------------------------
 
         [AvaloniaFact]
-        public async Task ExportAsync_TransparencyChecked_BackgroundPixelIsFullyTransparent() {
-            GraphViewer viewer = NewViewer(400, 300);
-            AddSolidShape(viewer, new Point(0, 0), 40, SKColors.Red);
-            var sheet = new ImageExportSheet(viewer);
-            sheet.TransparencyCheckBoxControl.IsChecked = true;
-            sheet.SavePath = TempPngPath();
+        public async Task ExportImage_PaintsCanvasBackgroundUnlessTransparent() {
+            GraphViewer opaque = NewViewer(400, 300);
+            AddSolidShape(opaque, new Point(0, 0), 40, SKColors.Red);
+            var opaqueSheet = new ImageExportSheet(opaque) { SavePath = TempPngPath() };
+            await opaqueSheet.ExportAsync().WaitAsync(Timeout);
 
-            await sheet.ExportAsync().WaitAsync(Timeout);
+            GraphViewer clear = NewViewer(400, 300);
+            AddSolidShape(clear, new Point(0, 0), 40, SKColors.Red);
+            var clearSheet = new ImageExportSheet(clear) { SavePath = TempPngPath() };
+            clearSheet.TransparencyCheckBoxControl.IsChecked = true;
+            await clearSheet.ExportAsync().WaitAsync(Timeout);
 
-            using SKBitmap bitmap = SKBitmap.Decode(sheet.LastPngBytes)!;
-            Assert.Equal(0, bitmap.GetPixel(5, 5).Alpha);
-        }
-
-        [AvaloniaFact]
-        public async Task ExportAsync_TransparencyUnchecked_BackgroundPixelIsOpaque() {
-            GraphViewer viewer = NewViewer(400, 300);
-            AddSolidShape(viewer, new Point(0, 0), 40, SKColors.Red);
-            var sheet = new ImageExportSheet(viewer);
-            sheet.SavePath = TempPngPath();
-
-            await sheet.ExportAsync().WaitAsync(Timeout);
-
-            using SKBitmap bitmap = SKBitmap.Decode(sheet.LastPngBytes)!;
-            Assert.Equal(255, bitmap.GetPixel(5, 5).Alpha);
+            using SKBitmap filled = SKBitmap.Decode(opaqueSheet.LastPngBytes)!;
+            using SKBitmap transparent = SKBitmap.Decode(clearSheet.LastPngBytes)!;
+            Assert.Equal(TokenBridge.Current.CanvasBackground, filled.GetPixel(5, 5));
+            Assert.Equal(0, transparent.GetPixel(5, 5).Alpha);
         }
 
         //---- guards: a field problem is the Save to row's error, an operation problem the strip, never an alert ----

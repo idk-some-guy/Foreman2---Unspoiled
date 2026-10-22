@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Theming {
-    //Guards against a literal Brushes.* or raw hex color anywhere under src/Foreman.Mac; Canvas/ waits for its own token pass.
+    //Guards against a literal Brushes.* or raw hex color anywhere under src/Foreman.Mac, and an SKColor literal anywhere under Canvas/.
     public class TokenLiteralGuardTests {
         private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         private static string AppSourceDirectory => Path.Combine(RepoRoot, "src", "Foreman.Mac");
@@ -63,6 +63,33 @@ namespace Foreman.Mac.UiTests.Theming {
             foreach (string path in SourceFiles(".cs", includeCanvas: true).Concat(SourceFiles(".axaml", includeCanvas: true))) {
                 foreach (Match match in Regex.Matches(File.ReadAllText(path), @"foreman-[a-z-]+"))
                     offenders.Add($"{path}: {match.Value}");
+            }
+
+            Assert.Empty(offenders);
+        }
+
+        //The addendum gives no colour for these four painters; each names the designer question that closes it.
+        private static readonly string[] UnspecifiedCanvasColours = [
+            Path.Combine("Canvas", "Elements", "AnnotationElement.cs"), //selection handle colour
+            Path.Combine("Canvas", "FloatingTooltipRenderer.cs"), //tooltip fill and text
+            Path.Combine("Canvas", "RecipePainter.cs"), //recipe tooltip fill and text
+            Path.Combine("Canvas", "PointingArrowRenderer.cs"), //pointing arrow fill
+        ];
+
+        [Fact]
+        public void NoColorLiteral_UnderCanvas() {
+            string canvas = Path.Combine(AppSourceDirectory, "Canvas");
+            string[] files = [.. Directory.EnumerateFiles(canvas, "*.cs", SearchOption.AllDirectories).Where(path => !IsUnder(path, "obj") && !IsUnder(path, "bin"))];
+            Assert.Contains(files, path => path.EndsWith("GridManager.cs", StringComparison.Ordinal));
+            Assert.True(files.Length >= 30, $"expected at least 30 canvas cs files, found {files.Length}");
+            var offenders = new List<string>();
+
+            foreach (string path in files) {
+                string relative = Path.GetRelativePath(AppSourceDirectory, path);
+                if (UnspecifiedCanvasColours.Contains(relative))
+                    continue;
+                foreach (Match match in Regex.Matches(File.ReadAllText(path), @"new SKColor\(\s*(?:0x)?\d|\bSKColors\.\w+|#[0-9A-Fa-f]{6,8}\b|\bColor\.From(?:Rgb|Argb)\("))
+                    offenders.Add($"{relative}: {match.Value}");
             }
 
             Assert.Empty(offenders);

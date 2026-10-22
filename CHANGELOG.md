@@ -594,6 +594,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   short of supply turns red and dashed, and its hit band stays at least 12 pt wide whatever the
   stroke width. Saved files move to format version 9; older files open with the current default
   routing and no waypoints.
+- The canvas ground and grid follow the design tokens. Grid lines become dots at the Minor and Major
+  Gridlines units, one point across for minor and two for major, and they drop out once they would
+  sit closer than 8 pt on screen; Show Gridlines off leaves the plain ground. The origin axes are
+  one point wide, the Shift axis-lock guide is a dashed accent line, and the lasso is an accent
+  outline over a soft accent fill. Pausing calculations draws a 2 pt warning frame and a
+  "Calculations paused" capsule at the top of the canvas that resumes them when clicked.
 
 ### Removed
 

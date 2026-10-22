@@ -21,16 +21,6 @@ using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Canvas {
     public class GraphCanvasControlTests {
-        private static bool ColorPresentNear(SKSurface surface, int x, int y, SKColor expected, int radius = 1) {
-            using SKImage image = surface.Snapshot();
-            using SKPixmap pixmap = image.PeekPixels();
-            for (int dx = -radius; dx <= radius; dx++)
-                for (int dy = -radius; dy <= radius; dy++)
-                    if (pixmap.GetPixelColor(x + dx, y + dy) == expected)
-                        return true;
-            return false;
-        }
-
         //Regression: upstream's ArrowsOnLinks defaults false (both the fresh ProductionGraphViewer field
         //and its Settings.Designer.cs backing value) - a fresh GraphViewer, before any AppSettings ever
         //reaches it, must match that cold-start default instead of showing arrowheads nobody asked for.
@@ -39,32 +29,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             var control = new GraphCanvasControl();
 
             Assert.False(control.Viewer.Context.ArrowsOnLinks);
-        }
-
-        [AvaloniaFact]
-        public void Render_GridEnabled_DrawsGridLinesThroughFullTransformPipeline() {
-            var control = new GraphCanvasControl();
-            control.Viewport.SetSize(200, 200);
-            control.Grid.ShowGrid = true;
-            control.Grid.CurrentGridUnit = 20;
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(200, 200));
-            control.Render(surface.Canvas);
-
-            Assert.True(ColorPresentNear(surface, 120, 100, new SKColor(230, 230, 230)));
-        }
-
-        [AvaloniaFact]
-        public void Render_GridDisabled_LeavesCanvasWhite() {
-            var control = new GraphCanvasControl();
-            control.Viewport.SetSize(200, 200);
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(200, 200));
-            control.Render(surface.Canvas);
-
-            using SKImage image = surface.Snapshot();
-            using SKPixmap pixmap = image.PeekPixels();
-            Assert.Equal(SKColors.White, pixmap.GetPixelColor(100, 100));
         }
 
         [AvaloniaFact]

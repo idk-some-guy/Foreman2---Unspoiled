@@ -134,7 +134,13 @@ namespace Foreman.Mac.Canvas {
                 PlacementTarget = this,
             };
             radialFallbackPopup.Closed += (_, _) => Focus();
-            Child = new Panel { Children = { overlay, paletteHost, radialFallbackPopup } };
+            pausedCapsule = new PausedCapsule();
+            pausedCapsule.Click += (_, _) => ResumeCalculations();
+            Viewer.PausedChanged += (_, _) => {
+                pausedCapsule.IsVisible = Viewer.IsPaused;
+                RequestRedraw();
+            };
+            Child = new Panel { Children = { overlay, pausedCapsule, paletteHost, radialFallbackPopup } };
             FloatingPanelHost = new FloatingPanelHost(overlay, Viewport, this);
             AddHandler(PointerPressedEvent, NoteDismissingPress, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
             Viewer.Context.SetClipboardText = SetClipboardText;
@@ -1792,21 +1798,33 @@ namespace Foreman.Mac.Canvas {
         }
 
         public void Render(SKCanvas canvas) {
-            //Ports Grid.Paint's draggedNodeActive gate (ProductionGraphViewer.cs:691): the locked-axis red
-            //line only draws while an Item drag is actually dragging a node, matching upstream's
+            //Ports Grid.Paint's draggedNodeActive gate (ProductionGraphViewer.cs:691): the locked-axis guide
+            //only draws while an Item drag is actually dragging a node, matching upstream's
             //`(currentDragOperation == DragOperation.Item) ? MouseDownElement as BaseNodeElement : null`.
             bool draggedNodeActive = CurrentDragOperation == DragOperation.Item && MouseDownElement is BaseNodeElement;
             Viewer.Paint(canvas, fullGraph: false, draggedNodeActive: draggedNodeActive, draggedLink: DraggedLink);
 
             //everything below draws directly on screen space, matching upstream's ResetTransform() before
-            //ToolTipRenderer.Paint/the paused-border rect (reference §3 steps 9-12); tooltip gated on
+            //ToolTipRenderer.Paint/the paused frame (reference §3 steps 9-12); tooltip gated on
             //!ViewBeingDragged the same way upstream gates the live hover tooltip, and drawn before the
-            //paused border so the border stays topmost like upstream's draw order.
+            //paused frame so the frame stays topmost like upstream's draw order.
             foreach (TooltipInfo tooltip in HoverTooltips())
                 FloatingTooltipRenderer.Draw(canvas, tooltip);
 
-            if (Viewer.Graph.PauseUpdates)
-                Viewer.PaintPausedBorder(canvas);
+            if (Viewer.IsPaused)
+                Viewer.PaintPausedFrame(canvas);
+        }
+
+        private readonly PausedCapsule pausedCapsule;
+
+        public event EventHandler? CalculationsResumed;
+
+        public void ResumeCalculations() {
+            if (!Viewer.IsPaused)
+                return;
+            Viewer.IsPaused = false;
+            Viewer.Graph.UpdateNodeValues();
+            CalculationsResumed?.Invoke(this, EventArgs.Empty);
         }
 
         internal List<TooltipInfo> HoverTooltips() {

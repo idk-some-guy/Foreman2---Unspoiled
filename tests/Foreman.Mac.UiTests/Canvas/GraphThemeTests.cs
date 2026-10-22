@@ -3,91 +3,17 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Foreman.Mac;
-using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
-using SkiaSharp;
 using System;
-using System.Drawing;
 using Xunit;
 using AvColor = Avalonia.Media.Color;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //Ports MainForm.SetDarkMode/SetLightMode's canvas half (upstream MainForm.cs:36-46): the
-    //ProductionGraphViewer's own BackColor swap, ported here as GraphViewer.BackgroundColor since this
-    //control has no WinForms BackColor to inherit from.
     [Collection(ScaleTestGroup.Name)]
     public class GraphThemeTests {
-        private const int Size = 100;
-
-        private static SKColor SamplePixel(SKSurface surface, int x, int y) {
-            using SKImage image = surface.Snapshot();
-            using SKPixmap pixmap = image.PeekPixels();
-            return pixmap.GetPixelColor(x, y);
-        }
-
-        //perf-packaging-reference.md §1b: pins GraphViewer.cs:432/458's per-frame `new
-        //SKPaint` call sites' exact pixel output so converting them to cached paints (a fixed static one for
-        //PaintPausedBorder, a mutate-reset per-viewer one for the lasso's ViewScale-dependent stroke width)
-        //can't drift either.
-
-        [Fact]
-        public void PaintPausedBorder_DrawsFixedRedStrokeAlongTheEdge() {
-            var viewer = new GraphViewer(new Viewport(Size, Size), new GridManager());
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(Size, Size));
-            viewer.PaintPausedBorder(surface.Canvas);
-
-            Assert.Equal(new SKColor(255, 80, 80), SamplePixel(surface, 1, Size / 2));
-        }
-
-        [Fact]
-        public void Paint_ActiveSelectionZone_DrawsLassoStrokeInPlace() {
-            var viewer = new GraphViewer(new Viewport(Size, Size), new GridManager());
-            viewer.Viewport.ViewScale = 1f;
-            viewer.SelectionZone = new Rectangle(10, 10, 50, 50);
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(Size, Size));
-            viewer.Paint(surface.Canvas);
-
-            Assert.Equal(new SKColor(100, 100, 200), SamplePixel(surface, Size / 2 + 10, Size / 2 + 35));
-        }
-
-        //The clear color is now Foreman.Color.CanvasBackground (#1E1E20 dark / #FAFAFA light),
-        //not the pre-token literal (23,23,23)/white.
-        //Every other test in the suite that touches Application.Current's theme resources runs under
-        //[AvaloniaFact], which blocks until Avalonia.Headless's HeadlessUnitTestSession singleton has set
-        //Application.Current up; these two ran under plain [Fact] instead, so whether Foreman.Color.
-        //CanvasBackground resolved to the real token or ResolveBackgroundColor's fallback constant depended
-        //on whether some other AvaloniaFact test happened to have already initialized the process-wide
-        //Application first - a race that "moves" as the suite's parallel scheduling changes, not a leaked
-        //RequestedThemeVariant (no test forces a variant and fails to restore it; the value read back here
-        //is passed in explicitly, per call, to ResolveColor's variant parameter).
-        [AvaloniaFact]
-        public void ApplyTheme_Dark_PaintClearsToDarkCanvasBackgroundToken() {
-            var viewer = new GraphViewer(new Viewport(Size, Size), new GridManager());
-            viewer.ApplyTheme(dark: true);
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(Size, Size));
-            viewer.Paint(surface.Canvas);
-
-            Assert.Equal(new SKColor(0x1E, 0x1E, 0x20), SamplePixel(surface, 5, 5));
-        }
-
-        [AvaloniaFact]
-        public void ApplyTheme_Light_PaintClearsToLightCanvasBackgroundToken() {
-            var viewer = new GraphViewer(new Viewport(Size, Size), new GridManager());
-            viewer.ApplyTheme(dark: true);
-            viewer.ApplyTheme(dark: false);
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(Size, Size));
-            viewer.Paint(surface.Canvas);
-
-            Assert.Equal(new SKColor(0xFA, 0xFA, 0xFA), SamplePixel(surface, 5, 5));
-        }
-
         private const string MovedTokenKey = "Foreman.Color.NodeRecipe";
         private static readonly AvColor MovedTokenValue = AvColor.FromRgb(0x01, 0x02, 0x03);
 

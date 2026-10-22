@@ -17,7 +17,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.True(contrast >= 4.5, $"Foreground {fg} on background {bg} has contrast ratio {contrast:0.00}, below the WCAG AA minimum of 4.5.");
         }
 
-        private static double ContrastRatio(Color a, Color b) {
+        internal static double ContrastRatio(Color a, Color b) {
             double lumA = RelativeLuminance(a) + 0.05;
             double lumB = RelativeLuminance(b) + 0.05;
             return lumA > lumB ? lumA / lumB : lumB / lumA;
