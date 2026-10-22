@@ -1,5 +1,6 @@
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.KitSkia;
@@ -38,23 +39,6 @@ namespace Foreman.Mac.Canvas.Elements {
                 linkedNode.RequestStateUpdate();
         }
 
-        //State marks as shipped: coral error, corner flags, flow border, selection overlay.
-        private static readonly SKPaint ErrorBgPaint = Fill(new SKColor(255, 127, 80));
-        private static readonly SKPaint OverproducingFlowBorderPaint = Fill(TokenBridge.Current.Warning);
-        private static readonly SKPaint UndersuppliedFlowBorderPaint = Fill(TokenBridge.Current.Error);
-
-        //The two paints above bake TokenBridge's border colours once at type-init; keep them live on every
-        //theme/scale/contrast change.
-        static BaseNodeElement() {
-            TokenBridge.Changed += (_, _) => {
-                OverproducingFlowBorderPaint.Color = TokenBridge.Current.Warning;
-                UndersuppliedFlowBorderPaint.Color = TokenBridge.Current.Error;
-            };
-        }
-
-        protected static readonly SKColor SelectionOverlayColor = new(100, 100, 200, 100);
-        private static readonly SKPaint SelectionOverlayPaint = Fill(SelectionOverlayColor);
-
         //Footprints are graph space, multiplied by the display factor; saved layouts keep their spacing.
         protected static int BaseSimpleHeight => TokenBridge.ScaledInt(96);
         protected static int BaseRecipeHeight => TokenBridge.ScaledInt(144);
@@ -90,7 +74,7 @@ namespace Foreman.Mac.Canvas.Elements {
             InputTabs = [];
             OutputTabs = [];
 
-            ErrorNotice = new ErrorNoticeElement(context, this) { Location = new Point(-Width / 2, -Height / 2) };
+            ErrorNotice = new ErrorNoticeElement(context, this);
             ErrorNotice.SetVisibility(false);
 
             foreach (ItemQualityPair item in ViewModel.Inputs)
@@ -108,16 +92,15 @@ namespace Foreman.Mac.Canvas.Elements {
 
         protected virtual void UpdateState() {
             UpdateStateCallCount++;
-            ErrorNotice.UpdateSize();
-            ErrorNotice.SetVisibility(ViewModel.State == NodeState.Error || ViewModel.State == NodeState.Warning);
             LayoutNode();
         }
 
         protected virtual void UpdateValues() {
+            bool shortOfSupply = FlowUndersupplied;
             foreach (ItemTabElement tab in InputTabs)
-                tab.UpdateValues(ViewModel.GetConsumeRate(tab.Item), 0, false);
+                tab.UpdateValues(ViewModel.GetConsumeRate(tab.Item), 0, false, shortOfSupply);
             foreach (ItemTabElement tab in OutputTabs)
-                tab.UpdateValues(ViewModel.GetSupplyRate(tab.Item), ViewModel.GetSupplyUsedRate(tab.Item), ViewModel.IsOverproducing(tab.Item));
+                tab.UpdateValues(ViewModel.GetSupplyRate(tab.Item), ViewModel.GetSupplyUsedRate(tab.Item), ViewModel.IsOverproducing(tab.Item), false);
             LayoutNode();
         }
 
@@ -127,11 +110,11 @@ namespace Foreman.Mac.Canvas.Elements {
         private LevelOfDetail layoutDetail;
         private LayoutInputs layoutInputs;
 
-        //Rate type, key status, direction, simple draw and count rounding change without a node event until the next solve, so the card compares them each paint.
-        private readonly record struct LayoutInputs(RateType RateType, bool KeyNode, string KeyNodeTitle, double DesiredRate, double DesiredSetValue, NodeDirection Direction, ProductionGraph.RateUnit RateUnit, bool SimpleDraw, bool RoundCount);
+        //Rate type, key status, direction, simple draw, count rounding, the badge, the solve state and icon view change without a node event until the next solve, so the card compares them each paint.
+        private readonly record struct LayoutInputs(RateType RateType, bool KeyNode, string KeyNodeTitle, double DesiredRate, double DesiredSetValue, NodeDirection Direction, ProductionGraph.RateUnit RateUnit, bool SimpleDraw, bool RoundCount, NodeBadgeKind? Badge, NodeSolveState SolveState, bool IconsOnly);
 
         private LayoutInputs CurrentInputs() =>
-            new(ViewModel.RateType, ViewModel.KeyNode, ViewModel.KeyNodeTitle, ViewModel.DesiredRate, ViewModel.DesiredSetValue, ViewModel.NodeDirection, Context.RateUnit, SimpleDraw, Context.RoundAssemblerCount);
+            new(ViewModel.RateType, ViewModel.KeyNode, ViewModel.KeyNodeTitle, ViewModel.DesiredRate, ViewModel.DesiredSetValue, ViewModel.NodeDirection, Context.RateUnit, SimpleDraw, Context.RoundAssemblerCount, BadgeKind(), SolveState, Context.IconsOnly);
 
         protected virtual bool SimpleDraw => false;
         private IReadOnlyList<NodeText> texts = [];
@@ -166,20 +149,109 @@ namespace Foreman.Mac.Canvas.Elements {
             layoutTokens = tokens;
             layoutDetail = Context.LevelOfDetail;
             layoutInputs = CurrentInputs();
+            pendingBadge = !layoutInputs.IconsOnly && layoutInputs.Badge is NodeBadgeKind kind ? new NodeBadge(kind, BadgeWords[(int)kind]) : null;
             Width = ComputeWidth();
             UpdateTabOrder();
-            ErrorNotice.X = -Width / 2;
-            ErrorNotice.Y = -Height / 2;
 
             var laidOut = new List<NodeText>();
             chipRect = SKRect.Empty;
             detailGlyph = null;
+            badgeRect = SKRect.Empty;
             if (HasCard) {
                 LayoutTitle(tokens, laidOut);
                 LayoutDetail(tokens, laidOut);
             }
             texts = laidOut;
+
+            ErrorNotice.Place(LocalBadgeHitRect());
+            ErrorNotice.SetVisibility(!badgeRect.IsEmpty && ViewModel.State is NodeState.Error or NodeState.Warning);
         }
+
+        //---- state (§02): badge, solve state, availability ----
+
+        private static readonly string[] BadgeWords = ["Unavailable", "Error", "Short", "Warning", "Over"];
+        private NodeBadge? pendingBadge;
+        private SKRect badgeRect;
+
+        public bool ShowsKeyboardFocus { get; set; }
+        public bool IsFindMatch { get; set; }
+
+        //Stands in for the Core solve state until the solver reports it per node.
+        internal NodeSolveState? StaleOverride { get; set; }
+        internal NodeSolveState SolveState => StaleOverride ?? NodeSolveState.Solved;
+
+        protected virtual bool Unavailable => false;
+
+        protected static bool IsUnavailable(IItem? item) => item is { IsMissing: false } && (!item.Available || !item.Enabled);
+
+        protected static bool IsUnavailable(IRecipe? recipe) => recipe is { IsMissing: false } && (!recipe.Available || !recipe.Enabled);
+
+        public float ContentOpacity => Unavailable ? Tokens.NodeUnavailableOpacity : 1f;
+
+        private protected NodeBadgeKind? BadgeKind() {
+            if (Unavailable)
+                return NodeBadgeKind.Unavailable;
+            if (ViewModel.State == NodeState.Error)
+                return NodeBadgeKind.Error;
+            if (Context.FlagOUSuppliedNodes && FlowUndersupplied)
+                return NodeBadgeKind.Undersupplied;
+            if (ViewModel.State == NodeState.Warning)
+                return NodeBadgeKind.Warning;
+            if (Context.FlagOUSuppliedNodes && ViewModel.IsOverproducing())
+                return NodeBadgeKind.Over;
+            return null;
+        }
+
+        public NodeBadge? Badge() => badgeRect.IsEmpty ? null : pendingBadge;
+
+        internal SKRect BadgeRect() => badgeRect.IsEmpty ? SKRect.Empty : ToGraph(badgeRect);
+
+        public SKRect? BadgeHitRect() => badgeRect.IsEmpty ? null : ToGraph(LocalBadgeHitRect());
+
+        private SKRect LocalBadgeHitRect() {
+            if (badgeRect.IsEmpty)
+                return SKRect.Empty;
+            float pad = Tokens.Space05;
+            SKRect hit = SKRect.Inflate(badgeRect, pad, pad);
+            hit.Intersect(SKRect.Create(Left, Top, Width, Height));
+            return hit;
+        }
+
+        private protected float BadgeWidth(CanvasTokens tokens) {
+            if (pendingBadge is not NodeBadge badge)
+                return 0;
+            float glyph = badge.Kind == NodeBadgeKind.Unavailable ? 0 : tokens.Glyph10 + tokens.NodeGapTight;
+            return (2 * tokens.Space15) + glyph + NodeCardPainter.Measure(badge.Text, tokens.CanvasFontSize, tokens.CanvasEmphasizedWeight);
+        }
+
+        private protected float PlaceBadge(CanvasTokens tokens, float left, float rowTop, float rowHeight) {
+            float width = BadgeWidth(tokens);
+            if (width == 0)
+                return left;
+            badgeRect = SKRect.Create(left, rowTop + ((rowHeight - tokens.NodeBadgeHeight) / 2), width, tokens.NodeBadgeHeight);
+            return badgeRect.Right;
+        }
+
+        private protected float PlaceBadgeTrailing(CanvasTokens tokens, float rowTop, float rowHeight) {
+            float right = Right - tokens.NodeInsetSide;
+            float width = BadgeWidth(tokens);
+            if (width == 0)
+                return right;
+            PlaceBadge(tokens, right - width, rowTop, rowHeight);
+            return badgeRect.Left - tokens.Space15;
+        }
+
+        private protected string CountText(double count) =>
+            SolveState == NodeSolveState.NeverSolved ? "—" : "×" + NodeCardPainter.Count(count, Context.RoundAssemblerCount);
+
+        private protected int WidthForSubRow(float content) {
+            CanvasTokens tokens = TokenBridge.Current;
+            float badge = BadgeWidth(tokens);
+            return badge == 0 ? MinWidth : WidthForTabs(content + tokens.Space15 + badge);
+        }
+
+        private protected NodeText ValueText(NodeTextRole role, string text, SKRect rect, float size, int weight, SKColor color) =>
+            SolveState == NodeSolveState.Stale ? new NodeText(role, text, rect, size, weight, Tokens.TextSecondary, Italic: true) : new NodeText(role, text, rect, size, weight, color);
 
         private void LayoutTitle(CanvasTokens tokens, List<NodeText> laidOut) {
             float s = (float)tokens.Scale;
@@ -207,11 +279,12 @@ namespace Foreman.Mac.Canvas.Elements {
         }
 
         //The sub row of every non-recipe card: a word, or a chip once the rate is fixed.
-        private protected void LayoutSubRow(CanvasTokens tokens, List<NodeText> laidOut, string? glyphKey, string text, bool chip) {
+        private protected void LayoutSubRow(CanvasTokens tokens, List<NodeText> laidOut, string? glyphKey, string text, bool chip, bool value = false) {
             float s = (float)tokens.Scale;
             float rowTop = Top + NodeCardPainter.DetailRowTop(tokens);
             float rowHeight = NodeCardPainter.SubRowHeight * s;
             float x = Left + tokens.NodeInsetSide;
+            float right = PlaceBadgeTrailing(tokens, rowTop, rowHeight);
             if (glyphKey is not null) {
                 float glyph = tokens.GlyphMicro;
                 detailGlyph = (glyphKey, SKRect.Create(x, rowTop + ((rowHeight - glyph) / 2), glyph, glyph));
@@ -219,9 +292,12 @@ namespace Foreman.Mac.Canvas.Elements {
             }
             if (chip)
                 LayoutChip(tokens, laidOut, text, x, rowTop, rowHeight);
+            else if (value)
+                laidOut.Add(ValueText(NodeTextRole.Detail, NodeCardPainter.Fit(text, right - x, tokens.CanvasFontSize, 400, out _),
+                    new SKRect(x, rowTop, right, rowTop + rowHeight), tokens.CanvasFontSize, 400, tokens.TextSecondary));
             else
-                laidOut.Add(new NodeText(NodeTextRole.Detail, NodeCardPainter.Fit(text, Right - tokens.NodeInsetSide - x, tokens.CanvasFontSize, 400, out _),
-                    new SKRect(x, rowTop, Right - tokens.NodeInsetSide, rowTop + rowHeight), tokens.CanvasFontSize, 400, tokens.TextSecondary));
+                laidOut.Add(new NodeText(NodeTextRole.Detail, NodeCardPainter.Fit(text, right - x, tokens.CanvasFontSize, 400, out _),
+                    new SKRect(x, rowTop, right, rowTop + rowHeight), tokens.CanvasFontSize, 400, tokens.TextSecondary));
         }
 
         private protected float LayoutChip(CanvasTokens tokens, List<NodeText> laidOut, string text, float x, float rowTop, float rowHeight) {
@@ -337,16 +413,65 @@ namespace Foreman.Mac.Canvas.Elements {
         }
 
         private bool FlowUndersupplied => ViewModel.ManualRateNotMet() && this is not SupplierNodeElement;
-        private bool FlowMarked => FlowUndersupplied || ViewModel.IsOverproducing();
+
+        //---- the three ring lanes (§02): border ±1, lane A +2…+4, lane B +6…+9; radii and strokes stay fixed ----
+
+        private const float InnerRingInset = 3, LaneACentre = 3, LaneBCentre = 7.5f, FlowStroke = 2, IconRingRadius = 8;
+
+        private SKRect GraphRect() => ToGraph(SKRect.Create(Left, Top, Width, Height));
+
+        private (SKRect Rect, float Radius) RingBase() {
+            if (!Context.IconsOnly)
+                return (GraphRect(), Tokens.NodeRadius);
+            float half = Context.IconsDrawSize / 2f;
+            return (ToGraph(new SKRect(-half, -half, half, half)), IconRingRadius);
+        }
+
+        private bool BorderIsStateMark => Highlighted || FlowUndersupplied || ViewModel.State == NodeState.Error || ViewModel.IsOverproducing();
+
+        //Selection owns the border lane; flow state still shows through the badge and the tab outlines.
+        public RingGeometry BorderRing() {
+            CanvasTokens tokens = Tokens;
+            (SKRect bounds, float radius) = RingBase();
+            if (Highlighted)
+                return new RingGeometry(bounds, radius, FlowStroke, tokens.NodeSelected, null);
+            float half = NodeCardPainter.CardStrokeWidth / 2;
+            if (FlowUndersupplied || ViewModel.State == NodeState.Error)
+                return new RingGeometry(SKRect.Inflate(bounds, -half, -half), radius - half, NodeCardPainter.CardStrokeWidth, tokens.Error, null);
+            if (ViewModel.IsOverproducing())
+                return new RingGeometry(bounds, radius, FlowStroke, tokens.Warning, NodeCardPainter.FlowDash);
+            return new RingGeometry(SKRect.Inflate(bounds, -half, -half), radius - half, NodeCardPainter.CardStrokeWidth, tokens.IncreaseContrast ? tokens.NodeTabBorder : tokens.BorderStrong, null);
+        }
+
+        public RingGeometry? InnerRing() {
+            if (Highlighted || !FlowUndersupplied)
+                return null;
+            (SKRect bounds, float radius) = RingBase();
+            return new RingGeometry(SKRect.Inflate(bounds, -InnerRingInset, -InnerRingInset), radius - InnerRingInset, NodeCardPainter.CardStrokeWidth, Tokens.Error, null);
+        }
+
+        public RingGeometry? LaneARing() => IsPlacementFlashing ? PlacementFlashRing() : null;
+
+        public RingGeometry? FocusRing() {
+            if (!ShowsKeyboardFocus)
+                return null;
+            (SKRect bounds, float radius) = RingBase();
+            return new RingGeometry(SKRect.Inflate(bounds, LaneBCentre, LaneBCentre), radius + LaneBCentre, Tokens.FocusRingWidth, Tokens.FocusRing, null);
+        }
+
+        internal bool IsPlacementFlashing { get; set; }
+        internal double PlacementFlashOpacity { get; set; }
+
+        internal RingGeometry PlacementFlashRing() {
+            (SKRect bounds, float radius) = RingBase();
+            return new RingGeometry(SKRect.Inflate(bounds, LaneACentre, LaneACentre), radius + LaneACentre, FlowStroke, Tokens.Accent, null);
+        }
 
         public NodeCardGeometry CardGeometry() {
             CanvasTokens tokens = Tokens;
-            SKRect rect = ToGraph(SKRect.Create(Left, Top, Width, Height));
-            SKColor fill = ViewModel.State == NodeState.Error ? ErrorBgPaint.Color : tokens.ControlBackground;
-            (float stroke, SKColor color) = FlowUndersupplied ? (TokenBridge.ScaledInt(3), tokens.Error)
-                : ViewModel.IsOverproducing() ? (TokenBridge.ScaledInt(3), tokens.Warning)
-                : (NodeCardPainter.CardStrokeWidth, tokens.IncreaseContrast ? tokens.NodeTabBorder : tokens.BorderStrong);
-            return new NodeCardGeometry(rect, tokens.NodeRadius, fill, stroke, color, tokens.CardShadowColor.Alpha > 0);
+            RingGeometry border = BorderRing();
+            float stroke = border.StrokeWidth > NodeCardPainter.CardStrokeWidth ? 0 : NodeCardPainter.CardStrokeWidth;
+            return new NodeCardGeometry(GraphRect(), tokens.NodeRadius, tokens.ControlBackground, stroke, border.Color, tokens.CardShadowColor.Alpha > 0);
         }
 
         public SKRect TypeStripRect() {
@@ -360,6 +485,39 @@ namespace Foreman.Mac.Canvas.Elements {
 
         internal SKRect DetailGlyphRect() => detailGlyph is (_, SKRect box) ? ToGraph(box) : SKRect.Empty;
 
+        //The card and the tabs paint at ContentOpacity; the border lane stays opaque between them, and the badge and lanes A and B above.
+        public override void Paint(SKCanvas canvas, NodeDrawingStyle style) {
+            if (!Visible)
+                return;
+            int saved = canvas.SaveCount;
+            float opacity = ContentOpacity;
+            if (opacity < 1)
+                NodeCardPainter.BeginOpacityLayer(canvas, opacity);
+            Draw(canvas, style);
+            canvas.RestoreToCount(saved);
+
+            if (BorderIsStateMark)
+                NodeCardPainter.DrawRing(canvas, BorderRing());
+            if (InnerRing() is RingGeometry inner)
+                NodeCardPainter.DrawRing(canvas, inner);
+
+            if (opacity < 1)
+                NodeCardPainter.BeginOpacityLayer(canvas, opacity);
+            foreach (GraphElement element in SubElements)
+                element.Paint(canvas, style);
+            canvas.RestoreToCount(saved);
+            DrawOuterMarks(canvas, style);
+        }
+
+        private void DrawOuterMarks(SKCanvas canvas, NodeDrawingStyle style) {
+            if ((style == NodeDrawingStyle.Regular || style == NodeDrawingStyle.PrintStyle) && Badge() is NodeBadge badge)
+                NodeCardPainter.DrawBadge(canvas, BadgeRect(), badge, Tokens);
+            if (LaneARing() is RingGeometry laneA && PlacementFlashOpacity > 0)
+                NodeCardPainter.DrawRing(canvas, laneA, (float)Math.Clamp(PlacementFlashOpacity, 0, 1));
+            if (FocusRing() is RingGeometry focus)
+                NodeCardPainter.DrawRing(canvas, focus);
+        }
+
         protected override void Draw(SKCanvas canvas, NodeDrawingStyle style) {
             Point trans = LocalToGraph(new Point(0, 0));
             if (style == NodeDrawingStyle.IconsOnly) {
@@ -371,26 +529,9 @@ namespace Foreman.Mac.Canvas.Elements {
             CanvasTokens tokens = Tokens;
             NodeCardPainter.DrawCard(canvas, CardGeometry(), tokens);
             NodeCardPainter.DrawStrip(canvas, TypeStripRect(), TypeStripColor, tokens.NodeTypeStripRadius);
-            if (FlowMarked) {
-                NodeCardGeometry card = CardGeometry();
-                NodeCardPainter.StrokeInside(canvas, card.Rect, card.Radius, card.StrokeWidth, card.Stroke);
-            }
-
-            int fillInset = TokenBridge.ScaledInt(3);
-            int fillInsetDouble = TokenBridge.ScaledInt(6);
-            if (Context.FlagOUSuppliedNodes && FlowMarked)
-                GraphicsStuff.FillRoundRectTLFlag(canvas, trans.X - (Width / 2) + fillInset, trans.Y - (Height / 2) + fillInset, (Width / 2) - fillInsetDouble, (Height / 2) - fillInsetDouble, 7, FlowUndersupplied ? UndersuppliedFlowBorderPaint : OverproducingFlowBorderPaint);
-            if (ViewModel.State == NodeState.Warning)
-                GraphicsStuff.FillRoundRectTLFlag(canvas, trans.X - (Width / 2) + fillInset, trans.Y - (Height / 2) + fillInset, (Width / 2) - fillInsetDouble, (Height / 2) - fillInsetDouble, 7, ErrorBgPaint);
 
             if (style == NodeDrawingStyle.Regular || style == NodeDrawingStyle.PrintStyle)
                 DetailsDraw(canvas, trans);
-
-            if (Highlighted)
-                GraphicsStuff.FillRoundRect(canvas, trans.X - (Width / 2), trans.Y - (Height / 2), Width, Height, 8, SelectionOverlayPaint);
-
-            if (IsPlacementFlashing && PlacementFlashOpacity > 0)
-                DrawPlacementFlash(canvas);
         }
 
         protected virtual void DetailsDraw(SKCanvas canvas, Point trans) {
@@ -401,7 +542,7 @@ namespace Foreman.Mac.Canvas.Elements {
             if (!keyGlyphRect.IsEmpty) {
                 SKRect key = keyGlyphRect;
                 key.Offset(trans.X, trans.Y);
-                NodeCardPainter.DrawGlyph(canvas, "Kit.Glyph.Node.Key", key, tokens.AccentText, badge: true);
+                NodeCardPainter.DrawGlyph(canvas, "Kit.Glyph.Node.Key", key, tokens.AccentText, tokens.NodeBadgeStroke);
             }
             if (detailGlyph is (string glyphKey, SKRect glyphBox)) {
                 glyphBox.Offset(trans.X, trans.Y);
@@ -417,32 +558,6 @@ namespace Foreman.Mac.Canvas.Elements {
         }
 
         private protected virtual void DrawNodeText(SKCanvas canvas, NodeText text, Point trans) => NodeCardPainter.DrawText(canvas, text, trans.X, trans.Y);
-
-        internal bool IsPlacementFlashing { get; set; }
-        internal double PlacementFlashOpacity { get; set; }
-
-        private const float PlacementFlashStroke = 2;
-        private const float PlacementFlashOffset = 2;
-
-        //Centre-line rect of the ring: the stroke is centred PlacementFlashOffset outside the node's bounds, at the border radius + the offset.
-        internal (SKRect Path, float Radius, float StrokeWidth, SKColor Color) PlacementFlashRing() {
-            Point centre = LocalToGraph(new Point(0, 0));
-            SKRect bounds = SKRect.Create(centre.X - (Width / 2f), centre.Y - (Height / 2f), Width, Height);
-            return (SKRect.Inflate(bounds, PlacementFlashOffset, PlacementFlashOffset), TokenBridge.Current.NodeRadius + PlacementFlashOffset, PlacementFlashStroke, TokenBridge.Current.Accent);
-        }
-
-        private void DrawPlacementFlash(SKCanvas canvas) {
-            (SKRect path, float radius, float stroke, SKColor color) = PlacementFlashRing();
-            using var paint = new SKPaint {
-                Style = SKPaintStyle.Stroke,
-                StrokeWidth = stroke,
-                IsAntialias = true,
-                Color = color.WithAlpha((byte)Math.Round(color.Alpha * Math.Clamp(PlacementFlashOpacity, 0, 1))),
-            };
-            canvas.DrawRoundRect(path, radius, radius, paint);
-        }
-
-        protected static SKPaint Fill(SKColor color) => new() { Color = color, Style = SKPaintStyle.Fill, IsAntialias = true };
 
         protected abstract SKBitmap? NodeIcon();
 
@@ -509,6 +624,8 @@ namespace Foreman.Mac.Canvas.Elements {
             foreach (BaseNodeElement linkedNode in ViewModel.OutputLinks.Select(l => Context.GetNodeElement?.Invoke(l.ConsumerId)).OfType<BaseNodeElement>())
                 linkedNode.UpdateTabOrder();
         }
+
+        internal GraphElement HoverTargetAt(Point graphPoint) => SubElements.FirstOrDefault(element => element.ContainsPoint(graphPoint)) ?? this;
 
         //Whether a tab or the error notice claims this point ahead of the node's own body.
         public bool HasSubElementAt(Point graphPoint) =>

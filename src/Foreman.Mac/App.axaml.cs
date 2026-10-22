@@ -56,6 +56,8 @@ namespace Foreman.Mac {
         //which falls back to its own "About Avalonia" menu and never looks again.
         public override void Initialize() {
             AvaloniaXamlLoader.Load(this);
+            //The XAML load replaces the resources the hub wrote from the constructor.
+            Hub.Refresh();
             NativeMenu.SetMenu(this, MainWindow.BuildAppMenu());
         }
 

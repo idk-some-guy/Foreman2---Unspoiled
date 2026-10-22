@@ -189,21 +189,6 @@ namespace Foreman.Mac.Canvas {
             canvas.DrawRoundRect(new SKRect(x, y, x + width, y + height), radius, radius, brush);
         }
 
-        public static void FillRoundRectTLFlag(SKCanvas canvas, float x, float y, float width, float height, float radius, SKPaint brush) {
-            float left = x;
-            float top = y;
-            float bottom = y + height;
-            float right = x + width;
-
-            using var path = new SKPath();
-            path.ArcTo(new SKRect(left, top, left + 2 * radius, top + 2 * radius), 180f, 90f, forceMoveTo: true);
-            path.LineTo(right, top);
-            path.LineTo(left, bottom);
-            path.Close();
-
-            canvas.DrawPath(path, brush);
-        }
-
         //Approximates GDI+'s AdjustableArrowCap/LineCap.ArrowAnchor line-end arrows, neither of which Skia
         //has a built-in equivalent for (reference §7): a filled triangle at the tip, oriented along the
         //tangentAnchor->tip direction, sized as multiples of the pen width (matching AdjustableArrowCap's

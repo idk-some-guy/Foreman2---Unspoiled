@@ -13,7 +13,7 @@ using System.Linq;
 namespace Foreman.Mac.Canvas.Elements {
     //Ports ProductionGraphView/Elements/ItemTabElement.cs on the §01 tab, plus the right-click delete-connection menu (reference §4d).
     public sealed class ItemTabElement : GraphElement {
-        private enum TabStroke { Regular, Overproduced, Disconnected }
+        private enum TabStroke { Regular, Overproduced, Short }
 
         public LinkType LinkType { get; }
         public ItemQualityPair Item { get; }
@@ -23,6 +23,7 @@ namespace Foreman.Mac.Canvas.Elements {
         public bool HideItemTab { get; set; }
 
         private readonly NodeElementContext context;
+        private readonly BaseNodeElement node;
         private readonly INodeViewModel nodeViewModel;
         private readonly LabelFade rate = new();
 
@@ -31,6 +32,7 @@ namespace Foreman.Mac.Canvas.Elements {
 
         public ItemTabElement(ItemQualityPair item, LinkType type, NodeElementContext context, BaseNodeElement node) : base(node) {
             this.context = context;
+            this.node = node;
             nodeViewModel = node.ViewModel;
             Item = item;
             LinkType = type;
@@ -42,9 +44,9 @@ namespace Foreman.Mac.Canvas.Elements {
         internal NodeText RateText => rateText;
         internal LabelState RateLabel => rate.State(context);
 
-        public void UpdateValues(double recipeRate, double outputRate, bool isOverproduced) {
-            stroke = isOverproduced ? TabStroke.Overproduced : !Links.Any() ? TabStroke.Disconnected : TabStroke.Regular;
-            rate.Set(NodeCardPainter.Rate(recipeRate, context.RateUnit), context);
+        public void UpdateValues(double recipeRate, double outputRate, bool isOverproduced, bool isShort) {
+            stroke = isOverproduced ? TabStroke.Overproduced : isShort ? TabStroke.Short : TabStroke.Regular;
+            rate.Set(node.SolveState == NodeSolveState.NeverSolved ? "—" : NodeCardPainter.Rate(recipeRate, context.RateUnit), context);
             Layout();
         }
 
@@ -57,19 +59,29 @@ namespace Foreman.Mac.Canvas.Elements {
             Width = (int)Math.Ceiling(Math.Max(tokens.NodeTabMinWidth, textInset + textWidth + tokens.Space15));
             Height = (int)Math.Round(tokens.NodeTabHeight);
             float textLeft = (-Width / 2f) + textInset;
-            rateText = new NodeText(NodeTextRole.TabRate, rate.Text, new SKRect(textLeft, -Height / 2f, textLeft + textWidth, Height / 2f), tokens.CanvasFontSize, weight, tokens.Text);
+            var rect = new SKRect(textLeft, -Height / 2f, textLeft + textWidth, Height / 2f);
+            rateText = node.SolveState == NodeSolveState.Stale
+                ? new NodeText(NodeTextRole.TabRate, rate.Text, rect, tokens.CanvasFontSize, weight, tokens.TextSecondary, Italic: true)
+                : new NodeText(NodeTextRole.TabRate, rate.Text, rect, tokens.CanvasFontSize, weight, stroke == TabStroke.Short ? tokens.Error : tokens.Text);
         }
 
         public TabGeometry TabGeometry() {
             CanvasTokens tokens = TokenBridge.Current;
             Point centre = LocalToGraph(new Point(0, 0));
+            SKRect rect = SKRect.Create(centre.X - (Width / 2f), centre.Y - (Height / 2f), Width, Height);
+            if (ReferenceEquals(context.ArmedTab, this))
+                return new TabGeometry(rect, tokens.NodeTabRadius, ArmedStrokeWidth, tokens.Accent, tokens.AccentSoft, tokens.NodeTabOverhang);
             SKColor strokeColor = stroke switch {
                 TabStroke.Overproduced => tokens.Warning,
-                TabStroke.Disconnected => tokens.Error,
+                TabStroke.Short => tokens.Error,
                 _ => tokens.NodeTabBorder,
             };
-            return new TabGeometry(SKRect.Create(centre.X - (Width / 2f), centre.Y - (Height / 2f), Width, Height), tokens.NodeTabRadius, NodeCardPainter.TabStrokeWidth, strokeColor, tokens.WellBackground, tokens.NodeTabOverhang);
+            SKColor fill = ReferenceEquals(context.HoveredTab, this) ? tokens.ControlBackgroundHover : tokens.WellBackground;
+            float[]? dash = stroke == TabStroke.Overproduced ? NodeCardPainter.FlowDash : null;
+            return new TabGeometry(rect, tokens.NodeTabRadius, NodeCardPainter.TabStrokeWidth, strokeColor, fill, tokens.NodeTabOverhang, dash);
         }
+
+        private const float ArmedStrokeWidth = 2;
 
         public Point GetConnectionPoint() =>
             (LinkType == LinkType.Input && nodeViewModel.NodeDirection == NodeDirection.Up) || (LinkType == LinkType.Output && nodeViewModel.NodeDirection == NodeDirection.Down)
@@ -81,7 +93,7 @@ namespace Foreman.Mac.Canvas.Elements {
                 return;
 
             TabGeometry geometry = TabGeometry();
-            NodeCardPainter.DrawRoundedBox(canvas, geometry.Rect, geometry.Radius, geometry.Fill, geometry.StrokeWidth, geometry.Stroke);
+            NodeCardPainter.DrawRoundedBox(canvas, geometry.Rect, geometry.Radius, geometry.Fill, geometry.StrokeWidth, geometry.Stroke, geometry.Dash);
 
             if (style != NodeDrawingStyle.Regular && style != NodeDrawingStyle.PrintStyle)
                 return;

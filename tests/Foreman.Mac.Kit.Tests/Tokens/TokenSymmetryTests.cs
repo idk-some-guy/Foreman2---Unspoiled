@@ -38,7 +38,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Empty(onlyInLight);
             Assert.Empty(onlyInDark);
-            Assert.Equal(300, lightKeys.Count);
+            Assert.Equal(301, lightKeys.Count);
         }
 
         //The find ring is opaque Accent, never NodeSelected amber or the AccentSoft fill.
@@ -93,6 +93,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             yield return ["Foreman.Size.NodeBadgeHeight", 16.0];
             yield return ["Foreman.Size.NodePip", 6.0];
             yield return ["Foreman.Size.NodeGapTight", 3.0];
+            yield return ["Foreman.Size.NodeBadgeStroke", 1.4];
             yield return ["Foreman.Size.LinkWidth", 3.0];
             yield return ["Foreman.Size.LinkWidthMax", 35.0];
             yield return ["Foreman.Size.LinkHitWidth", 12.0];

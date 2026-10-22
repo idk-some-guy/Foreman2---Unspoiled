@@ -24,6 +24,7 @@ namespace Foreman.Mac.Canvas.Elements {
         protected override string DisplayName => ItemName;
         protected override SKBitmap? TitleIcon => ConsumerViewModel.ConsumedItem.Icon;
         protected override SKColor StripColor(CanvasTokens tokens) => tokens.NodeConsumer;
+        protected override bool Unavailable => IsUnavailable(ConsumerViewModel.ConsumedItem.Item);
 
         private string? Chip => ConsumerViewModel.RateType == RateType.Manual ? "Fixed " + RateText(ConsumerViewModel.DesiredRate) : null;
 

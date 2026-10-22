@@ -24,6 +24,7 @@ namespace Foreman.Mac.Canvas.Elements {
         public bool DynamicLinkWidth { get; set; }
         public bool ArrowsOnLinks { get; set; }
         public int IconsDrawSize { get; set; } = 32;
+        public bool IconsOnly { get; set; }
         public LevelOfDetail LevelOfDetail { get; set; } = LevelOfDetail.Medium;
         public bool RoundAssemblerCount { get; set; }
         public bool EnableExtraProductivityForNonMiners { get; set; }
@@ -33,6 +34,10 @@ namespace Foreman.Mac.Canvas.Elements {
         public Func<LinkId, float>? LinkWidthLookup { get; set; }
 
         public float GetLinkWidth(LinkId id) => LinkWidthLookup?.Invoke(id) ?? StaticLinkWidth;
+
+        //The tab under the pointer and the tab under a dragged link's free end; the canvas and the drag set them on the UI thread.
+        public ItemTabElement? HoveredTab { get; set; }
+        public ItemTabElement? ArmedTab { get; set; }
 
         public Func<ProductionGraph.RateUnit>? RateUnitLookup { get; set; }
         public ProductionGraph.RateUnit RateUnit => RateUnitLookup?.Invoke() ?? ProductionGraph.RateUnit.Per1Sec;

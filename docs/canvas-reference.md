@@ -311,10 +311,9 @@ background fill, **8px** for the highlight overlay. `ItemTabElement` uses
 
 ### Badge/icon layout
 
-- Error/warning badge: 24x24 `ErrorNoticeElement`, anchored at node
-  top-left corner (`Location = (-Width/2, -Height/2)`), drawn from a shared
-  static `Graphics/ErrorIcon.png` bitmap (via `IconCache.GetIcon`, 64px
-  source scaled to 24px).
+- Error/warning badge: an `ErrorNoticeElement` that only owns the hit rect
+  and tooltips; `NodeCardPainter.DrawBadge` draws the badge inside the status
+  row from the kit glyphs (`Kit.Glyph.Node.Error`, `Kit.Glyph.Node.Short`).
 - `ItemTabElement`: 32px icon + up to 2 lines of flow-rate text (regular +
   overproduced-secondary-line), tab width = `iconSize(32) + border(3)*3 =
   41px`, height = `32 + textHeight + border + 3` (grows by 10px when a

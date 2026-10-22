@@ -604,6 +604,16 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //---- status row, low detail, motion ----
 
+        //The state badge leads the status row; the rest follow it after a 6 gap.
+        private static float StatusRowStart(RecipeNodeElement recipe, SKRect bounds, float s) {
+            if (recipe.Badge() is null)
+                return bounds.Left + (12 * s);
+            SKRect badge = recipe.BadgeRect();
+            Assert.Equal(bounds.Left + (12 * s), badge.Left, 3);
+            Assert.Equal(bounds.Top + (84 * s), badge.Top, 3);
+            return badge.Right + (6 * s);
+        }
+
         [AvaloniaFact]
         public void StatusRow_PipsCapAtSix_BeaconBadgeAndExtraProdCollapseLeftward() {
             using CanvasFixture fx = CanvasFixture.WithVanilla();
@@ -619,10 +629,11 @@ namespace Foreman.Mac.UiTests.Canvas {
                 SetScale(step, recipe);
                 SKRect bounds = GraphBounds(recipe);
                 IReadOnlyList<StatusItem> row = recipe.StatusRow;
+                float start = StatusRowStart(recipe, bounds, s);
 
                 Assert.DoesNotContain(row, item => item.Kind == StatusItemKind.Beacon);
                 Assert.Equal(6, row.Count(item => item.Kind == StatusItemKind.Pip));
-                Assert.Equal(bounds.Left + (12 * s), row[0].Rect.Left, 3);
+                Assert.Equal(start, row[0].Rect.Left, 3);
                 Assert.Equal(bounds.Top + (84 * s) + (5 * s), row[0].Rect.Top, 3);
                 Assert.Equal(6 * s, row[0].Rect.Width, 3);
                 Assert.Equal(9 * s, row[1].Rect.Left - row[0].Rect.Left, 3);
@@ -640,11 +651,16 @@ namespace Foreman.Mac.UiTests.Canvas {
                 IReadOnlyList<StatusItem> row = recipe.StatusRow;
 
                 Assert.Equal(StatusItemKind.Beacon, row[0].Kind);
-                Assert.Equal(SKRect.Create(bounds.Left + (12 * s), bounds.Top + (84 * s), 16 * s, 16 * s), row[0].Rect);
+                Assert.Equal(SKRect.Create(StatusRowStart(recipe, bounds, s), bounds.Top + (84 * s), 16 * s, 16 * s), row[0].Rect);
                 Assert.Equal(row[0].Rect.Right + (6 * s), row[1].Rect.Left, 3);
                 DrawingPoint badgeCentre = recipe.BeaconElement.LocalToGraph(DrawingPoint.Empty);
                 Rectangle badge = recipe.BeaconElement.Bounds;
-                Assert.Equal(row[0].Rect, SKRect.Create(badgeCentre.X + badge.X, badgeCentre.Y + badge.Y, badge.Width, badge.Height));
+                //Element bounds are whole points; the status row after a state badge can start between them.
+                SKRect hit = SKRect.Create(badgeCentre.X + badge.X, badgeCentre.Y + badge.Y, badge.Width, badge.Height);
+                Assert.Equal(row[0].Rect.Left, hit.Left, 0.5f);
+                Assert.Equal(row[0].Rect.Top, hit.Top, 0.5f);
+                Assert.Equal(row[0].Rect.Width, hit.Width, 0.5f);
+                Assert.Equal(row[0].Rect.Height, hit.Height, 0.5f);
                 SKRect beaconGlyph = recipe.BeaconElement.GlyphRect();
                 Assert.Equal((12 * s, 12 * s), (beaconGlyph.Width, beaconGlyph.Height));
             }

@@ -83,6 +83,7 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.NodeBadgeHeight",
             "Foreman.Size.NodePip",
             "Foreman.Size.NodeGapTight",
+            "Foreman.Size.NodeBadgeStroke",
             "Foreman.Size.LinkWidth",
             "Foreman.Size.LinkWidthMax",
             "Foreman.Size.LinkHitWidth",

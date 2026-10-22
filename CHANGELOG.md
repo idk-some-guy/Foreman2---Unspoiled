@@ -566,6 +566,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   open where they were saved. A node placed from a link drag moves along the flow away from its
   source until it clears the source by 24 pt. Counts and rates cross-fade when they change, and
   Align Selected glides nodes into place; both happen instantly under Reduce Motion.
+- Node states on the canvas now differ in shape as well as colour. A selected node gets a 2 pt
+  orange border instead of the blue wash. An overproducing node gets a dashed warning border,
+  with dashed outlines on its overproduced output tabs. An undersupplied node gets a double red
+  border, and its short input tabs turn red. A node with an error gets a red border instead of the
+  coral fill. Keyboard focus draws a ring 6 pt outside the node, and the placement flash sits
+  between the two. Each node shows at most one badge inside its card: Unavailable, Error, Short,
+  Warning or Over, in that order of priority. The Error and Warning badges keep the old error
+  icon's click to fix and right-click menu. Turning off Flag supply problems hides the Short and
+  Over badges but keeps the borders. A node whose recipe or item is disabled or unavailable draws
+  at 60 % opacity with an Unavailable badge. A hovered item tab lightens, and during a link drag
+  the tab the link would connect to is outlined in the accent colour. Borders run under the item
+  tabs, and an unlinked tab keeps its normal outline. The canvas tooltip waits 800 ms before it
+  appears. In icon view the selection and focus rings wrap the icon. A passthrough drawn as a bar
+  switches back to the card whenever it would show a badge, and a badge takes clicks up to 2 pt
+  beyond its edge. Spoil and plant counts go grey and italic when the graph fails to solve. The
+  system accent colour and Increase Contrast now apply from the first window.
 
 ### Removed
 

@@ -37,9 +37,10 @@ namespace Foreman.Mac.Canvas.Elements {
         protected override string DisplayName => InputName + " Planting";
         protected override SKBitmap? TitleIcon => PlantViewModel.Seed.Icon;
         protected override SKColor StripColor(CanvasTokens tokens) => tokens.NodeRecipe;
+        protected override bool Unavailable => IsUnavailable(PlantViewModel.Seed.Item);
 
         private protected override void LayoutDetail(CanvasTokens tokens, List<NodeText> detail) =>
-            LayoutSubRow(tokens, detail, "Kit.Glyph.RadialPlant", "Plant · ×" + NodeCardPainter.Count(PlantViewModel.ActualSetValue, Context.RoundAssemblerCount), chip: false);
+            LayoutSubRow(tokens, detail, "Kit.Glyph.RadialPlant", "Plant · " + CountText(PlantViewModel.ActualSetValue), chip: false, value: true);
 
         protected override SKBitmap? NodeIcon() => IconCache.PlantingIcon;
 

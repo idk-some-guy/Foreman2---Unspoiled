@@ -195,6 +195,15 @@ namespace Foreman.Mac.Canvas.Elements {
                     ConsumerElement = null;
             }
             UpdateEndpoint();
+            canvas.Viewer.Context.ArmedTab = StartConnectionType == LinkType.Input
+                ? SupplierElement?.GetOutputLineItemTab(Item)
+                : ConsumerElement?.GetInputLineItemTab(Item);
+        }
+
+        public override void Dispose() {
+            if (Parent is null)
+                canvas.Viewer.Context.ArmedTab = null;
+            base.Dispose();
         }
 
         //Ports UpdateSlaveLinks' Ctrl+multi-passthrough fan-out (reference §3), upstream Cmd-mapped per this

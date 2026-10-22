@@ -10,6 +10,7 @@ using Foreman.Mac.Canvas.Elements;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using Foreman.Serialization;
+using Foreman.Mac.UiTests.support;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -212,6 +213,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             //SupplierNodeElement's only tooltip is the exclusive help text, pinned at the literal screen
             //corner (10, 10) upstream's ExclusiveHelpTooltip always uses - not near the cursor itself.
             window.MouseMove(new AvaloniaPoint(Half, Half));
+            AnimationClock.Settle(900);
             Assert.True(BubbleVisibleNear(fx.Control, 10, 10));
 
             window.MouseMove(new AvaloniaPoint(Half - 150, Half - 150));

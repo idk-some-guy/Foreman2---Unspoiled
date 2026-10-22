@@ -7,10 +7,10 @@ using System.Collections.Concurrent;
 
 namespace Foreman.Mac.Canvas.Elements {
     public readonly record struct NodeCardGeometry(SKRect Rect, float Radius, SKColor Fill, float StrokeWidth, SKColor Stroke, bool HasShadow);
-    public readonly record struct TabGeometry(SKRect Rect, float Radius, float StrokeWidth, SKColor Stroke, SKColor Fill, float OverhangOutside);
+    public readonly record struct TabGeometry(SKRect Rect, float Radius, float StrokeWidth, SKColor Stroke, SKColor Fill, float OverhangOutside, float[]? Dash = null);
 
-    internal enum NodeTextRole { KeyTitle, Name, Count, Detail, Chip, ExtraProductivity, TabRate }
-    internal readonly record struct NodeText(NodeTextRole Role, string Text, SKRect Rect, float Size, int Weight, SKColor Color);
+    internal enum NodeTextRole { KeyTitle, Name, Count, Detail, Chip, ExtraProductivity, TabRate, Badge }
+    internal readonly record struct NodeText(NodeTextRole Role, string Text, SKRect Rect, float Size, int Weight, SKColor Color, bool Italic = false);
 
     internal enum StatusItemKind { Beacon, Pip, ExtraProductivity }
     internal readonly record struct StatusItem(StatusItemKind Kind, SKRect Rect);
@@ -44,7 +44,10 @@ namespace Foreman.Mac.Canvas.Elements {
         //§01 metrics with no §12 key or Space rung, in points at 100 %.
         internal const float KeyLineHeight = 12, BuildingRowHeight = 20, SubRowHeight = 16;
         internal const float CardStrokeWidth = 1, TabStrokeWidth = 1.5f;
-        private const float GlyphStrokeWidth = 1.5f, BadgeGlyphStrokeWidth = 1.4f, GlyphGrid = 20;
+        private const float GlyphStrokeWidth = 1.5f, GlyphGrid = 20;
+
+        internal static readonly float[] FlowDash = [4, 3];
+        private static readonly SKPathEffect FlowDashEffect = SKPathEffect.CreateDash(FlowDash, 0);
 
         private static readonly ConcurrentDictionary<int, SKTypeface> Typefaces = new();
         private static readonly string[] RateSuffixes = ["/s", "/min", "/5\u00A0min", "/10\u00A0min", "/30\u00A0min", "/h"];
@@ -59,6 +62,7 @@ namespace Foreman.Mac.Canvas.Elements {
         [ThreadStatic] private static SKPaint? threadFillPaint;
         [ThreadStatic] private static SKPaint? threadStrokePaint;
         [ThreadStatic] private static SKPaint? threadShadowPaint;
+        [ThreadStatic] private static SKPaint? threadLayerPaint;
         [ThreadStatic] private static SKRoundRect? threadRoundRect;
         [ThreadStatic] private static SKPoint[]? threadStripRadii;
 
@@ -66,12 +70,12 @@ namespace Foreman.Mac.Canvas.Elements {
 
         internal static float StatusRowTop(CanvasTokens tokens) => DetailRowTop(tokens) + tokens.NodeBuildingIcon + tokens.Space3;
 
-        internal static SKTypeface Typeface(int weight) =>
-            Typefaces.GetOrAdd(weight, w => SKTypeface.FromFamilyName(null, new SKFontStyle(w, (int)SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)) ?? SKTypeface.Default);
+        internal static SKTypeface Typeface(int weight, bool italic = false) =>
+            Typefaces.GetOrAdd((weight * 2) + (italic ? 1 : 0), key => SKTypeface.FromFamilyName(null, new SKFontStyle(key / 2, (int)SKFontStyleWidth.Normal, key % 2 == 1 ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright)) ?? SKTypeface.Default);
 
-        private static SKFont Font(float size, int weight) {
+        private static SKFont Font(float size, int weight, bool italic = false) {
             SKFont font = threadFont ??= new SKFont { Subpixel = true };
-            font.Typeface = Typeface(weight);
+            font.Typeface = Typeface(weight, italic);
             font.Size = size;
             return font;
         }
@@ -155,10 +159,13 @@ namespace Foreman.Mac.Canvas.Elements {
         }
 
         //A card or tab border sits inside its bounds, as a CSS border-box does.
-        internal static void StrokeInside(SKCanvas canvas, SKRect rect, float radius, float width, SKColor color) {
+        internal static void StrokeInside(SKCanvas canvas, SKRect rect, float radius, float width, SKColor color, float[]? dash = null) {
+            if (width <= 0)
+                return;
             SKRect inner = SKRect.Inflate(rect, -width / 2, -width / 2);
             float innerRadius = Math.Max(0, radius - (width / 2));
-            canvas.DrawRoundRect(inner, innerRadius, innerRadius, StrokePaint(color, width));
+            canvas.DrawRoundRect(inner, innerRadius, innerRadius, DashedStroke(color, width, dash));
+            ResetStroke();
         }
 
         internal static void DrawStrip(SKCanvas canvas, SKRect strip, SKColor color, float radius) {
@@ -176,17 +183,16 @@ namespace Foreman.Mac.Canvas.Elements {
             canvas.DrawRoundRect(chip, radius, radius, FillPaint(tokens.AccentSoft));
         }
 
-        internal static void DrawRoundedBox(SKCanvas canvas, SKRect box, float radius, SKColor fill, float strokeWidth, SKColor stroke) {
+        internal static void DrawRoundedBox(SKCanvas canvas, SKRect box, float radius, SKColor fill, float strokeWidth, SKColor stroke, float[]? dash = null) {
             canvas.DrawRoundRect(box, radius, radius, FillPaint(fill));
-            StrokeInside(canvas, box, radius, strokeWidth, stroke);
+            StrokeInside(canvas, box, radius, strokeWidth, stroke, dash);
         }
 
         internal static void DrawPip(SKCanvas canvas, SKRect pip, SKColor color) => canvas.DrawOval(pip, FillPaint(color));
 
-        //Glyph geometry scales with its box; the stroke keeps the kit's fixed width at every size.
-        internal static void DrawGlyph(SKCanvas canvas, string key, SKRect box, SKColor color, bool badge = false) {
+        //Glyph geometry scales with its box; the stroke keeps the kit's fixed width unless a badge-sized glyph passes its own.
+        internal static void DrawGlyph(SKCanvas canvas, string key, SKRect box, SKColor color, float stroke = GlyphStrokeWidth) {
             float scale = box.Width / GlyphGrid;
-            float stroke = badge ? BadgeGlyphStrokeWidth : GlyphStrokeWidth;
             canvas.Save();
             canvas.Translate(box.Left, box.Top);
             canvas.Scale(scale);
@@ -203,13 +209,62 @@ namespace Foreman.Mac.Canvas.Elements {
             canvas.Restore();
         }
 
+        internal static void BeginOpacityLayer(SKCanvas canvas, float opacity) {
+            SKPaint paint = threadLayerPaint ??= new SKPaint();
+            paint.Color = SKColors.Black.WithAlpha((byte)Math.Round(255 * Math.Clamp(opacity, 0, 1)));
+            canvas.SaveLayer(paint);
+        }
+
+        internal static void DrawRing(SKCanvas canvas, in RingGeometry ring, float opacity = 1) {
+            SKColor color = opacity >= 1 ? ring.Color : ring.Color.WithAlpha((byte)Math.Round(ring.Color.Alpha * opacity));
+            float radius = Math.Max(0, ring.Radius);
+            canvas.DrawRoundRect(ring.Rect, radius, radius, DashedStroke(color, ring.StrokeWidth, ring.Dash));
+            ResetStroke();
+        }
+
+        //Dashes use butt caps so 4 on 3 stays 4 on 3; ResetStroke restores the shared paint's round caps.
+        private static SKPaint DashedStroke(SKColor color, float width, float[]? dash) {
+            SKPaint paint = StrokePaint(color, width);
+            if (dash is not null) {
+                paint.StrokeCap = SKStrokeCap.Butt;
+                paint.PathEffect = ReferenceEquals(dash, FlowDash) ? FlowDashEffect : SKPathEffect.CreateDash(dash, 0);
+            }
+            return paint;
+        }
+
+        private static void ResetStroke() {
+            SKPaint paint = threadStrokePaint!;
+            paint.PathEffect = null;
+            paint.StrokeCap = SKStrokeCap.Round;
+        }
+
+        internal static void DrawBadge(SKCanvas canvas, SKRect box, NodeBadge badge, CanvasTokens tokens) {
+            (SKColor fill, SKColor text, string? glyph) = badge.Kind switch {
+                NodeBadgeKind.Unavailable => (tokens.WellBackground, tokens.TextSecondary, null),
+                NodeBadgeKind.Error => (tokens.Error, tokens.TextOnAccent, "Kit.Glyph.Node.Error"),
+                NodeBadgeKind.Undersupplied => (tokens.Error, tokens.TextOnAccent, "Kit.Glyph.Node.Short"),
+                NodeBadgeKind.Warning => (tokens.Warning, tokens.TextOnWarning, "Kit.Glyph.Node.Error"),
+                _ => (tokens.Warning, tokens.TextOnWarning, "Kit.Glyph.Node.Over"),
+            };
+            float radius = Math.Min(tokens.PillRadius, box.Height / 2);
+            canvas.DrawRoundRect(box, radius, radius, FillPaint(fill));
+            if (badge.Kind == NodeBadgeKind.Unavailable)
+                StrokeInside(canvas, box, radius, CardStrokeWidth, tokens.BorderStrong);
+            float x = box.Left + tokens.Space15;
+            if (glyph is not null) {
+                DrawGlyph(canvas, glyph, SKRect.Create(x, box.MidY - (tokens.Glyph10 / 2), tokens.Glyph10, tokens.Glyph10), text, tokens.NodeBadgeStroke);
+                x += tokens.Glyph10 + tokens.NodeGapTight;
+            }
+            DrawText(canvas, new NodeText(NodeTextRole.Badge, badge.Text, new SKRect(x, box.Top, box.Right - tokens.Space15, box.Bottom), tokens.CanvasFontSize, tokens.CanvasEmphasizedWeight, text), 0, 0);
+        }
+
         internal static void DrawIcon(SKCanvas canvas, SKBitmap? icon, SKRect rect) {
             if (icon is not null)
                 canvas.DrawBitmap(icon, rect);
         }
 
         internal static void DrawText(SKCanvas canvas, in NodeText text, float dx, float dy, string? content = null, float opacity = 1) {
-            SKFont font = Font(text.Size, text.Weight);
+            SKFont font = Font(text.Size, text.Weight, text.Italic);
             SKPaint paint = threadTextPaint ??= new SKPaint { IsAntialias = true };
             paint.Color = opacity >= 1 ? text.Color : text.Color.WithAlpha((byte)Math.Round(text.Color.Alpha * Math.Clamp(opacity, 0, 1)));
             SKFontMetrics metrics = font.Metrics;

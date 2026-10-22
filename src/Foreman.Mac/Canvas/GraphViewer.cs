@@ -51,7 +51,7 @@ namespace Foreman.Mac.Canvas {
         public Dictionary<LinkId, LinkElement> LinkElementDictionary { get; } = [];
         public List<AnnotationElement> Annotations { get; } = [];
 
-        public bool IconsOnly { get; set; }
+        public bool IconsOnly { get => Context.IconsOnly; set => Context.IconsOnly = value; }
         public int NodeCountForSimpleView { get; set; } = 200;
         public bool TooltipsEnabled { get; set; } = true;
 

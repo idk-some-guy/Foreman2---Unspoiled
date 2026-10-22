@@ -250,6 +250,7 @@
   <x:Double x:Key="Foreman.Size.NodeBadgeHeight">16</x:Double>
   <x:Double x:Key="Foreman.Size.NodePip">6</x:Double>
   <x:Double x:Key="Foreman.Size.NodeGapTight">3</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeBadgeStroke">1.4</x:Double>
   <x:Double x:Key="Foreman.Size.LinkWidth">3</x:Double>
   <x:Double x:Key="Foreman.Size.LinkWidthMax">35</x:Double>
   <x:Double x:Key="Foreman.Size.LinkHitWidth">12</x:Double>

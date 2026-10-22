@@ -70,6 +70,7 @@ namespace Foreman.Mac.Canvas.Elements {
         protected override string DisplayName => RecipeName;
         protected override SKBitmap? TitleIcon => RecipeViewModel.BaseRecipe.Icon;
         protected override SKColor StripColor(CanvasTokens tokens) => tokens.NodeRecipe;
+        protected override bool Unavailable => IsUnavailable(RecipeViewModel.BaseRecipe.Recipe);
         protected override SKBitmap? NodeIcon() => RecipeViewModel.BaseRecipe.Icon;
 
         private readonly LabelFade count = new();
@@ -91,35 +92,40 @@ namespace Foreman.Mac.Canvas.Elements {
             float rowTop = Top + NodeCardPainter.DetailRowTop(tokens);
             float rowHeight = NodeCardPainter.BuildingRowHeight * (float)tokens.Scale;
             float gap = tokens.Space15;
-            float right = Right - tokens.NodeInsetSide;
+            bool statusRowShown = Context.LevelOfDetail != LevelOfDetail.Low;
+            float right = statusRowShown ? Right - tokens.NodeInsetSide : PlaceBadgeTrailing(tokens, rowTop, rowHeight);
             buildingIconRect = SKRect.Create(Left + tokens.NodeInsetSide, rowTop + ((rowHeight - tokens.NodeBuildingIcon) / 2), tokens.NodeBuildingIcon, tokens.NodeBuildingIcon);
             float x = buildingIconRect.Right + gap;
 
             if (RecipeViewModel.RateType == RateType.Manual) {
                 x = LayoutChip(tokens, detail, "Fixed ×" + NodeCardPainter.Number(RecipeViewModel.DesiredSetValue), x, rowTop, rowHeight) + gap;
             } else {
-                count.Set("×" + (RecipeViewModel.SelectedAssembler.Assembler.IsMissing ? "---" : NodeCardPainter.Count(RecipeViewModel.ActualSetValue, Context.RoundAssemblerCount)), Context);
+                count.Set(SolveState == NodeSolveState.NeverSolved ? "—"
+                    : "×" + (RecipeViewModel.SelectedAssembler.Assembler.IsMissing ? "---" : NodeCardPainter.Count(RecipeViewModel.ActualSetValue, Context.RoundAssemblerCount)), Context);
                 int weight = tokens.CanvasEmphasizedWeight;
                 float countWidth = NodeCardPainter.Measure(count.Text, tokens.EmphasizedBodyFontSize, weight);
-                detail.Add(new NodeText(NodeTextRole.Count, count.Text, SKRect.Create(x, rowTop, countWidth, rowHeight), tokens.EmphasizedBodyFontSize, weight, tokens.Text));
+                detail.Add(ValueText(NodeTextRole.Count, count.Text, SKRect.Create(x, rowTop, countWidth, rowHeight), tokens.EmphasizedBodyFontSize, weight, tokens.Text));
                 x += countWidth + gap;
             }
             string building = NodeCardPainter.Fit(RecipeViewModel.SelectedAssembler.FriendlyName ?? "", right - x, tokens.CanvasFontSize, 400, out _);
             detail.Add(new NodeText(NodeTextRole.Detail, building, new SKRect(x, rowTop, right, rowTop + rowHeight), tokens.CanvasFontSize, 400, tokens.TextSecondary));
 
-            statusRow = Context.LevelOfDetail == LevelOfDetail.Low ? [] : LayoutStatusRow(tokens, detail);
+            statusRow = statusRowShown ? LayoutStatusRow(tokens, detail) : [];
             BeaconElement.Place(statusRow.Where(item => item.Kind == StatusItemKind.Beacon));
             AssemblerElement.Place(statusRow.Where(item => item.Kind != StatusItemKind.Beacon));
             BeaconElement.SetVisibility(Context.LevelOfDetail != LevelOfDetail.Low);
             AssemblerElement.SetVisibility(Context.LevelOfDetail != LevelOfDetail.Low);
         }
 
-        //State badge (with the node states) · beacon badge · productivity pips (capped at 6) · extra productivity; missing items collapse leftward.
+        //State badge · beacon badge · productivity pips (capped at 6) · extra productivity; missing items collapse leftward.
         private List<StatusItem> LayoutStatusRow(CanvasTokens tokens, List<NodeText> detail) {
             float rowTop = Top + NodeCardPainter.StatusRowTop(tokens);
             float badge = tokens.NodeBadgeHeight;
             float gap = tokens.Space15;
             float x = Left + tokens.NodeInsetSide;
+            float afterBadge = PlaceBadge(tokens, x, rowTop, badge);
+            if (afterBadge > x)
+                x = afterBadge + gap;
             var items = new List<StatusItem>();
 
             if (RecipeViewModel.SelectedBeacon) {

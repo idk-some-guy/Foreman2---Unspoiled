@@ -40,6 +40,16 @@ namespace Foreman.Mac.UiTests.Canvas {
             public event EventHandler? Changed { add => changed += value; remove => changed -= value; }
         }
 
+        private sealed class NoAccentAppearance : IPlatformAppearance {
+            private EventHandler? changed;
+            public AvColor? AccentColor => null;
+            public ColorContrastPreference ContrastPreference => ColorContrastPreference.NoPreference;
+            public bool ReduceTransparency => false;
+            public bool ReduceMotion => false;
+            public PlatformThemeVariant ThemeVariant => PlatformThemeVariant.Light;
+            public event EventHandler? Changed { add => changed += value; remove => changed -= value; }
+        }
+
         [AvaloniaFact]
         public void AtOneFifty_NodeTabHeightIs33_AndNodeTabRadiusStays6() {
             App app = (App)Application.Current!;
@@ -60,7 +70,8 @@ namespace Foreman.Mac.UiTests.Canvas {
                 Assert.Equal(15f, TokenBridge.Current.Glyph10);
                 Assert.Equal(18f, TokenBridge.Current.GlyphMicro);
                 Assert.Equal(4.5f, TokenBridge.Current.NodeGapTight);
-                Assert.Equal((6f, 9f, 12f, 18f), (TokenBridge.Current.Space1, TokenBridge.Current.Space15, TokenBridge.Current.Space2, TokenBridge.Current.Space3));
+                Assert.Equal(2.1f, TokenBridge.Current.NodeBadgeStroke, 3);
+                Assert.Equal((3f, 6f, 9f, 12f, 18f), (TokenBridge.Current.Space05, TokenBridge.Current.Space1, TokenBridge.Current.Space15, TokenBridge.Current.Space2, TokenBridge.Current.Space3));
                 Assert.Equal(100f, TokenBridge.Current.PillRadius);
                 Assert.Equal(3f, TokenBridge.Current.NodeTypeStripRadius);
                 Assert.Equal(4f, TokenBridge.Current.NodeBeaconBadgeRadius);
@@ -73,6 +84,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         [AvaloniaFact]
         public void ThemeFlip_RepublishesOnce_WithTheOtherAppearancesValues() {
             App app = (App)Application.Current!;
+            app.InstallAppearance(new NoAccentAppearance());
             app.ApplyTheme(ThemeMode.Light);
             TokenBridge.Refresh();
             CanvasTokens light = TokenBridge.Current;
@@ -102,7 +114,9 @@ namespace Foreman.Mac.UiTests.Canvas {
                 Assert.Equal((100f, 100f), (light.PillRadius, dark.PillRadius));
             } finally {
                 TokenBridge.Changed -= handler;
+                app.InstallAppearance(null);
                 app.ApplyTheme(ThemeMode.System);
+                TokenBridge.Refresh();
             }
         }
 

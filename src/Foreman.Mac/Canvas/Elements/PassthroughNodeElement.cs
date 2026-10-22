@@ -33,7 +33,8 @@ namespace Foreman.Mac.Canvas.Elements {
             && !PassthroughViewModel.IsOverproducing()
             && !PassthroughViewModel.ManualRateNotMet()
             && PassthroughViewModel.InputLinks.Count > 0
-            && PassthroughViewModel.OutputLinks.Count > 0;
+            && PassthroughViewModel.OutputLinks.Count > 0
+            && BadgeKind() is null;
 
         protected override bool HasCard => !isBar;
         protected override bool SimpleDraw => PassthroughViewModel.SimpleDraw;
@@ -42,17 +43,26 @@ namespace Foreman.Mac.Canvas.Elements {
             isBar = BarActive;
             InputTabs[0].HideItemTab = isBar;
             OutputTabs[0].HideItemTab = isBar;
-            return isBar ? PassthroughNodeWidth : WidthForChip(Chip);
+            if (isBar)
+                return PassthroughNodeWidth;
+            CanvasTokens tokens = TokenBridge.Current;
+            float content = Chip is string chip
+                ? (2 * tokens.Space15) + NodeCardPainter.Measure(chip, tokens.CanvasFontSize, tokens.CanvasEmphasizedWeight)
+                : NodeCardPainter.Measure(SubRowWord, tokens.CanvasFontSize, 400);
+            return Math.Max(WidthForChip(Chip), WidthForSubRow(content));
         }
 
         protected override string DisplayName => ItemName;
         protected override SKBitmap? TitleIcon => PassthroughViewModel.PassthroughItem.Icon;
         protected override SKColor StripColor(CanvasTokens tokens) => tokens.NodePassthrough;
+        protected override bool Unavailable => IsUnavailable(PassthroughViewModel.PassthroughItem.Item);
 
         private string? Chip => PassthroughViewModel.RateType == RateType.Manual ? "Limit " + RateText(PassthroughViewModel.DesiredRate) : null;
 
         private protected override void LayoutDetail(CanvasTokens tokens, List<NodeText> detail) =>
-            LayoutSubRow(tokens, detail, null, Chip ?? "Passthrough", Chip is not null);
+            LayoutSubRow(tokens, detail, null, Chip ?? SubRowWord, Chip is not null);
+
+        private const string SubRowWord = "Passthrough";
 
         protected override SKBitmap? NodeIcon() => null;
 
@@ -80,12 +90,6 @@ namespace Foreman.Mac.Canvas.Elements {
             int capRadius = TokenBridge.ScaledInt(6);
             canvas.DrawCircle(inputPoint.X, InputTabs[0].LocalToGraph(new Point(0, 0)).Y, capRadius, capFillPaint);
             canvas.DrawCircle(inputPoint.X, OutputTabs[0].LocalToGraph(new Point(0, 0)).Y, capRadius, capFillPaint);
-
-            //maxLineWidth follows Context.GetLinkWidth, not UiScale, so its highlight padding stays unscaled.
-            if (Highlighted) {
-                SKPaint highlightStrokePaint = GraphicsStuff.RentStrokePaint(SelectionOverlayColor, Math.Max(30, maxLineWidth + 10), SKStrokeCap.Round);
-                canvas.DrawLine(inputPoint.X, inputPoint.Y, outputPoint.X, outputPoint.Y, highlightStrokePaint);
-            }
         }
 
         private static SKColor ToSkColor(Color color) => new(color.R, color.G, color.B, color.A);

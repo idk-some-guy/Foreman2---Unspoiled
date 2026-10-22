@@ -300,21 +300,23 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Same(created, fx.Control.PlacementFlashNode);
             Assert.True(created.IsPlacementFlashing);
 
-            (SKRect path, float radius, float stroke, SKColor color) = created.PlacementFlashRing();
-            SKRect outer = SKRect.Inflate(path, stroke / 2, stroke / 2);
-            Assert.Equal(2, stroke);
-            Assert.Equal(12, radius);
-            Assert.Equal(created.Location.X - (created.Width / 2f) - 3, outer.Left, 0.5);
-            Assert.Equal(created.Location.Y - (created.Height / 2f) - 3, outer.Top, 0.5);
-            Assert.Equal(created.Width + 6, outer.Width, 0.5);
-            Assert.Equal(created.Height + 6, outer.Height, 0.5);
+            RingGeometry ring = created.PlacementFlashRing();
+            Assert.Equal(ring, created.LaneARing());
+            Assert.Equal(2, ring.StrokeWidth);
+            Assert.Equal(13, ring.Radius);
+            Assert.Null(ring.Dash);
+            Assert.Equal(created.Location.X - (created.Width / 2f) - 3, ring.Rect.Left, 0.5);
+            Assert.Equal(created.Location.Y - (created.Height / 2f) - 3, ring.Rect.Top, 0.5);
+            Assert.Equal(created.Width + 6, ring.Rect.Width, 0.5);
+            Assert.Equal(created.Height + 6, ring.Rect.Height, 0.5);
             Color accent = ThemeResources.ResolveColor("Foreman.Color.Accent", Colors.Transparent);
-            Assert.Equal(new SKColor(accent.R, accent.G, accent.B, accent.A), color);
+            Assert.Equal(new SKColor(accent.R, accent.G, accent.B, accent.A), ring.Color);
 
             AnimationClock.Settle(700);
 
             Assert.Null(fx.Control.PlacementFlashNode);
             Assert.False(created.IsPlacementFlashing);
+            Assert.Null(created.LaneARing());
         }
 
         [AvaloniaFact]

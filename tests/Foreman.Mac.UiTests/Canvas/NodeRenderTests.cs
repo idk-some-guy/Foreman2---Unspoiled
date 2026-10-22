@@ -20,8 +20,6 @@ namespace Foreman.Mac.UiTests.Canvas {
     public class NodeRenderTests {
         private const int Half = 200;
 
-        private static readonly SKColor ErrorBg = new(255, 127, 80); //Brushes.Coral
-
         //---- fixture plumbing: builds a minimal DataCache + graph + session, mirroring
         //ForemanTest/Graph/GraphSessionTestHelper's idiom without depending on that test project. Only the
         //DataCache._store field needs reflection; DataCacheStore itself is internal and reachable directly
@@ -98,11 +96,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             return fx.Session.View.Nodes.OfType<ISupplierNodeViewModel>().Single();
         }
 
-        private static IConsumerNodeViewModel MakeConsumer(Fixture fx, ItemQualityPair item) {
-            fx.Graph.CreateConsumerNode(item, Point.Empty);
-            return fx.Session.View.Nodes.OfType<IConsumerNodeViewModel>().Single();
-        }
-
         private static ISpoilNodeViewModel MakeSpoil(Fixture fx, string inputName, string outputName) {
             ItemPrototype input = fx.NewItem(inputName);
             ItemPrototype output = fx.NewItem(outputName);
@@ -125,89 +118,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         private static IPassthroughNodeViewModel MakePassthrough(Fixture fx, ItemQualityPair item) {
             fx.Graph.CreatePassthroughNode(item, Point.Empty);
             return fx.Session.View.Nodes.OfType<IPassthroughNodeViewModel>().Single();
-        }
-
-        //---- base fill + border color: SupplierNodeElement ----
-
-        //perf-packaging-reference.md §1b: pins the selection-overlay tint's exact blended
-        //pixel so converting its Fill(SelectionOverlayColor) call site to a cached static paint can't drift it.
-        //The overlay is (100,100,200) at alpha 100 over the card fill.
-        private static int Blend(byte under, int over) => (int)Math.Round(((under * 155) + (over * 100)) / 255.0);
-
-        [AvaloniaFact]
-        public void SupplierNodeElement_Highlighted_TintsBaseFillWithSelectionOverlay() {
-            Fixture fx = NewFixture();
-            ItemPrototype item = fx.NewItem("iron-ore");
-            ISupplierNodeViewModel viewModel = MakeSupplier(fx, fx.Pair(item));
-            var element = new SupplierNodeElement(fx.Context, viewModel) { Highlighted = true };
-
-            using SKSurface surface = Render(element);
-
-            SKColor card = TokenBridge.Current.ControlBackground;
-            SKColor tinted = SamplePixel(surface, 0, -35);
-            Assert.InRange(tinted.Red, Blend(card.Red, 100) - 1, Blend(card.Red, 100) + 1);
-            Assert.InRange(tinted.Green, Blend(card.Green, 100) - 1, Blend(card.Green, 100) + 1);
-            Assert.InRange(tinted.Blue, Blend(card.Blue, 200) - 1, Blend(card.Blue, 200) + 1);
-        }
-
-        [AvaloniaFact]
-        public void SupplierNodeElement_ItemMissing_FillsCoralError() {
-            Fixture fx = NewFixture();
-            ItemPrototype item = fx.NewItem("ghost-item", isMissing: true);
-            ISupplierNodeViewModel viewModel = MakeSupplier(fx, fx.Pair(item));
-            var element = new SupplierNodeElement(fx.Context, viewModel);
-
-            using SKSurface surface = Render(element);
-
-            Assert.Equal(ErrorBg, SamplePixel(surface, 0, -35));
-        }
-
-        [AvaloniaFact]
-        public void SupplierNodeElement_ItemDisabled_ShowsWarningCornerFlagButKeepsCleanFill() {
-            Fixture fx = NewFixture();
-            ItemPrototype item = fx.NewItem("copper-ore");
-            item.Enabled = false;
-            ISupplierNodeViewModel viewModel = MakeSupplier(fx, fx.Pair(item));
-            var element = new SupplierNodeElement(fx.Context, viewModel);
-
-            using SKSurface surface = Render(element);
-
-            Assert.Equal(TokenBridge.Current.ControlBackground, SamplePixel(surface, 0, -35));
-            Assert.Equal(ErrorBg, SamplePixel(surface, -40, -40));
-        }
-
-        [AvaloniaFact]
-        public void SupplierNodeElement_ManualNoOutputLinks_BorderIsWarning() {
-            Fixture fx = NewFixture();
-            ItemPrototype item = fx.NewItem("plastic-bar");
-            ISupplierNodeViewModel viewModel = MakeSupplier(fx, fx.Pair(item));
-            fx.Session.TryGetDomainNode(viewModel.Id, out BaseNode? node);
-            BaseNodeController controller = fx.Graph.RequestNodeController(node!)!;
-            controller.SetRateType(RateType.Manual);
-            controller.SetDesiredSetValue(100);
-            var element = new SupplierNodeElement(fx.Context, viewModel);
-
-            using SKSurface surface = Render(element);
-
-            Assert.Equal(TokenBridge.Current.Warning, SamplePixel(surface, -70, 0));
-        }
-
-        //---- base fill: Consumer/Spoil/Plant/Passthrough ----
-
-        [AvaloniaFact]
-        public void ConsumerNodeElement_ManualRateNotMet_BorderIsError() {
-            Fixture fx = NewFixture();
-            ItemPrototype item = fx.NewItem("plate");
-            IConsumerNodeViewModel viewModel = MakeConsumer(fx, fx.Pair(item));
-            fx.Session.TryGetDomainNode(viewModel.Id, out BaseNode? node);
-            BaseNodeController controller = fx.Graph.RequestNodeController(node!)!;
-            controller.SetRateType(RateType.Manual);
-            controller.SetDesiredSetValue(50);
-            var element = new ConsumerNodeElement(fx.Context, viewModel);
-
-            using SKSurface surface = Render(element);
-
-            Assert.Equal(TokenBridge.Current.Error, SamplePixel(surface, -70, 0));
         }
 
         //---- passthrough simple-draw mode ----
@@ -234,33 +144,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             using SKSurface surface = Render(element);
 
             Assert.Equal(new SKColor(10, 20, 30), SamplePixel(surface, 0, 0));
-        }
-
-        //perf-packaging-reference.md §1b: pins the simple-draw highlight stroke's exact
-        //blended pixel so converting its per-frame `new SKPaint` at PassthroughNodeElement.cs:71 to a cached,
-        //mutate-reset per-instance paint can't drift it.
-        [AvaloniaFact]
-        public void PassthroughNodeElement_SimpleDrawActive_Highlighted_DrawsOverlayStroke() {
-            Fixture fx = NewFixture();
-            ItemPrototype item = fx.NewItem("coal");
-            item.SetIconAndColor(new IconColorPair(null, Color.FromArgb(255, 10, 20, 30)));
-            ItemQualityPair pair = fx.Pair(item);
-
-            BaseNode supplier = fx.Graph.CreateSupplierNode(pair, new Point(0, -140));
-            BaseNode passthrough = fx.Graph.CreatePassthroughNode(pair, Point.Empty);
-            BaseNode consumer = fx.Graph.CreateConsumerNode(pair, new Point(0, 140));
-            fx.Graph.CreateLink(supplier, passthrough, pair);
-            fx.Graph.CreateLink(passthrough, consumer, pair);
-            if (fx.Graph.RequestNodeController(passthrough) is PassthroughNodeController controller)
-                controller.SetSimpleDraw(true);
-
-            IPassthroughNodeViewModel viewModel = fx.Session.View.Nodes.OfType<IPassthroughNodeViewModel>().Single();
-            var element = new PassthroughNodeElement(fx.Context, viewModel) { Highlighted = true };
-            Prime(fx, viewModel);
-
-            using SKSurface surface = Render(element);
-
-            Assert.Equal(new SKColor(45, 51, 96), SamplePixel(surface, 0, 30));
         }
 
         //---- GetToolTips cascade + ContainsPoint ----

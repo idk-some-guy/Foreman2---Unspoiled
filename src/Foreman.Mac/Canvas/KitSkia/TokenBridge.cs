@@ -25,8 +25,8 @@ namespace Foreman.Mac.Canvas.KitSkia {
         float LinkWidth, float LinkWidthMax, float LinkHitWidth, float WaypointDiameter, float WaypointHitTarget,
         float NodeRadius, float NodeTabRadius, float LinkCornerRadius, float CanvasMinTextSize, float GridMinScreenSpacing,
         float FindRingDashOn, float FindRingDashOff, SKColor AccentText, float PillRadius,
-        float Glyph10, float GlyphMicro, float Space1, float Space15, float Space2, float Space3, float Space5,
-        float NodeTypeStripRadius, float NodeBeaconBadgeRadius);
+        float Glyph10, float GlyphMicro, float Space05, float Space1, float Space15, float Space2, float Space3, float Space5,
+        float NodeTypeStripRadius, float NodeBeaconBadgeRadius, float NodeBadgeStroke, float FocusRingWidth);
 
     public static class TokenBridge {
         private static CanvasTokens? current;
@@ -84,9 +84,10 @@ namespace Foreman.Mac.Canvas.KitSkia {
                 Number("Foreman.Metrics.CanvasMinTextSize"), Number("Foreman.Metrics.GridMinScreenSpacing"),
                 dashOn, dashOff, ColorOf("Foreman.Color.AccentText"), Radius("Foreman.Radius.Pill"),
                 Number("Foreman.Size.Glyph10"), Number("Foreman.Size.GlyphMicro"),
-                Space("Foreman.Space.Space1", scale), Space("Foreman.Space.Space15", scale), Space("Foreman.Space.Space2", scale),
+                Space("Foreman.Space.Space05", scale), Space("Foreman.Space.Space1", scale), Space("Foreman.Space.Space15", scale), Space("Foreman.Space.Space2", scale),
                 Space("Foreman.Space.Space3", scale), Space("Foreman.Space.Space5", scale),
-                Radius("Foreman.Radius.NodeTypeStrip"), Radius("Foreman.Radius.NodeBeaconBadge"));
+                Radius("Foreman.Radius.NodeTypeStrip"), Radius("Foreman.Radius.NodeBeaconBadge"),
+                Number("Foreman.Size.NodeBadgeStroke"), Number("Foreman.FocusRing.Width"));
         }
 
         //Off the UI thread ActualThemeVariant throws, so we resolve against Light there, as ThemeResources does.

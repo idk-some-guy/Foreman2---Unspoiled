@@ -558,6 +558,7 @@ namespace Foreman.Mac.Canvas {
             panCancellation?.Cancel();
             panCancellation = null;
             EndPlacementFlash();
+            TrackHoverTarget(null);
             FinishAlign();
             EndLabelFade();
             Viewer.Dispose();
@@ -583,11 +584,17 @@ namespace Foreman.Mac.Canvas {
             e.Handled = true;
         }
 
-        //Ports ProductionGraphViewer_MouseDown (reference §1). ToolTipRenderer.ClearFloatingControls() and
-        //the chooser-panel close-on-outside-click have no equivalent here - this port's hover tooltip is a
-        //pure per-frame function of hoverScreenPoint, never a floating control, and there's no chooser panel
-        //yet. Annotation_OnMouseDownDoubleClick/OnMouseDown is also out: annotation click routing lives
-        //elsewhere.
+        protected override void OnPointerExited(PointerEventArgs e) {
+            base.OnPointerExited(e);
+            TrackHoverTarget(null);
+            if (Viewer.Context.HoveredTab is null)
+                return;
+            Viewer.Context.HoveredTab = null;
+            RequestRedraw();
+        }
+
+        //Ports ProductionGraphViewer_MouseDown (reference §1). Annotation_OnMouseDownDoubleClick/OnMouseDown is
+        //out: annotation click routing lives elsewhere.
         //A Left click on a node claims MouseDownElement and forwards to BaseNodeElement.MouseDown (reference
         //§2); Focus() picks up keyboard input (arrow keys, Shift axis-lock) the same click starts.
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
@@ -627,12 +634,13 @@ namespace Foreman.Mac.Canvas {
             }
 
             Focus();
+            foreach (BaseNodeElement node in Viewer.NodeElements)
+                node.ShowsKeyboardFocus = false;
             mouseDownStartScreenPoint = screenPoint;
             DrawingPoint graphPoint = Viewport.ScreenToGraph(screenPoint);
             PointerPointProperties properties = e.GetCurrentPoint(this).Properties;
             UpdateModifiers(e.KeyModifiers);
-            //C2: pointer events carry fresh modifiers straight from the OS, unlike the cached KeyUp/KeyDown
-            //tracking a picker sheet can strand mid-drag - re-deriving here self-heals a stuck Shift.
+            //Pointer events carry fresh OS modifiers; the cached KeyUp/KeyDown state can strand mid-drag, so this self-heals a stuck Shift.
             ApplyAxisLockModifier(e.KeyModifiers);
 
             //Ghost-first priority (reference §1's clickedElement resolution): a link drag in progress claims
@@ -717,9 +725,12 @@ namespace Foreman.Mac.Canvas {
 
             hoverScreenPoint = screenPoint;
             DrawingPoint graphPoint = Viewport.ScreenToGraph(screenPoint);
+            BaseNodeElement? hoveredNode = GetNodeAtPoint(graphPoint);
+            Viewer.Context.HoveredTab = hoveredNode?.SubElements.OfType<ItemTabElement>().FirstOrDefault(tab => tab.ContainsPoint(graphPoint));
+            TrackHoverTarget(hoveredNode?.HoverTargetAt(graphPoint) ?? AnnotationLoader.GetAnnotationAtPoint(Annotations, graphPoint));
             PointerPointProperties properties = e.GetCurrentPoint(this).Properties;
             UpdateModifiers(e.KeyModifiers);
-            ApplyAxisLockModifier(e.KeyModifiers); //C2: same self-heal as OnPointerPressed above
+            ApplyAxisLockModifier(e.KeyModifiers); //Same stuck-Shift self-heal as OnPointerPressed
 
             //Ports the unconditional draggedLinkElement?.MouseMoved(graph_location) call upstream makes
             //ahead of its own DragOperation switch (reference §3): the ghost tracks the cursor on every move
@@ -1765,20 +1776,60 @@ namespace Foreman.Mac.Canvas {
             //ToolTipRenderer.Paint/the paused-border rect (reference §3 steps 9-12); tooltip gated on
             //!ViewBeingDragged the same way upstream gates the live hover tooltip, and drawn before the
             //paused border so the border stays topmost like upstream's draw order.
-            if (Viewer.TooltipsEnabled && !ViewBeingDragged && hoverScreenPoint is AvaloniaPoint hover)
-                DrawHoverTooltip(canvas, hover);
+            foreach (TooltipInfo tooltip in HoverTooltips())
+                FloatingTooltipRenderer.Draw(canvas, tooltip);
 
             if (Viewer.Graph.PauseUpdates)
                 Viewer.PaintPausedBorder(canvas);
         }
 
-        private void DrawHoverTooltip(SKCanvas canvas, AvaloniaPoint hover) {
-            GraphElement? element = HitTest(hover);
-            if (element is null)
-                return;
+        internal List<TooltipInfo> HoverTooltips() {
+            if (!hoverTooltipReady || !Viewer.TooltipsEnabled || ViewBeingDragged || hoverScreenPoint is not AvaloniaPoint hover || HitTest(hover) is not GraphElement element)
+                return [];
+            return element.GetToolTips(Viewport.ScreenToGraph(hover));
+        }
 
-            foreach (TooltipInfo tooltip in element.GetToolTips(Viewport.ScreenToGraph(hover)))
-                FloatingTooltipRenderer.Draw(canvas, tooltip);
+        internal static readonly StyledProperty<double> HoverTooltipDelayProgressProperty =
+            AvaloniaProperty.Register<GraphCanvasControl, double>("HoverTooltipDelayProgress");
+
+        private object? hoverTooltipTarget;
+        private bool hoverTooltipReady;
+        private CancellationTokenSource? hoverTooltipCancellation;
+
+        private void TrackHoverTarget(object? target) {
+            if (ReferenceEquals(target, hoverTooltipTarget))
+                return;
+            hoverTooltipTarget = target;
+            hoverTooltipCancellation?.Cancel();
+            hoverTooltipCancellation = null;
+            if (hoverTooltipReady) {
+                hoverTooltipReady = false;
+                RequestRedraw();
+            }
+            if (target is null)
+                return;
+            var cancellation = new CancellationTokenSource();
+            hoverTooltipCancellation = cancellation;
+            _ = RunHoverTooltipDelay(cancellation.Token);
+        }
+
+        private async Task RunHoverTooltipDelay(CancellationToken token) {
+            var clock = new Animation {
+                Duration = KitMotion.TooltipDelay,
+                Children = {
+                    new KeyFrame { Cue = new Cue(0), Setters = { new Avalonia.Styling.Setter(HoverTooltipDelayProgressProperty, 0d) } },
+                    new KeyFrame { Cue = new Cue(1), Setters = { new Avalonia.Styling.Setter(HoverTooltipDelayProgressProperty, 1d) } },
+                },
+            };
+            try {
+                await clock.RunAsync(this, token);
+            } catch (OperationCanceledException) {
+                return;
+            }
+            if (token.IsCancellationRequested)
+                return;
+            hoverTooltipReady = true;
+            RequestRedraw();
         }
 
         //Ports GetNodeAtPoint's node-first precedence plus GetAnnotationAtPoint (reference §6): nodes always

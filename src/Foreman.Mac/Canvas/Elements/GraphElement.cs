@@ -86,7 +86,7 @@ namespace Foreman.Mac.Canvas.Elements {
             GC.SuppressFinalize(this);
         }
 
-        public void Paint(SKCanvas canvas, NodeDrawingStyle style) {
+        public virtual void Paint(SKCanvas canvas, NodeDrawingStyle style) {
             if (!Visible)
                 return;
 
