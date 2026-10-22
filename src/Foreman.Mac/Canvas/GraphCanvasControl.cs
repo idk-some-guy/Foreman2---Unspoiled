@@ -140,7 +140,10 @@ namespace Foreman.Mac.Canvas {
                 pausedCapsule.IsVisible = Viewer.IsPaused;
                 RequestRedraw();
             };
-            Child = new Panel { Children = { overlay, pausedCapsule, paletteHost, radialFallbackPopup } };
+            emptyState = BuildEmptyState();
+            IsTabStop = false;
+            Viewer.ElementsChanged += OnElementsChanged;
+            Child = new Panel { Children = { overlay, emptyState, pausedCapsule, paletteHost, radialFallbackPopup } };
             FloatingPanelHost = new FloatingPanelHost(overlay, Viewport, this);
             AddHandler(PointerPressedEvent, NoteDismissingPress, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
             Viewer.Context.SetClipboardText = SetClipboardText;
@@ -643,8 +646,7 @@ namespace Foreman.Mac.Canvas {
             }
 
             Focus();
-            foreach (BaseNodeElement node in Viewer.NodeElements)
-                node.ShowsKeyboardFocus = false;
+            HideKeyboardFocus();
             mouseDownStartScreenPoint = screenPoint;
             DrawingPoint graphPoint = Viewport.ScreenToGraph(screenPoint);
             PointerPointProperties properties = e.GetCurrentPoint(this).Properties;
@@ -655,6 +657,8 @@ namespace Foreman.Mac.Canvas {
             //Ghost-first priority (reference §1's clickedElement resolution): a link drag in progress claims
             //every click, ignoring whatever node/annotation is actually under the cursor.
             GraphElement? clickedElement = (GraphElement?)DraggedLink ?? HitTest(screenPoint);
+            if (properties.IsLeftButtonPressed && clickedElement is BaseNodeElement pressedNode)
+                FocusedNode = pressedNode;
 
             //Ports Annotation_OnMouseDownDoubleClick's short-circuit (reference §1/§6): a double left-click on
             //an annotation opens its properties dialog immediately instead of arming a drag/resize.
@@ -1143,8 +1147,10 @@ namespace Foreman.Mac.Canvas {
         internal AddRequest PlaceCandidate(AddCandidate candidate, AddRequest request, NodeType? roleOverride = null, IQuality? quality = null,
             NodeDirection? spoilPlantDirection = null, IItem? explicitOrigin = null) {
             (AddRequest next, NodeId placed) = PlaceNodeCore(candidate, request, roleOverride, quality, spoilPlantDirection, explicitOrigin);
-            if (Viewer.NodeElementDictionary.TryGetValue(placed, out BaseNodeElement? element))
+            if (Viewer.NodeElementDictionary.TryGetValue(placed, out BaseNodeElement? element)) {
                 StartPlacementFlash(element);
+                Announce(element.NodeName + " added");
+            }
             return next;
         }
 
@@ -1608,9 +1614,11 @@ namespace Foreman.Mac.Canvas {
                 Viewer.SelectionZone = null;
                 e.Handled = true;
             }
+            if (!e.Handled && HandleNavigationKey(e))
+                e.Handled = true;
             if (CurrentDragOperation == DragOperation.None && HandleClipboardKey(e.Key, e.KeyModifiers))
                 e.Handled = true;
-            if (HandleMovementKey(e.Key, e.KeyModifiers))
+            if (!e.Handled && HandleMovementKey(e.Key, e.KeyModifiers))
                 e.Handled = true;
             ApplyAxisLockModifier(e.KeyModifiers);
             InvalidateVisual();
@@ -1675,6 +1683,7 @@ namespace Foreman.Mac.Canvas {
                 Viewer.TryDeleteSelection();
             else if (Viewer.SelectedNodes.Count > 0 || !hadLinks)
                 Viewer.TryDeleteSelectedNodes();
+            ValidateFocus();
         }
 
         //Ports ProductionGraphViewer_KeyUp's Delete case (reference §7): annotations-if-any-selected, else
@@ -1743,6 +1752,8 @@ namespace Foreman.Mac.Canvas {
 
             //⌘S, ⌘A, ⇧⌘A, ⌘W and ⇧⌘W are menu key equivalents, so a Primary chord never pans.
             bool pan = !modifiers.HasFlag(PlatformModifiers.Primary);
+            if (modifiers.HasFlag(KeyModifiers.Alt) && key is Key.Left or Key.Right or Key.Up or Key.Down)
+                return false;
             switch (key) {
                 case Key.Left: MoveSelection(-moveUnit, 0); return true;
                 case Key.Right: MoveSelection(moveUnit, 0); return true;

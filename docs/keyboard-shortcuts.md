@@ -20,6 +20,8 @@ Foreman 2 on the Mac uses ⌘ for its command shortcuts. On Linux, read Ctrl whe
 | Edit ▸ Find | Find Node… | ⌘F |
 | Edit ▸ Find | Find Next | ⌘G |
 | Edit ▸ Find | Find Previous | ⇧⌘G |
+| Edit ▸ Find | Select Next Node | ⇥ (only while the canvas has focus) |
+| Edit ▸ Find | Select Previous Node | ⇧⇥ (only while the canvas has focus) |
 | View | Zoom In | ⌘+ |
 | View | Zoom Out | ⌘− |
 | View | Actual Size | ⌘0 |
@@ -44,6 +46,12 @@ These work while the canvas has keyboard focus.
 
 | Key | Action |
 |---|---|
+| ⇥ / ⇧⇥ | Select the next or previous node in reading order (top to bottom, then left to right) and wrap at the ends |
+| ⌃⇥ / ⌃⇧⇥ | Leave the canvas for the next or previous stop in the window |
+| ⌥ + ← → ↑ ↓ | Select the nearest node in that direction |
+| ⇧⌥ + ← → ↑ ↓ | Add the nearest node in that direction to the selection |
+| ⌥⇥ / ⌥⇧⇥ | From a node, step through its links (outputs left to right, then inputs); from a link, step to the node's next or previous link |
+| Return | Open the inspector for the focused node and move focus into it |
 | ← → ↑ ↓ | Move the selected nodes and annotations by one grid unit |
 | ⇧ + ← → ↑ ↓ | Move them by a larger step (the major grid unit when one is set) |
 | W A S D | Pan the view |
@@ -52,4 +60,5 @@ These work while the canvas has keyboard focus.
 | ⌘C / ⌘X / ⌘V | Copy, cut or paste the selection |
 | Delete | Delete the selected annotations, or the selected nodes if no annotation is selected (asks first when more than ten are selected) |
 | Space | Show or hide the gridlines |
-| Escape | Cancel a link drag or a shape being drawn, or close an open panel |
+| Escape | Cancel a link drag or a shape being drawn, or close an open panel; otherwise clear the selection and hide the focus ring. From a focused link, return to its node. In the inspector, return to the canvas and the same node |
+| ⌃⇧⇥ | In the inspector, return to the canvas and the same node |

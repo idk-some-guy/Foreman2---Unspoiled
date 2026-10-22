@@ -51,6 +51,7 @@ namespace Foreman.Mac.Canvas.Elements {
 
         private static readonly ConcurrentDictionary<int, SKTypeface> Typefaces = new();
         private static readonly string[] RateSuffixes = ["/s", "/min", "/5\u00A0min", "/10\u00A0min", "/30\u00A0min", "/h"];
+        private static readonly string[] UnitWords = ["second", "minute", "5 minutes", "10 minutes", "30 minutes", "hour"];
         private static readonly string[] ScaleLetters = ["", "k", "M", "G"];
         private static volatile ShadowFilter? shadowFilter;
 
@@ -128,6 +129,8 @@ namespace Foreman.Mac.Canvas.Elements {
 
         private static double RoundForCanvas(double magnitude) =>
             Math.Round(magnitude, magnitude < 1 ? 3 : magnitude < 10 ? 2 : magnitude < 100 ? 1 : 0, MidpointRounding.AwayFromZero);
+
+        internal static string UnitWord(ProductionGraph.RateUnit unit) => UnitWords[(int)unit];
 
         internal static string Rate(double value, ProductionGraph.RateUnit unit) => Number(value) + RateSuffixes[(int)unit];
 

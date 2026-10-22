@@ -30,6 +30,7 @@ namespace Foreman.Mac.Canvas.Elements {
         private TabStroke stroke;
         private NodeText rateText;
         private bool showsRate = true;
+        private double rateValue;
 
         public ItemTabElement(ItemQualityPair item, LinkType type, NodeElementContext context, BaseNodeElement node) : base(node) {
             this.context = context;
@@ -46,7 +47,17 @@ namespace Foreman.Mac.Canvas.Elements {
         internal bool DrawsRate => showsRate;
         internal LabelState RateLabel => rate.State(context);
 
+        public string AutomationName {
+            get {
+                string name = Item.FriendlyName ?? "";
+                if (node.SolveState == NodeSolveState.NeverSolved)
+                    return name + ", not yet solved";
+                return $"{name}, {NodeCardPainter.Number(rateValue)} per {NodeCardPainter.UnitWord(context.RateUnit)}";
+            }
+        }
+
         public void UpdateValues(double recipeRate, double outputRate, bool isOverproduced, bool isShort) {
+            rateValue = recipeRate;
             stroke = isOverproduced ? TabStroke.Overproduced : isShort ? TabStroke.Short : TabStroke.Regular;
             rate.Set(node.SolveState == NodeSolveState.NeverSolved ? "—" : NodeCardPainter.Rate(recipeRate, context.RateUnit), context);
             Layout();

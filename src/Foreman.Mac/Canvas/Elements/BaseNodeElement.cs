@@ -420,6 +420,63 @@ namespace Foreman.Mac.Canvas.Elements {
 
         internal string NodeName => DisplayName;
 
+        internal string AutomationName {
+            get {
+                var parts = new List<string> { DisplayName, TypeWord };
+                if (SolveState != NodeSolveState.NeverSolved && AutomationBuilding() is string building)
+                    parts.Add(building);
+                if (RateWords() is string rate)
+                    parts.Add(rate);
+                if (ViewModel.RateType == RateType.Manual)
+                    parts.Add("fixed");
+                if (ViewModel.KeyNode)
+                    parts.Add("key node " + ViewModel.KeyNodeTitle);
+                parts.AddRange(StateWords());
+                return string.Join(", ", parts);
+            }
+        }
+
+        internal string AutomationHelpText => "Actions: Delete, Flip, Auto-connect, Show Inspector" + (ViewModel.State == NodeState.Error ? ", Fix Errors" : "");
+
+        private string TypeWord => ViewModel.NodeType switch {
+            NodeType.Supplier => "source",
+            NodeType.Consumer => "output",
+            NodeType.Passthrough => "passthrough",
+            NodeType.Recipe => "recipe",
+            NodeType.Spoil => "spoil",
+            _ => "plant",
+        };
+
+        private protected virtual string? AutomationBuilding() => null;
+
+        private string? RateWords() {
+            if (SolveState == NodeSolveState.NeverSolved)
+                return "not yet solved";
+            double rate;
+            if (ViewModel.Outputs.Any())
+                rate = ViewModel.GetSupplyRate(ViewModel.Outputs.First());
+            else if (ViewModel.Inputs.Any())
+                rate = ViewModel.GetConsumeRate(ViewModel.Inputs.First());
+            else
+                return null;
+            return $"{NodeCardPainter.Number(rate)} per {NodeCardPainter.UnitWord(Context.RateUnit)}";
+        }
+
+        private IEnumerable<string> StateWords() {
+            if (Unavailable)
+                yield return "unavailable";
+            if (ViewModel.State == NodeState.Error)
+                yield return ViewModel.GetErrors().FirstOrDefault() is string error ? "error, " + error : "error";
+            if (ViewModel.State == NodeState.Warning)
+                yield return ViewModel.GetWarnings().FirstOrDefault() is string warning ? "warning, " + warning : "warning";
+            if (FlowUndersupplied)
+                yield return "short of supply";
+            if (ViewModel.IsOverproducing())
+                yield return "overproducing";
+            if (SolveState == NodeSolveState.Stale)
+                yield return "rates out of date";
+        }
+
         //---- the three ring lanes (§02): border ±1, lane A +2…+4, lane B +6…+9; radii and strokes stay fixed ----
 
         private const float InnerRingInset = 3, LaneACentre = 3, LaneBCentre = 7.5f, FlowStroke = 2, IconRingRadius = 8;

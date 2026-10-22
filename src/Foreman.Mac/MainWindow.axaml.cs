@@ -81,6 +81,10 @@ namespace Foreman.Mac {
         private NativeMenuItem? orthogonalRoutingMenuItem;
         private NativeMenuItem? clearWaypointsMenuItem;
         private RelayCommand presetComparatorCommand = null!;
+        private RelayCommand selectNextNodeCommand = null!;
+        private RelayCommand selectPreviousNodeCommand = null!;
+        private NativeMenuItem selectNextNodeItem = null!;
+        private NativeMenuItem selectPreviousNodeItem = null!;
         private readonly PopoverHost contentPopoverHost;
         private ToolbarItem viewOptionsItem = null!;
         private ToolbarItem saveItem = null!;
@@ -315,6 +319,13 @@ namespace Foreman.Mac {
             AutomationProperties.SetName(toolbar.SearchField, "Find node");
             toolbar.SearchField.TextChanged += (_, _) => ResetSearchMatches();
             GraphCanvas.Viewer.Session.GraphMutated += (_, _) => RecomputeSearchMatchesOnGraphChange();
+            GraphCanvas.Announced += (_, text) => Announce(text);
+            GraphCanvas.InspectorRequested += (_, _) => FocusInspector();
+            GraphCanvas.PropertyChanged += (_, e) => {
+                if (e.Property == InputElement.IsFocusedProperty)
+                    UpdateSelectNodeMenuItems();
+            };
+            GraphCanvas.Viewer.ElementsChanged += (_, _) => UpdateSelectNodeMenuItems();
             toolbar.SearchField.SearchCommitted += (_, _) => StepSearchMatch(forward: true);
             toolbar.SearchField.SearchCommittedBackward += (_, _) => StepSearchMatch(forward: false);
             toolbar.ZoomStepper.ActualSizeCommand = ActualSizeCommand;
@@ -436,7 +447,32 @@ namespace Foreman.Mac {
                 e.Handled = true;
                 return;
             }
+            if (!e.Handled && Inspector.IsKeyboardFocusWithin && ((e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None) ||
+                (e.Key == Key.Tab && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift)))) {
+                GraphCanvas.RestoreKeyboardFocus();
+                e.Handled = true;
+                return;
+            }
             base.OnKeyDown(e);
+        }
+
+        private bool CanSelectNode() => isDocumentOpen && GraphCanvas.IsFocused && GraphCanvas.NodeElements.Count > 0;
+
+        //Tab is a menu key equivalent only while the canvas is focused, or a text field would lose it.
+        private void UpdateSelectNodeMenuItems() {
+            bool focused = GraphCanvas.IsFocused;
+            bool enabled = CanSelectNode();
+            selectNextNodeItem.Gesture = focused ? new KeyGesture(Key.Tab) : null;
+            selectPreviousNodeItem.Gesture = focused ? new KeyGesture(Key.Tab, KeyModifiers.Shift) : null;
+            selectNextNodeItem.IsEnabled = enabled;
+            selectPreviousNodeItem.IsEnabled = enabled;
+            selectNextNodeCommand.NotifyCanExecuteChanged();
+            selectPreviousNodeCommand.NotifyCanExecuteChanged();
+        }
+
+        private void FocusInspector() {
+            Inspector.UpdateLayout();
+            Inspector.FocusFirstControl();
         }
 
         private void FocusSearchField() {
@@ -500,12 +536,7 @@ namespace Foreman.Mac {
 
         //Order (centre Y, centre X, id): a node's own Location is already its centre, so no extra bounds math is needed to rank matches.
         private List<BaseNodeElement> OrderedSearchMatches(string query) =>
-            [.. GraphCanvas.Viewer.NodeElements
-                .Where(n => MatchesSearchQuery(n, query))
-                .OrderBy(n => n.Location.Y).ThenBy(n => n.Location.X).ThenBy(n => n.ViewModel.Id.Value)];
-
-        private static System.Drawing.Rectangle WorldBounds(BaseNodeElement node) =>
-            new(node.Location.X - node.Width / 2, node.Location.Y - node.Height / 2, node.Width, node.Height);
+            CanvasTraversal.ReadingOrder(GraphCanvas.Viewer.NodeElements.Where(n => MatchesSearchQuery(n, query)));
 
         //The first match at or after a graph point, in the same (Y, X) order OrderedSearchMatches ranks by.
         private int FirstSearchMatchIndexAtOrAfter(System.Drawing.Point point) {
@@ -531,14 +562,11 @@ namespace Foreman.Mac {
             return atCentre >= 0 ? atCentre : 0;
         }
 
-        private static double FindPanMarginPoints() =>
-            Application.Current?.TryGetResource("Foreman.Metrics.FindPanMargin", null, out object? value) == true && value is double d ? d : 80;
-
         //Find node ruling §02: the current match is the canvas selection, panned into view only if needed, never zoomed.
         private void SelectCurrentSearchMatch() {
             BaseNodeElement match = searchMatches[searchMatchIndex];
             GraphCanvas.Viewer.SetSelection([match]);
-            GraphCanvas.PanIntoView(WorldBounds(match), FindPanMarginPoints());
+            GraphCanvas.PanIntoView(CanvasTraversal.WorldBounds(match), GraphCanvasControl.FindPanMargin);
             GraphCanvas.RequestRedraw();
         }
 
@@ -631,7 +659,10 @@ namespace Foreman.Mac {
             Announce(wrapped ? (forward ? "Wrapped to first match. " : "Wrapped to last match. ") + text : text);
         }
 
-        private void Announce(string text) => AutomationProperties.SetName(searchAnnouncer, text);
+        private void Announce(string text) {
+            AutomationProperties.SetName(searchAnnouncer, string.Empty);
+            AutomationProperties.SetName(searchAnnouncer, text);
+        }
 
         //Visually hidden live region for search-result announcements, separate from the field's own accessible name ("Find node").
         private sealed class SearchAnnouncer : TextBlock {
@@ -1915,14 +1946,18 @@ namespace Foreman.Mac {
                 },
             };
 
+            selectNextNodeCommand = new RelayCommand(() => GraphCanvas.StepNode(forward: true), CanSelectNode);
+            selectPreviousNodeCommand = new RelayCommand(() => GraphCanvas.StepNode(forward: false), CanSelectNode);
+            selectNextNodeItem = new NativeMenuItem("Select Next Node") { Command = new DeferredMenuCommand(selectNextNodeCommand), IsEnabled = false };
+            selectPreviousNodeItem = new NativeMenuItem("Select Previous Node") { Command = new DeferredMenuCommand(selectPreviousNodeCommand), IsEnabled = false };
             var findMenu = new NativeMenu {
                 Items = {
                     ActionItem("Find Node…", FocusSearchField, new KeyGesture(Key.F, PlatformModifiers.Primary)),
                     ActionItem("Find Next", () => StepSearchMatch(forward: true), new KeyGesture(Key.G, PlatformModifiers.Primary)),
                     ActionItem("Find Previous", () => StepSearchMatch(forward: false), new KeyGesture(Key.G, PlatformModifiers.Primary | KeyModifiers.Shift)),
                     new NativeMenuItemSeparator(),
-                    //A bare Tab key equivalent would take Tab from every text field; the canvas traversal it names is not built yet.
-                    DisabledItem("Select Next Node"),
+                    selectNextNodeItem,
+                    selectPreviousNodeItem,
                 },
             };
 
@@ -2095,6 +2130,7 @@ namespace Foreman.Mac {
                         item.IsEnabled = enabled;
                     enabledBeforeNoDocument.Clear();
                     UpdateLinkRoutingMenu();
+                    UpdateSelectNodeMenuItems();
                     return;
                 }
                 foreach (NativeMenuItem item in documentScopedMenuItems) {

@@ -68,6 +68,11 @@ namespace Foreman.Mac.Canvas.Elements {
         protected override int ComputeWidth() => WidthForTabs(Math.Max(TabSpan(InputTabs), TabSpan(OutputTabs)));
 
         protected override string DisplayName => RecipeName;
+
+        private protected override string? AutomationBuilding() {
+            string building = RecipeViewModel.SelectedAssembler.FriendlyName ?? "";
+            return RecipeViewModel.SelectedAssembler.Assembler.IsMissing ? building : $"{building} ×{NodeCardPainter.Count(RecipeViewModel.ActualSetValue, Context.RoundAssemblerCount)}";
+        }
         protected override SKBitmap? TitleIcon => RecipeViewModel.BaseRecipe.Icon;
         protected override SKColor StripColor(CanvasTokens tokens) => tokens.NodeRecipe;
         protected override bool Unavailable => IsUnavailable(RecipeViewModel.BaseRecipe.Recipe);

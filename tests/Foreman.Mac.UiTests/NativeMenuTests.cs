@@ -714,7 +714,7 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public async Task EditMenu_Find_IsAFourItemSubmenu_WhoseItemsDriveTheToolbarSearch() {
+        public async Task EditMenu_Find_IsAFiveItemSubmenu_WhoseFindItemsDriveTheToolbarSearch() {
             MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
             DataCache cache = window.DataCache!;
             var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
@@ -728,15 +728,10 @@ namespace Foreman.Mac.UiTests {
             Dispatcher.UIThread.RunJobs();
             NativeMenu find = SubMenu(SubMenu(TopMenu(window), "Edit"), "Find");
 
-            Assert.Equal(["Find Node…", "Find Next", "Find Previous", "-", "Select Next Node"], find.Items.OfType<NativeMenuItem>().Select(i => i.Header));
+            Assert.Equal(["Find Node…", "Find Next", "Find Previous", "-", "Select Next Node", "Select Previous Node"], find.Items.OfType<NativeMenuItem>().Select(i => i.Header));
             AssertGesture(ItemNamed(find, "Find Node…"), Key.F, KeyModifiers.Meta);
             AssertGesture(ItemNamed(find, "Find Next"), Key.G, KeyModifiers.Meta);
             AssertGesture(ItemNamed(find, "Find Previous"), Key.G, KeyModifiers.Meta | KeyModifiers.Shift);
-            //Canvas traversal (A14) lands with the canvas; a bare Tab key equivalent would take Tab from every text field.
-            NativeMenuItem selectNext = ItemNamed(find, "Select Next Node");
-            Assert.False(selectNext.IsEnabled);
-            Assert.Null(selectNext.Gesture);
-
             ItemNamed(find, "Find Node…").Command!.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.True(window.Toolbar.SearchField.IsFocused);
@@ -752,6 +747,58 @@ namespace Foreman.Mac.UiTests {
             ItemNamed(find, "Find Previous").Command!.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(firstId, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+        }
+
+        [AvaloniaFact]
+        public async Task SelectNextNode_GestureIsTabOnlyWhileTheCanvasIsFocused_TabInTheSearchFieldNeverTouchesTheCanvas() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
+            NativeMenu find = SubMenu(SubMenu(TopMenu(window), "Edit"), "Find");
+            NativeMenuItem next = ItemNamed(find, "Select Next Node");
+            NativeMenuItem previous = ItemNamed(find, "Select Previous Node");
+
+            window.GraphCanvas.Focus();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(next.IsEnabled);
+            window.Toolbar.SearchField.Focus();
+
+            var pair = new ItemQualityPair(window.DataCache!.Items["iron-plate"], window.DataCache.DefaultQuality!);
+            window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(200, 0));
+            window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Null(next.Gesture);
+            Assert.Null(previous.Gesture);
+            Assert.False(next.IsEnabled);
+
+            window.GraphCanvas.Focus();
+            Dispatcher.UIThread.RunJobs();
+            AssertGesture(next, Key.Tab, KeyModifiers.None);
+            AssertGesture(previous, Key.Tab, KeyModifiers.Shift);
+            Assert.True(next.IsEnabled);
+            Assert.True(previous.IsEnabled);
+
+            next.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Foreman.Mac.Canvas.Elements.BaseNodeElement atOrigin = Assert.Single(window.GraphCanvas.Viewer.SelectedNodes);
+            Assert.Equal(new System.Drawing.Point(0, 0), atOrigin.Location);
+            Assert.Same(atOrigin, window.GraphCanvas.FocusedNode);
+
+            previous.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(new System.Drawing.Point(200, 0), Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).Location);
+
+            next.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            window.Toolbar.SearchField.Focus();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(next.Gesture);
+            Assert.Null(previous.Gesture);
+            Assert.False(next.IsEnabled);
+
+            HashSet<Foreman.Mac.Canvas.Elements.BaseNodeElement> before = [.. window.GraphCanvas.Viewer.SelectedNodes];
+            CanvasKeys.KeyDownOn(window.Toolbar.SearchField, Key.Tab);
+            Assert.True(before.SetEquals(window.GraphCanvas.Viewer.SelectedNodes));
         }
 
         //Neither the graph library (A3) nor the welcome window exists yet, so both items ship disabled rather than absent.

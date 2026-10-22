@@ -441,6 +441,11 @@ menu.
 | W A S D | (+ Shift = 5x speed) | `!SubwindowOpen` (`ProcessCmdKey`) | Pan the view |
 | Shift | held | any state | Live-toggles `Grid.LockDragToAxis`, re-anchoring `DragOrigin` at the node's current position on every toggle (§2) |
 | Escape | | `inDrawShapeMode`, an in-flight link drag, or an open floating panel | Cancels the pending shape draw; cancels a link drag in progress (Mac-convention addition, not a strict port - upstream's own cancel is right-click only); closes an open panel, including the link-drag radial menu (C2b), whose own Cancel slice does the same thing |
+| Tab | (+ Shift = previous) | canvas focused, at least one node | Mac port: focus and select the next or previous node in reading order (centre Y, then X, then id), wrapping with a polite "Wrapped to first node." announcement. ⌃⇥ is not consumed and leaves for the next stop |
+| ← → ↑ ↓ | Alt (+ Shift = extend) | canvas focused | Mac port: select the nearest node within 45° of the direction, off-axis distance weighted twice; no candidate changes nothing. Alt-arrow never nudges |
+| Tab | Alt (+ Shift = previous) | canvas focused | Mac port: step the focused node's links (outputs left to right, then inputs), selecting each; from a link, the node's next or previous link |
+| Return | | canvas focused | Mac port: select the focused node and show the inspector with focus in its first control |
+| Escape | | no drag or panel in flight | Mac port: from a focused link return to its node, else clear the selection and hide the focus ring |
 | Space | | `MainForm.GraphViewer_KeyDown`, not the canvas control | Toggles `Grid.ShowGrid` and syncs the toolbar checkbox |
 | S | Ctrl | `MainForm_KeyDown`, not the canvas control | Save (or Save As if untitled) |
 
@@ -480,7 +485,7 @@ Paste and Delete stay gesture-less because the canvas owns those keys.
 | Edit | Deselect All | ⇧⌘A | Clears the node and annotation selection |
 | Edit ▸ Find | Find Node… | ⌘F | Focuses the toolbar search field (also handled by `MainWindow.OnKeyDown`) |
 | Edit ▸ Find | Find Next / Find Previous | ⌘G / ⇧⌘G | Steps the search matches, wrapping both ways |
-| Edit ▸ Find | Select Next Node | | Disabled until canvas traversal (A14); bare Tab is not registered, since a Tab key equivalent would take Tab from every text field |
+| Edit ▸ Find | Select Next Node / Select Previous Node | ⇥ / ⇧⇥ | The gesture is set only while the canvas is the focused element and cleared otherwise, so a text field keeps its Tab. Enabled with the canvas focused and at least one node |
 | View | Pause All Calculations | ⌥⌘P | Moved off ⌘. (§14 ruling 4) |
 | View | Link Routing ▸ Rounded / Orthogonal / Clear Waypoints | | Disabled until links are selectable (A10, K5) |
 | View | Show Toolbar | ⌥⌘T | Checkbox. Hidden, the window keeps a 28 pt titlebar with the title centred and the graph held still on screen; ⌘F shows the toolbar until the search field resigns. Session-only (`AppSettings.ShowToolbar`, no settings column yet) |

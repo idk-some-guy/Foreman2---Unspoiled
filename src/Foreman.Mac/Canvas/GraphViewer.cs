@@ -562,12 +562,15 @@ namespace Foreman.Mac.Canvas {
                     : (float)Math.Min(minWidth + ((maxWidth - minWidth) * (element.ViewModel.Throughput / itemMax)), maxWidth);
         }
 
+        public event EventHandler? ElementsChanged;
+
         private void OnNodeViewModelAdded(object? sender, NodeViewModelEventArgs e) {
             BaseNodeElement? element = CreateNodeElement(e.ViewModel);
             if (element is null)
                 return;
             NodeElementDictionary.Add(e.ViewModel.Id, element);
             NodeElements.Add(element);
+            ElementsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnNodeViewModelRemoved(object? sender, NodeViewModelEventArgs e) {
@@ -579,6 +582,7 @@ namespace Foreman.Mac.Canvas {
             element.Dispose();
             if (wasSelected)
                 RaiseSelectionChanged();
+            ElementsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnLinkViewModelAdded(object? sender, LinkViewModelEventArgs e) {
@@ -593,6 +597,7 @@ namespace Foreman.Mac.Canvas {
 
             supplier.RequestStateUpdate();
             consumer.RequestStateUpdate();
+            ElementsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnLinkViewModelRemoved(object? sender, LinkViewModelEventArgs e) {
@@ -609,6 +614,7 @@ namespace Foreman.Mac.Canvas {
                 supplier.RequestStateUpdate();
             if (NodeElementDictionary.TryGetValue(e.ViewModel.ConsumerId, out BaseNodeElement? consumer))
                 consumer.RequestStateUpdate();
+            ElementsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnGraphCleared(object? sender, EventArgs e) {
@@ -622,6 +628,7 @@ namespace Foreman.Mac.Canvas {
             LinkElements.Clear();
             SelectedLinks.Clear();
             ClearAnnotations();
+            ElementsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void ClearAnnotations() {

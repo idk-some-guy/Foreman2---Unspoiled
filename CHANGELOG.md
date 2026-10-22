@@ -314,6 +314,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   carries on. A failed load keeps the window open with Try Again and Choose Another Preset…, or, at
   launch, Use Default Preset and Quit Foreman. That replaces the two startup alerts about corrupt
   presets.
+- Keyboard navigation on the canvas: Tab and Shift-Tab step through nodes in reading order, Option-arrow
+  moves to the nearest node in that direction, Option-Tab steps through a node's links, and Return opens
+  the inspector. Nodes, links and the empty-state and paused panels are exposed to VoiceOver, and wrap
+  and placement announcements are spoken.
 
 ### Fixed
 

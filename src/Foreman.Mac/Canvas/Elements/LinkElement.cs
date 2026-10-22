@@ -13,8 +13,6 @@ namespace Foreman.Mac.Canvas.Elements {
     //non-nullable here (upstream's null guard, backed by Trace.Fail, is redundant under this port's nullable
     //reference types - the compiler already rejects a null argument).
     public sealed class LinkElement : BaseLinkElement {
-        private static readonly string[] RateUnitWords = ["second", "minute", "5 minutes", "10 minutes", "30 minutes", "hour"];
-
         public INodeLinkViewModel ViewModel { get; }
         public override ItemQualityPair Item { get => ViewModel.Item; protected set { } }
 
@@ -146,7 +144,7 @@ namespace Foreman.Mac.Canvas.Elements {
 
         public string AutomationName {
             get {
-                string unit = RateUnitWords[(int)Context.RateUnit];
+                string unit = NodeCardPainter.UnitWord(Context.RateUnit);
                 string name = $"{Item.FriendlyName} link, {SupplierElement!.NodeName} to {ConsumerElement!.NodeName}, {NodeCardPainter.Number(ViewModel.Throughput)} per {unit}, {ViewModel.Routing}";
                 int waypoints = ViewModel.Waypoints.Count;
                 if (waypoints > 0)

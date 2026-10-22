@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Platform;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
@@ -388,7 +389,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             BaseNodeElement node = fx.Viewer.NodeElements.Single();
             Assert.Null(node.FocusRing());
 
-            node.ShowsKeyboardFocus = true;
+            fx.Control.Focus();
+            KeyboardRig.Press(fx.Control, Key.Tab);
+            Assert.True(node.ShowsKeyboardFocus);
             RingGeometry ring = Assert.NotNull(node.FocusRing());
             AssertRect(SKRect.Inflate(GraphBounds(node), 7.5f, 7.5f), ring.Rect);
             Assert.Equal(3f, ring.StrokeWidth);

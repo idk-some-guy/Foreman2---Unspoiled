@@ -3,10 +3,12 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
@@ -215,6 +217,12 @@ namespace Foreman.Mac.Views.Inspector {
                 return;
             recipeSegmentView.ViewModel!.PickQuality(item);
             Refresh();
+        }
+
+        public bool FocusFirstControl() {
+            InputElement? first = this.GetVisualDescendants().OfType<InputElement>()
+                .FirstOrDefault(c => c.Focusable && KeyboardNavigation.GetIsTabStop(c) && c.IsEffectivelyEnabled && c.IsEffectivelyVisible);
+            return first?.Focus(NavigationMethod.Tab) == true;
         }
 
         //Forwarded from MainWindow's two rate-unit change paths (MenuSetRateUnit, the View Options
