@@ -238,7 +238,7 @@ namespace Foreman.Mac.Canvas.Elements {
             paint.StrokeCap = SKStrokeCap.Round;
         }
 
-        internal static void DrawBadge(SKCanvas canvas, SKRect box, NodeBadge badge, CanvasTokens tokens) {
+        internal static void DrawBadge(SKCanvas canvas, SKRect box, NodeBadge badge, CanvasTokens tokens, bool withText) {
             (SKColor fill, SKColor text, string? glyph) = badge.Kind switch {
                 NodeBadgeKind.Unavailable => (tokens.WellBackground, tokens.TextSecondary, null),
                 NodeBadgeKind.Error => (tokens.Error, tokens.TextOnAccent, "Kit.Glyph.Node.Error"),
@@ -250,12 +250,13 @@ namespace Foreman.Mac.Canvas.Elements {
             canvas.DrawRoundRect(box, radius, radius, FillPaint(fill));
             if (badge.Kind == NodeBadgeKind.Unavailable)
                 StrokeInside(canvas, box, radius, CardStrokeWidth, tokens.BorderStrong);
-            float x = box.Left + tokens.Space15;
+            float x = withText ? box.Left + tokens.Space15 : box.MidX - (tokens.Glyph10 / 2);
             if (glyph is not null) {
                 DrawGlyph(canvas, glyph, SKRect.Create(x, box.MidY - (tokens.Glyph10 / 2), tokens.Glyph10, tokens.Glyph10), text, tokens.NodeBadgeStroke);
                 x += tokens.Glyph10 + tokens.NodeGapTight;
             }
-            DrawText(canvas, new NodeText(NodeTextRole.Badge, badge.Text, new SKRect(x, box.Top, box.Right - tokens.Space15, box.Bottom), tokens.CanvasFontSize, tokens.CanvasEmphasizedWeight, text), 0, 0);
+            if (withText)
+                DrawText(canvas, new NodeText(NodeTextRole.Badge, badge.Text, new SKRect(x, box.Top, box.Right - tokens.Space15, box.Bottom), tokens.CanvasFontSize, tokens.CanvasEmphasizedWeight, text), 0, 0);
         }
 
         internal static void DrawIcon(SKCanvas canvas, SKBitmap? icon, SKRect rect) {

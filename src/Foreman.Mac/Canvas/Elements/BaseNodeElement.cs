@@ -110,11 +110,11 @@ namespace Foreman.Mac.Canvas.Elements {
         private LevelOfDetail layoutDetail;
         private LayoutInputs layoutInputs;
 
-        //Rate type, key status, direction, simple draw, count rounding, the badge, the solve state and icon view change without a node event until the next solve, so the card compares them each paint.
-        private readonly record struct LayoutInputs(RateType RateType, bool KeyNode, string KeyNodeTitle, double DesiredRate, double DesiredSetValue, NodeDirection Direction, ProductionGraph.RateUnit RateUnit, bool SimpleDraw, bool RoundCount, NodeBadgeKind? Badge, NodeSolveState SolveState, bool IconsOnly);
+        //Rate type, key status, direction, simple draw, count rounding, the badge, the solve state, icon view and small-text legibility change without a node event until the next solve, so the card compares them each paint.
+        private readonly record struct LayoutInputs(RateType RateType, bool KeyNode, string KeyNodeTitle, double DesiredRate, double DesiredSetValue, NodeDirection Direction, ProductionGraph.RateUnit RateUnit, bool SimpleDraw, bool RoundCount, NodeBadgeKind? Badge, NodeSolveState SolveState, bool IconsOnly, bool SmallTextLegible);
 
         private LayoutInputs CurrentInputs() =>
-            new(ViewModel.RateType, ViewModel.KeyNode, ViewModel.KeyNodeTitle, ViewModel.DesiredRate, ViewModel.DesiredSetValue, ViewModel.NodeDirection, Context.RateUnit, SimpleDraw, Context.RoundAssemblerCount, BadgeKind(), SolveState, Context.IconsOnly);
+            new(ViewModel.RateType, ViewModel.KeyNode, ViewModel.KeyNodeTitle, ViewModel.DesiredRate, ViewModel.DesiredSetValue, ViewModel.NodeDirection, Context.RateUnit, SimpleDraw, Context.RoundAssemblerCount, BadgeKind(), SolveState, Context.IconsOnly, Context.IsTextLegible(TokenBridge.Current.CanvasFontSize));
 
         protected virtual bool SimpleDraw => false;
         private IReadOnlyList<NodeText> texts = [];
@@ -126,6 +126,8 @@ namespace Foreman.Mac.Canvas.Elements {
         private bool nameTruncated;
 
         internal IReadOnlyList<NodeText> Texts => texts;
+        internal IEnumerable<NodeText> DrawnTexts => texts.Where(text => Context.IsTextLegible(text.Size));
+        internal bool BadgeDrawsText => layoutInputs.SmallTextLegible;
         protected CanvasTokens Tokens => layoutTokens ?? TokenBridge.Current;
 
         protected abstract string DisplayName { get; }
@@ -224,8 +226,10 @@ namespace Foreman.Mac.Canvas.Elements {
             return (2 * tokens.Space15) + glyph + NodeCardPainter.Measure(badge.Text, tokens.CanvasFontSize, tokens.CanvasEmphasizedWeight);
         }
 
+        private float BadgeDrawWidth(CanvasTokens tokens) => layoutInputs.SmallTextLegible ? BadgeWidth(tokens) : Math.Min(BadgeWidth(tokens), tokens.NodeBadgeHeight);
+
         private protected float PlaceBadge(CanvasTokens tokens, float left, float rowTop, float rowHeight) {
-            float width = BadgeWidth(tokens);
+            float width = BadgeDrawWidth(tokens);
             if (width == 0)
                 return left;
             badgeRect = SKRect.Create(left, rowTop + ((rowHeight - tokens.NodeBadgeHeight) / 2), width, tokens.NodeBadgeHeight);
@@ -234,7 +238,7 @@ namespace Foreman.Mac.Canvas.Elements {
 
         private protected float PlaceBadgeTrailing(CanvasTokens tokens, float rowTop, float rowHeight) {
             float right = Right - tokens.NodeInsetSide;
-            float width = BadgeWidth(tokens);
+            float width = BadgeDrawWidth(tokens);
             if (width == 0)
                 return right;
             PlaceBadge(tokens, right - width, rowTop, rowHeight);
@@ -483,6 +487,8 @@ namespace Foreman.Mac.Canvas.Elements {
 
         public SKRect TitleTextRect() => ToGraph(titleRect);
 
+        internal SKRect TitleIconRect() => ToGraph(titleIconRect);
+
         internal SKRect DetailGlyphRect() => detailGlyph is (_, SKRect box) ? ToGraph(box) : SKRect.Empty;
 
         //The card and the tabs paint at ContentOpacity; the border lane stays opaque between them, and the badge and lanes A and B above.
@@ -511,7 +517,7 @@ namespace Foreman.Mac.Canvas.Elements {
 
         private void DrawOuterMarks(SKCanvas canvas, NodeDrawingStyle style) {
             if ((style == NodeDrawingStyle.Regular || style == NodeDrawingStyle.PrintStyle) && Badge() is NodeBadge badge)
-                NodeCardPainter.DrawBadge(canvas, BadgeRect(), badge, Tokens);
+                NodeCardPainter.DrawBadge(canvas, BadgeRect(), badge, Tokens, BadgeDrawsText);
             if (LaneARing() is RingGeometry laneA && PlacementFlashOpacity > 0)
                 NodeCardPainter.DrawRing(canvas, laneA, (float)Math.Clamp(PlacementFlashOpacity, 0, 1));
             if (FocusRing() is RingGeometry focus)
@@ -532,6 +538,11 @@ namespace Foreman.Mac.Canvas.Elements {
 
             if (style == NodeDrawingStyle.Regular || style == NodeDrawingStyle.PrintStyle)
                 DetailsDraw(canvas, trans);
+            else if (style == NodeDrawingStyle.Simple) {
+                SKRect icon = titleIconRect;
+                icon.Offset(trans.X, trans.Y);
+                NodeCardPainter.DrawIcon(canvas, TitleIcon, icon);
+            }
         }
 
         protected virtual void DetailsDraw(SKCanvas canvas, Point trans) {
@@ -548,12 +559,12 @@ namespace Foreman.Mac.Canvas.Elements {
                 glyphBox.Offset(trans.X, trans.Y);
                 NodeCardPainter.DrawGlyph(canvas, glyphKey, glyphBox, tokens.TextSecondary);
             }
-            if (!chipRect.IsEmpty) {
+            if (!chipRect.IsEmpty && Context.IsTextLegible(tokens.CanvasFontSize)) {
                 SKRect chip = chipRect;
                 chip.Offset(trans.X, trans.Y);
                 NodeCardPainter.DrawChip(canvas, chip, tokens);
             }
-            foreach (NodeText text in texts)
+            foreach (NodeText text in DrawnTexts)
                 DrawNodeText(canvas, text, trans);
         }
 

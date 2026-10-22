@@ -442,13 +442,16 @@ namespace Foreman.Mac.UiTests.Canvas {
 
                     Assert.Equal(bounds.Top + (18 * s), node.TitleTextRect().Top, 3);
                     Assert.Equal(26 * s, node.TitleTextRect().Height, 3);
-                    Assert.Equal(12 * s, node.NameFontSize, 3);
                     Assert.Equal(600, node.NameFontWeight);
+                    Assert.Equal(12 * s, node.NameFontSize, 3);
                     Assert.Equal(10 * s, node.DetailFontSize, 3);
-                    Assert.All(AllTexts(node), text => Assert.True(text.Size >= (10 * s) - 0.001f, $"'{text.Text}' at {text.Size}"));
                     Assert.Contains(node.Texts, text => text.Role == NodeTextRole.Name && text.Size == node.NameFontSize);
+                    Assert.Contains(node.DrawnTexts, text => text.Role == NodeTextRole.Name);
+                    Assert.All(AllTexts(node), text => Assert.True(text.Size >= (10 * s) - 0.001f, $"'{text.Text}' at {text.Size}"));
+                    Assert.All(node.SubElements.OfType<ItemTabElement>(), tab => Assert.True(tab.DrawsRate));
                 }
 
+                Assert.Equal(13 * s, recipe.Texts.Single(text => text.Role == NodeTextRole.Count).Size, 2);
                 SKRect glyph = spoil.DetailGlyphRect();
                 Assert.Equal((12 * s, 12 * s), (glyph.Width, glyph.Height));
 

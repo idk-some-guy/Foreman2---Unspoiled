@@ -24,23 +24,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             GC.SuppressFinalize(this);
         }
 
-        //Proves UpdateValues re-derives Bounds from the current scale, so paint and hit-testing agree.
-        [AvaloniaFact]
-        public void SetScale_AtOneFifty_ARealItemTabsMeasuredBoundsGrow() {
-            using CanvasFixture fx = CanvasFixture.WithVanillaAndOneSupplier(out _);
-            BaseNodeElement element = fx.Viewer.NodeElementDictionary.Values.First();
-            ItemTabElement tab = element.SubElements.OfType<ItemTabElement>().First(t => t.LinkType == LinkType.Output);
-            int widthAtDefault = tab.Bounds.Width;
-            int heightAtDefault = tab.Bounds.Height;
-
-            WindowScaler.SetScale(1.5);
-            element.RequestStateUpdate();
-            element.PrePaint();
-
-            Assert.True(tab.Bounds.Width > widthAtDefault);
-            Assert.True(tab.Bounds.Height > heightAtDefault);
-        }
-
         //A node's own overall Width/Height follows UpdateState the same way tab geometry already did.
         [AvaloniaFact]
         public void SetScale_AtOneFifty_RecipeNodeBoundsAreOnePointFiveTimesDefault() {

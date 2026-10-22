@@ -439,6 +439,12 @@ namespace Foreman.Mac.Canvas {
         //rather than mutating the live Viewport (which has clamping side effects via UpdateGraphBounds).
         public readonly record struct ExportTransform(double Width, double Height, float ViewScale, Point ViewOffset);
 
+        internal NodeDrawingStyle StyleFor(int visibleNodes, float viewScale, bool fullGraph) =>
+            fullGraph ? NodeDrawingStyle.PrintStyle
+            : IconsOnly ? NodeDrawingStyle.IconsOnly
+            : (visibleNodes > NodeCountForSimpleView || viewScale < 0.2f) ? NodeDrawingStyle.Simple
+            : NodeDrawingStyle.Regular;
+
         public void Paint(SKCanvas canvas, bool fullGraph = false, bool draggedNodeActive = false, GraphElement? draggedLink = null, bool clearBackground = true, ExportTransform? exportTransform = null) {
             if (clearBackground)
                 canvas.Clear(BackgroundColor);
@@ -447,41 +453,42 @@ namespace Foreman.Mac.Canvas {
             double height = exportTransform?.Height ?? Viewport.Height;
             float viewScale = exportTransform?.ViewScale ?? Viewport.ViewScale;
             Point viewOffset = exportTransform?.ViewOffset ?? Viewport.ViewOffset;
-            canvas.Translate((float)(width / 2), (float)(height / 2));
-            canvas.Scale(viewScale);
-            canvas.Translate(viewOffset.X, viewOffset.Y);
+            Context.ExportViewScale = exportTransform?.ViewScale;
+            try {
+                canvas.Translate((float)(width / 2), (float)(height / 2));
+                canvas.Scale(viewScale);
+                canvas.Translate(viewOffset.X, viewOffset.Y);
 
-            Rectangle visibilityBounds = fullGraph ? Graph.Bounds : Viewport.VisibleGraphBounds;
-            foreach (GraphElement element in GetPaintingOrder(draggedLink))
-                element.UpdateVisibility(visibilityBounds);
-            if (fullGraph)
-                foreach (AnnotationElement annotation in Annotations)
-                    annotation.ForceVisible();
+                Rectangle visibilityBounds = fullGraph ? Graph.Bounds : Viewport.VisibleGraphBounds;
+                foreach (GraphElement element in GetPaintingOrder(draggedLink))
+                    element.UpdateVisibility(visibilityBounds);
+                if (fullGraph)
+                    foreach (AnnotationElement annotation in Annotations)
+                        annotation.ForceVisible();
 
-            if (!fullGraph)
-                Grid.Paint(canvas, Viewport.ViewScale, Viewport.VisibleGraphBounds, draggedNodeActive);
+                if (!fullGraph)
+                    Grid.Paint(canvas, Viewport.ViewScale, Viewport.VisibleGraphBounds, draggedNodeActive);
 
-            UpdateLinkWidths();
+                UpdateLinkWidths();
 
-            foreach (GraphElement element in GetPaintingOrder(draggedLink))
-                element.PrePaint();
+                foreach (GraphElement element in GetPaintingOrder(draggedLink))
+                    element.PrePaint();
 
-            int visibleElements = GetPaintingOrder(draggedLink).Count(e => e.Visible && e is BaseNodeElement);
-            NodeDrawingStyle style = fullGraph ? NodeDrawingStyle.PrintStyle
-                : IconsOnly ? NodeDrawingStyle.IconsOnly
-                : (visibleElements > NodeCountForSimpleView || Viewport.ViewScale < 0.2f) ? NodeDrawingStyle.Simple
-                : NodeDrawingStyle.Regular;
-            foreach (GraphElement element in GetPaintingOrder(draggedLink))
-                element.Paint(canvas, style);
+                int visibleElements = GetPaintingOrder(draggedLink).Count(e => e.Visible && e is BaseNodeElement);
+                NodeDrawingStyle style = StyleFor(visibleElements, Viewport.ViewScale, fullGraph);
+                foreach (GraphElement element in GetPaintingOrder(draggedLink))
+                    element.Paint(canvas, style);
 
-            //selection zone (reference §1 Paint: selectionPen, RGB(100,100,200), 2 screen-px wide regardless
-            //of zoom - hence the ViewScale-compensated stroke width, drawn in the same graph-space transform
-            //as everything above so it tracks pan/zoom like the elements it's lassoing).
-            if (!fullGraph && SelectionZone is Rectangle zone && zone.Width > 0 && zone.Height > 0) {
-                _selectionZonePaint.StrokeWidth = 2f / Viewport.ViewScale;
-                canvas.DrawRect(SKRect.Create(zone.X, zone.Y, zone.Width, zone.Height), _selectionZonePaint);
+                //selection zone (reference §1 Paint: selectionPen, RGB(100,100,200), 2 screen-px wide regardless
+                //of zoom - hence the ViewScale-compensated stroke width, drawn in the same graph-space transform
+                //as everything above so it tracks pan/zoom like the elements it's lassoing).
+                if (!fullGraph && SelectionZone is Rectangle zone && zone.Width > 0 && zone.Height > 0) {
+                    _selectionZonePaint.StrokeWidth = 2f / Viewport.ViewScale;
+                    canvas.DrawRect(SKRect.Create(zone.X, zone.Y, zone.Width, zone.Height), _selectionZonePaint);
+                }
+            } finally {
+                Context.ExportViewScale = null;
             }
-
             canvas.Restore();
 
             if (!fullGraph)

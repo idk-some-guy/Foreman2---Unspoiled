@@ -33,6 +33,11 @@ namespace Foreman.Mac.Canvas.Elements {
         public float StaticLinkWidth { get; set; } = 3f;
         public Func<LinkId, float>? LinkWidthLookup { get; set; }
 
+        //Set while an image export paints, so legibility reads the export scale and not the window zoom.
+        public float? ExportViewScale { get; set; }
+
+        public bool IsTextLegible(float fontSize) => CanvasText.IsLegible(fontSize, ExportViewScale ?? Viewport.ViewScale);
+
         public float GetLinkWidth(LinkId id) => LinkWidthLookup?.Invoke(id) ?? StaticLinkWidth;
 
         //The tab under the pointer and the tab under a dragged link's free end; the canvas and the drag set them on the UI thread.

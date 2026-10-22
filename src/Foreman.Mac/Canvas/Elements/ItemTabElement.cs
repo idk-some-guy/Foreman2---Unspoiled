@@ -29,6 +29,7 @@ namespace Foreman.Mac.Canvas.Elements {
 
         private TabStroke stroke;
         private NodeText rateText;
+        private bool showsRate = true;
 
         public ItemTabElement(ItemQualityPair item, LinkType type, NodeElementContext context, BaseNodeElement node) : base(node) {
             this.context = context;
@@ -42,6 +43,7 @@ namespace Foreman.Mac.Canvas.Elements {
         }
 
         internal NodeText RateText => rateText;
+        internal bool DrawsRate => showsRate;
         internal LabelState RateLabel => rate.State(context);
 
         public void UpdateValues(double recipeRate, double outputRate, bool isOverproduced, bool isShort) {
@@ -54,6 +56,7 @@ namespace Foreman.Mac.Canvas.Elements {
         private void Layout() {
             CanvasTokens tokens = TokenBridge.Current;
             int weight = tokens.CanvasEmphasizedWeight;
+            showsRate = context.IsTextLegible(tokens.CanvasFontSize);
             float textWidth = NodeCardPainter.Measure(rate.Text, tokens.CanvasFontSize, weight);
             float textInset = tokens.NodeGapTight + tokens.NodeTabIcon + tokens.Space1;
             Width = (int)Math.Ceiling(Math.Max(tokens.NodeTabMinWidth, textInset + textWidth + tokens.Space15));
@@ -68,7 +71,8 @@ namespace Foreman.Mac.Canvas.Elements {
         public TabGeometry TabGeometry() {
             CanvasTokens tokens = TokenBridge.Current;
             Point centre = LocalToGraph(new Point(0, 0));
-            SKRect rect = SKRect.Create(centre.X - (Width / 2f), centre.Y - (Height / 2f), Width, Height);
+            float width = showsRate ? Width : Height;
+            SKRect rect = SKRect.Create(centre.X - (width / 2f), centre.Y - (Height / 2f), width, Height);
             if (ReferenceEquals(context.ArmedTab, this))
                 return new TabGeometry(rect, tokens.NodeTabRadius, ArmedStrokeWidth, tokens.Accent, tokens.AccentSoft, tokens.NodeTabOverhang);
             SKColor strokeColor = stroke switch {
@@ -89,18 +93,17 @@ namespace Foreman.Mac.Canvas.Elements {
                 : LocalToGraph(new Point(0, -Height / 2));
 
         protected override void Draw(SKCanvas canvas, NodeDrawingStyle style) {
-            if (style == NodeDrawingStyle.IconsOnly || HideItemTab)
+            if ((style != NodeDrawingStyle.Regular && style != NodeDrawingStyle.PrintStyle) || HideItemTab)
                 return;
 
             TabGeometry geometry = TabGeometry();
             NodeCardPainter.DrawRoundedBox(canvas, geometry.Rect, geometry.Radius, geometry.Fill, geometry.StrokeWidth, geometry.Stroke, geometry.Dash);
 
-            if (style != NodeDrawingStyle.Regular && style != NodeDrawingStyle.PrintStyle)
-                return;
-
             CanvasTokens tokens = TokenBridge.Current;
-            float iconLeft = geometry.Rect.Left + tokens.NodeGapTight;
+            float iconLeft = showsRate ? geometry.Rect.Left + tokens.NodeGapTight : geometry.Rect.MidX - (tokens.NodeTabIcon / 2);
             NodeCardPainter.DrawIcon(canvas, Item.Icon ?? IconCache.UnknownIcon, SKRect.Create(iconLeft, geometry.Rect.MidY - (tokens.NodeTabIcon / 2), tokens.NodeTabIcon, tokens.NodeTabIcon));
+            if (!showsRate)
+                return;
             Point centre = LocalToGraph(new Point(0, 0));
             NodeCardPainter.DrawLabel(canvas, rateText, centre.X, centre.Y, rate.State(context));
         }

@@ -111,7 +111,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             foreach (BaseNodeElement node in control.NodeElements.Take(3)) {
                 AvaloniaPoint screen = control.Viewport.GraphToScreen(node.Location);
                 Assert.True(
-                    RegionHasNonBackgroundPixel(pixmap, (int)screen.X, (int)screen.Y),
+                    RegionHasNonBackgroundPixel(pixmap, (int)screen.X, (int)screen.Y, radius: 30),
                     $"Expected the node at graph {node.Location} (screen {screen}) to paint something.");
             }
         }

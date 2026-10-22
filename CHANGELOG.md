@@ -582,6 +582,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   switches back to the card whenever it would show a badge, and a badge takes clicks up to 2 pt
   beyond its edge. Spoil and plant counts go grey and italic when the graph fails to solve. The
   system accent colour and Increase Contrast now apply from the first window.
+- Canvas text never draws below 10 pt at 100 % and multiplies with the interface scale. Zooming out
+  hides a string once it would show smaller than 7 pt on screen: item tabs drop their rate and
+  shrink to the icon, badges shrink to their glyph, and node names and counts go last. The simple
+  view, used when zoomed far out or with over 200 nodes, now draws just the card, type strip, icon
+  and border.
 
 ### Removed
 

@@ -133,6 +133,18 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(lineColor, SamplePixel(surface, 0, 89));
             Assert.Equal(lineColor, SamplePixel(surface, 0, -89));
             Assert.Equal(lineColor, SamplePixel(surface, 0, 0));
+
+            foreach (float zoom in new[] { 0.5f, 1f, 2f }) {
+                fx.Context.Viewport.ViewScale = zoom;
+                using SKSurface zoomed = RenderLink(link);
+                Assert.Equal(lineColor, SamplePixel(zoomed, 0, 0));
+                for (int y = -8; y <= 8; y++)
+                    for (int x = -8; x <= 8; x++) {
+                        SKColor p = SamplePixel(zoomed, x, y);
+                        float t = (255 - p.Red) / 55f;
+                        Assert.True(Math.Abs((255 - p.Green) / 215f - t) < 0.05f && Math.Abs((255 - p.Blue) / 215f - t) < 0.05f, $"chip pixels at {x},{y} zoom {zoom}");
+                    }
+            }
         }
 
         //---- LineType.UShape: opposite directions, wide-enough X gap to keep the flat top non-degenerate ----
