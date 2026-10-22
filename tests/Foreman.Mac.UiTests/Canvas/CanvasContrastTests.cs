@@ -129,7 +129,10 @@ namespace Foreman.Mac.UiTests.Canvas {
                     available.Highlighted = true;
                     using SKSurface selected = Render(available);
                     Measure("NodeSelected ring on canvas", Ratio(Pixel(selected, bounds.Left + 0.5f, bounds.MidY), canvas), 3.0);
-                    Measure("FindMatchRing on canvas (token over the rendered ground)", Ratio(Over(tokens.FindMatchRing, canvas), canvas), 3.0);
+
+                    available.IsFindMatch = true;
+                    using SKSurface found = Render(available);
+                    Measure("FindMatchRing on canvas (rendered ring)", Ratio(Strongest(found, SKRect.Create(bounds.Left + 14, bounds.Top - 4, 16, 2), canvas), canvas), 3.0);
 
                     SupplierNodeElement unavailable = Supplier("iron-plate", false, out _);
                     using SKSurface dimmed = Render(unavailable);
@@ -158,11 +161,5 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         private static string Line(Claim claim) =>
             string.Create(CultureInfo.InvariantCulture, $"{claim.Theme,-5} {claim.Name}: {claim.Measured:0.00} (needs {claim.Needs:0.0}){(claim.Met ? "" : claim.Enforced ? " BELOW" : " BELOW, reported only")}");
-
-        private static SKColor Over(SKColor top, SKColor bottom) {
-            float a = top.Alpha / 255f;
-            byte Mix(byte t, byte b) => (byte)Math.Round((t * a) + (b * (1 - a)));
-            return new SKColor(Mix(top.Red, bottom.Red), Mix(top.Green, bottom.Green), Mix(top.Blue, bottom.Blue), 255);
-        }
     }
 }

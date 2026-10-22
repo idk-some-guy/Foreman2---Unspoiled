@@ -485,12 +485,26 @@ namespace Foreman.Mac.UiTests {
 
             Assert.Equal("2 of 3", window.Toolbar.SearchField.MatchStatus);
             Assert.Equal(first, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+            var elements = window.GraphCanvas.Viewer.NodeElementDictionary;
+            Assert.True(elements[added].IsFindMatch);
+            Assert.NotNull(elements[added].LaneARing());
 
             window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(first)!.SetKeyNodeTitle("Renamed Away");
             Dispatcher.UIThread.RunJobs();
 
+            Assert.False(elements[first].IsFindMatch);
+            Assert.Null(elements[first].LaneARing());
+            Assert.True(elements[second].IsFindMatch);
+
             Assert.Equal("2 of 2", window.Toolbar.SearchField.MatchStatus);
             Assert.Equal(second, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
+
+            window.Toolbar.SearchField.Text = "Live Find 2";
+            Dispatcher.UIThread.RunJobs();
+            foreach (NodeId id in new[] { first, second, added }) {
+                Assert.False(elements[id].IsFindMatch);
+                Assert.Null(elements[id].LaneARing());
+            }
         }
 
         //Find node ruling §05: Return/⇧Return step exactly like ⌘G/⇧⌘G, and leave focus and the caret in the field.

@@ -48,6 +48,17 @@ namespace Foreman.Mac.Canvas.Elements {
 
         internal static readonly float[] FlowDash = [4, 3];
         private static readonly SKPathEffect FlowDashEffect = SKPathEffect.CreateDash(FlowDash, 0);
+        private sealed record FindDashCache(float[] Dash, SKPathEffect Effect, float Scale);
+        [ThreadStatic] private static FindDashCache? findDash;
+
+        internal static float[] FindDash(float on, float off, float scale) {
+            FindDashCache? cached = findDash;
+            if (cached is null || cached.Scale != scale || cached.Dash[0] != on || cached.Dash[1] != off) {
+                cached?.Effect.Dispose();
+                findDash = cached = new FindDashCache([on, off], SKPathEffect.CreateDash([on, off], 0), scale);
+            }
+            return cached.Dash;
+        }
 
         private static readonly ConcurrentDictionary<int, SKTypeface> Typefaces = new();
         private static readonly string[] RateSuffixes = ["/s", "/min", "/5\u00A0min", "/10\u00A0min", "/30\u00A0min", "/h"];
@@ -230,7 +241,9 @@ namespace Foreman.Mac.Canvas.Elements {
             SKPaint paint = StrokePaint(color, width);
             if (dash is not null) {
                 paint.StrokeCap = SKStrokeCap.Butt;
-                paint.PathEffect = ReferenceEquals(dash, FlowDash) ? FlowDashEffect : SKPathEffect.CreateDash(dash, 0);
+                paint.PathEffect = ReferenceEquals(dash, FlowDash) ? FlowDashEffect
+                    : findDash is { } find && ReferenceEquals(dash, find.Dash) ? find.Effect
+                    : SKPathEffect.CreateDash(dash, 0);
             }
             return paint;
         }

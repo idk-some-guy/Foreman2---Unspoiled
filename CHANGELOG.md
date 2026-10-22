@@ -318,6 +318,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   moves to the nearest node in that direction, Option-Tab steps through a node's links, and Return opens
   the inspector. Nodes, links and the empty-state and paused panels are exposed to VoiceOver, and wrap
   and placement announcements are spoken.
+- Find now rings every matching node on the canvas with a dashed accent outline just outside the
+  card, 2 pt wide at any zoom, so matches show on a zoomed-out graph and in image export.
 
 ### Fixed
 

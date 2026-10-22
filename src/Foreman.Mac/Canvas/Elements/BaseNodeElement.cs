@@ -513,7 +513,14 @@ namespace Foreman.Mac.Canvas.Elements {
             return new RingGeometry(SKRect.Inflate(bounds, -InnerRingInset, -InnerRingInset), radius - InnerRingInset, NodeCardPainter.CardStrokeWidth, Tokens.Error, null);
         }
 
-        public RingGeometry? LaneARing() => IsPlacementFlashing ? PlacementFlashRing() : null;
+        public RingGeometry? LaneARing() => IsFindMatch ? FindMatchRing() : IsPlacementFlashing ? PlacementFlashRing() : null;
+
+        internal RingGeometry FindMatchRing() {
+            CanvasTokens tokens = Tokens;
+            (SKRect bounds, float radius) = RingBase();
+            float scale = Context.ExportViewScale ?? Context.Viewport.ViewScale;
+            return new RingGeometry(SKRect.Inflate(bounds, LaneACentre, LaneACentre), radius + LaneACentre, FlowStroke / scale, tokens.FindMatchRing, NodeCardPainter.FindDash(tokens.FindRingDashOn / scale, tokens.FindRingDashOff / scale, scale));
+        }
 
         public RingGeometry? FocusRing() {
             if (!ShowsKeyboardFocus)
@@ -577,8 +584,10 @@ namespace Foreman.Mac.Canvas.Elements {
         private void DrawOuterMarks(SKCanvas canvas, NodeDrawingStyle style) {
             if ((style == NodeDrawingStyle.Regular || style == NodeDrawingStyle.PrintStyle) && Badge() is NodeBadge badge)
                 NodeCardPainter.DrawBadge(canvas, BadgeRect(), badge, Tokens, BadgeDrawsText);
-            if (LaneARing() is RingGeometry laneA && PlacementFlashOpacity > 0)
-                NodeCardPainter.DrawRing(canvas, laneA, (float)Math.Clamp(PlacementFlashOpacity, 0, 1));
+            if (IsFindMatch)
+                NodeCardPainter.DrawRing(canvas, FindMatchRing());
+            if (IsPlacementFlashing && PlacementFlashOpacity > 0)
+                NodeCardPainter.DrawRing(canvas, PlacementFlashRing(), (float)Math.Clamp(PlacementFlashOpacity, 0, 1));
             if (FocusRing() is RingGeometry focus)
                 NodeCardPainter.DrawRing(canvas, focus);
         }

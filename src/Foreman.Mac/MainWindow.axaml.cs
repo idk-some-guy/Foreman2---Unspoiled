@@ -562,6 +562,13 @@ namespace Foreman.Mac {
             return atCentre >= 0 ? atCentre : 0;
         }
 
+        private void MarkSearchMatches() {
+            HashSet<BaseNodeElement> matches = [.. searchMatches];
+            foreach (BaseNodeElement node in GraphCanvas.Viewer.NodeElements)
+                node.IsFindMatch = matches.Contains(node);
+            GraphCanvas.RequestRedraw();
+        }
+
         //Find node ruling §02: the current match is the canvas selection, panned into view only if needed, never zoomed.
         private void SelectCurrentSearchMatch() {
             BaseNodeElement match = searchMatches[searchMatchIndex];
@@ -576,6 +583,7 @@ namespace Foreman.Mac {
             BaseNodeElement? wasCurrent = searchMatchIndex >= 0 && searchMatchIndex < searchMatches.Count ? searchMatches[searchMatchIndex] : null;
 
             searchMatches = string.IsNullOrWhiteSpace(query) ? [] : OrderedSearchMatches(query);
+            MarkSearchMatches();
             int stillCurrent = wasCurrent is null ? -1 : searchMatches.IndexOf(wasCurrent);
             searchMatchIndex = searchMatches.Count == 0 ? -1 : stillCurrent >= 0 ? stillCurrent : AnchorSearchMatchIndex();
 
@@ -594,6 +602,7 @@ namespace Foreman.Mac {
             BaseNodeElement? wasCurrent = searchMatchIndex >= 0 && searchMatchIndex < searchMatches.Count ? searchMatches[searchMatchIndex] : null;
             int wasIndex = searchMatchIndex;
             searchMatches = OrderedSearchMatches(query);
+            MarkSearchMatches();
             int stillCurrent = wasCurrent is null ? -1 : searchMatches.IndexOf(wasCurrent);
             searchMatchIndex = searchMatches.Count == 0 ? -1
                 : stillCurrent >= 0 ? stillCurrent
