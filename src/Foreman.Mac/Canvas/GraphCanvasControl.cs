@@ -612,6 +612,8 @@ namespace Foreman.Mac.Canvas {
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
             base.OnPointerPressed(e);
             FinishAlign();
+            pressReachedCanvas = true;
+            dismissingPress = false;
             if (IsInsidePalette(e.Source))
                 return;
             if (IsInsideRadial(e.Source)) {
@@ -721,7 +723,7 @@ namespace Foreman.Mac.Canvas {
         //Ports ProductionGraphViewer_MouseMove (reference §1/§2).
         protected override void OnPointerMoved(PointerEventArgs e) {
             base.OnPointerMoved(e);
-            if (IsInsidePalette(e.Source))
+            if (IsInsidePalette(e.Source) || dismissingPress)
                 return;
             AvaloniaPoint screenPoint = e.GetPosition(this);
             if (openRadial is not null) {
@@ -992,6 +994,7 @@ namespace Foreman.Mac.Canvas {
         //(no button down at all) drags a stray rubber-band across the canvas.
         protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e) {
             base.OnPointerCaptureLost(e);
+            dismissingPress = false;
             ResetPointerDragState();
         }
 
@@ -1079,6 +1082,7 @@ namespace Foreman.Mac.Canvas {
         private DrawingPoint paletteGraphAnchor;
         private AvaloniaPoint? paletteScreenAnchor;
         private bool dismissingPress;
+        private bool pressReachedCanvas;
         private bool radialPress;
 
         internal void ClosePanels() {
@@ -1098,7 +1102,9 @@ namespace Foreman.Mac.Canvas {
 
         //The popover host swallows the press that light-dismisses the palette (macOS); its release must not act on the canvas either.
         private void NoteDismissingPress(object? sender, PointerPressedEventArgs e) {
-            if (e.Handled && e.Source is Visual visual && ReferenceEquals(visual, paletteHost))
+            bool reachedCanvas = pressReachedCanvas;
+            pressReachedCanvas = false;
+            if (!reachedCanvas && e.Handled && e.Source is Visual visual && ReferenceEquals(visual, paletteHost))
                 dismissingPress = true;
         }
 
