@@ -1530,13 +1530,13 @@ namespace Foreman.Mac.UiTests {
         public void GraphSummaryButton_RealClick_ClosesOpenFloatingPanel() {
             var window = new MainWindow();
             window.Show();
-            window.GraphSummaryDialogStub = _ => { };
             window.GraphCanvas.FloatingPanelHost.Show(new Border { Width = 50, Height = 50, Focusable = true }, new System.Drawing.Point(0, 0));
             Assert.True(window.GraphCanvas.FloatingPanelHost.IsOpen);
 
             RealClick(window, "Graph Summary");
 
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
+            window.CurrentGraphSummaryWindow?.Close();
         }
 
         [AvaloniaFact]

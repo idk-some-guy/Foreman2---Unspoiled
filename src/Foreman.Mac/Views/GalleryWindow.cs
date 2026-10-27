@@ -40,8 +40,6 @@ namespace Foreman.Mac.Views {
 
         private readonly DataCache cache;
         private readonly GalleryRegistry registry;
-        private readonly ContentControl themeShowcaseHost;
-        private readonly TextBlock themeHeader;
         private readonly WindowMinSizeScale minSizeScale;
 
         public GalleryRegistry Registry => registry;
@@ -53,7 +51,7 @@ namespace Foreman.Mac.Views {
             Width = 1600;
             Height = 1000;
             //Same live WindowBackground every other window binds (SettingsWindow.axaml) - RefreshTheme
-            //below re-resolves it on every theme flip, same as themeHeader.Foreground.
+            //below re-resolves it on every theme flip.
             Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White);
 
             var tiles = new WrapPanel { Orientation = Orientation.Horizontal, Width = TileColumnWidth };
@@ -65,20 +63,7 @@ namespace Foreman.Mac.Views {
             foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Kit"))
                 kitTiles.Children.Add(Tile(tile.Name, tile.Build()));
 
-            //ThemeToggleButton flips the app's RequestedThemeVariant (gallery mode only ever has one window open,
-            //so this is safe) and rebuilds the section against the freshly active theme.
-            themeShowcaseHost = new ContentControl { Name = "ThemeShowcaseHost", Content = BuildThemeShowcaseSection() };
-            //Resolved once here, so RefreshTheme below re-resolves it on every theme flip: nothing re-renders
-            //on a resource change the way a DynamicResource binding would.
-            themeHeader = new TextBlock {
-                Text = "Design language",
-                Foreground = ThemeResources.ResolveBrush("Foreman.Color.Text", Colors.Black),
-                FontWeight = FontWeight.Bold,
-            };
             var themeToggleButton = new Button { Name = "ThemeToggleButton", Content = "Toggle Theme (Light/Dark)" };
-            //Just flips the variant now - the AppearanceHub subscription below (ActualThemeVariantChanged
-            //reaches the hub already) rebuilds this section through the same RefreshTheme every other
-            //appearance/accent/contrast/scale change already drives.
             themeToggleButton.Click += (_, _) => {
                 Application app = Application.Current!;
                 app.RequestedThemeVariant = app.ActualThemeVariant == ThemeVariant.Dark ? ThemeVariant.Light : ThemeVariant.Dark;
@@ -86,7 +71,7 @@ namespace Foreman.Mac.Views {
             var themeSection = new StackPanel {
                 Spacing = 6,
                 Margin = new Thickness(16),
-                Children = { themeHeader, themeToggleButton, themeShowcaseHost },
+                Children = { themeToggleButton },
             };
 
             Content = new ScrollViewer {
@@ -106,24 +91,12 @@ namespace Foreman.Mac.Views {
         public void RefreshTheme() {
             minSizeScale.Apply();
             Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White);
-            themeHeader.Foreground = ThemeResources.ResolveBrush("Foreman.Color.Text", Colors.Black);
-            themeShowcaseHost.Content = BuildThemeShowcaseSection();
-        }
-
-        //Rebuilt from scratch on every theme toggle (see ThemeToggleButton.Click above) rather than patched
-        //in place - a dev tool, so simplicity wins over incremental-update plumbing.
-        private WrapPanel BuildThemeShowcaseSection() {
-            var wrap = new WrapPanel { Orientation = Orientation.Horizontal, Width = TileColumnWidth };
-            foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Theme"))
-                wrap.Children.Add(Tile(tile.Name, tile.Build()));
-            return wrap;
         }
 
         //The dev-only tile set, one registration per panel the window shows; new showcase tiles register here
         //instead of GalleryWindow growing more inline Build* calls.
         private static GalleryRegistry BuildRegistry() {
             var registry = new GalleryRegistry();
-            registry.Register(new GalleryTile("Theme", "Graph Summary rows", "Default", BuildSummaryRowsShowcaseTile));
             registry.Register(new GalleryTile("Kit", "Type ramp", "Default", BuildTypeRampTile));
             registry.Register(new GalleryTile("Kit", "Glyphs", "Default", BuildGlyphSheetTile));
             registry.Register(new GalleryTile("Kit", "Type ramp & Glyphs (150%)", "150%", BuildKitScaledTile));
@@ -2272,52 +2245,6 @@ namespace Foreman.Mac.Views {
             box.Bind(Viewbox.HeightProperty, scaledSize);
             return box;
         }
-
-        //Two GraphSummarySheet.BuildingRow/ItemRow instances (available + unavailable) - the same row DTOs
-        //and the same static RowForegroundBrush seed GraphSummarySheet's own constructor uses, just fed
-        //synthetic display text instead of a live graph (a gate tool, not a simulation).
-        private static StackPanel BuildSummaryRowsShowcaseTile() {
-            GraphSummarySheet.RowForegroundBrush = ThemeResources.ResolveBrush("Foreman.Color.StatusForeground", Colors.Black);
-            IBrush available = ThemeResources.ResolveBrush("Foreman.Color.ControlBackground", Colors.White);
-            IBrush unavailable = ThemeResources.ResolveBrush("Foreman.Color.StatusWarningBackground", Color.FromRgb(255, 192, 203));
-
-            return new StackPanel {
-                Spacing = 2,
-                Children = {
-                    BuildingRowVisual(new BuildingRow("furnace", "furnace", null, available, "3", "Electric Furnace", "-", 0, "-", 0)),
-                    ItemRowVisual(new ItemRow("plate", "plate", null, available, "Iron Plate", "12/s", 12, "-", 0, "12/s", 12, "-", 0, "-", 0, "12/s", 12, "-", 0)),
-                    ItemRowVisual(new ItemRow("legacy-item", "legacy-item", null, unavailable, "Legacy Item", "-", 0, "-", 0, "-", 0, "-", 0, "-", 0, "-", 0, "-", 0)),
-                },
-            };
-        }
-
-        private static Border BuildingRowVisual(BuildingRow row) =>
-            new() {
-                Background = row.Background,
-                Padding = new Thickness(2),
-                Child = new StackPanel {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 4,
-                    Children = {
-                        new TextBlock { Text = row.CountText, Foreground = row.Foreground, Width = 60 },
-                        new TextBlock { Text = row.Name, Foreground = row.Foreground, Width = 160 },
-                    },
-                },
-            };
-
-        private static Border ItemRowVisual(ItemRow row) =>
-            new() {
-                Background = row.Background,
-                Padding = new Thickness(2),
-                Child = new StackPanel {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 4,
-                    Children = {
-                        new TextBlock { Text = row.Name, Foreground = row.Foreground, Width = 160 },
-                        new TextBlock { Text = row.OutText, Foreground = row.Foreground, Width = 60 },
-                    },
-                },
-            };
 
         //Same TryGetResource(key, variant, fallback) shape as ThemeResources.ResolveColor, typed for the
         //Thickness/CornerRadius resources - both token dictionaries define every key this calls,

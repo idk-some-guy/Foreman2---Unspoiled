@@ -489,7 +489,7 @@ namespace Foreman.Mac.UiTests.Views {
         //---- the kit sheet: the wide width, the three window-column rows, notes inside the sheet, Escape cancels the run ----
 
         [AvaloniaFact]
-        public void PresetImport_Width_IsTheNamedSheetWidth() {
+        public void PresetImport_Width_IsTheNamedWidthToken() {
             var sheet = new PresetImportSheet([], []);
             (_, SheetHost host, _) = SheetFixture.Present(sheet);
 

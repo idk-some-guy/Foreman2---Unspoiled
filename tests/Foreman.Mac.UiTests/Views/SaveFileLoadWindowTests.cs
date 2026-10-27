@@ -363,7 +363,7 @@ namespace Foreman.Mac.UiTests.Views {
         //---- the kit sheet: named width, the reading strip, Show Log… · Cancel · Load ---------------------------
 
         [AvaloniaFact]
-        public void SaveFileLoad_Width_IsTheNamedSheetWidth() {
+        public void SaveFileLoad_Width_IsTheNamedWidthToken() {
             var sheet = new SaveFileLoadSheet(NewEmptyCache(), []) {
                 OpenSaveFilePathStub = () => new TaskCompletionSource<string?>().Task,
             };

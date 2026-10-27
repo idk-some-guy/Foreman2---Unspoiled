@@ -190,9 +190,6 @@ namespace Foreman.Mac.Views.Sheets {
                 Buttons = content.Buttons,
                 Content = body,
             };
-            //A width outside the named three (Graph Summary's 780 until it becomes a window) scopes the class token to this frame.
-            if (content.SheetWidth > 0)
-                frame.Resources[WidthToken(content.WidthClass)] = content.SheetWidth;
 
             var layer = new Layer {
                 Root = frame,
@@ -210,12 +207,6 @@ namespace Foreman.Mac.Views.Sheets {
             };
             return layer;
         }
-
-        private static string WidthToken(SheetWidthClass widthClass) => widthClass switch {
-            SheetWidthClass.Alert => "Foreman.Metrics.SheetWidthAlert",
-            SheetWidthClass.Wide => "Foreman.Metrics.SheetWidthWide",
-            _ => "Foreman.Metrics.SheetWidthStandard",
-        };
 
         private static ControlTheme KitTheme(string key) {
             Application.Current!.TryGetResource(key, null, out object? theme);

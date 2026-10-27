@@ -320,7 +320,7 @@ namespace Foreman.Mac.UiTests.Views {
 
         //Tab starts on Browse…, skips the path label, and walks Scale, the two options and the buttons before wrapping.
         [AvaloniaFact]
-        public void ImageExport_Width_IsTheNamedSheetWidth_AndTabWalksTheControls() {
+        public void ImageExport_SheetIsStandardWidth_AndTabWalksTheControls() {
             var sheet = new ImageExportSheet(NewViewer(400, 300));
             (Window window, SheetHost host, _) = SheetFixture.Present(sheet);
             Assert.True(sheet.BrowseButtonControl.IsFocused);

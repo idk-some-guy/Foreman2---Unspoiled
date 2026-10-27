@@ -93,7 +93,10 @@ namespace Foreman.Mac {
         private void ShowFailedNodes() {
             if (solveTracker.Failure is not { } failure)
                 return;
-            HashSet<int> ids = [.. failure.NodeIds];
+            RevealNodeIds([.. failure.NodeIds]);
+        }
+
+        private void RevealNodeIds(HashSet<int> ids) {
             BaseNodeElement[] elements = [.. GraphCanvas.Viewer.NodeElementDictionary.Values.Where(e => ids.Contains(e.ViewModel.Id.Value))];
             if (elements.Length == 0)
                 return;

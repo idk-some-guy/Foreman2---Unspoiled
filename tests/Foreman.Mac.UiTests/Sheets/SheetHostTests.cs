@@ -14,6 +14,7 @@ using Foreman.Mac;
 using Foreman.Mac.Kit;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.UiTests.support;
+using Foreman.Mac.Views;
 using Foreman.Mac.Views.Sheets;
 using System;
 using System.Linq;
@@ -29,20 +30,11 @@ namespace Foreman.Mac.UiTests.Sheets {
             public readonly TextBox Field = new();
 
             public ProbeSheet() {
-                SheetWidth = 348;
+                WidthClass = SheetWidthClass.Standard;
                 Title = "Probe";
                 DefaultButton = Ok;
                 Ok.Click += (_, _) => Complete(true);
                 Content = new StackPanel { Children = { Field, Ok } };
-            }
-        }
-
-        private sealed class LargeProbeSheet : SheetContent<bool?> {
-            public LargeProbeSheet() {
-                SheetWidth = 780;
-                SheetHeight = 540;
-                Title = "Large";
-                Content = new ScrollViewer { Content = new TextBox() };
             }
         }
 
@@ -57,7 +49,7 @@ namespace Foreman.Mac.UiTests.Sheets {
             public readonly TextBox Field = new();
 
             public CommandProbeSheet(Button defaultButton) {
-                SheetWidth = 300;
+                WidthClass = SheetWidthClass.Alert;
                 Title = "CommandProbe";
                 DefaultButton = defaultButton;
                 Content = new StackPanel { Children = { Field, defaultButton } };
@@ -143,9 +135,10 @@ namespace Foreman.Mac.UiTests.Sheets {
             Assert.True(host.IsOpen);
             Assert.Same(sheet, host.Content);
             Border panel = PanelOf(host);
-            Assert.Equal(348, panel.Bounds.Width, 0.5);
+            double width = Token("Foreman.Metrics.SheetWidthStandard");
+            Assert.Equal(width, panel.Bounds.Width, 0.5);
             Assert.Equal(0, panel.Bounds.Top, 0.5);
-            Assert.Equal((800 - 348) / 2.0, panel.Bounds.Left, 1);
+            Assert.Equal((800 - width) / 2.0, panel.Bounds.Left, 1);
             Assert.False(beneath.IsHitTestVisible);
 
             sheet.Ok.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -222,21 +215,6 @@ namespace Foreman.Mac.UiTests.Sheets {
 
             sheet2.Ok.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.True(await task2);
-        }
-
-        [AvaloniaFact]
-        public void LargeSheetClampsToTheOwnerWithMargins() {
-            var window = new Window { Width = 700, Height = 500, Content = new Button() };
-            window.Show();
-            SheetHost host = SheetHost.For(window);
-            var sheet = new LargeProbeSheet();
-
-            _ = host.ShowAsync(sheet);
-            Dispatcher.UIThread.RunJobs();
-
-            Border panel = PanelOf(host);
-            Assert.True(panel.Bounds.Width <= 676.5, $"expected width <= 676.5, was {panel.Bounds.Width}");
-            Assert.True(panel.Bounds.Height <= 476.5, $"expected height <= 476.5, was {panel.Bounds.Height}");
         }
 
         [AvaloniaFact]
@@ -589,11 +567,14 @@ namespace Foreman.Mac.UiTests.Sheets {
 
             RealClick.On(window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "Graph Summary"));
             Assert.Same(sheet, host.Content);
+            GraphSummaryWindow summary = Assert.IsType<GraphSummaryWindow>(window.CurrentGraphSummaryWindow);
 
             RealClick.On(sheet.Ok);
             AnimationClock.Settle();
             Assert.True(task.IsCompleted);
-            Assert.IsType<GraphSummarySheet>(host.Content);
+            Assert.False(host.IsOpen);
+            Assert.True(summary.IsVisible);
+            summary.Close();
         }
 
         //---- Kit frame wiring: headline, width class, and the in-progress / failed states ----------------

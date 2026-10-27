@@ -17,6 +17,12 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<Geometry?> GlyphProperty =
             AvaloniaProperty.Register<MenuButton, Geometry?>(nameof(Glyph));
 
+        public static readonly StyledProperty<string> ResetLabelProperty =
+            AvaloniaProperty.Register<MenuButton, string>(nameof(ResetLabel), "Reset to defaults");
+
+        public static readonly StyledProperty<bool> CountInLabelProperty =
+            AvaloniaProperty.Register<MenuButton, bool>(nameof(CountInLabel), true);
+
         public static readonly StyledProperty<bool> IsOpenProperty =
             AvaloniaProperty.Register<MenuButton, bool>(nameof(IsOpen));
 
@@ -44,6 +50,18 @@ namespace Foreman.Mac.Kit.Controls {
             set => SetValue(GlyphProperty, value);
         }
 
+        public string ResetLabel {
+            get => GetValue(ResetLabelProperty);
+            set => SetValue(ResetLabelProperty, value);
+        }
+
+        public bool CountInLabel {
+            get => GetValue(CountInLabelProperty);
+            set => SetValue(CountInLabelProperty, value);
+        }
+
+        public event EventHandler? ItemToggled;
+
         public bool IsOpen {
             get => GetValue(IsOpenProperty);
             set => SetValue(IsOpenProperty, value);
@@ -64,6 +82,8 @@ namespace Foreman.Mac.Kit.Controls {
             FocusableProperty.OverrideDefaultValue<MenuButton>(true);
             IsOpenProperty.Changed.AddClassHandler<MenuButton>((b, e) => b.OnIsOpenChanged((bool)e.NewValue!));
             LabelProperty.Changed.AddClassHandler<MenuButton>((b, _) => b.Recompute());
+            CountInLabelProperty.Changed.AddClassHandler<MenuButton>((b, _) => b.Recompute());
+            ResetLabelProperty.Changed.AddClassHandler<MenuButton>((b, _) => b.RebuildMenu());
         }
 
         public MenuButton() {
@@ -118,7 +138,7 @@ namespace Foreman.Mac.Kit.Controls {
             PseudoClasses.Set(":filled", filled);
 
             int nonDefault = Items.Count(i => i.IsChecked != i.IsDefault);
-            string? next = filled ? $"{Label} ({nonDefault})" : Label;
+            string? next = filled && CountInLabel ? $"{Label} ({nonDefault})" : Label;
             SetAndRaise(DisplayLabelProperty, ref displayLabel, next);
         }
 
@@ -152,13 +172,14 @@ namespace Foreman.Mac.Kit.Controls {
                         captured.IsChecked = !captured.IsChecked;
                         Recompute();
                         RebuildMenu();
+                        ItemToggled?.Invoke(this, EventArgs.Empty);
                     },
                 });
             }
 
             Menu.Items.Add(MenuRow.Separator());
             Menu.Items.Add(new MenuRow {
-                Text = "Reset to defaults",
+                Text = ResetLabel,
                 HasCheckSlot = false,
                 IsEnabled = isFilled,
                 KeepOpenOnActivate = false,
@@ -167,6 +188,7 @@ namespace Foreman.Mac.Kit.Controls {
                         item.IsChecked = item.IsDefault;
                     Recompute();
                     RebuildMenu();
+                    ItemToggled?.Invoke(this, EventArgs.Empty);
                 },
             });
 

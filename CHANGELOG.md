@@ -614,6 +614,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - A graph the solver cannot solve keeps the rates and link throughputs from its last good solve,
   shown in secondary italic as out of date, instead of dropping to zero. Nodes that were never
   solved still read as not yet solved.
+- Graph Summary is now a window of its own instead of a sheet over the graph. It opens beside the
+  graph window, stays open while you edit, and a second Summary click brings it forward. Buildings,
+  Items and fluids and Key nodes sit in one segmented row, with a Show menu in place of the old
+  checkboxes. The rows follow every successful solve and keep their sort, filter, scroll position
+  and selection; while the solver fails they stay as they were, in secondary italic. A row with an
+  unlinked input is tinted red and one with an unlinked output or surplus orange, and
+  double-clicking a row selects its nodes in the graph and pans to them. An empty graph, a filter
+  that matches nothing and a Show menu with nothing ticked each say so and offer the way out.
+  The window remembers its size, position and last segment until the app quits.
 
 ### Removed
 

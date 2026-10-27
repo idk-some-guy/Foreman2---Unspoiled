@@ -92,58 +92,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(baseline, app.Hub.SubscriberCount);
         }
 
-        //--- A sheet (GraphSummarySheet) -------------------------------------------------------------------
-
-        private sealed class GraphFixture {
-            public required ProductionGraph Graph { get; init; }
-            public required ProductionGraphSession Session { get; init; }
-        }
-
-        private static GraphFixture NewGraphFixture(DataCache cache) {
-            var graph = new ProductionGraph { DefaultAssemblerQuality = cache.DefaultQuality };
-            var session = new ProductionGraphSession(graph);
-            session.Attach();
-            return new GraphFixture { Graph = graph, Session = session };
-        }
-
-        //GraphSummarySheet no longer self-attaches - SheetHost is the one subscriber, forwarding to whatever
-        //it's showing (SheetHost.cs's ctor comment). Hosting it for real here, rather than in a bare Window,
-        //is what exercises that path and catches a regression back to the double-refresh bug.
-        [AvaloniaFact]
-        public async Task GraphSummarySheet_ThemeFlip_ItemRowRepaints_ExactlyOnce_WhenHosted() {
-            App app = CurrentApp;
-            DataCache cache = await GetCacheAsync();
-            IItem item = cache.Items.Values.First(i => i.Available);
-            GraphFixture fx = NewGraphFixture(cache);
-            fx.Graph.CreateSupplierNode(new ItemQualityPair(item, cache.DefaultQuality!), System.Drawing.Point.Empty);
-            fx.Graph.UpdateNodeValues();
-
-            int preBaseline = app.Hub.SubscriberCount;
-            var owner = new Window { Width = 900, Height = 700 };
-            owner.Show();
-            SheetHost host = SheetHost.For(owner);
-            Assert.True(app.Hub.SubscriberCount > preBaseline);
-            int baseline = app.Hub.SubscriberCount;
-
-            var sheet = new GraphSummarySheet(fx.Session, "second");
-            _ = host.ShowAsync(sheet);
-            Dispatcher.UIThread.RunJobs();
-            Assert.Equal(baseline, app.Hub.SubscriberCount);
-
-            ItemRow before = sheet.UnfilteredItemsList.Concat(sheet.UnfilteredFluidsList).First();
-            Color beforeColor = ColorOf(before.Background);
-            int callsBefore = sheet.RebuildRowsCallCount;
-
-            app.ApplyTheme(ThemeMode.Dark);
-
-            Assert.Equal(callsBefore + 1, sheet.RebuildRowsCallCount);
-            ItemRow after = sheet.UnfilteredItemsList.Concat(sheet.UnfilteredFluidsList).First();
-            Assert.NotEqual(beforeColor, ColorOf(after.Background));
-
-            owner.Close();
-            Assert.Equal(preBaseline, app.Hub.SubscriberCount);
-        }
-
         //--- The browser (AddBrowserWindow) -----------------------------------------------------------------
 
         [AvaloniaFact]

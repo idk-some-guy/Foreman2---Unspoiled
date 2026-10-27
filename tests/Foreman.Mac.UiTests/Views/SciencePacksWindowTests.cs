@@ -221,7 +221,7 @@ namespace Foreman.Mac.UiTests.Views {
         //---- the kit sheet: named width, chooser cells, trailing button row ------------------------------
 
         [AvaloniaFact]
-        public async Task SciencePacks_Width_IsTheNamedSheetWidth() {
+        public async Task SciencePacks_Width_IsTheNamedWidthToken() {
             DataCache cache = await GetVanillaCacheAsync();
             var sheet = new SciencePacksSheet(cache, []);
             (_, SheetHost host, _) = SheetFixture.Present(sheet);

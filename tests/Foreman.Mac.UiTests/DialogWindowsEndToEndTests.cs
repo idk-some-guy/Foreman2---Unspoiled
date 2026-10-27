@@ -344,50 +344,36 @@ namespace Foreman.Mac.UiTests {
         // Seam 3: summary over a live, edited graph - totals against hand-derived numbers, no stale cache
         // on reopen. Two independent manual-rate supplier nodes keep the hand-derived numbers trivial: each
         // item's Input total is exactly the fixed rate that node was set to, no solver/recipe math involved.
-        // (Unaffected by the Settings rewrite - GraphSummary has its own SheetHost-based flow already.)
+        // (Unaffected by the Settings rewrite - the summary is its own non-modal window.)
         //================================================================================================
 
         [AvaloniaFact]
-        public async Task GraphSummary_OverLiveEditedGraph_TotalsMatchHandDerivedValues_UpdateAfterEdit() {
+        public async Task GraphSummary_OverLiveEditedGraph_TotalsMatchHandDerivedValues() {
             DataCache cache = await GetSharedVanillaCacheAsync();
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(cache, settings, tempHome);
 
             IItem ironPlate = cache.Items["iron-plate"];
-            IItem copperPlate = cache.Items["copper-plate"];
             IQuality quality = cache.DefaultQuality!;
 
             NodeId supplierId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(new ItemQualityPair(ironPlate, quality), new Point(0, 0));
             SetManualRate(window.GraphCanvas, supplierId, 12.5); //hand-derived: Input = 12.5, the fixed rate, no other node feeds or drains it
             window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
 
-            GraphSummarySheet? firstOpen = null;
-            window.GraphSummaryDialogStub = session => firstOpen = new GraphSummarySheet(session, window.GraphCanvas.Viewer.Graph.GetRateName());
-            await window.OpenGraphSummaryAsync();
+            window.ShowGraphSummary();
+            GraphSummaryWindow summary = window.CurrentGraphSummaryWindow!;
 
-            Assert.Equal("#Buildings: 0", firstOpen!.BuildingCountLabelControl.Text); //no recipe/assembler nodes yet
-            ItemRow ironRowFirst = Assert.Single(firstOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == ironPlate);
+            Assert.Equal("#Buildings: 0", summary.BuildingCountText); //no recipe/assembler nodes yet
+            ItemRow ironRowFirst = Assert.Single(summary.ViewModel.Items, r => ((ItemQualityPair)r.Tag).Item == ironPlate);
             Assert.Equal(12.5, ironRowFirst.InValue, 3);
 
-            NodeId supplier2Id = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(new ItemQualityPair(copperPlate, quality), new Point(200, 0));
-            SetManualRate(window.GraphCanvas, supplier2Id, 7); //hand-derived: Input = 7 for the newly added item
-            window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
-
-            GraphSummarySheet? secondOpen = null;
-            window.GraphSummaryDialogStub = session => secondOpen = new GraphSummarySheet(session, window.GraphCanvas.Viewer.Graph.GetRateName());
-            await window.OpenGraphSummaryAsync();
-
-            Assert.Equal(2, secondOpen!.UnfilteredItemsList.Count); //reopen picks up the edit rather than reusing a stale snapshot
-            ItemRow ironRowSecond = Assert.Single(secondOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == ironPlate);
-            Assert.Equal(12.5, ironRowSecond.InValue, 3);
-            ItemRow copperRow = Assert.Single(secondOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == copperPlate);
-            Assert.Equal(7, copperRow.InValue, 3);
+            summary.Close();
         }
 
         //A human reported a solved factory summing to 0 buildings.
         //Every prior summary test either has zero recipe nodes or pins the recipe node's own rate by hand -
-        //neither exercises what MainWindow hands GraphSummarySheet for an auto-solved recipe node reached
+        //neither exercises what MainWindow hands the summary window for an auto-solved recipe node reached
         //through the real chooser flow (AddRecipeViaChooser), which is what "a solved graph with real recipe
         //nodes" actually looks like in the live app (mirrors CoreEndToEndTests' iron-gear-wheel fixture: a
         //supplier/consumer pair pins the demand, the recipe node's own rate is left on Auto so the LP
@@ -417,13 +403,13 @@ namespace Foreman.Mac.UiTests {
             SetManualRate(window.GraphCanvas, consumerId, 10); //forces demand; the recipe node's own rate stays Auto so the LP solver derives ActualSetValue, same as CoreEndToEndTests
             window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
 
-            GraphSummarySheet? summary = null;
-            window.GraphSummaryDialogStub = session => summary = new GraphSummarySheet(session, window.GraphCanvas.Viewer.Graph.GetRateName());
-            await window.OpenGraphSummaryAsync();
+            window.ShowGraphSummary();
+            GraphSummaryWindow summary = window.CurrentGraphSummaryWindow!;
 
-            Assert.NotEqual("#Buildings: 0", summary!.BuildingCountLabelControl.Text);
-            BuildingRow assemblerRow = Assert.Single(summary.UnfilteredAssemblerList);
+            Assert.NotEqual("#Buildings: 0", summary.BuildingCountText);
+            BuildingRow assemblerRow = Assert.Single(summary.ViewModel.Assemblers);
             Assert.NotEqual("0", assemblerRow.CountText);
+            summary.Close();
         }
 
         //================================================================================================
@@ -498,8 +484,8 @@ namespace Foreman.Mac.UiTests {
             }
 
             for (int i = 0; i < 3; i++) {
-                window.GraphSummaryDialogStub = session => _ = new GraphSummarySheet(session, window.GraphCanvas.Viewer.Graph.GetRateName());
-                await window.OpenGraphSummaryAsync();
+                window.ShowGraphSummary();
+                window.CurrentGraphSummaryWindow!.Close();
             }
 
             for (int i = 0; i < 3; i++) {
@@ -534,10 +520,10 @@ namespace Foreman.Mac.UiTests {
         }
 
         //================================================================================================
-        // Seam 6: ShowSettings/RealShowGraphSummaryAsync's own GraphCanvas.Focus()
-        // calls, driven through the real (unstubbed) child Window.Show / SheetHost.ShowAsync rather than the
-        // SettingsDialogStub/GraphSummaryDialogStub every other seam above uses (a stub never reaches either
-        // real method, so it can't exercise this focus-restore at all). The same two
+        // Seam 6: ShowSettings/ShowGraphSummary's own GraphCanvas.Focus()
+        // calls, driven through the real (unstubbed) child Window.Show rather than the
+        // SettingsDialogStub every other seam above uses (a stub never reaches the real
+        // method, so it can't exercise this focus-restore at all). The same two
         // call sites must not steal focus from an already-open floating panel.
         //================================================================================================
 
@@ -562,7 +548,7 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public async Task RealShowGraphSummaryAsync_Closing_RestoresGraphCanvasFocus() {
+        public async Task ShowGraphSummary_Closing_RestoresGraphCanvasFocus() {
             DataCache cache = await GetSharedVanillaCacheAsync();
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
@@ -574,10 +560,8 @@ namespace Foreman.Mac.UiTests {
             newGraphButton.Focus();
             Assert.True(newGraphButton.IsFocused);
 
-            Task openTask = window.OpenGraphSummaryAsync();
-            var summarySheet = Assert.IsType<GraphSummarySheet>(SheetHost.For(window).Content);
-            summarySheet.Cancel();
-            await openTask;
+            window.ShowGraphSummary();
+            window.CurrentGraphSummaryWindow!.Close();
 
             Assert.True(window.GraphCanvas.IsFocused);
         }

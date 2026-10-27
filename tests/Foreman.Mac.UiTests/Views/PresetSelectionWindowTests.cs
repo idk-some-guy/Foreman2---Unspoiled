@@ -142,7 +142,7 @@ namespace Foreman.Mac.UiTests.Views {
         ];
 
         [AvaloniaFact]
-        public void PresetSelection_Width_IsTheNamedSheetWidth() {
+        public void PresetSelection_Width_IsTheNamedWidthToken() {
             var sheet = new PresetSelectionSheet(ThreePresets());
             (_, SheetHost host, Task<bool?> result) = SheetFixture.Present(sheet);
 

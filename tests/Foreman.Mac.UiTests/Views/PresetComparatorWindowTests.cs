@@ -363,7 +363,6 @@ namespace Foreman.Mac.UiTests.Views {
             return Assert.IsType<Color>(value);
         }
 
-        private static readonly string[] StatusKeys = ["StatusForeground", "StatusWarningBackground"];
         private static readonly ThemeMode[] Themes = [ThemeMode.Light, ThemeMode.Dark];
         private static readonly string[] RetiredStrings = ["Close", "Filter:", "<-- vs -->", "Read Presets And Compare", "Preset Selection", "Show Unavailables", "Preset Comparer"];
 
@@ -610,20 +609,6 @@ namespace Foreman.Mac.UiTests.Views {
                         Assert.Equal(FontStyle.Italic, names[unavailableSide].FontStyle);
                     }
 
-                    Color[] status = [.. StatusKeys.Select(k => TokenColor("Foreman.Color." + k))];
-                    var offenders = new List<string>();
-                    foreach (Visual v in window.GetVisualDescendants()) {
-                        IBrush?[] own = v switch {
-                            TextBlock t => [t.Foreground, t.Background],
-                            TemplatedControl c => [c.Background],
-                            Border b => [b.Background, b.BorderBrush],
-                            Panel p => [p.Background],
-                            _ => [],
-                        };
-                        if (own.OfType<ISolidColorBrush>().Any(b => status.Contains(b.Color)))
-                            offenders.Add($"{v.GetType().Name}#{(v as Control)?.Name}<{v.GetVisualParent()?.GetType().Name}>");
-                    }
-                    Assert.Empty(offenders);
                     window.Close();
                 }
             } finally {

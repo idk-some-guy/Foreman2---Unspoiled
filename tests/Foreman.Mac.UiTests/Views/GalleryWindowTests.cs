@@ -113,8 +113,7 @@ namespace Foreman.Mac.UiTests.Views {
             var window = new GalleryWindow(cache, new AppSettings());
 
             Assert.Equal(
-                ["Graph Summary rows",
-                 "Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)",
+                ["Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)",
                  "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)",
                  "Checkbox", "Radio group", "Switch — Settings only (A16)", "Checkbox, Radio group & Switch (150%)",
                  "Segmented", "Pop-up buttons", "Menu button", "Segmented, Pop-up buttons & Menu button (150%)",
@@ -489,55 +488,21 @@ namespace Foreman.Mac.UiTests.Views {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //The Design language section shows every retokened surface still in the gallery: the Graph Summary rows (View Options and the comparator rows retired onto the kit).
         [AvaloniaFact]
-        public void ThemeShowcase_BuildsATilePerRetokenedSurface() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-
-            string[] captions = [.. window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "")];
-            Assert.Contains("Graph Summary rows", captions);
-            Assert.DoesNotContain("Preset Comparator rows", captions);
-            Assert.DoesNotContain("Enabled Objects rows", captions);
-        }
-
-        //A real click on the toggle flips the live app theme and rebuilds the section against it.
-        [AvaloniaFact]
-        public void ThemeToggleButton_RealClick_FlipsRequestedThemeVariantAndRebuildsShowcase() {
+        public void ThemeToggleButton_RealClick_FlipsRequestedThemeVariant_AndNoDesignLanguageSectionExists() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
             window.Show();
             Application app = Application.Current!;
             ThemeVariant before = app.ActualThemeVariant;
-            Control contentBefore = Assert.IsType<ContentControl>(
-                window.GetVisualDescendants().OfType<ContentControl>().Single(c => c.Name == "ThemeShowcaseHost")).Content as Control ?? throw new InvalidOperationException();
+
+            Assert.DoesNotContain(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Design language");
+            Assert.DoesNotContain(window.GetVisualDescendants().OfType<ContentControl>(), c => c.Name == "ThemeShowcaseHost");
+            Assert.DoesNotContain(window.Registry.Tiles, t => t.Family == "Theme");
 
             RealClick(window, FindByName(window, "ThemeToggleButton"));
 
             Assert.NotEqual(before, app.ActualThemeVariant);
-            ContentControl host = window.GetVisualDescendants().OfType<ContentControl>().Single(c => c.Name == "ThemeShowcaseHost");
-            Assert.NotSame(contentBefore, host.Content);
-        }
-
-        //The header reads Foreman.Color.Text like the rest of the showcase, so it tracks a theme toggle.
-        [AvaloniaFact]
-        public void DesignLanguageHeader_ForegroundTracksThemedTextToken() {
-            DataCache cache = NewFixtureCache();
-            var window = new GalleryWindow(cache, new AppSettings());
-            window.Show();
-            Application app = Application.Current!;
-
-            TextBlock Header() => window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "Design language");
-
-            Color expectedBefore = ThemeResources.ResolveColor("Foreman.Color.Text", app.ActualThemeVariant, Colors.Black);
-            Assert.Equal(expectedBefore, Assert.IsType<ImmutableSolidColorBrush>(Header().Foreground).Color);
-
-            RealClick(window, FindByName(window, "ThemeToggleButton"));
-
-            Color expectedAfter = ThemeResources.ResolveColor("Foreman.Color.Text", app.ActualThemeVariant, Colors.Black);
-            Assert.NotEqual(expectedBefore, expectedAfter);
-            Assert.Equal(expectedAfter, Assert.IsType<ImmutableSolidColorBrush>(Header().Foreground).Color);
         }
 
         [AvaloniaFact]

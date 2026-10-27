@@ -92,7 +92,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
-        public void WidthClass_Standard_WidensTheAlertToTheStandardSheetWidth() {
+        public void WidthClass_Standard_WidensTheAlertToTheStandardWidth() {
             using var fixture = new KitFixture();
             AlertFrame alert = Themed();
             alert.WidthClass = SheetWidthClass.Standard;

@@ -81,6 +81,12 @@ namespace Foreman.Mac.Services {
         public double? SettingsAdvancedWidth { get; set; }
         public double? SettingsAdvancedHeight { get; set; }
 
+        public double? GraphSummaryLeft { get; set; }
+        public double? GraphSummaryTop { get; set; }
+        public double? GraphSummaryWidth { get; set; }
+        public double? GraphSummaryHeight { get; set; }
+        public int GraphSummarySegment { get; set; }
+
         //A10: the routing a new link takes.
         public LinkRouting DefaultLinkRouting { get; set; } = LinkRouting.Rounded;
 

@@ -77,6 +77,10 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             button.Menu.Items.ElementAt(0).Activate!.Invoke();
 
             Assert.Equal("Filter (1)", button.DisplayLabel);
+
+            button.CountInLabel = false;
+
+            Assert.Equal("Filter", button.DisplayLabel);
         }
 
         [AvaloniaFact]
@@ -94,6 +98,11 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.True(items[3].IsSeparator);
             Assert.Equal("Reset to defaults", items[4].Text);
             Assert.False(items[4].HasCheckSlot);
+            Assert.Equal("Reset to defaults", button.ResetLabel);
+
+            button.ResetLabel = "Show All";
+
+            Assert.Equal("Show All", button.Menu.Items.Last().Text);
         }
 
         [AvaloniaFact]
@@ -113,9 +122,12 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.Window.Content = button;
             button.IsOpen = true;
             Dispatcher.UIThread.RunJobs();
+            int toggled = 0;
+            button.ItemToggled += (_, _) => toggled++;
 
             button.Menu.Items[0].Activate!.Invoke();
 
+            Assert.Equal(1, toggled);
             Assert.True(button.IsOpen);
             Assert.True(button.Menu.Items.Last().IsEnabled);
         }
@@ -127,12 +139,15 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.Window.Content = button;
             button.IsOpen = true;
             Dispatcher.UIThread.RunJobs();
+            int toggled = 0;
+            button.ItemToggled += (_, _) => toggled++;
 
             button.Menu.HighlightedIndex = 0;
             button.Menu.ActivateHighlighted();
             button.Menu.HighlightedIndex = button.Menu.Items.Count - 1;
             button.Menu.ActivateHighlighted();
 
+            Assert.Equal(2, toggled);
             Assert.False(button.IsOpen);
             Assert.False(button.IsFilled);
             foreach (MenuButtonItem item in button.Items)

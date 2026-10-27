@@ -1,26 +1,20 @@
-using Avalonia.Media;
-using Avalonia.Media.Immutable;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Foreman;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
-using Foreman.Mac.Services;
 using Foreman.Mac.Views;
-using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
+using Foreman.Models.Nodes;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.ViewModels {
-    //Splits GraphSummaryWindow.axaml.cs's row-assembly off into its own VM: every
-    //BuildingRow/BeaconRow/ItemRow/KeyNodeRow the window shows starts life here, rebuilt from scratch by
-    //Refresh. Filter/sort UI plumbing, header-total labels, and CSV export all read window control state
-    //directly and stay in the code-behind; RowContainsFilter/FilterBuildingRows/FilterBeaconRows moved over
-    //too since they were already pure rows-in/rows-out helpers with no window dependency.
+    //Builds every BuildingRow/BeaconRow/ItemRow/KeyNodeRow the Graph Summary window shows, rebuilt from
+    //scratch by Refresh; the window owns filtering, sorting and CSV export.
     internal sealed partial class GraphSummaryViewModel : ObservableObject {
         private sealed class ItemCounter(double i, double iu, double o, double ou, double oo, double p, double c) {
             public double Input { get; set; } = i;
@@ -30,12 +24,8 @@ namespace Foreman.Mac.ViewModels {
             public double OutputOverflow { get; set; } = oo;
             public double Production { get; set; } = p;
             public double Consumption { get; set; } = c;
+            public bool Stale { get; set; }
         }
-
-        //Resolved fresh at the top of every Refresh() call (below) against the app's active theme variant -
-        //not readonly, since a light-only literal here would silently break dark mode.
-        private static IBrush AvailableRowBrush = new ImmutableSolidColorBrush(Color.FromRgb(255, 255, 255));
-        private static IBrush UnavailableRowBrush = new ImmutableSolidColorBrush(Color.FromRgb(255, 192, 203));
 
         private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
 
@@ -60,14 +50,12 @@ namespace Foreman.Mac.ViewModels {
         [ObservableProperty]
         private IReadOnlyList<KeyNodeRow> keyNodes = [];
 
-        //Ports the constructor's four LoadUnfiltered* calls (reference GraphSummaryWindow.axaml.cs).
-        //Every property is reassigned to a brand-new list on every call. GraphSummaryWindow never
-        //binds to these properties; it copies them into its own fields and rebuilds fresh filtered lists
-        //before each ItemsSource assignment, which is where the reference-equality short-circuit lives.
-        public void Refresh(IEnumerable<INodeViewModel> nodes) {
-            AvailableRowBrush = ThemeResources.ResolveBrush("Foreman.Color.ControlBackground", Color.FromRgb(255, 255, 255));
-            UnavailableRowBrush = ThemeResources.ResolveBrush("Foreman.Color.StatusWarningBackground", Color.FromRgb(255, 192, 203));
+        public double BuildingTotal { get; private set; }
+        public double BeaconTotal { get; private set; }
+        public double PowerConsumption { get; private set; }
+        public double PowerProduction { get; private set; }
 
+        public void Refresh(IEnumerable<INodeViewModel> nodes) {
             List<IRecipeNodeViewModel> recipeNodes = [.. nodes.OfType<IRecipeNodeViewModel>()];
             List<INodeViewModel> nodeList = [.. nodes];
 
@@ -81,18 +69,26 @@ namespace Foreman.Mac.ViewModels {
             Fluids = LoadUnfilteredItemLists(nodeList, fluids: true);
 
             KeyNodes = LoadUnfilteredKeyNodesList(nodeList.Where(n => n.KeyNode));
+
+            BuildingTotal = recipeNodes.Sum(n => Math.Ceiling(n.ActualSetValue));
+            BeaconTotal = recipeNodes.Sum(n => n.GetTotalBeacons());
+            PowerConsumption = recipeNodes.Sum(n => n.GetTotalAssemblerElectricalConsumption() + n.GetTotalBeaconElectricalConsumption());
+            PowerProduction = recipeNodes.Sum(n => n.GetTotalGeneratorElectricalProduction());
         }
 
         //Ports LoadUnfilteredSelectedAssemblerList (reference upstream GraphSummaryForm.cs:134-165).
         private List<BuildingRow> LoadUnfilteredSelectedAssemblerList(IEnumerable<IRecipeNodeViewModel> origin) {
             var buildingCounters = new Dictionary<AssemblerQualityPair, int>();
             var buildingElectricalPower = new Dictionary<AssemblerQualityPair, (double Assembler, double Beacon)>();
+            HashSet<AssemblerQualityPair> staleBuildings = [];
 
             foreach (IRecipeNodeViewModel rnode in origin) {
                 if (!buildingCounters.ContainsKey(rnode.SelectedAssembler)) {
                     buildingCounters[rnode.SelectedAssembler] = 0;
                     buildingElectricalPower[rnode.SelectedAssembler] = (0, 0);
                 }
+                if (rnode.SolveState == NodeSolveState.Stale)
+                    staleBuildings.Add(rnode.SelectedAssembler);
                 buildingCounters[rnode.SelectedAssembler] += (int)Math.Ceiling(rnode.ActualSetValue);
                 (double assemblerPower, double beaconPower) = buildingElectricalPower[rnode.SelectedAssembler];
                 buildingElectricalPower[rnode.SelectedAssembler] = (
@@ -108,11 +104,12 @@ namespace Foreman.Mac.ViewModels {
                     assembler,
                     assembler.Assembler.Name + ":" + assembler.Quality.Name,
                     GetOrBakeIcon(assembler.Icon),
-                    assembler.Assembler.Available ? AvailableRowBrush : UnavailableRowBrush,
+                    count,
                     count >= 10000000 ? count.ToString("0.##e0", DisplayCulture.Format) : count.ToString("N0", DisplayCulture.Format),
                     assembler.FriendlyName ?? "",
                     assemblerPower == 0 ? "-" : GraphicsStuff.DoubleToEnergy(assemblerPower, "W"), assemblerPower,
-                    beaconPower == 0 ? "-" : GraphicsStuff.DoubleToEnergy(beaconPower, "W"), beaconPower));
+                    beaconPower == 0 ? "-" : GraphicsStuff.DoubleToEnergy(beaconPower, "W"), beaconPower,
+                    staleBuildings.Contains(assembler)));
             }
             return destination;
         }
@@ -120,10 +117,13 @@ namespace Foreman.Mac.ViewModels {
         //Ports LoadUnfilteredBeaconList (reference upstream GraphSummaryForm.cs:167-214).
         private List<BeaconRow> LoadUnfilteredBeaconList(IEnumerable<IRecipeNodeViewModel> origin) {
             var beaconCounters = new Dictionary<BeaconQualityPair, int>();
+            HashSet<BeaconQualityPair> staleBeacons = [];
 
             foreach (IRecipeNodeViewModel rnode in origin) {
                 if (!rnode.SelectedBeacon)
                     continue;
+                if (rnode.SolveState == NodeSolveState.Stale)
+                    staleBeacons.Add(rnode.SelectedBeacon);
                 beaconCounters.TryAdd(rnode.SelectedBeacon, 0);
                 beaconCounters[rnode.SelectedBeacon] += rnode.GetTotalBeacons();
             }
@@ -142,10 +142,11 @@ namespace Foreman.Mac.ViewModels {
                     beacon,
                     beacon.Beacon!.Name + ":" + beacon.Quality!.Name,
                     GetOrBakeIcon(beacon.Icon),
-                    beacon.Beacon!.Available ? AvailableRowBrush : UnavailableRowBrush,
+                    count,
                     count.ToString(DisplayCulture.Format),
                     beacon.FriendlyName ?? "",
-                    count == 0 ? "-" : GraphicsStuff.DoubleToEnergy(beaconPowerConsumption, "W"), beaconPowerConsumption));
+                    count == 0 ? "-" : GraphicsStuff.DoubleToEnergy(beaconPowerConsumption, "W"), beaconPowerConsumption,
+                    staleBeacons.Contains(beacon)));
             }
             return destination;
         }
@@ -166,11 +167,13 @@ namespace Foreman.Mac.ViewModels {
             }
 
             foreach (INodeViewModel node in nodes) {
+                bool stale = node.SolveState == NodeSolveState.Stale;
                 if (node is IRecipeNodeViewModel recipeNode) {
                     foreach (ItemQualityPair input in recipeNode.Inputs.Where(i => fluids.Equals(i.Item is IFluid))) {
                         double consumeRate = recipeNode.GetConsumeRate(input);
                         if (consumeRate > 0) {
                             ItemCounter counter = CounterFor(input);
+                            counter.Stale |= stale;
                             if (!recipeNode.InputLinks.Any(l => l.Item == input))
                                 counter.InputUnlinked += consumeRate;
                             else
@@ -187,6 +190,7 @@ namespace Foreman.Mac.ViewModels {
                         double supplyUsedRate = isOverProduced ? recipeNode.GetSupplyUsedRate(output) : supplyRate;
 
                         ItemCounter counter = CounterFor(output);
+                        counter.Stale |= stale;
                         if (!recipeNode.OutputLinks.Any(l => l.Item == output))
                             counter.OutputUnlinked += supplyRate;
                         counter.Production += supplyRate;
@@ -194,9 +198,13 @@ namespace Foreman.Mac.ViewModels {
                             counter.OutputOverflow += supplyRate - supplyUsedRate;
                     }
                 } else if (node is ISupplierNodeViewModel sNode && fluids.Equals(sNode.SuppliedItem.Item is IFluid)) {
-                    CounterFor(sNode.SuppliedItem).Input += sNode.ActualRate;
+                    ItemCounter counter = CounterFor(sNode.SuppliedItem);
+                    counter.Input += sNode.ActualRate;
+                    counter.Stale |= stale;
                 } else if (node is IConsumerNodeViewModel cNode && fluids.Equals(cNode.ConsumedItem.Item is IFluid)) {
-                    CounterFor(cNode.ConsumedItem).Output += cNode.ActualRate;
+                    ItemCounter counter = CounterFor(cNode.ConsumedItem);
+                    counter.Output += cNode.ActualRate;
+                    counter.Stale |= stale;
                 }
             }
 
@@ -212,7 +220,6 @@ namespace Foreman.Mac.ViewModels {
                     item,
                     item.Item!.Name + ":" + item.Quality!.Name,
                     GetOrBakeIcon(item.Icon),
-                    item.Item!.Available ? AvailableRowBrush : UnavailableRowBrush,
                     item.FriendlyName ?? "",
                     counter.Input == 0 ? "-" : GraphicsStuff.DoubleToString(counter.Input), counter.Input,
                     counter.InputUnlinked == 0 ? "-" : GraphicsStuff.DoubleToString(counter.InputUnlinked), counter.InputUnlinked,
@@ -220,7 +227,8 @@ namespace Foreman.Mac.ViewModels {
                     counter.OutputUnlinked == 0 ? "-" : GraphicsStuff.DoubleToString(counter.OutputUnlinked), counter.OutputUnlinked,
                     counter.OutputOverflow == 0 ? "-" : GraphicsStuff.DoubleToString(counter.OutputOverflow), counter.OutputOverflow,
                     counter.Production == 0 ? "-" : GraphicsStuff.DoubleToString(counter.Production), counter.Production,
-                    counter.Consumption == 0 ? "-" : GraphicsStuff.DoubleToString(counter.Consumption), counter.Consumption));
+                    counter.Consumption == 0 ? "-" : GraphicsStuff.DoubleToString(counter.Consumption), counter.Consumption,
+                    counter.Stale));
             }
             return destination;
         }
@@ -264,25 +272,12 @@ namespace Foreman.Mac.ViewModels {
                     ? ("-", 0.0, GraphicsStuff.DoubleToString(rrNode.ActualSetValue), rrNode.ActualSetValue)
                     : (GraphicsStuff.DoubleToString(node.ActualRate), node.ActualRate, "-", 0.0);
 
-                destination.Add(new KeyNodeRow(node, nodeText ?? "", GetOrBakeIcon(icon), nodeType, nodeText ?? "", node.KeyNodeTitle, throughputText, throughputValue, factoriesText, factoriesValue));
+                destination.Add(new KeyNodeRow(node, nodeText ?? "", GetOrBakeIcon(icon), nodeType, nodeText ?? "", node.KeyNodeTitle, throughputText, throughputValue, factoriesText, factoriesValue, node.SolveState == NodeSolveState.Stale));
             }
             return destination;
         }
 
         //Dedups baked icons by source SKBitmap reference (same intent as SettingsWindow.GetOrBakeIcon).
         private Bitmap? GetOrBakeIcon(SKBitmap? icon) => icon is null ? null : IconBaker.GetOrBake(bakedIconCache, icon, 24);
-
-        //-------------------------------------------------------------------------------------------------------Row filters
-
-        //Ports ListViewItemRowContainsFilter (reference upstream GraphSummaryForm.cs:362-376): summary rows
-        //carry value-type tags, not IDataObjectBase, so the filter matches visible cell text instead.
-        internal static bool RowContainsFilter(IEnumerable<string> cells, string filterLower) =>
-            string.IsNullOrEmpty(filterLower) || cells.Any(c => c.Contains(filterLower, StringComparison.OrdinalIgnoreCase));
-
-        internal static List<BuildingRow> FilterBuildingRows(List<BuildingRow> unfiltered, string filter) =>
-            [.. unfiltered.Where(r => RowContainsFilter([r.CountText, r.Name, r.PowerText, r.PowerBText], filter))];
-
-        internal static List<BeaconRow> FilterBeaconRows(List<BeaconRow> unfiltered, string filter) =>
-            [.. unfiltered.Where(r => RowContainsFilter([r.CountText, r.Name, r.PowerBText], filter))];
     }
 }

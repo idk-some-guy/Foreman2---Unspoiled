@@ -120,25 +120,5 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal("-", keyNodeRow.ThroughputText);
             Assert.Equal(2, keyNodeRow.FactoriesValue, precision: 6);
         }
-
-        //Fresh-list rule (load-bearing for the window's ItemsSource bindings): a bound ListBox only
-        //re-renders when it sees a different list reference, so every Refresh must hand back new instances
-        //even when a graph is refreshed with unchanged node values.
-        [AvaloniaFact]
-        public async Task Refresh_CalledTwice_ReturnsFreshListInstances() {
-            var fx = NewFixture(await GetCacheAsync());
-            IRecipeNodeViewModel assemblerNode = CreateRecipeNode(fx, AssemblerRecipeName);
-            PinFactories(fx, assemblerNode, 1);
-            fx.Graph.UpdateNodeValues();
-            var vm = new GraphSummaryViewModel();
-            vm.Refresh(fx.Session.View.Nodes);
-            IReadOnlyList<BuildingRow> firstAssemblers = vm.Assemblers;
-            IReadOnlyList<ItemRow> firstItems = vm.Items;
-
-            vm.Refresh(fx.Session.View.Nodes);
-
-            Assert.NotSame(firstAssemblers, vm.Assemblers);
-            Assert.NotSame(firstItems, vm.Items);
-        }
     }
 }

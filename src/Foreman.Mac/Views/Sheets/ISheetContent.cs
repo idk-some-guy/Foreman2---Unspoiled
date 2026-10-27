@@ -15,8 +15,6 @@ namespace Foreman.Mac.Views.Sheets {
 
     public interface ISheetContent<T> {
         SheetWidthClass WidthClass { get; }
-        //A width outside the three named ones; 0 means WidthClass decides.
-        double SheetWidth { get; }
         double? SheetHeight { get; }
         string Title { get; }
         ButtonRow? Buttons { get; }
@@ -31,7 +29,6 @@ namespace Foreman.Mac.Views.Sheets {
         private readonly TaskCompletionSource<T?> completion = new();
 
         public SheetWidthClass WidthClass { get; protected set; } = SheetWidthClass.Standard;
-        public double SheetWidth { get; protected set; }
         public double? SheetHeight { get; protected set; }
         public string Title { get; protected set; } = "";
         public ButtonRow? Buttons { get; protected set; }

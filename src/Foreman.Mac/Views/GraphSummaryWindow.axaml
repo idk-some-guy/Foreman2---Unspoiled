@@ -1,0 +1,41 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+        x:Class="Foreman.Mac.Views.GraphSummaryWindow"
+        Title="Graph Summary"
+        Width="780" Height="560" MinWidth="700" MinHeight="560"
+        CanResize="True" WindowStartupLocation="Manual"
+        Background="{DynamicResource Foreman.Color.WindowBackground}">
+  <Window.Styles>
+    <Style Selector="ListBoxItem.status-error:not(:selected):not(:pointerover)">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ErrorSoft}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.ListRowIcon}" />
+    </Style>
+    <Style Selector="ListBoxItem.status-warning:not(:selected):not(:pointerover)">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.WarningSoft}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.ListRowIcon}" />
+    </Style>
+  </Window.Styles>
+  <DockPanel>
+    <Border Name="ToolbarRow" DockPanel.Dock="Top" Height="38"
+            Background="{DynamicResource Foreman.Color.TitlebarMaterial}"
+            BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,0,0,1">
+      <ctrl:Segmented Name="TopSegment" Theme="{StaticResource Kit.Segmented}"
+                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Border>
+    <Grid Name="ControlRow" DockPanel.Dock="Top"
+          ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="{DynamicResource Foreman.Space.Space2}">
+      <ctrl:Segmented Name="SubSegment" Grid.Column="0" Theme="{StaticResource Kit.Segmented}" VerticalAlignment="Center" />
+      <ctrl:MenuButton Name="ShowButton" Grid.Column="2" Theme="{StaticResource Kit.MenuButton}" VerticalAlignment="Center"
+                       Label="Show" ResetLabel="Show All" CountInLabel="False" />
+      <ctrl:SearchField Name="FilterBox" Grid.Column="3" Theme="{StaticResource Kit.SearchField}" VerticalAlignment="Center"
+                        Width="200" MinWidth="140" PlaceholderText="Filter" AutomationProperties.Name="Filter" />
+      <Button Name="ExportButton" Grid.Column="4" Theme="{StaticResource Kit.Button}" VerticalAlignment="Center"
+              Content="Export CSV…" />
+    </Grid>
+    <Grid Name="TableArea" RowDefinitions="Auto,*">
+      <Grid Name="HeaderRow" Grid.Row="0" Height="20" />
+      <Grid Name="TableHost" Grid.Row="1" />
+    </Grid>
+  </DockPanel>
+</Window>

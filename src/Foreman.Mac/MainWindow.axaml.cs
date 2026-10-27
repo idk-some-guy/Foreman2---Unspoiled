@@ -124,9 +124,8 @@ namespace Foreman.Mac {
         internal SettingsWindow? CurrentSettingsWindow => settingsWindow;
         internal SettingsSession? CurrentSettingsSession => settingsSession;
 
-        //Test-only seam: lets a test observe/short-circuit the Graph Summary dialog without a real modal
-        //ShowDialog.
-        internal Action<IProductionGraphSession>? GraphSummaryDialogStub { get; set; }
+        private GraphSummaryWindow? graphSummaryWindow;
+        internal GraphSummaryWindow? CurrentGraphSummaryWindow => graphSummaryWindow;
 
         //Test-only seam: lets a test observe/short-circuit the Image Export dialog without a real modal
         //ShowDialog.
@@ -151,7 +150,7 @@ namespace Foreman.Mac {
         internal Func<string, Task>? PresetSwitchInfoStub { get; set; }
 
         //Test-only seam: lets a test observe/short-circuit the About panel without a real modal ShowDialog,
-        //same shape as GraphSummaryDialogStub above.
+        //same shape as the other dialog stubs above.
         internal Action? AboutDialogStub { get; set; }
 
         internal Action<IReadOnlyList<Preset>>? PresetComparatorDialogStub { get; set; }
@@ -204,7 +203,7 @@ namespace Foreman.Mac {
                 onAutoconnect: () => { GraphCanvas.ClosePanels(); GraphCanvas.Viewer.AutoconnectDisconnectedInputs(); GraphCanvas.RequestRedraw(); },
                 onAlignSelection: () => { GraphCanvas.ClosePanels(); GraphCanvas.AlignSelection(); GraphCanvas.RequestRedraw(); },
                 onSettings: () => ShowSettings(),
-                onGraphSummary: () => Async.Fire(OpenGraphSummaryAsync(), nameof(OpenGraphSummaryAsync)),
+                onGraphSummary: ShowGraphSummary,
                 canExecuteAlignSelection: () => GraphCanvas.Viewer.SelectedNodes.Count > 0);
             Inspector.AddRecipeCommand = Commands.AddRecipeCommand;
             Inspector.OpenPresetsRequested += (_, _) => ShowSettings(selectPresetsPane: true);
@@ -1510,26 +1509,51 @@ namespace Foreman.Mac {
             ShowSettings(failedPreset: failedPreset);
         }
 
-        //Ports GraphSummaryButton_Click (reference upstream MainForm.cs:564-569): always the whole session,
-        //matching MainForm's own call (the node-subset constructor overload has no live caller upstream
-        //either). This lives on SheetHost, not GraphSummaryWindow.
-        internal Task OpenGraphSummaryAsync() {
-            //See OpenSettingsAsync's own close-first comment: same toolbar-bypasses-canvas-pointer-events gap.
+        internal void ShowGraphSummary() {
             GraphCanvas.ClosePanels();
 
-            if (GraphSummaryDialogStub is Action<IProductionGraphSession> stub) {
-                stub(GraphCanvas.Viewer.Session);
-                return Task.CompletedTask;
+            if (graphSummaryWindow is { } existing) {
+                if (!existing.IsVisible)
+                    existing.Show(this);
+                existing.Activate();
+                return;
             }
-            return RealShowGraphSummaryAsync();
+
+            var host = new GraphSummaryHost {
+                Tracker = () => solveTracker,
+                RateName = () => GraphCanvas.Viewer.Graph.GetRateName(),
+                Reveal = RevealNodes,
+                AddRecipe = () => {
+                    Activate();
+                    GraphCanvas.AddRecipeAsync(ViewportCentre(), PaletteAnchorUnder("AddRecipeButton"));
+                },
+                Settings = Settings,
+            };
+            GraphSummaryWindow window = GraphSummaryWindow.Create(GraphCanvas.Viewer.Session, GraphCanvas.Viewer.Graph.GetRateName(), host);
+            window.SetTitle(ViewModel.DocumentTitle);
+            void OnViewModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+                if (e.PropertyName == nameof(MainWindowViewModel.DocumentTitle))
+                    window.SetTitle(ViewModel.DocumentTitle);
+            }
+            ViewModel.PropertyChanged += OnViewModelChanged;
+            window.Closed += (_, _) => {
+                ViewModel.PropertyChanged -= OnViewModelChanged;
+                if (ReferenceEquals(graphSummaryWindow, window))
+                    graphSummaryWindow = null;
+                if (!GraphCanvas.IsPanelOpen)
+                    GraphCanvas.Focus();
+            };
+            graphSummaryWindow = window;
+            if (!window.HasSavedPosition)
+                window.Position = GraphSummaryPlacement.Resolve(OwnerFrame(), PixelSize.FromSize(new Size(window.Width, window.Height), RenderScaling), Screens.ScreenFromWindow(this)?.WorkingArea, RenderScaling);
+            window.Show(this);
         }
 
-        private async Task RealShowGraphSummaryAsync() {
-            var sheet = new GraphSummarySheet(GraphCanvas.Viewer.Session, GraphCanvas.Viewer.Graph.GetRateName());
-            await SheetHost.For(this).ShowAsync(sheet).ConfigureAwait(true);
-            //See RealShowSettingsDialogAsync's own focus-restore comment, including the open-panel guard.
-            if (!GraphCanvas.IsPanelOpen)
-                GraphCanvas.Focus();
+        private PixelRect OwnerFrame() => new(Position, PixelSize.FromSize(FrameSize ?? ClientSize, RenderScaling));
+
+        private void RevealNodes(IReadOnlyList<INodeViewModel> nodes) {
+            RevealNodeIds([.. nodes.Select(n => n.Id.Value)]);
+            Activate();
         }
 
         //Ports ExportImageButton_Click (reference upstream MainForm.cs:508-514): owner+50/+50, same Manual
