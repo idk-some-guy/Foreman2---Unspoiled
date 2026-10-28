@@ -124,7 +124,7 @@ namespace Foreman.Mac.Kit.Composites {
         private static async Task FadeAsync(Animation animation, Control control, Panel wrap, Panel track) {
             await animation.RunAsync(control);
             control.Opacity = 0;
-            track.Children.Remove(wrap);
+            Dispatcher.UIThread.Post(() => track.Children.Remove(wrap));
         }
     }
 }

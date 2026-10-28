@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.DataCaching.Storage;
 using Foreman.Mac.Views;
 using Foreman.Models.Solver;
 using System;
@@ -55,6 +56,7 @@ namespace Foreman.Mac.Services {
             mainWindow.Settings = settings;
             mainWindow.PresetResolver = presetResolver;
             mainWindow.SettingsService = settingsService;
+            mainWindow.Library = new GraphLibraryService(new GraphLibraryStore(settingsService.DatabasePath), TimeProvider.System);
             mainWindow.ApplyLoadedSettings();
             mainWindow.Closing += (_, _) => settingsService.Save(settings);
             return mainWindow;

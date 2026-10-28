@@ -49,21 +49,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(await task);
         }
 
-        [AvaloniaFact]
-        public async Task ShowSaveChangesAsync_RendersTheSaveCopyWithTheDocumentName_AndCancelReturnsCancel() {
-            Window owner = NewOwner();
-
-            Task<Foreman.Mac.ConfirmChoice> task = Dialogs.ShowSaveChangesAsync(owner, "/tmp/graphs/Iron smelting.fjson");
-            Dispatcher.UIThread.RunJobs();
-
-            var sheet = Assert.IsType<AlertSheet>(SheetHost.For(owner).Content);
-            Assert.Equal("Do you want to save the changes you made to “Iron smelting”?", RenderedText(sheet, "PART_Headline"));
-            Assert.Equal("Your changes will be lost if you don’t save them.", RenderedText(sheet, "PART_Informative"));
-            sheet.CancelButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-
-            Assert.Equal(Foreman.Mac.ConfirmChoice.Cancel, await task);
-        }
-
         [Fact]
         public void DocumentName_StripsTheExtension_AndMiddleTruncatesPastFortyCharacters() {
             Assert.Equal("Iron smelting", Dialogs.DocumentName("/tmp/graphs/Iron smelting.fjson"));
@@ -127,23 +112,6 @@ namespace Foreman.Mac.UiTests {
 
             await task;
             Assert.True(host.IsOpen); //the blocking sheet is still open
-        }
-
-        [AvaloniaFact]
-        public async Task ShowSaveChangesAsync_HostBusyWithAnotherSheet_PresentsAStackedAlertSheet() {
-            Window owner = NewOwner();
-            SheetHost host = SheetHost.For(owner);
-            var blocking = new AlertSheet("", "blocking sheet", AlertButtons.Ok);
-            _ = host.ShowAsync(blocking);
-            Dispatcher.UIThread.RunJobs();
-
-            Task<Foreman.Mac.ConfirmChoice> task = Dialogs.ShowSaveChangesAsync(owner, "/tmp/graphs/Iron smelting.fjson");
-            Dispatcher.UIThread.RunJobs();
-
-            AlertSheet stacked = host.GetVisualDescendants().OfType<AlertSheet>().Single(s => !ReferenceEquals(s, blocking));
-            stacked.NoButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-
-            Assert.Equal(Foreman.Mac.ConfirmChoice.No, await task);
         }
 
         private static string? RenderedText(AlertSheet sheet, string part) =>

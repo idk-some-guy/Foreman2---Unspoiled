@@ -737,10 +737,10 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             string path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".fjson");
             try {
-                await window.SaveGraphAsync(path);
+                await window.ExportGraphAsync(path);
                 string json = await File.ReadAllTextAsync(path);
 
-                await window.LoadGraphJsonAsync(json, path);
+                await window.LoadGraphJsonAsync(json, "Saved");
                 Dispatcher.UIThread.RunJobs();
 
                 Assert.False(window.Inspector.IsVisible);

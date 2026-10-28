@@ -93,7 +93,7 @@ namespace Foreman.Mac.UiTests {
         //================================================================================================
 
         [AvaloniaFact]
-        public async Task SaveModifyLoad_DirtyPromptDeclineSave_RestoresEarlierNodesAnnotationsViewportAndEnabledFlags() {
+        public async Task ExportModifyLoad_RestoresEarlierNodesAnnotationsViewportAndEnabledFlags() {
             var cache = new DataCache(filterRecipes: true); //dedicated cache: this test flips a recipe's Enabled flag
             await cache.LoadAllData(new Preset(VanillaPresetName, true, true), new Progress<KeyValuePair<int, string>>());
             string tempHome = NewTempHome();
@@ -110,25 +110,17 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Viewport.ViewScale = 1.75f;
 
             string path = TempSavePath();
-            window.SaveFilePathStub = () => Task.FromResult<string?>(path);
             try {
-                await window.SaveGraphAsAsync();
-                Assert.Equal(Path.GetFileNameWithoutExtension(path), window.Title);
+                await window.ExportGraphAsync(path);
                 string savedJson = await File.ReadAllTextAsync(path);
 
                 //Modify the graph after the save, so the load below finds it dirty.
                 window.GraphCanvas.Viewer.Graph.CreateSupplierNode(new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!), new Point(300, 300));
                 ironPlateRecipe.Enabled = true;
 
-                bool promptShown = false;
-                window.SaveBeforeContinuingChoiceStub = () => { promptShown = true; return Task.FromResult(ConfirmChoice.No); };
-                Assert.True(await window.TestGraphSavedStatusAsync());
-                Assert.True(promptShown);
+                await window.LoadGraphJsonAsync(savedJson, "Round trip graph");
 
-                await window.LoadGraphJsonAsync(savedJson, path);
-
-                Assert.Equal(Path.GetFileNameWithoutExtension(path), window.Title);
-                Assert.Equal(path, window.SaveFilePath);
+                Assert.Equal("Round trip graph", window.Title);
 
                 INodeViewModel node = Assert.Single(window.GraphCanvas.Viewer.Session.View.Nodes);
                 var supplier = Assert.IsAssignableFrom<ISupplierNodeViewModel>(node);
@@ -161,20 +153,18 @@ namespace Foreman.Mac.UiTests {
 
             window.GraphCanvas.Viewer.Graph.CreateSupplierNode(new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!), new Point(1000, 1000));
             string pathA = TempSavePath();
-            window.SaveFilePathStub = () => Task.FromResult<string?>(pathA);
 
             string pathB = TempSavePath();
             try {
-                await window.SaveGraphAsAsync();
+                await window.ExportGraphAsync(pathA);
                 string jsonA = await File.ReadAllTextAsync(pathA);
 
                 await window.NewGraphAsync();
                 window.GraphCanvas.Viewer.Graph.CreateSupplierNode(new ItemQualityPair(cache.Items["copper-plate"], cache.DefaultQuality!), new Point(500, 500));
-                window.SaveFilePathStub = () => Task.FromResult<string?>(pathB);
-                await window.SaveGraphAsAsync();
+                await window.ExportGraphAsync(pathB);
                 string jsonB = await File.ReadAllTextAsync(pathB);
 
-                await window.LoadGraphJsonAsync(jsonB, pathB); //doc B genuinely loaded first
+                await window.LoadGraphJsonAsync(jsonB, "B"); //doc B genuinely loaded first
                 Assert.Single(window.GraphCanvas.Viewer.NodeElements);
 
                 await window.ImportGraphJsonAsync(jsonA, pathA); //doc A merged on top
@@ -217,14 +207,13 @@ namespace Foreman.Mac.UiTests {
 
             window.GraphCanvas.Viewer.Graph.CreateSupplierNode(new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!), new Point(0, 0));
             string savePath = TempSavePath();
-            window.SaveFilePathStub = () => Task.FromResult<string?>(savePath);
             string pngPath = TempPngPath();
             try {
-                await window.SaveGraphAsAsync();
+                await window.ExportGraphAsync(savePath);
                 string json = await File.ReadAllTextAsync(savePath);
 
                 await window.NewGraphAsync();
-                await window.LoadGraphJsonAsync(json, savePath);
+                await window.LoadGraphJsonAsync(json, "Saved");
                 Assert.Single(window.GraphCanvas.Viewer.NodeElements);
 
                 ImageExportSheet? exportSheet = null;
@@ -349,10 +338,9 @@ namespace Foreman.Mac.UiTests {
             var savingWindow = NewReadyWindow(vanilla, new AppSettings { CurrentPresetName = VanillaPresetName }, tempHome);
             savingWindow.GraphCanvas.Viewer.Graph.CreateSupplierNode(new ItemQualityPair(vanilla.Items["iron-plate"], vanilla.DefaultQuality!), new Point(0, 0));
             string path = TempSavePath();
-            savingWindow.SaveFilePathStub = () => Task.FromResult<string?>(path);
 
             try {
-                await savingWindow.SaveGraphAsAsync();
+                await savingWindow.ExportGraphAsync(path);
                 string json = await File.ReadAllTextAsync(path);
 
                 var activeSettings = new AppSettings { CurrentPresetName = SpaceAgePresetName };
@@ -361,7 +349,7 @@ namespace Foreman.Mac.UiTests {
                 activeWindow.PresetSwitchInfoStub = message => { switchMessage = message; return Task.CompletedTask; };
                 activeWindow.PresetSelectionDialogStub = _ => throw new InvalidOperationException("an exact zero-error match must silent-switch, not show the picker");
 
-                await activeWindow.LoadGraphJsonAsync(json, path);
+                await activeWindow.LoadGraphJsonAsync(json, "Saved");
 
                 Assert.NotNull(switchMessage);
                 Assert.Equal(VanillaPresetName, activeSettings.CurrentPresetName);

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Foreman.DataCaching.Storage {
     //One typed column per AppSettings property (Foreman.Mac/Services/AppSettings.cs).
@@ -70,6 +71,16 @@ namespace Foreman.DataCaching.Storage {
         public double? SettingsAdvancedWidth { get; set; }
         public double? SettingsAdvancedHeight { get; set; }
         public int DefaultLinkRouting { get; set; }
+
+        //Added schema version 5.
+        public bool ShowToolbar { get; set; } = true;
+        public bool ShowWelcomeAtLaunch { get; set; } = true;
+        public DateTime? OpenRecentClearedAt { get; set; }
+        public double? GraphSummaryLeft { get; set; }
+        public double? GraphSummaryTop { get; set; }
+        public double? GraphSummaryWidth { get; set; }
+        public double? GraphSummaryHeight { get; set; }
+        public int GraphSummarySegment { get; set; }
     }
 
     //A single imported preset, compressed with zstd; CustomOverlayJson holds the presetCustom
@@ -93,6 +104,32 @@ namespace Foreman.DataCaching.Storage {
         public string IconName { get; set; } = "";
         public int Tint { get; set; }
         public string Sha256 { get; set; } = "";
+    }
+
+    public enum GraphVersionKind { Saved, Automatic, BeforeRestore }
+
+    public sealed class GraphRow {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = "";
+        public string PresetName { get; set; } = "";
+        public int NodeCount { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime ModifiedAt { get; set; }
+        public DateTime LastOpenedAt { get; set; }
+        public DateTime? SavedAt { get; set; }
+        public string Data { get; set; } = "";
+        public byte[]? Thumbnail { get; set; }
+        public string? SourcePath { get; set; }
+        public List<GraphVersionRow> Versions { get; set; } = [];
+    }
+
+    public sealed class GraphVersionRow {
+        public Guid Id { get; set; }
+        public Guid GraphId { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public GraphVersionKind Kind { get; set; }
+        public int NodeCount { get; set; }
+        public string Data { get; set; } = "";
     }
 
     public sealed class SchemaVersionRow {

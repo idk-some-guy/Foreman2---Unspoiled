@@ -106,55 +106,6 @@ namespace Foreman.Mac.UiTests.Sheets {
             Assert.Equal(ConfirmChoice.Yes, await confirmed);
         }
 
-        //---- YesNoCancel: the save prompt - Don't Save · Cancel · Save, Save the default -------------------
-
-        [AvaloniaFact]
-        public async Task SaveAlert_DontSaveCancelSave_SaveIsTheDefault_ReturnSaves_EscapeAndCmdPeriodCancel() {
-            var sheet = new AlertSheet("Do you want to save?", "message", AlertButtons.YesNoCancel);
-            Assert.Equal([sheet.NoButtonControl, sheet.CancelButtonControl, sheet.YesButtonControl], sheet.Buttons!.Items.Cast<Button>());
-            Assert.Equal(["Don’t Save", "Cancel", "Save"], Labels(sheet));
-            Assert.Equal(ButtonRowRole.Other, ButtonRow.GetRole(sheet.NoButtonControl));
-            Assert.Same(sheet.YesButtonControl, sheet.DefaultButton);
-
-            (SheetHost host, Task<ConfirmChoice> returned) = Present(sheet);
-            Assert.Contains("primary", sheet.YesButtonControl.Classes);
-            Assert.DoesNotContain(sheet.Buttons!.Items.Cast<Button>(), b => b.Classes.Contains("destructive"));
-            Assert.DoesNotContain(sheet.Buttons!.Items.Cast<Button>(), b => b != sheet.YesButtonControl && b.Classes.Contains("primary"));
-            CanvasKeys.KeyDownOn(sheet.NoButtonControl, Key.Enter);
-            Dispatcher.UIThread.RunJobs();
-            Assert.True(returned.IsCompleted);
-            Assert.Equal(ConfirmChoice.Yes, await returned);
-
-            foreach ((Key key, KeyModifiers modifiers) in new[] { (Key.Escape, KeyModifiers.None), (Key.OemPeriod, KeyModifiers.Meta) }) {
-                AnimationClock.Settle();
-                var cancelled = new AlertSheet("Do you want to save?", "message", AlertButtons.YesNoCancel);
-                Task<ConfirmChoice> task = host.ShowAsync(cancelled);
-                Dispatcher.UIThread.RunJobs();
-                CanvasKeys.KeyDownOn(cancelled.YesButtonControl, key, modifiers);
-                Dispatcher.UIThread.RunJobs();
-                Assert.True(task.IsCompleted);
-                Assert.Equal(ConfirmChoice.Cancel, await task);
-            }
-        }
-
-        [AvaloniaFact]
-        public async Task SaveAlert_CmdDAndCmdBackspace_FireDontSave() {
-            var window = new Window { Width = 500, Height = 400 };
-            window.Show();
-            SheetHost host = SheetHost.For(window);
-
-            foreach (Key key in new[] { Key.D, Key.Back }) {
-                var sheet = new AlertSheet("Do you want to save?", "message", AlertButtons.YesNoCancel);
-                Task<ConfirmChoice> task = host.ShowAsync(sheet);
-                Dispatcher.UIThread.RunJobs();
-                CanvasKeys.KeyDownOn(sheet.YesButtonControl, key, KeyModifiers.Meta);
-                Dispatcher.UIThread.RunJobs();
-                Assert.True(task.IsCompleted);
-                Assert.Equal(ConfirmChoice.No, await task);
-                AnimationClock.Settle();
-            }
-        }
-
         //---- Destructive: the verb is destructive and never the default; Cancel keeps Return -------------
 
         [AvaloniaFact]

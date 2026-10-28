@@ -32,12 +32,12 @@ namespace ForemanTest.Storage {
 
             using (ForemanDbContext context = ForemanDbContext.Open(dbPath)) {
                 Assert.IsTrue(File.Exists(dbPath));
-                Assert.AreEqual(4, context.SchemaVersions.Single().Version);
+                Assert.AreEqual(5, context.SchemaVersions.Single().Version);
             }
 
             using (ForemanDbContext reopened = ForemanDbContext.Open(dbPath)) {
                 Assert.AreEqual(1, reopened.SchemaVersions.Count());
-                Assert.AreEqual(4, reopened.SchemaVersions.Single().Version);
+                Assert.AreEqual(5, reopened.SchemaVersions.Single().Version);
             }
         }
 

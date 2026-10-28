@@ -1,5 +1,6 @@
 using Foreman;
 using Foreman.Models;
+using System;
 
 namespace Foreman.Mac.Services {
     //Upstream only had a bool FlagDarkMode; we widen it to a tri-state to follow the OS theme by default.
@@ -90,7 +91,10 @@ namespace Foreman.Mac.Services {
         //A10: the routing a new link takes.
         public LinkRouting DefaultLinkRouting { get; set; } = LinkRouting.Rounded;
 
-        //View ▸ Show Toolbar; session-only until the settings schema next moves, so it has no SettingsRow column.
         public bool ShowToolbar { get; set; } = true;
+        public bool ShowWelcomeAtLaunch { get; set; } = true;
+
+        //UTC; Open Recent lists only graphs opened after it.
+        public DateTime? OpenRecentClearedAt { get; set; }
     }
 }

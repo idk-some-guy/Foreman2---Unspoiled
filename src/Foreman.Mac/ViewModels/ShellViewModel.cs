@@ -7,7 +7,6 @@ namespace Foreman.Mac.ViewModels {
         public IRelayCommand NewCommand { get; }
         public IRelayCommand LoadCommand { get; }
         public IRelayCommand SaveCommand { get; }
-        public IRelayCommand SaveAsCommand { get; }
         public IRelayCommand ImportCommand { get; }
         public IRelayCommand ExportImageCommand { get; }
         public IRelayCommand AddItemCommand { get; }
@@ -17,11 +16,10 @@ namespace Foreman.Mac.ViewModels {
         public IRelayCommand GraphSummaryCommand { get; }
         public IRelayCommand AlignSelectionCommand { get; }
 
-        public ShellViewModel(Action onNew, Action onLoad, Action onSave, Action onSaveAs, Action onImport, Action onExportImage, Action onAddItem, Action onAddRecipe, Action onAutoconnect, Action onAlignSelection, Action onSettings, Action onGraphSummary, Func<bool>? canExecuteAlignSelection = null) {
+        public ShellViewModel(Action onNew, Action onLoad, Action onSave, Action onImport, Action onExportImage, Action onAddItem, Action onAddRecipe, Action onAutoconnect, Action onAlignSelection, Action onSettings, Action onGraphSummary, Func<bool>? canExecuteAlignSelection = null) {
             NewCommand = new RelayCommand(onNew);
             LoadCommand = new RelayCommand(onLoad);
             SaveCommand = new RelayCommand(onSave);
-            SaveAsCommand = new RelayCommand(onSaveAs);
             ImportCommand = new RelayCommand(onImport);
             ExportImageCommand = new RelayCommand(onExportImage);
             AddItemCommand = new RelayCommand(onAddItem);

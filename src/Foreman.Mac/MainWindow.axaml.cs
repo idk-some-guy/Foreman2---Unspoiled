@@ -20,6 +20,7 @@ using CommunityToolkit.Mvvm.Input;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.DataCaching.Storage;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
@@ -131,13 +132,11 @@ namespace Foreman.Mac {
         //ShowDialog.
         internal Action<GraphViewer>? ImageExportDialogStub { get; set; }
 
-        //Test-only seam: lets a test supply Save As's file-save-picker result without a real modal picker
-        //(mirrors GraphSummaryWindow's own SaveFilePathStub).
-        internal Func<Task<string?>>? SaveFilePathStub { get; set; }
+        //Test-only seam: lets a test supply Export as .fjson's picker result, given the suggested file name.
+        internal Func<string, Task<string?>>? ExportFilePathStub { get; set; }
 
-        //Test-only seams for TestGraphSavedStatus's discard and save prompts.
-        internal Func<Task<bool>>? DiscardUnsavedGraphConfirmStub { get; set; }
-        internal Func<Task<ConfirmChoice>>? SaveBeforeContinuingChoiceStub { get; set; }
+        //Test-only seam: lets a test supply the Open picker's file.
+        internal Func<Task<(string Json, string Path)?>>? OpenFileStub { get; set; }
 
         //Test-only seam: lets a test supply the cross-preset PresetSelectionWindow's outcome (io-reference.md
         //§8 slow path) without a real modal ShowDialog.
@@ -157,14 +156,26 @@ namespace Foreman.Mac {
 
         internal ILauncher? LauncherOverride { get; set; }
 
-        //Ports MainForm's savefilePath/savefileBaselineJson fields (reference: upstream MainForm.cs, io-
-        //reference.md §2). savefileBaselineJson is the dirty-check baseline: a captured JSON string, not a
-        //re-read from disk, refreshed by SaveGraph/ApplyLoadedGraphUiState and cleared by New.
-        private string? savefilePath;
-        private string? savefileBaselineJson;
+        private GraphLibraryService? library;
+        private bool loadingGraph;
+        private RelayCommand revertToLastSavedCommand = null!;
+        private NativeMenuItem openRecentItem = null!;
 
-        internal string? SaveFilePath => savefilePath;
-        internal string? SaveFileBaselineJson => savefileBaselineJson;
+        internal GraphLibraryService? Library {
+            get => library;
+            set {
+                if (library is not null) {
+                    library.WriteFailed -= OnLibraryWriteFailed;
+                    library.Snapshot = null;
+                }
+                library = value;
+                if (library is not null) {
+                    library.Snapshot = CaptureSnapshot;
+                    library.Post = action => Dispatcher.UIThread.Post(action);
+                    library.WriteFailed += OnLibraryWriteFailed;
+                }
+            }
+        }
 
         //A (contract #menubar): the bold app menu lives on Application, built once in App.Initialize
         //before any MainWindow exists (see the call site there), so its About/Settings/Hide items can't
@@ -193,9 +204,8 @@ namespace Foreman.Mac {
             ActualSizeCommand = new RelayCommand(MenuActualSize);
             Commands = new ShellViewModel(
                 onNew: () => Async.Fire(NewGraphAsync(), nameof(NewGraphAsync)),
-                onLoad: () => Async.Fire(LoadGraphAsync(), nameof(LoadGraphAsync)),
-                onSave: () => Async.Fire(SaveGraphOrPromptAsync(), nameof(SaveGraphOrPromptAsync)),
-                onSaveAs: () => Async.Fire(SaveGraphAsAsync(), nameof(SaveGraphAsAsync)),
+                onLoad: () => Async.Fire(OpenGraphAsync(), nameof(OpenGraphAsync)),
+                onSave: SaveVersion,
                 onImport: () => Async.Fire(ImportGraphAsync(), nameof(ImportGraphAsync)),
                 onExportImage: () => Async.Fire(OpenImageExportAsync(), nameof(OpenImageExportAsync)),
                 onAddItem: () => GraphCanvas.AddItemAsync(ViewportCentre(), PaletteAnchorUnder("AddItemButton")),
@@ -246,7 +256,7 @@ namespace Foreman.Mac {
             //node/link add/remove, node-property edits, a committed node drag, annotation add/remove/edit.
             //Replaces the old five-event wiring: NodeValuesUpdated fired on a plain solve too, so Save lit
             //up with nothing to save - a UI hint only, never the close-confirmation gate.
-            GraphCanvas.Viewer.Session.GraphMutated += (_, _) => ViewModel.IsDirty = true;
+            GraphCanvas.Viewer.Session.GraphMutated += (_, _) => OnGraphMutated();
 
             BuildToolbarRow();
             InitializeSolveStatus();
@@ -264,6 +274,11 @@ namespace Foreman.Mac {
             GraphCanvas.ViewScaleChanged += (_, _) => ResyncZoomLabel();
             NativeMenu.SetMenu(this, BuildNativeMenu());
             Opened += (_, _) => MostRecentlyOpened = this;
+            if (Application.Current?.TryGetFeature<IActivatableLifetime>() is { } activatable) {
+                EventHandler<ActivatedEventArgs> flushOnResign = (_, _) => OnAppDeactivated();
+                activatable.Deactivated += flushOnResign;
+                Closed += (_, _) => activatable.Deactivated -= flushOnResign;
+            }
             //SheetHost overlays Content directly (spanning child); TitleBarRow as the anchor keeps sheets
             //flush under the toolbar instead of covering it.
             Views.Sheets.SheetHost.For(this, this.FindControl<Grid>("TitleBarRow"));
@@ -405,7 +420,6 @@ namespace Foreman.Mac {
         private static Geometry? ToolbarGlyph(string name) =>
             Application.Current?.TryGetResource($"Kit.Glyph.{name}.17", null, out object? geometry) == true ? geometry as Geometry : null;
 
-        //Best-effort real AppKit affordance for A21 (unsaved state is the close button's dot, never title text).
         private void ApplyDocumentEditedState(bool isDirty) {
             documentEdited = isDirty;
             if (OperatingSystem.IsMacOS() && TryGetPlatformHandle() is { HandleDescriptor: "NSWindow" } handle)
@@ -950,14 +964,19 @@ namespace Foreman.Mac {
 
         private static int GridUnitFromIndex(int index) => index > 0 ? 6 * (int)Math.Pow(2, index - 1) : 0;
 
-        //Ports LoadGraphButton_Click -> LoadGraph() -> LoadGraph(path) (reference: upstream MainForm.cs:198-
-        //225, io-reference.md §2 "Load"): the open-file picker and TestGraphSavedStatus gate; the parse,
-        //preset resolution, and post-load bookkeeping are LoadGraphJsonAsync's job.
-        private async Task LoadGraphAsync() {
-            if (DataCache is null || StorageProvider is not IStorageProvider storage)
+        private async Task OpenGraphAsync() {
+            if (DataCache is null)
                 return;
-            if (!await TestGraphSavedStatusAsync().ConfigureAwait(true))
+            (string Json, string Path)? picked = await (OpenFileStub?.Invoke() ?? PickGraphFileAsync()).ConfigureAwait(true);
+            if (picked is not (string json, string path))
                 return;
+
+            await OpenFjsonAsync(json, path).ConfigureAwait(true);
+        }
+
+        private async Task<(string Json, string Path)?> PickGraphFileAsync() {
+            if (StorageProvider is not IStorageProvider storage)
+                return null;
 
             Directory.CreateDirectory(AppPaths.SavedGraphsDirectory);
             IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions {
@@ -967,32 +986,66 @@ namespace Foreman.Mac {
                 FileTypeFilter = [new FilePickerFileType("Foreman files") { Patterns = ["*.fjson"] }],
             }).ConfigureAwait(true);
             if (files.Count == 0)
-                return;
+                return null;
 
-            string path = files[0].Path.LocalPath;
-            string json;
-            await using (Stream stream = await files[0].OpenReadAsync().ConfigureAwait(true))
-            using (var reader = new StreamReader(stream))
-                json = await reader.ReadToEndAsync().ConfigureAwait(true);
-
-            await LoadGraphJsonAsync(json, path).ConfigureAwait(true);
+            await using Stream stream = await files[0].OpenReadAsync().ConfigureAwait(true);
+            using var reader = new StreamReader(stream);
+            return (await reader.ReadToEndAsync().ConfigureAwait(true), files[0].Path.LocalPath);
         }
 
-        //Ports LoadFromJson/LoadFromSaveDocument's non-dialog half (reference upstream ProductionGraphViewer.
-        //cs:1414-1432, io-reference.md §8): parses the save once, resolves which preset to load it against
-        //via ResolveChosenPresetAsync (fast/silent-switch/slow-path dialog, or null on cancel), swaps in that
-        //preset's DataCache only when it differs from the one already active, then loads. Internal so tests
-        //can drive it without a real file picker, the same seam ImportGraphJsonAsync already established.
-        internal async Task LoadGraphJsonAsync(string json, string path) {
-            if (DataCache is not Foreman.DataCaching.DataCache cache || Settings is not AppSettings settings)
-                return;
-
+        internal async Task OpenFjsonAsync(string json, string path) {
+            string name = Path.GetFileNameWithoutExtension(path);
             GraphViewerSaveDocument? document = GraphSaveCodec.ReadViewer(json);
-            if (document is null) {
-                await Dialogs.ShowWarningAsync(this, $"Couldn’t open “{Dialogs.DocumentName(path)}”.", UnreadableGraphSentence).ConfigureAwait(true);
+            if (document is null || Library is null) {
+                await LoadGraphJsonAsync(json, name).ConfigureAwait(true);
                 return;
             }
 
+            string data = GraphSaveCodec.WriteViewerDocumentToString(document, writeIndented: true);
+            if (Library.FindImport(path, data) is GraphRow existing) {
+                await OpenLibraryGraphAsync(existing.Id).ConfigureAwait(true);
+                return;
+            }
+            if (!await LoadGraphJsonAsync(data, name).ConfigureAwait(true))
+                return;
+
+            GraphRow row = Library.Create(name, CurrentPresetName, data, GraphCanvas.Viewer.Graph.Nodes.Count(), path);
+            ShowOpenedGraph(row);
+        }
+
+        internal async Task OpenLibraryGraphAsync(Guid id) {
+            if (Library is null || Library.OpenGraphId == id)
+                return;
+            Library.FlushNow();
+            if (Library.Find(id) is not GraphRow stored)
+                return;
+            if (!await LoadGraphJsonAsync(stored.Data, stored.Name).ConfigureAwait(true))
+                return;
+
+            ShowOpenedGraph(Library.Open(id) ?? stored);
+        }
+
+        internal void OnAppDeactivated() => Library?.FlushNow();
+
+        private void ShowOpenedGraph(GraphRow row) {
+            if (Library is not null && row.PresetName != CurrentPresetName)
+                Library.SetPreset(CurrentPresetName);
+            ViewModel.DocumentName = row.Name;
+            ViewModel.IsDirty = GraphLibraryService.IsEditedSinceSave(row);
+        }
+
+        //Detaches the library graph before the swap so the load's own mutation events never autosave into the previous row.
+        internal async Task<bool> LoadGraphJsonAsync(string json, string name) {
+            if (DataCache is not Foreman.DataCaching.DataCache cache || Settings is not AppSettings settings)
+                return false;
+
+            GraphViewerSaveDocument? document = GraphSaveCodec.ReadViewer(json);
+            if (document is null) {
+                await Dialogs.ShowWarningAsync(this, $"Couldn’t open “{Dialogs.MiddleTruncate(name)}”.", UnreadableGraphSentence).ConfigureAwait(true);
+                return false;
+            }
+
+            Library?.FlushNow();
             string previousPresetName = settings.CurrentPresetName;
             Preset? chosenPreset = await ResolveChosenPresetAsync(document).ConfigureAwait(true);
             while (chosenPreset is not null && chosenPreset.Name != cache.PresetName) {
@@ -1010,18 +1063,26 @@ namespace Foreman.Mac {
                     settings.CurrentPresetName = previousPresetName;
                     SettingsService?.Save(settings);
                 }
-                return;
+                return false;
             }
 
             //LoadDocument is about to dispose every current node view model.
             ViewModel.Inspector.SetSelection([]);
-            GraphLoadResult result = GraphCanvas.LoadDocument(cache, document);
+            Library?.Detach();
+            loadingGraph = true;
+            GraphLoadResult result;
+            try {
+                result = GraphCanvas.LoadDocument(cache, document);
+            } finally {
+                loadingGraph = false;
+            }
             if (!result.Success)
-                await Dialogs.ShowWarningAsync(this, $"Couldn’t open “{Dialogs.DocumentName(path)}”.", result.ErrorMessage ?? UnreadableGraphSentence).ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(this, $"Couldn’t open “{Dialogs.MiddleTruncate(name)}”.", result.ErrorMessage ?? UnreadableGraphSentence).ConfigureAwait(true);
             else
-                ApplyLoadedGraphUiState(path);
+                ApplyLoadedGraphUiState(name);
 
             GraphCanvas.InvalidateVisual();
+            return result.Success;
         }
 
         //Ports ResolveChosenPresetAsync (reference upstream ProductionGraphViewer.cs:1434-1507, io-reference.
@@ -1158,13 +1219,8 @@ namespace Foreman.Mac {
             return choice;
         }
 
-        //Ports ApplyLoadedGraphUiState (reference: upstream MainForm.cs:227-241): records the save path,
-        //captures the dirty-check baseline, resyncs the 5 Default* settings a load can change (rate unit via
-        //ResyncRateOptionsDropDown, the other 4 here), and rewrites the title bar. Internal so tests can call
-        //it directly after a LoadDocument call, the same seam ResyncRateOptionsDropDown already uses.
-        internal void ApplyLoadedGraphUiState(string path) {
-            savefilePath = path;
-            CaptureSaveBaseline();
+        internal void ApplyLoadedGraphUiState(string name) {
+            ViewModel.DocumentName = name;
             ViewModel.IsDirty = false;
             ResyncZoomLabel();
             ResyncRateOptionsDropDown();
@@ -1175,30 +1231,30 @@ namespace Foreman.Mac {
                 settings.DefaultModuleOption = GraphCanvas.Viewer.Graph.ModuleSelector.DefaultSelectionStyle;
                 settings.DefaultNodeDirection = GraphCanvas.Viewer.Graph.DefaultNodeDirection;
             }
-
-            UpdateTitleBar();
         }
 
-        //Ports NewGraph's dirty-gate and path-reset (reference: upstream MainForm.cs:243-264); the preset
-        //switch upstream's NewGraph also performs has no equivalent here yet (out of scope here, see
-        //the New command's own pre-existing behavior).
-        internal async Task NewGraphAsync() {
-            if (!await TestGraphSavedStatusAsync().ConfigureAwait(true))
-                return;
-
+        internal Task NewGraphAsync() {
+            Library?.Detach();
             GraphCanvas.ClosePanels();
             ViewModel.Inspector.SetSelection([]);
-            GraphCanvas.Viewer.Graph.ClearGraph();
-            savefilePath = null;
-            savefileBaselineJson = null;
+            loadingGraph = true;
+            try {
+                GraphCanvas.Viewer.Graph.ClearGraph();
+            } finally {
+                loadingGraph = false;
+            }
             ViewModel.IsDirty = false;
-            UpdateTitleBar();
+            ViewModel.DocumentName = null;
+            if (Library is not null && CaptureSnapshot() is GraphSnapshot snapshot) {
+                GraphRow row = Library.Create(Library.NextUntitledName(), CurrentPresetName, snapshot.Data, snapshot.NodeCount, null);
+                ViewModel.DocumentName = row.Name;
+            }
             GraphCanvas.RequestRedraw();
+            return Task.CompletedTask;
         }
 
         //Ports ImportGraphButton_Click -> ImportGraph() (reference: upstream MainForm.cs:271-282, io-
-        //reference.md §2 "Import Graph"): same open-file picker shape as Load, but no TestGraphSavedStatus
-        //gate - only Load/New call that, never Save/SaveAs/Import.
+        //reference.md §2 "Import Graph"): same open-file picker shape as Open.
         private async Task ImportGraphAsync() {
             if (DataCache is null || StorageProvider is not IStorageProvider storage)
                 return;
@@ -1224,7 +1280,7 @@ namespace Foreman.Mac {
         //Ports ImportGraph(path) (reference: upstream MainForm.cs:284-296): ReadGraphPayload's dual-accept
         //(bare fragment or full viewer save) feeds GraphViewer.ImportNodesFromDocument's centroid/offset/
         //selection merge. Internal so tests can drive it without a real file picker, the same seam
-        //SaveGraphAsync(path) already established.
+        //ExportGraphAsync(path) already established.
         internal async Task ImportGraphJsonAsync(string json, string path) {
             if (DataCache is not Foreman.DataCaching.DataCache cache)
                 return;
@@ -1244,32 +1300,130 @@ namespace Foreman.Mac {
             }
         }
 
-        //Ports SaveButton_Click (reference: upstream MainForm.cs:140-143): falls back to Save As whenever
-        //there's no path yet or the write failed.
-        internal async Task SaveGraphOrPromptAsync() {
-            if (savefilePath is null || !await SaveGraphAsync(savefilePath).ConfigureAwait(true))
-                await SaveGraphAsAsync().ConfigureAwait(true);
+        private string CurrentPresetName => DataCache?.PresetName ?? Settings?.CurrentPresetName ?? "";
+
+        private GraphSnapshot? CaptureSnapshot() {
+            if (DataCache is not Foreman.DataCaching.DataCache cache)
+                return null;
+
+            GraphCanvas.Viewer.Graph.SerializeNodeIdSet = null;
+            string json = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, cache), writeIndented: true);
+            return new GraphSnapshot(json, GraphCanvas.Viewer.Graph.Nodes.Count(), GraphThumbnail.Render(GraphCanvas.Viewer));
         }
 
-        //Ports SaveGraphAs (reference: upstream MainForm.cs:165-179, io-reference.md §2 "Save / SaveAs"):
-        //.fjson filter/extension, Saved Graphs initial directory (created if missing), overwrite prompt, and
-        //the "Flowchart.fjson" default file name.
-        internal async Task SaveGraphAsAsync() {
-            string? path = await (SaveFilePathStub?.Invoke() ?? RealPickSaveGraphPathAsync()).ConfigureAwait(true);
-            if (path is null)
+        private void OnGraphMutated() {
+            if (loadingGraph)
                 return;
-
-            await SaveGraphAsync(path).ConfigureAwait(true);
+            ViewModel.IsDirty = true;
+            if (Library is null)
+                return;
+            EnsureLibraryGraph();
+            Library.NotifyChanged();
         }
 
-        private async Task<string?> RealPickSaveGraphPathAsync() {
+        private void EnsureLibraryGraph() {
+            if (Library is null || Library.OpenGraphId is not null || CaptureSnapshot() is not GraphSnapshot snapshot)
+                return;
+            GraphRow row = Library.Create(Library.NextUntitledName(), CurrentPresetName, snapshot.Data, snapshot.NodeCount, null);
+            ViewModel.DocumentName = row.Name;
+        }
+
+        private void OnLibraryWriteFailed(object? sender, string name) =>
+            Async.Fire(Dialogs.ShowWarningAsync(this, $"Couldn’t save “{Dialogs.MiddleTruncate(name)}”.",
+                "Foreman keeps trying. Check that your disk has free space."), nameof(OnLibraryWriteFailed));
+
+        internal void SaveVersion() {
+            if (Library is null)
+                return;
+            EnsureLibraryGraph();
+            if (Library.Save())
+                ViewModel.IsDirty = false;
+            RefreshLibraryMenus();
+        }
+
+        internal void DuplicateGraph() {
+            if (Library is null)
+                return;
+            EnsureLibraryGraph();
+            if (Library.OpenGraphId is null)
+                return;
+            Library.FlushNow();
+            GraphRow copy = Library.Duplicate(ViewModel.DocumentTitle + " copy");
+            ShowOpenedGraph(copy);
+            RefreshLibraryMenus();
+        }
+
+        internal async Task RenameGraphAsync() {
+            if (Library is null)
+                return;
+            EnsureLibraryGraph();
+            if (Library.OpenGraphId is null)
+                return;
+            string? name = await SheetHost.For(this).ShowAsync(new RenameGraphSheet(ViewModel.DocumentTitle)).ConfigureAwait(true);
+            if (name is null)
+                return;
+            Library.Rename(name);
+            ViewModel.DocumentName = name;
+        }
+
+        internal async Task BrowseVersionsAsync() {
+            if (Library is null)
+                return;
+            EnsureLibraryGraph();
+            if (Library.OpenGraphId is null)
+                return;
+            Library.FlushNow();
+            var sheet = new VersionBrowserSheet(ViewModel.DocumentTitle, Library.Versions()) {
+                ConfirmDeleteAsync = () => Dialogs.ShowDestructiveConfirmAsync(this, "Delete this version?", "You can’t undo this action.", "Delete"),
+                DeleteVersion = versionId => Library.DeleteVersion(versionId),
+            };
+            Guid? versionId = await SheetHost.For(this).ShowAsync(sheet).ConfigureAwait(true);
+            if (versionId is Guid id)
+                await RestoreVersionAsync(id).ConfigureAwait(true);
+        }
+
+        private void RevertToLastSaved() {
+            if (Library?.Versions().FirstOrDefault(v => v.Kind == GraphVersionKind.Saved) is GraphVersionRow saved)
+                Async.Fire(RestoreVersionAsync(saved.Id), nameof(RestoreVersionAsync));
+        }
+
+        internal async Task RestoreVersionAsync(Guid versionId) {
+            if (Library is null || Library.OpenGraphId is not Guid graphId)
+                return;
+            Library.FlushNow();
+            if (Library.Versions().FirstOrDefault(v => v.Id == versionId) is not GraphVersionRow version || Library.Find(graphId) is not GraphRow current)
+                return;
+            bool loaded = await LoadGraphJsonAsync(version.Data, current.Name).ConfigureAwait(true);
+            if (!loaded) {
+                if (Library.OpenGraphId != graphId && await LoadGraphJsonAsync(current.Data, current.Name).ConfigureAwait(true))
+                    Library.Resume(current);
+                if (Library.OpenGraphId == graphId)
+                    ViewModel.IsDirty = GraphLibraryService.IsEditedSinceSave(current);
+                return;
+            }
+            Library.Resume(current);
+            if (Library.Restore(versionId) is GraphRow restored) {
+                Library.Resume(restored);
+                ShowOpenedGraph(restored);
+            }
+            RefreshLibraryMenus();
+        }
+
+        private async Task ExportGraphFileAsync() {
+            string suggested = ViewModel.DocumentTitle.Replace('/', '-').Replace(':', '-') + ".fjson";
+            string? path = await (ExportFilePathStub?.Invoke(suggested) ?? PickExportPathAsync(suggested)).ConfigureAwait(true);
+            if (path is not null)
+                await ExportGraphAsync(path).ConfigureAwait(true);
+        }
+
+        private async Task<string?> PickExportPathAsync(string suggestedName) {
             if (StorageProvider is not IStorageProvider storage)
                 return null;
 
             Directory.CreateDirectory(AppPaths.SavedGraphsDirectory);
             IStorageFile? file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions {
-                Title = "Save Graph",
-                SuggestedFileName = "Flowchart.fjson",
+                Title = "Export Graph",
+                SuggestedFileName = suggestedName,
                 DefaultExtension = ".fjson",
                 ShowOverwritePrompt = true,
                 SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(new Uri(AppPaths.SavedGraphsDirectory)).ConfigureAwait(true),
@@ -1281,10 +1435,7 @@ namespace Foreman.Mac {
             return file?.Path.LocalPath;
         }
 
-        //Ports SaveGraph(path) (reference: upstream MainForm.cs:181-196): serializes the whole graph (never
-        //a selection subset), writes it, and captures both the save path and the dirty-check baseline before
-        //rewriting the title bar. Catches everything, matching upstream's own catch-all.
-        internal async Task<bool> SaveGraphAsync(string path) {
+        internal async Task<bool> ExportGraphAsync(string path) {
             if (DataCache is not Foreman.DataCaching.DataCache cache)
                 return false;
 
@@ -1292,10 +1443,6 @@ namespace Foreman.Mac {
                 GraphCanvas.Viewer.Graph.SerializeNodeIdSet = null;
                 string json = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, cache), writeIndented: true);
                 Utf8File.WriteAllText(path, json);
-                savefilePath = path;
-                savefileBaselineJson = json;
-                ViewModel.IsDirty = false;
-                UpdateTitleBar();
                 return true;
             } catch (Exception exception) {
                 await Dialogs.ShowWarningAsync(this, $"Couldn’t save “{Dialogs.DocumentName(path)}”.",
@@ -1305,78 +1452,12 @@ namespace Foreman.Mac {
             }
         }
 
-        private void CaptureSaveBaseline() {
-            if (DataCache is not Foreman.DataCaching.DataCache cache)
-                return;
-
-            GraphCanvas.Viewer.Graph.SerializeNodeIdSet = null;
-            savefileBaselineJson = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, cache), writeIndented: true);
-        }
-
-        //Called from New/Load only; a titled graph prompts only when its serialization differs from the save baseline.
-        internal async Task<bool> TestGraphSavedStatusAsync() {
-            if (DataCache is not Foreman.DataCaching.DataCache cache)
-                return true;
-
-            if (savefilePath is null)
-                return !GraphCanvas.Viewer.Graph.Nodes.Any()
-                    || await ShowDiscardUnsavedGraphConfirmAsync("This graph has never been saved. You can’t undo this action.").ConfigureAwait(true);
-
-            if (!File.Exists(savefilePath))
-                return await ShowDiscardUnsavedGraphConfirmAsync(
-                    $"Its file “{Dialogs.DocumentName(savefilePath)}” is no longer where it was saved. You can’t undo this action.").ConfigureAwait(true);
-
-            GraphCanvas.Viewer.Graph.SerializeNodeIdSet = null;
-            string currentSaveJson = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, cache), writeIndented: true);
-            string savedJson = savefileBaselineJson ?? Utf8File.ReadAllText(savefilePath);
-
-            if (savedJson != currentSaveJson) {
-                ConfirmChoice choice = await ShowSaveBeforeContinuingChoiceAsync(savefilePath).ConfigureAwait(true);
-                if (choice == ConfirmChoice.Cancel)
-                    return false;
-                if (choice == ConfirmChoice.Yes)
-                    await SaveGraphAsync(savefilePath).ConfigureAwait(true);
-            }
-            return true;
-        }
-
         private const string UnreadableGraphSentence =
             "The file is too old or damaged to read. Open it in the previous Foreman release, save it again, then open the new copy here.";
 
-        private Task<bool> ShowDiscardUnsavedGraphConfirmAsync(string message) =>
-            DiscardUnsavedGraphConfirmStub?.Invoke() ?? Dialogs.ShowDestructiveConfirmAsync(this, "Discard this unsaved graph?", message, "Discard");
-
-        private Task<ConfirmChoice> ShowSaveBeforeContinuingChoiceAsync(string path) =>
-            SaveBeforeContinuingChoiceStub?.Invoke() ?? Dialogs.ShowSaveChangesAsync(this, path);
-
-        private bool closeConfirmed;
-
-        //Ports MainForm's implicit close gate (upstream never overrides OnFormClosing at all - WinForms
-        //just lets the process exit mid-save). This port needs an explicit cancel-then-reclose (Avalonia's
-        //Closing can't block synchronously), same pattern as DataLoadWindow.OnClosing: cancel the first
-        //Close, await TestGraphSavedStatusAsync, then Close again for real once it says so. ShellBootstrapper's
-        //own Closing subscription (settings save) still runs on that second pass, via base.OnClosing.
         protected override void OnClosing(WindowClosingEventArgs e) {
-            if (!closeConfirmed) {
-                e.Cancel = true;
-                Async.Fire(ConfirmCloseAsync(), nameof(ConfirmCloseAsync));
-                return;
-            }
+            Library?.FlushNow();
             base.OnClosing(e);
-        }
-
-        private async Task ConfirmCloseAsync() {
-            if (await TestGraphSavedStatusAsync().ConfigureAwait(true)) {
-                closeConfirmed = true;
-                Close();
-            }
-        }
-
-        //Ports the title-bar update used identically after Save/Load/New/preset-reload (reference: upstream
-        //MainForm.cs:188,240,263,444) - the preset no longer appears in the title (contract #toolbar), just
-        //the document name, computed in MainWindowViewModel.DocumentTitle.
-        private void UpdateTitleBar() {
-            ViewModel.CurrentFileName = savefilePath;
         }
 
         //Ports SettingsButton_Click's post-close cascade (reference upstream MainForm.cs:355-440): builds
@@ -1619,7 +1700,7 @@ namespace Foreman.Mac {
                 await Dialogs.ShowWarningAsync(this, $"Couldn’t open “{Dialogs.MiddleTruncate(ViewModel.DocumentTitle)}”.", result.ErrorMessage ?? UnreadableGraphSentence).ConfigureAwait(true);
 
             ApplyLoadedSettings();
-            UpdateTitleBar();
+            Library?.SetPreset(newCache.PresetName ?? CurrentPresetName);
             GraphCanvas.RequestRedraw();
             return DataLoadOutcome.Loaded;
         }
@@ -1855,6 +1936,8 @@ namespace Foreman.Mac {
         private void MenuToggleShowToolbar() {
             searchRevealsToolbar = false;
             SetShowToolbar(!showToolbar);
+            if (Settings is AppSettings current)
+                SettingsService?.Save(current);
         }
 
         private void SetShowToolbar(bool value) {
@@ -1965,24 +2048,40 @@ namespace Foreman.Mac {
 
         private NativeMenu BuildNativeMenu() {
             presetComparatorCommand = new RelayCommand(ShowPresetComparator, () => ComparablePresets() is not null);
+            revertToLastSavedCommand = new RelayCommand(RevertToLastSaved, () => Library?.OpenGraphSavedAt is not null);
             NativeMenuItem save = MenuItem("Save", Commands.SaveCommand, new KeyGesture(Key.S, PlatformModifiers.Primary));
-            NativeMenuItem saveAs = MenuItem("Save As…", Commands.SaveAsCommand, new KeyGesture(Key.S, PlatformModifiers.Primary | KeyModifiers.Shift));
+            NativeMenuItem duplicate = ActionItem("Duplicate", DuplicateGraph, new KeyGesture(Key.S, PlatformModifiers.Primary | KeyModifiers.Shift));
+            NativeMenuItem rename = ActionItem("Rename…", () => Async.Fire(RenameGraphAsync(), nameof(RenameGraphAsync)));
+            var revertMenu = new NativeMenu {
+                Items = {
+                    new NativeMenuItem("Last Saved Version") { Command = new DeferredMenuCommand(revertToLastSavedCommand) },
+                    new NativeMenuItemSeparator(),
+                    ActionItem("Browse Versions…", () => Async.Fire(BrowseVersionsAsync(), nameof(BrowseVersionsAsync))),
+                },
+            };
+            NativeMenuItem revert = new("Revert To") { Menu = revertMenu };
+            NativeMenuItem exportFjson = ActionItem("Export as .fjson…", () => Async.Fire(ExportGraphFileAsync(), nameof(ExportGraphFileAsync)));
             NativeMenuItem exportImage = MenuItem("Export Image…", Commands.ExportImageCommand, new KeyGesture(Key.E, PlatformModifiers.Primary | KeyModifiers.Shift));
             NativeMenuItem close = ActionItem("Close", Close, new KeyGesture(Key.W, PlatformModifiers.Primary));
+            openRecentItem = new NativeMenuItem("Open Recent") { IsEnabled = false, Menu = [] };
             var fileMenu = new NativeMenu {
                 Items = {
                     MenuItem("New Graph", Commands.NewCommand, new KeyGesture(Key.N, PlatformModifiers.Primary)),
                     MenuItem("Open…", Commands.LoadCommand, new KeyGesture(Key.O, PlatformModifiers.Primary)),
-                    new NativeMenuItem("Open Recent") { IsEnabled = false, Menu = [] },
-                    save,
-                    saveAs,
-                    new NativeMenuItemSeparator(),
-                    MenuItem("Import Graph…", Commands.ImportCommand),
-                    exportImage,
+                    openRecentItem,
                     new NativeMenuItemSeparator(),
                     close,
+                    save,
+                    duplicate,
+                    rename,
+                    revert,
+                    new NativeMenuItemSeparator(),
+                    MenuItem("Import Graph…", Commands.ImportCommand),
+                    exportFjson,
+                    exportImage,
                 },
             };
+            fileMenu.Opening += (_, _) => RefreshLibraryMenus();
 
             selectNextNodeCommand = new RelayCommand(() => GraphCanvas.StepNode(forward: true), CanSelectNode);
             selectPreviousNodeCommand = new RelayCommand(() => GraphCanvas.StepNode(forward: false), CanSelectNode);
@@ -2128,7 +2227,7 @@ namespace Foreman.Mac {
                 },
             };
 
-            documentScopedMenuItems = [.. WithSubmenuItems([save, saveAs, exportImage, close, .. editMenu.Items, .. canvasHalf])];
+            documentScopedMenuItems = [.. WithSubmenuItems([save, duplicate, rename, revert, exportFjson, exportImage, close, .. editMenu.Items, .. canvasHalf])];
 
             return new NativeMenu {
                 Items = {
@@ -2177,6 +2276,41 @@ namespace Foreman.Mac {
                     item.IsEnabled = false;
                 }
             }
+        }
+
+        internal void RefreshLibraryMenus() {
+            revertToLastSavedCommand.NotifyCanExecuteChanged();
+            RefreshOpenRecentMenu();
+        }
+
+        internal void RefreshOpenRecentMenu() {
+            IReadOnlyList<GraphRow> rows = Library?.OpenRecent(Settings?.OpenRecentClearedAt) ?? [];
+            HashSet<string> installed = PresetResolver is { } resolver && Settings is { } current
+                ? [.. resolver.BuildPresetList(current.CurrentPresetName).Select(p => p.Name)]
+                : [];
+            var menu = new NativeMenu();
+            foreach (GraphRow row in rows) {
+                bool missing = PresetResolver is not null && !installed.Contains(row.PresetName);
+                Guid id = row.Id;
+                menu.Items.Add(new NativeMenuItem(rows.Count(r => r.Name == row.Name) > 1 ? $"{row.Name} — {row.PresetName}" : row.Name) {
+                    Command = new DeferredMenuCommand(new RelayCommand(() => Async.Fire(OpenLibraryGraphAsync(id), nameof(OpenLibraryGraphAsync)))),
+                    IsEnabled = !missing,
+                    ToolTip = missing ? $"Needs the “{row.PresetName}” preset" : null,
+                });
+            }
+            if (rows.Count > 0)
+                menu.Items.Add(new NativeMenuItemSeparator());
+            menu.Items.Add(new NativeMenuItem("Clear Menu") { Command = new DeferredMenuCommand(new RelayCommand(ClearOpenRecent)), IsEnabled = rows.Count > 0 });
+            openRecentItem.Menu = menu;
+            openRecentItem.IsEnabled = Library?.All().Count > 0;
+        }
+
+        private void ClearOpenRecent() {
+            if (Settings is not AppSettings current || Library is null)
+                return;
+            current.OpenRecentClearedAt = Library.Now;
+            SettingsService?.Save(current);
+            RefreshOpenRecentMenu();
         }
 
         private static NativeMenuItem MenuItem(string header, IRelayCommand command, KeyGesture? gesture = null) =>
@@ -2246,10 +2380,6 @@ namespace Foreman.Mac {
             return menu;
         }
 
-        //TryShutdown, not Shutdown - Shutdown tears every window down unconditionally,
-        //bypassing MainWindow.OnClosing's own unsaved-changes gate the same way ⌘W's Close command doesn't.
-        //TryShutdown closes each open window first (raising the ordinary Closing event on every one of
-        //them), so a dirty graph still prompts on ⌘Q exactly as it does on ⌘W or the traffic-light close.
         private static NativeMenuItem QuitMenuItem() {
             var command = new RelayCommand(() => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.TryShutdown());
             return new NativeMenuItem("Quit Foreman 2") {

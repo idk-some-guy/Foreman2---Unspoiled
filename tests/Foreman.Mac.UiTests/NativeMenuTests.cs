@@ -8,8 +8,10 @@ using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.DataCaching.Storage;
 using Foreman.Graph;
 using Foreman.Mac;
+using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Composites;
@@ -19,6 +21,7 @@ using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -167,12 +170,202 @@ namespace Foreman.Mac.UiTests {
         //---- File menu ----
 
         [AvaloniaFact]
-        public void FileMenu_ItemsAreInContractOrder() {
+        public void FileMenu_HeadersInRuledOrder_NoSaveAs_DuplicateIsShiftPrimaryS() {
             var window = new MainWindow();
+            NativeMenu file = SubMenu(TopMenu(window), "File");
 
-            var headers = RealItems(SubMenu(TopMenu(window), "File")).Select(i => i.Header).ToList();
+            var headers = file.Items.OfType<NativeMenuItem>().Select(i => i is NativeMenuItemSeparator ? "-" : i.Header).ToList();
 
-            Assert.Equal(["New Graph", "Open…", "Open Recent", "Save", "Save As…", "Import Graph…", "Export Image…", "Close"], headers);
+            Assert.Equal(["New Graph", "Open…", "Open Recent", "-", "Close", "Save", "Duplicate", "Rename…", "Revert To", "-", "Import Graph…", "Export as .fjson…", "Export Image…"], headers);
+            Assert.DoesNotContain(AllItems(file), i => i.Header is not null && i.Header.StartsWith("Save As", StringComparison.Ordinal));
+            Assert.Equal(new KeyGesture(Key.S, PlatformModifiers.Primary | KeyModifiers.Shift), ItemNamed(file, "Duplicate").Gesture);
+            Assert.Equal(new KeyGesture(Key.S, PlatformModifiers.Primary), ItemNamed(file, "Save").Gesture);
+            Assert.Equal(["Last Saved Version", "Browse Versions…"], [.. RealItems(ItemNamed(file, "Revert To").Menu!).Select(i => i.Header!)]);
+        }
+
+        private static MainWindow NewLibraryWindow(LibraryFixture library) {
+            var window = library.Track(new MainWindow());
+            window.Show();
+            window.DataCache = new DataCache(filterRecipes: true);
+            window.Settings = new AppSettings { CurrentPresetName = "Current" };
+            window.Library = library.Service;
+            return window;
+        }
+
+        [AvaloniaFact]
+        public void OpenRecent_TwelveRows_ListsTenPlusSeparatorPlusClearMenu_ClearEmptiesItAndLeavesTheLibraryAtTwelve() {
+            using var library = new LibraryFixture();
+            MainWindow window = NewLibraryWindow(library);
+            NativeMenu file = SubMenu(TopMenu(window), "File");
+            NativeMenuItem openRecent = ItemNamed(file, "Open Recent");
+            OpenMenu(file);
+            Assert.False(openRecent.IsEnabled);
+
+            library.Clock.Advance(TimeSpan.FromHours(1));
+            for (int i = 1; i <= 12; i++)
+                library.Store.Create("Graph " + i, "Current", "d", 0, null, library.Service.Now.AddMinutes(-60 + i));
+            OpenMenu(file);
+
+            Assert.True(openRecent.IsEnabled);
+            NativeMenuItem[] shown = [.. openRecent.Menu!.Items.OfType<NativeMenuItem>()];
+            Assert.Equal(12, shown.Length);
+            Assert.Equal("Graph 12", shown[0].Header);
+            Assert.Equal("Graph 3", shown[9].Header);
+            Assert.IsType<NativeMenuItemSeparator>(shown[10]);
+            Assert.Equal("Clear Menu", shown[11].Header);
+
+            shown[11].Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.NotNull(window.Settings!.OpenRecentClearedAt);
+            Assert.Equal(["Clear Menu"], [.. RealItems(openRecent.Menu!).Select(i => i.Header!)]);
+            Assert.False(RealItems(openRecent.Menu!).Single().IsEnabled);
+            Assert.Equal(12, library.Service.All().Count);
+        }
+
+        [AvaloniaFact]
+        public void OpenRecent_DuplicateNameGetsPresetSuffix_MissingPresetDisabledWithTooltip() {
+            using var library = new LibraryFixture();
+            MainWindow window = NewLibraryWindow(library);
+            window.PresetResolver = new PresetResolver(library.NewTempDir(), library.NewTempDir());
+            DateTime now = library.Service.Now;
+            library.Store.Create("Plant", "Current", "d", 0, null, now.AddMinutes(1));
+            library.Store.Create("Plant", "Gone", "d", 0, null, now.AddMinutes(2));
+            library.Store.Create("Solo", "Gone", "d", 0, null, now.AddMinutes(3));
+            NativeMenu file = SubMenu(TopMenu(window), "File");
+
+            OpenMenu(file);
+
+            NativeMenuItem[] shown = [.. RealItems(ItemNamed(file, "Open Recent").Menu!)];
+            Assert.Equal(["Solo", "Plant — Gone", "Plant — Current", "Clear Menu"], [.. shown.Select(i => i.Header!)]);
+            Assert.False(shown[0].IsEnabled);
+            Assert.Equal("Needs the “Gone” preset", shown[0].ToolTip);
+            Assert.False(shown[1].IsEnabled);
+            Assert.True(shown[2].IsEnabled);
+            Assert.Null(shown[2].ToolTip);
+        }
+
+        [AvaloniaFact]
+        public void RevertTo_LastSavedVersion_DisabledWhileSavedAtNull() {
+            using var library = new LibraryFixture();
+            MainWindow window = NewLibraryWindow(library);
+            NativeMenu file = SubMenu(TopMenu(window), "File");
+            NativeMenuItem lastSaved = ItemNamed(SubMenu(file, "Revert To"), "Last Saved Version");
+
+            OpenMenu(file);
+            Assert.False(lastSaved.IsEnabled);
+
+            window.SaveVersion();
+            OpenMenu(file);
+            Assert.True(lastSaved.IsEnabled);
+        }
+
+        [AvaloniaFact]
+        public void Duplicate_OpensNameCopy() {
+            using var library = new LibraryFixture();
+            MainWindow window = NewLibraryWindow(library);
+            window.SaveVersion();
+            Guid original = library.Service.OpenGraphId!.Value;
+
+            ItemNamed(SubMenu(TopMenu(window), "File"), "Duplicate").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.NotEqual(original, library.Service.OpenGraphId);
+            Assert.Equal("Untitled Graph copy", window.ViewModel.DocumentTitle);
+            Assert.Equal("Untitled Graph copy", library.Store.Get(library.Service.OpenGraphId!.Value)!.Name);
+            Assert.Equal(2, library.Store.ListByLastOpened().Count);
+        }
+
+        [AvaloniaFact]
+        public async Task NewGraph_UsesTheNextUntitledName() {
+            using var library = new LibraryFixture();
+            MainWindow window = NewLibraryWindow(library);
+
+            await window.NewGraphAsync();
+            Assert.Equal("Untitled Graph", window.ViewModel.DocumentTitle);
+            await window.NewGraphAsync();
+            Assert.Equal("Untitled Graph 2", window.ViewModel.DocumentTitle);
+
+            Assert.Equal(2, library.Store.ListByLastOpened().Count);
+        }
+
+        [AvaloniaFact]
+        public async Task ExportFjson_SuggestsTheGraphName_WritesTheCurrentSaveFormat_AndDoesNotLinkTheFileToTheLibrary() {
+            using var library = new LibraryFixture();
+            MainWindow window = NewLibraryWindow(library);
+            window.SaveVersion();
+            window.ViewModel.DocumentName = "Green Circuit Factory";
+            string path = Path.Combine(library.NewTempDir(), "out.fjson");
+            string? suggested = null;
+            window.ExportFilePathStub = name => { suggested = name; return Task.FromResult<string?>(path); };
+
+            ItemNamed(SubMenu(TopMenu(window), "File"), "Export as .fjson…").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("Green Circuit Factory.fjson", suggested);
+            Assert.NotNull(Foreman.Serialization.GraphSaveCodec.ReadViewer(await File.ReadAllTextAsync(path)));
+            Assert.Null(library.Store.Get(library.Service.OpenGraphId!.Value)!.SourcePath);
+        }
+
+        private static async Task<MainWindow> NewRealLibraryWindowAsync(LibraryFixture library) {
+            var window = library.Track(new MainWindow());
+            window.Show();
+            window.GraphCanvas.Viewport.SetSize(800, 800);
+            window.DataCache = await GetCacheAsync();
+            window.Settings = new AppSettings { CurrentPresetName = VanillaPresetName };
+            window.PresetResolver = new PresetResolver(userPresetsDirectoryOverride: library.NewTempDir());
+            window.SettingsService = new SettingsService(library.NewTempDir());
+            window.Library = library.Service;
+            window.ApplyLoadedSettings();
+            return window;
+        }
+
+        private static string SerializeGraph(MainWindow window) =>
+            Foreman.Serialization.GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(window.GraphCanvas.Viewer, window.DataCache!), writeIndented: true);
+
+        [AvaloniaFact]
+        public async Task OpenRecent_ChoosingAnItem_OpensItLikeAWelcomeRow() {
+            using var library = new LibraryFixture();
+            MainWindow window = await NewRealLibraryWindowAsync(library);
+            string data = SerializeGraph(window);
+            GraphRow older = library.Store.Create("Graph 11", VanillaPresetName, data, 0, null, library.Service.Now);
+            GraphRow newer = library.Store.Create("Graph 12", VanillaPresetName, data, 0, null, library.Service.Now.AddMinutes(1));
+            library.Clock.Advance(TimeSpan.FromHours(1));
+            NativeMenu file = SubMenu(TopMenu(window), "File");
+            OpenMenu(file);
+            NativeMenuItem[] shown = [.. RealItems(ItemNamed(file, "Open Recent").Menu!)];
+            Assert.Equal("Graph 12", shown[0].Header);
+
+            shown[0].Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(newer.Id, library.Service.OpenGraphId);
+            Assert.Equal("Graph 12", window.ViewModel.DocumentTitle);
+            Assert.True(library.Store.Get(newer.Id)!.LastOpenedAt > newer.LastOpenedAt);
+            Assert.Equal(older.LastOpenedAt, library.Store.Get(older.Id)!.LastOpenedAt);
+        }
+
+        [AvaloniaFact]
+        public void ViewMenu_ShowToolbar_SavesTheSettingThroughTheSettingsService() {
+            string home = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(home);
+            try {
+                var window = new MainWindow();
+                window.Show();
+                window.Settings = new AppSettings();
+                window.SettingsService = new SettingsService(home);
+                Assert.True(window.Settings.ShowToolbar);
+
+                ItemNamed(SubMenu(TopMenu(window), "View"), "Show Toolbar").Command!.Execute(null);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.False(new SettingsService(home).Load().ShowToolbar);
+                window.Close();
+            } finally {
+                Directory.Delete(home, recursive: true);
+            }
         }
 
         [AvaloniaFact]
@@ -801,21 +994,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(before.SetEquals(window.GraphCanvas.Viewer.SelectedNodes));
         }
 
-        //Neither the graph library (A3) nor the welcome window exists yet, so both items ship disabled rather than absent.
-        [AvaloniaFact]
-        public void OpenRecentAndWelcome_ShipDisabled_UntilTheGraphLibraryLands() {
-            var window = new MainWindow();
-
-            NativeMenuItem openRecent = ItemNamed(SubMenu(TopMenu(window), "File"), "Open Recent");
-            NativeMenuItem welcome = ItemNamed(SubMenu(TopMenu(window), "Window"), "Welcome to Foreman");
-
-            Assert.False(openRecent.IsEnabled);
-            Assert.Empty(openRecent.Menu!.Items);
-            Assert.Null(openRecent.Gesture);
-            Assert.False(welcome.IsEnabled);
-            Assert.Equal(new KeyGesture(Key.W, KeyModifiers.Meta | KeyModifiers.Shift), welcome.Gesture);
-        }
-
         [AvaloniaFact]
         public void LinkRouting_DisabledWithNoLink_CheckedWhenAllSelectedAgree_UncheckedWhenMixed_ClearWaypointsNeedsWaypoints() {
             var window = new MainWindow();
@@ -1072,7 +1250,7 @@ namespace Foreman.Mac.UiTests {
 
             window.IsDocumentOpen = false;
 
-            foreach (string header in new[] { "Save", "Save As\u2026", "Export Image\u2026", "Close" })
+            foreach (string header in new[] { "Save", "Duplicate", "Rename\u2026", "Revert To", "Export as .fjson\u2026", "Export Image\u2026", "Close" })
                 Assert.False(ItemNamed(file, header).IsEnabled, header);
             foreach (string header in new[] { "New Graph", "Open\u2026", "Import Graph\u2026" })
                 Assert.True(ItemNamed(file, header).IsEnabled, header);

@@ -525,6 +525,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   just the ones their own composite touches, so a search field or icon inside them scales along with
   everything else. A handful of literal radii and sizes in the composite templates now resolve real
   tokens, and the kit's dead Space6 and Thickness1/4/5/6 tokens are gone.
+- Graph library: graphs now live in Foreman's own database and save themselves two seconds after the last change, and on close, opening another graph, quit and when the app is switched away from. Save records a version, versions are also recorded when a changed graph is opened and every 30 minutes of editing (thinned hourly for a day and daily for a month), and Revert To ▸ Browse Versions… restores any of them while keeping the current graph as a version. Rename… and Duplicate sit in the File menu, Open Recent lists the ten latest graphs with Clear Menu, and each graph keeps a 60 by 60 thumbnail. Show Toolbar, Show Welcome at launch and the Graph Summary window's size, position and segment now persist across launches.
 
 ### Changed
 
@@ -633,6 +634,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   browser, and the radial menu. The Recipe Only filter setting no longer gates anything.
 - The app's last legacy theme file and the one leftover alias token: every window now takes its
   styles and tokens from the component kit alone.
+- File menu follows the autosaving document model: ⇧⌘S now duplicates the graph, Save As… is gone, Open… adds the file to the library (opening the same file twice opens the same graph), Export as .fjson… writes a file, and closing a graph, a window or the app never asks to save.
 
 ## [1.0.0] - 2026-09-03
 

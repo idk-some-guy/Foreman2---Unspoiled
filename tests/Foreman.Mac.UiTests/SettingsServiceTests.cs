@@ -87,6 +87,14 @@ namespace Foreman.Mac.UiTests {
             SettingsAdvancedWidth = 800,
             SettingsAdvancedHeight = 700,
             DefaultLinkRouting = LinkRouting.Orthogonal,
+            ShowToolbar = false,
+            ShowWelcomeAtLaunch = false,
+            OpenRecentClearedAt = new DateTime(2026, 10, 1, 8, 30, 0, DateTimeKind.Utc),
+            GraphSummaryLeft = 120,
+            GraphSummaryTop = 90,
+            GraphSummaryWidth = 640,
+            GraphSummaryHeight = 480,
+            GraphSummarySegment = 2,
         };
 
         [Fact]
@@ -103,12 +111,10 @@ namespace Foreman.Mac.UiTests {
         [Fact]
         public void SettingsService_RetiredFields_AreAbsentFromRowIo() {
             string[] retired = ["ShowRecipeToolTip", "RecipeNameOnlyFilter"];
-            string[] sessionOnly = [nameof(AppSettings.ShowToolbar), nameof(AppSettings.GraphSummaryLeft), nameof(AppSettings.GraphSummaryTop), nameof(AppSettings.GraphSummaryWidth), nameof(AppSettings.GraphSummaryHeight), nameof(AppSettings.GraphSummarySegment)];
-            string[] settingsFields = [.. typeof(AppSettings).GetProperties().Select(p => p.Name).Except(sessionOnly).Order()];
+            string[] settingsFields = [.. typeof(AppSettings).GetProperties().Select(p => p.Name).Order()];
             string[] rowColumns = [.. typeof(SettingsRow).GetProperties().Select(p => p.Name).Where(n => n != nameof(SettingsRow.Id)).Order()];
 
             Assert.Equal(settingsFields, rowColumns);
-            Assert.Empty(rowColumns.Intersect(sessionOnly));
             Assert.Empty(settingsFields.Intersect(retired));
 
             string home = NewTempHome();

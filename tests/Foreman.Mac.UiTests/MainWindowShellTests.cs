@@ -123,9 +123,8 @@ namespace Foreman.Mac.UiTests {
                 Assert.True(buttons[name], name);
         }
 
-        //A reflection sweep over ShellViewModel's 13 IRelayCommand properties: each must be reachable from the toolbar or a native menu. Settings only reaches the app-level menu (built once, before any window exists) as a closure, not the live command instance, so its reachability is proven by executing the real menu item rather than by an instance comparison.
         [AvaloniaFact]
-        public void AllTwelveCommands_AreReachableFromToolbarOrNativeMenu() {
+        public void AllElevenCommands_AreReachableFromToolbarOrNativeMenu() {
             var window = new MainWindow();
             window.Show();
             Dispatcher.UIThread.RunJobs();
@@ -157,7 +156,7 @@ namespace Foreman.Mac.UiTests {
                 .Where(p => typeof(IRelayCommand).IsAssignableFrom(p.PropertyType))
                 .ToDictionary(p => p.Name, p => (IRelayCommand)p.GetValue(window.Commands)!);
 
-            Assert.Equal(12, commandsByProperty.Count);
+            Assert.Equal(11, commandsByProperty.Count);
             foreach ((string name, IRelayCommand command) in commandsByProperty)
                 Assert.Contains(command, reachableCommands);
         }
@@ -219,7 +218,7 @@ namespace Foreman.Mac.UiTests {
         public void Title_TracksIsDirty_ThroughTheCloseButtonDot_NotTitleText() {
             var window = new MainWindow();
             window.Show();
-            window.ViewModel.CurrentFileName = "Iron Plate Line.fjson";
+            window.ViewModel.DocumentName = "Iron Plate Line";
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal("Iron Plate Line", window.Toolbar.Title);
@@ -1591,7 +1590,9 @@ namespace Foreman.Mac.UiTests {
 
             Assert.True(items["New Graph"]);
             Assert.True(items["Save"]);
-            Assert.True(items["Save As…"]);
+            Assert.True(items["Duplicate"]);
+            Assert.True(items["Rename…"]);
+            Assert.True(items["Export as .fjson…"]);
             Assert.True(items["Import Graph…"]);
             Assert.True(items["Export Image…"]);
         }

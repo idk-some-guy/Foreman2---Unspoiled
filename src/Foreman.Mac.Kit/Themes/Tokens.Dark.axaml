@@ -350,6 +350,9 @@
   <Thickness x:Key="Foreman.Thickness.SidebarRowPadding">8,0</Thickness>
   <Thickness x:Key="Foreman.Thickness.SidebarRowInset">8,0</Thickness>
   <Thickness x:Key="Foreman.Thickness.ListFramePadding">6</Thickness>
+  <x:Double x:Key="Foreman.Size.VersionKindColumn">90</x:Double>
+  <x:Double x:Key="Foreman.Size.VersionNodesColumn">70</x:Double>
+  <x:Double x:Key="Foreman.Size.VersionHeaderHeight">20</x:Double>
 
   <!-- Group box (kit mock §04 form grammar): well-backed inset form row container. -->
   <x:Double x:Key="Foreman.Metrics.GroupBoxMaxWidth">420</x:Double>

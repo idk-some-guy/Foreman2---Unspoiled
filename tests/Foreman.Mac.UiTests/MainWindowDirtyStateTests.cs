@@ -7,6 +7,7 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.Mac;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using System;
 using System.Collections.Generic;
@@ -17,9 +18,8 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //MainWindowViewModel.IsDirty (contract #toolbar) is a cheap UI-hint flag, not the authoritative
-    //dirty gate - TestGraphSavedStatusAsync's content-hash compare (MainWindowSaveLoadTests.cs) stays the
-    //one that gates New/Load/Close, untouched by this file. IsDirty only drives the Save button's tint.
+    //MainWindowViewModel.IsDirty (contract #toolbar) marks changes since the last Save and drives the Save
+    //button's tint and the edited dot.
     public class MainWindowDirtyStateTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
 
@@ -42,8 +42,6 @@ namespace Foreman.Mac.UiTests {
             return sharedCache;
         }
 
-        private static string TempSavePath() => Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".fjson");
-
         //---- the flag itself ------------------------------------------------------------------------------
 
         [AvaloniaFact]
@@ -65,24 +63,6 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Viewer.Graph.CreateSupplierNode(pair, System.Drawing.Point.Empty);
 
             Assert.True(window.ViewModel.IsDirty);
-        }
-
-        [AvaloniaFact]
-        public async Task SaveGraphAsAsync_Success_ClearsIsDirty() {
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = new DataCache(filterRecipes: true);
-            window.ViewModel.IsDirty = true;
-            string path = TempSavePath();
-            window.SaveFilePathStub = () => Task.FromResult<string?>(path);
-
-            try {
-                await window.SaveGraphAsAsync();
-
-                Assert.False(window.ViewModel.IsDirty);
-            } finally {
-                File.Delete(path);
-            }
         }
 
         [AvaloniaFact]

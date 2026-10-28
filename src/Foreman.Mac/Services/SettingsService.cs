@@ -33,6 +33,8 @@ namespace Foreman.Mac.Services {
         private readonly string settingsFilePath;
         private readonly string dbPath;
 
+        internal string DatabasePath => dbPath;
+
         //Linux equivalent mirrors AppPaths.UserDataDirectory (docs/upstream-divergences.md):
         //$XDG_DATA_HOME/Foreman, falling back to ~/.local/share/Foreman when unset.
         public SettingsService(string? baseDirectoryOverride = null, bool? isMacOsOverride = null) {
@@ -187,6 +189,14 @@ namespace Foreman.Mac.Services {
             SettingsAdvancedWidth = settings.SettingsAdvancedWidth,
             SettingsAdvancedHeight = settings.SettingsAdvancedHeight,
             DefaultLinkRouting = (int)settings.DefaultLinkRouting,
+            ShowToolbar = settings.ShowToolbar,
+            ShowWelcomeAtLaunch = settings.ShowWelcomeAtLaunch,
+            OpenRecentClearedAt = settings.OpenRecentClearedAt,
+            GraphSummaryLeft = settings.GraphSummaryLeft,
+            GraphSummaryTop = settings.GraphSummaryTop,
+            GraphSummaryWidth = settings.GraphSummaryWidth,
+            GraphSummaryHeight = settings.GraphSummaryHeight,
+            GraphSummarySegment = settings.GraphSummarySegment,
         };
 
         private static AppSettings ToAppSettings(SettingsRow row) => new() {
@@ -247,6 +257,14 @@ namespace Foreman.Mac.Services {
             SettingsAdvancedWidth = row.SettingsAdvancedWidth,
             SettingsAdvancedHeight = row.SettingsAdvancedHeight,
             DefaultLinkRouting = (LinkRouting)row.DefaultLinkRouting,
+            ShowToolbar = row.ShowToolbar,
+            ShowWelcomeAtLaunch = row.ShowWelcomeAtLaunch,
+            OpenRecentClearedAt = row.OpenRecentClearedAt is DateTime cleared ? DateTime.SpecifyKind(cleared, DateTimeKind.Utc) : null,
+            GraphSummaryLeft = row.GraphSummaryLeft,
+            GraphSummaryTop = row.GraphSummaryTop,
+            GraphSummaryWidth = row.GraphSummaryWidth,
+            GraphSummaryHeight = row.GraphSummaryHeight,
+            GraphSummarySegment = row.GraphSummarySegment,
         };
     }
 }

@@ -1,5 +1,6 @@
 using Avalonia.Headless.XUnit;
 using Foreman.DataCaching;
+using Foreman.DataCaching.Storage;
 using Foreman.Mac.Services;
 using System;
 using System.Collections.Generic;
@@ -155,6 +156,9 @@ namespace Foreman.Mac.UiTests {
             Assert.NotNull(window);
             Assert.NotNull(window.DataCache);
             Assert.True(window.DataCache!.AvailableRecipes.Any());
+            Assert.NotNull(window.Library);
+            GraphRow row = new GraphLibraryStore(settingsService.DatabasePath).Create("Probe", "p", "d", 0, null, DateTime.UtcNow);
+            Assert.Contains(window.Library!.All(), r => r.Id == row.Id);
         }
 
         [AvaloniaFact]

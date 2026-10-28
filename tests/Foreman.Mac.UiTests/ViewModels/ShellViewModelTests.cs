@@ -11,7 +11,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
                 onNew: () => hit.Add("new"),
                 onLoad: () => hit.Add("load"),
                 onSave: () => hit.Add("save"),
-                onSaveAs: () => hit.Add("saveAs"),
                 onImport: () => hit.Add("import"),
                 onExportImage: () => hit.Add("exportImage"),
                 onAddItem: () => hit.Add("addItem"),

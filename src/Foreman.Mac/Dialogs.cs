@@ -5,8 +5,7 @@ using System.IO;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac {
-    //Mirrors WinForms' DialogResult subset that MessageBoxButtons.YesNoCancel can return.
-    public enum ConfirmChoice { Yes, No, Cancel }
+    public enum ConfirmChoice { Yes, No }
 
     //Minimal UserMessages.Show substitution for Avalonia (no built-in MessageBox). Every alert presents as
     //an AlertSheet on the owner's own SheetHost, via ShowStackedAsync - stacking on top when that host is
@@ -37,13 +36,6 @@ namespace Foreman.Mac {
             ConfirmChoice choice = await SheetHost.For(owner).ShowStackedAsync(new AlertSheet(headline, message, AlertButtons.Destructive, verb)).ConfigureAwait(true);
             return choice == ConfirmChoice.Yes;
         }
-
-        //NSDocument's save prompt: Save → Yes, Don't Save → No, Cancel → Cancel.
-        public static Task<ConfirmChoice> ShowSaveChangesAsync(Window owner, string path) =>
-            SheetHost.For(owner).ShowStackedAsync(new AlertSheet(
-                $"Do you want to save the changes you made to “{DocumentName(path)}”?",
-                "Your changes will be lost if you don’t save them.",
-                AlertButtons.YesNoCancel));
 
         public static string DocumentName(string path) => MiddleTruncate(Path.GetFileNameWithoutExtension(path));
 

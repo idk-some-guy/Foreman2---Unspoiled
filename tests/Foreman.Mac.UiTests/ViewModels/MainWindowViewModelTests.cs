@@ -16,28 +16,10 @@ namespace Foreman.Mac.UiTests.ViewModels {
         }
 
         [Fact]
-        public void DocumentTitle_TracksFileName_ExtensionStripped() {
+        public void DocumentTitle_NoName_ShowsUntitled() {
             var vm = new MainWindowViewModel();
 
-            vm.CurrentFileName = "Iron Plate Line.fjson";
-
-            Assert.Equal("Iron Plate Line", vm.DocumentTitle);
-        }
-
-        [Fact]
-        public void DocumentTitle_FullPath_UsesFileNameOnly() {
-            var vm = new MainWindowViewModel();
-
-            vm.CurrentFileName = "/tmp/flowchart.fjson";
-
-            Assert.Equal("flowchart", vm.DocumentTitle);
-        }
-
-        [Fact]
-        public void DocumentTitle_NoFileName_ShowsUntitled() {
-            var vm = new MainWindowViewModel();
-
-            vm.CurrentFileName = null;
+            vm.DocumentName = null;
 
             Assert.Equal("Untitled", vm.DocumentTitle);
         }
@@ -64,7 +46,7 @@ namespace Foreman.Mac.UiTests.ViewModels {
         public void WindowTitle_CombinesDocumentTitleAndEditedSuffix_TracksBothLive() {
             var vm = new MainWindowViewModel();
 
-            vm.CurrentFileName = "Iron Plate Line.fjson";
+            vm.DocumentName = "Iron Plate Line";
             Assert.Equal("Iron Plate Line", vm.WindowTitle);
 
             vm.IsDirty = true;

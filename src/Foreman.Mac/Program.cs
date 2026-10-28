@@ -15,7 +15,6 @@ namespace Foreman.Mac {
         public static AppBuilder BuildAvaloniaApp() =>
             AppBuilder.Configure<App>()
                 .UsePlatformDetect()
-                //Without this, Avalonia appends its own Hide/Hide Others/Show All/Quit on top of ours, and Quit skips our unsaved-changes close check.
                 .With(new MacOSPlatformOptions { DisableDefaultApplicationMenuItems = true })
                 .WithInterFont()
                 .LogToTrace();

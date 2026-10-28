@@ -1,6 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System.IO;
 
 namespace Foreman.Mac.ViewModels {
     //Window-chrome state split off MainWindow.axaml.cs: title/filename/version label, and the
@@ -10,7 +9,7 @@ namespace Foreman.Mac.ViewModels {
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(DocumentTitle))]
         [NotifyPropertyChangedFor(nameof(WindowTitle))]
-        private string? currentFileName;
+        private string? documentName;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(EditedSuffix))]
@@ -34,9 +33,8 @@ namespace Foreman.Mac.ViewModels {
         }
 
         //The app name moved to the menu bar, and the titlebar now shows only the document (contract
-        //#toolbar's "Iron Plate Line — Edited"). CurrentFileName carries the save path, stripped to a bare name.
-        public string DocumentTitle =>
-            string.IsNullOrEmpty(CurrentFileName) ? "Untitled" : Path.GetFileNameWithoutExtension(CurrentFileName);
+        //#toolbar's "Iron Plate Line — Edited"). DocumentName is the library graph's name.
+        public string DocumentTitle => string.IsNullOrEmpty(DocumentName) ? "Untitled" : DocumentName;
 
         //The em dash and its leading space are the suffix's own spacing (contract's ".dot { margin-left:
         //4px }") - Avalonia's Run has no Margin, so the space travels with the text instead.

@@ -182,11 +182,11 @@ namespace Foreman.Mac.UiTests {
 
             string json = GraphSaveCodec.WriteViewerDocumentToString(NewEmptyDocument(savedPresetName: "Not An Installed Preset"));
 
-            await window.LoadGraphJsonAsync(json, "/tmp/does-not-matter.fjson");
+            await window.LoadGraphJsonAsync(json, "does-not-matter");
 
             Assert.Same(cache, window.DataCache);
             Assert.Single(window.GraphCanvas.Viewer.NodeElements);
-            Assert.Null(window.SaveFilePath);
+            Assert.Equal("Untitled", window.ViewModel.DocumentTitle);
         }
 
         [AvaloniaFact]
@@ -197,11 +197,11 @@ namespace Foreman.Mac.UiTests {
             window.PresetSelectionDialogStub = _ => Task.FromResult<Preset?>(new Preset(SpaceAgePresetName, false, false));
             window.DataLoadStub = (_, _) => Task.FromResult(new DataLoadResult(null, DataLoadOutcome.Cancelled));
 
-            await window.LoadGraphJsonAsync(GraphSaveCodec.WriteViewerDocumentToString(NewEmptyDocument("Not An Installed Preset")), "/tmp/does-not-matter.fjson");
+            await window.LoadGraphJsonAsync(GraphSaveCodec.WriteViewerDocumentToString(NewEmptyDocument("Not An Installed Preset")), "does-not-matter");
 
             Assert.Same(cache, window.DataCache);
             Assert.Equal(VanillaPresetName, window.Settings!.CurrentPresetName);
-            Assert.Null(window.SaveFilePath);
+            Assert.Equal("Untitled", window.ViewModel.DocumentTitle);
         }
 
         [AvaloniaFact]
@@ -224,7 +224,7 @@ namespace Foreman.Mac.UiTests {
                     : new DataLoadResult(picked, DataLoadOutcome.Loaded));
             };
 
-            await window.LoadGraphJsonAsync(GraphSaveCodec.WriteViewerDocumentToString(NewEmptyDocument("Not An Installed Preset")), "/tmp/does-not-matter.fjson");
+            await window.LoadGraphJsonAsync(GraphSaveCodec.WriteViewerDocumentToString(NewEmptyDocument("Not An Installed Preset")), "does-not-matter");
 
             Assert.Equal([SpaceAgePresetName, VanillaPresetName], loads);
             Assert.Equal(SpaceAgePresetName, failedSeen!.Name);

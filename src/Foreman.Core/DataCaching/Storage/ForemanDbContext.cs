@@ -19,6 +19,8 @@ namespace Foreman.DataCaching.Storage {
         public DbSet<IconBlob> IconBlobs => Set<IconBlob>();
         public DbSet<PresetIconRow> PresetIcons => Set<PresetIconRow>();
         public DbSet<SchemaVersionRow> SchemaVersions => Set<SchemaVersionRow>();
+        public DbSet<GraphRow> Graphs => Set<GraphRow>();
+        public DbSet<GraphVersionRow> GraphVersions => Set<GraphVersionRow>();
 
         //Guards first-time schema creation/seeding against concurrent Open calls on the same process
         //(PresetProcessor/PresetImporter open the db far more often than the original
@@ -28,7 +30,7 @@ namespace Foreman.DataCaching.Storage {
         private static readonly object BootstrapLock = new();
 
         //EnsureCreated never alters an existing file's schema, so each bump needs its own step in MigrateToCurrent.
-        private const int CurrentSchemaVersion = 4;
+        private const int CurrentSchemaVersion = 5;
 
         //Opens (creating if needed) the db at dbPath and seeds SchemaVersion=1 (or migrates a v1 db
         //forward to CurrentSchemaVersion) exactly once; idempotent across repeated calls on the same path.
@@ -73,6 +75,9 @@ namespace Foreman.DataCaching.Storage {
             if (versionRow.Version < 4) {
                 MigrateToV4(context);
             }
+            if (versionRow.Version < 5) {
+                MigrateToV5(context);
+            }
 
             context.SchemaVersions.Remove(versionRow);
             context.SchemaVersions.Add(new SchemaVersionRow { Version = CurrentSchemaVersion });
@@ -104,6 +109,51 @@ namespace Foreman.DataCaching.Storage {
             foreach (string column in V4DroppedColumns) {
                 if (ColumnExists(context, "Settings", column))
                     Execute(context, "ALTER TABLE Settings DROP COLUMN " + column);
+            }
+        }
+
+        private static readonly (string Column, string Definition)[] V5AddedColumns = [
+            ("ShowToolbar", "INTEGER NOT NULL DEFAULT 1"),
+            ("ShowWelcomeAtLaunch", "INTEGER NOT NULL DEFAULT 1"),
+            ("OpenRecentClearedAt", "TEXT NULL"),
+            ("GraphSummaryLeft", "REAL NULL"),
+            ("GraphSummaryTop", "REAL NULL"),
+            ("GraphSummaryWidth", "REAL NULL"),
+            ("GraphSummaryHeight", "REAL NULL"),
+            ("GraphSummarySegment", "INTEGER NOT NULL DEFAULT 0"),
+        ];
+
+        private static void MigrateToV5(ForemanDbContext context) {
+            Execute(context, """
+                CREATE TABLE IF NOT EXISTS "Graphs" (
+                    "Id" TEXT NOT NULL CONSTRAINT "PK_Graphs" PRIMARY KEY,
+                    "Name" TEXT NOT NULL,
+                    "PresetName" TEXT NOT NULL,
+                    "NodeCount" INTEGER NOT NULL,
+                    "CreatedAt" TEXT NOT NULL,
+                    "ModifiedAt" TEXT NOT NULL,
+                    "LastOpenedAt" TEXT NOT NULL,
+                    "SavedAt" TEXT NULL,
+                    "Data" TEXT NOT NULL,
+                    "Thumbnail" BLOB NULL,
+                    "SourcePath" TEXT NULL
+                )
+                """);
+            Execute(context, """
+                CREATE TABLE IF NOT EXISTS "GraphVersions" (
+                    "Id" TEXT NOT NULL CONSTRAINT "PK_GraphVersions" PRIMARY KEY,
+                    "GraphId" TEXT NOT NULL,
+                    "CreatedAt" TEXT NOT NULL,
+                    "Kind" INTEGER NOT NULL,
+                    "NodeCount" INTEGER NOT NULL,
+                    "Data" TEXT NOT NULL,
+                    CONSTRAINT "FK_GraphVersions_Graphs_GraphId" FOREIGN KEY ("GraphId") REFERENCES "Graphs" ("Id") ON DELETE CASCADE
+                )
+                """);
+            Execute(context, "CREATE INDEX IF NOT EXISTS \"IX_GraphVersions_GraphId\" ON \"GraphVersions\" (\"GraphId\")");
+            foreach ((string column, string definition) in V5AddedColumns) {
+                if (!ColumnExists(context, "Settings", column))
+                    Execute(context, "ALTER TABLE Settings ADD COLUMN " + column + " " + definition);
             }
         }
 
@@ -194,6 +244,16 @@ namespace Foreman.DataCaching.Storage {
             });
 
             modelBuilder.Entity<SchemaVersionRow>(entity => entity.HasKey(row => row.Version));
+
+            modelBuilder.Entity<GraphRow>(entity => {
+                entity.HasKey(row => row.Id);
+                entity.HasMany(row => row.Versions)
+                    .WithOne()
+                    .HasForeignKey(version => version.GraphId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<GraphVersionRow>(entity => entity.HasKey(row => row.Id));
         }
     }
 }

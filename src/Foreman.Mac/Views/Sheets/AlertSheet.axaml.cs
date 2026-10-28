@@ -10,9 +10,9 @@ using Foreman.Mac.Kit.Composites;
 using System;
 
 namespace Foreman.Mac.Views.Sheets {
-    public enum AlertButtons { Ok, YesNo, YesNoCancel, Destructive }
+    public enum AlertButtons { Ok, YesNo, Destructive }
 
-    //Save prompt: Return saves, ⌘D/⌘⌫ don't; destructive: Return cancels, the verb takes a click or ⌘⌫.
+    //Destructive: Return cancels, the verb takes a click or ⌘⌫.
     public partial class AlertSheet : SheetContent<ConfirmChoice> {
         private static readonly Lazy<Bitmap> appIcon = new(() => {
             using System.IO.Stream stream = AssetLoader.Open(new Uri("avares://Foreman.Mac/Assets/unspoiled-icon-512.png"));
@@ -20,7 +20,6 @@ namespace Foreman.Mac.Views.Sheets {
         });
 
         private readonly AlertFrame frame;
-        private readonly Button cancelButton;
         private readonly Button noButton;
         private readonly Button yesButton;
         private readonly AlertButtons buttons;
@@ -45,16 +44,13 @@ namespace Foreman.Mac.Views.Sheets {
             frame.InformativeText = titled ? message : null;
             frame.Icon = appIcon.Value;
 
-            cancelButton = RowButton("Cancel");
             noButton = RowButton(buttons switch {
-                AlertButtons.YesNoCancel => "Don’t Save",
                 AlertButtons.Destructive => "Cancel",
                 AlertButtons.YesNo when verb is not null => secondaryLabel ?? "Cancel",
                 _ => "No",
             });
             yesButton = RowButton(buttons switch {
                 AlertButtons.Ok => "OK",
-                AlertButtons.YesNoCancel => "Save",
                 AlertButtons.Destructive => verb ?? throw new ArgumentNullException(nameof(verb)),
                 _ => verb ?? "Yes",
             });
@@ -67,12 +63,6 @@ namespace Foreman.Mac.Views.Sheets {
                     AddTo(row, noButton, ButtonRowRole.Cancel);
                     AddTo(row, yesButton, ButtonRowRole.Default);
                     break;
-                case AlertButtons.YesNoCancel:
-                    AddTo(row, noButton, ButtonRowRole.Other);
-                    AddTo(row, cancelButton, ButtonRowRole.Cancel);
-                    AddTo(row, yesButton, ButtonRowRole.Default);
-                    AddHandler(KeyDownEvent, OnSaveAlertKeyDown, RoutingStrategies.Tunnel);
-                    break;
                 case AlertButtons.Destructive:
                     AddTo(row, yesButton, ButtonRowRole.Destructive);
                     AddTo(row, noButton, ButtonRowRole.Cancel);
@@ -81,19 +71,11 @@ namespace Foreman.Mac.Views.Sheets {
             Buttons = row;
             DefaultButton = row.ResolveDefaultButton();
 
-            cancelButton.Click += (_, _) => Complete(ConfirmChoice.Cancel);
             noButton.Click += (_, _) => Complete(ConfirmChoice.No);
             yesButton.Click += (_, _) => Complete(ConfirmChoice.Yes);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
-
-        private void OnSaveAlertKeyDown(object? sender, KeyEventArgs e) {
-            if (e.KeyModifiers != KeyModifiers.Meta || e.Key is not (Key.D or Key.Back))
-                return;
-            e.Handled = true;
-            Complete(ConfirmChoice.No);
-        }
 
         private static Button RowButton(string label) {
             Application.Current!.TryGetResource("Kit.Button", null, out object? theme);
@@ -106,7 +88,6 @@ namespace Foreman.Mac.Views.Sheets {
         }
 
         public override void Cancel() => Complete(buttons switch {
-            AlertButtons.YesNoCancel => ConfirmChoice.Cancel,
             AlertButtons.YesNo or AlertButtons.Destructive => ConfirmChoice.No,
             _ => ConfirmChoice.Yes,
         });
@@ -114,7 +95,6 @@ namespace Foreman.Mac.Views.Sheets {
         //-------------------------------------------------------------------------------------------------Test-only seams
 
         internal AlertFrame FrameControl => frame;
-        internal Button CancelButtonControl => cancelButton;
         internal Button NoButtonControl => noButton;
         internal Button YesButtonControl => yesButton;
     }
