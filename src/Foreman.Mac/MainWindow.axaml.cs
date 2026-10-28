@@ -182,7 +182,7 @@ namespace Foreman.Mac {
         //close over a window instance - they resolve the live target here instead, at click time.
         internal static MainWindow? MostRecentlyOpened { get; private set; }
 
-        private static MainWindow? ActiveWindow =>
+        internal static MainWindow? ActiveWindow =>
             (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow as MainWindow
             ?? MostRecentlyOpened;
 
@@ -204,7 +204,7 @@ namespace Foreman.Mac {
             ActualSizeCommand = new RelayCommand(MenuActualSize);
             Commands = new ShellViewModel(
                 onNew: () => Async.Fire(NewGraphAsync(), nameof(NewGraphAsync)),
-                onLoad: () => Async.Fire(OpenGraphAsync(), nameof(OpenGraphAsync)),
+                onLoad: () => Async.Fire(OpenGraphFileAsync(), nameof(OpenGraphFileAsync)),
                 onSave: SaveVersion,
                 onImport: () => Async.Fire(ImportGraphAsync(), nameof(ImportGraphAsync)),
                 onExportImage: () => Async.Fire(OpenImageExportAsync(), nameof(OpenImageExportAsync)),
@@ -964,7 +964,7 @@ namespace Foreman.Mac {
 
         private static int GridUnitFromIndex(int index) => index > 0 ? 6 * (int)Math.Pow(2, index - 1) : 0;
 
-        private async Task OpenGraphAsync() {
+        internal async Task OpenGraphFileAsync() {
             if (DataCache is null)
                 return;
             (string Json, string Path)? picked = await (OpenFileStub?.Invoke() ?? PickGraphFileAsync()).ConfigureAwait(true);
@@ -1013,13 +1013,13 @@ namespace Foreman.Mac {
             ShowOpenedGraph(row);
         }
 
-        internal async Task OpenLibraryGraphAsync(Guid id) {
+        internal async Task OpenLibraryGraphAsync(Guid id, Preset? presetOverride = null) {
             if (Library is null || Library.OpenGraphId == id)
                 return;
             Library.FlushNow();
             if (Library.Find(id) is not GraphRow stored)
                 return;
-            if (!await LoadGraphJsonAsync(stored.Data, stored.Name).ConfigureAwait(true))
+            if (!await LoadGraphJsonAsync(stored.Data, stored.Name, presetOverride).ConfigureAwait(true))
                 return;
 
             ShowOpenedGraph(Library.Open(id) ?? stored);
@@ -1035,7 +1035,7 @@ namespace Foreman.Mac {
         }
 
         //Detaches the library graph before the swap so the load's own mutation events never autosave into the previous row.
-        internal async Task<bool> LoadGraphJsonAsync(string json, string name) {
+        internal async Task<bool> LoadGraphJsonAsync(string json, string name, Preset? presetOverride = null) {
             if (DataCache is not Foreman.DataCaching.DataCache cache || Settings is not AppSettings settings)
                 return false;
 
@@ -1047,7 +1047,7 @@ namespace Foreman.Mac {
 
             Library?.FlushNow();
             string previousPresetName = settings.CurrentPresetName;
-            Preset? chosenPreset = await ResolveChosenPresetAsync(document).ConfigureAwait(true);
+            Preset? chosenPreset = presetOverride ?? await ResolveChosenPresetAsync(document).ConfigureAwait(true);
             while (chosenPreset is not null && chosenPreset.Name != cache.PresetName) {
                 DataLoadResult loaded = await LoadDataCacheForPresetAsync(chosenPreset, settings).ConfigureAwait(true);
                 if (loaded.Cache is Foreman.DataCaching.DataCache newCache) {
@@ -1200,6 +1200,17 @@ namespace Foreman.Mac {
             if (Settings is not AppSettings settings || PresetResolver is not Services.PresetResolver presetResolver)
                 return null;
 
+            List<PresetErrorPackage> presetErrors = await RatePresetsAsync(presetResolver, settings.CurrentPresetName, saveDocument).ConfigureAwait(true);
+
+            Preset? choice = await (ChooseAnotherPresetDialogStub?.Invoke(presetErrors, failed) ?? RealShowPresetSelectionDialogAsync(presetErrors, failed)).ConfigureAwait(true);
+            if (choice is not null) {
+                settings.CurrentPresetName = choice.Name;
+                SettingsService?.Save(settings);
+            }
+            return choice;
+        }
+
+        internal static async Task<List<PresetErrorPackage>> RatePresetsAsync(Services.PresetResolver presetResolver, string currentPresetName, GraphViewerSaveDocument saveDocument) {
             ProductionGraphSaveDocument productionGraph = saveDocument.ProductionGraph;
             var modSet = new Dictionary<string, string>(saveDocument.IncludedMods);
             var itemNames = productionGraph.IncludedItems.ToList();
@@ -1208,15 +1219,9 @@ namespace Foreman.Mac {
             var plantShorts = productionGraph.IncludedPlantProcesses.ToList();
 
             var presetErrors = new List<PresetErrorPackage>();
-            foreach (Preset preset in presetResolver.BuildPresetList(settings.CurrentPresetName))
+            foreach (Preset preset in presetResolver.BuildPresetList(currentPresetName))
                 presetErrors.Add(await PresetProcessor.TestPreset(preset, modSet, itemNames, qualityNames, recipeShorts, plantShorts).ConfigureAwait(true));
-
-            Preset? choice = await (ChooseAnotherPresetDialogStub?.Invoke(presetErrors, failed) ?? RealShowPresetSelectionDialogAsync(presetErrors, failed)).ConfigureAwait(true);
-            if (choice is not null) {
-                settings.CurrentPresetName = choice.Name;
-                SettingsService?.Save(settings);
-            }
-            return choice;
+            return presetErrors;
         }
 
         internal void ApplyLoadedGraphUiState(string name) {
@@ -1233,7 +1238,11 @@ namespace Foreman.Mac {
             }
         }
 
-        internal Task NewGraphAsync() {
+        internal Foreman.DataCaching.DataCache? PendingCache { get; set; }
+
+        internal bool IsClosed { get; private set; }
+
+        internal async Task NewGraphAsync() {
             Library?.Detach();
             GraphCanvas.ClosePanels();
             ViewModel.Inspector.SetSelection([]);
@@ -1245,12 +1254,16 @@ namespace Foreman.Mac {
             }
             ViewModel.IsDirty = false;
             ViewModel.DocumentName = null;
+            if (PendingCache is { } pending) {
+                PendingCache = null;
+                if (Settings?.CurrentPresetName == pending.PresetName)
+                    await AdoptCacheAsync(pending).ConfigureAwait(true);
+            }
             if (Library is not null && CaptureSnapshot() is GraphSnapshot snapshot) {
-                GraphRow row = Library.Create(Library.NextUntitledName(), CurrentPresetName, snapshot.Data, snapshot.NodeCount, null);
+                GraphRow row = Library.CreateBlank(Library.NextUntitledName(), CurrentPresetName, snapshot.Data);
                 ViewModel.DocumentName = row.Name;
             }
             GraphCanvas.RequestRedraw();
-            return Task.CompletedTask;
         }
 
         //Ports ImportGraphButton_Click -> ImportGraph() (reference: upstream MainForm.cs:271-282, io-
@@ -1411,13 +1424,13 @@ namespace Foreman.Mac {
 
         private async Task ExportGraphFileAsync() {
             string suggested = ViewModel.DocumentTitle.Replace('/', '-').Replace(':', '-') + ".fjson";
-            string? path = await (ExportFilePathStub?.Invoke(suggested) ?? PickExportPathAsync(suggested)).ConfigureAwait(true);
+            string? path = await (ExportFilePathStub?.Invoke(suggested) ?? PickExportPathAsync(this, suggested)).ConfigureAwait(true);
             if (path is not null)
                 await ExportGraphAsync(path).ConfigureAwait(true);
         }
 
-        private async Task<string?> PickExportPathAsync(string suggestedName) {
-            if (StorageProvider is not IStorageProvider storage)
+        internal static async Task<string?> PickExportPathAsync(Window owner, string suggestedName) {
+            if (owner.StorageProvider is not IStorageProvider storage)
                 return null;
 
             Directory.CreateDirectory(AppPaths.SavedGraphsDirectory);
@@ -1455,9 +1468,46 @@ namespace Foreman.Mac {
         private const string UnreadableGraphSentence =
             "The file is too old or damaged to read. Open it in the previous Foreman release, save it again, then open the new copy here.";
 
+        private bool closedByUser;
+
         protected override void OnClosing(WindowClosingEventArgs e) {
-            Library?.FlushNow();
+            Library?.PruneUntouched();
             base.OnClosing(e);
+            closedByUser = !e.Cancel && e.CloseReason == WindowCloseReason.WindowClosing;
+        }
+
+        protected override void OnClosed(EventArgs e) {
+            base.OnClosed(e);
+            ShellContext? context = ShellContext;
+            IsClosed = true;
+            if (!closedByUser || SettingsService is null || context is null)
+                return;
+            Library = null;
+            ShellHost.Context = context;
+            ShellHost.Sync();
+            if (Settings is { ShowWelcomeAtLaunch: true })
+                WelcomeLauncher.Show(context);
+        }
+
+        private ShellContext? shellContext;
+
+        internal ShellContext? ShellContext {
+            get {
+                if (shellContext is null) {
+                    if (Library is null || Settings is null || DataCache is null)
+                        return null;
+                    shellContext = new ShellContext(Library, Settings, DataCache, SettingsService, PresetResolver) { Window = this };
+                }
+                if (!IsClosed)
+                    shellContext.Cache = PendingCache ?? DataCache ?? shellContext.Cache;
+                return shellContext;
+            }
+            set => shellContext = value;
+        }
+
+        internal void ShowWelcome() {
+            if (ShellContext is { } context)
+                WelcomeLauncher.Show(context);
         }
 
         //Ports SettingsButton_Click's post-close cascade (reference upstream MainForm.cs:355-440): builds
@@ -1695,6 +1745,20 @@ namespace Foreman.Mac {
             if (loaded.Cache is not Foreman.DataCaching.DataCache newCache)
                 return loaded.Outcome;
 
+            await RemapOntoCacheAsync(newCache, graphJson).ConfigureAwait(true);
+            return DataLoadOutcome.Loaded;
+        }
+
+        internal async Task AdoptCacheAsync(Foreman.DataCaching.DataCache newCache) {
+            if (DataCache is not Foreman.DataCaching.DataCache oldCache || ReferenceEquals(oldCache, newCache) || oldCache.PresetName == newCache.PresetName)
+                return;
+
+            string graphJson = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, oldCache));
+            DataCache = newCache;
+            await RemapOntoCacheAsync(newCache, graphJson).ConfigureAwait(true);
+        }
+
+        private async Task RemapOntoCacheAsync(Foreman.DataCaching.DataCache newCache, string graphJson) {
             GraphLoadResult result = GraphCanvas.LoadDocument(newCache, graphJson, setEnablesFromJson: false);
             if (!result.Success)
                 await Dialogs.ShowWarningAsync(this, $"Couldn’t open “{Dialogs.MiddleTruncate(ViewModel.DocumentTitle)}”.", result.ErrorMessage ?? UnreadableGraphSentence).ConfigureAwait(true);
@@ -1702,7 +1766,6 @@ namespace Foreman.Mac {
             ApplyLoadedSettings();
             Library?.SetPreset(newCache.PresetName ?? CurrentPresetName);
             GraphCanvas.RequestRedraw();
-            return DataLoadOutcome.Loaded;
         }
 
         //Ports GraphViewer_KeyDown's Space handler (reference §7): a separate subscription on the canvas
@@ -1905,11 +1968,6 @@ namespace Foreman.Mac {
 
         private void MenuSetRateUnit(int index) => SetRateUnit((ProductionGraph.RateUnit)index);
 
-        //Single-window app: hiding the main window is the whole of what "hide this app" means here. Hide
-        //Others/Show All would need to enumerate and retarget other applications' windows, which has no
-        //public Avalonia API and no native-interop layer anywhere in this codebase - see the task report.
-        private void MenuHide() => Hide();
-
         private void MenuMinimize() => WindowState = WindowState.Minimized;
 
         private void MenuZoomWindow() => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
@@ -2026,25 +2084,32 @@ namespace Foreman.Mac {
         internal static readonly string[] RateUnitOptions = ["per second", "per minute", "per 5 minutes", "per 10 minutes", "per 30 minutes", "per hour"];
 
         //A (contract #menubar): lives on Application.Current, not the window - see App.Initialize's call site.
-        internal static NativeMenu BuildAppMenu() =>
-            new() {
-                Items = {
-                    WindowActionItem("About Foreman 2", w => w.ShowAbout()),
-                    new NativeMenuItemSeparator(),
-                    WindowActionItem("Settings…", w => w.Commands.SettingsCommand.Execute(null), new KeyGesture(Key.OemComma, PlatformModifiers.Primary)),
-                    new NativeMenuItemSeparator(),
-                    WindowActionItem("Hide Foreman 2", w => w.Hide(), new KeyGesture(Key.H, PlatformModifiers.Primary)),
-                    DisabledItem("Hide Others", new KeyGesture(Key.H, PlatformModifiers.Primary | KeyModifiers.Alt)),
-                    DisabledItem("Show All"),
-                    new NativeMenuItemSeparator(),
-                    QuitMenuItem(),
-                },
-            };
+        internal static NativeMenu BuildAppMenu() {
+            var menu = new NativeMenu();
+            menu.Items.Add(WindowActionItem("About Foreman 2", w => w.ShowAbout()));
+            menu.Items.Add(new NativeMenuItemSeparator());
+            menu.Items.Add(WindowActionItem("Settings…", w => w.Commands.SettingsCommand.Execute(null), new KeyGesture(Key.OemComma, PlatformModifiers.Primary)));
+            menu.Items.Add(new NativeMenuItemSeparator());
+            foreach (NativeMenuItemBase item in ShellHost.BuildNoWindowItems())
+                menu.Items.Add(item);
+            menu.Items.Add(new NativeMenuItem("Hide Foreman 2") { Command = new DeferredMenuCommand(new RelayCommand(ShellHost.HideForeman)), Gesture = new KeyGesture(Key.H, PlatformModifiers.Primary) });
+            menu.Items.Add(DisabledItem("Hide Others", new KeyGesture(Key.H, PlatformModifiers.Primary | KeyModifiers.Alt)));
+            menu.Items.Add(DisabledItem("Show All"));
+            menu.Items.Add(new NativeMenuItemSeparator());
+            menu.Items.Add(QuitMenuItem());
+            menu.Opening += (_, _) => ShellHost.Sync();
+            return menu;
+        }
 
         //Built before any MainWindow exists (App.Initialize), so unlike ActionItem/MenuItem below this
-        //resolves ActiveWindow at click time instead of closing over `this`; a no-op if no window is open.
+        //resolves the live window at click time instead of closing over `this`, opening one when none is left.
         private static NativeMenuItem WindowActionItem(string header, Action<MainWindow> action, KeyGesture? gesture = null) =>
-            new(header) { Command = new DeferredMenuCommand(new RelayCommand(() => { if (ActiveWindow is MainWindow w) action(w); })), Gesture = gesture };
+            new(header) { Command = new DeferredMenuCommand(new RelayCommand(() => Async.Fire(RunOnLiveWindowAsync(action), header))), Gesture = gesture };
+
+        private static async Task RunOnLiveWindowAsync(Action<MainWindow> action) {
+            if (await ShellHost.LiveWindowAsync().ConfigureAwait(true) is { } window)
+                action(window);
+        }
 
         private NativeMenu BuildNativeMenu() {
             presetComparatorCommand = new RelayCommand(ShowPresetComparator, () => ComparablePresets() is not null);
@@ -2208,7 +2273,7 @@ namespace Foreman.Mac {
                     ActionItem("Minimize", MenuMinimize, new KeyGesture(Key.M, PlatformModifiers.Primary)),
                     ActionItem("Zoom", MenuZoomWindow),
                     new NativeMenuItemSeparator(),
-                    DisabledItem("Welcome to Foreman", new KeyGesture(Key.W, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    ActionItem("Welcome to Foreman", ShowWelcome, new KeyGesture(Key.D1, PlatformModifiers.Primary | KeyModifiers.Shift)),
                     new NativeMenuItem("Preset Comparator") { Command = new DeferredMenuCommand(presetComparatorCommand) },
                     new NativeMenuItemSeparator(),
                     ActionItem("Bring All to Front", MenuBringAllToFront),
@@ -2284,25 +2349,30 @@ namespace Foreman.Mac {
         }
 
         internal void RefreshOpenRecentMenu() {
-            IReadOnlyList<GraphRow> rows = Library?.OpenRecent(Settings?.OpenRecentClearedAt) ?? [];
-            HashSet<string> installed = PresetResolver is { } resolver && Settings is { } current
-                ? [.. resolver.BuildPresetList(current.CurrentPresetName).Select(p => p.Name)]
+            openRecentItem.Menu = BuildOpenRecentMenu(Library, Settings, PresetResolver,
+                id => Async.Fire(OpenLibraryGraphAsync(id), nameof(OpenLibraryGraphAsync)), ClearOpenRecent);
+            openRecentItem.IsEnabled = Library?.All().Count > 0;
+        }
+
+        internal static NativeMenu BuildOpenRecentMenu(GraphLibraryService? library, AppSettings? settings, PresetResolver? resolver, Action<Guid> open, Action clear) {
+            IReadOnlyList<GraphRow> rows = library?.OpenRecent(settings?.OpenRecentClearedAt) ?? [];
+            HashSet<string> installed = resolver is not null && settings is not null
+                ? [.. resolver.BuildPresetList(settings.CurrentPresetName).Select(p => p.Name)]
                 : [];
             var menu = new NativeMenu();
             foreach (GraphRow row in rows) {
-                bool missing = PresetResolver is not null && !installed.Contains(row.PresetName);
+                bool missing = resolver is not null && !installed.Contains(row.PresetName);
                 Guid id = row.Id;
                 menu.Items.Add(new NativeMenuItem(rows.Count(r => r.Name == row.Name) > 1 ? $"{row.Name} — {row.PresetName}" : row.Name) {
-                    Command = new DeferredMenuCommand(new RelayCommand(() => Async.Fire(OpenLibraryGraphAsync(id), nameof(OpenLibraryGraphAsync)))),
+                    Command = new DeferredMenuCommand(new RelayCommand(() => open(id))),
                     IsEnabled = !missing,
                     ToolTip = missing ? $"Needs the “{row.PresetName}” preset" : null,
                 });
             }
             if (rows.Count > 0)
                 menu.Items.Add(new NativeMenuItemSeparator());
-            menu.Items.Add(new NativeMenuItem("Clear Menu") { Command = new DeferredMenuCommand(new RelayCommand(ClearOpenRecent)), IsEnabled = rows.Count > 0 });
-            openRecentItem.Menu = menu;
-            openRecentItem.IsEnabled = Library?.All().Count > 0;
+            menu.Items.Add(new NativeMenuItem("Clear Menu") { Command = new DeferredMenuCommand(new RelayCommand(clear)), IsEnabled = rows.Count > 0 });
+            return menu;
         }
 
         private void ClearOpenRecent() {

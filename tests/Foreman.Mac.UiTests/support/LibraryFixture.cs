@@ -19,6 +19,7 @@ namespace Foreman.Mac.UiTests.support {
         private readonly List<string> directories = [];
         private readonly List<MainWindow> windows = [];
 
+        public string Root => root;
         public string DbPath => StoragePaths.DbPath(root);
         public GraphLibraryStore Store { get; }
         public ManualTimeProvider Clock { get; }
@@ -37,8 +38,14 @@ namespace Foreman.Mac.UiTests.support {
         }
 
         public void Dispose() {
-            foreach (MainWindow window in windows)
+            foreach (MainWindow window in windows) {
+                if (window.Settings is { } settings)
+                    settings.ShowWelcomeAtLaunch = false;
                 window.Close();
+            }
+            WelcomeLauncher.Current?.Close();
+            if (ShellHost.Context is { } context && ReferenceEquals(context.Library, Service))
+                ShellHost.Context = null;
             Service.Dispose();
             SqliteConnection.ClearAllPools();
             if (Directory.Exists(root))

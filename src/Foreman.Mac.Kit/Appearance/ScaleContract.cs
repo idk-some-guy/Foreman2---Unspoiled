@@ -35,6 +35,8 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.PaletteRowIcon",
             "Foreman.Size.BrowserSidebar",
             "Foreman.Size.BrowserSidebarMax",
+            "Foreman.Size.WelcomeSidebar",
+            "Foreman.Size.WelcomePresetRow",
             "Foreman.Size.BrowserCell",
             "Foreman.Size.ChooserCell",
             "Foreman.Size.BrowserCellLabelHeight",

@@ -16,6 +16,7 @@ namespace Foreman.Mac.Services {
         internal const int RecentLimit = 10;
         internal const string UntitledName = "Untitled Graph";
 
+        private readonly HashSet<Guid> blank = [];
         private ITimer? timer;
         private bool pending;
         private bool failureReported;
@@ -56,6 +57,12 @@ namespace Foreman.Mac.Services {
             return true;
         }
 
+        public GraphRow CreateBlank(string name, string presetName, string data) {
+            GraphRow row = Create(name, presetName, data, 0, null);
+            blank.Add(row.Id);
+            return row;
+        }
+
         public GraphRow Create(string name, string presetName, string data, int nodeCount, string? sourcePath) {
             FlushNow();
             GraphRow row = store.Create(name, presetName, data, nodeCount, sourcePath, Now);
@@ -94,6 +101,15 @@ namespace Foreman.Mac.Services {
             pending = false;
         }
 
+        public void PruneUntouched() {
+            FlushNow();
+            if (OpenGraphId is Guid id && blank.Contains(id) && store.Get(id) is { } row && IsUntouched(row))
+                store.Delete(id);
+        }
+
+        public static bool IsUntouched(GraphRow row) =>
+            row.NodeCount == 0 && row.SavedAt is null && row.SourcePath is null && row.ModifiedAt == row.CreatedAt;
+
         public GraphRow Duplicate(string name) {
             FlushNow();
             GraphRow copy = store.Duplicate(OpenGraphId ?? throw new InvalidOperationException("No graph is open."), name, Now);
@@ -106,6 +122,14 @@ namespace Foreman.Mac.Services {
                 return;
             store.Rename(id, name);
             OpenGraphName = name;
+        }
+
+        public GraphRow DuplicateGraph(Guid id, string name) => store.Duplicate(id, name, Now);
+
+        public void RenameGraph(Guid id, string name) {
+            store.Rename(id, name);
+            if (OpenGraphId == id)
+                OpenGraphName = name;
         }
 
         public void SetPreset(string presetName) {

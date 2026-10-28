@@ -3,13 +3,14 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
+using Avalonia.Collections;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Windows.Input;
+using System.Linq;
 
 namespace Foreman.Mac.Kit.Composites {
     //RemoveRequested payload: Item is the row's DataContext, enough for a host to re-add it.
@@ -23,9 +24,14 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<string?> LabelProperty =
             AvaloniaProperty.Register<RecentRow, string?>(nameof(Label));
 
-        //The preset name, or the unavailable reason ("Preset missing") when IsUnavailable is set.
         public static readonly StyledProperty<string?> PresetLabelProperty =
             AvaloniaProperty.Register<RecentRow, string?>(nameof(PresetLabel));
+
+        public static readonly StyledProperty<string?> UnavailableMetaProperty =
+            AvaloniaProperty.Register<RecentRow, string?>(nameof(UnavailableMeta));
+
+        public static readonly StyledProperty<string?> HelpHintsProperty =
+            AvaloniaProperty.Register<RecentRow, string?>(nameof(HelpHints));
 
         public static readonly StyledProperty<int> NodeCountProperty =
             AvaloniaProperty.Register<RecentRow, int>(nameof(NodeCount));
@@ -47,40 +53,22 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<bool> IsKeyProperty =
             AvaloniaProperty.Register<RecentRow, bool>(nameof(IsKey), true);
 
-        //Unavailable: Opacity.Disabled, still selectable and focusable; Open is disabled, Remove enabled.
+        //Unavailable: tertiary italic name, thumbnail at Opacity.Unavailable, still selectable and focusable.
         public static readonly StyledProperty<bool> IsUnavailableProperty =
             AvaloniaProperty.Register<RecentRow, bool>(nameof(IsUnavailable));
 
         public static readonly StyledProperty<bool> IsMenuOpenProperty =
             AvaloniaProperty.Register<RecentRow, bool>(nameof(IsMenuOpen));
 
-        public static readonly StyledProperty<ICommand?> OpenCommandProperty =
-            AvaloniaProperty.Register<RecentRow, ICommand?>(nameof(OpenCommand));
-
-        public static readonly StyledProperty<ICommand?> OpenInNewWindowCommandProperty =
-            AvaloniaProperty.Register<RecentRow, ICommand?>(nameof(OpenInNewWindowCommand));
-
-        public static readonly StyledProperty<ICommand?> DuplicateCommandProperty =
-            AvaloniaProperty.Register<RecentRow, ICommand?>(nameof(DuplicateCommand));
-
-        public static readonly StyledProperty<ICommand?> ExportCommandProperty =
-            AvaloniaProperty.Register<RecentRow, ICommand?>(nameof(ExportCommand));
-
-        public static readonly StyledProperty<ICommand?> ShowInFinderCommandProperty =
-            AvaloniaProperty.Register<RecentRow, ICommand?>(nameof(ShowInFinderCommand));
-
-        public static readonly StyledProperty<ICommand?> RemoveFromRecentsCommandProperty =
-            AvaloniaProperty.Register<RecentRow, ICommand?>(nameof(RemoveFromRecentsCommand));
-
-        //§09's unavailable-row entry: reachable on every row, enabled only when the preset no longer resolves.
-        public static readonly StyledProperty<ICommand?> ChoosePresetCommandProperty =
-            AvaloniaProperty.Register<RecentRow, ICommand?>(nameof(ChoosePresetCommand));
+        public event EventHandler? OpenRequested;
 
         //Carries the row's item so a host can undo a ⌫ removal; the row never draws its own toast.
         public event EventHandler<RecentRowRemoveRequestedEventArgs>? RemoveRequested;
 
         public string? Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
         public string? PresetLabel { get => GetValue(PresetLabelProperty); set => SetValue(PresetLabelProperty, value); }
+        public string? UnavailableMeta { get => GetValue(UnavailableMetaProperty); set => SetValue(UnavailableMetaProperty, value); }
+        public string? HelpHints { get => GetValue(HelpHintsProperty); set => SetValue(HelpHintsProperty, value); }
         public int NodeCount { get => GetValue(NodeCountProperty); set => SetValue(NodeCountProperty, value); }
         public string? RelativeTime { get => GetValue(RelativeTimeProperty); set => SetValue(RelativeTimeProperty, value); }
         public string? AbsoluteTime { get => GetValue(AbsoluteTimeProperty); set => SetValue(AbsoluteTimeProperty, value); }
@@ -89,18 +77,12 @@ namespace Foreman.Mac.Kit.Composites {
         public bool IsKey { get => GetValue(IsKeyProperty); set => SetValue(IsKeyProperty, value); }
         public bool IsUnavailable { get => GetValue(IsUnavailableProperty); set => SetValue(IsUnavailableProperty, value); }
         public bool IsMenuOpen { get => GetValue(IsMenuOpenProperty); set => SetValue(IsMenuOpenProperty, value); }
-        public ICommand? OpenCommand { get => GetValue(OpenCommandProperty); set => SetValue(OpenCommandProperty, value); }
-        public ICommand? OpenInNewWindowCommand { get => GetValue(OpenInNewWindowCommandProperty); set => SetValue(OpenInNewWindowCommandProperty, value); }
-        public ICommand? DuplicateCommand { get => GetValue(DuplicateCommandProperty); set => SetValue(DuplicateCommandProperty, value); }
-        public ICommand? ExportCommand { get => GetValue(ExportCommandProperty); set => SetValue(ExportCommandProperty, value); }
-        public ICommand? ShowInFinderCommand { get => GetValue(ShowInFinderCommandProperty); set => SetValue(ShowInFinderCommandProperty, value); }
-        public ICommand? RemoveFromRecentsCommand { get => GetValue(RemoveFromRecentsCommandProperty); set => SetValue(RemoveFromRecentsCommandProperty, value); }
-        public ICommand? ChoosePresetCommand { get => GetValue(ChoosePresetCommandProperty); set => SetValue(ChoosePresetCommandProperty, value); }
 
         public static readonly DirectProperty<RecentRow, Controls.MenuPanel> MenuProperty =
             AvaloniaProperty.RegisterDirect<RecentRow, Controls.MenuPanel>(nameof(Menu), o => o.Menu);
 
-        //Context menu: Open · Open in New Window · Duplicate · Export… · Show in Finder · — · Remove from Recents · Choose Preset….
+        public AvaloniaList<Controls.MenuRow> MenuItems { get; } = [];
+
         public Controls.MenuPanel Menu { get; } = new();
 
         private Border? frame;
@@ -116,6 +98,7 @@ namespace Foreman.Mac.Kit.Composites {
         private IBrush selectionInactive = Brushes.Transparent;
         private IBrush controlBackgroundHover = Brushes.Transparent;
         private IBrush text = Brushes.Transparent;
+        private IBrush textTertiary = Brushes.Transparent;
         private IBrush accentText = Brushes.Transparent;
         private readonly List<IDisposable> subs = [];
 
@@ -123,7 +106,7 @@ namespace Foreman.Mac.Kit.Composites {
             FocusableProperty.OverrideDefaultValue<RecentRow>(true);
             IsSelectedProperty.Changed.AddClassHandler<RecentRow>((r, _) => r.ApplyState());
             IsKeyProperty.Changed.AddClassHandler<RecentRow>((r, _) => r.ApplyState());
-            IsUnavailableProperty.Changed.AddClassHandler<RecentRow>((r, _) => { r.ApplyUnavailable(); r.RebuildMenu(); r.ApplyAutomation(); });
+            IsUnavailableProperty.Changed.AddClassHandler<RecentRow>((r, _) => { r.ApplyUnavailable(); r.ApplyState(); r.ApplyAutomation(); });
             IsMenuOpenProperty.Changed.AddClassHandler<RecentRow>((r, e) => r.OnIsMenuOpenChanged((bool)e.NewValue!));
             IsPointerOverProperty.Changed.AddClassHandler<RecentRow>((r, e) => {
                 r.hovering = e.NewValue is true;
@@ -131,19 +114,14 @@ namespace Foreman.Mac.Kit.Composites {
             });
             LabelProperty.Changed.AddClassHandler<RecentRow>((r, _) => r.ApplyAutomation());
             PresetLabelProperty.Changed.AddClassHandler<RecentRow>((r, _) => { r.ApplyMeta(); r.ApplyAutomation(); });
+            HelpHintsProperty.Changed.AddClassHandler<RecentRow>((r, _) => r.ApplyAutomation());
             NodeCountProperty.Changed.AddClassHandler<RecentRow>((r, _) => { r.ApplyMeta(); r.ApplyAutomation(); });
             AbsoluteTimeProperty.Changed.AddClassHandler<RecentRow>((r, _) => r.ApplyAutomation());
-            OpenCommandProperty.Changed.AddClassHandler<RecentRow>((r, _) => r.RebuildMenu());
-            OpenInNewWindowCommandProperty.Changed.AddClassHandler<RecentRow>((r, _) => r.RebuildMenu());
-            DuplicateCommandProperty.Changed.AddClassHandler<RecentRow>((r, _) => r.RebuildMenu());
-            ExportCommandProperty.Changed.AddClassHandler<RecentRow>((r, _) => r.RebuildMenu());
-            ShowInFinderCommandProperty.Changed.AddClassHandler<RecentRow>((r, _) => r.RebuildMenu());
-            RemoveFromRecentsCommandProperty.Changed.AddClassHandler<RecentRow>((r, _) => r.RebuildMenu());
-            ChoosePresetCommandProperty.Changed.AddClassHandler<RecentRow>((r, _) => r.RebuildMenu());
         }
 
         public RecentRow() {
             Menu.RequestClose += (_, _) => IsMenuOpen = false;
+            MenuItems.CollectionChanged += (_, _) => ApplyAutomation();
             GotFocus += (_, e) => {
                 if (e.NavigationMethod is NavigationMethod.Tab or NavigationMethod.Directional) {
                     hasKeyboardFocus = true;
@@ -154,7 +132,6 @@ namespace Foreman.Mac.Kit.Composites {
                 hasKeyboardFocus = false;
                 UpdateRing();
             };
-            RebuildMenu();
         }
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
@@ -200,6 +177,7 @@ namespace Foreman.Mac.Kit.Composites {
             subs.Add(this.GetResourceObservable("Foreman.Color.SelectionInactive").Subscribe(new ResourceSinks.BrushSink(v => { selectionInactive = v; ApplyState(); }, selectionInactive)));
             subs.Add(this.GetResourceObservable("Foreman.Color.ControlBackgroundHover").Subscribe(new ResourceSinks.BrushSink(v => { controlBackgroundHover = v; ApplyState(); }, controlBackgroundHover)));
             subs.Add(this.GetResourceObservable("Foreman.Color.Text").Subscribe(new ResourceSinks.BrushSink(v => { text = v; ApplyState(); }, text)));
+            subs.Add(this.GetResourceObservable("Foreman.Color.TextTertiary").Subscribe(new ResourceSinks.BrushSink(v => { textTertiary = v; ApplyState(); }, textTertiary)));
             subs.Add(this.GetResourceObservable("Foreman.Color.AccentText").Subscribe(new ResourceSinks.BrushSink(v => { accentText = v; ApplyState(); }, accentText)));
         }
 
@@ -226,7 +204,7 @@ namespace Foreman.Mac.Kit.Composites {
             selectionFill.Opacity = showSelectionFill ? 1 : 0;
 
             if (nameText is not null)
-                nameText.Foreground = IsSelected && IsKey ? accentText : text;
+                nameText.Foreground = IsUnavailable ? textTertiary : IsSelected && IsKey ? accentText : text;
         }
 
         private void ApplyUnavailable() => PseudoClasses.Set(":unavailable", IsUnavailable);
@@ -246,7 +224,7 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void OnIsMenuOpenChanged(bool isOpen) {
             if (isOpen) {
-                RebuildMenu();
+                CopyMenuItems();
                 Menu.HighlightedIndex = Menu.Items.Count > 0 ? 0 : -1;
             }
             if (menuHost is not null) {
@@ -265,61 +243,29 @@ namespace Foreman.Mac.Kit.Composites {
         //Programmatic open, always row-anchored - there's no pointer event here to anchor to.
         public void Open() => OpenContextMenu(viaPointer: false);
 
-        private void RebuildMenu() {
-            int keepHighlight = Menu.HighlightedIndex;
+        private void CopyMenuItems() {
             Menu.Items.Clear();
-            Menu.Items.Add(ActionRow("Open", OpenCommand, enabled: !IsUnavailable));
-            Menu.Items.Add(ActionRow("Open in New Window", OpenInNewWindowCommand));
-            Menu.Items.Add(ActionRow("Duplicate", DuplicateCommand));
-            Menu.Items.Add(ActionRow("Export…", ExportCommand));
-            Menu.Items.Add(ActionRow("Show in Finder", ShowInFinderCommand));
-            Menu.Items.Add(Controls.MenuRow.Separator());
-            Menu.Items.Add(ActionRow("Remove from Recents", RemoveFromRecentsCommand));
-            if (IsUnavailable)
-                Menu.Items.Add(ActionRow("Choose Preset…", ChoosePresetCommand));
-
-            if (keepHighlight >= 0 && keepHighlight < Menu.Items.Count)
-                Menu.HighlightedIndex = keepHighlight;
+            foreach (Controls.MenuRow item in MenuItems)
+                Menu.Items.Add(item);
         }
 
-        private static Controls.MenuRow ActionRow(string text, ICommand? command, bool enabled = true) => new() {
-            Text = text,
-            HasCheckSlot = false,
-            IsEnabled = enabled && command is not null && command.CanExecute(null),
-            Activate = () => {
-                if (command is { } c && c.CanExecute(null))
-                    c.Execute(null);
-            },
-        };
-
-        private void ActivateOpen() {
-            if (IsUnavailable)
-                return;
-            if (OpenCommand is { } command && command.CanExecute(null))
-                command.Execute(null);
-        }
+        private void ActivateOpen() => OpenRequested?.Invoke(this, EventArgs.Empty);
 
         private void ActivateRemove() {
             RemoveRequested?.Invoke(this, new RecentRowRemoveRequestedEventArgs(DataContext));
-            if (RemoveFromRecentsCommand is { } command && command.CanExecute(null))
-                command.Execute(null);
         }
 
         private void ApplyAutomation() {
-            string preset = PresetLabel ?? "";
-            string count = FormatNodeCount(NodeCount);
-            string phrase = $"{Label}, {preset}, {count}, {AbsoluteTime}";
+            string phrase = $"{Label}, {PresetLabel}, {FormatNodeCount(NodeCount)}, {AbsoluteTime}";
             if (IsUnavailable)
-                phrase += $", unavailable, {preset}";
+                phrase += ", preset not installed";
             AutomationProperties.SetName(this, phrase);
 
-            //No AXCustomAction provider exists in Avalonia; menu commands are mirrored into HelpText.
-            string helpText =
-                $"{AbsoluteTime}. Open: Return or Command Down Arrow. Open in New Window. Duplicate. Export…. " +
-                "Show in Finder. Remove from Recents: Backspace.";
-            if (IsUnavailable)
-                helpText += " Choose Preset….";
-            helpText += " Shift F10 opens the context menu.";
+            //No AXCustomAction provider exists in Avalonia; menu items are mirrored into HelpText.
+            string actions = string.Join(". ", MenuItems.Where(i => !i.IsSeparator).Select(i => i.Text));
+            string remove = RemoveRequested is null ? "" : " Remove: Backspace.";
+            string hints = string.IsNullOrEmpty(HelpHints) ? "" : $" {HelpHints}";
+            string helpText = $"{AbsoluteTime}. Open: Return or Command Down Arrow. {actions}.{remove}{hints} Shift F10 opens the context menu.";
             AutomationProperties.SetHelpText(this, helpText);
         }
 

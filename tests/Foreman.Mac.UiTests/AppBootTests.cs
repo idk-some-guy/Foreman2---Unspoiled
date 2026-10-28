@@ -49,7 +49,7 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public async Task BootAndShowAsync_BootShellSucceeds_AssignsMainWindowAndSwitchesShutdownMode() {
+        public async Task BootAndShowAsync_BootShellSucceeds_AssignsMainWindowAndKeepsTheAppRunningWithoutWindows() {
             var app = (App)Application.Current!;
             var desktop = new ClassicDesktopStyleApplicationLifetime();
             var settingsService = new SettingsService(NewTempHome());
@@ -64,7 +64,7 @@ namespace Foreman.Mac.UiTests {
 
             Assert.False(fatalExitCalled);
             Assert.Same(window, desktop.MainWindow);
-            Assert.Equal(ShutdownMode.OnMainWindowClose, desktop.ShutdownMode);
+            Assert.Equal(ShutdownMode.OnExplicitShutdown, desktop.ShutdownMode);
         }
     }
 }

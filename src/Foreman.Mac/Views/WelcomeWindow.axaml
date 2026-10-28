@@ -1,0 +1,129 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+        xmlns:kit="using:Foreman.Mac.Kit.Composites"
+        x:Class="Foreman.Mac.Views.WelcomeWindow"
+        Title="Foreman 2"
+        Width="660" Height="420"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Foreman.Color.WindowBackground}">
+  <Window.Resources>
+    <ControlTheme x:Key="Welcome.ActionButton" TargetType="Button">
+      <Setter Property="Height" Value="{DynamicResource Foreman.Size.SidebarRowHeight}" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="ctrl:FocusRing.IsEnabled" Value="True" />
+      <Setter Property="ctrl:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+      </Style>
+      <Style Selector="^:pressed">
+        <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+      </Style>
+      <Style Selector="^:disabled">
+        <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+      </Style>
+    </ControlTheme>
+    <ControlTheme x:Key="Welcome.PresetItem" TargetType="ListBoxItem" BasedOn="{StaticResource Kit.ListBoxItem}">
+      <Setter Property="Height" Value="{DynamicResource Foreman.Size.WelcomePresetRow}" />
+    </ControlTheme>
+    <ControlTheme x:Key="Welcome.RecentItem" TargetType="ListBoxItem" BasedOn="{StaticResource Kit.ListBoxItem}">
+      <Setter Property="Height" Value="{DynamicResource Foreman.Size.RecentRowHeight}" />
+      <Setter Property="Padding" Value="0" />
+      <Style Selector="^:pointerover:not(:selected)">
+        <Setter Property="Background" Value="Transparent" />
+      </Style>
+      <Style Selector="^:selected">
+        <Setter Property="Background" Value="Transparent" />
+      </Style>
+      <Style Selector="^[(ctrl|ListHost.IsKey)=False]:selected">
+        <Setter Property="Background" Value="Transparent" />
+      </Style>
+    </ControlTheme>
+  </Window.Resources>
+  <Window.Styles>
+    <Style Selector="Path.welcome-glyph">
+      <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.Accent}" />
+    </Style>
+  </Window.Styles>
+  <DockPanel>
+    <Border Name="LeftPane" DockPanel.Dock="Left"
+            Width="{DynamicResource Foreman.Size.WelcomeSidebar}"
+            Background="{DynamicResource Foreman.Color.SidebarBackground}"
+            BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,0,1,0"
+            Padding="10,16,10,12">
+      <Grid Name="ActionsGroup" RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,14">
+          <Image Name="AppIconImage" Width="44" Height="44" Stretch="Uniform" HorizontalAlignment="Center"
+                 Source="avares://Foreman.Mac/Assets/unspoiled-icon-512.png" AutomationProperties.AccessibilityView="Raw" />
+          <TextBlock Name="AppNameText" Text="Foreman 2" HorizontalAlignment="Center" Margin="0,8,0,0"
+                     FontSize="{DynamicResource Foreman.Type.EmphasizedBody.FontSize}"
+                     FontWeight="{DynamicResource Foreman.Type.EmphasizedBody.FontWeight}"
+                     Foreground="{DynamicResource Foreman.Color.Text}" />
+          <TextBlock Name="VersionText" Theme="{StaticResource Kit.Text}" Classes="caption secondary"
+                     HorizontalAlignment="Center" Margin="0,2,0,0" />
+        </StackPanel>
+        <StackPanel Name="ActionButtons" Grid.Row="1" Spacing="2">
+          <Border Height="1" Background="{DynamicResource Foreman.Color.Border}" Margin="0,0,0,8" />
+          <Button Name="NewGraphButton" Theme="{StaticResource Welcome.ActionButton}" />
+          <Button Name="OpenButton" Theme="{StaticResource Welcome.ActionButton}" />
+        </StackPanel>
+        <TextBlock Name="GroupTitle" Grid.Row="2" Text="Preset for new graphs" Margin="8,14,0,4"
+                   Theme="{StaticResource Kit.Text}" Classes="caption secondary"
+                   FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}" />
+        <ListBox Name="PresetList" Grid.Row="3" Theme="{StaticResource Kit.List}" SelectionMode="Single"
+                 ItemContainerTheme="{StaticResource Welcome.PresetItem}"
+                 IsTextSearchEnabled="True" AutomationProperties.Name="Presets for new graphs" />
+        <CheckBox Name="ShowAtLaunchCheckBox" Grid.Row="4" Theme="{StaticResource Kit.CheckBox}"
+                  Content="Show when Foreman opens" Margin="8,10,0,0" />
+      </Grid>
+    </Border>
+    <Grid Name="RightPane" Margin="16,16,16,12" RowDefinitions="Auto,*,Auto">
+      <Grid Name="RecentsGroup" Grid.Row="0" Grid.RowSpan="2" RowDefinitions="Auto,*">
+        <Grid Name="HeaderRow" Grid.Row="0" Height="22" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,0,0,6">
+          <TextBlock Grid.Column="0" Text="Recent graphs" VerticalAlignment="Center"
+                     Theme="{StaticResource Kit.Text}" Classes="caption secondary"
+                     FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}" />
+          <TextBlock Name="CountText" Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
+                     Theme="{StaticResource Kit.Text}" Classes="caption tertiary" FontFeatures="tnum" />
+          <ctrl:SearchField Name="FilterField" Grid.Column="3" Theme="{StaticResource Kit.SearchField}" Width="160"
+                            PlaceholderText="Filter" AutomationProperties.Name="Filter" VerticalAlignment="Center" />
+        </Grid>
+        <Panel Grid.Row="1">
+          <ListBox Name="RecentList" Theme="{StaticResource Kit.List}" SelectionMode="Single"
+                   ItemContainerTheme="{StaticResource Welcome.RecentItem}" IsTextSearchEnabled="True"
+                   AutomationProperties.Name="Recent graphs" />
+          <kit:StatePanel Name="EmptyPanel" Theme="{StaticResource Kit.StatePanel}" IsVisible="False" />
+          <kit:StatePanel Name="NoResultsPanel" Theme="{StaticResource Kit.StatePanel}" IsVisible="False" />
+          <kit:StatePanel Name="ErrorPanel" Theme="{StaticResource Kit.StatePanel}" IsVisible="False" />
+        </Panel>
+      </Grid>
+      <Border Name="LoadingStrip" Grid.Row="2" IsVisible="False" ClipToBounds="True" Padding="0,10,0,0"
+              BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,1,0,0">
+        <StackPanel Spacing="6">
+          <TextBlock Name="LoadingSentence" Theme="{StaticResource Kit.Text}" Classes="callout secondary"
+                     TextTrimming="CharacterEllipsis" MaxLines="1" />
+          <Grid Height="22" ColumnDefinitions="*,Auto">
+            <ctrl:ProgressBar Name="LoadingBar" Theme="{StaticResource Kit.ProgressBar}" Width="NaN" HorizontalAlignment="Stretch"
+                              VerticalAlignment="Center" Minimum="0" Maximum="100" />
+            <Button Name="CancelButton" Grid.Column="1" Theme="{StaticResource Kit.Button}" Content="Cancel" Margin="12,0,0,0" />
+          </Grid>
+        </StackPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</Window>

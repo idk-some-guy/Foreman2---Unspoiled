@@ -33,7 +33,7 @@ Foreman 2 on the Mac uses ⌘ for its command shortcuts. On Linux, read Ctrl whe
 | View | Show Toolbar | ⌥⌘T |
 | View | Enter Full Screen | ⌃⌘F (Mac only) |
 | Window | Minimize | ⌘M |
-| Window | Welcome to Foreman | ⇧⌘W |
+| Window | Welcome to Foreman | ⇧⌘1 |
 | Help | Foreman 2 Help | ⌘? |
 
 ⌘. cancels whatever is in progress: a running solve first, then an open popover or canvas panel, then the frontmost sheet. No menu item carries it.

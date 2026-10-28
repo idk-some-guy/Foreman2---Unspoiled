@@ -293,7 +293,7 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //---- WASD panning (reference §2/§7) ----
 
-        //⌘A, ⇧⌘A, ⌘W and ⇧⌘W are menu key equivalents (Select All, Deselect All, Close, Welcome), so Primary chords never pan.
+        //⌘A, ⇧⌘A and ⌘W are menu key equivalents (Select All, Deselect All, Close), so Primary chords never pan.
         [AvaloniaFact]
         public void WasdKeys_PanTheViewByPanUnit_InEachDirection_AndLeavePrimaryChordsToTheMenu() {
             Fixture fx = NewFixture();

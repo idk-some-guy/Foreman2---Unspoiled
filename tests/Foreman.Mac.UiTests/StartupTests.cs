@@ -147,6 +147,13 @@ namespace Foreman.Mac.UiTests {
             return dir;
         }
 
+        private static void CloseWithoutWelcome(MainWindow window) {
+            window.Settings!.ShowWelcomeAtLaunch = false;
+            window.Close();
+            if (ShellHost.Context?.Window == window)
+                ShellHost.Context = null;
+        }
+
         [AvaloniaFact]
         public async Task BootAsync_RealVanillaPreset_LoadsMainWindowWithDataCache() {
             var settingsService = new SettingsService(NewTempHome());
@@ -159,6 +166,11 @@ namespace Foreman.Mac.UiTests {
             Assert.NotNull(window.Library);
             GraphRow row = new GraphLibraryStore(settingsService.DatabasePath).Create("Probe", "p", "d", 0, null, DateTime.UtcNow);
             Assert.Contains(window.Library!.All(), r => r.Id == row.Id);
+
+            CloseWithoutWelcome(window);
+
+            Assert.Null(ShellHost.Context);
+            Assert.False(ShellHost.HasLiveMainWindow);
         }
 
         [AvaloniaFact]
@@ -166,7 +178,7 @@ namespace Foreman.Mac.UiTests {
             var settingsService = new SettingsService(NewTempHome());
             var window = await ShellBootstrapper.BootAsync(settingsService, settingsService.Load());
 
-            window!.Close();
+            CloseWithoutWelcome(window!);
 
             Assert.Equal("Factorio 2.0 Vanilla", settingsService.Load().CurrentPresetName);
         }
@@ -178,7 +190,7 @@ namespace Foreman.Mac.UiTests {
             settings.IconsSize = 200; //an arbitrary in-range marker (ApplyLoadedSettings clamps to [8,256])
 
             var window = await ShellBootstrapper.BootAsync(settingsService, settings);
-            window!.Close();
+            CloseWithoutWelcome(window!);
 
             var reloaded = settingsService.Load();
             Assert.Equal(200, reloaded.IconsSize);
@@ -210,7 +222,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal("Factorio 2.0 Vanilla", call.Value.Fallback!.Name);
             Assert.Empty(warnings);
 
-            window!.Close();
+            CloseWithoutWelcome(window!);
             Assert.Equal("Factorio 2.0 Vanilla", settingsService.Load().CurrentPresetName);
         }
 
@@ -280,6 +292,7 @@ namespace Foreman.Mac.UiTests {
             Assert.NotNull(window);
             Assert.True(warmupInvoked);
             Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(8), $"boot waited on the warmup task ({stopwatch.Elapsed})");
+            CloseWithoutWelcome(window);
         }
     }
 }

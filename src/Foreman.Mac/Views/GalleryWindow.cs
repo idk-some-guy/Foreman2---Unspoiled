@@ -2170,10 +2170,22 @@ namespace Foreman.Mac.Views {
         }
 
         //Addendum §09's welcome-window library entry.
-        private static RecentRow KitRecentRow(string label, string preset, int nodes, string relative, string absolute, IBrush icon) => new() {
-            Theme = KitTheme("Kit.RecentRow"),
-            Label = label, PresetLabel = preset, NodeCount = nodes, RelativeTime = relative, AbsoluteTime = absolute, Icon = icon,
-        };
+        private static RecentRow KitRecentRow(string label, string preset, int nodes, string relative, string absolute, IBrush icon, bool unavailable = false) {
+            var row = new RecentRow {
+                Theme = KitTheme("Kit.RecentRow"),
+                Label = label, PresetLabel = preset, NodeCount = nodes, RelativeTime = relative, AbsoluteTime = absolute, Icon = icon,
+                IsUnavailable = unavailable,
+                UnavailableMeta = unavailable ? $"Preset “{preset}” isn't installed" : null,
+            };
+            string[] headers = unavailable
+                ? ["Open", "Duplicate", "Rename…", "Export as .fjson…", "Choose Preset…"]
+                : ["Open", "Duplicate", "Rename…", "Export as .fjson…"];
+            foreach (string header in headers)
+                row.MenuItems.Add(new MenuRow { Text = header, HasCheckSlot = false, Activate = static () => { } });
+            row.MenuItems.Add(MenuRow.Separator());
+            row.MenuItems.Add(new MenuRow { Text = "Delete Graph…", HasCheckSlot = false, Activate = static () => { } });
+            return row;
+        }
 
         private static StackPanel BuildRecentRowTile() {
             IBrush swatch = ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue);
@@ -2188,8 +2200,7 @@ namespace Foreman.Mac.Views {
             inactiveSelected.IsSelected = true;
             inactiveSelected.IsKey = false;
 
-            RecentRow unavailable = KitRecentRow("Old megabase", "Preset missing", 1204, "12 Jul", "Sun 12 Jul 2026, 6:41 PM", swatch);
-            unavailable.IsUnavailable = true;
+            RecentRow unavailable = KitRecentRow("Old megabase", "Space Age 2.0.4", 1204, "12 Jul", "Sun 12 Jul 2026, 6:41 PM", swatch, unavailable: true);
 
             RecentRow focused = KitRecentRow("Oil cracking test", "Vanilla 2.0", 12, "28 Aug", "Fri 28 Aug 2026, 2:15 PM", swatch);
             focused.TemplateApplied += (_, e) => {

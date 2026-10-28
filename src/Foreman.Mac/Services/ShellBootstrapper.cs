@@ -52,14 +52,30 @@ namespace Foreman.Mac.Services {
             }
 
             settings.CurrentPresetName = loadedPreset.Name;
-            mainWindow.DataCache = cache;
-            mainWindow.Settings = settings;
-            mainWindow.PresetResolver = presetResolver;
-            mainWindow.SettingsService = settingsService;
-            mainWindow.Library = new GraphLibraryService(new GraphLibraryStore(settingsService.DatabasePath), TimeProvider.System);
-            mainWindow.ApplyLoadedSettings();
-            mainWindow.Closing += (_, _) => settingsService.Save(settings);
+            Attach(mainWindow, new ShellContext(new GraphLibraryService(new GraphLibraryStore(settingsService.DatabasePath), TimeProvider.System), settings, cache, settingsService, presetResolver));
             return mainWindow;
+        }
+
+        internal static MainWindow CreateWindow(ShellContext context) {
+            var mainWindow = new MainWindow();
+            mainWindow.Show();
+            Attach(mainWindow, context);
+            return mainWindow;
+        }
+
+        private static void Attach(MainWindow mainWindow, ShellContext context) {
+            mainWindow.DataCache = context.Cache;
+            mainWindow.Settings = context.Settings;
+            mainWindow.PresetResolver = context.PresetResolver;
+            mainWindow.SettingsService = context.SettingsService;
+            mainWindow.Library = context.Library;
+            mainWindow.ApplyLoadedSettings();
+            if (context.SettingsService is { } settingsService)
+                mainWindow.Closing += (_, _) => settingsService.Save(context.Settings);
+            context.Window = mainWindow;
+            mainWindow.ShellContext = context;
+            ShellHost.Context = context;
+            ShellHost.Sync();
         }
 
         private static async Task<Preset?> ResolveOrWarnAsync(

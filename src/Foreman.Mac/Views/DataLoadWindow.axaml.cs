@@ -32,7 +32,7 @@ namespace Foreman.Mac.Views {
         private const double FailureHeight = 232;
         private static readonly TimeSpan AnnounceInterval = TimeSpan.FromSeconds(2);
         private const string StillLoadingSentence = "This window closes by itself when the preset is ready. To stop now, quit Foreman.";
-        private static readonly string[] StageSentences = [
+        internal static readonly string[] StageSentences = [
             "Reading icons (1 of 3).",
             "Reading items, recipes, and buildings (2 of 3).",
             "Finishing (3 of 3).",

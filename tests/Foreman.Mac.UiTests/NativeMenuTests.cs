@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -17,6 +18,7 @@ using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
+using Foreman.Mac.Views;
 using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using System;
@@ -35,6 +37,7 @@ namespace Foreman.Mac.UiTests {
     //everything beyond that baseline.
     public class NativeMenuTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
+        private const string SpaceAgePresetName = "Factorio 2.0 Space Age";
 
         private static readonly SemaphoreSlim CacheGate = new(1, 1);
         private static DataCache? sharedCache;
@@ -99,7 +102,7 @@ namespace Foreman.Mac.UiTests {
             var windowHeaders = TopMenu(window).Items.OfType<NativeMenuItem>().Select(i => i.Header).ToList();
 
             Assert.Equal(
-                ["About Foreman 2", "-", "Settings…", "-", "Hide Foreman 2", "Hide Others", "Show All", "-", "Quit Foreman 2"],
+                ["About Foreman 2", "-", "Settings…", "-", "New Graph", "Open…", "Open Recent", "Welcome to Foreman", "-", "Hide Foreman 2", "Hide Others", "Show All", "-", "Quit Foreman 2"],
                 appHeaders);
             Assert.Equal(["File", "Edit", "View", "Window", "Help"], windowHeaders);
         }
@@ -127,7 +130,7 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public void AppMenu_Hide_HasCmdHGestureAndHidesTheWindow() {
+        public void AppMenu_Hide_HasCmdHGestureAndHidesTheApp() {
             var window = new MainWindow();
             window.Show();
             NativeMenuItem hide = ItemNamed(AppMenu(), "Hide Foreman 2");
@@ -136,10 +139,18 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(KeyModifiers.Meta, hide.Gesture.KeyModifiers);
             Assert.True(hide.IsEnabled);
 
-            hide.Command!.Execute(null);
-            Dispatcher.UIThread.RunJobs();
+            int hides = 0;
+            Action previous = ShellHost.HideApplication;
+            ShellHost.HideApplication = () => hides++;
+            try {
+                hide.Command!.Execute(null);
+                Dispatcher.UIThread.RunJobs();
+            } finally {
+                ShellHost.HideApplication = previous;
+            }
 
-            Assert.False(window.IsVisible);
+            Assert.Equal(1, hides);
+            window.Close();
         }
 
         //Hide Others/Show All: Avalonia 12.1.2's backing implementation is internal with no public surface, so these are disabled placeholders.
@@ -1235,6 +1246,294 @@ namespace Foreman.Mac.UiTests {
             Assert.True(popover.IsOpen);
         }
 
+        [AvaloniaFact]
+        public void WindowWelcome_IsEnabledWithOrWithoutADocument_GestureShiftPrimary1_ShowsTheWindow() {
+            using var library = new LibraryFixture();
+            MainWindow window = NewLibraryWindow(library);
+            NativeMenuItem welcome = ItemNamed(SubMenu(TopMenu(window), "Window"), "Welcome to Foreman");
+
+            Assert.Equal(new KeyGesture(Key.D1, PlatformModifiers.Primary | KeyModifiers.Shift), welcome.Gesture);
+            window.IsDocumentOpen = false;
+            Assert.True(welcome.IsEnabled);
+            window.IsDocumentOpen = true;
+            Assert.True(welcome.IsEnabled);
+            WelcomeLauncher.Current?.Close();
+            Assert.Null(WelcomeLauncher.Current);
+
+            welcome.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            WelcomeWindow shown = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+            Assert.True(shown.IsVisible);
+            welcome.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(shown, WelcomeLauncher.Current);
+            shown.Close();
+            Assert.Null(WelcomeLauncher.Current);
+        }
+
+        private static readonly string[] NoWindowHeaders = ["New Graph", "Open…", "Open Recent", "Welcome to Foreman"];
+
+        [AvaloniaFact]
+        public async Task AppMenu_WithNoMainWindowLeft_OffersNewOpenRecentAndWelcome_AndALiveWindowIsOpenedOnDemand() {
+            using var library = new LibraryFixture();
+            WelcomeLauncher.Current?.Close();
+            MainWindow window = await NewRealLibraryWindowAsync(library);
+            window.Settings!.ShowWelcomeAtLaunch = false;
+            library.Store.Create("Older", VanillaPresetName, "{}", 0, null, library.Service.Now);
+            ShellHost.Context = window.ShellContext;
+            ShellHost.Context!.Window = window;
+            ShellHost.Sync();
+            NativeMenu app = AppMenu();
+            Assert.All(NoWindowHeaders, header => Assert.False(ItemNamed(app, header).IsVisible, header));
+
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.All(NoWindowHeaders, header => {
+                Assert.True(ItemNamed(app, header).IsVisible, header);
+                Assert.True(ItemNamed(app, header).IsEnabled, header);
+            });
+            Assert.Equal(new KeyGesture(Key.N, PlatformModifiers.Primary), ItemNamed(app, "New Graph").Gesture);
+            Assert.Equal(new KeyGesture(Key.D1, PlatformModifiers.Primary | KeyModifiers.Shift), ItemNamed(app, "Welcome to Foreman").Gesture);
+            Assert.Contains("Older", ItemNamed(app, "Open Recent").Menu!.Items.OfType<NativeMenuItem>().Select(i => i.Header));
+
+            ItemNamed(app, "Welcome to Foreman").Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+            Assert.True(welcome.IsVisible);
+            welcome.Close();
+
+            MainWindow? live = await ShellHost.LiveWindowAsync();
+
+            Assert.NotNull(live);
+            Assert.NotSame(window, live);
+            Assert.False(live.IsClosed);
+            Assert.True(ShellHost.HasLiveMainWindow);
+            Assert.All(NoWindowHeaders, header => Assert.False(ItemNamed(app, header).IsVisible, header));
+            live.Settings!.ShowWelcomeAtLaunch = false;
+            live.Close();
+        }
+
+        private static async Task PumpAsync() {
+            for (int i = 0; i < 20; i++) {
+                Dispatcher.UIThread.RunJobs();
+                await Task.Delay(10);
+            }
+        }
+
+        private static async Task<MainWindow> ClosedShellAsync(LibraryFixture library, bool welcomeAtLaunch) {
+            WelcomeLauncher.Current?.Close();
+            MainWindow window = await NewRealLibraryWindowAsync(library);
+            window.Settings!.ShowWelcomeAtLaunch = welcomeAtLaunch;
+            ShellHost.Context = window.ShellContext;
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+            return window;
+        }
+
+        [AvaloniaFact]
+        public async Task HideForeman_WithNoLiveWindow_HidesTheAppAndOpensNoWindow() {
+            using var library = new LibraryFixture();
+            await ClosedShellAsync(library, welcomeAtLaunch: false);
+            int rows = library.Service.All().Count;
+            int hides = 0;
+            Action previous = ShellHost.HideApplication;
+            ShellHost.HideApplication = () => hides++;
+            try {
+                ItemNamed(AppMenu(), "Hide Foreman 2").Command!.Execute(null);
+                await PumpAsync();
+            } finally {
+                ShellHost.HideApplication = previous;
+            }
+
+            Assert.Equal(1, hides);
+            Assert.False(ShellHost.HasLiveMainWindow);
+            Assert.Equal(rows, library.Service.All().Count);
+            Assert.All(NoWindowHeaders, header => Assert.True(ItemNamed(AppMenu(), header).IsVisible, header));
+        }
+
+        [AvaloniaFact]
+        public async Task HideForeman_WithTheDefaultSeamUnderHeadless_ReportsUnavailableAndOpensNoWindow() {
+            using var library = new LibraryFixture();
+            await ClosedShellAsync(library, welcomeAtLaunch: false);
+            int rows = library.Service.All().Count;
+
+            Assert.Null(Application.Current!.TryGetFeature(typeof(IActivatableLifetime)));
+            ItemNamed(AppMenu(), "Hide Foreman 2").Command!.Execute(null);
+            await PumpAsync();
+
+            Assert.False(ShellHost.HasLiveMainWindow);
+            Assert.Null(WelcomeLauncher.Current);
+            Assert.Equal(rows, library.Service.All().Count);
+        }
+
+        [AvaloniaFact]
+        public async Task ClosingTheMainWindow_AfterAPresetSwitch_HandsTheNewPresetToTheNextWindow() {
+            using var library = new LibraryFixture();
+            WelcomeLauncher.Current?.Close();
+            MainWindow window = await NewRealLibraryWindowAsync(library);
+            window.Settings!.ShowWelcomeAtLaunch = false;
+            ShellHost.Context = window.ShellContext;
+            var spaceAge = new DataCache(filterRecipes: true);
+            await spaceAge.LoadAllData(new Preset(SpaceAgePresetName, false, false), new Progress<KeyValuePair<int, string>>());
+            window.DataLoadStub = (_, _) => Task.FromResult(new DataLoadResult(spaceAge, DataLoadOutcome.Loaded));
+            SettingsWindow? captured = null;
+            window.SettingsDialogStub = w => captured = w;
+            window.ShowSettings();
+            captured!.Options.SelectedPreset = new Preset(SpaceAgePresetName, false, false);
+            captured.RequestReload();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(spaceAge, window.DataCache);
+
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(spaceAge, ShellHost.Context!.Cache);
+            var other = new DataCache(filterRecipes: true);
+            ShellHost.Context!.Cache = other;
+            Assert.Same(other, window.ShellContext!.Cache);
+            ShellHost.Context!.Cache = spaceAge;
+            ItemNamed(AppMenu(), "New Graph").Command!.Execute(null);
+            await PumpAsync();
+            MainWindow created = ShellHost.Context!.Window!;
+            Assert.Equal(SpaceAgePresetName, created.DataCache!.PresetName);
+            Assert.Equal(SpaceAgePresetName, library.Service.Find(library.Service.OpenGraphId!.Value)!.PresetName);
+            Assert.Same(spaceAge, window.ShellContext!.Cache);
+            created.Settings!.ShowWelcomeAtLaunch = false;
+            created.Close();
+        }
+
+        [AvaloniaFact]
+        public async Task DockReopen_WithAHiddenLiveWindow_ShowsThatWindowAndOpensNoOther() {
+            using var library = new LibraryFixture();
+            WelcomeLauncher.Current?.Close();
+            MainWindow window = await NewRealLibraryWindowAsync(library);
+            window.Settings!.ShowWelcomeAtLaunch = false;
+            ShellHost.Context = window.ShellContext;
+            ShellHost.Context!.Window = window;
+            window.Hide();
+            Assert.False(window.IsVisible);
+            int rows = library.Service.All().Count;
+
+            await ShellHost.ReopenAsync();
+
+            Assert.True(window.IsVisible);
+            Assert.Same(window, ShellHost.Context.Window);
+            Assert.Equal(rows, library.Service.All().Count);
+        }
+
+        [AvaloniaFact]
+        public async Task AppMenuNewGraphAndOpenRecent_WithTheWelcomeUp_RunThroughItAndCloseIt_WhileHidden() {
+            using var library = new LibraryFixture();
+            WelcomeLauncher.Current?.Close();
+            MainWindow window = await NewRealLibraryWindowAsync(library);
+            window.Settings!.ShowWelcomeAtLaunch = true;
+            GraphRow older = library.Store.Create("Older", VanillaPresetName, SerializeGraph(window), 0, null, library.Service.Now);
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+            Assert.NotNull(WelcomeLauncher.Current);
+            int rows = library.Service.All().Count;
+
+            Assert.False(ItemNamed(AppMenu(), "New Graph").IsVisible);
+            ItemNamed(AppMenu(), "New Graph").Command!.Execute(null);
+            await PumpAsync();
+
+            Assert.Null(WelcomeLauncher.Current);
+            Assert.Equal(rows + 1, library.Service.All().Count);
+            MainWindow created = ShellHost.Context!.Window!;
+            created.Settings!.ShowWelcomeAtLaunch = true;
+            created.Close();
+            Dispatcher.UIThread.RunJobs();
+            Assert.NotNull(WelcomeLauncher.Current);
+
+            Assert.False(ItemNamed(AppMenu(), "Open Recent").IsVisible);
+            NativeMenuItem item = ItemNamed(AppMenu(), "Open Recent").Menu!.Items.OfType<NativeMenuItem>().Single(i => i.Header == "Older");
+            item.Command!.Execute(null);
+            await PumpAsync();
+
+            Assert.Null(WelcomeLauncher.Current);
+            Assert.Equal(older.Id, library.Service.OpenGraphId);
+            ShellHost.Context!.Window!.Settings!.ShowWelcomeAtLaunch = false;
+            ShellHost.Context.Window.Close();
+        }
+
+        [AvaloniaFact]
+        public async Task AppLevelItems_AreVisibleOnlyWhileNoWindowIsKey() {
+            using var library = new LibraryFixture();
+            await ClosedShellAsync(library, welcomeAtLaunch: true);
+            WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+
+            Assert.All(NoWindowHeaders, header => Assert.False(ItemNamed(AppMenu(), header).IsVisible, header));
+
+            welcome.Close();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Null(WelcomeLauncher.Current);
+            Assert.All(NoWindowHeaders, header => Assert.True(ItemNamed(AppMenu(), header).IsVisible, header));
+        }
+
+        [AvaloniaFact]
+        public async Task AppMenuNewOpenAndRecent_AreDisabledWhileTheWelcomeLoadsAPreset_AndEnabledAfter() {
+            using var library = new LibraryFixture();
+            await ClosedShellAsync(library, welcomeAtLaunch: true);
+            library.Store.Create("Older", VanillaPresetName, "{}", 0, null, library.Service.Now);
+            WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+            ShellHost.Sync();
+            var gate = new TaskCompletionSource<DataCache?>();
+            WelcomeLauncher.CacheLoaderOverride = _ => gate.Task;
+            try {
+                Task load = welcome.ViewModel.SelectPresetAsync(new Preset("Factorio 2.0 Space Age", false, false));
+                Dispatcher.UIThread.RunJobs();
+
+                foreach (string header in new[] { "New Graph", "Open…", "Open Recent" })
+                    Assert.False(ItemNamed(AppMenu(), header).IsEnabled, header);
+
+                gate.SetResult(await GetCacheAsync());
+                await load;
+                Dispatcher.UIThread.RunJobs();
+
+                foreach (string header in new[] { "New Graph", "Open…", "Open Recent" })
+                    Assert.True(ItemNamed(AppMenu(), header).IsEnabled, header);
+            } finally {
+                WelcomeLauncher.CacheLoaderOverride = null;
+                welcome.Close();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task DockReopen_ShowsTheWelcomeWhenOn_ANewGraphWindowWhenOff_AndNothingWhileAWindowIsLive() {
+            using var library = new LibraryFixture();
+            WelcomeLauncher.Current?.Close();
+            MainWindow window = await NewRealLibraryWindowAsync(library);
+            window.Settings!.ShowWelcomeAtLaunch = true;
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+            WelcomeLauncher.Current!.Close();
+            Assert.Null(WelcomeLauncher.Current);
+
+            await ShellHost.ReopenAsync();
+
+            WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+            Assert.True(welcome.IsVisible);
+            await ShellHost.ReopenAsync();
+            Assert.Same(welcome, WelcomeLauncher.Current);
+            welcome.Close();
+
+            ShellHost.Context!.Settings.ShowWelcomeAtLaunch = false;
+            await ShellHost.ReopenAsync();
+
+            Assert.Null(WelcomeLauncher.Current);
+            Assert.True(ShellHost.HasLiveMainWindow);
+            MainWindow created = ShellHost.Context.Window!;
+            Assert.NotSame(window, created);
+            Assert.NotNull(library.Service.OpenGraphId);
+            await ShellHost.ReopenAsync();
+            Assert.Same(created, ShellHost.Context.Window);
+            Assert.Null(WelcomeLauncher.Current);
+            created.Close();
+        }
+
         //A25: with no document the ruled items disable, and leaving that state restores each item's own prior enablement.
         [AvaloniaFact]
         public void NoDocument_DisablesTheRuledItems_AndLeavesWindowWelcomeLive() {
@@ -1245,7 +1544,7 @@ namespace Foreman.Mac.UiTests {
             NativeMenu windowMenu = SubMenu(TopMenu(window), "Window");
             string[] canvasHalf = ["Zoom In", "Zoom Out", "Actual Size", "Fit to Graph", "Show Gridlines", "Minor Gridlines", "Major Gridlines",
                 "Rate Unit", "Link Routing", "Icon View", "Pause All Calculations", "Show Inspector", "Pin Inspector"];
-            bool welcomeBefore = ItemNamed(windowMenu, "Welcome to Foreman").IsEnabled;
+            Assert.True(ItemNamed(windowMenu, "Welcome to Foreman").IsEnabled);
             bool comparatorBefore = ItemNamed(windowMenu, "Preset Comparator").IsEnabled;
 
             window.IsDocumentOpen = false;
@@ -1259,9 +1558,9 @@ namespace Foreman.Mac.UiTests {
                 Assert.False(ItemNamed(view, header).IsEnabled, header);
             Assert.True(ItemNamed(view, "Enter Full Screen").IsEnabled);
             Assert.True(ItemNamed(view, "Show Toolbar").IsEnabled);
-            Assert.Equal(welcomeBefore, ItemNamed(windowMenu, "Welcome to Foreman").IsEnabled);
+            Assert.True(ItemNamed(windowMenu, "Welcome to Foreman").IsEnabled);
             Assert.Equal(comparatorBefore, ItemNamed(windowMenu, "Preset Comparator").IsEnabled);
-            Assert.All(RealItems(windowMenu).Where(i => i.Header is not ("Welcome to Foreman" or "Preset Comparator")), i => Assert.True(i.IsEnabled, i.Header));
+            Assert.All(RealItems(windowMenu).Where(i => i.Header is not "Preset Comparator"), i => Assert.True(i.IsEnabled, i.Header));
 
             window.IsDocumentOpen = true;
 

@@ -45,10 +45,16 @@
                              Theme="{StaticResource Kit.Text}"
                              Classes="caption tertiary"
                              Text="{TemplateBinding PresetLabel}" />
-                  <TextBlock Theme="{StaticResource Kit.Text}" Classes="caption tertiary" Text="·" />
+                  <TextBlock x:Name="PART_MetaDot" Theme="{StaticResource Kit.Text}" Classes="caption tertiary" Text="·" />
                   <TextBlock x:Name="PART_NodeCount"
                              Theme="{StaticResource Kit.Text}"
                              Classes="caption tertiary" />
+                  <TextBlock x:Name="PART_UnavailableMeta"
+                             Theme="{StaticResource Kit.Text}"
+                             Classes="caption"
+                             Foreground="{DynamicResource Foreman.Color.Warning}"
+                             IsVisible="False"
+                             Text="{TemplateBinding UnavailableMeta}" />
                 </StackPanel>
               </StackPanel>
               <TextBlock x:Name="PART_Time"
@@ -71,8 +77,23 @@
       </ControlTemplate>
     </Setter>
 
-    <Style Selector="^:unavailable">
-      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    <Style Selector="^:unavailable /template/ Border#PART_Icon">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Unavailable}" />
+    </Style>
+    <Style Selector="^:unavailable /template/ TextBlock#PART_Name">
+      <Setter Property="FontStyle" Value="Italic" />
+    </Style>
+    <Style Selector="^:unavailable /template/ TextBlock#PART_UnavailableMeta">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:unavailable /template/ TextBlock#PART_Preset">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:unavailable /template/ TextBlock#PART_MetaDot">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:unavailable /template/ TextBlock#PART_NodeCount">
+      <Setter Property="IsVisible" Value="False" />
     </Style>
 
     <!-- Gallery-only: mirrors the real hover fill since Avalonia won't let outside code set IsPointerOver. -->

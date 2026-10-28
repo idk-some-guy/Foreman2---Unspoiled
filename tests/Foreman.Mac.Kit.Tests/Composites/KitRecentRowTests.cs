@@ -14,7 +14,6 @@ using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
 using System.Linq;
-using System.Windows.Input;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Composites {
@@ -32,6 +31,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             RelativeTime = "2 hours ago",
             AbsoluteTime = "Tuesday, September 15, 2026 at 3:04 PM",
             Icon = Brushes.SteelBlue,
+            MenuItems = { Item("Open"), Item("Delete Graph…") },
         };
 
         private static Window Shown(Control content, double width = 340, double height = 80) {
@@ -39,14 +39,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             window.Show();
             Dispatcher.UIThread.RunJobs();
             return window;
-        }
-
-        //A no-op command whose CanExecute is fixed, so tests can prove Open disables independently of it.
-        private sealed class StubCommand(bool canExecute = true) : ICommand {
-            public int ExecuteCount { get; private set; }
-            public bool CanExecute(object? parameter) => canExecute;
-            public void Execute(object? parameter) => ExecuteCount++;
-            public event System.EventHandler? CanExecuteChanged { add { } remove { } }
         }
 
         [AvaloniaFact]
@@ -153,7 +145,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             StackPanel meta = row.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "PART_Meta");
             Application.Current!.TryGetResource("Foreman.Space.Space15", Application.Current.ActualThemeVariant, out object? space15);
             Assert.Equal(Assert.IsType<double>(space15), meta.Spacing);
-            TextBlock[] runs = [.. meta.Children.OfType<TextBlock>()];
+            TextBlock[] runs = [.. meta.Children.OfType<TextBlock>().Where(r => r.IsVisible)];
             Assert.Equal(3, runs.Length);
             Assert.Same(preset, runs[0]);
             Assert.Equal("·", runs[1].Text);
@@ -263,21 +255,43 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
-        public void Unavailable_RendersAtDisabledOpacity_AndPutsTheReasonInTheMetaLine() {
+        public void Unavailable_NameTertiaryItalic_ThumbnailAtOpacityUnavailable_MetaIsOnlyTheWarningSentence() {
             using var fixture = new KitFixture();
             RecentRow row = NewRow();
-            row.PresetLabel = "Preset missing";
             row.NodeCount = 1204;
+            row.UnavailableMeta = "Preset “Space Age” isn't installed";
             row.IsUnavailable = true;
             Shown(row);
 
-            Application.Current!.TryGetResource("Foreman.Opacity.Disabled", Application.Current.ActualThemeVariant, out object? disabledOpacity);
-            Assert.Equal(Assert.IsType<double>(disabledOpacity), row.Opacity);
+            Assert.Equal(1, row.Opacity);
+            TextBlock name = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Name");
+            Assert.Equal(FontStyle.Italic, name.FontStyle);
+            Assert.Equal(fixture.Brush("Foreman.Color.TextTertiary").ToImmutable(), name.Foreground?.ToImmutable());
+            Border icon = row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Icon");
+            Application.Current!.TryGetResource("Foreman.Opacity.Unavailable", Application.Current.ActualThemeVariant, out object? unavailableOpacity);
+            Assert.Equal(Assert.IsType<double>(unavailableOpacity), icon.Opacity);
+            Assert.Equal(0.55, icon.Opacity);
 
-            TextBlock preset = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Preset");
-            TextBlock nodeCount = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_NodeCount");
-            Assert.Equal("Preset missing", preset.Text);
-            Assert.Equal("1,204 nodes", nodeCount.Text);
+            TextBlock meta = row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_UnavailableMeta");
+            Assert.True(meta.IsVisible);
+            Assert.Equal("Preset “Space Age” isn't installed", meta.Text);
+            Assert.Equal(fixture.Brush("Foreman.Color.Warning").ToImmutable(), meta.Foreground?.ToImmutable());
+            Assert.False(row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_NodeCount").IsVisible);
+            Assert.False(row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Preset").IsVisible);
+            Assert.False(row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_MetaDot").IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void Available_MetaHidesTheUnavailableSentence_AndNameKeepsRegularStyle() {
+            using var fixture = new KitFixture();
+            RecentRow row = NewRow();
+            row.UnavailableMeta = "Preset “Space Age” isn't installed";
+            Shown(row);
+
+            Assert.False(row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_UnavailableMeta").IsVisible);
+            Assert.True(row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_NodeCount").IsVisible);
+            Assert.Equal(FontStyle.Normal, row.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Name").FontStyle);
+            Assert.Equal(1, row.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Icon").Opacity);
         }
 
         [AvaloniaFact]
@@ -293,129 +307,101 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(row.IsSelected);
         }
 
+        private static MenuRow Item(string text, System.Action? activate = null) => new() { Text = text, HasCheckSlot = false, Activate = activate ?? (() => { }) };
+
         [AvaloniaFact]
-        public void Unavailable_DisablesTheOpenMenuItem_ButKeepsRemoveEnabled() {
+        public void Menu_IsHostSupplied_NoFixedItems() {
             using var fixture = new KitFixture();
-            RecentRow row = NewRow();
-            row.OpenCommand = new StubCommand();
-            row.RemoveFromRecentsCommand = new StubCommand();
+            var row = new RecentRow { Theme = KitRecentRowTheme() };
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(row.Menu.Items);
+            Assert.Empty(row.MenuItems);
+
             row.IsUnavailable = true;
-            Shown(row);
+            Assert.Empty(row.Menu.Items);
 
-            MenuRow open = row.Menu.Items.Single(i => i.Text == "Open");
-            MenuRow remove = row.Menu.Items.Single(i => i.Text == "Remove from Recents");
-            Assert.False(open.IsEnabled);
-            Assert.True(remove.IsEnabled);
+            int activated = 0;
+            row.MenuItems.Add(Item("Open"));
+            row.MenuItems.Add(MenuRow.Separator());
+            row.MenuItems.Add(Item("Delete Graph…", () => activated++));
+            Assert.Empty(row.Menu.Items);
+
+            row.Open();
+            Dispatcher.UIThread.RunJobs();
+            string[] texts = [.. row.Menu.Items.Select(i => i.IsSeparator ? "—" : i.Text)];
+            Assert.Equal(["Open", "—", "Delete Graph…"], texts);
+            row.Menu.Items[2].Activate!();
+            Assert.Equal(1, activated);
         }
 
         [AvaloniaFact]
-        public void ContextMenu_ListsItemsInSpecOrder_WithASeparatorBeforeRemove() {
+        public void Menu_OpensWithTheHostItemsCopiedInFresh_EachTime() {
             using var fixture = new KitFixture();
             RecentRow row = NewRow();
-            Shown(row);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
 
-            string[] texts = [.. row.Menu.Items.Select(i => i.IsSeparator ? "—" : i.Text)];
-            Assert.Equal(
-                ["Open", "Open in New Window", "Duplicate", "Export…", "Show in Finder", "—", "Remove from Recents"],
-                texts);
-            Assert.True(row.Menu.Items[5].IsSeparator);
+            row.Open();
+            row.IsMenuOpen = false;
+            row.MenuItems.Add(Item("Rename…"));
+            row.Open();
+
+            Assert.Equal(["Open", "Delete Graph…", "Rename…"], row.Menu.Items.Select(i => i.Text));
         }
 
         [AvaloniaFact]
-        public void ContextMenu_Unavailable_ListsItemsInSpecOrder_WithChoosePresetLast() {
+        public void Return_RaisesOpenRequested_EvenWhenUnavailable() {
             using var fixture = new KitFixture();
             RecentRow row = NewRow();
             row.IsUnavailable = true;
+            int raised = 0;
+            row.OpenRequested += (_, _) => raised++;
             Shown(row);
 
-            string[] texts = [.. row.Menu.Items.Select(i => i.IsSeparator ? "—" : i.Text)];
-            Assert.Equal(
-                ["Open", "Open in New Window", "Duplicate", "Export…", "Show in Finder", "—", "Remove from Recents", "Choose Preset…"],
-                texts);
-            Assert.True(row.Menu.Items[5].IsSeparator);
+            fixture.StateOf(row).KeyDown(Key.Return);
+
+            Assert.Equal(1, raised);
         }
 
         [AvaloniaFact]
-        public void ContextMenu_ChoosePreset_OnlyAppearsOnAnUnavailableRow() {
+        public void CommandDownArrow_AlsoRaisesOpenRequested() {
             using var fixture = new KitFixture();
-            RecentRow available = NewRow();
-            available.ChoosePresetCommand = new StubCommand();
-            Shown(available);
-            Assert.DoesNotContain(available.Menu.Items, i => i.Text == "Choose Preset…");
+            RecentRow row = NewRow();
+            int raised = 0;
+            row.OpenRequested += (_, _) => raised++;
+            Shown(row);
 
-            RecentRow unavailable = NewRow();
-            unavailable.ChoosePresetCommand = new StubCommand();
-            unavailable.IsUnavailable = true;
-            Shown(unavailable);
-            MenuRow choosePreset = unavailable.Menu.Items.Single(i => i.Text == "Choose Preset…");
-            Assert.True(choosePreset.IsEnabled);
-            Assert.NotNull(choosePreset.Activate);
-            choosePreset.Activate();
-            Assert.Equal(1, ((StubCommand)unavailable.ChoosePresetCommand!).ExecuteCount);
+            fixture.StateOf(row).KeyDown(Key.Down, KeyModifiers.Meta);
+
+            Assert.Equal(1, raised);
         }
 
         [AvaloniaFact]
-        public void ContextMenu_OpenInNewWindow_EnablesOnlyWithACommand_AndActivatesIt() {
+        public void HelpText_MirrorsTheAbsoluteDate_AndEveryHostMenuItem() {
+            using var fixture = new KitFixture();
+            RecentRow row = NewRow();
+            row.MenuItems.Add(Item("Rename…"));
+            row.MenuItems.Add(MenuRow.Separator());
+            Shown(row);
+
+            string? help = AutomationProperties.GetHelpText(row);
+            Assert.Contains("Tuesday, September 15, 2026 at 3:04 PM", help);
+            foreach (string text in new[] { "Open", "Rename…", "Delete Graph…" })
+                Assert.Contains(text, help);
+            Assert.Contains("Shift F10", help);
+        }
+
+        [AvaloniaFact]
+        public void HelpText_FollowsTheHostItems_AsTheyChange() {
             using var fixture = new KitFixture();
             RecentRow row = NewRow();
             Shown(row);
-            Assert.False(row.Menu.Items.Single(i => i.Text == "Open in New Window").IsEnabled);
+            Assert.DoesNotContain("Choose Preset…", AutomationProperties.GetHelpText(row));
 
-            var command = new StubCommand();
-            row.OpenInNewWindowCommand = command;
-            MenuRow item = row.Menu.Items.Single(i => i.Text == "Open in New Window");
-            Assert.True(item.IsEnabled);
-            Assert.NotNull(item.Activate);
-            item.Activate();
-            Assert.Equal(1, command.ExecuteCount);
-        }
+            row.MenuItems.Add(Item("Choose Preset…"));
 
-        [AvaloniaFact]
-        public void ContextMenu_Duplicate_EnablesOnlyWithACommand_AndActivatesIt() {
-            using var fixture = new KitFixture();
-            RecentRow row = NewRow();
-            Shown(row);
-            Assert.False(row.Menu.Items.Single(i => i.Text == "Duplicate").IsEnabled);
-
-            var command = new StubCommand();
-            row.DuplicateCommand = command;
-            MenuRow item = row.Menu.Items.Single(i => i.Text == "Duplicate");
-            Assert.True(item.IsEnabled);
-            Assert.NotNull(item.Activate);
-            item.Activate();
-            Assert.Equal(1, command.ExecuteCount);
-        }
-
-        [AvaloniaFact]
-        public void ContextMenu_Export_EnablesOnlyWithACommand_AndActivatesIt() {
-            using var fixture = new KitFixture();
-            RecentRow row = NewRow();
-            Shown(row);
-            Assert.False(row.Menu.Items.Single(i => i.Text == "Export…").IsEnabled);
-
-            var command = new StubCommand();
-            row.ExportCommand = command;
-            MenuRow item = row.Menu.Items.Single(i => i.Text == "Export…");
-            Assert.True(item.IsEnabled);
-            Assert.NotNull(item.Activate);
-            item.Activate();
-            Assert.Equal(1, command.ExecuteCount);
-        }
-
-        [AvaloniaFact]
-        public void ContextMenu_ShowInFinder_EnablesOnlyWithACommand_AndActivatesIt() {
-            using var fixture = new KitFixture();
-            RecentRow row = NewRow();
-            Shown(row);
-            Assert.False(row.Menu.Items.Single(i => i.Text == "Show in Finder").IsEnabled);
-
-            var command = new StubCommand();
-            row.ShowInFinderCommand = command;
-            MenuRow item = row.Menu.Items.Single(i => i.Text == "Show in Finder");
-            Assert.True(item.IsEnabled);
-            Assert.NotNull(item.Activate);
-            item.Activate();
-            Assert.Equal(1, command.ExecuteCount);
+            Assert.Contains("Choose Preset…", AutomationProperties.GetHelpText(row));
         }
 
         [AvaloniaFact]
@@ -551,59 +537,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
-        public void Return_InvokesTheOpenCommand() {
-            using var fixture = new KitFixture();
-            RecentRow row = NewRow();
-            var open = new StubCommand();
-            row.OpenCommand = open;
-            Shown(row);
-
-            fixture.StateOf(row).KeyDown(Key.Return);
-
-            Assert.Equal(1, open.ExecuteCount);
-        }
-
-        [AvaloniaFact]
-        public void CommandDownArrow_AlsoInvokesTheOpenCommand() {
-            using var fixture = new KitFixture();
-            RecentRow row = NewRow();
-            var open = new StubCommand();
-            row.OpenCommand = open;
-            Shown(row);
-
-            fixture.StateOf(row).KeyDown(Key.Down, KeyModifiers.Meta);
-
-            Assert.Equal(1, open.ExecuteCount);
-        }
-
-        [AvaloniaFact]
-        public void Return_DoesNothing_WhenTheRowIsUnavailable() {
-            using var fixture = new KitFixture();
-            RecentRow row = NewRow();
-            var open = new StubCommand();
-            row.OpenCommand = open;
-            row.IsUnavailable = true;
-            Shown(row);
-
-            fixture.StateOf(row).KeyDown(Key.Return);
-
-            Assert.Equal(0, open.ExecuteCount);
-        }
-
-        [AvaloniaFact]
-        public void Backspace_InvokesTheRemoveFromRecentsCommand() {
-            using var fixture = new KitFixture();
-            RecentRow row = NewRow();
-            var remove = new StubCommand();
-            row.RemoveFromRecentsCommand = remove;
-            Shown(row);
-
-            fixture.StateOf(row).KeyDown(Key.Back);
-
-            Assert.Equal(1, remove.ExecuteCount);
-        }
-
-        [AvaloniaFact]
         public void Backspace_RaisesRemoveRequested_WithTheRowsItem_ExactlyOnce() {
             using var fixture = new KitFixture();
             RecentRow row = NewRow();
@@ -621,7 +554,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
-        public void Backspace_RaisesRemoveRequested_EvenWithNoRemoveFromRecentsCommand() {
+        public void Backspace_RaisesRemoveRequested_WithoutAnyMenuItems() {
             using var fixture = new KitFixture();
             RecentRow row = NewRow();
             int raised = 0;
@@ -634,24 +567,11 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
-        public void Delete_DoesNotInvokeRemove() {
-            using var fixture = new KitFixture();
-            RecentRow row = NewRow();
-            var remove = new StubCommand();
-            row.RemoveFromRecentsCommand = remove;
-            Shown(row);
-
-            fixture.StateOf(row).KeyDown(Key.Delete);
-
-            Assert.Equal(0, remove.ExecuteCount);
-        }
-
-        [AvaloniaFact]
         public void Space_DoesNothing_AndLeavesTheEventUnhandled() {
             using var fixture = new KitFixture();
             RecentRow row = NewRow();
-            var open = new StubCommand();
-            row.OpenCommand = open;
+            int openRequested = 0;
+            row.OpenRequested += (_, _) => openRequested++;
             int removeRequested = 0;
             row.RemoveRequested += (_, _) => removeRequested++;
             Shown(row);
@@ -659,7 +579,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             var e = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Space };
             row.RaiseEvent(e);
 
-            Assert.Equal(0, open.ExecuteCount);
+            Assert.Equal(0, openRequested);
             Assert.False(row.IsMenuOpen);
             Assert.Equal(0, removeRequested);
             Assert.False(e.Handled);
@@ -679,52 +599,46 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
-        public void AutomationName_Unavailable_AppendsUnavailableAndTheReason() {
+        public void AutomationName_Unavailable_ReadsNormallyThenPresetNotInstalled() {
             using var fixture = new KitFixture();
             RecentRow row = NewRow();
-            row.PresetLabel = "Preset missing";
+            row.UnavailableMeta = "Preset “Space Age” isn't installed";
             row.IsUnavailable = true;
             Shown(row);
 
-            string? name = AutomationProperties.GetName(row);
-            Assert.Contains("unavailable, Preset missing", name);
+            Assert.Equal("Blue science 90/min, Space Age, 214 nodes, Tuesday, September 15, 2026 at 3:04 PM, preset not installed", AutomationProperties.GetName(row));
+        }
+
+        [AvaloniaFact]
+        public void Delete_DoesNotRaiseRemoveRequested() {
+            using var fixture = new KitFixture();
+            RecentRow row = NewRow();
+            int raised = 0;
+            row.RemoveRequested += (_, _) => raised++;
+            Shown(row);
+
+            fixture.StateOf(row).KeyDown(Key.Delete);
+
+            Assert.Equal(0, raised);
+        }
+
+        [AvaloniaFact]
+        public void HelpText_NamesBackspaceOnlyWhenTheHostListensForRemoval_AndAppendsTheHostHints() {
+            using var fixture = new KitFixture();
+            RecentRow row = NewRow();
+            Shown(row);
+            Assert.DoesNotContain("Backspace", AutomationProperties.GetHelpText(row));
+
+            row.RemoveRequested += (_, _) => { };
+            row.HelpHints = "Delete Graph: Command Backspace.";
+            row.MenuItems.Add(Item("Rename…"));
+
+            string? help = AutomationProperties.GetHelpText(row);
+            Assert.Contains("Remove: Backspace.", help);
+            Assert.Contains("Delete Graph: Command Backspace.", help);
         }
 
         //No AXCustomAction provider exists in Avalonia; menu commands are mirrored into HelpText.
-        [AvaloniaFact]
-        public void HelpText_MirrorsTheAbsoluteDate_AndEveryContextMenuCommand() {
-            using var fixture = new KitFixture();
-            RecentRow row = NewRow();
-            Shown(row);
-
-            string? help = AutomationProperties.GetHelpText(row);
-            Assert.Contains("Tuesday, September 15, 2026 at 3:04 PM", help);
-            foreach (MenuRow item in row.Menu.Items.Where(i => !i.IsSeparator))
-                Assert.Contains(item.Text, help);
-            Assert.Contains("Shift F10", help);
-        }
-
-        [AvaloniaFact]
-        public void HelpText_OnAnAvailableRow_DoesNotMentionChoosePreset() {
-            using var fixture = new KitFixture();
-            RecentRow row = NewRow();
-            Shown(row);
-
-            string? help = AutomationProperties.GetHelpText(row);
-            Assert.DoesNotContain("Choose Preset…", help);
-        }
-
-        [AvaloniaFact]
-        public void HelpText_OnAnUnavailableRow_MentionsChoosePreset() {
-            using var fixture = new KitFixture();
-            RecentRow row = NewRow();
-            row.IsUnavailable = true;
-            Shown(row);
-
-            string? help = AutomationProperties.GetHelpText(row);
-            Assert.Contains("Choose Preset…", help);
-        }
-
         [AvaloniaFact]
         public void Pumping_ContextMenu_SteadyStateAfterOpen_RaisesNoFurtherLayout() {
             using var fixture = new KitFixture();

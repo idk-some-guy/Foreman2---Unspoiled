@@ -64,6 +64,11 @@ namespace Foreman.Mac {
         public override void OnFrameworkInitializationCompleted() {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 BootAndShow(desktop);
+            if (!GalleryMode && this.TryGetFeature<IActivatableLifetime>() is { } activatable)
+                activatable.Activated += (_, e) => {
+                    if (e.Kind == ActivationKind.Reopen)
+                        Async.Fire(ShellHost.ReopenAsync(), nameof(ShellHost.ReopenAsync));
+                };
 
             base.OnFrameworkInitializationCompleted();
         }
@@ -117,10 +122,8 @@ namespace Foreman.Mac {
                 var settings = settingsService.Load();
                 ApplyTheme(settings.FlagDarkMode);
                 var window = await bootShell(settingsService, settings).ConfigureAwait(true);
-                if (window is not null) {
+                if (window is not null)
                     desktop.MainWindow = window;
-                    desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
-                }
             } catch (Exception ex) {
                 ErrorLogging.LogException(ex, "Unhandled exception during startup boot");
                 fatalExit();

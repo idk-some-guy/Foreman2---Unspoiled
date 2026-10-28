@@ -62,7 +62,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(new KeyGesture(Key.F, KeyModifiers.Control), GestureOf("Find Node…"));
             Assert.Equal(new KeyGesture(Key.G, KeyModifiers.Control), GestureOf("Find Next"));
             Assert.Equal(new KeyGesture(Key.G, KeyModifiers.Control | KeyModifiers.Shift), GestureOf("Find Previous"));
-            Assert.Equal(new KeyGesture(Key.W, KeyModifiers.Control | KeyModifiers.Shift), GestureOf("Welcome to Foreman"));
+            Assert.Equal(new KeyGesture(Key.D1, KeyModifiers.Control | KeyModifiers.Shift), GestureOf("Welcome to Foreman"));
             Assert.Equal(new KeyGesture(Key.P, KeyModifiers.Control | KeyModifiers.Alt), GestureOf("Pause All Calculations"));
             Assert.Equal(new KeyGesture(Key.T, KeyModifiers.Control | KeyModifiers.Alt), GestureOf("Show Toolbar"));
             Assert.Equal(new KeyGesture(Key.OemQuestion, KeyModifiers.Control | KeyModifiers.Shift), GestureOf("Foreman 2 Help"));
