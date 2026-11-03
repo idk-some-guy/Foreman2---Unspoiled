@@ -93,22 +93,6 @@ namespace Foreman.Mac.UiTests.Services {
         }
 
         [Fact]
-        public void Cancelled_ReturnsToIdle_NeverFailed_AndTheLateEndIsIgnored() {
-            (SolveStatusTracker tracker, ManualTimeProvider clock, List<SolveStatusState> states) = NewTracker();
-            tracker.OnSolveStarted();
-            clock.Advance(Grace);
-            Assert.Equal(SolveStatusState.Solving, tracker.State);
-
-            tracker.OnSolveCancelled();
-            Assert.Equal(SolveStatusState.Idle, tracker.State);
-            tracker.OnSolveEnded([Failure(1)]);
-
-            Assert.Equal(SolveStatusState.Idle, tracker.State);
-            Assert.Null(tracker.Failure);
-            Assert.DoesNotContain(SolveStatusState.Failed, states);
-        }
-
-        [Fact]
         public void Cancelled_InsideTheGrace_NeverShowsSolving() {
             (SolveStatusTracker tracker, ManualTimeProvider clock, List<SolveStatusState> states) = NewTracker();
             tracker.OnSolveStarted();
@@ -134,19 +118,6 @@ namespace Foreman.Mac.UiTests.Services {
         }
 
         [Fact]
-        public void AnEndAfterACancelledSolve_IsOnlyIgnoredOnce() {
-            (SolveStatusTracker tracker, _, _) = NewTracker();
-            tracker.OnSolveStarted();
-            tracker.OnSolveCancelled();
-            tracker.OnSolveEnded([Failure(1)]);
-
-            tracker.OnSolveStarted();
-            tracker.OnSolveEnded([Failure(2)]);
-
-            Assert.Equal(SolveStatusState.Failed, tracker.State);
-        }
-
-        [Fact]
         public void SecondStartInsideTheGrace_RestartsTheClock() {
             (SolveStatusTracker tracker, ManualTimeProvider clock, _) = NewTracker();
             tracker.OnSolveStarted();
@@ -159,6 +130,33 @@ namespace Foreman.Mac.UiTests.Services {
             clock.Advance(TimeSpan.FromMilliseconds(100));
 
             Assert.Equal(SolveStatusState.Solving, tracker.State);
+        }
+
+        [Fact]
+        public void StartWhileSolving_KeepsTheGraceClockAndTheState() {
+            (SolveStatusTracker tracker, ManualTimeProvider clock, List<SolveStatusState> states) = NewTracker();
+            tracker.OnSolveStarted();
+            clock.Advance(TimeSpan.FromMilliseconds(300));
+
+            tracker.OnSolveStarted();
+            clock.Advance(TimeSpan.FromMilliseconds(100));
+            Assert.Equal(SolveStatusState.Solving, tracker.State);
+            tracker.OnSolveStarted();
+            clock.Advance(TimeSpan.FromMilliseconds(500));
+
+            Assert.Equal(SolveStatusState.Solving, tracker.State);
+            Assert.Equal([SolveStatusState.Solving], states);
+        }
+
+        [Fact]
+        public void FailedWithNoFailures_IsFailedWithNothingToShow() {
+            (SolveStatusTracker tracker, _, _) = NewTracker();
+
+            tracker.OnSolveStarted();
+            tracker.OnSolveFailed([]);
+
+            Assert.Equal(SolveStatusState.Failed, tracker.State);
+            Assert.Null(tracker.Failure);
         }
 
         [Fact]

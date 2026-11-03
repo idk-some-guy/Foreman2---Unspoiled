@@ -1194,7 +1194,10 @@ namespace Foreman.Mac.UiTests {
             var clock = new ManualTimeProvider();
             window.UseSolveTracker(new SolveStatusTracker(clock));
             OpenViewOptions(window);
-            window.SolveTracker.OnSolveStarted();
+            ManualTaskScheduler.Defer(window.GraphCanvas.Viewer.Graph);
+            var pair = new RecipeQualityPair(window.DataCache!.Recipes["iron-plate"], window.DataCache.DefaultQuality!);
+            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(pair, new System.Drawing.Point(0, 0)).UpdateState();
+            window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
             clock.Advance(TimeSpan.FromMilliseconds(400));
             Assert.Equal(SolveStatusState.Solving, window.Toolbar.ZoomStepper.SolveStatus.State);
             PopoverFrame viewOptions = window.GetVisualDescendants().OfType<PopoverFrame>().Single(f => f.Name == "ViewOptionsPopover");
@@ -1203,11 +1206,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(SolveStatusState.Idle, window.SolveTracker.State);
             Assert.Equal(SolveStatusState.Idle, window.Toolbar.ZoomStepper.SolveStatus.State);
             Assert.True(viewOptions.IsOpen);
-
-            window.SolveTracker.OnSolveEnded([new Foreman.Models.Solver.SolveFailure([1], Foreman.Models.Solver.SolveFailureReason.Infeasible)]);
-            Assert.Equal(SolveStatusState.Idle, window.Toolbar.ZoomStepper.SolveStatus.State);
-            Assert.Equal(SolveStatusState.Idle, window.TitleBarSolveStatus.State);
-            Assert.False(ItemNamed(SubMenu(TopMenu(window), "View"), "Show Solve Error").IsEnabled);
         }
 
         [AvaloniaFact]

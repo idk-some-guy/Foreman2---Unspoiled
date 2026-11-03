@@ -1,9 +1,11 @@
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
+using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
@@ -12,6 +14,7 @@ using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Models;
+using Foreman.Models.Nodes;
 using Foreman.Models.Solver;
 using System;
 using System.Collections.Generic;
@@ -152,6 +155,177 @@ namespace Foreman.Mac.UiTests {
             window.SolveTracker.OnSolveEnded([Failure(2, 3)]);
 
             Assert.Equal(["Couldn't solve this graph"], announcements);
+        }
+
+        private static (ShellFixture Shell, ManualTimeProvider Clock, List<string> Announcements) OpenManual() {
+            ShellFixture shell = ShellFixture.Open();
+            var clock = new ManualTimeProvider();
+            shell.Window.UseSolveTracker(new SolveStatusTracker(clock));
+            ManualTaskScheduler.Defer(shell.Graph);
+            TextBlock announcer = shell.Window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "SearchAnnouncer");
+            List<string> announcements = [];
+            announcer.PropertyChanged += (_, e) => {
+                if (e.Property == AutomationProperties.NameProperty && e.NewValue is string { Length: > 0 } text)
+                    announcements.Add(text);
+            };
+            return (shell, clock, announcements);
+        }
+
+        private static BaseNode AddRecipeNode(ShellFixture shell, string recipe, int x) {
+            DataCache cache = shell.Window.DataCache!;
+            var pair = new RecipeQualityPair(cache.Recipes[recipe], cache.DefaultQuality!);
+            BaseNode node = shell.Graph.CreateRecipeNode(pair, new System.Drawing.Point(x, 0));
+            node.UpdateState();
+            shell.Graph.UpdateNodeValues();
+            return node;
+        }
+
+        private static void FinishSolve(ShellFixture shell) {
+            shell.SolveWorker.RunAll();
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        [AvaloniaFact]
+        public void AnEdit_IsSolvingBeforeTheWorkerRuns_ShowsTheSpinnerAfterTheGrace_AndEndsIdleWhenApplied() {
+            (ShellFixture shell, ManualTimeProvider clock, _) = OpenManual();
+            using ShellFixture opened = shell;
+
+            AddRecipeNode(shell, "iron-plate", 0);
+
+            Assert.True(shell.Graph.Solver.IsSolving);
+            Assert.Equal(SolveStatusState.Idle, shell.Window.TitleBarSolveStatus.State);
+            clock.Advance(TimeSpan.FromMilliseconds(400));
+            Assert.Equal(SolveStatusState.Solving, shell.Window.SolveTracker.State);
+            Assert.Equal(SolveStatusState.Solving, shell.Window.TitleBarSolveStatus.State);
+
+            FinishSolve(shell);
+
+            Assert.False(shell.Graph.Solver.IsSolving);
+            Assert.Equal(SolveStatusState.Idle, shell.Window.SolveTracker.State);
+            Assert.Equal(SolveStatusState.Idle, shell.Window.TitleBarSolveStatus.State);
+        }
+
+        [AvaloniaFact]
+        public void CommandPeriod_MidSolve_CancelsThroughTheGraph_AnnouncesOnce_AndALaterRunChangesNothing() {
+            (ShellFixture shell, ManualTimeProvider clock, List<string> announcements) = OpenManual();
+            using ShellFixture opened = shell;
+            BaseNode node = AddRecipeNode(shell, "iron-plate", 0);
+            clock.Advance(TimeSpan.FromMilliseconds(400));
+            Assert.Equal(SolveStatusState.Solving, shell.Window.SolveTracker.State);
+            List<SolveEndKind> ends = [];
+            shell.Graph.SolveEnded += (_, e) => ends.Add(e.Kind);
+
+            CanvasKeys.KeyDownOn(shell.Window, Key.OemPeriod, KeyModifiers.Meta);
+
+            Assert.Equal([SolveEndKind.Cancelled], ends);
+            Assert.Equal(SolveStatusState.Idle, shell.Window.SolveTracker.State);
+            Assert.Equal(["Solve cancelled."], announcements);
+            Assert.False(shell.Graph.Solver.IsSolving);
+            FinishSolve(shell);
+            Assert.Equal([SolveEndKind.Cancelled], ends);
+            Assert.Equal(SolveStatusState.Idle, shell.Window.SolveTracker.State);
+            Assert.NotEqual(NodeSolveState.Current, node.SolveState);
+        }
+
+        [AvaloniaFact]
+        public void AnEditMidSolve_EndsSuperseded_ThenApplied_WithTheTrackerSolvingThroughout() {
+            (ShellFixture shell, ManualTimeProvider clock, _) = OpenManual();
+            using ShellFixture opened = shell;
+            AddRecipeNode(shell, "iron-plate", 0);
+            clock.Advance(TimeSpan.FromMilliseconds(400));
+            List<SolveEndKind> ends = [];
+            List<SolveStatusState> states = [];
+            shell.Graph.SolveEnded += (_, e) => {
+                ends.Add(e.Kind);
+                states.Add(shell.Window.SolveTracker.State);
+            };
+
+            BaseNode second = AddRecipeNode(shell, "copper-plate", 300);
+
+            Assert.Equal([SolveEndKind.Superseded], ends);
+            Assert.Equal([SolveStatusState.Solving], states);
+            FinishSolve(shell);
+
+            Assert.Equal([SolveEndKind.Superseded, SolveEndKind.Applied], ends);
+            Assert.Equal(SolveStatusState.Idle, shell.Window.SolveTracker.State);
+            Assert.Equal(NodeSolveState.Current, second.SolveState);
+        }
+
+        [AvaloniaFact]
+        public void AFailedEnd_WithNoFailures_ShowsTheFallbackPanelOnBothStatuses() {
+            (ShellFixture shell, _, _) = OpenManual();
+            using ShellFixture opened = shell;
+            List<SolveEndedEventArgs> ends = [];
+            shell.Graph.SolveEnded += (_, e) => ends.Add(e);
+            shell.Graph.NodeValuesUpdated += (_, _) => throw new InvalidOperationException();
+
+            AddRecipeNode(shell, "iron-plate", 0);
+            FinishSolve(shell);
+
+            SolveEndedEventArgs end = Assert.Single(ends);
+            Assert.Equal(SolveEndKind.Failed, end.Kind);
+            Assert.Empty(end.Failures);
+            Assert.Equal(SolveStatusState.Failed, shell.Window.SolveTracker.State);
+            Assert.Null(shell.Window.SolveTracker.Failure);
+            foreach (SolveStatus status in new[] { shell.Window.Toolbar.ZoomStepper.SolveStatus, shell.Window.TitleBarSolveStatus }) {
+                Assert.Equal(SolveStatusState.Failed, status.State);
+                StatePanel panel = PanelOf(status);
+                Assert.Equal(Foreman.Mac.Views.SolveErrorPanel.Sentence(SolveFailureReason.Unknown), panel.Sentence);
+                Assert.Equal(["Try Again"], ButtonsOf(panel).Select(b => (string)b.Content!));
+            }
+        }
+
+        private static void PauseThroughTheCheckbox(MainWindow window) {
+            window.ApplyLoadedSettings();
+            window.ViewModel.ToggleViewOptionsCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "PauseUpdatesCheckbox").IsChecked = true;
+        }
+
+        private static void PauseThroughTheMenu(MainWindow window) {
+            static IEnumerable<NativeMenuItem> All(NativeMenu menu) {
+                foreach (NativeMenuItem item in menu.Items.OfType<NativeMenuItem>()) {
+                    yield return item;
+                    if (item.Menu is NativeMenu submenu)
+                        foreach (NativeMenuItem nested in All(submenu))
+                            yield return nested;
+                }
+            }
+            All(NativeMenu.GetMenu(window)!).Single(i => i.Header == "Pause All Calculations").Command!.Execute(null);
+        }
+
+        [AvaloniaTheory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void PausingMidSolve_CancelsItSilently_AndALaterEditLeavesNothingSpinning(bool throughTheMenu) {
+            (ShellFixture shell, ManualTimeProvider clock, List<string> announcements) = OpenManual();
+            using ShellFixture opened = shell;
+            AddRecipeNode(shell, "iron-plate", 0);
+            clock.Advance(TimeSpan.FromMilliseconds(400));
+            Assert.Equal(SolveStatusState.Solving, shell.Window.SolveTracker.State);
+
+            if (throughTheMenu)
+                PauseThroughTheMenu(shell.Window);
+            else
+                PauseThroughTheCheckbox(shell.Window);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(shell.Graph.PauseUpdates);
+            AddRecipeNode(shell, "copper-plate", 300);
+            FinishSolve(shell);
+
+            Assert.Equal(SolveStatusState.Idle, shell.Window.SolveTracker.State);
+            Assert.Equal(SolveStatusState.Idle, shell.Window.TitleBarSolveStatus.State);
+            Assert.False(shell.Graph.Solver.IsSolving);
+            Assert.Empty(announcements);
+        }
+
+        [AvaloniaFact]
+        public void TheProductionDefault_AttachesAnAvaloniaContextToTheGraph() {
+            var graph = new ProductionGraph();
+
+            UiTestAssemblySetup.ProductionAttachSolveContext(graph);
+
+            Assert.IsType<AvaloniaSynchronizationContext>(graph.SolveContext);
         }
     }
 }

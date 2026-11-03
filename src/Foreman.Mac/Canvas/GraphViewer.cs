@@ -1,4 +1,5 @@
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
@@ -102,10 +103,13 @@ namespace Foreman.Mac.Canvas {
 
         public string PausedValueSuffix => IsPaused ? ", calculations paused" : "";
 
+        internal static Action<ProductionGraph> AttachSolveContext { get; set; } = graph => graph.SolveContext = new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Default);
+
         public GraphViewer(Viewport viewport, GridManager grid) {
             Viewport = viewport;
             Grid = grid;
             Graph = new ProductionGraph();
+            AttachSolveContext(Graph);
             Session = new ProductionGraphSession(Graph);
             Context = new NodeElementContext(Session.View, viewport) {
                 LinkWidthLookup = GetLinkWidth,

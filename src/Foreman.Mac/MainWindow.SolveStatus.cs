@@ -19,6 +19,7 @@ namespace Foreman.Mac {
         private RelayCommand showSolveErrorCommand = null!;
         private NativeMenuItem showSolveErrorMenuItem = null!;
         private SolveFailure? builtFailure;
+        private bool pauseIsCancelling;
         private SolveStatusState lastSolveState;
 
         internal SolveStatusTracker SolveTracker => solveTracker;
@@ -47,8 +48,41 @@ namespace Foreman.Mac {
             solveTracker.Changed += OnSolveTrackerChanged;
             ProductionGraph graph = GraphCanvas.Viewer.Graph;
             graph.SolveStarted += (_, _) => solveTracker.OnSolveStarted();
-            graph.SolveEnded += (_, _) => solveTracker.OnSolveEnded(graph.LastSolveFailures);
+            graph.SolveEnded += OnGraphSolveEnded;
             Closed += (_, _) => solveTracker.Disarm();
+        }
+
+        private void SetCalculationsPaused(bool paused) {
+            ProductionGraph graph = GraphCanvas.Viewer.Graph;
+            if (GraphCanvas.Viewer.IsPaused == paused)
+                return;
+            GraphCanvas.Viewer.IsPaused = paused;
+            if (!paused) {
+                graph.UpdateNodeValues();
+                return;
+            }
+            pauseIsCancelling = true;
+            try {
+                graph.Solver.Cancel();
+            } finally {
+                pauseIsCancelling = false;
+            }
+        }
+
+        private void OnGraphSolveEnded(object? sender, SolveEndedEventArgs e) {
+            switch (e.Kind) {
+                case SolveEndKind.Applied:
+                    solveTracker.OnSolveEnded(e.Failures);
+                    break;
+                case SolveEndKind.Failed:
+                    solveTracker.OnSolveFailed(e.Failures);
+                    break;
+                case SolveEndKind.Cancelled:
+                    solveTracker.OnSolveCancelled();
+                    if (!pauseIsCancelling)
+                        Announce("Solve cancelled.");
+                    break;
+            }
         }
 
         //The grace timer fires on a pool thread.
@@ -64,11 +98,12 @@ namespace Foreman.Mac {
             SolveFailure? failure = solveTracker.Failure;
             SolveStatus[] statuses = [toolbar.ZoomStepper.SolveStatus, titleBarSolveStatus];
 
-            if (!ReferenceEquals(failure, builtFailure)) {
+            bool wantsPanel = failure is not null || state == SolveStatusState.Failed;
+            if (!ReferenceEquals(failure, builtFailure) || wantsPanel != (statuses[0].ErrorContent is not null)) {
                 builtFailure = failure;
                 foreach (SolveStatus status in statuses) {
                     SolveStatus owner = status;
-                    owner.ErrorContent = failure is null ? null : SolveErrorPanel.Build(failure,
+                    owner.ErrorContent = !wantsPanel ? null : SolveErrorPanel.Build(failure,
                         showNode: () => { owner.IsErrorPopoverOpen = false; ShowFailedNodes(); },
                         tryAgain: () => { owner.IsErrorPopoverOpen = false; GraphCanvas.Viewer.Graph.UpdateNodeValues(); });
                 }

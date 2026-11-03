@@ -1,3 +1,4 @@
+using Foreman;
 using Foreman.DataCaching;
 using System;
 using System.IO;
@@ -10,6 +11,8 @@ namespace Foreman.Mac.UiTests.support {
     //in this assembly can reach the real errorlog.txt path, even one that reads LogFilePath without
     //wrapping it in UseIsolatedLogDirectory.
     internal static class UiTestAssemblySetup {
+        internal static Action<ProductionGraph> ProductionAttachSolveContext { get; private set; } = null!;
+
         [ModuleInitializer]
         internal static void Initialize() {
             string directory = Path.Combine(Path.GetTempPath(), "foreman-uitests-errorlog-" + Guid.NewGuid().ToString("N"));
@@ -20,6 +23,9 @@ namespace Foreman.Mac.UiTests.support {
             //per-run temp directory instead of the real AppPaths.UserDataDirectory.
             string dbDirectory = Path.Combine(Path.GetTempPath(), "foreman-uitests-db-" + Guid.NewGuid().ToString("N"));
             PresetProcessor.SetDefaultUserDataDirectoryOverride(dbDirectory);
+
+            ProductionAttachSolveContext = Foreman.Mac.Canvas.GraphViewer.AttachSolveContext;
+            Foreman.Mac.Canvas.GraphViewer.AttachSolveContext = graph => ManualTaskScheduler.InstallInline(graph);
         }
     }
 }

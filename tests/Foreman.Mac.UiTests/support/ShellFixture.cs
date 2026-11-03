@@ -22,6 +22,7 @@ namespace Foreman.Mac.UiTests.support {
 
         internal AddBrowserViewModel BrowserVm => (AddBrowserViewModel)Window.BrowserWindow!.DataContext!;
         internal ProductionGraph Graph => Window.GraphCanvas.Viewer.Graph;
+        internal ManualTaskScheduler SolveWorker => (ManualTaskScheduler)Graph.Solver.Worker;
 
         public static ShellFixture Open() {
             //Reset first, not just in Dispose - WindowScaler is process-wide, so a scale left non-default

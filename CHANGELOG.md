@@ -530,6 +530,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Solving no longer freezes the graph: the numbers are worked out in the background and applied when
+  they are ready. Cmd-period stops a long solve and leaves the last rates in place.
 - Launch now follows Show Welcome at Launch: with it on, only the welcome window opens and the preset
   loads in its own loading strip, with Try Again and the preset list as the answer to a failed load;
   with it off, the most recent graph reopens (or a new Untitled Graph opens on an empty library)

@@ -12,7 +12,6 @@ namespace Foreman.Mac.Services {
         private ITimer? graceTimer;
         private int generation;
         private bool inFlight;
-        private bool cancelled;
         private SolveStatusState state;
         private SolveFailure? failure;
 
@@ -23,8 +22,9 @@ namespace Foreman.Mac.Services {
 
         public void OnSolveStarted() {
             lock (gate) {
+                if (inFlight)
+                    return;
                 DisarmGrace();
-                cancelled = false;
                 inFlight = true;
                 int armed = ++generation;
                 graceTimer = time.CreateTimer(_ => OnGraceElapsed(armed), null, Motion.StatePanelDelay, Timeout.InfiniteTimeSpan);
@@ -36,12 +36,19 @@ namespace Foreman.Mac.Services {
             lock (gate) {
                 DisarmGrace();
                 inFlight = false;
-                if (cancelled) {
-                    cancelled = false;
-                    return;
-                }
                 SolveFailure? next = failures.Count > 0 ? failures[0] : null;
                 changed = Apply(next is null ? SolveStatusState.Idle : SolveStatusState.Failed, next);
+            }
+            if (changed)
+                Changed?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void OnSolveFailed(IReadOnlyList<SolveFailure> failures) {
+            bool changed;
+            lock (gate) {
+                DisarmGrace();
+                inFlight = false;
+                changed = Apply(SolveStatusState.Failed, failures.Count > 0 ? failures[0] : null);
             }
             if (changed)
                 Changed?.Invoke(this, EventArgs.Empty);
@@ -51,7 +58,7 @@ namespace Foreman.Mac.Services {
             bool changed;
             lock (gate) {
                 DisarmGrace();
-                cancelled = inFlight;
+                inFlight = false;
                 changed = Apply(SolveStatusState.Idle, null);
             }
             if (changed)
@@ -66,7 +73,7 @@ namespace Foreman.Mac.Services {
         private void OnGraceElapsed(int armed) {
             bool changed;
             lock (gate) {
-                if (armed != generation || cancelled)
+                if (armed != generation)
                     return;
                 changed = Apply(SolveStatusState.Solving, failure);
             }

@@ -504,7 +504,7 @@ namespace Foreman.Mac {
             if (replayingCancelKey || e.Key != Key.OemPeriod || e.KeyModifiers != PlatformModifiers.Primary)
                 return;
             if (solveTracker.State == SolveStatusState.Solving) {
-                solveTracker.OnSolveCancelled();
+                GraphCanvas.Viewer.Graph.Solver.Cancel();
                 e.Handled = true;
             } else if (contentPopoverHost.Surface.Children.OfType<PopoverFrame>().LastOrDefault(f => f.IsOpen) is { } popover) {
                 e.Handled = ReplayCancelKey(popover);
@@ -895,12 +895,7 @@ namespace Foreman.Mac {
                 GraphCanvas.InvalidateVisual();
             };
             pauseUpdatesCheckBox.IsCheckedChanged += (_, _) => {
-                bool paused = pauseUpdatesCheckBox.IsChecked == true;
-                if (GraphCanvas.Viewer.IsPaused != paused) {
-                    GraphCanvas.Viewer.IsPaused = paused;
-                    if (!paused)
-                        GraphCanvas.Viewer.Graph.UpdateNodeValues();
-                }
+                SetCalculationsPaused(pauseUpdatesCheckBox.IsChecked == true);
                 ResyncNativeMenuCheckedStates();
                 GraphCanvas.InvalidateVisual();
             };
@@ -1969,9 +1964,7 @@ namespace Foreman.Mac {
         }
 
         private void MenuTogglePauseCalculations() {
-            GraphCanvas.Viewer.IsPaused = !GraphCanvas.Viewer.IsPaused;
-            if (!GraphCanvas.Viewer.IsPaused)
-                GraphCanvas.Viewer.Graph.UpdateNodeValues();
+            SetCalculationsPaused(!GraphCanvas.Viewer.IsPaused);
             pauseUpdatesCheckBox.IsChecked = GraphCanvas.Viewer.IsPaused;
             ResyncNativeMenuCheckedStates();
             GraphCanvas.InvalidateVisual();
