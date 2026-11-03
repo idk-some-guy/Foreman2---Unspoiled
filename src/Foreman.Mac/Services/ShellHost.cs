@@ -2,10 +2,14 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Foreman.Mac.Views;
 using System;
+using Foreman.DataCaching;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Services {
@@ -15,7 +19,7 @@ namespace Foreman.Mac.Services {
 
         public static ShellContext? Context { get; set; }
 
-        public static bool HasLiveMainWindow => Context?.Window is { IsClosed: false };
+        public static bool HasLiveMainWindow => Context?.Window is { IsClosed: false, ShowDeferred: false };
 
         internal static IReadOnlyList<NativeMenuItemBase> BuildNoWindowItems() {
             NativeMenuItem Item(string header, Func<ShellContext, Task> action, KeyGesture gesture) => new(header) {
@@ -40,7 +44,7 @@ namespace Foreman.Mac.Services {
 
         internal static void Sync() {
             bool visible = Context is not null && !HasLiveMainWindow && WelcomeLauncher.Current is null;
-            bool actionable = WelcomeLauncher.Current?.ActionsEnabled ?? true;
+            bool actionable = (WelcomeLauncher.Current?.ActionsEnabled ?? true) && Context is not { Loading: true };
             foreach (NativeMenuItem item in noWindowItems) {
                 item.IsVisible = visible;
                 item.IsEnabled = actionable || item.Header == "Welcome to Foreman";
@@ -81,6 +85,58 @@ namespace Foreman.Mac.Services {
             Sync();
         }
 
+        private static readonly List<string> pendingFiles = [];
+
+        private static int busyDepth;
+        private static int busyGeneration;
+
+        internal static bool Busy => busyDepth > 0;
+
+        internal static IDisposable HoldBusy() {
+            busyDepth++;
+            return new BusyScope(busyGeneration);
+        }
+
+        internal static void ResetQueue() {
+            pendingFiles.Clear();
+            busyDepth = 0;
+            busyGeneration++;
+        }
+
+        private sealed class BusyScope(int generation) : IDisposable {
+            private bool disposed;
+
+            public void Dispose() {
+                if (disposed)
+                    return;
+                disposed = true;
+                if (generation != busyGeneration)
+                    return;
+                busyDepth--;
+                if (busyDepth == 0 && pendingFiles.Count > 0)
+                    Dispatcher.UIThread.Post(() => Async.Fire(OpenPendingFilesAsync(), nameof(OpenPendingFilesAsync)));
+            }
+        }
+
+        private static bool ShellReady => Context is { CacheLoaded: true } && !Busy && (WelcomeLauncher.Current?.CanOpenFiles ?? true);
+
+        internal static async Task OpenFilesAsync(IEnumerable<string> paths) {
+            pendingFiles.AddRange(paths.Where(path => string.Equals(Path.GetExtension(path), ".fjson", StringComparison.OrdinalIgnoreCase)));
+            if (!ShellReady)
+                return;
+            using IDisposable busy = HoldBusy();
+            while (pendingFiles.Count > 0) {
+                string path = pendingFiles[0];
+                pendingFiles.RemoveAt(0);
+                if (WelcomeLauncher.Current is { } welcome)
+                    await welcome.OpenPathFromMenuAsync(path).ConfigureAwait(true);
+                else
+                    await WelcomeLauncher.OpenPathAsync(Context!, path).ConfigureAwait(true);
+            }
+        }
+
+        internal static Task OpenPendingFilesAsync() => OpenFilesAsync([]);
+
         internal static async Task<MainWindow?> LiveWindowAsync() {
             if (MainWindow.ActiveWindow is { IsClosed: false } live)
                 return live;
@@ -101,7 +157,7 @@ namespace Foreman.Mac.Services {
         internal static void HideForeman() => HideApplication();
 
         internal static async Task ReopenAsync() {
-            if (Context?.Window is { IsClosed: false } live) {
+            if (Context?.Window is { IsClosed: false, ShowDeferred: false } live) {
                 if (!live.IsVisible)
                     live.Show();
                 live.Activate();

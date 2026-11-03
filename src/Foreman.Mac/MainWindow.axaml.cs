@@ -967,11 +967,43 @@ namespace Foreman.Mac {
         internal async Task OpenGraphFileAsync() {
             if (DataCache is null)
                 return;
+            using IDisposable busy = ShellHost.HoldBusy();
             (string Json, string Path)? picked = await (OpenFileStub?.Invoke() ?? PickGraphFileAsync()).ConfigureAwait(true);
             if (picked is not (string json, string path))
                 return;
 
             await OpenFjsonAsync(json, path).ConfigureAwait(true);
+        }
+
+        internal Window? AlertOwner { get; set; }
+
+        internal bool ShowDeferred { get; set; }
+
+        internal void RevealDeferred() {
+            if (!ShowDeferred)
+                return;
+            ShowDeferred = false;
+            Show();
+        }
+
+        internal async Task OpenFjsonPathAsync(string path) {
+            if (DataCache is null)
+                return;
+            if (await ReadGraphFileAsync(this, path).ConfigureAwait(true) is string json)
+                await OpenFjsonAsync(json, path).ConfigureAwait(true);
+        }
+
+        internal static async Task<string?> ReadGraphFileAsync(Window owner, string path) {
+            string name = Dialogs.MiddleTruncate(Path.GetFileNameWithoutExtension(path));
+            try {
+                string json = await File.ReadAllTextAsync(path).ConfigureAwait(true);
+                if (GraphSaveCodec.ReadViewer(json) is not null)
+                    return json;
+            } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
+                ErrorLogging.LogException(ex, $"Couldn't read dropped file '{path}'");
+            }
+            await Dialogs.ShowWarningAsync(owner, $"Couldn’t open “{name}”.", UnreadableGraphSentence).ConfigureAwait(true);
+            return null;
         }
 
         private async Task<(string Json, string Path)?> PickGraphFileAsync() {
@@ -997,7 +1029,7 @@ namespace Foreman.Mac {
             string name = Path.GetFileNameWithoutExtension(path);
             GraphViewerSaveDocument? document = GraphSaveCodec.ReadViewer(json);
             if (document is null || Library is null) {
-                await LoadGraphJsonAsync(json, name).ConfigureAwait(true);
+                await LoadReplacingAsync(json, name, null).ConfigureAwait(true);
                 return;
             }
 
@@ -1006,7 +1038,7 @@ namespace Foreman.Mac {
                 await OpenLibraryGraphAsync(existing.Id).ConfigureAwait(true);
                 return;
             }
-            if (!await LoadGraphJsonAsync(data, name).ConfigureAwait(true))
+            if (!await LoadReplacingAsync(data, name, null).ConfigureAwait(true))
                 return;
 
             GraphRow row = Library.Create(name, CurrentPresetName, data, GraphCanvas.Viewer.Graph.Nodes.Count(), path);
@@ -1019,10 +1051,25 @@ namespace Foreman.Mac {
             Library.FlushNow();
             if (Library.Find(id) is not GraphRow stored)
                 return;
-            if (!await LoadGraphJsonAsync(stored.Data, stored.Name, presetOverride).ConfigureAwait(true))
+            if (!await LoadReplacingAsync(stored.Data, stored.Name, presetOverride, announcePresetSwitch: false).ConfigureAwait(true))
                 return;
 
             ShowOpenedGraph(Library.Open(id) ?? stored);
+        }
+
+        private async Task<bool> LoadReplacingAsync(string json, string name, Preset? presetOverride, bool announcePresetSwitch = true) {
+            using IDisposable busy = ShellHost.HoldBusy();
+            Library?.FlushNow();
+            GraphRow? previous = Library?.OpenGraphId is Guid previousId ? Library.Find(previousId) : null;
+            if (await LoadGraphJsonAsync(json, name, presetOverride, announcePresetSwitch).ConfigureAwait(true))
+                return true;
+            if (previous is null || Library is null)
+                return false;
+            if (Library.OpenGraphId != previous.Id && await LoadGraphJsonAsync(previous.Data, previous.Name, announcePresetSwitch: false).ConfigureAwait(true))
+                Library.Resume(previous);
+            if (Library.OpenGraphId == previous.Id)
+                ViewModel.IsDirty = GraphLibraryService.IsEditedSinceSave(previous);
+            return false;
         }
 
         internal void OnAppDeactivated() => Library?.FlushNow();
@@ -1035,19 +1082,19 @@ namespace Foreman.Mac {
         }
 
         //Detaches the library graph before the swap so the load's own mutation events never autosave into the previous row.
-        internal async Task<bool> LoadGraphJsonAsync(string json, string name, Preset? presetOverride = null) {
+        internal async Task<bool> LoadGraphJsonAsync(string json, string name, Preset? presetOverride = null, bool announcePresetSwitch = true) {
             if (DataCache is not Foreman.DataCaching.DataCache cache || Settings is not AppSettings settings)
                 return false;
 
             GraphViewerSaveDocument? document = GraphSaveCodec.ReadViewer(json);
             if (document is null) {
-                await Dialogs.ShowWarningAsync(this, $"Couldn’t open “{Dialogs.MiddleTruncate(name)}”.", UnreadableGraphSentence).ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(AlertOwner ?? this, $"Couldn’t open “{Dialogs.MiddleTruncate(name)}”.", UnreadableGraphSentence).ConfigureAwait(true);
                 return false;
             }
 
             Library?.FlushNow();
             string previousPresetName = settings.CurrentPresetName;
-            Preset? chosenPreset = presetOverride ?? await ResolveChosenPresetAsync(document).ConfigureAwait(true);
+            Preset? chosenPreset = presetOverride ?? await ResolveChosenPresetAsync(document, announcePresetSwitch).ConfigureAwait(true);
             while (chosenPreset is not null && chosenPreset.Name != cache.PresetName) {
                 DataLoadResult loaded = await LoadDataCacheForPresetAsync(chosenPreset, settings).ConfigureAwait(true);
                 if (loaded.Cache is Foreman.DataCaching.DataCache newCache) {
@@ -1077,7 +1124,7 @@ namespace Foreman.Mac {
                 loadingGraph = false;
             }
             if (!result.Success)
-                await Dialogs.ShowWarningAsync(this, $"Couldn’t open “{Dialogs.MiddleTruncate(name)}”.", result.ErrorMessage ?? UnreadableGraphSentence).ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(AlertOwner ?? this, $"Couldn’t open “{Dialogs.MiddleTruncate(name)}”.", result.ErrorMessage ?? UnreadableGraphSentence).ConfigureAwait(true);
             else
                 ApplyLoadedGraphUiState(name);
 
@@ -1093,7 +1140,7 @@ namespace Foreman.Mac {
         //clean name match (or the name match itself had errors, which still carries its already-computed
         //errors into the list below rather than re-testing it) - every other installed preset gets tested
         //and the ranked picker decides. Returns null on cancel (dialog cancel or no installed presets).
-        internal async Task<Preset?> ResolveChosenPresetAsync(GraphViewerSaveDocument saveDocument) {
+        internal async Task<Preset?> ResolveChosenPresetAsync(GraphViewerSaveDocument saveDocument, bool announceSwitch = true) {
             if (Settings is not AppSettings settings || PresetResolver is not Services.PresetResolver presetResolver || SettingsService is not Services.SettingsService settingsService)
                 return null;
 
@@ -1138,8 +1185,9 @@ namespace Foreman.Mac {
             } else if (chosenPreset.Name != settings.CurrentPresetName) {
                 string previousPresetName = settings.CurrentPresetName;
                 string newPresetName = chosenPreset.Name;
-                await ShowPresetSwitchInfoAsync(string.Create(DisplayCulture.Format,
-                    $"Loaded graph uses a different Preset.\nPreset switched from \"{previousPresetName}\" to \"{newPresetName}\"")).ConfigureAwait(true);
+                if (announceSwitch)
+                    await ShowPresetSwitchInfoAsync(string.Create(DisplayCulture.Format,
+                        $"Loaded graph uses a different Preset.\nPreset switched from \"{previousPresetName}\" to \"{newPresetName}\"")).ConfigureAwait(true);
                 settings.CurrentPresetName = newPresetName;
                 settingsService.Save(settings);
             }
@@ -1147,8 +1195,10 @@ namespace Foreman.Mac {
             return chosenPreset;
         }
 
-        private Task<Preset?> ShowPresetSelectionDialogAsync(List<PresetErrorPackage> presetErrors) =>
-            PresetSelectionDialogStub?.Invoke(presetErrors) ?? RealShowPresetSelectionDialogAsync(presetErrors);
+        private Task<Preset?> ShowPresetSelectionDialogAsync(List<PresetErrorPackage> presetErrors) {
+            RevealDeferred();
+            return PresetSelectionDialogStub?.Invoke(presetErrors) ?? RealShowPresetSelectionDialogAsync(presetErrors);
+        }
 
         //Ports the ResolveChosenPresetAsync slow path's dialog launch (upstream ProductionGraphViewer.cs:
         //1477-1488). The chosen preset is read while the sheet is still open, so a failed read shows on its strip.
@@ -1173,14 +1223,17 @@ namespace Foreman.Mac {
             }
         });
 
-        private Task ShowPresetSwitchInfoAsync(string message) =>
-            PresetSwitchInfoStub?.Invoke(message) ?? Dialogs.ShowInfoAsync(this, message);
+        private Task ShowPresetSwitchInfoAsync(string message) {
+            RevealDeferred();
+            return PresetSwitchInfoStub?.Invoke(message) ?? Dialogs.ShowInfoAsync(this, message);
+        }
 
         //Ports the ResolveChosenPresetAsync/ReloadGraphForCurrentPreset shared DataLoadForm spin-up (upstream
         //ProductionGraphViewer.cs:1365-1386's non-corrupt path): swaps in the chosen preset's DataCache,
         //shared by both the Load-a-file path (LoadGraphJsonAsync) and the Settings preset-switch path
         //(ReloadForPresetAsync). Only a Loaded outcome swaps the live DataCache and the current preset.
         private async Task<DataLoadResult> LoadDataCacheForPresetAsync(Preset preset, AppSettings settings) {
+            RevealDeferred();
             DataLoadResult loaded = await (DataLoadStub?.Invoke(preset, settings) ?? RealLoadDataCacheAsync(preset, settings)).ConfigureAwait(true);
             if (loaded is { Outcome: DataLoadOutcome.Loaded, Cache: Foreman.DataCaching.DataCache newCache }) {
                 DataCache = newCache;
@@ -1199,6 +1252,7 @@ namespace Foreman.Mac {
         private async Task<Preset?> ChooseAnotherPresetAsync(GraphViewerSaveDocument saveDocument, Preset failed) {
             if (Settings is not AppSettings settings || PresetResolver is not Services.PresetResolver presetResolver)
                 return null;
+            RevealDeferred();
 
             List<PresetErrorPackage> presetErrors = await RatePresetsAsync(presetResolver, settings.CurrentPresetName, saveDocument).ConfigureAwait(true);
 
@@ -1406,14 +1460,8 @@ namespace Foreman.Mac {
             Library.FlushNow();
             if (Library.Versions().FirstOrDefault(v => v.Id == versionId) is not GraphVersionRow version || Library.Find(graphId) is not GraphRow current)
                 return;
-            bool loaded = await LoadGraphJsonAsync(version.Data, current.Name).ConfigureAwait(true);
-            if (!loaded) {
-                if (Library.OpenGraphId != graphId && await LoadGraphJsonAsync(current.Data, current.Name).ConfigureAwait(true))
-                    Library.Resume(current);
-                if (Library.OpenGraphId == graphId)
-                    ViewModel.IsDirty = GraphLibraryService.IsEditedSinceSave(current);
+            if (!await LoadReplacingAsync(version.Data, current.Name, null).ConfigureAwait(true))
                 return;
-            }
             Library.Resume(current);
             if (Library.Restore(versionId) is GraphRow restored) {
                 Library.Resume(restored);

@@ -656,6 +656,40 @@ namespace Foreman.Mac.UiTests.Views {
                 ProductionGraph = Foreman.Serialization.GraphSaveCodec.BuildProductionGraph(new Foreman.ProductionGraph()),
             });
 
+        private static string GraphJsonFor(DataCache cache) =>
+            Foreman.Serialization.GraphSaveCodec.WriteViewerDocumentToString(new Foreman.Serialization.GraphViewerSaveDocument {
+                Version = Foreman.Serialization.GraphSaveFormat.SaveFormatVersion,
+                SavedPresetName = cache.PresetName,
+                IncludedMods = new Dictionary<string, string>(cache.IncludedMods),
+                ProductionGraph = Foreman.Serialization.GraphSaveCodec.BuildProductionGraph(new Foreman.ProductionGraph()),
+            });
+
+        [AvaloniaFact]
+        public async Task OpeningARecent_WithAnotherPreset_LoadsThatGraphsOwnPreset() {
+            using var library = new LibraryFixture();
+            DataCache vanilla = await CacheAsync(VanillaName);
+            DataCache spaceAge = await CacheAsync(SpaceAgeName);
+            MainWindow main = WiredWindow(library, vanilla);
+            GraphRow row = library.Store.Create("Space Platform Loop", SpaceAgeName, GraphJsonFor(spaceAge), 0, null, library.Service.Now);
+            var requested = new List<string>();
+            var notices = new List<string>();
+            main.PresetSwitchInfoStub = message => { notices.Add(message); return Task.CompletedTask; };
+            main.PresetSelectionDialogStub = _ => throw new InvalidOperationException("picker opened");
+            main.DataLoadStub = (preset, _) => {
+                requested.Add(preset.Name);
+                return Task.FromResult(new DataLoadResult(spaceAge, DataLoadOutcome.Loaded));
+            };
+
+            bool opened = await WelcomeLauncher.OpenGraphAsync(main.ShellContext!, row, null);
+
+            Assert.True(opened);
+            Assert.Equal([SpaceAgeName], requested);
+            Assert.Empty(notices);
+            Assert.Equal(SpaceAgeName, main.DataCache!.PresetName);
+            Assert.Equal(SpaceAgeName, main.Settings!.CurrentPresetName);
+            Assert.Equal(row.Id, library.Service.OpenGraphId);
+        }
+
         [AvaloniaFact]
         public async Task MissingPresetRow_ChoosePreset_OpensWithTheChosenPresetWithoutAskingAgain_AndWritesTheRowOnlyAfterTheLoad() {
             using var library = new LibraryFixture();

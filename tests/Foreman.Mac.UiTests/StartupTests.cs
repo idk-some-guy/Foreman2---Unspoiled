@@ -1,7 +1,15 @@
 using Avalonia.Headless.XUnit;
 using Foreman.DataCaching;
 using Foreman.DataCaching.Storage;
+using Foreman.Models;
+using Avalonia.Controls;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.ViewModels;
+using Foreman.Mac.Views;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -147,83 +155,37 @@ namespace Foreman.Mac.UiTests {
             return dir;
         }
 
+        private static AppSettings WelcomeOff(SettingsService settingsService) {
+            AppSettings settings = settingsService.Load();
+            settings.ShowWelcomeAtLaunch = false;
+            return settings;
+        }
+
+        private static void CloseWelcome() {
+            WelcomeLauncher.Current?.Close();
+            WelcomeLauncher.CacheLoaderOverride = null;
+            ShellHost.Context = null;
+            ShellHost.ResetQueue();
+        }
+
+        private static async Task<string> EmptyVanillaGraphJsonAsync() {
+            var cache = new DataCache(filterRecipes: true);
+            await cache.LoadAllData(new Preset("Factorio 2.0 Vanilla", true, true), new Progress<KeyValuePair<int, string>>());
+            return Foreman.Serialization.GraphSaveCodec.WriteViewerDocumentToString(new Foreman.Serialization.GraphViewerSaveDocument {
+                Version = Foreman.Serialization.GraphSaveFormat.SaveFormatVersion,
+                SavedPresetName = cache.PresetName,
+                IncludedMods = new Dictionary<string, string>(cache.IncludedMods),
+                ProductionGraph = Foreman.Serialization.GraphSaveCodec.BuildProductionGraph(new Foreman.ProductionGraph()),
+            });
+        }
+
+        private static PresetResolver ResolverWithoutUserPresets() => new(presetsDirectoryOverride: null, userPresetsDirectoryOverride: NewTempHome());
+
         private static void CloseWithoutWelcome(MainWindow window) {
             window.Settings!.ShowWelcomeAtLaunch = false;
             window.Close();
             if (ShellHost.Context?.Window == window)
                 ShellHost.Context = null;
-        }
-
-        [AvaloniaFact]
-        public async Task BootAsync_RealVanillaPreset_LoadsMainWindowWithDataCache() {
-            var settingsService = new SettingsService(NewTempHome());
-
-            var window = await ShellBootstrapper.BootAsync(settingsService, settingsService.Load());
-
-            Assert.NotNull(window);
-            Assert.NotNull(window.DataCache);
-            Assert.True(window.DataCache!.AvailableRecipes.Any());
-            Assert.NotNull(window.Library);
-            GraphRow row = new GraphLibraryStore(settingsService.DatabasePath).Create("Probe", "p", "d", 0, null, DateTime.UtcNow);
-            Assert.Contains(window.Library!.All(), r => r.Id == row.Id);
-
-            CloseWithoutWelcome(window);
-
-            Assert.Null(ShellHost.Context);
-            Assert.False(ShellHost.HasLiveMainWindow);
-        }
-
-        [AvaloniaFact]
-        public async Task BootAsync_WindowClosed_SavesResolvedPresetNameToSettings() {
-            var settingsService = new SettingsService(NewTempHome());
-            var window = await ShellBootstrapper.BootAsync(settingsService, settingsService.Load());
-
-            CloseWithoutWelcome(window!);
-
-            Assert.Equal("Factorio 2.0 Vanilla", settingsService.Load().CurrentPresetName);
-        }
-
-        [AvaloniaFact]
-        public async Task BootAsync_PassedSettingsInstance_IsTheOneMutatedAndSaved() {
-            var settingsService = new SettingsService(NewTempHome());
-            var settings = settingsService.Load();
-            settings.IconsSize = 200; //an arbitrary in-range marker (ApplyLoadedSettings clamps to [8,256])
-
-            var window = await ShellBootstrapper.BootAsync(settingsService, settings);
-            CloseWithoutWelcome(window!);
-
-            var reloaded = settingsService.Load();
-            Assert.Equal(200, reloaded.IconsSize);
-            Assert.Equal("Factorio 2.0 Vanilla", reloaded.CurrentPresetName);
-        }
-
-        [AvaloniaFact]
-        public async Task BootAsync_LaunchWindowSettlesOnTheDefault_MakesItCurrent_WithNoStartupAlert() {
-            var settingsService = new SettingsService(NewTempHome());
-            var settings = settingsService.Load();
-            settings.CurrentPresetName = "Custom Preset";
-            string presetsDir = NewPresetsDirectoryWithVanillaAnd("Custom Preset");
-            var warnings = new List<string>();
-            (Preset Requested, Preset? Fallback)? call = null;
-
-            var window = await ShellBootstrapper.BootAsync(
-                settingsService,
-                settings,
-                new PresetResolver(presetsDir),
-                (preset, fallback, _) => {
-                    call = (preset, fallback);
-                    return Task.FromResult<(DataCache, Preset)?>((new DataCache(filterRecipes: true), fallback!));
-                },
-                (_, _, message) => { warnings.Add(message); return Task.CompletedTask; },
-                () => { });
-
-            Assert.NotNull(window);
-            Assert.Equal("Custom Preset", call!.Value.Requested.Name);
-            Assert.Equal("Factorio 2.0 Vanilla", call.Value.Fallback!.Name);
-            Assert.Empty(warnings);
-
-            CloseWithoutWelcome(window!);
-            Assert.Equal("Factorio 2.0 Vanilla", settingsService.Load().CurrentPresetName);
         }
 
         [AvaloniaFact]
@@ -256,7 +218,7 @@ namespace Foreman.Mac.UiTests {
 
             var window = await ShellBootstrapper.BootAsync(
                 settingsService,
-                settingsService.Load(),
+                WelcomeOff(settingsService),
                 new PresetResolver(presetsDir),
                 (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
                 (_, _, message) => { warnings.Add(message); return Task.CompletedTask; },
@@ -271,6 +233,904 @@ namespace Foreman.Mac.UiTests {
                 Assert.Equal(-1, assembly.AsSpan().IndexOf(System.Text.Encoding.Unicode.GetBytes(retired)));
         }
 
+        [AvaloniaFact]
+        public async Task BootAsync_WelcomeOn_ShowsOnlyTheWelcomeWindow_LoadsThePresetInline_NoDataLoadWindow() {
+            var settingsService = new SettingsService(NewTempHome());
+            AppSettings settings = settingsService.Load();
+            var cache = new DataCache(filterRecipes: true);
+            var gate = new TaskCompletionSource<DataCache?>();
+            WelcomeLauncher.CacheLoaderOverride = _ => gate.Task;
+            bool dataLoadUsed = false;
+            MainWindow? before = MainWindow.MostRecentlyOpened;
+            try {
+                MainWindow? window = await ShellBootstrapper.BootAsync(
+                    settingsService,
+                    settings,
+                    ResolverWithoutUserPresets(),
+                    (_, _, _) => { dataLoadUsed = true; return Task.FromResult<(DataCache, Preset)?>(null); },
+                    (_, _, _) => Task.CompletedTask,
+                    () => { },
+                    () => Task.CompletedTask);
+
+                Assert.Null(window);
+                WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+                Assert.True(welcome.IsVisible);
+                Assert.Null(ShellHost.Context!.Window);
+                Assert.False(ShellHost.HasLiveMainWindow);
+                Assert.Same(before, MainWindow.MostRecentlyOpened);
+                Assert.Equal(WelcomeLoadPhase.Loading, welcome.ViewModel.Phase);
+                Assert.False(welcome.NewGraphButton.IsEnabled);
+                Assert.True(welcome.LoadingStrip.IsVisible);
+                Assert.Contains("Factorio 2.0 Vanilla", welcome.ViewModel.LoadSentence);
+
+                gate.SetResult(cache);
+                await welcome.ViewModel.LoadTask;
+
+                Assert.Equal(WelcomeLoadPhase.Idle, welcome.ViewModel.Phase);
+                Assert.True(welcome.NewGraphButton.IsEnabled);
+                Assert.Same(cache, ShellHost.Context.Cache);
+                Assert.Same(before, MainWindow.MostRecentlyOpened);
+                Assert.Equal("Factorio 2.0 Vanilla", settingsService.Load().CurrentPresetName);
+                Assert.False(dataLoadUsed);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task BootAsync_WelcomeOn_PresetFailure_InlineErrorWithTryAgain_NoUseDefaultPreset() {
+            var settingsService = new SettingsService(NewTempHome());
+            bool fail = true;
+            var cache = new DataCache(filterRecipes: true);
+            WelcomeLauncher.CacheLoaderOverride = _ => Task.FromResult<DataCache?>(fail ? null : cache);
+            bool dataLoadUsed = false;
+            bool fatalExit = false;
+            var warnings = new List<string>();
+            try {
+                await ShellBootstrapper.BootAsync(
+                    settingsService,
+                    settingsService.Load(),
+                    ResolverWithoutUserPresets(),
+                    (_, _, _) => { dataLoadUsed = true; return Task.FromResult<(DataCache, Preset)?>(null); },
+                    (_, _, message) => { warnings.Add(message); return Task.CompletedTask; },
+                    () => fatalExit = true,
+                    () => Task.CompletedTask);
+                WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+                await welcome.ViewModel.LoadTask;
+
+                Assert.Equal(WelcomeLoadPhase.Failed, welcome.ViewModel.Phase);
+                Assert.True(welcome.ErrorPanel.IsVisible);
+                Assert.Equal("Couldn’t load “Factorio 2.0 Vanilla”", welcome.ErrorPanel.Headline);
+                Button tryAgain = welcome.ErrorPanel.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Content, "Try Again"));
+                Assert.True(tryAgain.IsDefault);
+                Assert.DoesNotContain(welcome.GetVisualDescendants().OfType<Button>(), b => Equals(b.Content, "Use Default Preset"));
+                Assert.False(welcome.NewGraphButton.IsEnabled);
+                Assert.NotEmpty(welcome.PresetList.ItemsSource!.Cast<Preset>());
+                Assert.False(dataLoadUsed);
+                Assert.False(fatalExit);
+                Assert.Empty(warnings);
+
+                fail = false;
+                await welcome.ViewModel.TryAgainAsync();
+
+                Assert.Equal(WelcomeLoadPhase.Idle, welcome.ViewModel.Phase);
+                Assert.False(welcome.ErrorPanel.IsVisible);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task BootAsync_WelcomeOff_ReopensTheMostRecentGraph_ThroughTheAtLaunchDataLoadWindow() {
+            var settingsService = new SettingsService(NewTempHome());
+            AppSettings settings = WelcomeOff(settingsService);
+            const string vanilla = "Factorio 2.0 Vanilla";
+            const string spaceAge = "Factorio 2.0 Space Age";
+            string vanillaJson = await EmptyVanillaGraphJsonAsync();
+            var spaceAgeCache = new DataCache(filterRecipes: true);
+            await spaceAgeCache.LoadAllData(new Preset(spaceAge, false, false), new Progress<KeyValuePair<int, string>>());
+            string spaceAgeJson = Foreman.Serialization.GraphSaveCodec.WriteViewerDocumentToString(new Foreman.Serialization.GraphViewerSaveDocument {
+                Version = Foreman.Serialization.GraphSaveFormat.SaveFormatVersion,
+                SavedPresetName = spaceAge,
+                IncludedMods = new Dictionary<string, string>(spaceAgeCache.IncludedMods),
+                ProductionGraph = Foreman.Serialization.GraphSaveCodec.BuildProductionGraph(new Foreman.ProductionGraph()),
+            });
+            var store = new GraphLibraryStore(settingsService.DatabasePath);
+            DateTime now = DateTime.UtcNow;
+            GraphRow older = store.Create("Older", vanilla, vanillaJson, 0, null, now.AddHours(-2));
+            GraphRow newest = store.Create("Newest", spaceAge, spaceAgeJson, 0, null, now.AddHours(-1));
+            Preset? requested = null;
+
+            MainWindow? window = await ShellBootstrapper.BootAsync(
+                settingsService,
+                settings,
+                ResolverWithoutUserPresets(),
+                (preset, fallback, filter) => {
+                    requested = preset;
+                    return ShellBootstrapper.LoadPresetAsync(preset, fallback, filter);
+                },
+                (_, _, _) => Task.CompletedTask,
+                () => { },
+                () => Task.CompletedTask);
+
+            Assert.NotNull(window);
+            Assert.Equal(spaceAge, requested!.Name);
+            Assert.Equal(spaceAge, window.DataCache!.PresetName);
+            Assert.Equal(newest.Id, window.Library!.OpenGraphId);
+            Assert.NotEqual(older.Id, window.Library.OpenGraphId);
+            Assert.Equal("Newest", window.ViewModel.DocumentName);
+            Assert.Equal(2, window.Library.All().Count);
+            Assert.Null(WelcomeLauncher.Current);
+            CloseWithoutWelcome(window);
+        }
+
+        [AvaloniaFact]
+        public async Task BootAsync_WelcomeOff_AFailingMostRecentGraph_AlertsOnce_AndLandsOnAnUntitledGraph() {
+            var settingsService = new SettingsService(NewTempHome());
+            AppSettings settings = WelcomeOff(settingsService);
+            var store = new GraphLibraryStore(settingsService.DatabasePath);
+            GraphRow failing = store.Create("Broken", "Factorio 2.0 Vanilla", "{}", 0, null, DateTime.UtcNow.AddHours(-1));
+            DataCache cache = await LoadedVanillaCacheAsync();
+
+            Task<MainWindow?> booting = ShellBootstrapper.BootAsync(
+                settingsService,
+                settings,
+                ResolverWithoutUserPresets(),
+                (preset, _, _) => Task.FromResult<(DataCache, Preset)?>((cache, preset)),
+                (_, _, _) => Task.CompletedTask,
+                () => { },
+                () => Task.CompletedTask);
+            await WaitUntilAsync(() => MainWindow.MostRecentlyOpened is { } opened
+                && SheetHost.For(opened).GetVisualDescendants().OfType<AlertSheet>().Any());
+            MainWindow shown = MainWindow.MostRecentlyOpened!;
+            AlertSheet alert = Assert.Single(SheetHost.For(shown).GetVisualDescendants().OfType<AlertSheet>());
+            Assert.Equal("Couldn’t open “Broken”.", alert.FrameControl.Headline);
+            alert.YesButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            MainWindow? window = await booting;
+
+            Assert.Same(shown, window);
+            Assert.Equal("Untitled Graph", window!.ViewModel.DocumentName);
+            Assert.NotNull(window.Library!.OpenGraphId);
+            Assert.NotEqual(failing.Id, window.Library.OpenGraphId);
+            Assert.NotNull(window.Library.Find(failing.Id));
+            CloseWithoutWelcome(window);
+        }
+
+        [AvaloniaFact]
+        public async Task BootAsync_WelcomeOff_EmptyLibrary_OpensUntitledGraph() {
+            var settingsService = new SettingsService(NewTempHome());
+            AppSettings settings = WelcomeOff(settingsService);
+            settings.CurrentPresetName = "Custom Preset";
+            settings.IconsSize = 200;
+            DataCache vanillaCache = await LoadedVanillaCacheAsync();
+            (Preset Requested, Preset? Fallback)? call = null;
+            var warnings = new List<string>();
+
+            MainWindow? window = await ShellBootstrapper.BootAsync(
+                settingsService,
+                settings,
+                new PresetResolver(NewPresetsDirectoryWithVanillaAnd("Custom Preset"), NewTempHome()),
+                (requested, fallback, _) => {
+                    call = (requested, fallback);
+                    return Task.FromResult<(DataCache, Preset)?>((vanillaCache, fallback!));
+                },
+                (_, _, message) => { warnings.Add(message); return Task.CompletedTask; },
+                () => { },
+                () => Task.CompletedTask);
+
+            Assert.NotNull(window);
+            Assert.Equal("Custom Preset", call!.Value.Requested.Name);
+            Assert.Equal("Factorio 2.0 Vanilla", call.Value.Fallback!.Name);
+            Assert.Empty(warnings);
+            Assert.Equal("Untitled Graph", window.ViewModel.DocumentName);
+            Assert.True(window.DataCache!.AvailableRecipes.Any());
+            GraphRow row = Assert.Single(window.Library!.All());
+            Assert.Equal(row.Id, window.Library.OpenGraphId);
+            GraphRow probe = new GraphLibraryStore(settingsService.DatabasePath).Create("Probe", "p", "d", 0, null, DateTime.UtcNow);
+            Assert.Contains(window.Library.All(), r => r.Id == probe.Id);
+            Assert.Null(WelcomeLauncher.Current);
+            CloseWithoutWelcome(window);
+
+            AppSettings reloaded = settingsService.Load();
+            Assert.Equal(200, reloaded.IconsSize);
+            Assert.Equal("Factorio 2.0 Vanilla", reloaded.CurrentPresetName);
+            Assert.Null(ShellHost.Context);
+            Assert.False(ShellHost.HasLiveMainWindow);
+        }
+
+        private static async Task<DataCache> LoadedVanillaCacheAsync() {
+            var cache = new DataCache(filterRecipes: true);
+            await cache.LoadAllData(new Preset("Factorio 2.0 Vanilla", true, true), new Progress<KeyValuePair<int, string>>());
+            return cache;
+        }
+
+        private static async Task WaitUntilAsync(Func<bool> condition) {
+            for (int i = 0; i < 400 && !condition(); i++) {
+                Dispatcher.UIThread.RunJobs();
+                await Task.Delay(10);
+            }
+            Assert.True(condition());
+        }
+
+        [AvaloniaFact]
+        public async Task OpenFilesAsync_OpensEachFjsonFileAsALibraryGraph_LikeOpen_AndIgnoresOtherFiles() {
+            using var library = new LibraryFixture();
+            DataCache cache = await LoadedVanillaCacheAsync();
+            MainWindow window = library.Track(new MainWindow());
+            window.Show();
+            window.GraphCanvas.Viewport.SetSize(800, 800);
+            window.DataCache = cache;
+            window.Settings = new AppSettings { CurrentPresetName = cache.PresetName!, ShowWelcomeAtLaunch = false };
+            window.PresetResolver = new PresetResolver(userPresetsDirectoryOverride: library.NewTempDir());
+            window.SettingsService = new SettingsService(library.NewTempDir());
+            window.Library = library.Service;
+            window.ApplyLoadedSettings();
+            await window.NewGraphAsync();
+            ShellHost.Context = window.ShellContext;
+            try {
+                GraphRow current = library.Service.Find(library.Service.OpenGraphId!.Value)!;
+                string currentData = current.Data;
+                int currentNodes = current.NodeCount;
+                string json = await EmptyVanillaGraphJsonAsync();
+                string dir = library.NewTempDir();
+                string first = Path.Combine(dir, "first.fjson");
+                string second = Path.Combine(dir, "second.fjson");
+                string other = Path.Combine(dir, "notes.txt");
+                string missing = Path.Combine(dir, "missing.fjson");
+                File.WriteAllText(first, json);
+                File.WriteAllText(second, json);
+                File.WriteAllText(other, "text");
+
+                Task opening = ShellHost.OpenFilesAsync([first, other, missing, second]);
+                await WaitUntilAsync(() => opening.IsCompleted || SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>().Any());
+                AlertSheet alert = Assert.Single(SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>());
+                Assert.Equal("Couldn’t open “missing”.", alert.FrameControl.Headline);
+                alert.YesButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                await opening;
+
+                IReadOnlyList<GraphRow> rows = library.Service.All();
+                Assert.Equal(3, rows.Count);
+                GraphRow firstRow = Assert.Single(rows, r => r.Name == "first");
+                GraphRow secondRow = Assert.Single(rows, r => r.Name == "second");
+                Assert.Equal(first, firstRow.SourcePath);
+                Assert.Equal(second, secondRow.SourcePath);
+                Assert.Equal(secondRow.Id, library.Service.OpenGraphId);
+                GraphRow after = library.Service.Find(current.Id)!;
+                Assert.Equal(currentData, after.Data);
+                Assert.Equal(currentNodes, after.NodeCount);
+
+                await ShellHost.OpenFilesAsync([first]);
+
+                Assert.Equal(3, library.Service.All().Count);
+                Assert.Equal(firstRow.Id, library.Service.OpenGraphId);
+            } finally {
+                ShellHost.Context = null;
+                ShellHost.ResetQueue();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenFilesAsync_BeforeTheShellIsReady_QueuesTheFiles_AndOpensThemOncePresetLoads() {
+            var settingsService = new SettingsService(NewTempHome());
+            string dir = NewTempHome();
+            string early = Path.Combine(dir, "early.fjson");
+            string loading = Path.Combine(dir, "loading.fjson");
+            string json = await EmptyVanillaGraphJsonAsync();
+            File.WriteAllText(early, json);
+            File.WriteAllText(loading, json);
+            DataCache cache = await LoadedVanillaCacheAsync();
+            var gate = new TaskCompletionSource<DataCache?>();
+            WelcomeLauncher.CacheLoaderOverride = _ => gate.Task;
+            var store = new GraphLibraryStore(settingsService.DatabasePath);
+            try {
+                await ShellHost.OpenFilesAsync([early]);
+                Assert.Empty(store.ListByLastOpened());
+
+                await ShellBootstrapper.BootAsync(
+                    settingsService,
+                    settingsService.Load(),
+                    ResolverWithoutUserPresets(),
+                    (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
+                    (_, _, _) => Task.CompletedTask,
+                    () => { },
+                    () => Task.CompletedTask);
+                WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+                Assert.Equal(WelcomeLoadPhase.Loading, welcome.ViewModel.Phase);
+                await ShellHost.OpenFilesAsync([loading]);
+                Assert.Empty(store.ListByLastOpened());
+
+                gate.SetResult(cache);
+                await WaitUntilAsync(() => WelcomeLauncher.Current is null && ShellHost.HasLiveMainWindow && store.ListByLastOpened().Count == 2);
+
+                IReadOnlyList<GraphRow> rows = store.ListByLastOpened();
+                GraphRow earlyRow = Assert.Single(rows, r => r.Name == "early");
+                GraphRow loadingRow = Assert.Single(rows, r => r.Name == "loading");
+                Assert.Equal(early, earlyRow.SourcePath);
+                Assert.Equal(loading, loadingRow.SourcePath);
+                Assert.Equal(loadingRow.Id, ShellHost.Context!.Library.OpenGraphId);
+                Assert.Null(WelcomeLauncher.Current);
+                CloseWithoutWelcome(ShellHost.Context.Window!);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenFilesAsync_WhenTheWelcomeClosesWhileItLoads_WaitsForTheLoadedCache() {
+            var settingsService = new SettingsService(NewTempHome());
+            string file = Path.Combine(NewTempHome(), "dropped.fjson");
+            File.WriteAllText(file, await EmptyVanillaGraphJsonAsync());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            var gate = new TaskCompletionSource<DataCache?>();
+            WelcomeLauncher.CacheLoaderOverride = _ => gate.Task;
+            var store = new GraphLibraryStore(settingsService.DatabasePath);
+            try {
+                await ShellBootstrapper.BootAsync(
+                    settingsService,
+                    settingsService.Load(),
+                    ResolverWithoutUserPresets(),
+                    (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
+                    (_, _, _) => Task.CompletedTask,
+                    () => { },
+                    () => Task.CompletedTask);
+                WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+                Assert.Equal(WelcomeLoadPhase.Loading, welcome.ViewModel.Phase);
+                welcome.Close();
+
+                await ShellHost.OpenFilesAsync([file]);
+                Assert.Empty(store.ListByLastOpened());
+                Assert.False(ShellHost.HasLiveMainWindow);
+
+                gate.SetResult(cache);
+                await WaitUntilAsync(() => ShellHost.HasLiveMainWindow && store.ListByLastOpened().Count == 1);
+
+                GraphRow row = Assert.Single(store.ListByLastOpened());
+                Assert.Equal("dropped", row.Name);
+                Assert.Equal(row.Id, ShellHost.Context!.Library.OpenGraphId);
+                Assert.Same(cache, ShellHost.Context.Window!.DataCache);
+                CloseWithoutWelcome(ShellHost.Context.Window);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenFilesAsync_WhenTheLaunchLoadFailedAndTheWelcomeReopens_HoldsTheFiles() {
+            var settingsService = new SettingsService(NewTempHome());
+            string file = Path.Combine(NewTempHome(), "dropped.fjson");
+            File.WriteAllText(file, await EmptyVanillaGraphJsonAsync());
+            WelcomeLauncher.CacheLoaderOverride = _ => Task.FromResult<DataCache?>(null);
+            var store = new GraphLibraryStore(settingsService.DatabasePath);
+            try {
+                await ShellBootstrapper.BootAsync(
+                    settingsService,
+                    settingsService.Load(),
+                    ResolverWithoutUserPresets(),
+                    (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
+                    (_, _, _) => Task.CompletedTask,
+                    () => { },
+                    () => Task.CompletedTask);
+                WelcomeWindow failed = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+                await failed.ViewModel.LoadTask;
+                Assert.Equal(WelcomeLoadPhase.Failed, failed.ViewModel.Phase);
+                failed.Close();
+                await ShellHost.OpenFilesAsync([file]);
+
+                await ShellHost.ReopenAsync();
+
+                WelcomeWindow reopened = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+                Assert.False(reopened.ViewModel.ActionsEnabled);
+                Assert.Empty(store.ListByLastOpened());
+                Assert.False(ShellHost.HasLiveMainWindow);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenFilesAsync_BeforeAWelcomeOffBoot_OpensTheFileOnceTheLaunchGraphIsUp() {
+            var settingsService = new SettingsService(NewTempHome());
+            AppSettings settings = WelcomeOff(settingsService);
+            string file = Path.Combine(NewTempHome(), "dropped.fjson");
+            File.WriteAllText(file, await EmptyVanillaGraphJsonAsync());
+            DataCache vanillaCache = await LoadedVanillaCacheAsync();
+            try {
+                await ShellHost.OpenFilesAsync([file]);
+
+                MainWindow? window = await ShellBootstrapper.BootAsync(
+                    settingsService,
+                    settings,
+                    new PresetResolver(NewPresetsDirectoryWithVanillaAnd("Custom Preset"), NewTempHome()),
+                    (_, fallback, _) => Task.FromResult<(DataCache, Preset)?>((vanillaCache, fallback!)),
+                    (_, _, _) => Task.CompletedTask,
+                    () => { },
+                    () => Task.CompletedTask);
+
+                Assert.NotNull(window);
+                Assert.Equal("dropped", window.ViewModel.DocumentName);
+                GraphRow row = Assert.Single(window.Library!.All(), r => r.Name == "dropped");
+                Assert.Equal(file, row.SourcePath);
+                Assert.Equal(row.Id, window.Library.OpenGraphId);
+                CloseWithoutWelcome(window);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenFilesAsync_WhileAnOpenIsRunning_QueuesBehindItAndOpensWhenItFinishes() {
+            using var library = new LibraryFixture();
+            MainWindow window = await ShellWindowAsync(library);
+            try {
+                string dir = library.NewTempDir();
+                string second = Path.Combine(dir, "b.fjson");
+                File.WriteAllText(second, await EmptyVanillaGraphJsonAsync());
+
+                Task first = ShellHost.OpenFilesAsync([Path.Combine(dir, "missing.fjson")]);
+                await WaitUntilAsync(() => SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>().Any());
+                await ShellHost.OpenFilesAsync([second]);
+                Assert.DoesNotContain(library.Service.All(), r => r.Name == "b");
+                AlertSheet alert = Assert.Single(SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>());
+                alert.YesButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                await first;
+
+                GraphRow row = Assert.Single(library.Service.All(), r => r.Name == "b");
+                Assert.Equal(second, row.SourcePath);
+                Assert.Equal(row.Id, library.Service.OpenGraphId);
+                Assert.Null(WelcomeLauncher.Current);
+            } finally {
+                ShellHost.Context = null;
+                ShellHost.ResetQueue();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenFilesAsync_WithTheWelcomeUp_ShowsTheCouldntOpenAlertOnTheWelcome_AndCreatesNoMainWindow() {
+            var settingsService = new SettingsService(NewTempHome());
+            string missing = Path.Combine(NewTempHome(), "missing.fjson");
+            DataCache cache = await LoadedVanillaCacheAsync();
+            WelcomeLauncher.CacheLoaderOverride = _ => Task.FromResult<DataCache?>(cache);
+            MainWindow? before = MainWindow.MostRecentlyOpened;
+            try {
+                await ShellBootstrapper.BootAsync(
+                    settingsService,
+                    settingsService.Load(),
+                    ResolverWithoutUserPresets(),
+                    (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
+                    (_, _, _) => Task.CompletedTask,
+                    () => { },
+                    () => Task.CompletedTask);
+                WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+                await welcome.ViewModel.LoadTask;
+
+                Task opening = ShellHost.OpenFilesAsync([missing]);
+                await WaitUntilAsync(() => SheetHost.For(welcome).GetVisualDescendants().OfType<AlertSheet>().Any());
+                AlertSheet alert = Assert.Single(SheetHost.For(welcome).GetVisualDescendants().OfType<AlertSheet>());
+                Assert.Equal("Couldn’t open “missing”.", alert.FrameControl.Headline);
+                Assert.False(ShellHost.HasLiveMainWindow);
+                alert.YesButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                await opening;
+
+                Assert.False(ShellHost.HasLiveMainWindow);
+                Assert.Same(before, MainWindow.MostRecentlyOpened);
+                Assert.Same(welcome, WelcomeLauncher.Current);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenFilesAsync_WhenTheFileFailsToLoadOverAnOpenGraph_KeepsTheOpenGraphAutosaving() {
+            using var library = new LibraryFixture();
+            MainWindow window = await ShellWindowAsync(library);
+            try {
+                DataCache cache = window.DataCache!;
+                window.GraphCanvas.Viewer.Graph.CreateSupplierNode(new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!), System.Drawing.Point.Empty);
+                library.Clock.Advance(TimeSpan.FromSeconds(2));
+                Dispatcher.UIThread.RunJobs();
+                Guid id = library.Service.OpenGraphId!.Value;
+                string broken = System.Text.RegularExpressions.Regex.Replace(library.Store.Get(id)!.Data, "\"BaseQuality\"\\s*:\\s*\"[^\"]*\"", "\"BaseQuality\": \"missing\"");
+                string bad = Path.Combine(library.NewTempDir(), "bad.fjson");
+                File.WriteAllText(bad, broken);
+
+                Task opening = ShellHost.OpenFilesAsync([bad]);
+                await WaitUntilAsync(() => SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>().Any());
+                Assert.Single(SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>()).YesButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                await opening;
+                window.GraphCanvas.Viewer.Graph.CreateSupplierNode(new ItemQualityPair(cache.Items["copper-plate"], cache.DefaultQuality!), new System.Drawing.Point(300, 0));
+                library.Clock.Advance(TimeSpan.FromSeconds(2));
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Equal(id, library.Service.OpenGraphId);
+                Assert.Equal(2, library.Store.Get(id)!.NodeCount);
+                Assert.Equal(2, window.GraphCanvas.Viewer.NodeElements.Count);
+            } finally {
+                ShellHost.Context = null;
+                ShellHost.ResetQueue();
+            }
+        }
+
+        private static async Task<WelcomeWindow> BootWelcomeAsync(SettingsService settingsService, Func<Preset, Task<DataCache?>> loader, string presetName = "Factorio 2.0 Vanilla", PresetResolver? resolver = null) {
+            WelcomeLauncher.CacheLoaderOverride = loader;
+            AppSettings settings = settingsService.Load();
+            settings.CurrentPresetName = presetName;
+            await ShellBootstrapper.BootAsync(
+                settingsService,
+                settings,
+                resolver ?? ResolverWithoutUserPresets(),
+                (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
+                (_, _, _) => Task.CompletedTask,
+                () => { },
+                () => Task.CompletedTask);
+            return Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+        }
+
+        private static string WriteBrokenGraphFile(DataCache cache) {
+            var graph = new Foreman.ProductionGraph();
+            graph.CreateSupplierNode(new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!), System.Drawing.Point.Empty);
+            string valid = Foreman.Serialization.GraphSaveCodec.WriteViewerDocumentToString(new Foreman.Serialization.GraphViewerSaveDocument {
+                Version = Foreman.Serialization.GraphSaveFormat.SaveFormatVersion,
+                SavedPresetName = cache.PresetName,
+                IncludedMods = new Dictionary<string, string>(cache.IncludedMods),
+                ProductionGraph = Foreman.Serialization.GraphSaveCodec.BuildProductionGraph(graph),
+            });
+            string broken = System.Text.RegularExpressions.Regex.Replace(valid, "\"BaseQuality\"\\s*:\\s*\"[^\"]*\"", "\"BaseQuality\": \"missing\"");
+            Assert.NotEqual(valid, broken);
+            string bad = Path.Combine(NewTempHome(), "bad.fjson");
+            File.WriteAllText(bad, broken);
+            return bad;
+        }
+
+        private static IReadOnlyList<AlertSheet> AlertsOn(Window window) => [.. SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>()];
+
+        [AvaloniaFact]
+        public async Task OpenFilesAsync_DuringAWelcomeRowOpen_HoldsTheFileUntilTheRowOpenEnds() {
+            var settingsService = new SettingsService(NewTempHome());
+            string file = Path.Combine(NewTempHome(), "b.fjson");
+            File.WriteAllText(file, await EmptyVanillaGraphJsonAsync());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            var store = new GraphLibraryStore(settingsService.DatabasePath);
+            store.Create("Gone", "Gone Preset", await EmptyVanillaGraphJsonAsync(), 0, null, DateTime.UtcNow);
+            try {
+                WelcomeWindow welcome = await BootWelcomeAsync(settingsService, _ => Task.FromResult<DataCache?>(cache));
+                await welcome.ViewModel.LoadTask;
+                WelcomeRow row = Assert.Single(welcome.ViewModel.Rows);
+                Task opening = welcome.OpenRowAsync(row);
+                await WaitUntilAsync(() => AlertsOn(welcome).Count == 1);
+
+                await ShellHost.OpenFilesAsync([file]);
+
+                Assert.DoesNotContain(store.ListByLastOpened(), r => r.Name == "b");
+                Assert.Same(welcome, WelcomeLauncher.Current);
+                Assert.False(ShellHost.HasLiveMainWindow);
+                AlertsOn(welcome)[0].Cancel();
+                await opening;
+                await WaitUntilAsync(() => store.ListByLastOpened().Any(r => r.Name == "b"));
+                GraphRow opened = Assert.Single(store.ListByLastOpened(), r => r.Name == "b");
+                Assert.Equal(file, opened.SourcePath);
+                Assert.Equal(opened.Id, ShellHost.Context!.Library.OpenGraphId);
+                CloseWithoutWelcome(ShellHost.Context.Window!);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenFilesAsync_DuringAnOpenFromTheMainWindow_HoldsTheFileUntilItEnds() {
+            using var library = new LibraryFixture();
+            MainWindow window = await ShellWindowAsync(library);
+            try {
+                string dir = library.NewTempDir();
+                string file = Path.Combine(dir, "b.fjson");
+                File.WriteAllText(file, await EmptyVanillaGraphJsonAsync());
+                window.OpenFileStub = () => Task.FromResult<(string, string)?>(("{}", Path.Combine(dir, "unreadable.fjson")));
+
+                Task opening = window.OpenGraphFileAsync();
+                await WaitUntilAsync(() => AlertsOn(window).Count == 1);
+                await ShellHost.OpenFilesAsync([file]);
+
+                Assert.DoesNotContain(library.Service.All(), r => r.Name == "b");
+                AlertsOn(window)[0].Cancel();
+                await opening;
+                await WaitUntilAsync(() => library.Service.All().Any(r => r.Name == "b"));
+                Assert.Equal(file, Assert.Single(library.Service.All(), r => r.Name == "b").SourcePath);
+            } finally {
+                ShellHost.Context = null;
+                ShellHost.ResetQueue();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task ReopenAsync_WithoutALoadedCache_LoadsThePresetBeforeBuildingTheWindow() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            try {
+                WelcomeWindow failed = await BootWelcomeAsync(settingsService, _ => Task.FromResult<DataCache?>(null));
+                await failed.ViewModel.LoadTask;
+                ShellHost.Context!.Settings.ShowWelcomeAtLaunch = false;
+                failed.Close();
+                var gate = new TaskCompletionSource<DataCache?>();
+                WelcomeLauncher.CacheLoaderOverride = _ => gate.Task;
+                IReadOnlyList<NativeMenuItemBase> items = ShellHost.BuildNoWindowItems();
+
+                Task reopening = ShellHost.ReopenAsync();
+
+                Assert.False(ShellHost.HasLiveMainWindow);
+                Assert.True(ShellHost.Context.Loading);
+                Assert.Equal(WelcomeLoadPhase.Loading, Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current).ViewModel.Phase);
+                Assert.All(items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator && i.Header != "Welcome to Foreman"), i => Assert.False(i.IsEnabled));
+                gate.SetResult(cache);
+                await reopening;
+
+                Assert.True(ShellHost.Context.CacheLoaded);
+                Assert.True(ShellHost.HasLiveMainWindow);
+                Assert.Null(WelcomeLauncher.Current);
+                Assert.Same(cache, ShellHost.Context.Window!.DataCache);
+                CloseWithoutWelcome(ShellHost.Context.Window);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task LiveWindowAsync_WithoutALoadedCache_LoadsThePresetFirst() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            try {
+                WelcomeWindow failed = await BootWelcomeAsync(settingsService, _ => Task.FromResult<DataCache?>(null));
+                await failed.ViewModel.LoadTask;
+                failed.Close();
+                WelcomeLauncher.CacheLoaderOverride = _ => Task.FromResult<DataCache?>(cache);
+
+                MainWindow? live = await ShellHost.LiveWindowAsync();
+
+                Assert.NotNull(live);
+                Assert.Same(cache, live.DataCache);
+                Assert.True(ShellHost.Context!.CacheLoaded);
+                CloseWithoutWelcome(live);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task ReopenAsync_WhenTheWelcomeClosedMidLoad_AttachesToTheRunningLoad() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            var gate = new TaskCompletionSource<DataCache?>();
+            int calls = 0;
+            try {
+                WelcomeWindow first = await BootWelcomeAsync(settingsService, _ => { calls++; return gate.Task; });
+                Assert.Equal(WelcomeLoadPhase.Loading, first.ViewModel.Phase);
+                first.Close();
+
+                await ShellHost.ReopenAsync();
+
+                WelcomeWindow second = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+                Assert.Equal(1, calls);
+                gate.SetResult(cache);
+                await WaitUntilAsync(() => second.ViewModel.ActionsEnabled);
+                Assert.Equal(1, calls);
+                Assert.Same(cache, ShellHost.Context!.Cache);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenFilesAsync_WithTheWelcomeUp_AndTheNodesFailToImport_AlertsOnTheWelcomeAndLeavesNoMainWindow() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            string bad = WriteBrokenGraphFile(cache);
+            MainWindow? before = MainWindow.MostRecentlyOpened;
+            var store = new GraphLibraryStore(settingsService.DatabasePath);
+            try {
+                WelcomeWindow welcome = await BootWelcomeAsync(settingsService, _ => Task.FromResult<DataCache?>(cache));
+                await welcome.ViewModel.LoadTask;
+
+                Task opening = ShellHost.OpenFilesAsync([bad]);
+                await WaitUntilAsync(() => AlertsOn(welcome).Count == 1);
+
+                Assert.Equal("Couldn’t open “bad”.", AlertsOn(welcome)[0].FrameControl.Headline);
+                Assert.False(ShellHost.HasLiveMainWindow);
+                await ShellHost.ReopenAsync();
+                Assert.False(ShellHost.Context!.Window!.IsVisible);
+                Assert.False(ShellHost.HasLiveMainWindow);
+                Assert.Same(welcome, WelcomeLauncher.Current);
+                AlertsOn(welcome)[0].YesButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                await opening;
+
+                Assert.False(ShellHost.HasLiveMainWindow);
+                Assert.Same(before, MainWindow.MostRecentlyOpened);
+                Assert.DoesNotContain(store.ListByLastOpened(), r => r.Name == "bad");
+                Assert.Same(welcome, WelcomeLauncher.Current);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task ReopenAsync_WithFreshSettings_AttachesToTheRunningLoadOfTheResolvedDefault() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            var gate = new TaskCompletionSource<DataCache?>();
+            List<string> names = [];
+            try {
+                WelcomeWindow first = await BootWelcomeAsync(settingsService, p => { names.Add(p.Name); return gate.Task; }, presetName: "");
+                first.Close();
+
+                await ShellHost.ReopenAsync();
+
+                WelcomeWindow second = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+                Assert.Equal(["Factorio 2.0 Vanilla"], names);
+                gate.SetResult(cache);
+                await WaitUntilAsync(() => second.ViewModel.ActionsEnabled);
+                Assert.Equal(["Factorio 2.0 Vanilla"], names);
+                Assert.Equal("Factorio 2.0 Vanilla", ShellHost.Context!.Settings.CurrentPresetName);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task LiveWindowAsync_WithFreshSettings_LoadsTheResolvedDefaultOnce() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            List<string> names = [];
+            try {
+                WelcomeWindow failed = await BootWelcomeAsync(settingsService, _ => Task.FromResult<DataCache?>(null), presetName: "");
+                await failed.ViewModel.LoadTask;
+                failed.Close();
+                WelcomeLauncher.CacheLoaderOverride = p => { names.Add(p.Name); return Task.FromResult<DataCache?>(cache); };
+
+                MainWindow? live = await ShellHost.LiveWindowAsync();
+
+                Assert.NotNull(live);
+                Assert.Equal(["Factorio 2.0 Vanilla"], names);
+                Assert.Same(cache, live.DataCache);
+                CloseWithoutWelcome(live);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task LoadAsync_WhenANewerLoadReplacedIt_WritesNothing() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cacheA = await LoadedVanillaCacheAsync();
+            DataCache cacheB = await LoadedVanillaCacheAsync();
+            string userDir = NewTempHome();
+            File.WriteAllText(Path.Combine(userDir, "Other Preset.pjson"), "");
+            File.WriteAllText(Path.Combine(userDir, "Other Preset.dat"), "");
+            var resolver = new PresetResolver(presetsDirectoryOverride: null, userPresetsDirectoryOverride: userDir);
+            var gates = new Dictionary<string, TaskCompletionSource<DataCache?>> {
+                ["Factorio 2.0 Vanilla"] = new(),
+                ["Other Preset"] = new(),
+            };
+            try {
+                WelcomeWindow first = await BootWelcomeAsync(settingsService, p => gates[p.Name].Task, resolver: resolver);
+                Assert.Equal(WelcomeLoadPhase.Loading, first.ViewModel.Phase);
+                first.Close();
+                await ShellHost.ReopenAsync();
+                WelcomeWindow second = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+                Preset other = second.ViewModel.Presets.Single(p => p.Name == "Other Preset");
+
+                Task selecting = second.ViewModel.SelectPresetAsync(other);
+                gates["Other Preset"].SetResult(cacheB);
+                await selecting;
+                await WaitUntilAsync(() => second.ViewModel.ActionsEnabled);
+                gates["Factorio 2.0 Vanilla"].SetResult(cacheA);
+                await Task.Delay(50);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Same(cacheB, ShellHost.Context!.Cache);
+                Assert.Equal("Other Preset", ShellHost.Context.Settings.CurrentPresetName);
+                Assert.Equal("Other Preset", second.ViewModel.LoadedPresetName);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task ReopenAsync_WithoutALoadedCache_AndAFailingLoad_LeavesTheWelcomeOnItsErrorPanel() {
+            var settingsService = new SettingsService(NewTempHome());
+            try {
+                WelcomeWindow failed = await BootWelcomeAsync(settingsService, _ => Task.FromResult<DataCache?>(null));
+                await failed.ViewModel.LoadTask;
+                ShellHost.Context!.Settings.ShowWelcomeAtLaunch = false;
+                failed.Close();
+
+                await ShellHost.ReopenAsync();
+
+                Assert.False(ShellHost.HasLiveMainWindow);
+                WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+                Assert.Equal(WelcomeLoadPhase.Failed, welcome.ViewModel.Phase);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task NoWindowItems_ResyncWhenAClosedWelcomesLoadFinishes() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            var gate = new TaskCompletionSource<DataCache?>();
+            try {
+                WelcomeWindow welcome = await BootWelcomeAsync(settingsService, _ => gate.Task);
+                welcome.Close();
+                IReadOnlyList<NativeMenuItemBase> items = ShellHost.BuildNoWindowItems();
+                NativeMenuItem newGraph = items.OfType<NativeMenuItem>().Single(i => i.Header == "New Graph");
+                Assert.False(newGraph.IsEnabled);
+
+                gate.SetResult(cache);
+                await WaitUntilAsync(() => newGraph.IsEnabled);
+
+                Assert.True(newGraph.IsEnabled);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenGraphFileAsync_HoldsTheBusyScopeWhileThePickerIsUp() {
+            using var library = new LibraryFixture();
+            MainWindow window = await ShellWindowAsync(library);
+            try {
+                var picker = new TaskCompletionSource<(string, string)?>();
+                window.OpenFileStub = () => picker.Task;
+
+                Task opening = window.OpenGraphFileAsync();
+
+                Assert.True(ShellHost.Busy);
+                picker.SetResult(null);
+                await opening;
+                Assert.False(ShellHost.Busy);
+            } finally {
+                ShellHost.Context = null;
+                ShellHost.ResetQueue();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenFilesAsync_WithTheWelcomeUpBesideADocument_AlertsOnTheWelcome() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            string bad = WriteBrokenGraphFile(cache);
+            try {
+                WelcomeWindow first = await BootWelcomeAsync(settingsService, _ => Task.FromResult<DataCache?>(cache));
+                await first.ViewModel.LoadTask;
+                Assert.True(await first.NewGraphFromMenuAsync());
+                MainWindow document = ShellHost.Context!.Window!;
+                WelcomeWindow welcome = WelcomeLauncher.Show(ShellHost.Context);
+
+                Task opening = ShellHost.OpenFilesAsync([bad]);
+                await WaitUntilAsync(() => AlertsOn(welcome).Count == 1);
+
+                Assert.Empty(AlertsOn(document));
+                AlertsOn(welcome)[0].YesButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                await opening;
+                CloseWithoutWelcome(document);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        private static async Task<MainWindow> ShellWindowAsync(LibraryFixture library) {
+            DataCache cache = await LoadedVanillaCacheAsync();
+            MainWindow window = library.Track(new MainWindow());
+            window.Show();
+            window.GraphCanvas.Viewport.SetSize(800, 800);
+            window.DataCache = cache;
+            window.Settings = new AppSettings { CurrentPresetName = cache.PresetName!, ShowWelcomeAtLaunch = false };
+            window.PresetResolver = new PresetResolver(userPresetsDirectoryOverride: library.NewTempDir());
+            window.SettingsService = new SettingsService(library.NewTempDir());
+            window.Library = library.Service;
+            window.ApplyLoadedSettings();
+            await window.NewGraphAsync();
+            ShellHost.Context = window.ShellContext;
+            return window;
+        }
+
         //---- solver warmup seam (perf-packaging-reference.md §1c: first-node freeze) ----
 
         [AvaloniaFact]
@@ -281,7 +1141,7 @@ namespace Foreman.Mac.UiTests {
             var stopwatch = Stopwatch.StartNew();
             var window = await ShellBootstrapper.BootAsync(
                 settingsService,
-                settingsService.Load(),
+                WelcomeOff(settingsService),
                 new PresetResolver(),
                 ShellBootstrapper.LoadPresetAsync,
                 (_, _, _) => Task.CompletedTask,

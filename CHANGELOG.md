@@ -530,6 +530,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Launch now follows Show Welcome at Launch: with it on, only the welcome window opens and the preset
+  loads in its own loading strip, with Try Again and the preset list as the answer to a failed load;
+  with it off, the most recent graph reopens (or a new Untitled Graph opens on an empty library)
+  behind the launch loading window. Dropping a `.fjson` file on the Dock icon opens it like File ▸ Open…,
+  queued until the preset has loaded when it arrives during launch. Opening a graph from the library switches to its
+  own preset without announcing the switch.
 - Add Item/Add Recipe, the background context menu, and a double-click on empty canvas now open the
   Quick Add palette instead of the old chooser panels; Escape now cancels a link drag in progress.
 - Clicking a recipe node now edits it in the inspector sidebar instead of opening a floating panel

@@ -407,29 +407,36 @@ namespace Foreman.Mac.Views {
 
         private bool menuActionRunning;
 
+        internal bool CanOpenFiles => ViewModel.ActionsEnabled && !menuActionRunning;
+
         private async Task<bool> RunMenuActionAsync(Func<Task<bool>> action) {
             if (menuActionRunning || !ViewModel.ActionsEnabled)
                 return false;
             menuActionRunning = true;
+            bool opened;
             try {
-                if (!await action().ConfigureAwait(true))
-                    return false;
+                opened = await action().ConfigureAwait(true);
             } finally {
                 menuActionRunning = false;
             }
-            Close();
-            return true;
+            if (opened)
+                Close();
+            Async.Fire(ShellHost.OpenPendingFilesAsync(), nameof(ShellHost.OpenPendingFilesAsync));
+            return opened;
         }
 
         internal Task<bool> NewGraphFromMenuAsync() => RunMenuActionAsync(host.NewGraph);
 
         internal Task<bool> OpenFileFromMenuAsync() => RunMenuActionAsync(host.OpenFile);
 
+        internal Task<bool> OpenPathFromMenuAsync(string path) => RunMenuActionAsync(() => host.OpenPath(path));
+
         internal Task<bool> OpenGraphFromMenuAsync(GraphRow row) => RunMenuActionAsync(() => host.OpenGraph(row, null));
 
         internal async Task OpenRowAsync(WelcomeRow row) {
             if (!ViewModel.ActionsEnabled)
                 return;
+            using IDisposable busy = ShellHost.HoldBusy();
             if (row.Unavailable) {
                 string headline = $"“{Dialogs.MiddleTruncate(row.Name)}” can’t be opened.";
                 string message = $"Its preset, “{Dialogs.MiddleTruncate(row.PresetName)}”, isn’t installed. Choose a preset that has its items and recipes.";
@@ -444,6 +451,7 @@ namespace Foreman.Mac.Views {
         internal Func<WelcomeRow, Task<Preset?>>? ChoosePresetOverride { get; set; }
 
         internal async Task ChoosePresetAsync(WelcomeRow row) {
+            using IDisposable busy = ShellHost.HoldBusy();
             Preset? chosen = ChoosePresetOverride is { } stub ? await stub(row).ConfigureAwait(true) : await ShowPresetSheetAsync(row).ConfigureAwait(true);
             if (chosen is null)
                 return;

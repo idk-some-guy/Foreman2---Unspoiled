@@ -12,6 +12,8 @@ using Foreman.Mac.Services;
 using Foreman.Mac.Views;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using Avalonia.Platform.Storage;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac {
@@ -68,6 +70,8 @@ namespace Foreman.Mac {
                 activatable.Activated += (_, e) => {
                     if (e.Kind == ActivationKind.Reopen)
                         Async.Fire(ShellHost.ReopenAsync(), nameof(ShellHost.ReopenAsync));
+                    else if (e is FileActivatedEventArgs files)
+                        Async.Fire(ShellHost.OpenFilesAsync(files.Files.Select(f => f.TryGetLocalPath()).OfType<string>()), nameof(ShellHost.OpenFilesAsync));
                 };
 
             base.OnFrameworkInitializationCompleted();

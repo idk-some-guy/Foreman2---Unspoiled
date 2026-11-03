@@ -43,10 +43,16 @@ namespace Foreman.Mac.ViewModels {
         public WelcomeViewModel(WelcomeHost host) {
             this.host = host;
             Presets = host.InstalledPresets();
+            Refresh();
+            if (host.InitialPreset is { } initial) {
+                LoadedPresetName = "";
+                SelectedPreset = Presets.FirstOrDefault(p => p.Name == initial.Name) ?? initial;
+                LoadTask = BeginLoadAsync(SelectedPreset);
+                return;
+            }
             LoadedPresetName = host.Settings.CurrentPresetName;
             SelectedPreset = Presets.FirstOrDefault(p => p.Name == LoadedPresetName);
             Ready = true;
-            Refresh();
         }
 
         public IReadOnlyList<Preset> Presets { get; }

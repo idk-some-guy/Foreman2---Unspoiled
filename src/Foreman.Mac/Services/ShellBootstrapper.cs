@@ -7,6 +7,7 @@ using Foreman.DataCaching.Storage;
 using Foreman.Mac.Views;
 using Foreman.Models.Solver;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Services {
@@ -23,7 +24,7 @@ namespace Foreman.Mac.Services {
             Action fatalExit) =>
             BootAsync(settingsService, settings, presetResolver, loadPreset, showWarning, fatalExit, SolverWarmup.RunAsync);
 
-        // warmSolver is fired right after the window shows and is never awaited: the first HiGHS
+        // warmSolver is fired at boot and is never awaited: the first HiGHS
         // solve cold-loads its native dylib, and doing that on a background thread here beats
         // paying for it on the UI thread during the user's first UpdateNodeValues
         // (perf-packaging-reference.md §1c, docs/solver-eval.md).
@@ -35,30 +36,49 @@ namespace Foreman.Mac.Services {
             Func<Window, string, string, Task> showWarning,
             Action fatalExit,
             Func<Task> warmSolver) {
-            var mainWindow = new MainWindow();
-            mainWindow.Show();
             _ = warmSolver(); //unobserved on purpose: the real SolverWarmup.RunAsync already catches and swallows its own exceptions internally, so this Task can never fault
 
-            Preset? preset = await ResolveOrWarnAsync(presetResolver, settings.CurrentPresetName, mainWindow, showWarning).ConfigureAwait(true);
+            Preset? preset = await ResolveOrWarnAsync(presetResolver, settings.CurrentPresetName, showWarning).ConfigureAwait(true);
             if (preset is null) {
                 fatalExit();
                 return null;
             }
 
-            (DataCache Cache, Preset Preset)? loaded = await loadPreset(preset, TryResolveDefault(presetResolver), settings.UseRecipeBWfilters).ConfigureAwait(true);
+            var library = new GraphLibraryService(new GraphLibraryStore(settingsService.DatabasePath), TimeProvider.System);
+            if (settings.ShowWelcomeAtLaunch) {
+                settings.CurrentPresetName = preset.Name;
+                var context = new ShellContext(library, settings, new DataCache(settings.UseRecipeBWfilters), settingsService, presetResolver) { CacheLoaded = false };
+                ShellHost.Context = context;
+                WelcomeLauncher.Show(context, preset);
+                return null;
+            }
+
+            GraphRow? recent = library.All() is [var latest, ..] ? latest : null;
+            Preset launchPreset = recent is null ? preset : presetResolver.BuildPresetList(settings.CurrentPresetName).FirstOrDefault(p => p.Name == recent.PresetName) ?? preset;
+            var mainWindow = new MainWindow();
+            mainWindow.Show();
+            (DataCache Cache, Preset Preset)? loaded = await loadPreset(launchPreset, TryResolveDefault(presetResolver), settings.UseRecipeBWfilters).ConfigureAwait(true);
             if (loaded is not (DataCache cache, Preset loadedPreset)) {
                 fatalExit();
                 return null;
             }
 
             settings.CurrentPresetName = loadedPreset.Name;
-            Attach(mainWindow, new ShellContext(new GraphLibraryService(new GraphLibraryStore(settingsService.DatabasePath), TimeProvider.System), settings, cache, settingsService, presetResolver));
+            using (ShellHost.HoldBusy()) {
+                Attach(mainWindow, new ShellContext(library, settings, cache, settingsService, presetResolver));
+                if (recent is not null)
+                    await mainWindow.OpenLibraryGraphAsync(recent.Id).ConfigureAwait(true);
+                if (library.OpenGraphId is null)
+                    await mainWindow.NewGraphAsync().ConfigureAwait(true);
+            }
+            await ShellHost.OpenPendingFilesAsync().ConfigureAwait(true);
             return mainWindow;
         }
 
-        internal static MainWindow CreateWindow(ShellContext context) {
-            var mainWindow = new MainWindow();
-            mainWindow.Show();
+        internal static MainWindow CreateWindow(ShellContext context, bool deferShow = false) {
+            var mainWindow = new MainWindow { ShowDeferred = deferShow };
+            if (!deferShow)
+                mainWindow.Show();
             Attach(mainWindow, context);
             return mainWindow;
         }
@@ -79,11 +99,14 @@ namespace Foreman.Mac.Services {
         }
 
         private static async Task<Preset?> ResolveOrWarnAsync(
-            PresetResolver presetResolver, string? currentPresetName, MainWindow owner, Func<Window, string, string, Task> showWarning) {
+            PresetResolver presetResolver, string? currentPresetName, Func<Window, string, string, Task> showWarning) {
             try {
                 return presetResolver.Resolve(currentPresetName);
             } catch (DefaultPresetUnavailableException ex) {
+                var owner = new MainWindow();
+                owner.Show();
                 await showWarning(owner, string.Empty, ex.Message).ConfigureAwait(true);
+                owner.Close();
                 return null;
             }
         }

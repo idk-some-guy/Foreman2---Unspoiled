@@ -12,5 +12,13 @@
   <key>CFBundleIconFile</key>           <string>__ICON_FILE__</string>
   <key>LSMinimumSystemVersion</key>     <string>11.0</string>
   <key>NSHighResolutionCapable</key>    <true/>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>       <string>Foreman graph</string>
+      <key>CFBundleTypeRole</key>       <string>Viewer</string>
+      <key>CFBundleTypeExtensions</key> <array><string>fjson</string></array>
+    </dict>
+  </array>
 </dict>
 </plist>
