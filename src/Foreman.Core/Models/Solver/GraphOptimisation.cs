@@ -8,34 +8,35 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 
 
 namespace Foreman {
     public partial class ProductionGraph {
         private int updateCounter;
 
-        public IReadOnlyList<SolveFailure> LastSolveFailures { get; private set; } = [];
+        public IReadOnlyList<SolveFailure> LastSolveFailures { get; internal set; } = [];
         public event EventHandler? SolveStarted;
-        public event EventHandler? SolveEnded;
+        public event EventHandler<SolveEndedEventArgs>? SolveEnded;
+
+        public SynchronizationContext? SolveContext { get; set; }
+        public GraphSolveScheduler Solver { get; }
 
         internal Func<ILpSolver> LpSolverFactory { get; set; } = () => HighsSolver.Create();
 
-        public void OptimizeGraphNodeValues() {
-            SolveStarted?.Invoke(this, EventArgs.Empty);
-            List<SolveFailure> failures = [];
-            try {
-                foreach (var nodeGroup in GetConnectedComponents(false))
-                    if (OptimiseNodeGroup(nodeGroup) is { } failure)
-                        failures.Add(failure);
-            } finally {
-                LastSolveFailures = failures;
-                SolveEnded?.Invoke(this, EventArgs.Empty);
-            }
+        internal void RaiseSolveStarted() => SolveStarted?.Invoke(this, EventArgs.Empty);
+        internal void RaiseSolveEnded(SolveEndKind kind, IReadOnlyList<SolveFailure> failures) => SolveEnded?.Invoke(this, new SolveEndedEventArgs(kind, failures));
 
+        public void SolveNow() => Solver.SolveNow();
+
+        public void OptimizeGraphNodeValues() {
+            SolveNow();
             Debug.WriteLine("UPDATE #" + updateCounter++);
         }
 
-        private SolveFailure? OptimiseNodeGroup(IEnumerable<BaseNode> nodeGroup) {
+        internal List<HashSet<BaseNode>> DirtyComponents() => GetConnectedComponents(false);
+
+        internal SolveGroup BuildSolveGroup(IEnumerable<BaseNode> nodeGroup) {
             List<BaseNode> nodes = [.. nodeGroup];
             double minRatio = 0.1;
             foreach (RecipeNode node in nodes.Where(n => n is RecipeNode))
@@ -46,7 +47,13 @@ namespace Foreman {
             foreach (BaseNode node in nodes)
                 node.AddConstraints(solver);
 
-            var solution = solver.Solve();
+            return new SolveGroup(solver, nodes);
+        }
+
+        internal static SolveFailure? ApplyGroupResult(SolveGroup group) {
+            ProductionSolver solver = group.Solver;
+            List<BaseNode> nodes = group.Nodes;
+            var solution = group.Solved ? solver.BuildSolution() : null;
 
 #if VERBOSEDEBUG
         Debug.WriteLine(solver.ToString());
@@ -62,7 +69,7 @@ namespace Foreman {
 
                 foreach (BaseNode node in nodes)
                     node.MarkSolveStale();
-                return new SolveFailure([.. nodes.Select(n => n.NodeID)], solver.LastStatus switch {
+                return new SolveFailure([.. nodes.Select(n => n.NodeID)], !group.Solved ? SolveFailureReason.Unknown : solver.LastStatus switch {
                     LpSolveStatus.Infeasible => SolveFailureReason.Infeasible,
                     LpSolveStatus.Unbounded => SolveFailureReason.Unbounded,
                     _ => SolveFailureReason.Unknown,
@@ -77,6 +84,12 @@ namespace Foreman {
             }
             return null;
         }
+    }
+
+    internal sealed class SolveGroup(ProductionSolver solver, List<BaseNode> nodes) {
+        public ProductionSolver Solver { get; } = solver;
+        public List<BaseNode> Nodes { get; } = nodes;
+        public bool Solved { get; set; }
     }
 
     // Using partial classes here to group all the constraints related code into this file so it's

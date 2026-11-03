@@ -2,6 +2,7 @@
 using Foreman.DataCaching.DataTypes;
 using Foreman.Models;
 using Foreman.Models.Nodes;
+using Foreman.Models.Solver;
 using Foreman.Serialization;
 using System;
 using System.Collections.Generic;
@@ -32,7 +33,8 @@ namespace Foreman {
         public static readonly string[] RateUnitNames = ["1 sec", "1 min", "5 min", "10 min", "30 min", "1 hour"]; //, "6 hours", "12 hours", "24 hours" };
         private static readonly float[] RateMultiplier = [1f, 60f, 300f, 600f, 1800f, 3600f]; //, 21600f, 43200f, 86400f };
 
-        public RateUnit SelectedRateUnit { get; set; }
+        private RateUnit selectedRateUnit;
+        public RateUnit SelectedRateUnit { get => selectedRateUnit; set { selectedRateUnit = value; Bump(); } }
         public float GetRateMultipler() { return RateMultiplier[(int)SelectedRateUnit]; } //the amount of assemblers required will be multipled by the rate multipler when displaying.
         public string GetRateName() { return RateUnitNames[(int)SelectedRateUnit]; }
 
@@ -47,9 +49,12 @@ namespace Foreman {
         private const int YBorder = 200;
 
         public bool PauseUpdates { get; set; }
-        public bool PullOutputNodes { get; set; } //if true, the solver will add a 'pull' for output nodes so as to prioritize them over lowering factory count. WARNING: this can lead to '0' solutions if there is any production path that can go to infinity (aka: ensure enough nodes are constrained!)
-        public double PullOutputNodesPower { get; set; }
-        public double LowPriorityPower { get; set; } //this is the multiplier of the factory cost function for low priority nodes. aka: low priority recipes will be picked if the alternative involves this much more factories (10,000 is a nice value here)
+        private bool pullOutputNodes;
+        private double pullOutputNodesPower;
+        private double lowPriorityPower;
+        public bool PullOutputNodes { get => pullOutputNodes; set { pullOutputNodes = value; Bump(); } } //if true, the solver will add a 'pull' for output nodes so as to prioritize them over lowering factory count. WARNING: this can lead to '0' solutions if there is any production path that can go to infinity (aka: ensure enough nodes are constrained!)
+        public double PullOutputNodesPower { get => pullOutputNodesPower; set { pullOutputNodesPower = value; Bump(); } }
+        public double LowPriorityPower { get => lowPriorityPower; set { lowPriorityPower = value; Bump(); } } //this is the multiplier of the factory cost function for low priority nodes. aka: low priority recipes will be picked if the alternative involves this much more factories (10,000 is a nice value here)
         public bool EnableExtraProductivityForNonMiners { get; set; }
 
         public AssemblerSelector AssemblerSelector { get; private set; }
@@ -99,7 +104,14 @@ namespace Foreman {
         //The one channel a BaseNodeController setter has back to the session it belongs to -
         //controllers only ever see their node's own graph, never the session that wraps it.
         internal event EventHandler? NodeMutated;
-        internal void NotifyNodeMutated() => NodeMutated?.Invoke(this, EventArgs.Empty);
+        internal void NotifyNodeMutated() {
+            Bump();
+            NodeMutated?.Invoke(this, EventArgs.Empty);
+        }
+
+        public long Version { get; private set; }
+        private void Bump() => Version++;
+
 
         public Rectangle Bounds {
             get {
@@ -138,6 +150,7 @@ namespace Foreman {
             AssemblerSelector = new AssemblerSelector();
             ModuleSelector = new ModuleSelector();
             FuelSelector = new FuelSelector();
+            Solver = new GraphSolveScheduler(this);
         }
 
         public BaseNodeController? RequestNodeController(BaseNode node) => nodes.Contains(node) ? node.Controller : null;
@@ -147,6 +160,7 @@ namespace Foreman {
             node.NodeDirection = DefaultNodeDirection;
             nodes.Add(node);
             node.UpdateState();
+            Bump();
             NodeAdded?.Invoke(this, new NodeEventArgs(node));
             return node;
         }
@@ -184,6 +198,7 @@ namespace Foreman {
             }
             nodes.Add(node);
             node.UpdateInputsAndOutputs();
+            Bump();
             NodeAdded?.Invoke(this, new NodeEventArgs(node));
             return node;
         }
@@ -201,6 +216,7 @@ namespace Foreman {
             LinkChangeUpdateImpactedNodeStates(link, LinkType.Output);
 
             nodeLinks.Add(link);
+            Bump();
             LinkAdded?.Invoke(this, new NodeLinkEventArgs(link));
             return link;
         }
@@ -215,6 +231,7 @@ namespace Foreman {
                 DeleteLink(link);
 
             nodes.Remove(node);
+            Bump();
             NodeDeleted?.Invoke(this, new NodeEventArgs(node));
         }
 
@@ -233,6 +250,7 @@ namespace Foreman {
             LinkChangeUpdateImpactedNodeStates(link, LinkType.Output);
 
             nodeLinks.Remove(link);
+            Bump();
             LinkDeleted?.Invoke(this, new NodeLinkEventArgs(link));
         }
 
@@ -242,10 +260,12 @@ namespace Foreman {
 
             SerializeNodeIdSet = null;
             lastNodeID = 0;
+            Bump();
             GraphCleared?.Invoke(this, EventArgs.Empty);
         }
 
         public void UpdateNodeMaxQualities() {
+            Bump();
             foreach (var rnode in nodes.OfType<RecipeNode>()) {
                 rnode.UpdateInputsAndOutputs(true);
                 rnode.UpdateState();
@@ -253,6 +273,8 @@ namespace Foreman {
         }
 
         public void UpdateNodeStates(bool markAllAsDirty) {
+            if (markAllAsDirty)
+                Bump();
             foreach (BaseNode node in nodes)
                 node.UpdateState(markAllAsDirty);
         }
@@ -312,12 +334,21 @@ namespace Foreman {
 
         public void UpdateNodeValues() {
             if (!PauseUpdates) {
-                try { OptimizeGraphNodeValues(); } catch (OverflowException ex) {
+                try {
+                    if (SolveContext is null)
+                        SolveNow();
+                    else {
+                        Solver.Request();
+                        return; //the apply step raises NodeValuesUpdated
+                    }
+                } catch (OverflowException ex) {
                     ErrorLogging.LogException(ex, "OptimizeGraphNodeValues overflow");
                 }
             }
             NodeValuesUpdated?.Invoke(this, EventArgs.Empty); //called even if no changes have been made in order to re-draw the graph (since something required a node value update - link deletion? node addition? whatever)
         }
+
+        internal void RaiseNodeValuesUpdated() => NodeValuesUpdated?.Invoke(this, EventArgs.Empty);
 
         private static void LinkChangeUpdateImpactedNodeStates(NodeLink link, LinkType direction) //helper function to update all the impacted nodes after addition/removal of a given link. Basically we want to update any node connected to this link through passthrough nodes (or directly).
                 {
@@ -350,10 +381,13 @@ namespace Foreman {
             DataCache cache,
             ProductionGraphSaveDocument document,
             bool applySolverSettings,
-            LinkRouting defaultLinkRouting = LinkRouting.Rounded) =>
-            GraphSaveLoader.LoadProductionGraph(this, cache, document, applySolverSettings, defaultLinkRouting);
+            LinkRouting defaultLinkRouting = LinkRouting.Rounded) {
+            Bump();
+            return GraphSaveLoader.LoadProductionGraph(this, cache, document, applySolverSettings, defaultLinkRouting);
+        }
 
         public NewNodeBatch InsertNodesFromFragment(DataCache cache, string json, bool applySolverSettings, LinkRouting defaultLinkRouting = LinkRouting.Rounded) {
+            Bump();
             ProductionGraphSaveDocument? document = GraphSaveCodec.ReadGraphPayload(json);
             return document is null ? new NewNodeBatch() : InsertNodesFromDocument(cache, document, applySolverSettings, defaultLinkRouting);
         }

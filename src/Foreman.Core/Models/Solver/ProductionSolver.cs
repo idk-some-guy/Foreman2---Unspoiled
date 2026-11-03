@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 
 namespace Foreman.Models.Solver {
     // Expresses a factory as a system of linear constraints and hands them to an ILpSolver
@@ -76,15 +77,26 @@ namespace Foreman.Models.Solver {
         // non-optimal solutions, but since I don't have any inputs that generate those I'm opting
         // on the side of safety by treating those as non-solutions.
         public Solution? Solve() {
+            RunLp(CancellationToken.None);
+            return BuildSolution();
+        }
+
+        internal void RunLp(CancellationToken ct) {
             if (nodes.Count == 0)
-                return new Solution([], []); //no nodes mean empty solution (no errors)
+                return;
 
             solver.SetMinimization();
 
             //solver.Solve(); //<<---------------------------------- Cyclic recipes with 'not enough provided' can lead to no-solution. Cyclic recipes with 'extra left' lead to an over-supply (solution found)
             //ex: coal liquifaction produces more heavy oil than is required (25->90) -> solution will be found (if it is connected back to itself only), but there will be an over-production of heavy oil.
             //    Kovarex enrichment produces less Uranium 238 than is required (5->2) -> solution will be 0 (if it is connected back to itself only), as there is no way to satisfy the inputs. In a more complicated case with multiple nodes (instead of one recipe looped back to itself), this can lead to a null-solution (error)
-            LastStatus = solver.Solve();
+            LastStatus = solver.Solve(ct);
+        }
+
+        internal Solution? BuildSolution() {
+            if (nodes.Count == 0)
+                return new Solution([], []); //no nodes mean empty solution (no errors)
+
             if (LastStatus != LpSolveStatus.Optimal)
                 return null; //error solution -> the caller keeps the last good values and records the failure
 

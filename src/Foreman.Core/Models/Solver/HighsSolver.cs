@@ -1,6 +1,7 @@
 using Highs;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace Foreman.Models.Solver {
     // ILpSolver calls arrive one variable/constraint/coefficient at a time, but Highs.Native's
@@ -42,6 +43,11 @@ namespace Foreman.Models.Solver {
             objective[HighsLpVariable.Unwrap(variable)] = Clamp(coefficient);
 
         public void SetMinimization() => sense = HighsObjectiveSense.kMinimize;
+
+        public LpSolveStatus Solve(CancellationToken ct) {
+            ct.ThrowIfCancellationRequested();
+            return Solve();
+        }
 
         public LpSolveStatus Solve() {
             using var solver = new HighsLpSolver();

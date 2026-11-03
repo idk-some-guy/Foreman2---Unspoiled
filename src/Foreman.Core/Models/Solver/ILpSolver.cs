@@ -1,3 +1,5 @@
+using System.Threading;
+
 namespace Foreman.Models.Solver {
     public enum LpSolveStatus {
         Optimal,
@@ -22,5 +24,6 @@ namespace Foreman.Models.Solver {
         void SetObjectiveCoefficient(ILpVariable variable, double coefficient);
         void SetMinimization();
         LpSolveStatus Solve();
+        LpSolveStatus Solve(CancellationToken ct) => Solve();
     }
 }
