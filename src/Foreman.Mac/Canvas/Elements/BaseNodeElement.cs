@@ -50,6 +50,8 @@ namespace Foreman.Mac.Canvas.Elements {
         protected List<ItemTabElement> InputTabs { get; set; }
         protected List<ItemTabElement> OutputTabs { get; set; }
 
+        internal IReadOnlyList<ItemTabElement> ItemTabs => [.. OutputTabs, .. InputTabs];
+
         private bool nodeStateRequiresUpdate;
         private bool nodeValuesRequireUpdate;
 
@@ -489,13 +491,15 @@ namespace Foreman.Mac.Canvas.Elements {
             return (ToGraph(new SKRect(-half, -half, half, half)), IconRingRadius);
         }
 
-        private bool BorderIsStateMark => Highlighted || FlowUndersupplied || ViewModel.State == NodeState.Error || ViewModel.IsOverproducing();
+        private bool ShowsSelection => Highlighted && !Context.IsExporting;
+
+        private bool BorderIsStateMark => ShowsSelection || FlowUndersupplied || ViewModel.State == NodeState.Error || ViewModel.IsOverproducing();
 
         //Selection owns the border lane; flow state still shows through the badge and the tab outlines.
         public RingGeometry BorderRing() {
             CanvasTokens tokens = Tokens;
             (SKRect bounds, float radius) = RingBase();
-            if (Highlighted)
+            if (ShowsSelection)
                 return new RingGeometry(bounds, radius, FlowStroke, tokens.NodeSelected, null);
             float half = NodeCardPainter.CardStrokeWidth / 2;
             if (FlowUndersupplied || ViewModel.State == NodeState.Error)
@@ -506,13 +510,13 @@ namespace Foreman.Mac.Canvas.Elements {
         }
 
         public RingGeometry? InnerRing() {
-            if (Highlighted || !FlowUndersupplied)
+            if (ShowsSelection || !FlowUndersupplied)
                 return null;
             (SKRect bounds, float radius) = RingBase();
             return new RingGeometry(SKRect.Inflate(bounds, -InnerRingInset, -InnerRingInset), radius - InnerRingInset, NodeCardPainter.CardStrokeWidth, Tokens.Error, null);
         }
 
-        public RingGeometry? LaneARing() => IsFindMatch ? FindMatchRing() : IsPlacementFlashing ? PlacementFlashRing() : null;
+        public RingGeometry? LaneARing() => Context.IsExporting ? null : IsFindMatch ? FindMatchRing() : IsPlacementFlashing ? PlacementFlashRing() : null;
 
         internal RingGeometry FindMatchRing() {
             CanvasTokens tokens = Tokens;
@@ -522,7 +526,7 @@ namespace Foreman.Mac.Canvas.Elements {
         }
 
         public RingGeometry? FocusRing() {
-            if (!ShowsKeyboardFocus)
+            if (!ShowsKeyboardFocus || Context.IsExporting)
                 return null;
             (SKRect bounds, float radius) = RingBase();
             return new RingGeometry(SKRect.Inflate(bounds, LaneBCentre, LaneBCentre), radius + LaneBCentre, Tokens.FocusRingWidth, Tokens.FocusRing, null);
@@ -583,6 +587,8 @@ namespace Foreman.Mac.Canvas.Elements {
         private void DrawOuterMarks(SKCanvas canvas, NodeDrawingStyle style) {
             if ((style == NodeDrawingStyle.Regular || style == NodeDrawingStyle.PrintStyle) && Badge() is NodeBadge badge)
                 NodeCardPainter.DrawBadge(canvas, BadgeRect(), badge, Tokens, BadgeDrawsText);
+            if (Context.IsExporting)
+                return;
             if (IsFindMatch)
                 NodeCardPainter.DrawRing(canvas, FindMatchRing());
             if (IsPlacementFlashing && PlacementFlashOpacity > 0)

@@ -388,10 +388,12 @@ namespace Foreman.Mac.Canvas {
             [.. SelectedNodes.Select(node => new AlignMove(node, node.Location, Grid.AlignToGrid(node.Location))).Where(move => move.From != move.To)];
 
         public void ApplyAlign(IReadOnlyList<AlignMove> moves, double progress, bool notify) {
-            foreach (AlignMove move in moves)
-                move.Node.SetLocation(new Point(
-                    move.From.X + (int)Math.Round((move.To.X - move.From.X) * progress),
-                    move.From.Y + (int)Math.Round((move.To.Y - move.From.Y) * progress)));
+            CarryWaypoints([.. moves.Select(move => move.Node)], () => {
+                foreach (AlignMove move in moves)
+                    move.Node.SetLocation(new Point(
+                        move.From.X + (int)Math.Round((move.To.X - move.From.X) * progress),
+                        move.From.Y + (int)Math.Round((move.To.Y - move.From.Y) * progress)));
+            });
             if (notify && moves.Count > 0)
                 Session.NotifyMutated();
         }

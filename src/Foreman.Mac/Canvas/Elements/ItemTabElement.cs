@@ -50,10 +50,15 @@ namespace Foreman.Mac.Canvas.Elements {
 
         public string AutomationName {
             get {
-                string name = Item.FriendlyName ?? "";
+                string lead = $"{Item.FriendlyName ?? ""}, {(LinkType == LinkType.Output ? "output" : "input")}";
                 if (node.SolveState == NodeSolveState.NeverSolved)
-                    return name + ", not yet solved";
-                return $"{name}, {NodeCardPainter.Number(rateValue)} per {NodeCardPainter.UnitWord(context.RateUnit)}";
+                    return lead + ", not yet solved";
+                string text = $"{lead}, {NodeCardPainter.Number(rateValue)} per {NodeCardPainter.UnitWord(context.RateUnit)}";
+                return stroke switch {
+                    TabStroke.Overproduced => text + ", overproducing",
+                    TabStroke.Short => text + ", short of supply",
+                    _ => text,
+                };
             }
         }
 
@@ -85,14 +90,14 @@ namespace Foreman.Mac.Canvas.Elements {
             Point centre = LocalToGraph(new Point(0, 0));
             float width = showsRate ? Width : Height;
             SKRect rect = SKRect.Create(centre.X - (width / 2f), centre.Y - (Height / 2f), width, Height);
-            if (ReferenceEquals(context.ArmedTab, this))
+            if (!context.IsExporting && ReferenceEquals(context.ArmedTab, this))
                 return new TabGeometry(rect, tokens.NodeTabRadius, ArmedStrokeWidth, tokens.Accent, tokens.AccentSoft, tokens.NodeTabOverhang);
             SKColor strokeColor = stroke switch {
                 TabStroke.Overproduced => tokens.Warning,
                 TabStroke.Short => tokens.Error,
                 _ => tokens.NodeTabBorder,
             };
-            SKColor fill = ReferenceEquals(context.HoveredTab, this) ? tokens.ControlBackgroundHover : tokens.WellBackground;
+            SKColor fill = !context.IsExporting && ReferenceEquals(context.HoveredTab, this) ? tokens.ControlBackgroundHover : tokens.WellBackground;
             float[]? dash = stroke == TabStroke.Overproduced ? NodeCardPainter.FlowDash : null;
             return new TabGeometry(rect, tokens.NodeTabRadius, NodeCardPainter.TabStrokeWidth, strokeColor, fill, tokens.NodeTabOverhang, dash);
         }

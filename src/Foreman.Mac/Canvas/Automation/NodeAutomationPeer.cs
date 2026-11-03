@@ -8,6 +8,7 @@ using System.Linq;
 namespace Foreman.Mac.Canvas.Automation {
     internal sealed class NodeAutomationPeer(CanvasAutomationPeer canvasPeer, BaseNodeElement node) : AutomationPeer, ISelectionItemProvider, IInvokeProvider {
         private AutomationPeer? parent;
+        private readonly Dictionary<ItemTabElement, ItemTabAutomationPeer> tabPeers = [];
 
         internal BaseNodeElement Node => node;
         private GraphCanvasControl Canvas => canvasPeer.Canvas;
@@ -32,7 +33,21 @@ namespace Foreman.Mac.Canvas.Automation {
         protected override string? GetAccessKeyCore() => null;
         protected override AutomationPeer? GetLabeledByCore() => null;
         protected override AutomationPeer? GetParentCore() => parent;
-        protected override IReadOnlyList<AutomationPeer> GetOrCreateChildrenCore() => [];
+        internal IReadOnlyList<AutomationPeer> TabPeers => GetOrCreateChildrenCore();
+
+        protected override IReadOnlyList<AutomationPeer> GetOrCreateChildrenCore() {
+            IReadOnlyList<ItemTabElement> tabs = node.ItemTabs;
+            foreach (ItemTabElement stale in tabPeers.Keys.Except(tabs).ToList())
+                tabPeers.Remove(stale);
+
+            var children = new List<AutomationPeer>(tabs.Count);
+            foreach (ItemTabElement tab in tabs) {
+                if (!tabPeers.TryGetValue(tab, out ItemTabAutomationPeer? peer))
+                    tabPeers[tab] = peer = new ItemTabAutomationPeer(canvasPeer, this, tab);
+                children.Add(peer);
+            }
+            return children;
+        }
         protected override Rect GetBoundingRectangleCore() => canvasPeer.ScreenRect(CanvasTraversal.WorldBounds(node));
         protected override bool IsOffscreenCore() => canvasPeer.IsOffscreenGraph(CanvasTraversal.WorldBounds(node));
         protected override bool IsContentElementCore() => true;

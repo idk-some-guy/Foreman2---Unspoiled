@@ -1,6 +1,7 @@
 using Foreman.Graph;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Models;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -84,6 +85,28 @@ namespace Foreman.Mac.Canvas {
         public void ClearSelectedWaypoints() {
             foreach (LinkElement link in SelectedLinks.Where(l => l.ViewModel.Waypoints.Count > 0))
                 SetWaypoints(link, []);
+        }
+
+        public void CarryWaypoints(IReadOnlyCollection<BaseNodeElement> nodes, Action move) {
+            if (nodes.Count < 2) {
+                move();
+                return;
+            }
+
+            Dictionary<BaseNodeElement, Point> before = nodes.ToDictionary(node => node, node => node.Location);
+            move();
+            foreach (LinkElement link in LinkElements.ToList()) {
+                if (link.SupplierElement is not BaseNodeElement supplier || link.ConsumerElement is not BaseNodeElement consumer
+                    || !before.TryGetValue(supplier, out Point supplierBefore) || !before.TryGetValue(consumer, out Point consumerBefore)
+                    || link.ViewModel.Waypoints.Count == 0)
+                    continue;
+
+                Size supplierDelta = new(supplier.Location.X - supplierBefore.X, supplier.Location.Y - supplierBefore.Y);
+                Size consumerDelta = new(consumer.Location.X - consumerBefore.X, consumer.Location.Y - consumerBefore.Y);
+                if (supplierDelta != consumerDelta || supplierDelta == Size.Empty)
+                    continue;
+                SetWaypoints(link, [.. link.ViewModel.Waypoints.Select(waypoint => Point.Add(waypoint, supplierDelta))]);
+            }
         }
 
         public void SetWaypoints(LinkElement link, IReadOnlyList<Point> waypoints) {

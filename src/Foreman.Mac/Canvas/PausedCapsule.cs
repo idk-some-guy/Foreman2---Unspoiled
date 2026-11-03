@@ -12,6 +12,7 @@ namespace Foreman.Mac.Canvas {
         internal const string Label = "Calculations paused";
         private const double GlyphMaster = 20;
         private const double GlyphGap = 6;
+        private const double GlyphStroke = 2.4;
 
         protected override Type StyleKeyOverride => typeof(Button);
 
@@ -30,6 +31,7 @@ namespace Foreman.Mac.Canvas {
                 Theme = KitTheme("Kit.Glyph"),
                 Width = GlyphMaster,
                 Height = GlyphMaster,
+                StrokeThickness = GlyphStroke,
                 IsHitTestVisible = false,
             };
             glyph.Bind(Shape.StrokeProperty, this.GetObservable(ForegroundProperty));
@@ -46,6 +48,13 @@ namespace Foreman.Mac.Canvas {
                 },
             };
         }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
+            base.OnAttachedToVisualTree(e);
+            Padding = new Thickness(Space("Foreman.Space.CapsuleLeading"), 0, Space("Foreman.Space.CapsuleTrailing"), 0);
+        }
+
+        private double Space(string key) => this.TryFindResource(key, ActualThemeVariant, out object? value) && value is double space ? space : 0;
 
         private static object? ToBrush(object? value) =>
             value switch {

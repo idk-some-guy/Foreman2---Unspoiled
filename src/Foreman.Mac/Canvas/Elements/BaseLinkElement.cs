@@ -41,6 +41,7 @@ namespace Foreman.Mac.Canvas.Elements {
         private IReadOnlyList<Point> routedWaypoints = [];
         private double routedScale;
         private float routedCorner;
+        private SKRect routedSupplierBounds, routedConsumerBounds;
         private List<SKPoint>? orthogonalPoints;
         private List<RouteSegment>? orthogonalSegments;
         private List<CubicSegment>? waypointCubics;
@@ -96,12 +97,15 @@ namespace Foreman.Mac.Canvas.Elements {
             LinkRouting routing = Routing;
             IReadOnlyList<Point> waypoints = RouteWaypoints;
             float corner = routing == LinkRouting.Orthogonal ? Math.Max(tokens.LinkCornerRadius, LinkWidth) : 0f;
-            if (supplierOrigin != endpoints.Item1 || consumerOrigin != endpoints.Item2 || supplierDirection != endpointDirections.Item1 || consumerDirection != endpointDirections.Item2
+            SKRect supplierBounds = NodeBounds(SupplierElement, endpoints.Item1), consumerBounds = NodeBounds(ConsumerElement, endpoints.Item2);
+            if (supplierBounds != routedSupplierBounds || consumerBounds != routedConsumerBounds || supplierOrigin != endpoints.Item1 || consumerOrigin != endpoints.Item2 || supplierDirection != endpointDirections.Item1 || consumerDirection != endpointDirections.Item2
                 || routing != routedRouting || !ReferenceEquals(waypoints, routedWaypoints) || tokens.Scale != routedScale || corner != routedCorner) {
                 routedRouting = routing;
                 routedWaypoints = waypoints;
                 routedScale = tokens.Scale;
                 routedCorner = corner;
+                routedSupplierBounds = supplierBounds;
+                routedConsumerBounds = consumerBounds;
                 flattened = null;
                 supplierOrigin = endpoints.Item1;
                 supplierDirection = endpointDirections.Item1;
@@ -211,6 +215,13 @@ namespace Foreman.Mac.Canvas.Elements {
             }
         }
 
+        private SKRect NodeBounds(BaseNodeElement? node, Point fallback) {
+            if (node is null)
+                return SKRect.Create(fallback.X, fallback.Y, 0, 0);
+            float width = iconOnlyDraw ? Context.IconsDrawSize : node.Width, height = iconOnlyDraw ? Context.IconsDrawSize : node.Height;
+            return SKRect.Create(node.Location.X - (width / 2f), node.Location.Y - (height / 2f), width, height);
+        }
+
         private void ComputeCustomRoute(float corner) {
             orthogonalPoints = null;
             orthogonalSegments = null;
@@ -221,7 +232,7 @@ namespace Foreman.Mac.Canvas.Elements {
 
             IEnumerable<SKPoint> extent;
             if (routedRouting == LinkRouting.Orthogonal) {
-                orthogonalPoints = LinkRouter.OrthogonalPoints(supplierOrigin, supplierDirection, consumerOrigin, consumerDirection, routedWaypoints, routedScale);
+                orthogonalPoints = LinkRouter.OrthogonalPoints(supplierOrigin, supplierDirection, consumerOrigin, consumerDirection, routedWaypoints, TokenBridge.Current.LinkStub, routedSupplierBounds, routedConsumerBounds);
                 orthogonalSegments = LinkRouter.OrthogonalSegments(orthogonalPoints, corner);
                 arrowAnchor = orthogonalPoints[^2];
                 extent = orthogonalPoints;

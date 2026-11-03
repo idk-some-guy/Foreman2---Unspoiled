@@ -122,7 +122,7 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             "Foreman.Size.NodeTypeStrip", "Foreman.Size.NodeTypeStripInset",
             "Foreman.Size.NodeTabHeight", "Foreman.Size.NodeTabMinWidth", "Foreman.Size.NodeTabOverhang",
             "Foreman.Size.NodeBadgeHeight", "Foreman.Size.NodePip", "Foreman.Size.NodeGapTight", "Foreman.Size.NodeBadgeStroke",
-            "Foreman.Size.LinkWidth", "Foreman.Size.LinkWidthMax", "Foreman.Size.LinkHitWidth",
+            "Foreman.Size.LinkWidth", "Foreman.Size.LinkWidthMax", "Foreman.Size.LinkHitWidth", "Foreman.Size.LinkStub",
             "Foreman.Size.WaypointDiameter", "Foreman.Size.WaypointHitTarget",
         ];
 

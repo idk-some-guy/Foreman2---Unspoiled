@@ -442,7 +442,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [AvaloniaFact]
-        public void Unavailable_ContentOpacityIs0Point6_BadgeOpaque_NoColorFilterOnAnyPaint() {
+        public void Unavailable_ContentOpacityIs0Point62_BadgeOpaque_NoColorFilterOnAnyPaint() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("copper-ore");
             SupplierNodeElement available = Supplier(fx, fx.NewItem("iron-ore"));
@@ -451,14 +451,14 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             item.Enabled = false;
             SupplierNodeElement supplier = Supplier(fx, item);
-            Assert.Equal(0.6f, supplier.ContentOpacity, 0.001f);
+            Assert.Equal(0.62f, supplier.ContentOpacity, 0.001f);
             Assert.Equal(new NodeBadge(NodeBadgeKind.Unavailable, "Unavailable"), supplier.Badge());
 
             using SKSurface surface = Render(supplier);
             SKColor strip = Resolve("Foreman.Color.NodeSupplier");
             SKRect stripRect = supplier.TypeStripRect();
             SKColor stripPixel = Pixel(surface, stripRect.MidX, stripRect.MidY);
-            AssertClose(strip.WithAlpha((byte)Math.Round(strip.Alpha * 0.6)), stripPixel);
+            AssertClose(strip.WithAlpha((byte)Math.Round(strip.Alpha * 0.62)), stripPixel);
 
             SKRect badge = supplier.BadgeRect();
             SKColor well = Resolve("Foreman.Color.WellBackground");

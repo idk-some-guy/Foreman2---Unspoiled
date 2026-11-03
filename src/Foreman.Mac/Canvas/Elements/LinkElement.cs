@@ -24,7 +24,7 @@ namespace Foreman.Mac.Canvas.Elements {
         public bool IsFocused { get; set; }
         public int SelectedWaypointIndex { get; set; } = -1;
 
-        public bool AreWaypointsShown => IsHovered || IsSelected || IsFocused;
+        public bool AreWaypointsShown => !Context.IsExporting && (IsHovered || IsSelected || IsFocused);
 
         private WaypointElement[] waypointElements = [];
 
@@ -58,8 +58,8 @@ namespace Foreman.Mac.Canvas.Elements {
             waypoints[index] = to;
             WaypointPreview = waypoints;
         }
-        protected override bool IsHaloShown => IsHovered;
-        protected override bool IsCasingShown => IsSelected || IsFocused;
+        protected override bool IsHaloShown => IsHovered && !Context.IsExporting;
+        protected override bool IsCasingShown => (IsSelected || IsFocused) && !Context.IsExporting;
         protected override bool IsUndersupplied => ConsumerElement?.FlowUndersupplied == true;
 
         protected override Tuple<Point, Point> GetCurveEndpoints() {

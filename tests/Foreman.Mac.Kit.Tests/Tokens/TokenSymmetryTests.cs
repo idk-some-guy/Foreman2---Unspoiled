@@ -38,7 +38,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Empty(onlyInLight);
             Assert.Empty(onlyInDark);
-            Assert.Equal(304, lightKeys.Count);
+            Assert.Equal(307, lightKeys.Count);
         }
 
         //The find ring is opaque Accent, never NodeSelected amber or the AccentSoft fill.
@@ -65,7 +65,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             yield return ["Foreman.Color.NodeSupplier", "#8E4A90", "#CF7FD0"];
             yield return ["Foreman.Color.NodeConsumer", "#9A7318", "#E0B34D"];
             yield return ["Foreman.Color.NodePassthrough", "#77777C", "#9A9A9E"];
-            yield return ["Foreman.Color.NodeTabBorder", "#73000000", "#73FFFFFF"];
+            yield return ["Foreman.Color.NodeTabBorder", "#73000000", "#80FFFFFF"];
             yield return ["Foreman.Color.NodeTabBorderContrast", "#99000000", "#99FFFFFF"];
             yield return ["Foreman.Color.TextOnWarning", "#FFFFFF", "#1A1A1A"];
         }
@@ -78,7 +78,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         }
 
         public static IEnumerable<object[]> CanvasDoubleKeys() {
-            yield return ["Foreman.Opacity.NodeUnavailable", 0.6];
+            yield return ["Foreman.Opacity.NodeUnavailable", 0.62];
             yield return ["Foreman.Size.NodeIcon", 26.0];
             yield return ["Foreman.Size.NodeBuildingIcon", 20.0];
             yield return ["Foreman.Size.NodeTabIcon", 16.0];
@@ -97,6 +97,9 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             yield return ["Foreman.Size.LinkWidth", 3.0];
             yield return ["Foreman.Size.LinkWidthMax", 35.0];
             yield return ["Foreman.Size.LinkHitWidth", 12.0];
+            yield return ["Foreman.Size.LinkStub", 12.0];
+            yield return ["Foreman.Space.CapsuleLeading", 8.0];
+            yield return ["Foreman.Space.CapsuleTrailing", 10.0];
             yield return ["Foreman.Size.WaypointDiameter", 10.0];
             yield return ["Foreman.Size.WaypointHitTarget", 20.0];
             yield return ["Foreman.Metrics.CanvasMinTextSize", 7.0];

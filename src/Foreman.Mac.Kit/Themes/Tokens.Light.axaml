@@ -61,7 +61,7 @@
   <x:Double x:Key="Foreman.Opacity.Disabled">0.38</x:Double>
   <!-- "Choosable but not researched" (2026-09-17 building-picker ruling), lighter than Opacity.Disabled. -->
   <x:Double x:Key="Foreman.Opacity.Unavailable">0.55</x:Double>
-  <x:Double x:Key="Foreman.Opacity.NodeUnavailable">0.6</x:Double>
+  <x:Double x:Key="Foreman.Opacity.NodeUnavailable">0.62</x:Double>
 
   <!-- PickCellSelected mirrors AccentSoft's value rather than referencing it, kept independent on purpose. -->
   <Color x:Key="Foreman.Color.PickCellSelected">#1F0068DA</Color>
@@ -78,6 +78,8 @@
   <x:Double x:Key="Foreman.Space.Space3">12</x:Double>
   <x:Double x:Key="Foreman.Space.Space4">16</x:Double>
   <x:Double x:Key="Foreman.Space.Space5">24</x:Double>
+  <x:Double x:Key="Foreman.Space.CapsuleLeading">8</x:Double>
+  <x:Double x:Key="Foreman.Space.CapsuleTrailing">10</x:Double>
 
   <!-- Thickness twins of Space.Space05,3: CornerRadius and Thickness (Margin/Padding) reject a boxed x:Double resource at style-application time. -->
   <Thickness x:Key="Foreman.Thickness.Space05">2</Thickness>
@@ -250,6 +252,7 @@
   <x:Double x:Key="Foreman.Size.LinkWidth">3</x:Double>
   <x:Double x:Key="Foreman.Size.LinkWidthMax">35</x:Double>
   <x:Double x:Key="Foreman.Size.LinkHitWidth">12</x:Double>
+  <x:Double x:Key="Foreman.Size.LinkStub">12</x:Double>
   <x:Double x:Key="Foreman.Size.WaypointDiameter">10</x:Double>
   <x:Double x:Key="Foreman.Size.WaypointHitTarget">20</x:Double>
   <CornerRadius x:Key="Foreman.Radius.NodeTab">6</CornerRadius>

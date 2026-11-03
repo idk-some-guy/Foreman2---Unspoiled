@@ -257,7 +257,7 @@ namespace Foreman.Mac.Canvas.Elements {
         //Real now (was no-op'd for the read-only path): a translucent blue rectangle around graphRect,
         //stroke width compensated for zoom so it stays a constant screen thickness.
         protected void DrawSelectionHighlight(SKCanvas canvas, Rectangle graphRect) {
-            if (!IsSelected)
+            if (!IsSelected || Context?.IsExporting?.Invoke() == true)
                 return;
 
             float pw = SelectionHighlightScreenPx / ViewScale;
@@ -269,7 +269,7 @@ namespace Foreman.Mac.Canvas.Elements {
         //Ports DrawResizeHandles (reference §6): 8 white squares with a blue border, call at the end of each
         //subclass Draw() so they sit on top of the shape/text.
         protected void DrawResizeHandles(SKCanvas canvas) {
-            if (!IsSelected)
+            if (!IsSelected || Context?.IsExporting?.Invoke() == true)
                 return;
 
             CanvasTokens tokens = TokenBridge.Current;

@@ -791,17 +791,19 @@ namespace Foreman.Mac.Canvas {
                     //snap/axis-lock logic; every other selected node and annotation gets the resulting raw,
                     //unaligned delta instead (SetLocation/X+=/Y+=), preserving relative offset off-grid.
                     if (MouseDownElement is BaseNodeElement groupDragNode && Viewer.SelectedNodes.Contains(groupDragNode)) {
-                        DrawingPoint startPoint = groupDragNode.Location;
-                        groupDragNode.Dragged(graphPoint, Grid);
-                        DrawingPoint endPoint = groupDragNode.Location;
-                        if (startPoint != endPoint) {
-                            int dx = endPoint.X - startPoint.X;
-                            int dy = endPoint.Y - startPoint.Y;
-                            foreach (BaseNodeElement node in Viewer.SelectedNodes.Where(node => node != groupDragNode))
-                                node.SetLocation(new DrawingPoint(node.X + dx, node.Y + dy));
-                            foreach (AnnotationElement annotation in Viewer.SelectedAnnotations)
-                                annotation.Location = new DrawingPoint(annotation.X + dx, annotation.Y + dy);
-                        }
+                        Viewer.CarryWaypoints([.. Viewer.SelectedNodes], () => {
+                            DrawingPoint startPoint = groupDragNode.Location;
+                            groupDragNode.Dragged(graphPoint, Grid);
+                            DrawingPoint endPoint = groupDragNode.Location;
+                            if (startPoint != endPoint) {
+                                int dx = endPoint.X - startPoint.X;
+                                int dy = endPoint.Y - startPoint.Y;
+                                foreach (BaseNodeElement node in Viewer.SelectedNodes.Where(node => node != groupDragNode))
+                                    node.SetLocation(new DrawingPoint(node.X + dx, node.Y + dy));
+                                foreach (AnnotationElement annotation in Viewer.SelectedAnnotations)
+                                    annotation.Location = new DrawingPoint(annotation.X + dx, annotation.Y + dy);
+                            }
+                        });
                     } else if (MouseDownElement is AnnotationElement draggedAnnotation) {
                         //Ports Annotation_OnItemDrag (reference §2/§6): a selected annotation leading the drag
                         //moves every other selected annotation by the resulting raw delta and re-snaps every
@@ -1777,10 +1779,12 @@ namespace Foreman.Mac.Canvas {
         //the same raw dx/dy, annotations are never grid-snapped anywhere in upstream.
         private void MoveSelection(int dx, int dy) {
             bool moved = false;
-            foreach (BaseNodeElement node in Viewer.SelectedNodes) {
-                node.SetLocation(new DrawingPoint(node.X + dx, node.Y + dy));
-                moved = true;
-            }
+            Viewer.CarryWaypoints([.. Viewer.SelectedNodes], () => {
+                foreach (BaseNodeElement node in Viewer.SelectedNodes) {
+                    node.SetLocation(new DrawingPoint(node.X + dx, node.Y + dy));
+                    moved = true;
+                }
+            });
             foreach (AnnotationElement annotation in Viewer.SelectedAnnotations) {
                 annotation.X += dx;
                 annotation.Y += dy;

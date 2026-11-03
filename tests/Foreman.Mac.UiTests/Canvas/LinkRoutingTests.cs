@@ -119,6 +119,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.All(runs, s => Assert.True(Math.Abs(s.To.X - s.From.X) < 0.01f || Math.Abs(s.To.Y - s.From.Y) < 0.01f));
             Assert.Equal(0f, segments[0].To.X - segments[0].From.X, 0.01f);
             Assert.Equal(-12f * (float)step, segments[0].To.Y - segments[0].From.Y, 0.01f);
+            Assert.Equal(12f * (float)step, TokenBridge.Current.LinkStub, 0.001f);
+            Assert.Null(typeof(LinkRouter).GetField("StubLength", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public));
+            float stub = TokenBridge.Current.LinkStub;
+            List<SKPoint> ahead = LinkRouter.OrthogonalPoints(new Point(0, -43), NodeDirection.Up, new Point(300, -243), NodeDirection.Up, [], stub, SupplierCard, new SKRect(240, -330, 360, -270));
+            Assert.Equal((ahead[1].Y + ahead[^2].Y) / 2f, ahead[2].Y, 0.01f);
             Assert.Equal(2, arcs.Length);
             Assert.All(arcs, s => Assert.Equal(Math.Max(4f, link.LinkWidth), s.ArcRadius, 0.01f));
         }
@@ -136,6 +141,90 @@ namespace Foreman.Mac.UiTests.Canvas {
             float roundedCornerReach = 4f * (MathF.Sqrt(2) - 1f) + 0.5f;
             foreach (Point waypoint in waypoints)
                 Assert.True(LinkRouter.DistanceToPolyline(link.Polyline, new SKPoint(waypoint.X, waypoint.Y)) < roundedCornerReach, waypoint.ToString());
+        }
+
+        private static bool Cuts(SKRect rect, SKPoint a, SKPoint b) {
+            float low = Math.Min(a.Y, b.Y), high = Math.Max(a.Y, b.Y);
+            if (Math.Abs(a.X - b.X) < 0.01f)
+                return a.X > rect.Left + 0.01f && a.X < rect.Right - 0.01f && Math.Max(low, rect.Top) < Math.Min(high, rect.Bottom) - 0.01f;
+            low = Math.Min(a.X, b.X);
+            high = Math.Max(a.X, b.X);
+            return a.Y > rect.Top + 0.01f && a.Y < rect.Bottom - 0.01f && Math.Max(low, rect.Left) < Math.Min(high, rect.Right) - 0.01f;
+        }
+
+        private static void AssertClear(List<SKPoint> points, params SKRect[] bounds) {
+            for (int i = 0; i < points.Count - 1; i++) {
+                Assert.True(Math.Abs(points[i].X - points[i + 1].X) < 0.01f || Math.Abs(points[i].Y - points[i + 1].Y) < 0.01f);
+                foreach (SKRect rect in bounds)
+                    Assert.False(Cuts(rect, points[i], points[i + 1]), $"segment {i} cuts {rect}");
+            }
+        }
+
+        private static SKRect NodeRect(BaseNodeElement node) =>
+            SKRect.Create(node.Location.X - (node.Width / 2f), node.Location.Y - (node.Height / 2f), node.Width, node.Height);
+
+        private static readonly SKRect SupplierCard = new(-60, -30, 60, 30);
+
+        [AvaloniaFact]
+        public void WrongWayAndSameDirectionRoutes_FollowTheRuledGeometry_AndClearBothNodes() {
+            var cases = new (string Name, System.Action Check)[] {
+                ("gap of two stubs runs through the middle", () => {
+                    var consumerCard = new SKRect(240, 70, 360, 130);
+                    List<SKPoint> points = LinkRouter.OrthogonalPoints(new Point(0, -43), NodeDirection.Up, new Point(300, 143), NodeDirection.Up, [], 12f, SupplierCard, consumerCard);
+                    Assert.Equal<SKPoint>([new(0, -43), new(0, -55), new(150, -55), new(150, 155), new(300, 155), new(300, 143)], points);
+                    AssertClear(points, SupplierCard, consumerCard);
+                }),
+                ("overlap sits two stubs outside the union, the tie going right", () => {
+                    var tied = new SKRect(-40, 70, 80, 130);
+                    var farRight = new SKRect(-40, 70, 140, 130);
+                    var farLeft = new SKRect(-110, 70, -50, 130);
+                    List<SKPoint> tie = LinkRouter.OrthogonalPoints(new Point(0, -43), NodeDirection.Up, new Point(20, 143), NodeDirection.Up, [], 12f, SupplierCard, tied);
+                    List<SKPoint> right = LinkRouter.OrthogonalPoints(new Point(0, -43), NodeDirection.Up, new Point(100, 143), NodeDirection.Up, [], 12f, SupplierCard, farRight);
+                    List<SKPoint> left = LinkRouter.OrthogonalPoints(new Point(0, -43), NodeDirection.Up, new Point(-80, 143), NodeDirection.Up, [], 12f, SupplierCard, farLeft);
+                    Assert.Equal(80f + 24f, tie[2].X);
+                    Assert.Equal(140f + 24f, right[2].X);
+                    Assert.Equal(-110f - 24f, left[2].X);
+                    AssertClear(tie, SupplierCard, tied);
+                    AssertClear(right, SupplierCard, farRight);
+                    AssertClear(left, SupplierCard, farLeft);
+                }),
+                ("same-direction stubs form a U to the farther y", () => {
+                    var consumerCard = new SKRect(240, -230, 360, -170);
+                    List<SKPoint> points = LinkRouter.OrthogonalPoints(new Point(0, -43), NodeDirection.Up, new Point(300, -243), NodeDirection.Down, [], 12f, SupplierCard, consumerCard);
+                    Assert.Equal<SKPoint>([new(0, -43), new(0, -55), new(0, -255), new(300, -255), new(300, -243)], points);
+                    AssertClear(points, SupplierCard, consumerCard);
+                }),
+                ("a U whose leg would cut a node uses the lane route", () => {
+                    var consumerCard = new SKRect(-60, -230, 60, -170);
+                    List<SKPoint> points = LinkRouter.OrthogonalPoints(new Point(0, -43), NodeDirection.Up, new Point(0, -243), NodeDirection.Down, [], 12f, SupplierCard, consumerCard);
+                    Assert.Equal(6, points.Count);
+                    Assert.Equal(60f + 24f, points[2].X);
+                    AssertClear(points, SupplierCard, consumerCard);
+                }),
+            };
+
+            foreach ((string name, System.Action check) in cases) {
+                try {
+                    check();
+                } catch (Xunit.Sdk.XunitException e) {
+                    throw new Xunit.Sdk.XunitException(name + ": " + e.Message);
+                }
+            }
+        }
+
+        [AvaloniaFact]
+        public void WrongWayLink_BetweenRealNodes_ClearsBothNodesByTwoStubs() {
+            using LinkFixture fx = LinkFixture.Create();
+            LinkElement link = fx.AddLink(fx.NewItem("iron-plate", Orange), new Point(0, 0), NodeDirection.Up, new Point(40, 100), NodeDirection.Up, LinkRouting.Orthogonal);
+            SKRect supplier = NodeRect((BaseNodeElement)link.SupplierElement!), consumer = NodeRect((BaseNodeElement)link.ConsumerElement!);
+            float stub = TokenBridge.Current.LinkStub;
+            IReadOnlyList<SKPoint> polyline = link.Polyline;
+
+            Assert.Contains(polyline, p => p.X >= Math.Max(supplier.Right, consumer.Right) + (2 * stub) - 0.5f || p.X <= Math.Min(supplier.Left, consumer.Left) - (2 * stub) + 0.5f);
+            Assert.All(polyline, p => {
+                Assert.False(p.X > supplier.Left + 0.5f && p.X < supplier.Right - 0.5f && p.Y > supplier.Top + 0.5f && p.Y < supplier.Bottom - 0.5f);
+                Assert.False(p.X > consumer.Left + 0.5f && p.X < consumer.Right - 0.5f && p.Y > consumer.Top + 0.5f && p.Y < consumer.Bottom - 0.5f);
+            });
         }
 
         [AvaloniaFact]

@@ -36,6 +36,8 @@ namespace Foreman.Mac.Canvas.Elements {
         //Set while an image export paints, so legibility reads the export scale and not the window zoom.
         public float? ExportViewScale { get; set; }
 
+        public bool IsExporting => ExportViewScale is not null;
+
         public bool IsTextLegible(float fontSize) => CanvasText.IsLegible(fontSize, ExportViewScale ?? Viewport.ViewScale);
 
         public float GetLinkWidth(LinkId id) => LinkWidthLookup?.Invoke(id) ?? StaticLinkWidth;

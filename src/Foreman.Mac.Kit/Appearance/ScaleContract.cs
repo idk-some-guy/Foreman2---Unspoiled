@@ -89,6 +89,7 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Size.LinkWidth",
             "Foreman.Size.LinkWidthMax",
             "Foreman.Size.LinkHitWidth",
+            "Foreman.Size.LinkStub",
             "Foreman.Size.WaypointDiameter",
             "Foreman.Size.WaypointHitTarget",
             "Foreman.Size.Glyph16",

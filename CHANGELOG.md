@@ -530,6 +530,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Exported images are clean of selection and search marks: no selection border, find ring, focus ring,
+  link highlight or waypoint handles appear in the file.
+- VoiceOver reads each node's item tabs, with the item, whether it is an input or an output, its rate and
+  whether it is short of supply or overproducing.
+- Links that run the wrong way, or leave two flipped nodes on the same side, route around the nodes with
+  a clear margin. Moving both ends of a link together carries its waypoints along. The paused capsule's
+  padding and pause glyph match the design, the unavailable node text is slightly more opaque, and the
+  tab outline is easier to see in dark mode.
 - Tooltips, the recipe card, annotation selection handles and the off-screen arrows follow light and
   dark. The arrows now use the error and warning colours only.
 - Saving a large graph no longer pauses editing: the thumbnail and the database write happen in the

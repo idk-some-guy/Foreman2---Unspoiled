@@ -157,13 +157,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             }
         }
 
-        private sealed record Claim(string Theme, string Name, double Measured, double Needs, bool Enforced) {
+        private sealed record Claim(string Theme, string Name, double Measured, double Needs) {
             public bool Met => Measured >= Needs;
         }
-
-        //The dark tab outline composites over the tab's own well fill rather than the card the addendum computed it on, and the light unavailable name is the addendum's own 4.40; both are reported for the gate, not failed.
-        private static bool IsReportedOnly(string theme, string name) =>
-            (theme == "dark" && name.StartsWith("tab outline", StringComparison.Ordinal)) || (theme == "light" && name.StartsWith("unavailable name", StringComparison.Ordinal));
 
         [AvaloniaFact]
         public void RenderedClaims_MeetTheirThresholds_AndAreRecorded() {
@@ -175,7 +171,7 @@ namespace Foreman.Mac.UiTests.Canvas {
                     TokenBridge.Refresh();
                     string theme = mode.ToString().ToLowerInvariant();
                     CanvasTokens tokens = TokenBridge.Current;
-                    void Measure(string name, double measured, double needs) => claims.Add(new Claim(theme, name, measured, needs, !IsReportedOnly(theme, name)));
+                    void Measure(string name, double measured, double needs) => claims.Add(new Claim(theme, name, measured, needs));
 
                     SupplierNodeElement available = Supplier("iron-plate", true, out SKColor canvas);
                     using SKSurface plain = Render(available);
@@ -197,7 +193,7 @@ namespace Foreman.Mac.UiTests.Canvas {
                     SupplierNodeElement unavailable = Supplier("iron-plate", false, out _);
                     using SKSurface dimmed = Render(unavailable);
                     SKColor dimmedCard = Pixel(dimmed, bounds.Right - 3, bounds.MidY);
-                    Measure("unavailable name at 0.6 on card", Ratio(Strongest(dimmed, TextRect(unavailable, NodeTextRole.Name), dimmedCard), dimmedCard), 4.5);
+                    Measure("unavailable name at 0.62 on card", Ratio(Strongest(dimmed, TextRect(unavailable, NodeTextRole.Name), dimmedCard), dimmedCard), 4.5);
 
                     SKRect badge = unavailable.BadgeRect();
                     SKColor badgeFill = Pixel(dimmed, badge.Left + 3, badge.MidY);
@@ -228,10 +224,10 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             Directory.CreateDirectory(Scratch);
             File.WriteAllLines(Path.Combine(Scratch, "canvas-contrast.txt"), claims.Select(Line).Append("no canvas painter reads TextTertiary"));
-            Assert.Empty(claims.Where(claim => claim.Enforced && !claim.Met).Select(Line));
+            Assert.Empty(claims.Where(claim => !claim.Met).Select(Line));
         }
 
         private static string Line(Claim claim) =>
-            string.Create(CultureInfo.InvariantCulture, $"{claim.Theme,-5} {claim.Name}: {claim.Measured:0.00} (needs {claim.Needs:0.0}){(claim.Met ? "" : claim.Enforced ? " BELOW" : " BELOW, reported only")}");
+            string.Create(CultureInfo.InvariantCulture, $"{claim.Theme,-5} {claim.Name}: {claim.Measured:0.00} (needs {claim.Needs:0.0}){(claim.Met ? "" : " BELOW")}");
     }
 }

@@ -27,7 +27,7 @@ namespace Foreman.Mac.Canvas.KitSkia {
         float FindRingDashOn, float FindRingDashOff, SKColor AccentText, float PillRadius,
         float Glyph10, float GlyphMicro, float Space05, float Space1, float Space15, float Space2, float Space3, float Space5,
         float NodeTypeStripRadius, float NodeBeaconBadgeRadius, float NodeBadgeStroke, float FocusRingWidth, SKColor WindowBackground,
-        SKColor TooltipMaterialOpaque, SKColor TooltipText);
+        SKColor TooltipMaterialOpaque, SKColor TooltipText, float LinkStub);
 
     public static class TokenBridge {
         private static CanvasTokens? current;
@@ -89,7 +89,7 @@ namespace Foreman.Mac.Canvas.KitSkia {
                 Space("Foreman.Space.Space3", scale), Space("Foreman.Space.Space5", scale),
                 Radius("Foreman.Radius.NodeTypeStrip"), Radius("Foreman.Radius.NodeBeaconBadge"),
                 Number("Foreman.Size.NodeBadgeStroke"), Number("Foreman.FocusRing.Width"), ColorOf("Foreman.Color.WindowBackground"),
-                ColorOf("Foreman.Color.TooltipMaterialOpaque"), ColorOf("Foreman.Color.TooltipText"));
+                ColorOf("Foreman.Color.TooltipMaterialOpaque"), ColorOf("Foreman.Color.TooltipText"), Number("Foreman.Size.LinkStub"));
         }
 
         //Off the UI thread ActualThemeVariant throws, so we resolve against Light there, as ThemeResources does.

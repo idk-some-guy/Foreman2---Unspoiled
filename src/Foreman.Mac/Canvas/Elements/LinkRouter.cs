@@ -12,14 +12,12 @@ namespace Foreman.Mac.Canvas.Elements {
 
     //Pure link geometry for the two routings that carry waypoints or axis-aligned runs; the shipped cubic shapes stay in BaseLinkElement.
     internal static class LinkRouter {
-        internal const float StubLength = 12f;
         private const float Epsilon = 0.01f;
 
         internal static (float Supplier, float Consumer) StubDirections(NodeDirection supplierDirection, NodeDirection consumerDirection) =>
             (supplierDirection == NodeDirection.Up ? -1f : 1f, consumerDirection == NodeDirection.Up ? 1f : -1f);
 
-        internal static List<SKPoint> OrthogonalPoints(Point supplier, NodeDirection supplierDirection, Point consumer, NodeDirection consumerDirection, IReadOnlyList<Point> waypoints, double scale) {
-            float stub = StubLength * (float)scale;
+        internal static List<SKPoint> OrthogonalPoints(Point supplier, NodeDirection supplierDirection, Point consumer, NodeDirection consumerDirection, IReadOnlyList<Point> waypoints, float stub, SKRect supplierBounds, SKRect consumerBounds) {
             (float supplierSign, float consumerSign) = StubDirections(supplierDirection, consumerDirection);
             var start = new SKPoint(supplier.X, supplier.Y);
             var end = new SKPoint(consumer.X, consumer.Y);
@@ -34,12 +32,52 @@ namespace Foreman.Mac.Canvas.Elements {
                 points.Add(cursor);
             }
 
+            if (waypoints.Count == 0) {
+                bool opposed = supplierSign != consumerSign;
+                if (opposed && (consumerStub.Y - supplierStub.Y) * supplierSign < 0)
+                    return Deduplicate(Lane(start, supplierStub, consumerStub, end, stub, supplierBounds, consumerBounds));
+                if (!opposed) {
+                    float farther = supplierSign > 0 ? Math.Max(supplierStub.Y, consumerStub.Y) : Math.Min(supplierStub.Y, consumerStub.Y);
+                    var corner = new SKPoint(supplierStub.X, farther);
+                    var other = new SKPoint(consumerStub.X, farther);
+                    bool clear = !Cuts(supplierBounds, supplierStub, corner) && !Cuts(consumerBounds, supplierStub, corner)
+                        && !Cuts(supplierBounds, corner, other) && !Cuts(consumerBounds, corner, other)
+                        && !Cuts(supplierBounds, other, consumerStub) && !Cuts(consumerBounds, other, consumerStub);
+                    return Deduplicate(clear
+                        ? [start, supplierStub, corner, other, consumerStub, end]
+                        : Lane(start, supplierStub, consumerStub, end, stub, supplierBounds, consumerBounds));
+                }
+            }
+
             float middleY = (cursor.Y + consumerStub.Y) / 2f;
             points.Add(new SKPoint(cursor.X, middleY));
             points.Add(new SKPoint(consumerStub.X, middleY));
             points.Add(consumerStub);
             points.Add(end);
             return Deduplicate(points);
+        }
+
+        private static List<SKPoint> Lane(SKPoint start, SKPoint supplierStub, SKPoint consumerStub, SKPoint end, float stub, SKRect supplierBounds, SKRect consumerBounds) {
+            float clearance = 2 * stub;
+            float lane;
+            if (supplierBounds.Right <= consumerBounds.Left && consumerBounds.Left - supplierBounds.Right >= clearance)
+                lane = (supplierBounds.Right + consumerBounds.Left) / 2f;
+            else if (consumerBounds.Right <= supplierBounds.Left && supplierBounds.Left - consumerBounds.Right >= clearance)
+                lane = (consumerBounds.Right + supplierBounds.Left) / 2f;
+            else {
+                float right = Math.Max(supplierBounds.Right, consumerBounds.Right) + clearance;
+                float left = Math.Min(supplierBounds.Left, consumerBounds.Left) - clearance;
+                float viaRight = Math.Abs(supplierStub.X - right) + Math.Abs(consumerStub.X - right);
+                float viaLeft = Math.Abs(supplierStub.X - left) + Math.Abs(consumerStub.X - left);
+                lane = viaRight <= viaLeft ? right : left;
+            }
+            return [start, supplierStub, new SKPoint(lane, supplierStub.Y), new SKPoint(lane, consumerStub.Y), consumerStub, end];
+        }
+
+        private static bool Cuts(SKRect rect, SKPoint a, SKPoint b) {
+            if (Math.Abs(a.X - b.X) < Epsilon)
+                return a.X > rect.Left + Epsilon && a.X < rect.Right - Epsilon && Math.Max(Math.Min(a.Y, b.Y), rect.Top) < Math.Min(Math.Max(a.Y, b.Y), rect.Bottom) - Epsilon;
+            return a.Y > rect.Top + Epsilon && a.Y < rect.Bottom - Epsilon && Math.Max(Math.Min(a.X, b.X), rect.Left) < Math.Min(Math.Max(a.X, b.X), rect.Right) - Epsilon;
         }
 
         //Every 90 degree turn becomes an arc, with the radius held to half of the shorter run on either side.

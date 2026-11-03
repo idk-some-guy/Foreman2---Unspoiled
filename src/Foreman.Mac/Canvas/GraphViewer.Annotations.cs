@@ -25,6 +25,7 @@ namespace Foreman.Mac.Canvas {
         public void AddAnnotationElement(AnnotationElement element) {
             element.Context = new AnnotationElementContext {
                 ViewScale = () => Viewport.ViewScale,
+                IsExporting = () => Context.IsExporting,
                 SelectedAnnotations = SelectedAnnotations,
                 SelectedNodeCount = () => SelectedNodes.Count,
                 ShowPropertiesDialog = ann => ShowAnnotationPropertiesDialog?.Invoke(ann),
@@ -92,8 +93,10 @@ namespace Foreman.Mac.Canvas {
                 ann.X += dx;
                 ann.Y += dy;
             }
-            foreach (BaseNodeElement node in SelectedNodes)
-                node.SetLocation(new Point(node.X + dx, node.Y + dy));
+            CarryWaypoints([.. SelectedNodes], () => {
+                foreach (BaseNodeElement node in SelectedNodes)
+                    node.SetLocation(new Point(node.X + dx, node.Y + dy));
+            });
         }
 
         public HashSet<AnnotationElement> GetAnnotationsIntersectingLasso(Rectangle lasso) =>

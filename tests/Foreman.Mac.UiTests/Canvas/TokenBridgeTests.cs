@@ -103,7 +103,11 @@ namespace Foreman.Mac.UiTests.Canvas {
                 Assert.Equal(Sk("#C86A00"), light.NodeSelected);
                 Assert.Equal(Sk("#FF9F0A"), dark.NodeSelected);
                 Assert.Equal(Sk("#73000000"), light.NodeTabBorder);
-                Assert.Equal(Sk("#73FFFFFF"), dark.NodeTabBorder);
+                Assert.Equal(Sk("#80FFFFFF"), dark.NodeTabBorder);
+                Assert.Equal(0.62f, light.NodeUnavailableOpacity);
+                Assert.Equal(0.62f, dark.NodeUnavailableOpacity);
+                Assert.Equal(12f, light.LinkStub);
+                Assert.Equal(light.LinkStub, dark.LinkStub);
                 Assert.Equal(Sk("#FFFFFF"), light.TextOnWarning);
                 Assert.Equal(Sk("#1A1A1A"), dark.TextOnWarning);
                 Assert.Equal(light.NodeTabHeight, dark.NodeTabHeight);

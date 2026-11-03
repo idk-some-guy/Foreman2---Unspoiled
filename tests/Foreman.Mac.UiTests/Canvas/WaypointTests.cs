@@ -55,6 +55,56 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(tokens.Accent, Sample(selected, 0, 0));
         }
 
+        private static (LinkElement Link, BaseNodeElement Supplier, BaseNodeElement Consumer) WaypointedLink(LinkFixture fx) {
+            LinkElement link = Straight(fx);
+            fx.Viewer.SetWaypoints(link, [new Point(100, 100), new Point(-80, -60)]);
+            return (link, (BaseNodeElement)link.SupplierElement!, (BaseNodeElement)link.ConsumerElement!);
+        }
+
+        [AvaloniaFact]
+        public void WaypointsTravelWithBothEndNodes_ByNudge_ByAlignWithTheSameDelta_AndByGroupDrag() {
+            using LinkFixture fx = LinkFixture.Create();
+            (LinkElement link, BaseNodeElement supplier, BaseNodeElement consumer) = WaypointedLink(fx);
+            fx.Viewer.SetSelection([supplier, consumer]);
+
+            CanvasKeys.KeyDownOnCanvas(fx.Control, Key.Right);
+            int unit = supplier.Location.X;
+            Assert.NotEqual(0, unit);
+            Assert.Equal<Point>([new Point(100 + unit, 100), new Point(-80 + unit, -60)], link.ViewModel.Waypoints);
+
+            fx.Viewer.SetWaypoints(link, [new Point(100, 100), new Point(-80, -60)]);
+            fx.Viewer.ApplyAlign([new GraphViewer.AlignMove(supplier, supplier.Location, new Point(supplier.X + 5, supplier.Y - 4)), new GraphViewer.AlignMove(consumer, consumer.Location, new Point(consumer.X + 5, consumer.Y - 4))], 1, notify: false);
+            Assert.Equal<Point>([new Point(105, 96), new Point(-75, -64)], link.ViewModel.Waypoints);
+
+            fx.Viewer.SetWaypoints(link, [new Point(100, 100), new Point(-80, -60)]);
+            Point before = consumer.Location, supplierBefore = supplier.Location;
+            AvaloniaPoint start = fx.ToScreen(consumer.Location);
+            var window = fx.Window!;
+            window.MouseDown(start, MouseButton.Left, RawInputModifiers.None);
+            for (int i = 0; i < 3; i++)
+                window.MouseMove(start + new AvaloniaPoint(48, 36), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(start + new AvaloniaPoint(48, 36), MouseButton.Left, RawInputModifiers.None);
+            int dx = consumer.Location.X - before.X, dy = consumer.Location.Y - before.Y;
+            Assert.True(dx != 0 || dy != 0);
+            Assert.Equal(new Point(supplierBefore.X + dx, supplierBefore.Y + dy), supplier.Location);
+            Assert.Equal<Point>([new Point(100 + dx, 100 + dy), new Point(-80 + dx, -60 + dy)], link.ViewModel.Waypoints);
+        }
+
+        [AvaloniaFact]
+        public void WaypointsStayPut_WhenOneEndNodeMoves_OrBothAlignByDifferentDeltas() {
+            using LinkFixture fx = LinkFixture.Create();
+            (LinkElement link, BaseNodeElement supplier, BaseNodeElement consumer) = WaypointedLink(fx);
+            Point[] expected = [new Point(100, 100), new Point(-80, -60)];
+
+            fx.Viewer.SetSelection([supplier]);
+            CanvasKeys.KeyDownOnCanvas(fx.Control, Key.Right);
+            Assert.Equal<Point>(expected, link.ViewModel.Waypoints);
+
+            fx.Viewer.SetSelection([supplier, consumer]);
+            fx.Viewer.ApplyAlign([new GraphViewer.AlignMove(supplier, supplier.Location, new Point(supplier.X + 7, supplier.Y)), new GraphViewer.AlignMove(consumer, consumer.Location, new Point(consumer.X + 3, consumer.Y))], 1, notify: false);
+            Assert.Equal<Point>(expected, link.ViewModel.Waypoints);
+        }
+
         [AvaloniaFact]
         public void DoubleClickOnLink_AddsOneWaypointWithinHalfAPointOfThePath() {
             using LinkFixture fx = LinkFixture.Create();
@@ -104,7 +154,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Viewer.Session.GraphMutated += (_, _) => mutations++;
 
             AvaloniaPoint start = fx.ToScreen(new Point(0, 0));
-            fx.Window!.MouseDown(start, MouseButton.Left, RawInputModifiers.None);
+            var window = fx.Window!;
+            window.MouseDown(start, MouseButton.Left, RawInputModifiers.None);
             fx.Window!.MouseMove(start + new AvaloniaPoint(20, 0), RawInputModifiers.LeftMouseButton);
             fx.Window!.MouseMove(start + new AvaloniaPoint(30, 40), RawInputModifiers.LeftMouseButton);
             fx.Window!.MouseMove(start + new AvaloniaPoint(37, 61), RawInputModifiers.LeftMouseButton);

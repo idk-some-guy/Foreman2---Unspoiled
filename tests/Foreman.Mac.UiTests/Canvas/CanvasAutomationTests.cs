@@ -121,17 +121,51 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [AvaloniaFact]
-        public void ItemTab_ReadsItsItemNameAndRateWithTheSpelledUnit_NeverTheDrawnSuffix() {
+        public void NodePeer_ExposesEachItemTabAsATextChild_OutputsBeforeInputs_WithTheRuledNamesAndNoKeyboardStop() {
             using CanvasFixture fx = CanvasFixture.WithVanilla();
-            fx.Viewer.Graph.SelectedRateUnit = ProductionGraph.RateUnit.Per1Min;
-            BaseNodeElement source = AddFixedSupplier(fx, "iron-plate", new Point(0, 0), 90);
-            fx.Viewer.Graph.UpdateNodeValues();
-            source.RequestStateUpdate();
-            source.PrePaint();
-            ItemTabElement tab = source.SubElements.OfType<ItemTabElement>().Single();
+            AddFixedRecipe(fx, "copper-cable", new Point(0, 0), 1);
+            AutomationPeer canvas = ControlAutomationPeer.CreatePeerForElement(fx.Control);
+            AutomationPeer node = canvas.GetChildren().Single();
 
-            Assert.Equal("Iron plate, 90 per minute", tab.AutomationName);
-            Assert.DoesNotContain("/", tab.AutomationName);
+            var tabs = node.GetChildren();
+
+            Assert.Equal(2, tabs.Count);
+            Assert.All(tabs, tab => {
+                Assert.Equal(AutomationControlType.Text, tab.GetAutomationControlType());
+                Assert.False(tab.IsKeyboardFocusable());
+                Assert.False(tab.HasKeyboardFocus());
+                Assert.Same(node, tab.GetParent());
+            });
+            Assert.Equal("Copper cable, output, 2 per second, overproducing", tabs[0].GetName());
+            Assert.Equal("Copper plate, input, 1 per second", tabs[1].GetName());
+            Assert.Equal(2, ((NodeAutomationPeer)node).TabPeers.Count);
+            Assert.Equal("Actions: Delete, Flip, Auto-connect, Show Inspector", node.GetHelpText());
+
+            fx.Viewer.Graph.SelectedRateUnit = ProductionGraph.RateUnit.Per1Min;
+            BaseNodeElement source = AddFixedSupplier(fx, "iron-plate", new Point(0, 600), 1);
+            BaseNodeElement sink = KeyboardRig.AddConsumer(fx, "iron-plate", new Point(0, 900));
+            fx.Viewer.Session.Editor.CreateLink(source.ViewModel.Id, sink.ViewModel.Id, new ItemQualityPair(fx.Cache.Items["iron-plate"], fx.Cache.DefaultQuality!));
+            var controller = fx.Viewer.Session.Editor.RequestNodeController(sink.ViewModel.Id)!;
+            controller.SetRateType(RateType.Manual);
+            controller.SetDesiredSetValue(5);
+            fx.Viewer.Graph.UpdateNodeValues();
+            foreach (BaseNodeElement element in new[] { source, sink }) {
+                element.RequestStateUpdate();
+                element.PrePaint();
+            }
+
+            BaseNodeElement lone = AddFixedSupplier(fx, "iron-plate", new Point(300, 600), 90);
+            fx.Viewer.Graph.UpdateNodeValues();
+            lone.RequestStateUpdate();
+            lone.PrePaint();
+
+            Assert.Equal("Iron plate, output, 90 per minute, overproducing", lone.SubElements.OfType<ItemTabElement>().Single().AutomationName);
+            string sourceTab = source.SubElements.OfType<ItemTabElement>().Single().AutomationName;
+            string sinkTab = sink.SubElements.OfType<ItemTabElement>().Single().AutomationName;
+            Assert.Equal("Iron plate, output, 1 per minute", sourceTab);
+            Assert.StartsWith("Iron plate, input, ", sinkTab);
+            Assert.EndsWith(" per minute, short of supply", sinkTab);
+            Assert.DoesNotContain("/", sourceTab + sinkTab);
         }
 
         [AvaloniaFact]
