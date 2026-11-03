@@ -28,6 +28,11 @@ namespace Foreman.Mac.UiTests.support {
 
         public int Pending => queue.Count;
 
+        public void RunNext() {
+            if (queue.Count > 0)
+                _ = TryExecuteTask(queue.Dequeue());
+        }
+
         public void RunAll() {
             while (queue.Count > 0)
                 _ = TryExecuteTask(queue.Dequeue());

@@ -530,6 +530,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Saving a large graph no longer pauses editing: the thumbnail and the database write happen in the
+  background.
 - Solving no longer freezes the graph: the numbers are worked out in the background and applied when
   they are ready. Cmd-period stops a long solve and leaves the last rates in place.
 - Launch now follows Show Welcome at Launch: with it on, only the welcome window opens and the preset

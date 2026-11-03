@@ -13,7 +13,8 @@ namespace Foreman.Mac.UiTests.support {
             Directory.CreateDirectory(root);
             Store = new GraphLibraryStore(StoragePaths.DbPath(root));
             Clock = new ManualTimeProvider();
-            Service = new GraphLibraryService(Store, Clock);
+            Worker = new ManualTaskScheduler();
+            Service = new GraphLibraryService(Store, Clock) { Worker = Worker };
         }
 
         private readonly List<string> directories = [];
@@ -24,6 +25,7 @@ namespace Foreman.Mac.UiTests.support {
         public GraphLibraryStore Store { get; }
         public ManualTimeProvider Clock { get; }
         public GraphLibraryService Service { get; }
+        public ManualTaskScheduler Worker { get; }
 
         public string NewTempDir() {
             string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());

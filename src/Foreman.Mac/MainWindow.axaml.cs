@@ -1043,7 +1043,7 @@ namespace Foreman.Mac {
         internal async Task OpenLibraryGraphAsync(Guid id, Preset? presetOverride = null) {
             if (Library is null || Library.OpenGraphId == id)
                 return;
-            Library.FlushNow();
+            Library.FlushAndWait();
             if (Library.Find(id) is not GraphRow stored)
                 return;
             if (!await LoadReplacingAsync(stored.Data, stored.Name, presetOverride, announcePresetSwitch: false).ConfigureAwait(true))
@@ -1054,7 +1054,7 @@ namespace Foreman.Mac {
 
         private async Task<bool> LoadReplacingAsync(string json, string name, Preset? presetOverride, bool announcePresetSwitch = true) {
             using IDisposable busy = ShellHost.HoldBusy();
-            Library?.FlushNow();
+            Library?.FlushAndWait();
             GraphRow? previous = Library?.OpenGraphId is Guid previousId ? Library.Find(previousId) : null;
             if (await LoadGraphJsonAsync(json, name, presetOverride, announcePresetSwitch).ConfigureAwait(true))
                 return true;
@@ -1067,7 +1067,7 @@ namespace Foreman.Mac {
             return false;
         }
 
-        internal void OnAppDeactivated() => Library?.FlushNow();
+        internal void OnAppDeactivated() => Library?.FlushAndWait();
 
         private void ShowOpenedGraph(GraphRow row) {
             if (Library is not null && row.PresetName != CurrentPresetName)
@@ -1087,7 +1087,7 @@ namespace Foreman.Mac {
                 return false;
             }
 
-            Library?.FlushNow();
+            Library?.FlushAndWait();
             string previousPresetName = settings.CurrentPresetName;
             Preset? chosenPreset = presetOverride ?? await ResolveChosenPresetAsync(document, announcePresetSwitch).ConfigureAwait(true);
             while (chosenPreset is not null && chosenPreset.Name != cache.PresetName) {
@@ -1370,7 +1370,7 @@ namespace Foreman.Mac {
 
             GraphCanvas.Viewer.Graph.SerializeNodeIdSet = null;
             string json = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, cache), writeIndented: true);
-            return new GraphSnapshot(json, GraphCanvas.Viewer.Graph.Nodes.Count(), GraphThumbnail.Render(GraphCanvas.Viewer));
+            return new GraphSnapshot(json, GraphCanvas.Viewer.Graph.Nodes.Count(), GraphThumbnail.Capture(GraphCanvas.Viewer));
         }
 
         private void OnGraphMutated() {
@@ -1386,6 +1386,7 @@ namespace Foreman.Mac {
         private void EnsureLibraryGraph() {
             if (Library is null || Library.OpenGraphId is not null || CaptureSnapshot() is not GraphSnapshot snapshot)
                 return;
+            snapshot.Thumbnail?.Dispose();
             GraphRow row = Library.Create(Library.NextUntitledName(), CurrentPresetName, snapshot.Data, snapshot.NodeCount, null);
             ViewModel.DocumentName = row.Name;
         }
@@ -1409,7 +1410,7 @@ namespace Foreman.Mac {
             EnsureLibraryGraph();
             if (Library.OpenGraphId is null)
                 return;
-            Library.FlushNow();
+            Library.FlushAndWait();
             GraphRow copy = Library.Duplicate(ViewModel.DocumentTitle + " copy");
             ShowOpenedGraph(copy);
             RefreshLibraryMenus();
@@ -1434,7 +1435,7 @@ namespace Foreman.Mac {
             EnsureLibraryGraph();
             if (Library.OpenGraphId is null)
                 return;
-            Library.FlushNow();
+            Library.FlushAndWait();
             var sheet = new VersionBrowserSheet(ViewModel.DocumentTitle, Library.Versions()) {
                 ConfirmDeleteAsync = () => Dialogs.ShowDestructiveConfirmAsync(this, "Delete this version?", "You can’t undo this action.", "Delete"),
                 DeleteVersion = versionId => Library.DeleteVersion(versionId),
@@ -1452,7 +1453,7 @@ namespace Foreman.Mac {
         internal async Task RestoreVersionAsync(Guid versionId) {
             if (Library is null || Library.OpenGraphId is not Guid graphId)
                 return;
-            Library.FlushNow();
+            Library.FlushAndWait();
             if (Library.Versions().FirstOrDefault(v => v.Id == versionId) is not GraphVersionRow version || Library.Find(graphId) is not GraphRow current)
                 return;
             if (!await LoadReplacingAsync(version.Data, current.Name, null).ConfigureAwait(true))

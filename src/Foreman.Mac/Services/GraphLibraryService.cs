@@ -2,16 +2,18 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.Storage;
 using System;
 using System.Collections.Generic;
-using System.Data.Common;
-using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
+using Foreman.Mac.Canvas;
+using SkiaSharp;
 
 namespace Foreman.Mac.Services {
-    internal readonly record struct GraphSnapshot(string Data, int NodeCount, byte[]? Thumbnail);
+    internal readonly record struct GraphSnapshot(string Data, int NodeCount, SKPicture? Thumbnail);
 
     internal sealed class GraphLibraryService(GraphLibraryStore store, TimeProvider time) : IDisposable {
         internal static readonly TimeSpan Debounce = TimeSpan.FromSeconds(2);
+        internal static readonly TimeSpan FlushWait = TimeSpan.FromSeconds(3);
         internal static readonly TimeSpan AutomaticInterval = TimeSpan.FromMinutes(30);
         internal const int RecentLimit = 10;
         internal const string UntitledName = "Untitled Graph";
@@ -21,6 +23,16 @@ namespace Foreman.Mac.Services {
         private bool pending;
         private bool failureReported;
         private DateTime nextAutomaticAt;
+        private readonly object gate = new();
+        private Task writeChain = Task.CompletedTask;
+        private WriteJob? waiting;
+        private volatile bool lastWriteFailed;
+
+        private sealed class WriteJob(Guid id, string? name, GraphSnapshot snapshot) {
+            public Guid Id { get; } = id;
+            public string? Name { get; } = name;
+            public GraphSnapshot Snapshot { get; set; } = snapshot;
+        }
 
         public Guid? OpenGraphId { get; private set; }
         public string? OpenGraphName { get; private set; }
@@ -28,6 +40,7 @@ namespace Foreman.Mac.Services {
 
         public Func<GraphSnapshot?>? Snapshot { get; set; }
         public Action<Action> Post { get; set; } = static action => action();
+        public TaskScheduler Worker { get; set; } = TaskScheduler.Default;
 
         public event EventHandler<string>? WriteFailed;
 
@@ -44,11 +57,20 @@ namespace Foreman.Mac.Services {
         public void FlushNow() {
             timer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             if (pending)
-                Write();
+                Enqueue();
+        }
+
+        public bool FlushAndWait() {
+            FlushNow();
+            return Drain();
         }
 
         public bool Save() {
-            if (OpenGraphId is not Guid id || !Write())
+            if (OpenGraphId is not Guid id)
+                return false;
+            timer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            lastWriteFailed = false;
+            if (!Enqueue() || !Drain() || lastWriteFailed)
                 return false;
             DateTime now = Now;
             store.AddVersion(id, GraphVersionKind.Saved, now);
@@ -64,14 +86,14 @@ namespace Foreman.Mac.Services {
         }
 
         public GraphRow Create(string name, string presetName, string data, int nodeCount, string? sourcePath) {
-            FlushNow();
+            FlushAndWait();
             GraphRow row = store.Create(name, presetName, data, nodeCount, sourcePath, Now);
             Attach(row);
             return row;
         }
 
         public GraphRow? Open(Guid id) {
-            FlushNow();
+            FlushAndWait();
             GraphRow? row = store.Get(id);
             if (row is null)
                 return null;
@@ -94,7 +116,7 @@ namespace Foreman.Mac.Services {
         public GraphRow? FindImport(string sourcePath, string data) => store.FindImport(sourcePath, data);
 
         public void Detach() {
-            FlushNow();
+            FlushAndWait();
             OpenGraphId = null;
             OpenGraphName = null;
             OpenGraphSavedAt = null;
@@ -102,7 +124,7 @@ namespace Foreman.Mac.Services {
         }
 
         public void PruneUntouched() {
-            FlushNow();
+            FlushAndWait();
             if (OpenGraphId is Guid id && blank.Contains(id) && store.Get(id) is { } row && IsUntouched(row))
                 store.Delete(id);
         }
@@ -111,7 +133,7 @@ namespace Foreman.Mac.Services {
             row.NodeCount == 0 && row.SavedAt is null && row.SourcePath is null && row.ModifiedAt == row.CreatedAt;
 
         public GraphRow Duplicate(string name) {
-            FlushNow();
+            FlushAndWait();
             GraphRow copy = store.Duplicate(OpenGraphId ?? throw new InvalidOperationException("No graph is open."), name, Now);
             Attach(copy);
             return copy;
@@ -143,7 +165,7 @@ namespace Foreman.Mac.Services {
         public GraphRow? Restore(Guid versionId) {
             if (OpenGraphId is not Guid id)
                 return null;
-            FlushNow();
+            FlushAndWait();
             store.Restore(id, versionId, Now);
             return store.Get(id);
         }
@@ -182,37 +204,86 @@ namespace Foreman.Mac.Services {
         public void Dispose() {
             timer?.Dispose();
             timer = null;
+            lock (gate) {
+                waiting?.Snapshot.Thumbnail?.Dispose();
+                waiting = null;
+            }
         }
 
         private void Attach(GraphRow row) {
+            lock (gate)
+                nextAutomaticAt = Now + AutomaticInterval;
             OpenGraphId = row.Id;
             OpenGraphName = row.Name;
             OpenGraphSavedAt = row.SavedAt;
             pending = false;
-            nextAutomaticAt = Now + AutomaticInterval;
         }
 
-        private bool Write() {
+        private bool Drain() {
+            Task chain;
+            lock (gate)
+                chain = writeChain;
+            try {
+                return chain.Wait(FlushWait);
+            } catch (AggregateException) {
+                return true;
+            }
+        }
+
+        private bool Enqueue() {
             if (OpenGraphId is not Guid id || Snapshot?.Invoke() is not GraphSnapshot snapshot)
                 return false;
+            pending = false;
+            lock (gate) {
+                if (waiting is { } queued && queued.Id == id) {
+                    queued.Snapshot.Thumbnail?.Dispose();
+                    queued.Snapshot = snapshot;
+                    return true;
+                }
+                var job = new WriteJob(id, OpenGraphName, snapshot);
+                waiting = job;
+                writeChain = writeChain.ContinueWith(_ => Run(job), CancellationToken.None, TaskContinuationOptions.None, Worker);
+            }
+            return true;
+        }
+
+        private void Run(WriteJob job) {
+            GraphSnapshot snapshot;
+            lock (gate) {
+                if (ReferenceEquals(waiting, job))
+                    waiting = null;
+                snapshot = job.Snapshot;
+            }
             DateTime now = Now;
             try {
-                store.WriteAutosave(id, snapshot.Data, snapshot.NodeCount, snapshot.Thumbnail, now);
-                if (now >= nextAutomaticAt) {
-                    store.AddVersion(id, GraphVersionKind.Automatic, now);
-                    store.ThinAutomaticVersions(id, now);
-                    nextAutomaticAt = now + AutomaticInterval;
+                byte[]? thumbnail = snapshot.Thumbnail is { } picture ? GraphThumbnail.Encode(picture) : null;
+                store.WriteAutosave(job.Id, snapshot.Data, snapshot.NodeCount, thumbnail, now);
+                DateTime due;
+                lock (gate)
+                    due = nextAutomaticAt;
+                if (now >= due) {
+                    store.AddVersion(job.Id, GraphVersionKind.Automatic, now);
+                    store.ThinAutomaticVersions(job.Id, now);
+                    lock (gate)
+                        nextAutomaticAt = now + AutomaticInterval;
                 }
-            } catch (Exception ex) when (ex is DbException or IOException or UnauthorizedAccessException) {
+                lastWriteFailed = false;
+            } catch (Exception ex) {
                 ErrorLogging.LogException(ex, "Error autosaving the graph");
-                if (!failureReported) {
-                    failureReported = true;
-                    WriteFailed?.Invoke(this, OpenGraphName ?? UntitledName);
-                }
-                return false;
+                lastWriteFailed = true;
+                Post(() => OnWriteFailed(job));
+            } finally {
+                snapshot.Thumbnail?.Dispose();
             }
-            pending = false;
-            return true;
+        }
+
+        private void OnWriteFailed(WriteJob job) {
+            if (OpenGraphId == job.Id)
+                pending = true;
+            if (failureReported)
+                return;
+            failureReported = true;
+            WriteFailed?.Invoke(this, job.Name ?? UntitledName);
         }
     }
 }
