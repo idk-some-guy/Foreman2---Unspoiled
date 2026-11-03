@@ -50,9 +50,7 @@ namespace Foreman.Mac.Views {
             Title = "Foreman Gallery";
             Width = 1600;
             Height = 1000;
-            //Same live WindowBackground every other window binds (SettingsWindow.axaml) - RefreshTheme
-            //below re-resolves it on every theme flip.
-            Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White);
+            LiveBrush.Bind(this, BackgroundProperty, "Foreman.Color.WindowBackground");
 
             var tiles = new WrapPanel { Orientation = Orientation.Horizontal, Width = TileColumnWidth };
             foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Canvas"))
@@ -90,7 +88,6 @@ namespace Foreman.Mac.Views {
 
         public void RefreshTheme() {
             minSizeScale.Apply();
-            Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White);
         }
 
         //The dev-only tile set, one registration per panel the window shows; new showcase tiles register here
@@ -544,6 +541,7 @@ namespace Foreman.Mac.Views {
         }
 
         private static StackPanel BuildPopUpButtonsTile() {
+            var live = new LiveColours();
             PopUp popup = KitPopUp(false, "Items / s", "Belts / s", "Power / s");
             FocusRing.SetShowAlways(popup, true);
             PopUp pulldown = KitPopUp(true, "Add as blueprint", "Add as ghost");
@@ -555,12 +553,12 @@ namespace Foreman.Mac.Views {
             //Optional leading icon (2026-09-17 building-picker ruling §05): Quality's badge, one colour per tier.
             PopUp withIcon = KitPopUp(false, "Normal", "Rare", "Epic");
             withIcon.SelectedItem = "Rare";
-            withIcon.ItemIcons.Add(PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.TextTertiary", Colors.Gray)));
-            withIcon.ItemIcons.Add(PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Success", Colors.SeaGreen)));
-            withIcon.ItemIcons.Add(PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue)));
+            withIcon.ItemIcons.Add(live.Art("Foreman.Color.TextTertiary"));
+            withIcon.ItemIcons.Add(live.Art("Foreman.Color.Success"));
+            withIcon.ItemIcons.Add(live.Art("Foreman.Color.Accent"));
             withIcon.Icon = withIcon.ItemIcons[1];
 
-            return new StackPanel {
+            return live.Track(new StackPanel {
                 Spacing = 8,
                 Children = {
                     KitText("Pop-up", "caption", "tertiary"), popup,
@@ -568,7 +566,7 @@ namespace Foreman.Mac.Views {
                     KitText("Pull-down", "caption", "tertiary"), pulldown,
                     KitText("Open (menu panel)", "caption", "tertiary"), openRow,
                 },
-            };
+            });
         }
 
         private static MenuButton KitMenuButton(string label, Geometry glyph, params (string Text, bool IsDefault, bool IsChecked)[] items) {
@@ -753,7 +751,8 @@ namespace Foreman.Mac.Views {
         };
 
         private static StackPanel BuildListRowsTile() {
-            IBrush swatch = ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue);
+            var live = new LiveColours();
+            IBrush swatch = live.Brush("Foreman.Color.Accent");
 
             ListRow normal = KitListRow("Electric furnace", "×4", swatch);
             ListRow selectedKey = KitListRow("Steel furnace", "×6", swatch);
@@ -783,22 +782,20 @@ namespace Foreman.Mac.Views {
 
             Application.Current!.TryGetResource("Foreman.Radius.Card", null, out object? listRadius);
             Application.Current!.TryGetResource("Foreman.Thickness.ListFramePadding", null, out object? listPadding);
-            var emptyFrame = new Border {
-                Background = ThemeResources.ResolveBrush("Foreman.Color.WellBackground", Colors.White),
-                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.Border", Color.FromArgb(0x17, 0, 0, 0)),
+            var emptyFrame = Live(Live(new Border {
                 BorderThickness = new Thickness(1),
                 CornerRadius = listRadius as CornerRadius? ?? default,
                 Padding = listPadding as Thickness? ?? default,
                 Child = empty,
-            };
+            }, Border.BorderBrushProperty, "Foreman.Color.Border"), Border.BackgroundProperty, "Foreman.Color.WellBackground");
 
-            return new StackPanel {
+            return live.Track(new StackPanel {
                 Spacing = 8,
                 Children = {
                     KitText("States", "caption", "tertiary"), list,
                     KitText("Empty state", "caption", "tertiary"), emptyFrame,
                 },
-            };
+            });
         }
 
         private static SidebarRow KitSidebarRow(string label, Geometry glyph) => new() {
@@ -819,11 +816,10 @@ namespace Foreman.Mac.Views {
             selectedIdle.IsKey = false;
             SidebarRow plain = KitSidebarRow("Fluids", fluids);
 
-            var sidebar = new StackPanel {
+            var sidebar = Live(new StackPanel {
                 Spacing = 2,
-                Background = ThemeResources.ResolveBrush("Foreman.Color.SidebarBackground", Color.FromRgb(0xEF, 0xEF, 0xF1)),
                 Children = { selectedKey, hover, selectedIdle, plain },
-            };
+            }, Panel.BackgroundProperty, "Foreman.Color.SidebarBackground");
 
             return new StackPanel { Spacing = 8, Children = { KitText("Sidebar", "caption", "tertiary"), sidebar } };
         }
@@ -1287,6 +1283,34 @@ namespace Foreman.Mac.Views {
             return container;
         }
 
+        private static T Live<T>(T control, AvaloniaProperty<IBrush?> property, string key) where T : Control {
+            LiveBrush.Bind(control, property, key);
+            return control;
+        }
+
+        private static Border Framed(Border frame, string fill = "Foreman.Color.WindowBackground") {
+            Live(frame, Border.BackgroundProperty, fill);
+            return Live(frame, Border.BorderBrushProperty, "Foreman.Color.BorderStrong");
+        }
+
+        private sealed class LiveColours {
+            private readonly Dictionary<string, SolidColorBrush> brushes = [];
+
+            public SolidColorBrush Brush(string key) {
+                if (!brushes.TryGetValue(key, out SolidColorBrush? brush))
+                    brushes[key] = brush = new SolidColorBrush();
+                return brush;
+            }
+
+            public DrawingImage Art(string key) => PickCellIconArt(Brush(key));
+
+            public T Track<T>(T owner) where T : Control {
+                foreach ((string key, SolidColorBrush brush) in brushes)
+                    LiveBrush.Observe(owner, key, resolved => brush.Color = ((ISolidColorBrush)resolved).Color);
+                return owner;
+            }
+        }
+
         private static DrawingImage PickCellIconArt(IBrush color) =>
             new DrawingImage(new GeometryDrawing { Geometry = new EllipseGeometry(new Rect(0, 0, 18, 18)), Brush = color });
 
@@ -1296,7 +1320,8 @@ namespace Foreman.Mac.Views {
 
         //Addendum §03 state grid: Normal / Hover / Selected / Selected+focused / Disabled, filled then empty.
         private static StackPanel BuildPickCellStatesTile() {
-            IImage art = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue));
+            var live = new LiveColours();
+            IImage art = live.Art("Foreman.Color.Accent");
 
             PickCell FilledCell(bool selected) => KitPickCell(selected: selected, icon: art, name: "Productivity Module 3");
             PickCell filledNormal = FilledCell(false);
@@ -1330,20 +1355,21 @@ namespace Foreman.Mac.Views {
                 Children = { emptyNormal, emptyHover, emptySelected, emptySelectedFocused, emptyDisabled },
             };
 
-            return new StackPanel {
+            return live.Track(new StackPanel {
                 Spacing = 8,
                 Children = {
                     KitText("Normal · Hover · Selected · Selected+focused · Disabled", "caption", "tertiary"),
                     filledRow, emptyRow,
                 },
-            };
+            });
         }
 
         //Modules (two filled, two empty, the first selected) and Beacon modules (two filled), each a
         //PickGrid inside a Kit.FormRow control column, matching the addendum's own figure.
         private static StackPanel BuildPickGridTile() {
-            IImage productivity = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue));
-            IImage speed = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Warning", Colors.Orange));
+            var live = new LiveColours();
+            IImage productivity = live.Art("Foreman.Color.Accent");
+            IImage speed = live.Art("Foreman.Color.Warning");
 
             var modules = new PickGrid { Theme = KitTheme("Kit.PickGrid"), GroupLabel = "Module slots" };
             modules.Slots.Add(new PickSlot { Icon = productivity, Name = "Productivity Module 3" });
@@ -1364,17 +1390,18 @@ namespace Foreman.Mac.Views {
                     KitFormRow("Beacon modules", beacons, inspector: true),
                 },
             };
-            return new StackPanel { Spacing = 8, Children = { KitText("Pick grid", "caption", "tertiary"), stack } };
+            return live.Track(new StackPanel { Spacing = 8, Children = { KitText("Pick grid", "caption", "tertiary"), stack } });
         }
 
         //Choice mode (2026-09-17 building-picker ruling): a radio group of icon cells - four buildings, one
         //unavailable and dimmed but still choosable, the third selected; a beacon row with its leading None
         //cell selected. Matches the building-picker mock's own §02/§03 figures.
         private static StackPanel BuildPickGridChoiceTile() {
-            IImage a1 = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue));
-            IImage a2 = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Warning", Colors.Orange));
-            IImage a3 = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Success", Colors.SeaGreen));
-            IImage a4 = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Error", Colors.IndianRed));
+            var live = new LiveColours();
+            IImage a1 = live.Art("Foreman.Color.Accent");
+            IImage a2 = live.Art("Foreman.Color.Warning");
+            IImage a3 = live.Art("Foreman.Color.Success");
+            IImage a4 = live.Art("Foreman.Color.Error");
 
             var building = new PickGrid { Theme = KitTheme("Kit.PickGrid"), IsChoiceMode = true, NamesSlots = false, GroupLabel = "Building" };
             building.Slots.Add(new PickSlot { Icon = a1, Name = "Assembling machine 1" });
@@ -1396,7 +1423,7 @@ namespace Foreman.Mac.Views {
                     KitFormRow("Beacon", beacon, inspector: true, note: "Beacon"),
                 },
             };
-            return new StackPanel { Spacing = 8, Children = { KitText("Pick grid — choice mode", "caption", "tertiary"), stack } };
+            return live.Track(new StackPanel { Spacing = 8, Children = { KitText("Pick grid — choice mode", "caption", "tertiary"), stack } });
         }
 
         private static readonly string[] PickCompositesScaledSizeKeys = [
@@ -1424,7 +1451,8 @@ namespace Foreman.Mac.Views {
 
         //Addendum §04 state grid: Normal / Hover / Selected / Selected+focused / Disabled.
         private static StackPanel BuildChooserCellStatesTile() {
-            IImage art = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue));
+            var live = new LiveColours();
+            IImage art = live.Art("Foreman.Color.Accent");
 
             ChooserCell Cell(bool selected) => KitChooserCell(selected: selected, icon: art, name: "Assembling machine 3");
             ChooserCell normal = Cell(false);
@@ -1442,16 +1470,17 @@ namespace Foreman.Mac.Views {
                 Children = { normal, hover, selected, selectedFocused, disabled },
             };
 
-            return new StackPanel {
+            return live.Track(new StackPanel {
                 Spacing = 8,
                 Children = { KitText("Normal · Hover · Selected · Selected+focused · Disabled", "caption", "tertiary"), row },
-            };
+            });
         }
 
         //Two "Group · Subgroup" headings, matching the addendum's own search-results figure.
         private static StackPanel BuildChooserGridTile() {
-            IImage plate = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue));
-            IImage smelted = PickCellIconArt(ThemeResources.ResolveBrush("Foreman.Color.Warning", Colors.Orange));
+            var live = new LiveColours();
+            IImage plate = live.Art("Foreman.Color.Accent");
+            IImage smelted = live.Art("Foreman.Color.Warning");
 
             var smelting = new ChooserSection { Group = "Production", Subgroup = "Smelting" };
             smelting.Items.Add(new ChooserItem { Icon = plate, Name = "Iron plate" });
@@ -1467,7 +1496,7 @@ namespace Foreman.Mac.Views {
             grid.Sections.Add(metallurgy);
             grid.SelectedItem = smelting.Items[0];
 
-            return new StackPanel { Spacing = 8, Children = { KitText("Chooser grid", "caption", "tertiary"), grid } };
+            return live.Track(new StackPanel { Spacing = 8, Children = { KitText("Chooser grid", "caption", "tertiary"), grid } });
         }
 
         private static readonly string[] ChooserCompositesScaledSizeKeys = [
@@ -1521,13 +1550,11 @@ namespace Foreman.Mac.Views {
                 Height = 260,
                 Children = { sheet },
             };
-            return new Border {
+            return Framed(new Border {
                 Width = 420, Height = 260,
-                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
-                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
                 BorderThickness = new Thickness(1),
                 Child = mockWindow,
-            };
+            });
         }
 
         //Addendum §05: the four ButtonRow shapes, in the mock's order.
@@ -1581,13 +1608,11 @@ namespace Foreman.Mac.Views {
 
         private static Bitmap AppIconAsset() => appIconAsset.Value;
 
-        private static Border AlertWindowFrame(AlertFrame alert) => new() {
+        private static Border AlertWindowFrame(AlertFrame alert) => Framed(new Border {
             Width = 340, Height = 180,
-            Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
-            BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
             BorderThickness = new Thickness(1),
             Child = alert,
-        };
+        });
 
         private static readonly string[] SheetCompositesScaledSizeKeys = [
             "Foreman.Metrics.SheetWidthAlert", "Foreman.Metrics.SheetWidthStandard", "Foreman.Metrics.SheetWidthWide",
@@ -1626,13 +1651,11 @@ namespace Foreman.Mac.Views {
             host.Surface.Children.Add(popover);
             popover.IsOpen = true;
 
-            return new Border {
+            return Framed(new Border {
                 Width = 320, Height = 220,
-                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
-                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
                 BorderThickness = new Thickness(1),
                 Child = host,
-            };
+            });
         }
 
         //Anchor pinned at the top-left corner - the tail clamps to its 26pt minimum offset instead of
@@ -1650,13 +1673,11 @@ namespace Foreman.Mac.Views {
             host.Surface.Children.Add(popover);
             popover.IsOpen = true;
 
-            return new Border {
+            return Framed(new Border {
                 Width = 220, Height = 140,
-                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
-                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
                 BorderThickness = new Thickness(1),
                 Child = host,
-            };
+            });
         }
 
         private static readonly string[] RadialRingGlyphKeys = ["RadialCancel", "Recipe", "Item", "RadialSource", "RadialOutput", "RadialPlant"];
@@ -1670,13 +1691,11 @@ namespace Foreman.Mac.Views {
             ring.IsOpen = true;
             ring.ArmedIndex = 2;
 
-            return new Border {
+            return Framed(new Border {
                 Width = 220, Height = 220,
-                Background = ThemeResources.ResolveBrush("Foreman.Color.CanvasBackground", Colors.White),
-                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
                 BorderThickness = new Thickness(1),
                 Child = ring,
-            };
+            }, "Foreman.Color.CanvasBackground");
         }
 
         private static readonly string[] PopoverAndRadialScaledSizeKeys = [
@@ -1775,13 +1794,11 @@ namespace Foreman.Mac.Views {
             };
 
         private static Border StatePanelFrame(Control panel, double width, double height) =>
-            new() {
+            Framed(new Border {
                 Width = width, Height = height,
-                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
-                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
                 BorderThickness = new Thickness(1),
                 Child = panel,
-            };
+            });
 
         //Unlike StatePanelFrame, this draws nothing: a real toolbar sits directly on its own titlebar material with no rule at either end (addendum §08 Grouping row).
         private static Border ToolbarRowFrame(Control row, double width, double height) =>
@@ -1895,13 +1912,11 @@ namespace Foreman.Mac.Views {
             body.StateContent = KitStatePanel(StatePanelShape.Error, "Recipe unavailable",
                 "This recipe was removed by a mod update.", KitButtonRow(KitRowButton("Choose Recipe…", ButtonRowRole.Default)));
 
-            var frame = new Border {
+            var frame = Framed(new Border {
                 Width = 276,
-                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
-                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
                 BorderThickness = new Thickness(1),
                 Child = group,
-            };
+            });
             return new StackPanel { Spacing = 8, Children = { KitText("Inspector group — body delegation (State panel)", "caption", "tertiary"), frame } };
         }
 
@@ -1949,26 +1964,23 @@ namespace Foreman.Mac.Views {
             Avalonia.Controls.Canvas.SetTop(stepper, 20);
             host.Surface.Children.Add(stepper);
 
-            return new Border {
+            return Framed(new Border {
                 Width = 320, Height = 200,
-                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
-                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
                 BorderThickness = new Thickness(1),
                 Child = host,
-            };
+            });
         }
 
         private static SolveStatus KitSolveStatus(SolveStatusState state) =>
             new() { Theme = KitTheme("Kit.SolveStatus"), State = state };
 
         private static StackPanel SolveStatusColumn(string caption, SolveStatus status) {
-            var slot = new Border {
-                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.Border", Colors.Gray),
+            var slot = Live(new Border {
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(6),
                 Child = status,
                 HorizontalAlignment = HorizontalAlignment.Left,
-            };
+            }, Border.BorderBrushProperty, "Foreman.Color.Border");
             return new StackPanel { Spacing = 6, Children = { KitText(caption, "caption", "tertiary"), slot } };
         }
 
@@ -1990,13 +2002,11 @@ namespace Foreman.Mac.Views {
             Avalonia.Controls.Canvas.SetLeft(open, 280);
             Avalonia.Controls.Canvas.SetTop(open, 12);
             host.Surface.Children.Add(open);
-            var popoverFrame = new Border {
+            var popoverFrame = Framed(new Border {
                 Width = 340, Height = 190,
-                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
-                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
                 BorderThickness = new Thickness(1),
                 Child = host,
-            };
+            });
 
             return new StackPanel { Spacing = 8, Children = { KitText("Solve status — idle, solving, failed, popover", "caption", "tertiary"), row, popoverFrame } };
         }
@@ -2093,13 +2103,14 @@ namespace Foreman.Mac.Views {
 
         //Addendum §09's quick-add palette: the top row is selected by default, hosted in a Kit.PopoverFrame in the real app.
         private static PalettePanel KitPalettePanel(PaletteFooterHint[] hints, params (string Name, string Kind)[] results) {
+            var live = new LiveColours();
             var panel = new PalettePanel { Theme = KitTheme("Kit.PalettePanel") };
-            IBrush swatch = ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue);
+            IBrush swatch = live.Brush("Foreman.Color.Accent");
             foreach ((string name, string kind) in results)
                 panel.Results.Add(new PaletteResult(name, kind, swatch));
             foreach (PaletteFooterHint hint in hints)
                 panel.FooterHints.Add(hint);
-            return panel;
+            return live.Track(panel);
         }
 
         //Hosts a palette panel example in the same PopoverFrame + PopoverHost structure the real quick-add trigger opens against.
@@ -2115,13 +2126,11 @@ namespace Foreman.Mac.Views {
             host.Surface.Children.Add(popover);
             popover.IsOpen = true;
 
-            return new Border {
+            return Framed(new Border {
                 Width = width, Height = height,
-                Background = ThemeResources.ResolveBrush("Foreman.Color.WindowBackground", Colors.White),
-                BorderBrush = ThemeResources.ResolveBrush("Foreman.Color.BorderStrong", Colors.Black),
                 BorderThickness = new Thickness(1),
                 Child = host,
-            };
+            });
         }
 
         private static StackPanel BuildPalettePanelTile() {
@@ -2188,7 +2197,8 @@ namespace Foreman.Mac.Views {
         }
 
         private static StackPanel BuildRecentRowTile() {
-            IBrush swatch = ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue);
+            var live = new LiveColours();
+            IBrush swatch = live.Brush("Foreman.Color.Accent");
 
             RecentRow selected = KitRecentRow("Blue science 90/min", "Space Age", 214, "2 hours ago", "Tue 15 Sep 2026, 3:04 PM", swatch);
             selected.IsSelected = true;
@@ -2209,7 +2219,7 @@ namespace Foreman.Mac.Views {
             };
 
             var list = new StackPanel { Spacing = 2, Children = { selected, hovered, inactiveSelected, unavailable, focused } };
-            return new StackPanel { Spacing = 8, Children = { KitText("Recent row", "caption", "tertiary"), list } };
+            return live.Track(new StackPanel { Spacing = 8, Children = { KitText("Recent row", "caption", "tertiary"), list } });
         }
 
         private static readonly string[] RecentRowScaledSizeKeys = [
@@ -2218,18 +2228,19 @@ namespace Foreman.Mac.Views {
         ];
 
         private static StackPanel BuildRecentRowScaledTile() {
+            var live = new LiveColours();
             var container = new StackPanel { Spacing = 16 };
             foreach (string key in RecentRowScaledSizeKeys)
                 if (Application.Current!.TryGetResource(key, Application.Current.ActualThemeVariant, out object? baseValue) && baseValue is double value)
                     container.Resources[key] = value * 1.5;
 
-            IBrush swatch = ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.SteelBlue);
+            IBrush swatch = live.Brush("Foreman.Color.Accent");
             RecentRow row = KitRecentRow("Blue science 90/min", "Space Age", 214, "2 hours ago", "Tue 15 Sep 2026, 3:04 PM", swatch);
             row.IsSelected = true;
 
             container.Children.Add(KitText("Recent row (150%)", "caption", "tertiary"));
             container.Children.Add(row);
-            return container;
+            return live.Track(container);
         }
 
         private static ControlTheme KitTheme(string key) {
@@ -2269,7 +2280,7 @@ namespace Foreman.Mac.Views {
 
         private static StackPanel Tile(string caption, Control content) {
             var stack = new StackPanel { Name = caption, Spacing = 6, Margin = new Thickness(16) };
-            stack.Children.Add(new TextBlock { Text = caption, Foreground = ThemeResources.ResolveBrush("Foreman.Color.GalleryChrome", Colors.Black), FontWeight = FontWeight.Bold });
+            stack.Children.Add(Live(new TextBlock { Text = caption, FontWeight = FontWeight.Bold }, TextBlock.ForegroundProperty, "Foreman.Color.GalleryChrome"));
             stack.Children.Add(content);
             return stack;
         }

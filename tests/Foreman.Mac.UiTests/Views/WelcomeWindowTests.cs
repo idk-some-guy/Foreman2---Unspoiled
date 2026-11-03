@@ -5,8 +5,11 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
+using Avalonia.Styling;
+using Foreman.Mac.Canvas.KitSkia;
 using SkiaSharp;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Foreman.Mac.Kit;
 using Foreman.Mac.Kit.Appearance;
 using Avalonia.Threading;
@@ -117,7 +120,7 @@ namespace Foreman.Mac.UiTests.Views {
                 Assert.Equal(Assert.IsType<double>(calloutSize), label.FontSize);
             }
 
-            IBrush accent = ThemeResources.ResolveBrush("Foreman.Color.Accent", Colors.Transparent);
+            IBrush accent = new ImmutableSolidColorBrush(ThemeResources.ResolveColor("Foreman.Color.Accent", Colors.Transparent));
             foreach (Button button in new[] { window.NewGraphButton, window.OpenButton }) {
                 Avalonia.Controls.Shapes.Path glyph = button.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Path>().Single();
                 Assert.Equal(accent.ToImmutable(), glyph.Stroke?.ToImmutable());
@@ -272,6 +275,31 @@ namespace Foreman.Mac.UiTests.Views {
             }
         }
 
+        private static SKColor Sk(Color color) => new(color.R, color.G, color.B, color.A);
+
+        [AvaloniaFact]
+        public void EmptyGraphThumbnailStroke_FollowsTheThemeLiveOnTheSameBrush() {
+            var owner = new Border();
+            var host = new Window { Content = owner };
+            host.Show();
+            Application app = Application.Current!;
+            ThemeVariant? original = app.RequestedThemeVariant;
+            try {
+                app.RequestedThemeVariant = ThemeVariant.Light;
+                Dispatcher.UIThread.RunJobs();
+                var thumbnail = Assert.IsType<DrawingBrush>(WelcomeWindow.ThumbnailBrush(null, owner));
+                GeometryDrawing outline = Assert.IsType<DrawingGroup>(thumbnail.Drawing).Children.OfType<GeometryDrawing>().Single(d => d.Pen is not null);
+                Assert.Equal(TokenBridge.ColorIn("Foreman.Color.TextTertiary", ThemeVariant.Light), Sk(Assert.IsAssignableFrom<ISolidColorBrush>(outline.Pen!.Brush).Color));
+
+                app.RequestedThemeVariant = ThemeVariant.Dark;
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(TokenBridge.ColorIn("Foreman.Color.TextTertiary", ThemeVariant.Dark), Sk(Assert.IsAssignableFrom<ISolidColorBrush>(outline.Pen!.Brush).Color));
+            } finally {
+                app.RequestedThemeVariant = original;
+                host.Close();
+            }
+        }
+
         [AvaloniaFact]
         public void FiveRows_OrderedByLastOpened_HeaderCountFive_NoFilter_NineRows_FilterExists_ThumbnailFallbackAndRelativeTimes() {
             using var env = new Env();
@@ -296,6 +324,11 @@ namespace Foreman.Mac.UiTests.Views {
             Application.Current!.TryGetResource("Kit.Glyph.EmptyGraph.32", null, out object? emptyGraph);
             DrawingBrush fallback = Assert.IsType<DrawingBrush>(rows[0].Icon);
             Assert.Contains(Assert.IsType<DrawingGroup>(fallback.Drawing).Children.OfType<GeometryDrawing>(), d => ReferenceEquals(d.Geometry, emptyGraph));
+            Dispatcher.UIThread.RunJobs();
+            IBrush? penBrush = Assert.IsType<DrawingGroup>(fallback.Drawing).Children.OfType<GeometryDrawing>().Single(d => d.Pen is not null).Pen!.Brush;
+            Color stroke = Assert.IsAssignableFrom<ISolidColorBrush>(penBrush).Color;
+            SKColor expected = TokenBridge.ColorIn("Foreman.Color.TextTertiary", Application.Current!.ActualThemeVariant);
+            Assert.Equal((expected.Alpha, expected.Red, expected.Green, expected.Blue), (stroke.A, stroke.R, stroke.G, stroke.B));
             window.Close();
 
             for (int i = 0; i < 4; i++)

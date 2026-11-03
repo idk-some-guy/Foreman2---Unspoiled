@@ -420,31 +420,54 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(new Thickness(-3.5), scaledRing.Margin);
         }
 
-        //Bug fix: the window used to fill from a one-shot GalleryCanvasBackdrop token pinned to white in
-        //both variants, making every kit tile impossible to judge against its own background. It now binds
-        //the same live WindowBackground every other window does, re-resolved by RefreshTheme on every flip.
         [AvaloniaFact]
-        public void Backgrounds_TrackTheirTokensLiveAcrossThemeToggle() {
+        public void TileBrushes_TrackTheirTokensLive_AcrossThemeToggleAndBack() {
             DataCache cache = NewFixtureCache();
             var window = new GalleryWindow(cache, new AppSettings());
             window.Show();
             Application app = Application.Current!;
-
-            Color expectedBefore = ThemeResources.ResolveColor("Foreman.Color.WindowBackground", app.ActualThemeVariant, Colors.White);
-            Assert.Equal(expectedBefore, Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color);
-            Color paneBefore = ThemeResources.ResolveColor("Foreman.Color.InspectorBackground", app.ActualThemeVariant, Colors.White);
-            Assert.Equal(paneBefore, Assert.IsAssignableFrom<ISolidColorBrush>(SplitDividerPane(window).Background).Color);
-
-            RealClick(window, FindByName(window, "ThemeToggleButton"));
+            app.RequestedThemeVariant = ThemeVariant.Light;
             Dispatcher.UIThread.RunJobs();
 
-            Color expectedAfter = ThemeResources.ResolveColor("Foreman.Color.WindowBackground", app.ActualThemeVariant, Colors.White);
-            Assert.NotEqual(expectedBefore, expectedAfter);
-            Assert.Equal(expectedAfter, Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color);
-            Color paneAfter = ThemeResources.ResolveColor("Foreman.Color.InspectorBackground", app.ActualThemeVariant, Colors.White);
-            Assert.NotEqual(paneBefore, paneAfter);
-            Assert.Equal(paneAfter, Assert.IsAssignableFrom<ISolidColorBrush>(SplitDividerPane(window).Background).Color);
+            StackPanel panelTile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "State panel — no results");
+            Border frame = panelTile.GetVisualDescendants().OfType<Border>().First(b => b.Width == 420);
+            StackPanel choiceTile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Pick grid — choice mode, building & beacon");
+            PickGrid grid = choiceTile.GetVisualDescendants().OfType<PickGrid>().First();
+            var art = Assert.IsType<DrawingImage>(grid.Slots[2].Icon);
+            var tileCaption = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "Pick grid — choice mode, building & beacon");
+
+            Color Fill(Border b) => Assert.IsAssignableFrom<ISolidColorBrush>(b.Background).Color;
+            Color Edge(Border b) => Assert.IsAssignableFrom<ISolidColorBrush>(b.BorderBrush).Color;
+            Color Art() => Assert.IsAssignableFrom<ISolidColorBrush>(Assert.IsType<GeometryDrawing>(art.Drawing).Brush).Color;
+            Color Caption() => Assert.IsAssignableFrom<ISolidColorBrush>(tileCaption.Foreground).Color;
+            Border pane = SplitDividerPane(window);
+            Color Pane() => Assert.IsAssignableFrom<ISolidColorBrush>(pane.Background).Color;
+
+            (Color fill, Color edge, Color artColour, Color caption, Color windowFill, Color pane) light = (Fill(frame), Edge(frame), Art(), Caption(), Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color, Pane());
+            Assert.Equal(TokenBridge.ColorIn("Foreman.Color.WindowBackground", ThemeVariant.Light), ToSk(light.fill));
+            Assert.Equal(TokenBridge.ColorIn("Foreman.Color.Success", ThemeVariant.Light), ToSk(light.artColour));
+            Assert.Equal(TokenBridge.ColorIn("Foreman.Color.InspectorBackground", ThemeVariant.Light), ToSk(light.pane));
+
+            app.RequestedThemeVariant = ThemeVariant.Dark;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(TokenBridge.ColorIn("Foreman.Color.WindowBackground", ThemeVariant.Dark), ToSk(Fill(frame)));
+            Assert.Equal(TokenBridge.ColorIn("Foreman.Color.BorderStrong", ThemeVariant.Dark), ToSk(Edge(frame)));
+            Assert.Equal(TokenBridge.ColorIn("Foreman.Color.Success", ThemeVariant.Dark), ToSk(Art()));
+            Assert.Equal(TokenBridge.ColorIn("Foreman.Color.GalleryChrome", ThemeVariant.Dark), ToSk(Caption()));
+            Assert.Equal(TokenBridge.ColorIn("Foreman.Color.WindowBackground", ThemeVariant.Dark), ToSk(Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color));
+            Assert.Equal(TokenBridge.ColorIn("Foreman.Color.InspectorBackground", ThemeVariant.Dark), ToSk(Pane()));
+            Assert.NotEqual(light.fill, Fill(frame));
+            Assert.NotEqual(light.pane, Pane());
+            Assert.NotEqual(light.artColour, Art());
+
+            app.RequestedThemeVariant = ThemeVariant.Light;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(light, (Fill(frame), Edge(frame), Art(), Caption(), Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color, Pane()));
         }
+
+        private static SkiaSharp.SKColor ToSk(Color color) => new(color.R, color.G, color.B, color.A);
 
         private static Border SplitDividerPane(GalleryWindow window) {
             StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Split divider — rest, hovered, dragging, focused");

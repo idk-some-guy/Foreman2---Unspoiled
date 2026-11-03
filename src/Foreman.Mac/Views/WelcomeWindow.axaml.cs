@@ -243,10 +243,10 @@ namespace Foreman.Mac.Views {
                 RelativeTime = row.RelativeTime,
                 AbsoluteTime = row.AbsoluteTime,
                 IsUnavailable = row.Unavailable,
-                Icon = ThumbnailBrush(row.Thumbnail),
                 Focusable = false,
                 DataContext = row,
             };
+            recent.Icon = ThumbnailBrush(row.Thumbnail, recent);
             foreach (MenuRow item in BuildRowMenu(row))
                 recent.MenuItems.Add(item);
             recent.AttachedToVisualTree += (_, _) => {
@@ -277,7 +277,7 @@ namespace Foreman.Mac.Views {
             return items;
         }
 
-        private static IBrush ThumbnailBrush(byte[]? png) {
+        internal static IBrush ThumbnailBrush(byte[]? png, Control owner) {
             if (png is { Length: > 0 }) {
                 try {
                     using var stream = new MemoryStream(png);
@@ -288,7 +288,8 @@ namespace Foreman.Mac.Views {
             }
 
             Application.Current!.TryGetResource("Kit.Glyph.EmptyGraph.32", null, out object? geometry);
-            IBrush stroke = ThemeResources.ResolveBrush("Foreman.Color.TextTertiary", Colors.Transparent);
+            var stroke = new SolidColorBrush();
+            LiveBrush.Observe(owner, "Foreman.Color.TextTertiary", resolved => stroke.Color = ((ISolidColorBrush)resolved).Color);
             var group = new DrawingGroup();
             group.Children.Add(new GeometryDrawing { Geometry = new RectangleGeometry(new Rect(0, 0, 32, 32)), Brush = Avalonia.Media.Brushes.Transparent });
             group.Children.Add(new GeometryDrawing { Geometry = geometry as Geometry, Pen = new Pen(stroke, 1.5, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round) });

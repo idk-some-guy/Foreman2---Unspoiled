@@ -86,7 +86,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             new(@"\{(?:Static|Dynamic)Resource\s+([A-Za-z0-9_.]+)\}", RegexOptions.Compiled);
 
         private static readonly Regex CodeResourceReference =
-            new(@"(?:TryFindResource|GetResourceObservable|ResolveBrush|ResolveColor)\s*\(\s*""((?:Foreman|Kit)\.[A-Za-z0-9_.]+)""", RegexOptions.Compiled);
+            new(@"(?:\b(?:FindResource|TryFindResource|GetResourceObservable|ResolveColor|Brush|Art)\s*\(\s*""(?<key>(?:Foreman|Kit)\.[A-Za-z0-9_.]+)""|,\s*""(?<key>Foreman\.[A-Za-z0-9_.]+)""\s*\)|=\s*""(?<key>Foreman\.[A-Za-z0-9_.]+)"")", RegexOptions.Compiled);
 
         private static readonly Regex KeyDeclaration =
             new(@"x:Key\s*=\s*[""']([^""']+)[""']", RegexOptions.Compiled);
@@ -121,15 +121,15 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             return [.. missing];
         }
 
+        private static string[] CodeKeys(IEnumerable<string> csTexts) =>
+            [.. csTexts.SelectMany(text => CodeResourceReference.Matches(text).Select(m => m.Groups["key"].Value)).Distinct(StringComparer.Ordinal)];
+
         private static string[] FindMissingCodeResourceKeys(IEnumerable<string> csTexts) {
             var missing = new SortedSet<string>(StringComparer.Ordinal);
-            foreach (string text in csTexts) {
-                foreach (Match match in CodeResourceReference.Matches(text)) {
-                    string key = match.Groups[1].Value;
-                    if (!Application.Current!.TryGetResource(key, ThemeVariant.Light, out _) ||
-                        !Application.Current!.TryGetResource(key, ThemeVariant.Dark, out _))
-                        missing.Add(key);
-                }
+            foreach (string key in CodeKeys(csTexts)) {
+                if (!Application.Current!.TryGetResource(key, ThemeVariant.Light, out _) ||
+                    !Application.Current!.TryGetResource(key, ThemeVariant.Dark, out _))
+                    missing.Add(key);
             }
             return [.. missing];
         }
@@ -178,6 +178,22 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Contains("Kit.DoesNotExist.ForTest", FindMissingResourceKeys([syntheticAxaml]));
             Assert.Contains("Kit.DoesNotExist.ForTestCode", FindMissingCodeResourceKeys([syntheticCode]));
+        }
+
+        [AvaloniaFact]
+        public void Scan_FlagsUnresolvableKeyInEveryCallShape() {
+            MergeKitIntoApplication();
+
+            string[] fixtures = [
+                "LiveBrush.Bind(c, p, \"Foreman.Color.Nope\")",
+                "Live(new Border { }, Border.BackgroundProperty, \"Foreman.Color.Nope\")",
+                "string fill = \"Foreman.Color.Nope\"",
+                "live.Art(\"Foreman.Color.Nope\")",
+                "Application.Current!.FindResource(\"Foreman.Color.Nope\")",
+            ];
+
+            foreach (string fixture in fixtures)
+                Assert.Equal(["Foreman.Color.Nope"], FindMissingCodeResourceKeys([fixture]));
         }
     }
 }
