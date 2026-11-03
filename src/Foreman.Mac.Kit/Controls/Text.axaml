@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls">
 
   <ControlTheme x:Key="Kit.Text" TargetType="TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
@@ -25,6 +26,9 @@
     </Style>
     <Style Selector="^.secondary">
       <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    </Style>
+    <Style Selector="^.middle-ellipsis">
+      <Setter Property="TextTrimming" Value="{x:Static kit:MiddleTrimming.Instance}" />
     </Style>
     <Style Selector="^.tertiary">
       <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextTertiary}" />

@@ -36,6 +36,8 @@ namespace Foreman.Mac.Views {
         private const double BaseWidth = 660;
         private const double BaseHeight = 420;
 
+        private static (double Width, double Height)? rememberedSize;
+
         private readonly WelcomeHost host;
         private readonly WindowMinSizeScale minSizeScale;
         private readonly Border leftPane;
@@ -56,6 +58,7 @@ namespace Foreman.Mac.Views {
         private readonly Button cancelButton;
         private readonly Grid actionsGroup;
         private readonly Grid recentsGroup;
+        private double appliedScale = 1;
         private bool initializing = true;
 
         internal WelcomeWindow(WelcomeHost host) {
@@ -94,8 +97,9 @@ namespace Foreman.Mac.Views {
 
             presetList.ItemsSource = ViewModel.Presets;
             presetList.ItemTemplate = new FuncDataTemplate<Preset>((preset, _) => {
-                var label = new TextBlock { Theme = KitTheme("Kit.Text"), Text = preset.Name, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+                var label = new TextBlock { Theme = KitTheme("Kit.Text"), Text = preset.Name, VerticalAlignment = VerticalAlignment.Center };
                 label.Classes.Add("callout");
+                label.Classes.Add("middle-ellipsis");
                 return label;
             }, supportsRecycling: false);
             presetList.SelectedItem = ViewModel.SelectedPreset;
@@ -130,6 +134,7 @@ namespace Foreman.Mac.Views {
             initializing = false;
 
             AppearanceHub.Current?.Subscribe(this);
+            Closing += (_, _) => RememberSize();
             Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
         }
 
@@ -139,13 +144,31 @@ namespace Foreman.Mac.Views {
 
         public void RefreshTheme() {
             minSizeScale.Apply();
-            ApplySize();
+            RescaleSize();
             ViewModel.Refresh();
         }
 
         private void ApplySize() {
-            Width = BaseWidth * WindowScaler.CurrentScale;
-            Height = BaseHeight * WindowScaler.CurrentScale;
+            (double width, double height) = rememberedSize ?? (BaseWidth, BaseHeight);
+            appliedScale = WindowScaler.CurrentScale;
+            Width = Math.Max(width, BaseWidth) * appliedScale;
+            Height = Math.Max(height, BaseHeight) * appliedScale;
+        }
+
+        private void RescaleSize() {
+            double scale = WindowScaler.CurrentScale;
+            if (scale == appliedScale)
+                return;
+            Width = ClientSize.Width / appliedScale * scale;
+            Height = ClientSize.Height / appliedScale * scale;
+            appliedScale = scale;
+        }
+
+        internal static void ForgetSize() => rememberedSize = null;
+
+        private void RememberSize() {
+            if (ClientSize.Width > 0 && ClientSize.Height > 0)
+                rememberedSize = (ClientSize.Width / appliedScale, ClientSize.Height / appliedScale);
         }
 
         //-------------------------------------------------------------------------------------------------Build

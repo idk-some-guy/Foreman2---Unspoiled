@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
@@ -37,6 +38,18 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             using var fixture = new KitFixture();
             Assert.Equal(typeof(ListBox), KitListTheme().TargetType);
             Assert.Equal(typeof(ListBoxItem), KitListBoxItemTheme().TargetType);
+        }
+
+        [AvaloniaFact]
+        public void ItemWithTemplatedText_PeerNameIsTheTextNotTheItemTypeName() {
+            using var fixture = new KitFixture();
+            ListBox listBox = Themed();
+            listBox.ItemsSource = new[] { new object() };
+            listBox.ItemTemplate = new FuncDataTemplate<object>((_, _) => new TextBlock { Text = "Stone furnace" });
+            fixture.Window.Content = listBox;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("Stone furnace", ControlAutomationPeer.CreatePeerForElement(ItemContainers(listBox).Single()).GetName());
         }
 
         [AvaloniaFact]

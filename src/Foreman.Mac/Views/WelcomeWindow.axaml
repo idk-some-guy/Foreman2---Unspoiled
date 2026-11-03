@@ -4,8 +4,7 @@
         xmlns:kit="using:Foreman.Mac.Kit.Composites"
         x:Class="Foreman.Mac.Views.WelcomeWindow"
         Title="Foreman 2"
-        Width="660" Height="420"
-        CanResize="False"
+        MinWidth="660" MinHeight="420"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource Foreman.Color.WindowBackground}">
   <Window.Resources>

@@ -1,8 +1,11 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform;
+using SkiaSharp;
 using Avalonia.Media;
 using Foreman.Mac.Kit;
 using Foreman.Mac.Kit.Appearance;
@@ -29,7 +32,7 @@ using Xunit;
 namespace Foreman.Mac.UiTests.Views {
     public class WelcomeWindowTests {
         private static readonly Preset Vanilla = new("Factorio 2.0 Vanilla", false, false);
-        private static readonly Preset SpaceAge = new("Factorio 2.0.55 — Space Age", false, false);
+        private static readonly Preset SpaceAge = new("Factorio 2.0 Space Age Modified", false, false);
         private static readonly Preset Krastorio = new("Krastorio 2", false, false);
 
         private sealed class Env : IDisposable {
@@ -70,6 +73,7 @@ namespace Foreman.Mac.UiTests.Views {
 
             public void Dispose() {
                 Window?.Close();
+                WelcomeWindow.ForgetSize();
                 Library.Dispose();
             }
         }
@@ -83,15 +87,19 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public void Title_Foreman2_Client660By420_NotResizable_LeftPane202_TwoActions_GroupTitle_CheckboxCheckedByDefault() {
+        public void Title_Foreman2_MinimumClient660By420_Resizable_LeftPaneIsTheToken_TwoActions_GroupTitle_CheckboxCheckedByDefault() {
             using var env = new Env();
             WelcomeWindow window = env.Open();
 
             Assert.Equal("Foreman 2", window.Title);
             Assert.Equal(660, window.ClientSize.Width);
             Assert.Equal(420, window.ClientSize.Height);
-            Assert.False(window.CanResize);
-            Assert.Equal(202, window.LeftPane.Bounds.Width);
+            Assert.True(window.CanResize);
+            Assert.Equal(660, window.MinWidth);
+            Assert.Equal(420, window.MinHeight);
+            Resize(window, 300, 200);
+            Assert.Equal((660, 420), (window.ClientSize.Width, window.ClientSize.Height));
+            Assert.Equal(SidebarToken(), window.LeftPane.Bounds.Width);
             Assert.Equal(["New Graph", "Open…"], new[] { window.NewGraphButton, window.OpenButton }.Select(b => AutomationActionLabel(b)));
             Assert.Equal(2, window.ActionsGroup.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "ActionButtons").Children.OfType<Button>().Count());
             Assert.Equal("Preset for new graphs", window.GroupTitle.Text);
@@ -122,6 +130,90 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains("save", env.Calls);
         }
 
+        private static double SidebarToken() {
+            Application.Current!.TryGetResource("Foreman.Size.WelcomeSidebar", Application.Current.ActualThemeVariant, out object? width);
+            return Assert.IsType<double>(width);
+        }
+
+        private static void Resize(WelcomeWindow window, double width, double height) {
+            window.Width = width;
+            window.Height = height;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+        }
+
+        private static double InterWidth(string text, double fontSize) {
+            using Stream stream = AssetLoader.Open(new Uri("avares://Avalonia.Fonts.Inter/Assets/Inter-Regular.ttf"));
+            using SKTypeface face = SKTypeface.FromStream(stream);
+            using var font = new SKFont(face, (float)fontSize);
+            return font.MeasureText(text);
+        }
+
+        private static void AssertFits(TextBlock label, string text) {
+            double width = InterWidth(text, label.FontSize);
+            Assert.True(width <= label.Bounds.Width, $"'{text}' needs {width} but has {label.Bounds.Width}");
+        }
+
+        [AvaloniaFact]
+        public void Growing_RecentListGrowsAndSidebarWidthStays() {
+            using var env = new Env();
+            env.AddRow("Green", Vanilla.Name);
+            WelcomeWindow window = env.Open();
+            double sidebar = window.LeftPane.Bounds.Width;
+            Rect before = window.RecentList.Bounds;
+
+            Resize(window, 900, 600);
+
+            Assert.Equal(sidebar, window.LeftPane.Bounds.Width);
+            Assert.Equal(before.Width + 240, window.RecentList.Bounds.Width, 0.5);
+            Assert.Equal(before.Height + 180, window.RecentList.Bounds.Height, 0.5);
+        }
+
+        [AvaloniaFact]
+        public void ClosedAndReopened_KeepsTheLargerSize() {
+            using var env = new Env();
+            WelcomeWindow first = env.Open();
+            Resize(first, 900, 600);
+            first.Close();
+
+            WelcomeWindow second = env.Open();
+
+            Assert.Equal(900, second.ClientSize.Width);
+            Assert.Equal(600, second.ClientSize.Height);
+        }
+
+        [AvaloniaFact]
+        public void AtMinimumSize_PresetNamesAndCheckboxLabelAreUntrimmed_CheckboxInsideTheWindow() {
+            using var env = new Env();
+            WelcomeWindow window = env.Open();
+
+            TextBlock[] labels = [.. window.PresetList.GetVisualDescendants().OfType<ListBoxItem>().Select(i => i.GetVisualDescendants().OfType<TextBlock>().First())];
+            Assert.Equal([Vanilla.Name, SpaceAge.Name, Krastorio.Name], labels.Select(l => l.Text));
+            foreach (TextBlock label in labels)
+                AssertFits(label, label.Text!);
+            AssertFits(window.ShowAtLaunchCheckBox.GetVisualDescendants().OfType<TextBlock>().First(), "Show when Foreman opens");
+
+            CheckBox box = window.ShowAtLaunchCheckBox;
+            Assert.True(box.Bounds.Height >= box.DesiredSize.Height - box.Margin.Top - 0.01, "checkbox row is clipped");
+            double bottom = box.TranslatePoint(new Point(0, box.Bounds.Height), window.LeftPane)!.Value.Y;
+            Assert.True(bottom <= window.LeftPane.Bounds.Height - 12, "checkbox sits below the pane inset");
+        }
+
+        [AvaloniaFact]
+        public void LongPresetName_CarriesTheMiddleTrimming_ReadsFullToVoiceOver() {
+            using var env = new Env();
+            const string name = "Factorio 2.0 Space Age Modified Extended Edition 2026";
+            env.Installed.Add(new Preset(name, false, false));
+            WelcomeWindow window = env.Open();
+
+            TextBlock label = window.PresetList.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == name);
+            ListBoxItem item = label.FindAncestorOfType<ListBoxItem>()!;
+
+            Assert.IsType<MiddleTrimming>(label.TextTrimming);
+            Assert.Equal(name, ControlAutomationPeer.CreatePeerForElement(label).GetName());
+            Assert.Equal(name, ControlAutomationPeer.CreatePeerForElement(item).GetName());
+        }
+
         private static string AutomationActionLabel(Button button) =>
             button.GetVisualDescendants().OfType<TextBlock>().First().Text ?? "";
 
@@ -135,15 +227,48 @@ namespace Foreman.Mac.UiTests.Views {
             }
 
             [AvaloniaFact]
-            public void AtOnePointFive_Client990By630_LeftPaneIs202TimesTheStep() {
+            public void AtOnePointFive_MinimumClient990By630_LeftPaneIs366() {
                 WindowScaler.SetScale(1.5);
                 using var env = new Env();
                 WelcomeWindow window = env.Open();
 
                 Assert.Equal(990, window.ClientSize.Width);
                 Assert.Equal(630, window.ClientSize.Height);
-                Assert.Equal(303, window.LeftPane.Bounds.Width);
-                Assert.False(window.CanResize);
+                Assert.Equal(990, window.MinWidth);
+                Assert.Equal(630, window.MinHeight);
+                Assert.Equal(366, window.LeftPane.Bounds.Width);
+            }
+
+            [AvaloniaFact]
+            public void ScaleChangeWhileOpen_CarriesTheSizeAndMinimumAcrossSteps() {
+                using var env = new Env();
+                WelcomeWindow window = env.Open();
+                Resize(window, 800, 500);
+
+                WindowScaler.SetScale(1.5);
+                Dispatcher.UIThread.RunJobs();
+                AnimationClock.Settle();
+                Assert.Equal((990, 630), (window.MinWidth, window.MinHeight));
+                Assert.Equal((1200, 750), (window.ClientSize.Width, window.ClientSize.Height));
+
+                WindowScaler.SetScale(1.0);
+                Dispatcher.UIThread.RunJobs();
+                AnimationClock.Settle();
+                Assert.Equal((800, 500), (window.ClientSize.Width, window.ClientSize.Height));
+                Assert.Equal(660, window.MinWidth);
+            }
+
+            [AvaloniaFact]
+            public void ClosedAtOneAndReopenedAtOnePointFive_ScalesTheRememberedSize() {
+                using var env = new Env();
+                WelcomeWindow first = env.Open();
+                Resize(first, 800, 500);
+                first.Close();
+
+                WindowScaler.SetScale(1.5);
+                WelcomeWindow second = env.Open();
+
+                Assert.Equal((1200, 750), (second.ClientSize.Width, second.ClientSize.Height));
             }
         }
 
