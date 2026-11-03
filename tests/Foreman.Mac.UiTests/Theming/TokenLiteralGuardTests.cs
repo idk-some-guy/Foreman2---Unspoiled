@@ -68,14 +68,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Empty(offenders);
         }
 
-        //The addendum gives no colour for these four painters; each names the designer question that closes it.
-        private static readonly string[] UnspecifiedCanvasColours = [
-            Path.Combine("Canvas", "Elements", "AnnotationElement.cs"), //selection handle colour
-            Path.Combine("Canvas", "FloatingTooltipRenderer.cs"), //tooltip fill and text
-            Path.Combine("Canvas", "RecipePainter.cs"), //recipe tooltip fill and text
-            Path.Combine("Canvas", "PointingArrowRenderer.cs"), //pointing arrow fill
-        ];
-
         [Fact]
         public void NoColorLiteral_UnderCanvas() {
             string canvas = Path.Combine(AppSourceDirectory, "Canvas");
@@ -86,8 +78,6 @@ namespace Foreman.Mac.UiTests.Theming {
 
             foreach (string path in files) {
                 string relative = Path.GetRelativePath(AppSourceDirectory, path);
-                if (UnspecifiedCanvasColours.Contains(relative))
-                    continue;
                 foreach (Match match in Regex.Matches(File.ReadAllText(path), @"new SKColor\(\s*(?:0x)?\d|\bSKColors\.\w+|#[0-9A-Fa-f]{6,8}\b|\bColor\.From(?:Rgb|Argb)\("))
                     offenders.Add($"{relative}: {match.Value}");
             }

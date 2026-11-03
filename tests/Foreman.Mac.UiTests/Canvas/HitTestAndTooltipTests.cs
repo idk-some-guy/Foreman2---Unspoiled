@@ -7,6 +7,8 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Canvas.KitSkia;
+using Foreman.Mac.Services;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using Foreman.Serialization;
@@ -21,6 +23,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+using static Foreman.Mac.UiTests.support.PixelColors;
 using AvaloniaPoint = Avalonia.Point;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
@@ -225,7 +228,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             control.Render(surface.Canvas);
             using SKImage image = surface.Snapshot();
             using SKPixmap pixmap = image.PeekPixels();
-            var bubbleColor = new SKColor(65, 65, 65);
+            SKColor bubbleColor = TokenBridge.Current.TooltipMaterialOpaque.WithAlpha(255);
             for (int dx = -3; dx <= 20; dx++)
                 for (int dy = -3; dy <= 20; dy++)
                     if (pixmap.GetPixelColor(screenX + dx, screenY + dy) == bubbleColor)
@@ -311,10 +314,52 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             using SKImage image = surface.Snapshot();
             using SKPixmap pixmap = image.PeekPixels();
-            SKColor[] backgrounds = [SKColors.White, new SKColor(65, 65, 65), new SKColor(40, 40, 40)];
+            SKColor[] backgrounds = [SKColors.White, TokenBridge.Current.TooltipMaterialOpaque.WithAlpha(255), TokenBridge.Current.WindowBackground.WithAlpha(255)];
 
             Assert.True(RegionHasPixelUnlike(pixmap, new Rectangle(4, 4, 32, 32), backgrounds)); //recipe title icon
             Assert.True(RegionHasPixelUnlike(pixmap, new Rectangle(14, 70, 32, 32), backgrounds)); //first ingredient icon row
+        }
+
+        [AvaloniaFact]
+        public async Task RecipePainter_Paint_ReadsTokens_InBothAppearances() {
+            DataCache cache = await GetRecipeCacheAsync();
+            IRecipe recipe = cache.Recipes["iron-gear-wheel"];
+            Size size = RecipePainter.GetSize([recipe, recipe], abbreviateSciPacks: true);
+            App app = (App)Avalonia.Application.Current!;
+            try {
+                foreach (ThemeMode mode in new[] { ThemeMode.Light, ThemeMode.Dark }) {
+                    app.ApplyTheme(mode);
+                    TokenBridge.Refresh();
+                    CanvasTokens tokens = TokenBridge.Current;
+                    using SKSurface surface = SKSurface.Create(new SKImageInfo(size.Width, size.Height));
+                    surface.Canvas.Clear(tokens.CanvasBackground);
+
+                    RecipePainter.Paint([recipe, recipe], surface.Canvas, Point.Empty, abbreviateSciPacks: true);
+
+                    using SKImage image = surface.Snapshot();
+                    using SKPixmap pixmap = image.PeekPixels();
+                    Assert.Equal(tokens.WindowBackground.WithAlpha(255), pixmap.GetPixelColor(198, 20));
+                    Assert.Equal(tokens.TooltipMaterialOpaque.WithAlpha(255), pixmap.GetPixelColor(198, 70));
+                    Assert.Equal(tokens.TooltipMaterialOpaque.WithAlpha(255), pixmap.GetPixelColor(201, 20));
+                    Assert.NotEqual(tokens.TooltipMaterialOpaque.WithAlpha(255), pixmap.GetPixelColor(205, 20));
+
+                    SKColor fill = tokens.TooltipMaterialOpaque.WithAlpha(255);
+                    SKColor breaker = StrongestIn(pixmap, new Rectangle(204, 20, 2, 1), fill);
+                    AssertClose(Blend(fill, Over(tokens.TextSecondary, fill), 0.5f), breaker);
+                    SKColor textHalf = Blend(fill, Over(tokens.Text, fill), 0.5f);
+                    Assert.True(Math.Abs(breaker.Red - textHalf.Red) > 2 || Math.Abs(breaker.Green - textHalf.Green) > 2 || Math.Abs(breaker.Blue - textHalf.Blue) > 2, "the breaker took the Text token");
+
+                    SKColor border = pixmap.GetPixelColor(0, 42);
+                    AssertClose(Blend(fill, Over(tokens.NodeTabBorder, fill), 0.5f), border);
+
+                    SKColor band = tokens.WindowBackground.WithAlpha(255);
+                    AssertClose(Over(tokens.Text, band), StrongestIn(pixmap, new Rectangle(42, 4, 152, 32), band));
+                    AssertClose(Over(tokens.TooltipText, fill), StrongestIn(pixmap, new Rectangle(52, 86, 40, 14), fill));
+                }
+            } finally {
+                app.ApplyTheme(ThemeMode.System);
+                TokenBridge.Refresh();
+            }
         }
 
         //Pins RecipePainter's literal "0.##" quantity format against GraphicsStuff.DoubleToString's
@@ -329,6 +374,22 @@ namespace Foreman.Mac.UiTests.Canvas {
         public void RecipePainter_FormatQuantity_MatchesUpstreamLiteralFormat(double quantity, string expected) {
             Assert.Equal(expected, RecipePainter.FormatQuantity(quantity));
         }
+
+        private static int Distance(SKColor a, SKColor b) => Math.Abs(a.Red - b.Red) + Math.Abs(a.Green - b.Green) + Math.Abs(a.Blue - b.Blue);
+
+        private static SKColor StrongestIn(SKPixmap pixmap, Rectangle region, SKColor ground) {
+            SKColor strongest = ground;
+            for (int x = region.Left; x < region.Right; x++)
+                for (int y = region.Top; y < region.Bottom; y++) {
+                    SKColor pixel = pixmap.GetPixelColor(x, y);
+                    if (Distance(pixel, ground) > Distance(strongest, ground))
+                        strongest = pixel;
+                }
+            return strongest;
+        }
+
+        private static SKColor Blend(SKColor ground, SKColor full, float coverage) =>
+            new((byte)Math.Round(ground.Red + ((full.Red - ground.Red) * coverage)), (byte)Math.Round(ground.Green + ((full.Green - ground.Green) * coverage)), (byte)Math.Round(ground.Blue + ((full.Blue - ground.Blue) * coverage)));
 
         private static bool RegionHasPixelUnlike(SKPixmap pixmap, Rectangle region, params SKColor[] backgroundColors) {
             for (int x = region.Left; x < region.Right; x++)

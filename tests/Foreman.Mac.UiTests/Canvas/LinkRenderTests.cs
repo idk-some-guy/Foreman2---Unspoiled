@@ -6,6 +6,8 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Canvas.KitSkia;
+using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using SkiaSharp;
@@ -336,16 +338,64 @@ namespace Foreman.Mac.UiTests.Canvas {
         //collapses to x=100 here (both node and viewport center share x=100), so the guide arrow's line runs
         //straight down the vertical centerline from y=158 to the border at y=190.
 
-        [AvaloniaFact]
-        public void PointingArrowRenderer_ShowDisconnectedArrowsOn_DrawsArrowTowardOffscreenNode() {
+        private static void AssertArrowToken(Func<Fixture, ProductionGraph, PointingArrowRenderer> build, Func<CanvasTokens, SKColor> expected) {
             Fixture fx = NewFixture();
-            ItemPrototype item = fx.NewItem("water");
-            fx.Graph.CreateConsumerNode(fx.Pair(item), new Point(0, 1000));
-            var renderer = new PointingArrowRenderer(new Viewport(200, 200)) { ShowDisconnectedArrows = true };
+            PointingArrowRenderer renderer = build(fx, fx.Graph);
+            App app = (App)Avalonia.Application.Current!;
+            try {
+                foreach (ThemeMode mode in new[] { ThemeMode.Light, ThemeMode.Dark }) {
+                    app.ApplyTheme(mode);
+                    TokenBridge.Refresh();
 
-            using SKSurface surface = RenderArrows(renderer, fx.Graph, 200);
+                    using SKSurface surface = RenderArrows(renderer, fx.Graph, 200);
 
-            Assert.NotEqual(CanvasBackground, SampleScreenPixel(surface, 100, 174));
+                    Assert.Equal(expected(TokenBridge.Current).WithAlpha(255), SampleScreenPixel(surface, 100, 174));
+                }
+            } finally {
+                app.ApplyTheme(ThemeMode.System);
+                TokenBridge.Refresh();
+            }
+        }
+
+        [AvaloniaFact]
+        public void PointingArrowRenderer_DisconnectedArrow_TakesTheWarningToken_InBothAppearances() {
+            AssertArrowToken((fx, graph) => {
+                ItemPrototype item = fx.NewItem("water");
+                graph.CreateConsumerNode(fx.Pair(item), new Point(0, 1000));
+                return new PointingArrowRenderer(new Viewport(200, 200)) { ShowDisconnectedArrows = true };
+            }, tokens => tokens.Warning);
+        }
+
+        [AvaloniaFact]
+        public void PointingArrowRenderer_ErrorArrow_TakesTheErrorToken_InBothAppearances() {
+            AssertArrowToken((fx, graph) => {
+                var missing = new ItemPrototype(fx.Cache, "missing-ore", "missing-ore", fx.Subgroup, "z", isMissing: true);
+                Store(fx.Cache).Items[missing.Name] = missing;
+                graph.CreateConsumerNode(fx.Pair(missing), new Point(0, 1000));
+                return new PointingArrowRenderer(new Viewport(200, 200)) { ShowErrorArrows = true };
+            }, tokens => tokens.Error);
+        }
+
+        [AvaloniaFact]
+        public void PointingArrowRenderer_WarningArrow_TakesTheWarningToken_InBothAppearances() {
+            AssertArrowToken((fx, graph) => {
+                ItemPrototype unavailable = fx.NewItem("scrap");
+                unavailable.Available = false;
+                graph.CreateConsumerNode(fx.Pair(unavailable), new Point(0, 1000));
+                return new PointingArrowRenderer(new Viewport(200, 200)) { ShowWarningArrows = true };
+            }, tokens => tokens.Warning);
+        }
+
+        [AvaloniaFact]
+        public void PointingArrowRenderer_OverproducingArrow_TakesTheWarningToken_InBothAppearances() {
+            AssertArrowToken((fx, graph) => {
+                ItemPrototype item = fx.NewItem("ore");
+                BaseNode node = graph.CreateSupplierNode(fx.Pair(item), new Point(0, 1000));
+                node.RateType = RateType.Manual;
+                node.DesiredRatePerSec = 1;
+                Assert.True(node.IsOverproducing());
+                return new PointingArrowRenderer(new Viewport(200, 200)) { ShowOUNodeArrows = true };
+            }, tokens => tokens.Warning);
         }
 
         [AvaloniaFact]

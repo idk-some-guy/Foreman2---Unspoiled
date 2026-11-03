@@ -530,6 +530,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Tooltips, the recipe card, annotation selection handles and the off-screen arrows follow light and
+  dark. The arrows now use the error and warning colours only.
 - Saving a large graph no longer pauses editing: the thumbnail and the database write happen in the
   background.
 - Solving no longer freezes the graph: the numbers are worked out in the background and applied when

@@ -120,49 +120,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(SKColors.White, SamplePixel(surface, 0, -70));
         }
 
-        //---- selection handles (reference §6's DrawResizeHandles) ----
-
-        [Fact]
-        public void DrawResizeHandles_SelectedAnnotation_BorderPixelMatchesUpstreamsColorFromArgb60_100_200() {
-            var shape = ShapeAnnotationElement.FromSaveData(new ShapeAnnotationSaveData {
-                X = 0, Y = 0, Width = 200, Height = 150, ShapeType = "Rectangle",
-                FillColor = new ColorSaveData(0, 0, 0, 0), BorderColor = new ColorSaveData(0, 0, 0, 0), BorderWidth = 0
-            });
-            shape.IsSelected = true;
-            //ViewScale = 0.3 widens the handle's own draw half-size and stroke width enough (both divide by
-            //ViewScale) that a pixel sampled exactly on the border's edge centerline reads the pure stroke
-            //color instead of an AA-blended tint, while staying small enough that DrawSelectionHighlight's own
-            //much larger translucent-blue outline (its stroke width is 2.5/ViewScale too) doesn't reach as far
-            //out as the TopLeft handle and contaminate the sample.
-            shape.Context = new AnnotationElementContext { ViewScale = () => 0.3f, SelectedAnnotations = [], SelectedNodeCount = () => 0 };
-
-            using SKSurface surface = Render(shape);
-
-            //TopLeft handle center is (-100,-75); its border rect's top edge sits at y=-91 (drawHalf=16 at
-            //this ViewScale), sampled at the rect's own x-center.
-            Assert.Equal(new SKColor(60, 100, 200), SamplePixel(surface, -100, -91));
-        }
-
-        //perf-packaging-reference.md §1b: pins DrawSelectionHighlight's translucent-blue
-        //stroke pixel so converting its per-frame `new SKPaint` (AnnotationElement.cs:251) to a mutate-reset
-        //per-instance paint (its StrokeWidth tracks 2.5/ViewScale every frame) can't drift it.
-        [Fact]
-        public void DrawSelectionHighlight_SelectedAnnotation_StrokeBlendsOverBackground() {
-            var shape = ShapeAnnotationElement.FromSaveData(new ShapeAnnotationSaveData {
-                X = 0, Y = 0, Width = 200, Height = 150, ShapeType = "Rectangle",
-                FillColor = new ColorSaveData(0, 0, 0, 0), BorderColor = new ColorSaveData(0, 0, 0, 0), BorderWidth = 0
-            });
-            shape.IsSelected = true;
-            //Same ViewScale=0.3 rationale as DrawResizeHandles_SelectedAnnotation_... above: widens the
-            //2.5/ViewScale stroke enough for a clean, non-AA-blended center sample. x=-40 on the top edge
-            //sits clear of both the TopLeft(-100,-75) and TopCenter(0,-75) handles' own draw radius.
-            shape.Context = new AnnotationElementContext { ViewScale = () => 0.3f, SelectedAnnotations = [], SelectedNodeCount = () => 0 };
-
-            using SKSurface surface = Render(shape);
-
-            Assert.Equal(new SKColor(104, 173, 255), SamplePixel(surface, -40, -83));
-        }
-
         //---- text presence ----
 
         [Fact]

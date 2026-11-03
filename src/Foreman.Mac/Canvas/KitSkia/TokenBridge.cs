@@ -26,7 +26,8 @@ namespace Foreman.Mac.Canvas.KitSkia {
         float NodeRadius, float NodeTabRadius, float LinkCornerRadius, float CanvasMinTextSize, float GridMinScreenSpacing,
         float FindRingDashOn, float FindRingDashOff, SKColor AccentText, float PillRadius,
         float Glyph10, float GlyphMicro, float Space05, float Space1, float Space15, float Space2, float Space3, float Space5,
-        float NodeTypeStripRadius, float NodeBeaconBadgeRadius, float NodeBadgeStroke, float FocusRingWidth, SKColor WindowBackground);
+        float NodeTypeStripRadius, float NodeBeaconBadgeRadius, float NodeBadgeStroke, float FocusRingWidth, SKColor WindowBackground,
+        SKColor TooltipMaterialOpaque, SKColor TooltipText);
 
     public static class TokenBridge {
         private static CanvasTokens? current;
@@ -87,7 +88,8 @@ namespace Foreman.Mac.Canvas.KitSkia {
                 Space("Foreman.Space.Space05", scale), Space("Foreman.Space.Space1", scale), Space("Foreman.Space.Space15", scale), Space("Foreman.Space.Space2", scale),
                 Space("Foreman.Space.Space3", scale), Space("Foreman.Space.Space5", scale),
                 Radius("Foreman.Radius.NodeTypeStrip"), Radius("Foreman.Radius.NodeBeaconBadge"),
-                Number("Foreman.Size.NodeBadgeStroke"), Number("Foreman.FocusRing.Width"), ColorOf("Foreman.Color.WindowBackground"));
+                Number("Foreman.Size.NodeBadgeStroke"), Number("Foreman.FocusRing.Width"), ColorOf("Foreman.Color.WindowBackground"),
+                ColorOf("Foreman.Color.TooltipMaterialOpaque"), ColorOf("Foreman.Color.TooltipText"));
         }
 
         //Off the UI thread ActualThemeVariant throws, so we resolve against Light there, as ThemeResources does.

@@ -1,5 +1,6 @@
 using Foreman;
 using Foreman.DataCaching.DataTypes;
+using Foreman.Mac.Canvas.KitSkia;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -22,11 +23,7 @@ namespace Foreman.Mac.Canvas {
         private const float QuantityFontSize = 8f;
         private const float ItemFontSize = 7.8f;
 
-        private static readonly SKColor TextColor = SKColors.White;
-        private static readonly SKPaint BackgroundPaint = Fill(new SKColor(65, 65, 65));
-        private static readonly SKPaint DarkBackgroundPaint = Fill(new SKColor(40, 40, 40));
-        private static readonly SKPaint BorderPaint = Stroke(SKColors.Black, 2);
-        private static readonly SKPaint BreakerPaint = Stroke(SKColors.Black, 10);
+        private const float RuleWidth = 1f;
 
         private static SKPaint Fill(SKColor color) => new() { Color = color, Style = SKPaintStyle.Fill, IsAntialias = true };
         private static SKPaint Stroke(SKColor color, float width) => new() { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = width, IsAntialias = true };
@@ -46,8 +43,15 @@ namespace Foreman.Mac.Canvas {
         }
 
         public static void Paint(IList<IRecipe> recipes, SKCanvas canvas, Point offset, bool abbreviateSciPacks) {
+            CanvasTokens tokens = TokenBridge.Current;
+            using SKPaint backgroundPaint = Fill(tokens.TooltipMaterialOpaque);
+            using SKPaint bandPaint = Fill(tokens.WindowBackground);
+            using SKPaint borderPaint = Stroke(tokens.NodeTabBorder, RuleWidth);
+            using SKPaint breakerPaint = Stroke(tokens.TextSecondary, RuleWidth);
+            SKColor bandText = tokens.Text;
+            SKColor bodyText = tokens.TooltipText;
             var boundary = new Rectangle(offset, GetSize(recipes, abbreviateSciPacks));
-            canvas.DrawRect(ToSkRect(boundary), BackgroundPaint);
+            canvas.DrawRect(ToSkRect(boundary), backgroundPaint);
 
             int maxIngredientCount = 0, maxProductCount = 0, maxSciencePackListsCount = 0;
             foreach (IRecipe recipe in recipes) {
@@ -60,17 +64,17 @@ namespace Foreman.Mac.Canvas {
             for (int r = 0; r < recipes.Count; r++) {
                 int yOffset = boundary.Y;
 
-                canvas.DrawRect(ToSkRect(new Rectangle(xOffset, yOffset, SectionWidth, 40)), DarkBackgroundPaint);
+                canvas.DrawRect(ToSkRect(new Rectangle(xOffset, yOffset, SectionWidth, 40)), bandPaint);
                 canvas.DrawBitmap(recipes[r].Icon, SKRect.Create(4 + xOffset, 4 + yOffset, 32, 32));
 
                 var titleBox = new Rectangle(xOffset + 42, yOffset + 4, SectionWidth - 48, 32);
-                GraphicsStuff.DrawText(canvas, TextColor, BoldTypeface, RecipeFontSize, titleBox, recipes[r].FriendlyName, TextHorizontalAlign.Near, TextVerticalAlign.Center);
+                GraphicsStuff.DrawText(canvas, bandText, BoldTypeface, RecipeFontSize, titleBox, recipes[r].FriendlyName, TextHorizontalAlign.Near, TextVerticalAlign.Center);
 
                 //ingredients
                 yOffset += 44;
-                canvas.DrawRect(ToSkRect(new Rectangle(xOffset, yOffset, SectionWidth, 20)), DarkBackgroundPaint);
+                canvas.DrawRect(ToSkRect(new Rectangle(xOffset, yOffset, SectionWidth, 20)), bandPaint);
                 yOffset += 2;
-                GraphicsStuff.DrawStringAtPoint(canvas, TextColor, BoldTypeface, SectionFontSize, "Ingredients:", 4 + xOffset, yOffset);
+                GraphicsStuff.DrawStringAtPoint(canvas, bandText, BoldTypeface, SectionFontSize, "Ingredients:", 4 + xOffset, yOffset);
                 yOffset += 20;
                 for (int i = 0; i < maxIngredientCount; i++) {
                     if (i < recipes[r].IngredientList.Count) {
@@ -78,16 +82,16 @@ namespace Foreman.Mac.Canvas {
                         canvas.DrawBitmap(ingredient.Icon, SKRect.Create(14 + xOffset, 4 + yOffset, 32, 32));
 
                         var textBox = new Rectangle(xOffset + 52, yOffset + 2, SectionWidth - 58, 20);
-                        GraphicsStuff.DrawStringAtPoint(canvas, TextColor, BoldTypeface, QuantityFontSize, FormatQuantity(recipes[r].IngredientSet[ingredient]), 52 + xOffset, 20 + yOffset);
-                        GraphicsStuff.DrawText(canvas, TextColor, RegularTypeface, ItemFontSize, textBox, recipes[r].GetIngredientFriendlyName(ingredient), TextHorizontalAlign.Near, TextVerticalAlign.Center);
+                        GraphicsStuff.DrawStringAtPoint(canvas, bodyText, BoldTypeface, QuantityFontSize, FormatQuantity(recipes[r].IngredientSet[ingredient]), 52 + xOffset, 20 + yOffset);
+                        GraphicsStuff.DrawText(canvas, bodyText, RegularTypeface, ItemFontSize, textBox, recipes[r].GetIngredientFriendlyName(ingredient), TextHorizontalAlign.Near, TextVerticalAlign.Center);
                     }
                     yOffset += 40;
                 }
 
                 //products
-                canvas.DrawRect(ToSkRect(new Rectangle(xOffset, yOffset, SectionWidth, 20)), DarkBackgroundPaint);
+                canvas.DrawRect(ToSkRect(new Rectangle(xOffset, yOffset, SectionWidth, 20)), bandPaint);
                 yOffset += 2;
-                GraphicsStuff.DrawStringAtPoint(canvas, TextColor, BoldTypeface, SectionFontSize, "Products:", 4 + xOffset, yOffset);
+                GraphicsStuff.DrawStringAtPoint(canvas, bandText, BoldTypeface, SectionFontSize, "Products:", 4 + xOffset, yOffset);
                 yOffset += 20;
                 for (int i = 0; i < maxProductCount; i++) {
                     if (i < recipes[r].ProductList.Count) {
@@ -95,19 +99,19 @@ namespace Foreman.Mac.Canvas {
                         canvas.DrawBitmap(product.Icon, SKRect.Create(14 + xOffset, 4 + yOffset, 32, 32));
 
                         var textBox = new Rectangle(xOffset + 52, yOffset + 2, SectionWidth - 58, 20);
-                        GraphicsStuff.DrawStringAtPoint(canvas, TextColor, BoldTypeface, QuantityFontSize, FormatQuantity(recipes[r].ProductSet[product]), 52 + xOffset, 20 + yOffset);
-                        GraphicsStuff.DrawText(canvas, TextColor, RegularTypeface, ItemFontSize, textBox, recipes[r].GetProductFriendlyName(product), TextHorizontalAlign.Near, TextVerticalAlign.Center);
+                        GraphicsStuff.DrawStringAtPoint(canvas, bodyText, BoldTypeface, QuantityFontSize, FormatQuantity(recipes[r].ProductSet[product]), 52 + xOffset, 20 + yOffset);
+                        GraphicsStuff.DrawText(canvas, bodyText, RegularTypeface, ItemFontSize, textBox, recipes[r].GetProductFriendlyName(product), TextHorizontalAlign.Near, TextVerticalAlign.Center);
                     }
                     yOffset += 40;
                 }
 
                 //unlock science packs
-                canvas.DrawRect(ToSkRect(new Rectangle(xOffset, yOffset, SectionWidth, 22)), DarkBackgroundPaint);
+                canvas.DrawRect(ToSkRect(new Rectangle(xOffset, yOffset, SectionWidth, 22)), bandPaint);
                 yOffset += 2;
                 string sciPackLabel = abbreviateSciPacks
                     ? (recipes[r].MyUnlockSciencePacks.Count > 1 ? "Key required science packs (any):" : "Key required science packs:")
                     : (recipes[r].MyUnlockSciencePacks.Count > 1 ? "Required science packs (any):" : "Required science packs:");
-                GraphicsStuff.DrawStringAtPoint(canvas, TextColor, BoldTypeface, SectionFontSize, sciPackLabel, 4 + xOffset, yOffset);
+                GraphicsStuff.DrawStringAtPoint(canvas, bandText, BoldTypeface, SectionFontSize, sciPackLabel, 4 + xOffset, yOffset);
                 yOffset += 20;
                 for (int i = 0; i < maxSciencePackListsCount; i++) {
                     if (i < recipes[r].MyUnlockSciencePacks.Count) {
@@ -130,18 +134,18 @@ namespace Foreman.Mac.Canvas {
                 }
 
                 //time
-                canvas.DrawRect(ToSkRect(new Rectangle(xOffset, yOffset, SectionWidth, 22)), DarkBackgroundPaint);
+                canvas.DrawRect(ToSkRect(new Rectangle(xOffset, yOffset, SectionWidth, 22)), bandPaint);
                 yOffset += 2;
-                GraphicsStuff.DrawStringAtPoint(canvas, TextColor, BoldTypeface, SectionFontSize, "Crafting Time: " + recipes[r].Time.ToString("0.##", DisplayCulture.Format) + " s", 4 + xOffset, yOffset);
+                GraphicsStuff.DrawStringAtPoint(canvas, bandText, BoldTypeface, SectionFontSize, "Crafting Time: " + recipes[r].Time.ToString("0.##", DisplayCulture.Format) + " s", 4 + xOffset, yOffset);
 
                 //breaker
                 if (r < recipes.Count - 1) {
-                    canvas.DrawLine(xOffset + SectionWidth + 5, boundary.Y, xOffset + SectionWidth + 5, boundary.Y + boundary.Height, BreakerPaint);
+                    canvas.DrawLine(xOffset + SectionWidth + 5, boundary.Y, xOffset + SectionWidth + 5, boundary.Y + boundary.Height, breakerPaint);
                     xOffset += SectionWidth + 10;
                 }
             }
 
-            canvas.DrawRect(ToSkRect(boundary), BorderPaint);
+            canvas.DrawRect(ToSkRect(boundary), borderPaint);
         }
     }
 }

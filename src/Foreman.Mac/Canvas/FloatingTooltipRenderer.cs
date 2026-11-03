@@ -1,4 +1,5 @@
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Canvas.KitSkia;
 using SkiaSharp;
 using System;
 using System.Drawing;
@@ -10,17 +11,17 @@ namespace Foreman.Mac.Canvas {
     //ported, so there's no floatingTooltipControls dictionary or paintAll/showOverride distinction to keep -
     //this only ever draws one live-hover TooltipInfo at a time, the shape GraphElement.GetToolTips returns.
     public static class FloatingTooltipRenderer {
-        private const int Border = 2;
+        private const int Border = 1;
         private const int TextPadding = 2;
         private const int ArrowSize = 10;
         private const float TextFontSize = 10f;
 
         private static readonly SKTypeface TextTypeface = SKTypeface.Default;
-        private static readonly SKColor TextColor = SKColors.White;
-        private static readonly SKPaint BackgroundPaint = new() { Color = new SKColor(65, 65, 65), Style = SKPaintStyle.Fill, IsAntialias = true };
-        private static readonly SKPaint BorderPaint = new() { Color = SKColors.Black, Style = SKPaintStyle.Fill, IsAntialias = true };
 
         public static void Draw(SKCanvas canvas, TooltipInfo tooltip) {
+            CanvasTokens tokens = TokenBridge.Current;
+            using var backgroundPaint = new SKPaint { Color = tokens.TooltipMaterialOpaque, Style = SKPaintStyle.Fill, IsAntialias = true };
+            using var borderPaint = new SKPaint { Color = tokens.NodeTabBorder, Style = SKPaintStyle.Fill, IsAntialias = true };
             var screenArrowPoint = new Point((int)tooltip.ScreenLocation.X, (int)tooltip.ScreenLocation.Y);
             SKSize? measuredText = tooltip.Text is string text ? MeasureTextBlock(text) : null;
 
@@ -32,19 +33,19 @@ namespace Foreman.Mac.Canvas {
                 ? new Rectangle(screenArrowPoint, size)
                 : GetTooltipScreenBounds(screenArrowPoint, size, tooltip.Direction);
 
-            DrawArrow(canvas, screenArrowPoint, tooltip.Direction);
-            GraphicsStuff.FillRoundRect(canvas, bounds.X - Border, bounds.Y - Border, bounds.Width + (Border * 2), bounds.Height + (Border * 2), 3, BorderPaint);
-            GraphicsStuff.FillRoundRect(canvas, bounds.X, bounds.Y, bounds.Width, bounds.Height, 3, BackgroundPaint);
+            DrawArrow(canvas, screenArrowPoint, tooltip.Direction, backgroundPaint);
+            GraphicsStuff.FillRoundRect(canvas, bounds.X - Border, bounds.Y - Border, bounds.Width + (Border * 2), bounds.Height + (Border * 2), 3, borderPaint);
+            GraphicsStuff.FillRoundRect(canvas, bounds.X, bounds.Y, bounds.Width, bounds.Height, 3, backgroundPaint);
 
             if (tooltip.Text is string body && measuredText is SKSize textSize) {
                 float topY = bounds.Y + TextPadding - 1 + (bounds.Height / 2f) - (textSize.Height / 2f);
-                GraphicsStuff.DrawStringAtPoint(canvas, TextColor, TextTypeface, TextFontSize, body, bounds.X + TextPadding, topY);
+                GraphicsStuff.DrawStringAtPoint(canvas, tokens.TooltipText, TextTypeface, TextFontSize, body, bounds.X + TextPadding, topY);
             }
 
             tooltip.CustomDraw?.Invoke(canvas, bounds.Location);
         }
 
-        private static void DrawArrow(SKCanvas canvas, Point screenArrowPoint, Direction direction) {
+        private static void DrawArrow(SKCanvas canvas, Point screenArrowPoint, Direction direction, SKPaint paint) {
             if (direction == Direction.None)
                 return;
 
@@ -73,7 +74,7 @@ namespace Foreman.Mac.Canvas {
             path.LineTo(p1.X, p1.Y);
             path.LineTo(p2.X, p2.Y);
             path.Close();
-            canvas.DrawPath(path, BackgroundPaint);
+            canvas.DrawPath(path, paint);
         }
 
         public static Rectangle GetTooltipScreenBounds(Point screenArrowPoint, Size size, Direction direction) {
