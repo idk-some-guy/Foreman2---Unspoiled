@@ -130,7 +130,7 @@ namespace Foreman.Mac.UiTests.Sheets {
 
             Task<bool?> task = host.ShowAsync(sheet);
             Dispatcher.UIThread.RunJobs();
-            AnimationClock.Settle();
+            AnimationClock.UntilSheetOpen(sheet.Ok);
 
             Assert.True(host.IsOpen);
             Assert.Same(sheet, host.Content);
@@ -274,7 +274,7 @@ namespace Foreman.Mac.UiTests.Sheets {
             var sheet = new ProbeSheet();
 
             Task<bool?> task = host.ShowAsync(sheet);
-            AnimationClock.Settle();
+            AnimationClock.UntilSheetOpen(sheet.Ok);
             AnimationClock.UntilReflowsSettled(window);
 
             Point origin = host.TranslatePoint(new Point(0, 0), window)!.Value;
@@ -510,6 +510,7 @@ namespace Foreman.Mac.UiTests.Sheets {
             var sheet = new ProbeSheet();
             Task<bool?> task = host.ShowAsync(sheet);
             Dispatcher.UIThread.RunJobs();
+            AnimationClock.UntilSheetOpen(sheet.Ok);
 
             RealClick.On(sheet.Ok);
 
@@ -529,6 +530,7 @@ namespace Foreman.Mac.UiTests.Sheets {
             fixture.Window.KeyTextInput("x");
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("x", sheet.Field.Text);
+            AnimationClock.UntilSheetOpen(sheet.Ok);
 
             RealClick.On(sheet.Ok);
 
@@ -569,6 +571,7 @@ namespace Foreman.Mac.UiTests.Sheets {
             Assert.Same(sheet, host.Content);
             GraphSummaryWindow summary = Assert.IsType<GraphSummaryWindow>(window.CurrentGraphSummaryWindow);
 
+            AnimationClock.UntilSheetOpen(sheet.Ok);
             RealClick.On(sheet.Ok);
             AnimationClock.Settle();
             Assert.True(task.IsCompleted);
@@ -622,7 +625,8 @@ namespace Foreman.Mac.UiTests.Sheets {
             Dispatcher.UIThread.RunJobs();
 
             sheet.Start("Rendering the graph — 62 %.", 0.62);
-            AnimationClock.Settle(500);
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.UntilFadedIn(StripOf(host));
 
             Assert.False(sheet.ExportButton.IsEnabled);
             Assert.True(sheet.CancelButton.IsEffectivelyEnabled);
@@ -683,7 +687,8 @@ namespace Foreman.Mac.UiTests.Sheets {
 
             const string sentence = "Couldn’t import “Space Age” — the data dump from Factorio stopped partway through.";
             sheet.Fail(sentence);
-            AnimationClock.Settle();
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.UntilFadedIn(StripOf(host));
 
             Assert.True(host.IsOpen);
             Assert.False(task.IsCompleted);

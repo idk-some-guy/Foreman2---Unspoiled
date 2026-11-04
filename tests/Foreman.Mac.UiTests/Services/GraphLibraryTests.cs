@@ -636,6 +636,7 @@ namespace Foreman.Mac.UiTests {
 
             Edit(library);
             library.Service.FlushNow();
+            library.Worker.RunInline = true;
             library.Store.Delete(id);
             library.Worker.RunAll();
             Dispatcher.UIThread.RunJobs();

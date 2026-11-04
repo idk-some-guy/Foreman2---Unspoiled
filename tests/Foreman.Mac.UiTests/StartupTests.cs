@@ -1274,7 +1274,7 @@ namespace Foreman.Mac.UiTests {
                 ShellBootstrapper.LoadPresetAsync,
                 (_, _, _) => Task.CompletedTask,
                 () => { },
-                () => { warmupInvoked = true; return Task.Delay(TimeSpan.FromSeconds(10)); });
+                () => { warmupInvoked = true; return new TaskCompletionSource().Task; });
             stopwatch.Stop();
 
             Assert.NotNull(window);

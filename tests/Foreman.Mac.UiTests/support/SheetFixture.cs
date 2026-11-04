@@ -19,7 +19,7 @@ namespace Foreman.Mac.UiTests.support {
             SheetHost host = SheetHost.For(window);
             Task<T?> result = host.ShowAsync(sheet);
             Dispatcher.UIThread.RunJobs();
-            AnimationClock.Settle();
+            AnimationClock.UntilSheetOpen(sheet);
             return (window, host, result);
         }
 

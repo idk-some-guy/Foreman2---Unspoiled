@@ -56,6 +56,12 @@ namespace Foreman.Mac.UiTests.Views {
         //tests below, which prove the constructor's own Click wiring rather than just the cascade logic
         //behind it.
         private static (SciencePacksSheet Sheet, Window Window) NewShownSheet(DataCache cache, HashSet<IDataObjectBase> enabledObjects) {
+            (SciencePacksSheet sheet, Window window) = ShowWhileSliding(cache, enabledObjects);
+            AnimationClock.UntilSheetOpen(sheet.PackButtonFor(PackNamed(cache, "automation-science-pack"))!);
+            return (sheet, window);
+        }
+
+        private static (SciencePacksSheet Sheet, Window Window) ShowWhileSliding(DataCache cache, HashSet<IDataObjectBase> enabledObjects) {
             var sheet = new SciencePacksSheet(cache, enabledObjects);
             var window = new Window { Width = 900, Height = 700 };
             window.Show();
@@ -81,6 +87,22 @@ namespace Foreman.Mac.UiTests.Views {
             window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
             window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
             Dispatcher.UIThread.RunJobs();
+        }
+
+        [AvaloniaFact]
+        public async Task ASheetJustShown_IsStillSlidingIn_SoAPointTakenNowGoesStaleOnceItSettles() {
+            DataCache cache = await GetVanillaCacheAsync();
+            (SciencePacksSheet sheet, Window window) = ShowWhileSliding(cache, []);
+            ChooserCell cell = sheet.PackButtonFor(PackNamed(cache, "production-science-pack"))!;
+            Point Centre() => cell.TranslatePoint(new Point(cell.Bounds.Width / 2, cell.Bounds.Height / 2), window)!.Value;
+            Point early = Centre();
+
+            Assert.False(AnimationClock.SheetPanelIsOpen(cell));
+
+            AnimationClock.UntilSheetOpen(cell);
+
+            Assert.True(AnimationClock.SheetPanelIsOpen(cell));
+            Assert.NotEqual(early, Centre());
         }
 
         //---- population (reference §6: DisabledPackBGColor, now Foreman.Color.Error, one button per

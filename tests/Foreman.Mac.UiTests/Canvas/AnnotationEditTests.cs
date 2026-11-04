@@ -451,7 +451,7 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         private static void ClickSwatch(AvaloniaWindow window, ColorWell well, int cell) {
             well.IsOpen = true;
-            AnimationClock.Settle(300);
+            AnimationClock.UntilPopoverOpen(well);
             PickCell target = Avalonia.Controls.TopLevel.GetTopLevel(well)!.GetVisualDescendants().OfType<PickCell>()
                 .Where(c => c.FindAncestorOfType<PopoverFrame>()?.Anchor == well).ElementAt(cell);
             SheetFixture.Click(window, target);

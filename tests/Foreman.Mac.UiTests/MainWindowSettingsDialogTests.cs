@@ -413,8 +413,8 @@ namespace Foreman.Mac.UiTests {
                 Assert.Equal(before, Snapshot(settings));
 
                 SheetFixture.Click(opened, restore);
-                AnimationClock.Settle();
                 shown = Assert.IsType<AlertSheet>(SheetHost.For(opened).Content);
+                AnimationClock.UntilSheetOpen(shown.NoButtonControl);
                 SheetFixture.Click(opened, shown.NoButtonControl);
                 AnimationClock.Settle();
                 Assert.False(SheetHost.For(opened).IsOpen);
@@ -450,8 +450,8 @@ namespace Foreman.Mac.UiTests {
             opened.ViewModel.ErrorArrowsChecked = false;
             Assert.True(restore.IsEnabled);
             SheetFixture.Click(opened, restore);
-            AnimationClock.Settle();
             AlertSheet confirm = Assert.IsType<AlertSheet>(SheetHost.For(opened).Content);
+            AnimationClock.UntilSheetOpen(confirm.YesButtonControl);
             SheetFixture.Click(opened, confirm.YesButtonControl);
             AnimationClock.Settle();
             Assert.False(SheetHost.For(opened).IsOpen);
