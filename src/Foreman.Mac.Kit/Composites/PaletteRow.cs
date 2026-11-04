@@ -86,10 +86,19 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void OnPointerReleased(object? sender, PointerReleasedEventArgs e) {
             if (e.InitialPressMouseButton == MouseButton.Left)
-                RaiseActivated();
+                RaiseActivated(e.KeyModifiers.HasFlag(KeyModifiers.Alt));
         }
 
-        internal void RaiseActivated() => Activated?.Invoke(this, EventArgs.Empty);
+        internal bool OptionHeld { get; private set; }
+
+        internal void RaiseActivated(bool optionHeld = false) {
+            OptionHeld = optionHeld;
+            try {
+                Activated?.Invoke(this, EventArgs.Empty);
+            } finally {
+                OptionHeld = false;
+            }
+        }
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
             base.OnApplyTemplate(e);

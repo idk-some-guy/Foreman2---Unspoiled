@@ -228,7 +228,10 @@ namespace Foreman.Mac.Kit.Composites {
             AutomationProperties.SetName(row, $"{item.Name}, {item.Kind}, {index + 1} of {total}");
             row.Activated += (_, _) => {
                 SetCurrentValue(SelectedItemProperty, item);
-                Commit();
+                if (row.OptionHeld)
+                    CommitAsSource();
+                else
+                    Commit();
             };
 
             if (reduceMotion) {

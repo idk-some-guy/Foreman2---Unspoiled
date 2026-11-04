@@ -530,6 +530,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- The solve error now says why the graph could not be solved: its fixed rates and limits cannot all be
+  met at once, or nothing limits its rates. A graph that has never solved says rates will show once a
+  solve works, "Show Node" reads "Show Nodes" for a group, and while calculations are paused the button
+  reads "Resume Calculations" and resumes them.
+- Graph Summary shows the building and power totals under the Buildings tables, writes zeros as "0" and
+  rates with their unit such as "45/s", lists all-zero rows while every kind is shown, counts spoil and
+  plant key nodes under Recipe nodes, and reads unlinked inputs, unlinked outputs and overproduction
+  aloud in VoiceOver.
+- Adding from the quick-add palette now closes it. Hold Option while clicking a result or pressing Return
+  to place it and keep the palette open for adding several.
 - Exported images are clean of selection and search marks: no selection border, find ring, focus ring,
   link highlight or waypoint handles appear in the file.
 - VoiceOver reads each node's item tabs, with the item, whether it is an input or an output, its rate and

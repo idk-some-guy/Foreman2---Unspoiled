@@ -371,6 +371,32 @@ namespace Foreman.Mac.UiTests {
             summary.Close();
         }
 
+        [AvaloniaFact]
+        public async Task RateCells_FollowTheGraphRateUnit_ThroughTheHostTheAppBuilds() {
+            DataCache cache = await GetSharedVanillaCacheAsync();
+            MainWindow window = NewReadyWindow(cache, new AppSettings { CurrentPresetName = VanillaPresetName }, NewTempHome());
+            NodeId supplierId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!), new Point(0, 0));
+            SetManualRate(window.GraphCanvas, supplierId, 12.5);
+            window.GraphCanvas.Viewer.Graph.SelectedRateUnit = ProductionGraph.RateUnit.Per1Min;
+            window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
+
+            window.ShowGraphSummary();
+            GraphSummaryWindow summary = window.CurrentGraphSummaryWindow!;
+            summary.SelectSegment(1);
+            Dispatcher.UIThread.RunJobs();
+            summary.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            SummaryRow row = summary.Rows(SummaryTableId.Items).Single(r => r.Cells[0].Contains("Plate", StringComparison.OrdinalIgnoreCase));
+            Assert.NotEqual(0, row.Values[1]);
+            Assert.Equal(NodeCardPainter.Rate(row.Values[1], ProductionGraph.RateUnit.Per1Min), row.Cells[1]);
+            Assert.EndsWith("/min", row.Cells[1]);
+            ListBoxItem container = summary.TableControl.GetVisualDescendants().OfType<ListBoxItem>().Single(c => ReferenceEquals(c.Content, row));
+            Assert.Contains($"{NodeCardPainter.Number(row.Values[1])} per minute", Avalonia.Automation.AutomationProperties.GetName(container));
+
+            summary.Close();
+        }
+
         //A human reported a solved factory summing to 0 buildings.
         //Every prior summary test either has zero recipe nodes or pins the recipe node's own rate by hand -
         //neither exercises what MainWindow hands the summary window for an auto-solved recipe node reached

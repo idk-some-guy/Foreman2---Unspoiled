@@ -581,7 +581,8 @@ menu described in §7's keyboard map.)
   background right-click Add Item/Add Recipe (§4a), `DraggedLinkElement.
   EndDrag`'s new-node outcome (§3), `MainWindow`'s toolbar Add Item/Add
   Recipe buttons, and double-click on empty canvas. All of these now open
-  the Quick Add palette (search-as-you-type, Enter to place and stay open,
+  the Quick Add palette (search-as-you-type, Return to place and close,
+  ⌥Return or ⌥-click to place and keep the palette open, Escape to close,
   ⌘Enter to open the full "Add to Graph" browser); a link-drag dropped on
   empty space opens the radial menu instead, whose Add slice opens the
   palette scoped to that link and whose own Source/Output/Spoil/Plant/

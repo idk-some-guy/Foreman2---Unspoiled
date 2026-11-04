@@ -42,13 +42,25 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             var palette = fx.Control.OpenPalette!;
             ((QuickAddViewModel)palette.DataContext!).Query = "iron plate";
             Dispatcher.UIThread.RunJobs();
-            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
-            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter, KeyModifiers.Alt);
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter, KeyModifiers.Alt);
             var nodes = fx.Viewer.Graph.Nodes.OfType<SupplierNode>().OrderBy(n => n.Location.Y).ToList();
             Assert.Equal(2, nodes.Count);
             Assert.Equal(200, nodes[0].Location.Y, 0.5);
             Assert.Equal(320, nodes[1].Location.Y, 0.5);
             Assert.NotNull(fx.Control.OpenPalette);
+        }
+
+        [AvaloniaFact]
+        public void APlainReturnPlacesTheNodeAndClosesThePalette() {
+            using var fx = CanvasFixture.WithVanilla();
+            fx.Control.AddItemAsync(new DrawingPoint(300, 200));
+            var palette = fx.Control.OpenPalette!;
+            ((QuickAddViewModel)palette.DataContext!).Query = "iron plate";
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
+            Assert.Single(fx.Viewer.Graph.Nodes.OfType<SupplierNode>());
+            Assert.Null(fx.Control.OpenPalette);
         }
 
         [AvaloniaFact]

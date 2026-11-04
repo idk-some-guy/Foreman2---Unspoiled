@@ -30,7 +30,7 @@ using System.Threading.Tasks;
 namespace Foreman.Mac.Views {
     internal sealed class GraphSummaryHost {
         public Func<SolveStatusTracker?> Tracker { get; init; } = () => null;
-        public Func<string> RateName { get; init; } = () => "second";
+        public Func<ProductionGraph.RateUnit> Unit { get; init; } = () => ProductionGraph.RateUnit.Per1Sec;
         public Action<IReadOnlyList<INodeViewModel>>? Reveal { get; init; }
         public Action? AddRecipe { get; init; }
         public AppSettings? Settings { get; init; }
@@ -81,6 +81,8 @@ namespace Foreman.Mac.Views {
         private int segment;
         private bool rendering;
         private bool syncingKinds;
+        private Border footerBar = null!;
+        private TextBlock footerLabel = null!;
         private SummaryTableId? renderedTable;
         private GridLength[] widths = [];
         private double[] minWidths = [];
@@ -91,6 +93,9 @@ namespace Foreman.Mac.Views {
             topSegment = this.FindControl<Segmented>("TopSegment")!;
             subSegment = this.FindControl<Segmented>("SubSegment")!;
             showButton = this.FindControl<MenuButton>("ShowButton")!;
+            footerBar = this.FindControl<Border>("FooterBar")!;
+            footerLabel = this.FindControl<TextBlock>("FooterLabel")!;
+            footerLabel.FontFeatures = FontFeatureCollection.Parse("tnum");
             filterBox = this.FindControl<SearchField>("FilterBox")!;
             exportButton = this.FindControl<Button>("ExportButton")!;
             headerRow = this.FindControl<Grid>("HeaderRow")!;
@@ -147,9 +152,9 @@ namespace Foreman.Mac.Views {
             };
         }
 
-        internal static GraphSummaryWindow Create(IProductionGraphSession session, string rateName, GraphSummaryHost? host = null) {
+        internal static GraphSummaryWindow Create(IProductionGraphSession session, GraphSummaryHost? host = null) {
             var window = new GraphSummaryWindow();
-            window.Attach(session, host ?? new GraphSummaryHost { RateName = () => rateName });
+            window.Attach(session, host ?? new GraphSummaryHost());
             return window;
         }
 
@@ -254,7 +259,8 @@ namespace Foreman.Mac.Views {
 
         private void ApplyMargins() {
             controlRow.Margin = new Thickness(EdgeInset, Token("Foreman.Space.Space4", 16), EdgeInset, 0);
-            tableArea.Margin = new Thickness(EdgeInset, Token("Foreman.Space.Space3", 12), EdgeInset, EdgeInset);
+            tableArea.Margin = new Thickness(EdgeInset, Token("Foreman.Space.Space3", 12), EdgeInset, segment == 0 ? 0 : EdgeInset);
+            footerBar.Padding = new Thickness(EdgeInset, 0);
         }
 
         public void RefreshTheme() {
@@ -272,6 +278,8 @@ namespace Foreman.Mac.Views {
         internal Button ExportButtonControl => exportButton;
         internal ListBox TableControl => table;
         internal Grid HeaderRowControl => headerRow;
+        internal Border FooterBar => footerBar;
+        internal TextBlock FooterLabel => footerLabel;
         internal StatePanel EmptyPanel => emptyPanel;
         internal StatePanel NoMatchPanel => noMatchPanel;
         internal StatePanel HiddenPanel => hiddenPanel;
@@ -366,7 +374,7 @@ namespace Foreman.Mac.Views {
                 return;
             RebuildCount++;
             SubscribeTracker();
-            viewModel.Refresh(session.View.Nodes);
+            viewModel.Refresh(session.View.Nodes, host.Unit());
             foreach (SummaryTableId id in Enum.GetValues<SummaryTableId>()) {
                 List<SummaryRow> list = SummaryTables.Build(id, viewModel);
                 if (!sorts.TryGetValue(id, out SummarySort? sort))
@@ -426,6 +434,9 @@ namespace Foreman.Mac.Views {
             hiddenPanel.IsVisible = !graphEmpty && hiddenByKinds;
             noMatchPanel.Headline = $"No matches for “{query}”";
             exportButton.IsEnabled = !graphEmpty;
+            footerBar.IsVisible = segment == 0;
+            footerLabel.Text = SummaryTables.Footer(id, Rows(id));
+            ApplyMargins();
 
             int total = CurrentKinds.Length;
             int enabled = CurrentKinds.Count(k => k);
@@ -604,7 +615,7 @@ namespace Foreman.Mac.Views {
             item.Classes.Set("status-error", row.Status == RowStatus.Error);
             item.Classes.Set("status-warning", row.Status == RowStatus.Warning);
             SummaryTableId id = renderedTable ?? CurrentTable;
-            AutomationProperties.SetName(item, SummaryTables.AutomationName(id, row, host.RateName()));
+            AutomationProperties.SetName(item, SummaryTables.AutomationName(id, row, host.Unit()));
         }
 
         internal IReadOnlyList<INodeViewModel> NodesFor(SummaryTableId id, SummaryRow row) {
@@ -676,12 +687,12 @@ namespace Foreman.Mac.Views {
             if (path is null)
                 return;
 
-            string rate = host.RateName();
+            string rate = ProductionGraph.RateUnitNames[(int)host.Unit()];
             var lines = new List<string[]>();
             foreach (SummaryTableId id in ids) {
                 lines.Add(SummaryTables.CsvHeader(id, rate));
                 foreach (SummaryRow row in Filtered(id))
-                    lines.Add([.. row.Cells.Select(c => c.Replace(",", "").Replace("\n", "; ").Replace("\t", ""))]);
+                    lines.Add([.. SummaryTables.CsvCells(id, row).Select(c => c.Replace(",", "").Replace("\n", "; ").Replace("\t", ""))]);
                 lines.Add([""]);
             }
             if (lines.Count > 0)

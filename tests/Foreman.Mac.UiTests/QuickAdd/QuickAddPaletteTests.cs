@@ -74,15 +74,13 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         }
 
         [AvaloniaFact]
-        public void EnterCommitsTheSelectedRow_KeepsQueryAndStaysOpen() {
-            (QuickAddPalette palette, QuickAddViewModel vm, _) = Open("iron");
-            AddCandidate? picked = null; bool closed = false;
-            palette.PickCommitted += (_, c) => picked = c;
-            palette.CloseRequested += (_, _) => closed = true;
-            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
-            Assert.Equal("Iron Plate", picked!.Name);
-            Assert.Equal("iron", vm.Query);
-            Assert.False(closed);
+        public void TheFooter_NamesReturnAsPlaceAndOptionReturnAsPlaceAndStayOpen() {
+            (QuickAddPalette palette, _, _) = Open("iron");
+            PalettePanel panel = palette.GetVisualDescendants().OfType<PalettePanel>().Single();
+
+            Assert.Equal(
+                [("↵", "Return", "Place"), ("⌥↵", "Option Return", "Place, stay open"), ("⌘↵", "Command Return", "Browse…"), ("esc", "Escape", "Close")],
+                panel.FooterHints.Select(h => (h.KeyText, h.KeyAccessibleName, h.Description)));
         }
 
         [AvaloniaFact]
@@ -105,15 +103,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(0, picks);
             CanvasKeys.KeyDownOn(palette.Search, Key.Escape);
             Assert.True(closed);
-        }
-
-        [AvaloniaFact]
-        public void ClickingARowCommitsIt() {
-            (QuickAddPalette palette, _, _) = Open("iron");
-            AddCandidate? picked = null; palette.PickCommitted += (_, c) => picked = c;
-            AnimationClock.UntilReflowsSettled(palette);
-            RealClick.On(Rows(palette)[1]);
-            Assert.Equal("recipe", picked!.KindLabel);
         }
 
         [AvaloniaFact]
@@ -282,7 +271,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         }
 
         [AvaloniaFact]
-        public void Palette_Return_PlacesTheNode_KeepsTheQuery_AndFlashesTheNodeOnce() {
+        public void Palette_OptionReturn_PlacesTheNode_KeepsTheQuery_AndFlashesTheNodeOnce() {
             using var fx = CanvasFixture.WithVanilla();
             TokenBridge.Refresh();
             fx.Control.AddItemAsync(new DrawingPoint(300, 200));
@@ -292,7 +281,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Dispatcher.UIThread.RunJobs();
             var before = fx.Viewer.NodeElements.ToList();
 
-            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter, KeyModifiers.Alt);
 
             BaseNodeElement created = fx.Viewer.NodeElements.Except(before).Single();
             Assert.Equal("iron plate", vm.Query);

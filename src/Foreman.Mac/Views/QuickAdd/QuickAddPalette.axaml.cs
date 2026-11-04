@@ -28,10 +28,12 @@ namespace Foreman.Mac.Views.QuickAdd {
         public QuickAddPalette() {
             InitializeComponent();
             panel = this.FindControl<PalettePanel>("Panel")!;
-            panel.FooterHints.Add(new PaletteFooterHint { KeyText = "↵", KeyAccessibleName = "Return", Description = "Place, stay open" });
+            panel.FooterHints.Add(new PaletteFooterHint { KeyText = "↵", KeyAccessibleName = "Return", Description = "Place" });
+            panel.FooterHints.Add(new PaletteFooterHint { KeyText = "⌥↵", KeyAccessibleName = "Option Return", Description = "Place, stay open" });
             panel.FooterHints.Add(new PaletteFooterHint { KeyText = "⌘↵", KeyAccessibleName = "Command Return", Description = "Browse…" });
             panel.FooterHints.Add(new PaletteFooterHint { KeyText = "esc", KeyAccessibleName = "Escape", Description = "Close" });
             panel.Committed += OnCommitted;
+            panel.CommittedAsSource += OnCommittedKeepingOpen;
             panel.CloseRequested += (_, _) => CloseRequested?.Invoke(this, EventArgs.Empty);
             panel.Search.GetObservable(TextBox.TextProperty).Subscribe(new TextSink(OnSearchTextChanged));
             //Tunnel on an ancestor of the panel, so ⌘Return is caught before the panel's own Return commits.
@@ -112,6 +114,13 @@ namespace Foreman.Mac.Views.QuickAdd {
         }
 
         private void OnCommitted(object? sender, PaletteResult result) {
+            if (!rowFor.TryGetValue(result, out QuickAddRow? row))
+                return;
+            PickCommitted?.Invoke(this, row.Candidate);
+            CloseRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void OnCommittedKeepingOpen(object? sender, PaletteResult result) {
             if (rowFor.TryGetValue(result, out QuickAddRow? row))
                 PickCommitted?.Invoke(this, row.Candidate);
         }

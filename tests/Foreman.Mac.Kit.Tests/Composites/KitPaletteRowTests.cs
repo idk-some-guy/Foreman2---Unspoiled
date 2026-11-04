@@ -342,6 +342,30 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void OptionClick_CommitsTheRowAsASource_AndAPlainClickCommitsNormally() {
+            using var fixture = new KitFixture();
+            Motion.ReduceMotion = true;
+            PalettePanel panel = NewPanel(FourResults);
+            fixture.Window.Content = panel;
+            Dispatcher.UIThread.RunJobs();
+            PaletteResult? plain = null;
+            PaletteResult? asSource = null;
+            panel.Committed += (_, item) => plain = item;
+            panel.CommittedAsSource += (_, item) => asSource = item;
+
+            fixture.StateOf(Rows(panel)[2]).Click(RawInputModifiers.Alt);
+
+            Assert.Equal(FourResults[2], asSource);
+            Assert.Null(plain);
+
+            asSource = null;
+            fixture.StateOf(Rows(panel)[1]).Click();
+
+            Assert.Equal(FourResults[1], plain);
+            Assert.Null(asSource);
+        }
+
+        [AvaloniaFact]
         public void Escape_RaisesCloseRequested() {
             using var fixture = new KitFixture();
             PalettePanel panel = NewPanel(FourResults);

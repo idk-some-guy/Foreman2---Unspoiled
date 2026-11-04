@@ -9,12 +9,12 @@ using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.support {
     public static class RealClick {
-        public static void On(Control target) {
+        public static void On(Control target, RawInputModifiers modifiers = RawInputModifiers.None) {
             AvaloniaWindow window = target.GetVisualAncestors().OfType<AvaloniaWindow>().First();
             Point center = new(target.Bounds.Width / 2, target.Bounds.Height / 2);
             Point screen = Avalonia.VisualExtensions.TranslatePoint(target, center, window) ?? center;
-            window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
-            window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
+            window.MouseDown(screen, MouseButton.Left, modifiers);
+            window.MouseUp(screen, MouseButton.Left, modifiers);
             Dispatcher.UIThread.RunJobs();
         }
 

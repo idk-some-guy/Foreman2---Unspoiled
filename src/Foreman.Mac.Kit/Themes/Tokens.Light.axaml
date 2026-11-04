@@ -20,6 +20,7 @@
   <Color x:Key="Foreman.Color.BorderStrong">#24000000</Color>
   <Color x:Key="Foreman.Color.Text">#E0000000</Color>
   <Color x:Key="Foreman.Color.TextSecondary">#8C000000</Color>
+  <Color x:Key="Foreman.Color.TextSecondaryOnSoft">#A0000000</Color>
   <Color x:Key="Foreman.Color.TextTertiary">#57000000</Color>
   <Color x:Key="Foreman.Color.Accent">#007AFF</Color>
   <Color x:Key="Foreman.Color.AccentSoft">#1F007AFF</Color>

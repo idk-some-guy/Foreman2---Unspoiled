@@ -55,7 +55,7 @@ namespace Foreman.Mac.ViewModels {
         public double PowerConsumption { get; private set; }
         public double PowerProduction { get; private set; }
 
-        public void Refresh(IEnumerable<INodeViewModel> nodes) {
+        public void Refresh(IEnumerable<INodeViewModel> nodes, ProductionGraph.RateUnit unit = ProductionGraph.RateUnit.Per1Sec) {
             List<IRecipeNodeViewModel> recipeNodes = [.. nodes.OfType<IRecipeNodeViewModel>()];
             List<INodeViewModel> nodeList = [.. nodes];
 
@@ -65,10 +65,10 @@ namespace Foreman.Mac.ViewModels {
 
             Beacons = LoadUnfilteredBeaconList(recipeNodes.Where(r => r.SelectedBeacon));
 
-            Items = LoadUnfilteredItemLists(nodeList, fluids: false);
-            Fluids = LoadUnfilteredItemLists(nodeList, fluids: true);
+            Items = LoadUnfilteredItemLists(nodeList, fluids: false, unit);
+            Fluids = LoadUnfilteredItemLists(nodeList, fluids: true, unit);
 
-            KeyNodes = LoadUnfilteredKeyNodesList(nodeList.Where(n => n.KeyNode));
+            KeyNodes = LoadUnfilteredKeyNodesList(nodeList.Where(n => n.KeyNode), unit);
 
             BuildingTotal = recipeNodes.Sum(n => Math.Ceiling(n.ActualSetValue));
             BeaconTotal = recipeNodes.Sum(n => n.GetTotalBeacons());
@@ -107,8 +107,8 @@ namespace Foreman.Mac.ViewModels {
                     count,
                     count >= 10000000 ? count.ToString("0.##e0", DisplayCulture.Format) : count.ToString("N0", DisplayCulture.Format),
                     assembler.FriendlyName ?? "",
-                    assemblerPower == 0 ? "-" : GraphicsStuff.DoubleToEnergy(assemblerPower, "W"), assemblerPower,
-                    beaconPower == 0 ? "-" : GraphicsStuff.DoubleToEnergy(beaconPower, "W"), beaconPower,
+                    SummaryTables.Power(assemblerPower), assemblerPower,
+                    SummaryTables.Power(beaconPower), beaconPower,
                     staleBuildings.Contains(assembler)));
             }
             return destination;
@@ -145,7 +145,7 @@ namespace Foreman.Mac.ViewModels {
                     count,
                     count.ToString(DisplayCulture.Format),
                     beacon.FriendlyName ?? "",
-                    count == 0 ? "-" : GraphicsStuff.DoubleToEnergy(beaconPowerConsumption, "W"), beaconPowerConsumption,
+                    SummaryTables.Power(beaconPowerConsumption), beaconPowerConsumption,
                     staleBeacons.Contains(beacon)));
             }
             return destination;
@@ -155,7 +155,7 @@ namespace Foreman.Mac.ViewModels {
         //inputs go to In(x link), linked ones to Consumed; recipe outputs always add to Produced, unlinked
         //ones also to Out(x link), overproduced ones add the overflow to Overprod - these three checks are
         //independent (a linked output can still overproduce). Suppliers add to In, consumers add to Out.
-        private List<ItemRow> LoadUnfilteredItemLists(IEnumerable<INodeViewModel> nodes, bool fluids) {
+        private List<ItemRow> LoadUnfilteredItemLists(IEnumerable<INodeViewModel> nodes, bool fluids, ProductionGraph.RateUnit unit) {
             var itemCounters = new Dictionary<ItemQualityPair, ItemCounter>();
 
             ItemCounter CounterFor(ItemQualityPair pair) {
@@ -221,21 +221,21 @@ namespace Foreman.Mac.ViewModels {
                     item.Item!.Name + ":" + item.Quality!.Name,
                     GetOrBakeIcon(item.Icon),
                     item.FriendlyName ?? "",
-                    counter.Input == 0 ? "-" : GraphicsStuff.DoubleToString(counter.Input), counter.Input,
-                    counter.InputUnlinked == 0 ? "-" : GraphicsStuff.DoubleToString(counter.InputUnlinked), counter.InputUnlinked,
-                    counter.Output == 0 ? "-" : GraphicsStuff.DoubleToString(counter.Output), counter.Output,
-                    counter.OutputUnlinked == 0 ? "-" : GraphicsStuff.DoubleToString(counter.OutputUnlinked), counter.OutputUnlinked,
-                    counter.OutputOverflow == 0 ? "-" : GraphicsStuff.DoubleToString(counter.OutputOverflow), counter.OutputOverflow,
-                    counter.Production == 0 ? "-" : GraphicsStuff.DoubleToString(counter.Production), counter.Production,
-                    counter.Consumption == 0 ? "-" : GraphicsStuff.DoubleToString(counter.Consumption), counter.Consumption,
+                    SummaryTables.FormatRate(counter.Input, unit), counter.Input,
+                    SummaryTables.FormatRate(counter.InputUnlinked, unit), counter.InputUnlinked,
+                    SummaryTables.FormatRate(counter.Output, unit), counter.Output,
+                    SummaryTables.FormatRate(counter.OutputUnlinked, unit), counter.OutputUnlinked,
+                    SummaryTables.FormatRate(counter.OutputOverflow, unit), counter.OutputOverflow,
+                    SummaryTables.FormatRate(counter.Production, unit), counter.Production,
+                    SummaryTables.FormatRate(counter.Consumption, unit), counter.Consumption,
                     counter.Stale));
             }
             return destination;
         }
 
         //Ports LoadUnfilteredKeyNodesList (reference upstream GraphSummaryForm.cs:301-358): recipe-node rows
-        //show Throughput="-"/Factories=ActualSetValue, every other node type shows the reverse.
-        private List<KeyNodeRow> LoadUnfilteredKeyNodesList(IEnumerable<INodeViewModel> origin) {
+        //show Throughput=0/Factories=ActualSetValue, every other node type shows the reverse.
+        private List<KeyNodeRow> LoadUnfilteredKeyNodesList(IEnumerable<INodeViewModel> origin, ProductionGraph.RateUnit unit) {
             var destination = new List<KeyNodeRow>();
             foreach (INodeViewModel node in origin) {
                 SKBitmap? icon;
@@ -269,8 +269,8 @@ namespace Foreman.Mac.ViewModels {
                     continue;
 
                 (string throughputText, double throughputValue, string factoriesText, double factoriesValue) = node is IRecipeNodeViewModel rrNode
-                    ? ("-", 0.0, GraphicsStuff.DoubleToString(rrNode.ActualSetValue), rrNode.ActualSetValue)
-                    : (GraphicsStuff.DoubleToString(node.ActualRate), node.ActualRate, "-", 0.0);
+                    ? (SummaryTables.Zero, 0.0, SummaryTables.FormatCount(rrNode.ActualSetValue), rrNode.ActualSetValue)
+                    : (SummaryTables.FormatRate(node.ActualRate, unit), node.ActualRate, SummaryTables.Zero, 0.0);
 
                 destination.Add(new KeyNodeRow(node, nodeText ?? "", GetOrBakeIcon(icon), nodeType, nodeText ?? "", node.KeyNodeTitle, throughputText, throughputValue, factoriesText, factoriesValue, node.SolveState == NodeSolveState.Stale));
             }

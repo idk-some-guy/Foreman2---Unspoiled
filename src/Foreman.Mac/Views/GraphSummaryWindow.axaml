@@ -15,8 +15,15 @@
       <Setter Property="Background" Value="{DynamicResource Foreman.Color.WarningSoft}" />
       <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.ListRowIcon}" />
     </Style>
+    <Style Selector="ListBoxItem.status-error:not(:selected):not(:pointerover) TextBlock.secondary">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondaryOnSoft}" />
+    </Style>
+    <Style Selector="ListBoxItem.status-warning:not(:selected):not(:pointerover) TextBlock.secondary">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondaryOnSoft}" />
+    </Style>
   </Window.Styles>
-  <DockPanel>
+  <Grid RowDefinitions="*,Auto">
+  <DockPanel Grid.Row="0">
     <Border Name="ToolbarRow" DockPanel.Dock="Top" Height="38"
             Background="{DynamicResource Foreman.Color.TitlebarMaterial}"
             BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,0,0,1">
@@ -38,4 +45,12 @@
       <Grid Name="TableHost" Grid.Row="1" />
     </Grid>
   </DockPanel>
+  <Border Name="FooterBar" Grid.Row="1"
+            Height="{DynamicResource Foreman.Size.ControlHeightLarge}"
+            Background="{DynamicResource Foreman.Color.WindowBackground}"
+            BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,1,0,0">
+      <TextBlock Name="FooterLabel" Theme="{StaticResource Kit.Text}" Classes="caption secondary"
+                 VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+    </Border>
+  </Grid>
 </Window>

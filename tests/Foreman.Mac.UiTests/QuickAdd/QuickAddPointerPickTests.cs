@@ -18,7 +18,7 @@ using DrawingPoint = System.Drawing.Point;
 namespace Foreman.Mac.UiTests.QuickAdd {
     public sealed class QuickAddPointerPickTests {
         [AvaloniaFact]
-        public void PointerPickingARow_PlacesTheNode_AndAPressThatDismissesThePaletteNeverStartsALasso() {
+        public void OptionPickingARow_PlacesTheNodeAndKeepsThePaletteOpen_AndAPressThatDismissesItNeverStartsALasso() {
             using var fx = CanvasFixture.WithVanilla();
             fx.Control.AddRecipeAsync(new DrawingPoint(0, 0));
             QuickAddPalette palette = fx.Control.OpenPalette!;
@@ -28,8 +28,8 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             PaletteRow row = palette.GetVisualDescendants().OfType<PaletteRow>().First();
             AvaloniaPoint rowPoint = row.TranslatePoint(new AvaloniaPoint(row.Bounds.Width / 2, row.Bounds.Height / 2), fx.Window)!.Value;
 
-            fx.Window.MouseDown(rowPoint, MouseButton.Left, RawInputModifiers.None);
-            fx.Window.MouseUp(rowPoint, MouseButton.Left, RawInputModifiers.None);
+            fx.Window.MouseDown(rowPoint, MouseButton.Left, RawInputModifiers.Alt);
+            fx.Window.MouseUp(rowPoint, MouseButton.Left, RawInputModifiers.Alt);
             Dispatcher.UIThread.RunJobs();
 
             Assert.Single(fx.Viewer.Graph.Nodes.OfType<RecipeNode>());
@@ -51,6 +51,27 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.Window.MouseMove(next + new AvaloniaPoint(40, 40), RawInputModifiers.LeftMouseButton);
 
             Assert.Equal(next, fx.Control.Viewport.GraphToScreen(fx.Viewer.SelectionZone!.Value.Location));
+        }
+
+        [AvaloniaFact]
+        public void PointerPickingARow_PlacesTheNode_AndClosesThePalette() {
+            using var fx = CanvasFixture.WithVanilla();
+            fx.Control.AddRecipeAsync(new DrawingPoint(0, 0));
+            QuickAddPalette palette = fx.Control.OpenPalette!;
+            ((QuickAddViewModel)palette.DataContext!).Query = "iron gear";
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.UntilReflowsSettled(palette);
+            PaletteRow row = palette.GetVisualDescendants().OfType<PaletteRow>().First();
+            AvaloniaPoint rowPoint = row.TranslatePoint(new AvaloniaPoint(row.Bounds.Width / 2, row.Bounds.Height / 2), fx.Window)!.Value;
+
+            fx.Window.MouseDown(rowPoint, MouseButton.Left, RawInputModifiers.None);
+            fx.Window.MouseUp(rowPoint, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Single(fx.Viewer.Graph.Nodes.OfType<RecipeNode>());
+            Assert.Null(fx.Control.OpenPalette);
+            Assert.Null(fx.Viewer.SelectionZone);
+            Assert.Equal(GraphCanvasControl.DragOperation.None, fx.Control.CurrentDragOperation);
         }
 
         [AvaloniaFact]

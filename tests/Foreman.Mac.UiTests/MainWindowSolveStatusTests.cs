@@ -24,7 +24,10 @@ using Xunit;
 
 namespace Foreman.Mac.UiTests {
     public class MainWindowSolveStatusTests {
-        private const string Sentence = "The solver stopped before it found a result. The rates shown are from the last solve that worked.";
+        private const string Staleness = "The rates shown are from the last solve that worked.";
+        private const string Sentence = "The solver stopped before it found a result. " + Staleness;
+        private const string InfeasibleNeverSolvedSentence = "The graph's fixed rates and limits can't all be met at once. Rates will show once a solve works.";
+        private const string NeverSolvedSentence = "The solver stopped before it found a result. Rates will show once a solve works.";
 
         private static SolveFailure Failure(params int[] ids) => new(ids, SolveFailureReason.Infeasible);
 
@@ -54,17 +57,83 @@ namespace Foreman.Mac.UiTests {
                 Assert.Equal(StatePanelShape.Error, panel.Shape);
                 Assert.True(panel.ForceCompact);
                 Assert.Equal("Couldn’t solve this graph", panel.Headline);
-                Assert.Equal(Sentence, panel.Sentence);
+                Assert.Equal(InfeasibleNeverSolvedSentence, panel.Sentence);
                 Assert.Equal(["Show Node", "Try Again"], ButtonsOf(panel).Select(b => (string)b.Content!));
                 Assert.Equal("Try Again", (string)ButtonsOf(panel).Single(b => ButtonRow.GetRole(b) == ButtonRowRole.Default).Content!);
             }
             Assert.NotSame(PanelOf(window.Toolbar.ZoomStepper.SolveStatus), PanelOf(window.TitleBarSolveStatus));
         }
 
+        [AvaloniaFact]
+        public async Task SwappingTheTracker_LeavesOneSubscriptionToPausedChanged() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
+            window.UseSolveTracker(new SolveStatusTracker(TimeProvider.System));
+            var command = (System.Windows.Input.ICommand)typeof(MainWindow).GetField("showSolveErrorCommand", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
+            int applied = 0;
+            command.CanExecuteChanged += (_, _) => applied++;
+
+            window.GraphCanvas.Viewer.IsPaused = true;
+
+            Assert.Equal(1, applied);
+        }
+
         [Fact]
-        public void EveryReason_UsesTheFallbackSentence() {
-            foreach (SolveFailureReason reason in Enum.GetValues<SolveFailureReason>())
-                Assert.Equal(Sentence, Foreman.Mac.Views.SolveErrorPanel.Sentence(reason));
+        public void EachReason_HasItsRuledSentence_AheadOfTheStaleness() {
+            Assert.Equal("The graph's fixed rates and limits can't all be met at once. " + Staleness, Foreman.Mac.Views.SolveErrorPanel.Sentence(SolveFailureReason.Infeasible));
+            Assert.Equal("Nothing in the graph limits its rates, so there's no single answer. " + Staleness, Foreman.Mac.Views.SolveErrorPanel.Sentence(SolveFailureReason.Unbounded));
+            Assert.Equal(Sentence, Foreman.Mac.Views.SolveErrorPanel.Sentence(SolveFailureReason.Unknown));
+            Assert.Equal("The graph's fixed rates and limits can't all be met at once. Rates will show once a solve works.", Foreman.Mac.Views.SolveErrorPanel.Sentence(SolveFailureReason.Infeasible, neverSolved: true));
+            Assert.Equal(NeverSolvedSentence, Foreman.Mac.Views.SolveErrorPanel.Sentence(SolveFailureReason.Unknown, neverSolved: true));
+        }
+
+        [AvaloniaFact]
+        public async Task AGroupWithEarlierRates_KeepsTheStalenessSentence_AndATwoNodeGroupReadsShowNodes() {
+            MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
+            var editor = window.GraphCanvas.Viewer.Session.Editor;
+            var plate = new ItemQualityPair(window.DataCache!.Items["iron-plate"], window.DataCache.DefaultQuality!);
+            NodeId first = editor.CreatePassthroughNode(plate, new System.Drawing.Point(0, 0));
+            NodeId second = editor.CreatePassthroughNode(plate, new System.Drawing.Point(400, 250));
+            Dispatcher.UIThread.RunJobs();
+            SolveStatus status = window.Toolbar.ZoomStepper.SolveStatus;
+
+            window.SolveTracker.OnSolveEnded([new SolveFailure([first.Value, second.Value], SolveFailureReason.Infeasible)]);
+
+            StatePanel never = PanelOf(status);
+            Assert.Equal("The graph's fixed rates and limits can't all be met at once. Rates will show once a solve works.", never.Sentence);
+            Assert.Equal(["Show Nodes", "Try Again"], ButtonsOf(never).Select(b => (string)b.Content!));
+
+            foreach (BaseNode node in window.GraphCanvas.Viewer.Graph.Nodes.Where(n => n.NodeID == first.Value))
+                node.SolveState = NodeSolveState.Current;
+            window.SolveTracker.OnSolveEnded([]);
+            window.SolveTracker.OnSolveEnded([new SolveFailure([first.Value, second.Value], SolveFailureReason.Infeasible)]);
+
+            Assert.Equal("The graph's fixed rates and limits can't all be met at once. " + Staleness, PanelOf(status).Sentence);
+        }
+
+        [AvaloniaFact]
+        public async Task WhilePaused_TheDefaultButtonReadsResumeCalculations_AndResumingRunsTheSolve() {
+            MainWindow window = await OpenWithFailingGraphAsync();
+            ProductionGraph graph = window.GraphCanvas.Viewer.Graph;
+            SolveStatus status = window.Toolbar.ZoomStepper.SolveStatus;
+            Assert.Equal("Try Again", (string)ButtonsOf(PanelOf(status)).Single(b => ButtonRow.GetRole(b) == ButtonRowRole.Default).Content!);
+
+            window.GraphCanvas.Viewer.IsPaused = true;
+            Dispatcher.UIThread.RunJobs();
+
+            foreach (SolveStatus each in new[] { status, window.TitleBarSolveStatus })
+                Assert.Equal("Resume Calculations", (string)ButtonsOf(PanelOf(each)).Single(b => ButtonRow.GetRole(b) == ButtonRowRole.Default).Content!);
+            int solves = 0;
+            graph.SolveStarted += (_, _) => solves++;
+            status.IsErrorPopoverOpen = true;
+            Dispatcher.UIThread.RunJobs();
+
+            ButtonsOf(PanelOf(status)).Single(b => (string)b.Content! == "Resume Calculations").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(window.GraphCanvas.Viewer.IsPaused);
+            Assert.False(status.IsErrorPopoverOpen);
+            Assert.Equal(1, solves);
+            Assert.Equal("Try Again", (string)ButtonsOf(PanelOf(status)).Single(b => ButtonRow.GetRole(b) == ButtonRowRole.Default).Content!);
         }
 
         [AvaloniaFact]
@@ -100,7 +169,7 @@ namespace Foreman.Mac.UiTests {
 
             Foreman.Mac.Kit.Motion.ReduceMotion = true;
             try {
-                ButtonsOf(PanelOf(status)).Single(b => (string)b.Content! == "Show Node").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                ButtonsOf(PanelOf(status)).Single(b => (string)b.Content! == "Show Nodes").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
                 Dispatcher.UIThread.RunJobs();
             } finally {
                 Foreman.Mac.Kit.Motion.ReduceMotion = false;
@@ -317,6 +386,18 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(SolveStatusState.Idle, shell.Window.TitleBarSolveStatus.State);
             Assert.False(shell.Graph.Solver.IsSolving);
             Assert.Empty(announcements);
+
+            if (throughTheMenu)
+                PauseThroughTheMenu(shell.Window);
+            else
+                shell.Window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "PauseUpdatesCheckbox").IsChecked = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(shell.Graph.PauseUpdates);
+            AddRecipeNode(shell, "copper-plate", 600);
+            clock.Advance(TimeSpan.FromMilliseconds(400));
+            CanvasKeys.KeyDownOn(shell.Window, Key.OemPeriod, KeyModifiers.Meta);
+
+            Assert.Equal(["Solve cancelled."], announcements);
         }
 
         [AvaloniaFact]

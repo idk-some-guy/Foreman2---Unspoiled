@@ -117,7 +117,7 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal(expectedGearSupply, gearRow.OutULValue, precision: 6);
 
             KeyNodeRow keyNodeRow = Assert.Single(vm.KeyNodes);
-            Assert.Equal("-", keyNodeRow.ThroughputText);
+            Assert.Equal("0", keyNodeRow.ThroughputText);
             Assert.Equal(2, keyNodeRow.FactoriesValue, precision: 6);
         }
     }

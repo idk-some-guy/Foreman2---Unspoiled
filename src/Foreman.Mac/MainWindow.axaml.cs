@@ -1696,7 +1696,7 @@ namespace Foreman.Mac {
 
             var host = new GraphSummaryHost {
                 Tracker = () => solveTracker,
-                RateName = () => GraphCanvas.Viewer.Graph.GetRateName(),
+                Unit = () => GraphCanvas.Viewer.Graph.SelectedRateUnit,
                 Reveal = RevealNodes,
                 AddRecipe = () => {
                     Activate();
@@ -1704,7 +1704,7 @@ namespace Foreman.Mac {
                 },
                 Settings = Settings,
             };
-            GraphSummaryWindow window = GraphSummaryWindow.Create(GraphCanvas.Viewer.Session, GraphCanvas.Viewer.Graph.GetRateName(), host);
+            GraphSummaryWindow window = GraphSummaryWindow.Create(GraphCanvas.Viewer.Session, host);
             window.SetTitle(ViewModel.DocumentTitle);
             void OnViewModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
                 if (e.PropertyName == nameof(MainWindowViewModel.DocumentTitle))

@@ -87,20 +87,20 @@ namespace Foreman.Mac.Kit.Tests.support {
             Dispatcher.UIThread.RunJobs();
         }
 
-        public void Press() {
-            window.MouseDown(Center(), MouseButton.Left, RawInputModifiers.None);
+        public void Press(RawInputModifiers modifiers = RawInputModifiers.None) {
+            window.MouseDown(Center(), MouseButton.Left, modifiers);
             Dispatcher.UIThread.RunJobs();
         }
 
-        public void Release() {
-            window.MouseUp(Center(), MouseButton.Left, RawInputModifiers.None);
+        public void Release(RawInputModifiers modifiers = RawInputModifiers.None) {
+            window.MouseUp(Center(), MouseButton.Left, modifiers);
             Dispatcher.UIThread.RunJobs();
         }
 
-        public void Click() {
+        public void Click(RawInputModifiers modifiers = RawInputModifiers.None) {
             Hover();
-            Press();
-            Release();
+            Press(modifiers);
+            Release(modifiers);
         }
 
         public void Focus() {

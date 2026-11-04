@@ -14,17 +14,24 @@ namespace Foreman.Mac.Views {
         internal const string FallbackReason = "The solver stopped before it found a result.";
         private const string Staleness = "The rates shown are from the last solve that worked.";
 
-        private static readonly Dictionary<SolveFailureReason, string> ReasonSentences = [];
+        private const string NeverSolved = "Rates will show once a solve works.";
 
-        internal static string Sentence(SolveFailureReason reason) =>
-            $"{(ReasonSentences.TryGetValue(reason, out string? sentence) ? sentence : FallbackReason)} {Staleness}";
+        private static readonly Dictionary<SolveFailureReason, string> ReasonSentences = new() {
+            [SolveFailureReason.Infeasible] = "The graph's fixed rates and limits can't all be met at once.",
+            [SolveFailureReason.Unbounded] = "Nothing in the graph limits its rates, so there's no single answer.",
+        };
 
-        internal static StatePanel Build(SolveFailure? failure, Action showNode, Action tryAgain) {
-            Button again = SheetButtons.Make("Try Again", ButtonRowRole.Default);
+        internal static string Sentence(SolveFailureReason reason, bool neverSolved = false) =>
+            $"{(ReasonSentences.TryGetValue(reason, out string? sentence) ? sentence : FallbackReason)} {(neverSolved ? NeverSolved : Staleness)}";
+
+        internal static string ShowNodeLabel(int count) => count == 1 ? "Show Node" : "Show Nodes";
+
+        internal static StatePanel Build(SolveFailure? failure, Action showNode, Action tryAgain, bool neverSolved = false, bool paused = false) {
+            Button again = SheetButtons.Make(paused ? "Resume Calculations" : "Try Again", ButtonRowRole.Default);
             again.Click += (_, _) => tryAgain();
             ButtonRow row;
             if (failure is { NodeIds.Count: > 0 }) {
-                Button node = SheetButtons.Make("Show Node", ButtonRowRole.Other);
+                Button node = SheetButtons.Make(ShowNodeLabel(failure.NodeIds.Count), ButtonRowRole.Other);
                 node.Click += (_, _) => showNode();
                 row = SheetButtons.Row(node, again);
             } else {
@@ -37,7 +44,7 @@ namespace Foreman.Mac.Views {
                 Shape = StatePanelShape.Error,
                 ForceCompact = true,
                 Headline = Headline,
-                Sentence = Sentence(failure?.Reason ?? SolveFailureReason.Unknown),
+                Sentence = Sentence(failure?.Reason ?? SolveFailureReason.Unknown, neverSolved),
                 Buttons = row,
             };
         }

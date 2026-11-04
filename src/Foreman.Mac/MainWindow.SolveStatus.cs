@@ -7,6 +7,7 @@ using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
+using Foreman.Models.Nodes;
 using Foreman.Models.Solver;
 using System;
 using System.Collections.Generic;
@@ -20,6 +21,8 @@ namespace Foreman.Mac {
         private NativeMenuItem showSolveErrorMenuItem = null!;
         private SolveFailure? builtFailure;
         private bool pauseIsCancelling;
+        private bool builtPaused;
+        private bool builtNeverSolved;
         private SolveStatusState lastSolveState;
 
         internal SolveStatusTracker SolveTracker => solveTracker;
@@ -46,6 +49,7 @@ namespace Foreman.Mac {
             };
 
             solveTracker.Changed += OnSolveTrackerChanged;
+            GraphCanvas.Viewer.PausedChanged += (_, _) => ApplySolveStatus();
             ProductionGraph graph = GraphCanvas.Viewer.Graph;
             graph.SolveStarted += (_, _) => solveTracker.OnSolveStarted();
             graph.SolveEnded += OnGraphSolveEnded;
@@ -99,13 +103,25 @@ namespace Foreman.Mac {
             SolveStatus[] statuses = [toolbar.ZoomStepper.SolveStatus, titleBarSolveStatus];
 
             bool wantsPanel = failure is not null || state == SolveStatusState.Failed;
-            if (!ReferenceEquals(failure, builtFailure) || wantsPanel != (statuses[0].ErrorContent is not null)) {
+            bool paused = GraphCanvas.Viewer.IsPaused;
+            bool neverSolved = failure is { NodeIds.Count: > 0 } && failure.NodeIds.All(IsNeverSolved);
+            if (!ReferenceEquals(failure, builtFailure) || wantsPanel != (statuses[0].ErrorContent is not null)
+                || paused != builtPaused || neverSolved != builtNeverSolved) {
                 builtFailure = failure;
+                builtPaused = paused;
+                builtNeverSolved = neverSolved;
                 foreach (SolveStatus status in statuses) {
                     SolveStatus owner = status;
                     owner.ErrorContent = !wantsPanel ? null : SolveErrorPanel.Build(failure,
                         showNode: () => { owner.IsErrorPopoverOpen = false; ShowFailedNodes(); },
-                        tryAgain: () => { owner.IsErrorPopoverOpen = false; GraphCanvas.Viewer.Graph.UpdateNodeValues(); });
+                        tryAgain: () => {
+                            owner.IsErrorPopoverOpen = false;
+                            if (paused)
+                                GraphCanvas.ResumeCalculations();
+                            else
+                                GraphCanvas.Viewer.Graph.UpdateNodeValues();
+                        },
+                        neverSolved, paused);
                 }
             }
             foreach (SolveStatus status in statuses)
@@ -117,6 +133,9 @@ namespace Foreman.Mac {
                 Announce(SolveErrorPanel.Announcement);
             lastSolveState = state;
         }
+
+        private bool IsNeverSolved(int nodeId) =>
+            GraphCanvas.Viewer.Graph.Nodes.FirstOrDefault(n => n.NodeID == nodeId)?.SolveState == NodeSolveState.NeverSolved;
 
         private SolveStatus VisibleSolveStatus => showToolbar || searchRevealsToolbar ? toolbar.ZoomStepper.SolveStatus : titleBarSolveStatus;
 

@@ -70,8 +70,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         //Add Recipe now opens the Quick Add palette scoped to recipes - searching the recipe's own
-        //friendly name and pressing Enter picks the top (and only) match. Closes the palette afterward (it
-        //stays open by design for a second pick) so callers get back a clean canvas.
+        //friendly name and pressing Enter picks the top (and only) match; Enter closes the palette.
         private static Task<RecipeNodeElement> AddRecipeViaChooser(GraphCanvasControl control, DataCache cache, string recipeName, Point location) {
             IRecipe recipe = cache.Recipes[recipeName];
             int before = control.NodeElements.Count;

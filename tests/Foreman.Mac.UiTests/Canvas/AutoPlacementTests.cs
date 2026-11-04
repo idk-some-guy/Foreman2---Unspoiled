@@ -191,9 +191,8 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //Picking "iron-plate" straight from the Quick Add palette Add Item opens (scope Items, no
         //origin) creates the disconnected Supplier node directly - PlaceCandidate's role default for a
-        //Disconnected outer type is Supplier, matching the retired flow's "Source" footer button. The
-        //palette itself stays open after a pick (by design, so a second item can land right after), unlike
-        //the old chooser panels this test used to close through.
+        //Disconnected outer type is Supplier, matching the retired flow's "Source" footer button. A plain
+        //Return places and closes the palette.
         [AvaloniaFact]
         public void AddItemAsync_ChoosesItemThenSource_CreatesSupplierNodeSelectedAtGraphPoint() {
             Fixture fx = NewFixture();

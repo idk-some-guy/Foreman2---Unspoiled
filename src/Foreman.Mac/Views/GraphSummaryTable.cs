@@ -1,4 +1,6 @@
 using Avalonia.Media.Imaging;
+using Foreman.Mac.Canvas;
+using Foreman.Mac.Canvas.Elements;
 using Foreman.Graph;
 using Foreman.Mac.ViewModels;
 using System;
@@ -30,7 +32,13 @@ namespace Foreman.Mac.Views {
     }
 
     internal static class SummaryTables {
-        public const string Zero = "-";
+        public const string Zero = "0";
+
+        public static string FormatRate(double value, ProductionGraph.RateUnit unit) => value == 0 ? Zero : NodeCardPainter.Rate(value, unit);
+
+        public static string Power(double value) => value == 0 ? Zero : GraphicsStuff.DoubleToEnergy(value, "W");
+
+        public static string FormatCount(double value) => value == 0 ? Zero : GraphicsStuff.DoubleToString(value);
 
         public static readonly string[] ItemKinds = ["Input", "Unlinked input", "Output", "Unlinked output", "Overproduced", "Produced", "Consumed"];
         public static readonly string[] KeyNodeKinds = ["Supplier nodes", "Consumer nodes", "Passthrough nodes", "Recipe nodes"];
@@ -160,6 +168,8 @@ namespace Foreman.Mac.Views {
 
         public static bool PassesKinds(SummaryTableId id, SummaryRow row, bool[] kinds) {
             if (id is SummaryTableId.Items or SummaryTableId.Fluids) {
+                if (kinds.All(k => k))
+                    return true;
                 for (int i = 0; i < ItemKinds.Length; i++)
                     if (kinds[i] && row.Cells[i + 1] != Zero)
                         return true;
@@ -169,8 +179,19 @@ namespace Foreman.Mac.Views {
                 return (kinds[0] && row.Tag is ISupplierNodeViewModel)
                     || (kinds[1] && row.Tag is IConsumerNodeViewModel)
                     || (kinds[2] && row.Tag is IPassthroughNodeViewModel)
-                    || (kinds[3] && row.Tag is IRecipeNodeViewModel);
+                    || (kinds[3] && row.Tag is IRecipeNodeViewModel or ISpoilNodeViewModel or IPlantNodeViewModel);
             return true;
+        }
+
+        public static string Footer(SummaryTableId id, IReadOnlyList<SummaryRow> rows) {
+            double Sum(int column) => rows.Sum(r => r.Values[column]);
+            string Energy(double value) => GraphicsStuff.DoubleToEnergy(value, "W");
+            return id switch {
+                SummaryTableId.Assemblers or SummaryTableId.Miners => $"{Sum(0).ToString("N0", DisplayCulture.Format)} buildings · {Energy(Sum(2))} · {Energy(Sum(3))} from beacons",
+                SummaryTableId.Power => $"{Energy(Sum(2))} generated · {Energy(Sum(3))} consumed",
+                SummaryTableId.Beacons => $"{Sum(0).ToString("N0", DisplayCulture.Format)} beacons · {Energy(Sum(2))}",
+                _ => "",
+            };
         }
 
         public static string[] CsvHeader(SummaryTableId id, string rate) => id switch {
@@ -182,7 +203,15 @@ namespace Foreman.Mac.Views {
             _ => ["Node Type", "Node Details (item / recipe name)", "Node Title", $"Throughput (for non-recipe nodes) (per {rate})", "Building Count (for recipe nodes)"],
         };
 
-        public static string AutomationName(SummaryTableId id, SummaryRow row, string rate) {
+        public static string[] CsvCells(SummaryTableId id, SummaryRow row) {
+            string[] cells = [.. row.Cells];
+            for (int i = 0; i < cells.Length; i++)
+                if (id is SummaryTableId.Items or SummaryTableId.Fluids && i > 0 || id == SummaryTableId.KeyNodes && i == 3)
+                    cells[i] = row.Values[i] == 0 ? Zero : GraphicsStuff.DoubleToString(row.Values[i]);
+            return cells;
+        }
+
+        public static string AutomationName(SummaryTableId id, SummaryRow row, ProductionGraph.RateUnit unit) {
             IReadOnlyList<SummaryColumn> columns = Columns(id);
             int name = NameColumn(id);
             List<string> parts = [row.Cells[name]];
@@ -191,10 +220,16 @@ namespace Foreman.Mac.Views {
                     continue;
                 string header = columns[i].Header.ToLowerInvariant();
                 bool perRate = id is SummaryTableId.Items or SummaryTableId.Fluids || id == SummaryTableId.KeyNodes && i == 3;
-                parts.Add(perRate ? $"{header} {row.Cells[i]} per {rate}" : $"{header} {row.Cells[i]}");
+                parts.Add(perRate ? $"{header} {NodeCardPainter.Number(row.Values[i])} per {NodeCardPainter.UnitWord(unit)}" : $"{header} {row.Cells[i]}");
             }
-            if (row.Status == RowStatus.Error)
-                parts.Add("unlinked");
+            if (id is SummaryTableId.Items or SummaryTableId.Fluids) {
+                if (row.Values[2] > 0)
+                    parts.Add("unlinked input");
+                if (row.Values[4] > 0)
+                    parts.Add("unlinked output");
+                if (row.Values[5] > 0)
+                    parts.Add("overproduced");
+            }
             return string.Join(", ", parts);
         }
     }
