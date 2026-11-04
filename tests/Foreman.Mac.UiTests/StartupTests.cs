@@ -164,6 +164,7 @@ namespace Foreman.Mac.UiTests {
         private static void CloseWelcome() {
             WelcomeLauncher.Current?.Close();
             WelcomeLauncher.CacheLoaderOverride = null;
+            WelcomeLauncher.WarningOverride = null;
             ShellHost.Context = null;
             ShellHost.ResetQueue();
         }
@@ -994,6 +995,133 @@ namespace Foreman.Mac.UiTests {
             }
         }
 
+        private static ShellContext ContextWithMissingDefaultPreset(SettingsService settingsService, AppSettings settings) {
+            string empty = NewTempHome();
+            var resolver = new PresetResolver(empty, NewTempHome());
+            var library = new GraphLibraryService(new GraphLibraryStore(settingsService.DatabasePath), TimeProvider.System);
+            return new ShellContext(library, settings, new DataCache(false), settingsService, resolver) { CacheLoaded = false };
+        }
+
+        private static (ShellContext Context, List<string> Warnings) MissingDefaultWithWarnings() {
+            var settingsService = new SettingsService(NewTempHome());
+            AppSettings settings = settingsService.Load();
+            settings.CurrentPresetName = "Gone Preset";
+            ShellContext context = ContextWithMissingDefaultPreset(settingsService, settings);
+            List<string> warnings = [];
+            WelcomeLauncher.WarningOverride = (_, _, message) => { warnings.Add(message); return Task.CompletedTask; };
+            return (context, warnings);
+        }
+
+        [AvaloniaFact]
+        public async Task NoWindowAction_WhenNoPresetResolvesMidSession_WarnsOnceAndOpensNothing() {
+            (ShellContext context, List<string> warnings) = MissingDefaultWithWarnings();
+            try {
+                bool opened = await WelcomeLauncher.NewGraphAsync(context);
+
+                Assert.False(opened);
+                Assert.Single(warnings);
+                Assert.Contains(PresetResolver.DefaultPresetName, warnings[0]);
+                Assert.Null(WelcomeLauncher.Current);
+                Assert.Null(context.Window);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task Show_WhenNoPresetResolvesMidSession_WarnsOnceAndOpensNothing() {
+            (ShellContext context, List<string> warnings) = MissingDefaultWithWarnings();
+            try {
+                WelcomeWindow? shown = WelcomeLauncher.Show(context);
+                await WaitUntilAsync(() => warnings.Count == 1);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Null(shown);
+                Assert.Single(warnings);
+                Assert.Contains(PresetResolver.DefaultPresetName, warnings[0]);
+                Assert.Null(WelcomeLauncher.Current);
+                Assert.Null(context.Window);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task BootAsync_WithAStaleCurrentPresetName_LoadsTheResolvedDefaultExactlyOnce() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            List<string> names = [];
+            try {
+                WelcomeWindow welcome = await BootWelcomeAsync(settingsService, p => { names.Add(p.Name); return Task.FromResult<DataCache?>(cache); }, presetName: "Gone Preset");
+                await welcome.ViewModel.LoadTask;
+
+                Assert.Equal([PresetResolver.DefaultPresetName], names);
+                Assert.Equal(PresetResolver.DefaultPresetName, ShellHost.Context!.Settings.CurrentPresetName);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task EnsureLoadedAsync_WhenTheWelcomeItOpenedIsClosedWhileLoading_CancelsTheAction() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            var gate = new TaskCompletionSource<DataCache?>();
+            try {
+                WelcomeWindow booted = await BootWelcomeAsync(settingsService, _ => gate.Task);
+                booted.Close();
+                ShellContext context = ShellHost.Context!;
+
+                Task<bool> action = WelcomeLauncher.NewGraphAsync(context);
+                WelcomeWindow opened = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+                opened.Close();
+                gate.SetResult(cache);
+                bool ran = await action;
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.False(ran);
+                Assert.True(context.CacheLoaded);
+                Assert.Null(context.Window);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task Show_AfterAWelcomeWithAnInProgressPickIsClosed_AttachesToThatPick() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            string userDir = NewTempHome();
+            File.WriteAllText(Path.Combine(userDir, "Other Preset.pjson"), "");
+            File.WriteAllText(Path.Combine(userDir, "Other Preset.dat"), "");
+            var resolver = new PresetResolver(presetsDirectoryOverride: null, userPresetsDirectoryOverride: userDir);
+            var gate = new TaskCompletionSource<DataCache?>();
+            int otherLoads = 0;
+            try {
+                WelcomeWindow first = await BootWelcomeAsync(settingsService, p => {
+                    if (p.Name != "Other Preset")
+                        return Task.FromResult<DataCache?>(cache);
+                    otherLoads++;
+                    return gate.Task;
+                }, resolver: resolver);
+                await first.ViewModel.LoadTask;
+                Preset other = first.ViewModel.Presets.Single(p => p.Name == "Other Preset");
+                _ = first.ViewModel.SelectPresetAsync(other);
+                first.Close();
+
+                WelcomeWindow second = WelcomeLauncher.Show(ShellHost.Context!)!;
+
+                Assert.Equal("Other Preset", second.ViewModel.SelectedPreset!.Name);
+                Assert.Equal(WelcomeLoadPhase.Loading, second.ViewModel.Phase);
+                gate.SetResult(cache);
+                await WaitUntilAsync(() => second.ViewModel.ActionsEnabled);
+                Assert.Equal("Other Preset", second.ViewModel.LoadedPresetName);
+                Assert.Equal(1, otherLoads);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
         [AvaloniaFact]
         public async Task LoadAsync_WhenANewerLoadReplacedIt_WritesNothing() {
             var settingsService = new SettingsService(NewTempHome());
@@ -1020,7 +1148,7 @@ namespace Foreman.Mac.UiTests {
                 await selecting;
                 await WaitUntilAsync(() => second.ViewModel.ActionsEnabled);
                 gates["Factorio 2.0 Vanilla"].SetResult(cacheA);
-                await Task.Delay(50);
+                await first.ViewModel.LoadTask;
                 Dispatcher.UIThread.RunJobs();
 
                 Assert.Same(cacheB, ShellHost.Context!.Cache);
@@ -1101,7 +1229,7 @@ namespace Foreman.Mac.UiTests {
                 await first.ViewModel.LoadTask;
                 Assert.True(await first.NewGraphFromMenuAsync());
                 MainWindow document = ShellHost.Context!.Window!;
-                WelcomeWindow welcome = WelcomeLauncher.Show(ShellHost.Context);
+                WelcomeWindow welcome = WelcomeLauncher.Show(ShellHost.Context)!;
 
                 Task opening = ShellHost.OpenFilesAsync([bad]);
                 await WaitUntilAsync(() => AlertsOn(welcome).Count == 1);

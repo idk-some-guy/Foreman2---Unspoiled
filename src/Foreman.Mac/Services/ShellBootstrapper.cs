@@ -98,17 +98,30 @@ namespace Foreman.Mac.Services {
             ShellHost.Sync();
         }
 
-        private static async Task<Preset?> ResolveOrWarnAsync(
+        internal static async Task<Preset?> ResolveOrWarnAsync(
             PresetResolver presetResolver, string? currentPresetName, Func<Window, string, string, Task> showWarning) {
+            Preset? preset = TryResolve(presetResolver, currentPresetName, out DefaultPresetUnavailableException? failure);
+            if (failure is null)
+                return preset;
+            await WarnUnavailableAsync(failure, showWarning).ConfigureAwait(true);
+            return null;
+        }
+
+        internal static Preset? TryResolve(PresetResolver presetResolver, string? currentPresetName, out DefaultPresetUnavailableException? failure) {
+            failure = null;
             try {
                 return presetResolver.Resolve(currentPresetName);
             } catch (DefaultPresetUnavailableException ex) {
-                var owner = new MainWindow();
-                owner.Show();
-                await showWarning(owner, string.Empty, ex.Message).ConfigureAwait(true);
-                owner.Close();
+                failure = ex;
                 return null;
             }
+        }
+
+        internal static async Task WarnUnavailableAsync(DefaultPresetUnavailableException ex, Func<Window, string, string, Task> showWarning) {
+            var owner = new MainWindow();
+            owner.Show();
+            await showWarning(owner, string.Empty, ex.Message).ConfigureAwait(true);
+            owner.Close();
         }
 
         private static Preset? TryResolveDefault(PresetResolver presetResolver) {

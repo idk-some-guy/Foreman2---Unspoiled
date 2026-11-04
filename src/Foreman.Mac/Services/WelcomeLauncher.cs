@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Foreman.DataCaching;
 using Foreman.DataCaching.Storage;
@@ -15,15 +16,25 @@ namespace Foreman.Mac.Services {
     internal static class WelcomeLauncher {
         public static WelcomeWindow? Current { get; private set; }
 
-        public static WelcomeWindow Show(ShellContext context, Preset? initialPreset = null) {
+        internal static Func<Window, string, string, Task>? WarningOverride { get; set; }
+
+        private static Func<Window, string, string, Task> Warning => WarningOverride ?? Dialogs.ShowWarningAsync;
+
+        public static WelcomeWindow? Show(ShellContext context, Preset? initialPreset = null) {
             if (Current is { } existing) {
                 existing.Show();
                 existing.Activate();
                 return existing;
             }
 
-            if (initialPreset is null && !context.CacheLoaded)
-                initialPreset = CurrentPreset(context);
+            initialPreset ??= RunningPick(context);
+            if (initialPreset is null && !context.CacheLoaded && context.PresetResolver is { } resolver) {
+                initialPreset = ShellBootstrapper.TryResolve(resolver, context.Settings.CurrentPresetName, out DefaultPresetUnavailableException? failure);
+                if (failure is not null) {
+                    Async.Fire(ShellBootstrapper.WarnUnavailableAsync(failure, Warning), nameof(ShellBootstrapper.WarnUnavailableAsync));
+                    return null;
+                }
+            }
             WelcomeWindow? window = null;
             WelcomeHost host = BuildHost(context, () => window, initialPreset);
             window = new WelcomeWindow(host);
@@ -74,24 +85,32 @@ namespace Foreman.Mac.Services {
             HasOpenGraph = () => context.Window is { IsVisible: true } && context.Library.OpenGraphId is not null,
         };
 
-        private static Preset? CurrentPreset(ShellContext context) {
-            try {
-                return context.PresetResolver?.Resolve(context.Settings.CurrentPresetName);
-            } catch (DefaultPresetUnavailableException) {
-                return null;
-            }
-        }
+        private static Preset? RunningPick(ShellContext context) =>
+            context.LoadTask is { IsCompleted: false } && context.LoadingPresetName is { } name
+                ? context.PresetResolver?.BuildPresetList(context.Settings.CurrentPresetName).FirstOrDefault(p => p.Name == name)
+                : null;
 
         internal static async Task<bool> EnsureLoadedAsync(ShellContext context) {
             if (context.CacheLoaded)
                 return true;
             bool created = Current is null;
-            if (created && CurrentPreset(context) is null)
-                return false;
+            Preset? initial = null;
+            if (created) {
+                initial = RunningPick(context);
+                if (initial is null && context.PresetResolver is { } resolver)
+                    initial = await ShellBootstrapper.ResolveOrWarnAsync(resolver, context.Settings.CurrentPresetName, Warning).ConfigureAwait(true);
+                if (initial is null)
+                    return false;
+            }
             using IDisposable busy = ShellHost.HoldBusy();
-            WelcomeWindow welcome = Show(context);
+            WelcomeWindow? welcome = Show(context, initial);
+            if (welcome is null)
+                return false;
+            bool closed = false;
+            if (created)
+                welcome.Closed += (_, _) => closed = true;
             await welcome.ViewModel.LoadTask.ConfigureAwait(true);
-            if (!context.CacheLoaded)
+            if (!context.CacheLoaded || created && closed)
                 return false;
             if (created && ReferenceEquals(Current, welcome))
                 welcome.Close();

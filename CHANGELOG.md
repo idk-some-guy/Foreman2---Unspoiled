@@ -328,6 +328,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- Choosing New Graph, Open or the Welcome window when the default preset has been removed now shows
+  the same warning as at launch once, and nothing opens. Closing the Welcome window that one of those actions opened while the preset
+  loads now cancels the action, and reopening the Welcome after closing it mid-load shows the preset
+  you were loading rather than the previous one.
 - The Building/Fuel/Beacon choice grids' value line now reads in the right ink: a selected name in
   secondary text, a "not researched" warning in amber rather than red, and the Building row's stats
   readout back beside the name after a middle dot. A selection the current preset no longer enables
