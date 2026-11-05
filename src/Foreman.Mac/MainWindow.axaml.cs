@@ -1526,6 +1526,7 @@ namespace Foreman.Mac {
             IsClosed = true;
             if (!closedByUser || SettingsService is null || context is null)
                 return;
+            Library?.Detach();
             Library = null;
             ShellHost.Context = context;
             ShellHost.Sync();

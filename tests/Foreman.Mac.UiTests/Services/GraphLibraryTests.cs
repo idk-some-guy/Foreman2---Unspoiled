@@ -707,5 +707,50 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(1, written);
             Assert.Equal(other, library.Service.OpenGraphId);
         }
+
+        [AvaloniaTheory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task OpeningAGraphInANewWindowAfterTheEditedOneWasClosed_ShowsItsNodesAndKeepsBothRows(bool reopenTheEditedOne) {
+            using var library = new LibraryFixture();
+            MainWindow first = await NewWindowAsync(library);
+            first.Settings!.ShowWelcomeAtLaunch = false;
+            DataCache cache = first.DataCache!;
+            first.GraphCanvas.Viewer.Graph.CreateSupplierNode(Pair(cache, "iron-plate"), System.Drawing.Point.Empty);
+            first.GraphCanvas.Viewer.Graph.CreateSupplierNode(Pair(cache, "copper-plate"), new System.Drawing.Point(300, 0));
+            first.SaveVersion();
+            Guid edited = library.Service.OpenGraphId!.Value;
+            await first.NewGraphAsync();
+            Guid other = library.Service.OpenGraphId!.Value;
+            first.GraphCanvas.Viewer.Graph.CreateSupplierNode(Pair(cache, "stone"), System.Drawing.Point.Empty);
+            first.GraphCanvas.Viewer.Graph.CreateSupplierNode(Pair(cache, "coal"), new System.Drawing.Point(300, 0));
+            first.GraphCanvas.Viewer.Graph.CreateSupplierNode(Pair(cache, "wood"), new System.Drawing.Point(600, 0));
+            library.Clock.Advance(TimeSpan.FromSeconds(2));
+            Dispatcher.UIThread.RunJobs();
+            string otherData = library.Store.Get(other)!.Data;
+            string editedData = library.Store.Get(edited)!.Data;
+            await first.OpenLibraryGraphAsync(edited);
+            first.GraphCanvas.Viewer.Graph.CreateSupplierNode(Pair(cache, "stone"), new System.Drawing.Point(0, 300));
+            library.Clock.Advance(TimeSpan.FromSeconds(2));
+            Dispatcher.UIThread.RunJobs();
+            editedData = library.Store.Get(edited)!.Data;
+            ShellContext context = first.ShellContext!;
+            first.Close();
+
+            MainWindow second = ShellBootstrapper.CreateWindow(context);
+            library.Track(second);
+            Guid target = reopenTheEditedOne ? edited : other;
+            string targetData = reopenTheEditedOne ? editedData : otherData;
+            await second.OpenLibraryGraphAsync(target);
+            Dispatcher.UIThread.RunJobs();
+            library.Clock.Advance(TimeSpan.FromSeconds(10));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(library.Store.Get(target)!.NodeCount, second.GraphCanvas.Viewer.NodeElements.Count);
+            Assert.NotEmpty(second.GraphCanvas.Viewer.NodeElements);
+            Assert.Equal(targetData, library.Store.Get(target)!.Data);
+            Assert.Equal(editedData, library.Store.Get(edited)!.Data);
+            Assert.Equal(otherData, library.Store.Get(other)!.Data);
+        }
     }
 }
