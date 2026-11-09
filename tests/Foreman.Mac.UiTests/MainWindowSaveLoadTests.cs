@@ -21,7 +21,9 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Covers the failed Open/Import/export alerts and the Load-bookkeeping contract.
+    //Covers io-reference.md §2's Save/SaveAs/dirty-tracking/title-bar/Load-bookkeeping contract (phase 6
+    //Task 1). Save/SaveAs route through MainWindow.SaveFilePathStub - the same picker-bypass seam
+    //GraphSummaryWindow.SaveFilePathStub already established - rather than a real StorageProvider dialog.
     public class MainWindowSaveLoadTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
 
@@ -45,8 +47,6 @@ namespace Foreman.Mac.UiTests {
         }
 
         private static string TempSavePath() => Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".fjson");
-
-        //---- The alerts the real dialogs raise: ruled copy, rendered, resolved by their keys ------------
 
         private static AlertSheet ShownAlert(MainWindow window) {
             Dispatcher.UIThread.RunJobs();
@@ -131,7 +131,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Contains(control.Viewer.Graph.FuelSelector.FuelPriority, i => i.Name == fuelName);
         }
 
-        //Ports the setEnablesFromJson gate (upstream ProductionGraphViewer.cs:1289): a
+        //Ports the setEnablesFromJson gate (phase 6 Task 8, upstream ProductionGraphViewer.cs:1289): a
         //preset-switch reload must not clobber the freshly booted cache's own enabled flags against the OLD
         //preset's saved enabled-name list. Dedicated cache (not GetCacheAsync's shared fixture) - this test's
         //whole point is proving no mutation happens, so a bug here must not also poison every other test.

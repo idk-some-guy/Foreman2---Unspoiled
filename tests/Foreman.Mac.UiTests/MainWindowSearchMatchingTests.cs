@@ -13,7 +13,6 @@ using System.Reflection;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Find node ruling §01: MainWindow.DrawnName/MatchesSearchQuery are internal test seams (MainWindow.axaml.cs) so each node kind's matching rule can be pinned without a full live window.
     public class MainWindowSearchMatchingTests {
         private sealed class Fixture {
             public required DataCache Cache { get; init; }
@@ -131,7 +130,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(MainWindow.MatchesSearchQuery(element, "Yumako Seed Planting"));
         }
 
-        //KeyNodeTitle matches even when it shares nothing with the node's own drawn name.
         [Fact]
         public void KeyNode_Matches_ItsKeyNodeTitle_RegardlessOfDrawnName() {
             Fixture fx = NewFixture();
@@ -146,19 +144,17 @@ namespace Foreman.Mac.UiTests {
             Assert.True(MainWindow.MatchesSearchQuery(element, "Main Feed"));
         }
 
-        //§01 "Not matched": a type banner is chrome, not a name - each assertion here would flip true if the exclusion were dropped.
         [Fact]
         public void TypeBanner_NeverMatches() {
             Fixture fx = NewFixture();
             ItemPrototype item = fx.NewItem("iron-plate", "Iron Plate");
-            fx.Graph.CreateSupplierNode(fx.Pair(item), Point.Empty); //default RateType.Auto draws "Infinite Source:"
+            fx.Graph.CreateSupplierNode(fx.Pair(item), Point.Empty);
             var viewModel = fx.Session.View.Nodes.OfType<ISupplierNodeViewModel>().Single();
             var element = new SupplierNodeElement(fx.Context, viewModel);
 
             Assert.False(MainWindow.MatchesSearchQuery(element, "Infinite Source"));
         }
 
-        //§01 "Not matched": an item-tab name is never in NodeElements, so a recipe's own ingredient never matches.
         [Fact]
         public void ItemTabName_OnARecipeNode_NeverMatches() {
             Fixture fx = NewFixture();
@@ -175,7 +171,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(MainWindow.MatchesSearchQuery(element, "Tin Ore"));
         }
 
-        //The KeyNode guard matches a title only while KeyNode is true - the model's own setter leaves a stale title behind when it flips off.
         [Fact]
         public void NonKeyNode_WithAStaleKeyNodeTitle_MatchesOnlyItsDrawnName() {
             Fixture fx = NewFixture();
@@ -191,7 +186,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(MainWindow.MatchesSearchQuery(element, "Iron Plate"));
         }
 
-        //§01: an all-whitespace query is treated as empty - it must not fall through to Contains("") and match every node.
         [Fact]
         public void WhitespaceOnlyQuery_NeverMatches() {
             Fixture fx = NewFixture();

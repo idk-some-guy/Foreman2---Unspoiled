@@ -30,11 +30,9 @@ using Segmented = Foreman.Mac.Kit.Controls.Segmented;
 using Switch = Foreman.Mac.Kit.Controls.Switch;
 
 namespace Foreman.Mac.UiTests {
-    //Settings applies live now - there's no more Confirm/Cancel cascade to test (that whole
-    //buffer-everything-then-commit-once model is gone). This covers MainWindow.ShowSettings's own seams:
-    //seeding the new window from live AppSettings, reusing the one instance, and SettingsSession's
-    //save/resolve reaction to a real property change (theme/scale immediacy is SettingsSessionTests.cs's
-    //job, not this file's - it needs no live graph).
+    //Covers OpenSettingsAsync's Graph Options tab wiring (reference §5, upstream MainForm.cs:355-440):
+    //population from live GraphViewer/Graph state, the Confirm apply path back onto settings/live graph,
+    //and the presetReloaded three-way OR fix (MainForm.cs:413-415's third term).
     public class MainWindowSettingsDialogTests {
         private static DataCache MinimalCache() {
             var cache = new DataCache(filterRecipes: true);
@@ -63,8 +61,6 @@ namespace Foreman.Mac.UiTests {
             return window;
         }
 
-        //Drives ShowSettings through its stub seam (skips the real Show(this)) and hands back the
-        //fully-wired SettingsWindow instance.
         private static SettingsWindow OpenSettings(MainWindow window) {
             SettingsWindow? captured = null;
             window.SettingsDialogStub = w => captured = w;
@@ -83,8 +79,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(opened.ViewModel.SmartNodeDirectionChecked);
         }
 
-        //Every change writes onto AppSettings at once; the save itself coalesces 300ms - FlushAsync is
-        //the deterministic seam, no real timer wait needed.
         [AvaloniaFact]
         public async Task TogglingSmartDirection_ChangesSettingsAtOnce_AndSavesExactlyOnceAfterFlush() {
             var settings = new AppSettings { SmartNodeDirection = true };
@@ -101,8 +95,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(1, window.CurrentSettingsSession!.SaveCallCount);
         }
 
-        //R5's named solver-affecting field: a re-solve is requested (debounced) and, once flushed, actually
-        //runs against the newly-committed value.
         [AvaloniaFact]
         public async Task ChangingDefaultAssemblerOption_RequestsExactlyOneReSolveAfterFlush() {
             var settings = new AppSettings { DefaultAssemblerOption = AssemblerSelector.Style.Worst };
@@ -127,8 +119,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(AssemblerSelector.Style.Best, styleAtSolve); //re-solve must run after the new value is already live
         }
 
-        //OnClosing flushes the session before closing, so whatever save/resolve was still mid-debounce isn't
-        //dropped - this proves it without the test ever calling FlushAsync itself.
         [AvaloniaFact]
         public async Task ClosingWithinTheCoalesceWindow_StillSavesExactlyOnceWithTheNewValue() {
             var settings = new AppSettings { SmartNodeDirection = true };
@@ -136,7 +126,7 @@ namespace Foreman.Mac.UiTests {
             SettingsWindow opened = OpenSettings(window);
             SettingsSession session = window.CurrentSettingsSession!;
 
-            opened.ViewModel.SmartNodeDirectionChecked = false; //schedules the 300ms coalesced save, not yet run
+            opened.ViewModel.SmartNodeDirectionChecked = false;
 
             var closed = new TaskCompletionSource();
             opened.Closed += (_, _) => closed.SetResult();
@@ -158,7 +148,7 @@ namespace Foreman.Mac.UiTests {
             int solveCount = 0;
             window.GraphCanvas.Viewer.Graph.NodeValuesUpdated += (_, _) => solveCount++;
 
-            opened.ViewModel.AssemblerSelectorStyleIndex = (int)AssemblerSelector.Style.Best; //schedules the debounced re-solve, not yet run
+            opened.ViewModel.AssemblerSelectorStyleIndex = (int)AssemblerSelector.Style.Best;
 
             var closed = new TaskCompletionSource();
             opened.Closed += (_, _) => closed.SetResult();
@@ -170,11 +160,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(AssemblerSelector.Style.Best, settings.DefaultAssemblerOption);
         }
 
-        //UseRecipeBWfilters changes which recipes even exist, so it can't be live-applied in place -
-        //OnSettingsChanged special-cases it to close/reload/reopen instead (reference upstream MainForm.cs
-        //413-415's old presetReloaded three-way OR, now split into its own path). With no preset on disk to
-        //actually reload (NewTempDir's PresetResolver finds none), HandlePresetReloadAsync's reload branch
-        //is a no-op and the whole close+reopen runs synchronously within this call - no wait needed.
         [AvaloniaFact]
         public void TogglingLoadBarreling_ClosesAndReopensAFreshSettingsWindow() {
             var settings = new AppSettings { UseRecipeBWfilters = true };
@@ -186,7 +171,7 @@ namespace Foreman.Mac.UiTests {
             first.ViewModel.LoadBarrelingChecked = !first.ViewModel.LoadBarrelingChecked;
 
             Assert.True(firstClosed);
-            Assert.False(settings.UseRecipeBWfilters); //LoadBarrelingChecked starts true (UseRecipeBWfilters true); one flip inverts it
+            Assert.False(settings.UseRecipeBWfilters);
             Assert.NotSame(first, window.CurrentSettingsWindow);
         }
 
@@ -215,12 +200,12 @@ namespace Foreman.Mac.UiTests {
             Assert.True(reopened.PresetsTabControl.RetryPresetReadButtonControl.IsEffectivelyVisible);
         }
 
-        //The non-live-apply Enabled-Objects sync used to index
+        //Phase 7 deferred-minors sweep: OpenSettingsAsync's non-preset-reload branch indexed
         //cache.Assemblers["rocket-silo"] directly, a KeyNotFoundException on any preset without a rocket
         //silo entity. RocketAssembler itself is a synthetic pseudo-assembler DataCacheBootstrap always
-        //creates regardless of preset content, so its own null-conditional assignment never short-circuits
-        //the indexer away - EnableAll's live write (SettingsWindow.ApplyEnabledObjectsLiveFromOptions) must
-        //still guard the same lookup.
+        //creates regardless of preset content (DataCacheBootstrap.cs:97), so its own null-conditional
+        //assignment never short-circuits the indexer away - this needs a cache with a real RocketAssembler
+        //but no "rocket-silo" entry, which MinimalCache() (RocketAssembler left null) doesn't reproduce.
         private static DataCache CacheWithRocketAssemblerButNoSilo() {
             DataCache cache = MinimalCache();
             FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;

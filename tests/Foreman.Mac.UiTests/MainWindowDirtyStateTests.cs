@@ -18,8 +18,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //MainWindowViewModel.IsDirty (contract #toolbar) marks changes since the last Save and drives the Save
-    //button's tint and the edited dot.
     public class MainWindowDirtyStateTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
 
@@ -41,8 +39,6 @@ namespace Foreman.Mac.UiTests {
             }
             return sharedCache;
         }
-
-        //---- the flag itself ------------------------------------------------------------------------------
 
         [AvaloniaFact]
         public void IsDirty_FreshWindow_IsFalse() {
@@ -86,8 +82,6 @@ namespace Foreman.Mac.UiTests {
 
             Assert.False(window.ViewModel.IsDirty);
         }
-
-        //Save's dirty tint is Kit.ToolbarItem's own :on styling; this file keeps only the app-level wiring that drives IsOn.
 
         private static ToolbarItem SaveToolbarItem(MainWindow window) =>
             window.GetVisualDescendants().OfType<ToolbarItem>().Single(i => i.Label == "Save");

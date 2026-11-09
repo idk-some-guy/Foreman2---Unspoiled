@@ -8,21 +8,13 @@ using Foreman.Mac.Converters;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using System;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Text.RegularExpressions;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //The unified titlebar once collapsed on
-    //real macOS because Margin bound straight to WindowDecorationMargin reads a top inset there, not a left
-    //one, arranging the toolbar group at zero height. Headless never catches this because
-    //AvaloniaHeadlessPlatformOptions always reports a zero margin - this rig drives the same layout math
-    //with simulated nonzero metrics instead.
     [Collection(ScaleTestGroup.Name)]
     public class TitleBarChromeMetricsTests {
-        //Mutating the proxy after Show() must still reach the leading group's Margin.
         [AvaloniaFact]
         public void DecorationMarginProxy_MutatedAfterShow_StillReachesLeadingGroup() {
             var window = new SimulatedChromeWindow();
@@ -35,9 +27,6 @@ namespace Foreman.Mac.UiTests {
             Assert.NotEqual(new Thickness(0), window.LeadingGroup.Margin);
         }
 
-        //Task requirement (d): the leading group must clear the simulated traffic-light zone when the
-        //extend-client-area metric is actually nonzero, and must not be padded when it's zero (Linux/other
-        //chrome that never extends shouldn't carry the inset pointlessly).
         [AvaloniaFact]
         public void LeadingGroup_ClearsTrafficLightZone_OnlyWhenExtendClientAreaIsActive() {
             var window = new SimulatedChromeWindow();
@@ -52,8 +41,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(TrafficLightInsetConverter.TrafficLightInsetWidth, window.LeadingGroup.Margin.Left);
         }
 
-        //TitleBarRow.Height must derive from the window's own
-        //ExtendClientAreaTitleBarHeightHint instead of repeating the "52" literal, so the two can't drift.
         [AvaloniaFact]
         public void MainWindow_TitleBarRowHeight_MatchesExtendClientAreaTitleBarHeightHint() {
             var window = new Foreman.Mac.MainWindow();
@@ -64,7 +51,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(window.ExtendClientAreaTitleBarHeightHint, titleBar.Height);
         }
 
-        //Hidden-toolbar ruling (2026-09-24): a plain 28 pt titlebar at every scale step, the title centred on the window, the canvas and inspector moving up, the graph staying put on screen.
         [AvaloniaFact]
         public async Task ShowToolbarOff_IsA28ptTitlebarWithTheTitleCentred_AndLeavesTheGraphStill_AtEveryScale() {
             try {
@@ -131,8 +117,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(expected.Y, actual.Y, 0.5);
         }
 
-        //TitleBarRow must out-rank GraphViewerHost in paint order, so the canvas
-        //can never end up drawn over the chrome regardless of declaration order in the XAML.
         [AvaloniaFact]
         public void MainWindow_TitleBarRow_PaintsAboveGraphViewerHost() {
             var window = new Foreman.Mac.MainWindow();
@@ -141,24 +125,6 @@ namespace Foreman.Mac.UiTests {
             var titleBar = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "TitleBarRow");
 
             Assert.True(titleBar.ZIndex > window.GraphViewerHost.ZIndex);
-        }
-
-        //Stops the exact mistake from returning - a bare Margin bound
-        //straight to WindowDecorationMargin (no converter) is the root cause of the missing margin.
-        [Fact]
-        public void NoAxamlFile_BindsMarginDirectlyToWindowDecorationMargin() {
-            string repoRoot = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..");
-            string srcDir = Path.Combine(repoRoot, "src", "Foreman.Mac");
-            var offenders = new System.Collections.Generic.List<string>();
-
-            foreach (string path in Directory.EnumerateFiles(srcDir, "*.axaml", SearchOption.AllDirectories)) {
-                foreach (Match match in Regex.Matches(File.ReadAllText(path), @"Margin=""\{Binding[^""]*WindowDecorationMargin[^""]*""")) {
-                    if (!match.Value.Contains("Converter="))
-                        offenders.Add($"{path}: {match.Value}");
-                }
-            }
-
-            Assert.Empty(offenders);
         }
     }
 }

@@ -44,7 +44,6 @@ using Xunit;
 
 namespace Foreman.Mac.UiTests {
     public class MainWindowShellTests {
-        //v2 §02 "Spec - toolbar": ten items across document, add, arrange and share/view, each named by its full command name rather than its visible label.
         private static readonly string[] ExpectedButtonNames = [
             "New Graph", "Load", "Save",
             "Add Item", "Add Recipe",
@@ -89,7 +88,6 @@ namespace Foreman.Mac.UiTests {
                 Assert.Contains(expected, names);
         }
 
-        //The toolbar's glyph keys resolve through the real App resources - a renamed or dropped kit master would ship a glyph-less toolbar with a green suite otherwise; every item also gets a Theme and arranges to non-zero bounds.
         [AvaloniaFact]
         public void ToolbarItems_AllHaveAGlyphAndATheme_AndArrangeToNonZeroBounds() {
             var window = new MainWindow();
@@ -104,11 +102,6 @@ namespace Foreman.Mac.UiTests {
             Assert.All(items, item => Assert.NotEqual(0, item.Bounds.Height));
         }
 
-        //Help's toolbar button was retired along with Save As/Import Graph
-        //(menu-bar-only now), so every remaining toolbar button is a wired, enabled command. Align Selected
-        //is excluded here since it has a selection-driven CanExecute (contract #toolbar's
-        //.disabled empty-selection state) - a fresh window has no selection, so it starts disabled; its own
-        //states are asserted separately below.
         [AvaloniaFact]
         public void Toolbar_AllTenButtonsAreEnabled() {
             var window = new MainWindow();
@@ -136,7 +129,6 @@ namespace Foreman.Mac.UiTests {
             var toolbarCommands = window.GetVisualDescendants().OfType<Button>()
                 .Select(b => b.Command).OfType<IRelayCommand>().ToHashSet();
 
-            //C1 wraps every menu item's Command in DeferredMenuCommand; unwrap to compare against the raw instances.
             var menuCommands = AllNativeMenuItems(NativeMenu.GetMenu(window)!)
                 .Select(i => i.Command).OfType<MainWindow.DeferredMenuCommand>()
                 .Select(d => d.Inner).OfType<IRelayCommand>().ToHashSet();
@@ -145,7 +137,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(new KeyGesture(Key.OemComma, PlatformModifiers.Primary), settingsItem.Gesture);
             bool settingsOpened = false;
             window.SettingsDialogStub = _ => settingsOpened = true;
-            //DeferredMenuCommand posts to the dispatcher (C1) rather than executing inline.
             settingsItem.Command!.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.True(settingsOpened);
@@ -170,7 +161,6 @@ namespace Foreman.Mac.UiTests {
             }
         }
 
-        //The groups run past the window's horizontal centre at full width, so the only empty drag region is the flex gap right before the search field.
         private static Avalonia.Point EmptyTitleBarPoint(MainWindow window) {
             Foreman.Mac.Kit.Controls.SearchField searchField = window.Toolbar.SearchField;
             Avalonia.Point searchLeft = searchField.TranslatePoint(new Avalonia.Point(0, searchField.Bounds.Height / 2), window)!.Value;
@@ -196,7 +186,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(1, window.TitleBarDragRequestCount);
         }
 
-        //Double-clicking the empty titlebar toggles maximize, same as a native macOS titlebar.
         [AvaloniaFact]
         public void TitleBar_EmptyBackgroundDoubleClick_TogglesMaximizedState() {
             var window = new MainWindow();
@@ -213,7 +202,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(WindowState.Normal, window.WindowState);
         }
 
-        //v2 §02/A21: IsDirty shows on the close button's dot, never as an " - Edited" suffix in the title.
         [AvaloniaFact]
         public void Title_TracksIsDirty_ThroughTheCloseButtonDot_NotTitleText() {
             var window = new MainWindow();
@@ -231,7 +219,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.DocumentEdited);
         }
 
-        //v2 §14 ruling 5: no Settings gear on the toolbar - only the app-level menu's ⌘, reaches it.
         [AvaloniaFact]
         public void SettingsGear_IsAbsentFromTheToolbar_AndCmdCommaStillOpensSettings() {
             var window = new MainWindow();
@@ -250,7 +237,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(opened);
         }
 
-        //v2 §02's search field: ⌘F reaches it from any focus, ⌘G/⇧⌘G cycle, and ruling §03 row 1 has typing alone select the first match before any ⌘G.
         [AvaloniaFact]
         public async Task SearchField_CmdF_FocusesIt_AndCmdG_StepsMatches() {
             var window = new MainWindow();
@@ -283,7 +269,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(secondId, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
         }
 
-        //Order is centre Y, then centre X, then id; ⌘G/⇧⌘G wrap both ways silently.
         [AvaloniaFact]
         public async Task SearchField_OrdersByCentreYThenCentreX_AndWrapsBothWays() {
             var window = new MainWindow();
@@ -305,22 +290,21 @@ namespace Foreman.Mac.UiTests {
 
             NodeId SelectedId() => Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id;
 
-            Assert.Equal(lowYLeft, SelectedId()); //typing alone anchors to Y=0, X=0: lowest Y, then lowest X
+            Assert.Equal(lowYLeft, SelectedId());
 
             CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
-            Assert.Equal(lowY, SelectedId()); //Y=0, X=200
+            Assert.Equal(lowY, SelectedId());
 
             CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
-            Assert.Equal(highY, SelectedId()); //Y=100
+            Assert.Equal(highY, SelectedId());
 
             CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
-            Assert.Equal(lowYLeft, SelectedId()); //forward wrap, silently back to the first match
+            Assert.Equal(lowYLeft, SelectedId());
 
             CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary | KeyModifiers.Shift);
-            Assert.Equal(highY, SelectedId()); //backward wrap, silently to the last match
+            Assert.Equal(highY, SelectedId());
         }
 
-        //Ruling §03 rows 1-2: a selection already made is the anchor, and a still-matching current node survives an edit that renumbers the run.
         [AvaloniaFact]
         public async Task SearchField_TypingWithASelectionAlreadyMade_AnchorsImmediately_AndStaysCurrentAsTheQueryIsEdited() {
             var window = new MainWindow();
@@ -344,9 +328,8 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(second, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
             Assert.Equal("2 of 3", window.Toolbar.SearchField.MatchStatus);
 
-            //A canvas click moves the selection off the current match, so the anchor rule would now pick "third".
             window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElementDictionary[third]]);
-            window.Toolbar.SearchField.Text = "Anchor T"; //drops "Anchor One" from the run; "second" still matches
+            window.Toolbar.SearchField.Text = "Anchor T";
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(second, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
             Assert.Equal("1 of 2", window.Toolbar.SearchField.MatchStatus);
@@ -355,7 +338,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(third, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
         }
 
-        //Find node ruling §01: the query is trimmed, and an all-whitespace query is treated as empty.
         [AvaloniaFact]
         public async Task SearchField_QueryIsTrimmed_AndAnAllWhitespaceQueryMatchesNothing() {
             var window = new MainWindow();
@@ -380,7 +362,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(id, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
         }
 
-        //Ruling §05: the step announcement answers the step, so a pending debounced query summary must not land on top of it.
         [AvaloniaFact]
         public async Task SearchField_SteppingBeforeTheDebounceElapses_KeepsTheStepAnnouncement() {
             var window = new MainWindow();
@@ -408,7 +389,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal("2 of 2, Iron plate", AutomationProperties.GetName(announcer));
         }
 
-        //Ruling §05 Field row: role search field, AXLabel "Find node", AXValue the query - the hidden live region is a separate element and never carries the field's name.
         [AvaloniaFact]
         public void SearchField_AccessibleName_IsFindNode_AndItsValueIsTheQuery() {
             var window = new MainWindow();
@@ -425,7 +405,6 @@ namespace Foreman.Mac.UiTests {
             Assert.NotEqual("Find node", ControlAutomationPeer.CreatePeerForElement(announcer).GetName());
         }
 
-        //Ruling §03 "Graph changes mid-find": deleting the current match recomputes the run, so the index steps to the next match and the count never outlives its nodes.
         [AvaloniaFact]
         public async Task SearchField_DeletingTheCurrentMatch_StepsTheIndex_AndTheCountFollowsTheGraph() {
             var window = new MainWindow();
@@ -455,7 +434,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(third, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
         }
 
-        //Ruling §03: a node added or renamed mid-find recomputes the run without retyping - a still-matching current node keeps its place, renumbered.
         [AvaloniaFact]
         public async Task SearchField_AddingAndRenamingNodes_RecomputeTheRun_WithoutRetyping() {
             var window = new MainWindow();
@@ -506,7 +484,6 @@ namespace Foreman.Mac.UiTests {
             }
         }
 
-        //Find node ruling §05: Return/⇧Return step exactly like ⌘G/⇧⌘G, and leave focus and the caret in the field.
         [AvaloniaFact]
         public async Task SearchField_ReturnAndShiftReturn_StepForwardAndBackward_WithoutMovingFocus() {
             var window = new MainWindow();
@@ -534,7 +511,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.Toolbar.SearchField.IsFocused);
         }
 
-        //The canvas pans only when the current match is off-screen, and never changes ViewScale.
         [AvaloniaFact]
         public async Task SearchField_Step_PansOnlyWhenTheMatchIsOffScreen_AndNeverZooms() {
             var window = new MainWindow();
@@ -556,9 +532,9 @@ namespace Foreman.Mac.UiTests {
             window.Toolbar.SearchField.Text = "Visible Match";
             Dispatcher.UIThread.RunJobs();
             CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
-            AnimationClock.Settle(400); //prove no pan started, not just that one hasn't finished yet
+            AnimationClock.Settle(400);
 
-            Assert.Equal(offsetBefore, window.GraphCanvas.Viewport.ViewOffset); //already on-screen: no pan
+            Assert.Equal(offsetBefore, window.GraphCanvas.Viewport.ViewOffset);
             Assert.Equal(scaleBefore, window.GraphCanvas.Viewport.ViewScale);
 
             NodeId offScreen = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(20000, 20000));
@@ -570,14 +546,13 @@ namespace Foreman.Mac.UiTests {
             window.Toolbar.SearchField.Text = "Distant Match";
             Dispatcher.UIThread.RunJobs();
             CanvasKeys.KeyDownOn(window, Key.G, PlatformModifiers.Primary);
-            AnimationClock.Settle(400); //the pan is a 200ms tween, not an immediate offset write
+            AnimationClock.Settle(400);
 
-            Assert.NotEqual(offsetBefore, window.GraphCanvas.Viewport.ViewOffset); //off-screen: pans into view
-            Assert.Equal(scaleBefore, window.GraphCanvas.Viewport.ViewScale); //never zooms
+            Assert.NotEqual(offsetBefore, window.GraphCanvas.Viewport.ViewOffset);
+            Assert.Equal(scaleBefore, window.GraphCanvas.Viewport.ViewScale);
             Assert.Equal(offScreen, Assert.Single(window.GraphCanvas.Viewer.SelectedNodes).ViewModel.Id);
         }
 
-        //Find node ruling §04: the field's readout covers all three states in the same slot; typing alone already reads "n of N".
         [AvaloniaFact]
         public async Task SearchField_MatchStatus_ReflectsEmptyNoMatchesAndStep() {
             var window = new MainWindow();
@@ -611,7 +586,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal("1 of 2", window.Toolbar.SearchField.MatchStatus);
         }
 
-        //Ruling §05: a debounced summary on typing, "N of M, <name>" on a step, and the direction-naming prefix on a wrap.
         [AvaloniaFact]
         public async Task SearchField_Announces_ResultSetThenStepsThenWraps_BothDirections() {
             var window = new MainWindow();
@@ -645,7 +619,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal("Wrapped to last match. 2 of 2, Iron plate", AutomationProperties.GetName(announcer));
         }
 
-        //Ruling §05: the query announcement is debounced to the end of typing, one per burst rather than one per character.
         [AvaloniaFact]
         public async Task SearchField_Announces_DebouncesABurstOfKeystrokes_ToOneAnnouncement() {
             var window = new MainWindow();
@@ -665,20 +638,17 @@ namespace Foreman.Mac.UiTests {
                 window.Toolbar.SearchField.Text += c;
                 Dispatcher.UIThread.RunJobs();
             }
-            Assert.Null(AutomationProperties.GetName(announcer)); //nothing announced mid-burst
+            Assert.Null(AutomationProperties.GetName(announcer));
 
             AnimationClock.Settle(400);
             Assert.Equal("1 match", AutomationProperties.GetName(announcer));
         }
 
-        //View Options is a popover anchored under its toolbar button, opened via the same command the
-        //button click drives - the open-then-locate shape DialogWindowsEndToEndTests already uses elsewhere.
         private static void OpenViewOptions(MainWindow window) {
             window.ViewModel.ToggleViewOptionsCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
         }
 
-        //Mirrors PopUp.Commit's write-then-invoke without a real pointer click into the control's own floating menu.
         private static void CommitPopUp(PopUp popUp, string item) {
             popUp.SelectedItem = item;
             popUp.Command?.Execute(item);
@@ -694,7 +664,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(popover.IsOpen);
         }
 
-        //The peer is a named pane, not an unlabelled one, using the toolbar item's own ratified copy.
         [AvaloniaFact]
         public void ViewOptionsButton_RealClick_OpensThenClosesThePopover() {
             var window = new MainWindow();
@@ -709,8 +678,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(popover.IsOpen);
         }
 
-        //The dismissing press must be consumed, not passed through to the button underneath - otherwise
-        //the same click that closes it immediately reopens it.
         [AvaloniaFact]
         public void ViewOptionsButton_RealClick_WhileOpen_ClosesAndStaysClosed() {
             var window = new MainWindow();
@@ -725,7 +692,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.ViewModel.IsViewOptionsOpen);
         }
 
-        //Click-outside dismiss swallows the press and returns focus to the toolbar item that opened it.
         [AvaloniaFact]
         public void ViewOptions_LightDismiss_SwallowsTheDismissingClick_AndReturnsFocusToTheToolbarItem() {
             var window = new MainWindow();
@@ -758,7 +724,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(saveButton.IsFocused);
         }
 
-        //The popover's five rows resolve the popover label column from the token, not a literal.
         [AvaloniaFact]
         public void GridlinesAndGraphOptionsControls_AreEnabled() {
             var window = new MainWindow();
@@ -781,7 +746,6 @@ namespace Foreman.Mac.UiTests {
             }
         }
 
-        //A22: Rate Unit is a pop-up showing all six values (v1's scrolling segmented row hid two of them).
         [AvaloniaFact]
         public void ViewOptions_RateUnitPopUp_ListsAllSixValues() {
             var window = new MainWindow();
@@ -793,8 +757,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(MainWindow.RateUnitOptions, rateOptions.Items);
         }
 
-        //Each popover control writes through AppSettings/GraphCanvas and mirrors the View menu's own
-        //checked/radio state, whichever surface last changed it.
         [AvaloniaFact]
         public void ViewOptions_CheckboxesAndPopUps_WriteThroughToSettings_AndMirrorTheViewMenu() {
             var window = new MainWindow();
@@ -835,7 +797,7 @@ namespace Foreman.Mac.UiTests {
             var majorPopUp = window.GetVisualDescendants().OfType<PopUp>().Single(p => p.Name == "MajorGridlinesDropDown");
             CommitPopUp(majorPopUp, "128");
             Assert.Equal(Array.IndexOf(MainWindow.GridlineLabels, "128"), window.Settings!.MajorGridlines);
-            Assert.Equal(768, window.GraphCanvas.Grid.CurrentMajorGridUnit); //GridUnitFromIndex("128"): 6 * 2^(8-1)
+            Assert.Equal(768, window.GraphCanvas.Grid.CurrentMajorGridUnit);
             NativeMenuItem checkedMajor = majorSubmenu.Menu!.Items.OfType<NativeMenuItem>().Single(i => i.IsChecked);
             Assert.Equal("128", checkedMajor.Header);
             Assert.Equal(Array.IndexOf(MainWindow.GridlineLabels, "64"), window.Settings!.MinorGridlines);
@@ -875,14 +837,7 @@ namespace Foreman.Mac.UiTests {
         //Save (the NativeMenu KeyGesture) instead of also panning the view underneath it. A node is required
         //so Graph.Bounds is non-empty - Viewport.UpdateGraphBounds forces ViewOffset back to (0,0) whenever
         //the graph is empty, regardless of any pan delta, so an empty graph can't observe panning at all.
-        //
-        //Dispatches via RaiseEvent(KeyDownEvent) on GraphCanvas rather than window.KeyPressQwerty: the
-        //latter routes through the process-wide IKeyboardDevice's ambient FocusedElement, which every other
-        //Avalonia.Headless test collection shares on the one Dispatcher.UIThread - a concurrent collection's
-        //own Focus() call can win that race and steal the key event before it ever reaches this canvas (see
-        //SKey_OnGraphCanvas_PansEvenWhenAmbientFocusIsStolen for a deterministic reproduction). Raising the
-        //event straight on GraphCanvas still runs the exact production handler (OnKeyDown), just without
-        //depending on which window last touched that shared singleton.
+        //KeyPressQwerty routes through the shared IKeyboardDevice's FocusedElement, which a concurrent headless test can steal; raise KeyDownEvent on GraphCanvas instead.
         [AvaloniaFact]
         public async Task SKey_OnGraphCanvas_PansOnlyWithoutMeta() {
             DataCache cache = await GetCacheAsync();
@@ -904,10 +859,6 @@ namespace Foreman.Mac.UiTests {
             Assert.NotEqual(before, window.GraphCanvas.Viewport.ViewOffset);
         }
 
-        //Regression for the flake above: a second window stealing the shared IKeyboardDevice's
-        //FocusedElement between our Focus() call and the key dispatch used to make the S press land
-        //nowhere (window.KeyPressQwerty routes through that ambient singleton). Dispatching straight at
-        //GraphCanvas is immune, since it never consults FocusedElement.
         [AvaloniaFact]
         public async Task SKey_OnGraphCanvas_PansEvenWhenAmbientFocusIsStolen() {
             DataCache cache = await GetCacheAsync();
@@ -929,9 +880,8 @@ namespace Foreman.Mac.UiTests {
             Assert.NotEqual(before, window.GraphCanvas.Viewport.ViewOffset);
         }
 
-        //Linux branch of the platform fork above (docs/upstream-divergences.md): Ctrl+S gates
+        //Linux branch of the platform fork above (docs/upstream-divergences.md, phase 8 Task 2): Ctrl+S gates
         //the pan on Linux the same way Cmd+S does on macOS, via the UseIsMacOs seam.
-        //Dispatches via RaiseEvent rather than KeyPressQwerty for the same ambient-focus reason as the test above.
         [AvaloniaFact]
         public async Task SKey_OnGraphCanvas_OnLinux_PansOnlyWithoutCtrl() {
             using IDisposable platform = PlatformModifiers.UseIsMacOs(false);
@@ -975,7 +925,7 @@ namespace Foreman.Mac.UiTests {
         //Regression: ApplyLoadedSettings only ever wired the gridline/rate-unit/icon-view/pause-updates
         //controls into the canvas; everything else upstream's MainForm_Load also applies at launch
         //(LevelOfDetail, ArrowsOnLinks, NodeCountForSimpleView, IconsSize, DynamicLineWidth,
-        //FlagOUSuppliedNodes, RoundAssemblerCount, AbbreviateSciPacks, and the four
+        //FlagOUSuppliedNodes, RoundAssemblerCount, AbbreviateSciPacks, ShowRecipeToolTip, and the four
         //guide-arrow toggles) stayed at code-level defaults regardless of what was saved.
         [AvaloniaFact]
         public void ApplyLoadedSettings_NonDefaultSettings_SeedsContextViewerAndArrowRenderer() {
@@ -1031,7 +981,7 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.GraphCanvas.Viewer.Context.EnableExtraProductivityForNonMiners);
         }
 
-        //Regression (reference §8): SmartNodeDirection/DefaultNodeDirection were never read off
+        //Regression (task 7, reference §8): SmartNodeDirection/DefaultNodeDirection were never read off
         //AppSettings anywhere - GraphCanvas.SmartNodeDirection stayed permanently false and Graph.
         //DefaultNodeDirection stayed permanently Up regardless of what was saved.
         [AvaloniaFact]
@@ -1093,15 +1043,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(new SKColor(0xFA, 0xFA, 0xFA), window.GraphCanvas.Viewer.BackgroundColor);
         }
 
-        //OpenSettingsAsync's tail must run App.ApplyTheme before ApplyLoadedSettings reads
-        //Application.Current.ActualThemeVariant for FlagDarkMode.System's isDark check, so a System Confirm
-        //reads the variant it just committed, not the stale pre-Confirm one. With the app forced Dark going
-        //in and nothing else overriding this headless harness's own Light platform default, a correctly
-        //ordered live-apply to System must land the canvas Light, not stay stuck on the pre-change Dark.
-        //This still asserts that contract, now driven through the non-modal ShowSettings/live-apply path
-        //instead of a Confirm click - the ordering must still hold under MainWindow.OnSettingsChanged
-        //(ApplyLoadedSettings runs before SettingsSession.Apply, which is what actually calls App.ApplyTheme
-        //for FlagDarkMode).
         [AvaloniaFact]
         public async Task ShowSettings_LiveApplyFlagDarkModeSystemWhileAppCurrentlyDark_CanvasResolvesLight() {
             var app = (App)Application.Current!;
@@ -1131,9 +1072,9 @@ namespace Foreman.Mac.UiTests {
             return dir;
         }
 
-        //Regression: DCache/DefaultAssemblerQuality were only ever assigned inside LoadDocument, so
-        //a fresh/New graph had neither before the first file load - blocking recipe-node creation and the
-        //Add Item/Add Recipe choosers (both need Viewer.Context.DCache) from ever working at boot.
+        //Regression (task 7): DCache/DefaultAssemblerQuality were only ever assigned inside LoadDocument, so
+        //a fresh/New graph had neither before the first file load - blocking recipe-node creation and this
+        //task's Add Item/Add Recipe choosers (both need Viewer.Context.DCache) from ever working at boot.
         [AvaloniaFact]
         public void ApplyLoadedSettings_DataCacheAssigned_SeedsViewerDCacheAndGraphDefaultAssemblerQuality() {
             var window = new MainWindow();
@@ -1202,14 +1143,14 @@ namespace Foreman.Mac.UiTests {
             var rateOptions = window.GetVisualDescendants().OfType<PopUp>().Single(c => c.Name == "RateOptionsDropDown");
             Assert.Equal(MainWindow.RateUnitOptions[(int)expectedUnit], rateOptions.SelectedItem);
             Assert.Equal(expectedUnit, window.Settings!.DefaultRateUnit);
-            Assert.Equal(0, solveCount); //resyncing the pop-up's display value alone must not re-trigger UpdateNodeValues
+            Assert.Equal(0, solveCount);
         }
 
         //Regression: BindViewOptionControls subscribed its six control event handlers with += on every call,
         //never unsubscribing first (unlike its own ResyncRateOptionsDropDown pattern above). It's called from
-        //boot, ReloadForPresetAsync, and every Settings live-apply change (OnSettingsChanged), so a second
-        //ApplyLoadedSettings call left two PauseUpdatesCheckbox handlers stacked - one user toggle then
-        //fired UpdateNodeValues twice instead of once.
+        //boot, ReloadForPresetAsync, and now every OpenSettingsAsync Confirm, so a second ApplyLoadedSettings
+        //call left two PauseUpdatesCheckbox handlers stacked - one user toggle then fired UpdateNodeValues
+        //twice instead of once.
         [AvaloniaFact]
         public void ApplyLoadedSettings_CalledTwice_TogglingPauseUpdatesStillResolvesExactlyOnce() {
             var window = new MainWindow();
@@ -1279,11 +1220,10 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(1, solveCount);
         }
 
-        //BindViewOptionControls wrote rateOptions.SelectedIndex directly, with the
+        //Minor#4 (final fix wave): BindViewOptionControls wrote rateOptions.SelectedIndex directly, with the
         //handler already subscribed after the first bind - a second ApplyLoadedSettings call (e.g. a preset-
-        //switching Confirm) that also changed settings.DefaultRateUnit re-solved on top of the apply-tail's
-        //own explicit solve. Kit.PopUp's Command only fires on a real user commit, so this is now moot for
-        //the pop-up itself, but the test still proves a second bind never double-solves.
+        //switching Confirm) that also changed settings.DefaultRateUnit fired OnRateOptionsSelectionChanged
+        //and re-solved, on top of the apply-tail's own explicit solve.
         [AvaloniaFact]
         public void ApplyLoadedSettings_CalledTwiceWithChangedRateUnit_ResyncsWithoutExtraSolve() {
             var window = new MainWindow();
@@ -1328,8 +1268,8 @@ namespace Foreman.Mac.UiTests {
             Assert.NotEmpty(window.GraphCanvas.Viewer.NodeElements);
         }
 
-        //NewCommand must close any open floating panel bound to a node the clear just deleted - upstream's
-        //ClearFloatingControls has no equivalent on this port's own New path.
+        //IMPORTANT 4 (final fix wave): New left an open panel bound to a node the clear just deleted -
+        //upstream's ClearFloatingControls has no equivalent on this port's own New path.
         [AvaloniaFact]
         public void NewGraphCommand_Execute_ClosesOpenFloatingPanel() {
             var window = new MainWindow();
@@ -1342,9 +1282,9 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
         }
 
-        //Loading a save over a graph with an open edit panel must close it too, same gap as New above -
-        //GraphCanvasControl.LoadDocument wraps Viewer.LoadDocument so LoadGraphAsync's real call site gets
-        //the close for free instead of duplicating it there.
+        //IMPORTANT 4 (final fix wave): loading a save over a graph with an open edit panel left it bound to
+        //a now-dead node, same gap as New above - GraphCanvasControl.LoadDocument wraps Viewer.LoadDocument
+        //so LoadGraphAsync's real call site gets the close for free instead of duplicating it there.
         [AvaloniaFact]
         public async Task GraphCanvasLoadDocument_ClosesOpenFloatingPanel() {
             var window = new MainWindow();
@@ -1359,7 +1299,7 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
         }
 
-        //A toolbar button click is a plain
+        //Phase 7 deferred-minors sweep (widened toolbar-staleness scope): a toolbar button click is a plain
         //Avalonia Button press, never a canvas pointer event, so it never reached GraphCanvasControl.
         //OnPointerPressed's own click-outside-closes-panel guard - the panel just sat open and stale behind
         //whatever the button did. Real MouseDown/MouseUp at the button's own screen position (not
@@ -1394,7 +1334,7 @@ namespace Foreman.Mac.UiTests {
             window.Show();
             DataCache cache = await GetCacheAsync();
             window.GraphCanvas.Viewer.LoadDocument(cache, FlowchartJson());
-            window.GraphCanvas.Viewer.SetSelection([.. window.GraphCanvas.Viewer.NodeElements.Take(2)]); //a selection-gated button needs one to be clickable at all
+            window.GraphCanvas.Viewer.SetSelection([.. window.GraphCanvas.Viewer.NodeElements.Take(2)]);
             window.GraphCanvas.FloatingPanelHost.Show(new Border { Width = 50, Height = 50, Focusable = true }, new System.Drawing.Point(0, 0));
             Assert.True(window.GraphCanvas.FloatingPanelHost.IsOpen);
 
@@ -1403,8 +1343,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
         }
 
-        //Align Selected's .disabled empty-selection state (contract #toolbar): CanExecute now tracks
-        //the canvas's live selection instead of always being true.
         [AvaloniaFact]
         public void AlignSelectionCommand_EmptySelection_CanExecuteIsFalse() {
             var window = new MainWindow();
@@ -1439,9 +1377,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.Commands.AlignSelectionCommand.CanExecute(null));
         }
 
-        //Fires-only-when-enabled: an empty-selection Execute() call must be a genuine no-op button state,
-        //not merely a command that happens to align zero nodes - RealClick on a disabled Button never
-        //dispatches Command.Execute at all (Avalonia hit-tests IsEnabled first).
         [AvaloniaFact]
         public void AlignSelectionButton_EmptySelection_RealClick_DoesNotOpenFloatingPanel() {
             var window = new MainWindow();
@@ -1450,14 +1385,9 @@ namespace Foreman.Mac.UiTests {
 
             RealClick(window, "Align Selected");
 
-            Assert.Equal(redrawCountBefore, window.GraphCanvas.RedrawRequestCount); //onAlignSelection's own RequestRedraw never ran
+            Assert.Equal(redrawCountBefore, window.GraphCanvas.RedrawRequestCount);
         }
 
-        //---- Zoom stepper (contract #toolbar's zoom stepper marked "(new)") -----------------------
-
-        //The stepper must not open a second zoom path alongside the View menu's Zoom In/Zoom Out
-        //(NativeMenuTests.ViewMenu_ZoomIn_IncreasesViewScale) - both bind the exact same MainWindow command
-        //instance, so this proves it structurally rather than just observing the same end effect twice.
         [AvaloniaFact]
         public void ZoomStepper_InAndOutButtons_ShareCommandInstancesWithViewMenu() {
             var window = new MainWindow();
@@ -1470,7 +1400,6 @@ namespace Foreman.Mac.UiTests {
             Button stepperZoomIn = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "Zoom In");
             Button stepperZoomOut = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "Zoom Out");
 
-            //C1 wraps the native menu item's Command in a deferring forwarder - unwrap to compare instances.
             Assert.Same(((MainWindow.DeferredMenuCommand)menuZoomIn.Command!).Inner, stepperZoomIn.Command);
             Assert.Same(((MainWindow.DeferredMenuCommand)menuZoomOut.Command!).Inner, stepperZoomOut.Command);
         }
@@ -1497,10 +1426,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.GraphCanvas.Viewport.ViewScale < before);
         }
 
-        //GraphCanvasControl's own wheel handler notifies MainWindow the same way a stepper click does, so
-        //ResyncZoomLabel's readout stays synced through a wheel-zoom session instead of going stale until
-        //the next stepper/menu click. Exercises the real input pipeline (MouseWheel, not a
-        //direct Viewport.ZoomAt call) so it only passes once that notification actually happens.
         [AvaloniaFact]
         public void ZoomValueLabel_TracksViewScaleAfterMouseWheelZoom() {
             var window = new MainWindow();
@@ -1512,7 +1437,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(expectedPercent, window.Toolbar.ZoomStepper.Value);
         }
 
-        //No gear on the toolbar, so the command is driven directly; the early-return guard keeps it from opening a real window.
         [AvaloniaFact]
         public void SettingsCommand_Execute_ClosesOpenFloatingPanel() {
             var window = new MainWindow();
@@ -1551,9 +1475,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
         }
 
-        //The titlebar's own VersionLabel TextBlock is gone (contract #toolbar retired
-        //it in favor of the About panel) - this test moves to the real window ShowAboutAsync opens.
-        //The panel is a real AboutWindow (design doc .about-card) instead of a MessageDialog.
         [AvaloniaFact]
         public async Task AboutPanel_ShowsAppVersion() {
             var window = new MainWindow();
@@ -1584,8 +1505,6 @@ namespace Foreman.Mac.UiTests {
             var window = new MainWindow();
 
             var fileMenu = NativeMenu.GetMenu(window)!.Items.OfType<NativeMenuItem>().Single(i => i.Header == "File").Menu!;
-            //File now has separators (contract #menubar) - NativeMenuItemSeparator is itself a
-            //NativeMenuItem (Header "-"), so it has to be filtered out explicitly before grouping by Header.
             var items = fileMenu.Items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator).ToDictionary(i => i.Header!, i => i.IsEnabled);
 
             Assert.True(items["New Graph"]);
@@ -1597,7 +1516,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(items["Export Image…"]);
         }
 
-        //Hidden-toolbar ruling: ⌘F shows the toolbar only while the search field has focus; the setting and the checkmark stay off.
         [AvaloniaFact]
         public async Task FindNode_WithTheToolbarHidden_RevealsItUntilTheFieldResigns() {
             MainWindow window = await Inspector.InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -1625,7 +1543,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(settings.ShowToolbar);
         }
 
-        //Hidden-toolbar ruling: a hidden-toolbar window never lays out the 52 pt row first.
         [AvaloniaFact]
         public void ShowToolbarOff_AtOpen_LaysOutAt28FromTheFirstPass() {
             var window = new MainWindow { Settings = new AppSettings { ShowToolbar = false } };
@@ -1641,7 +1558,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.Toolbar.IsVisible);
         }
 
-        //Hidden-toolbar assertion 4 / addendum §11: the status sits at the row's trailing edge, 12 from the right, centred in the 28 row.
         [AvaloniaFact]
         public void HiddenToolbar_Solving_SolveStatusInTitleBarRow_RightEdgeRowWidthMinus12_CentreY14_Failed_OpensThePopover() {
             var window = new MainWindow { Settings = new AppSettings { ShowToolbar = false } };
@@ -1713,8 +1629,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
         }
 
-
-        //v2 §02 "Material" row: the traffic-light strip sits left of the row's Margin inset, so the titlebar Grid is the only thing that can paint it.
         [AvaloniaFact]
         public void TitleBarRow_Background_MatchesTheToolbarRowsMaterial_InLightAndDark() {
             var app = (App)Application.Current!;
@@ -1732,7 +1646,6 @@ namespace Foreman.Mac.UiTests {
             Assert.NotEqual(lightStrip, darkStrip);
         }
 
-        //v2 §02 "Material" row: the shipped material and its opaque token carry identical hex, so a colour comparison between them proves nothing - this scopes a deliberately distinct opaque value and asserts the row resolves through the hub's override, then loses it when the flag clears.
         [AvaloniaFact]
         public void TitleBarRow_Strip_FollowsTitlebarMaterialOpaque_UnderReduceTransparency() {
             var app = (App)Application.Current!;
@@ -1766,7 +1679,6 @@ namespace Foreman.Mac.UiTests {
             }
         }
 
-        //Headless never reports a nonzero WindowDecorationMargin, so the inset TrafficLightInsetConverter would produce is set by hand before arranging.
         private static Color ArrangedTrafficLightStrip(out Grid titleBar) {
             var window = new MainWindow();
             window.Show();
@@ -1799,8 +1711,6 @@ namespace Foreman.Mac.UiTests {
             public event EventHandler? Changed { add => changed += value; remove => changed -= value; }
         }
 
-        //---- GraphMutated drives dirty tracking ----
-
         [AvaloniaFact]
         public async Task NodeDrag_SetsDirty() {
             var window = new MainWindow();
@@ -1810,24 +1720,22 @@ namespace Foreman.Mac.UiTests {
             NodeId id = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
             BaseNodeElement element = window.GraphCanvas.Viewer.NodeElementDictionary[id];
             element.RequestStateUpdate();
-            element.PrePaint(); //HitTest needs the element's paint bounds computed to find it
-            window.ViewModel.IsDirty = false; //the add above already dirtied it - reset to isolate the drag
-            Dispatcher.UIThread.RunJobs(); //forces layout so GraphCanvas has real Bounds to translate through
+            element.PrePaint();
+            window.ViewModel.IsDirty = false;
+            Dispatcher.UIThread.RunJobs();
 
             Point canvasPoint = window.GraphCanvas.Viewport.GraphToScreen(element.Location);
             Point screenPoint = window.GraphCanvas.TranslatePoint(canvasPoint, window)!.Value;
             Point dragTo = screenPoint + new Point(40, 0);
             window.MouseDown(screenPoint, MouseButton.Left, RawInputModifiers.None);
-            window.MouseMove(dragTo, RawInputModifiers.LeftMouseButton); //crosses the drag threshold
-            window.MouseMove(dragTo, RawInputModifiers.LeftMouseButton); //arms BaseNodeElement.Dragged
-            window.MouseMove(dragTo, RawInputModifiers.LeftMouseButton); //actually moves the node
+            window.MouseMove(dragTo, RawInputModifiers.LeftMouseButton);
+            window.MouseMove(dragTo, RawInputModifiers.LeftMouseButton);
+            window.MouseMove(dragTo, RawInputModifiers.LeftMouseButton);
             window.MouseUp(dragTo, MouseButton.Left, RawInputModifiers.None);
 
             Assert.True(window.ViewModel.IsDirty);
         }
 
-        //NodeValuesUpdated alone must not drive IsDirty: a plain solve (no edit at all) must not light the
-        //Save tint with nothing new to save.
         [AvaloniaFact]
         public void SolveWithoutChange_DoesNotSetDirty() {
             var window = new MainWindow();
@@ -1844,8 +1752,8 @@ namespace Foreman.Mac.UiTests {
             window.Show();
             var text = new TextAnnotationElement(new System.Drawing.Point(0, 0));
             window.GraphCanvas.Viewer.AddAnnotationElement(text);
-            window.ViewModel.IsDirty = false; //the add above already dirtied it - reset to isolate the edit
-            window.GraphCanvas.TextPropertiesDialogStub = _ => Task.FromResult(true); //simulates clicking OK
+            window.ViewModel.IsDirty = false;
+            window.GraphCanvas.TextPropertiesDialogStub = _ => Task.FromResult(true);
 
             window.GraphCanvas.Viewer.ShowAnnotationPropertiesDialog?.Invoke(text);
             Dispatcher.UIThread.RunJobs();
@@ -1853,11 +1761,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.ViewModel.IsDirty);
         }
 
-        //Every field on these two sheets applies live onto the domain
-        //element as the user types - OK persists it, Cancel reverts it. A sheet has no window chrome to
-        //close from, so Escape (SheetHost's own handling, which calls the sheet's Cancel()) is now the only
-        //non-OK dismissal path and the one this guards. Drives the real sheet (not TextPropertiesDialogStub)
-        //so the override's revert actually runs.
         [AvaloniaFact]
         public void TextPropertiesSheet_EscapeReverts_AndStaysClean() {
             var window = new MainWindow();
@@ -1865,13 +1768,13 @@ namespace Foreman.Mac.UiTests {
             var text = new TextAnnotationElement(new System.Drawing.Point(0, 0));
             window.GraphCanvas.Viewer.AddAnnotationElement(text);
             string originalText = text.Text;
-            window.ViewModel.IsDirty = false; //the add above already dirtied it - reset to isolate the escape
+            window.ViewModel.IsDirty = false;
 
             window.GraphCanvas.Viewer.ShowAnnotationPropertiesDialog?.Invoke(text);
             var sheet = Assert.IsType<TextPropertiesSheet>(SheetHost.For(window).Content);
             sheet.TextInputControl.Text = originalText + " edited live";
             Dispatcher.UIThread.RunJobs();
-            Assert.NotEqual(originalText, text.Text); //confirms the live-apply actually landed before escape
+            Assert.NotEqual(originalText, text.Text);
 
             CanvasKeys.KeyDownOn(sheet.TextInputControl, Key.Escape);
             Dispatcher.UIThread.RunJobs();
@@ -1887,13 +1790,13 @@ namespace Foreman.Mac.UiTests {
             var shape = new ShapeAnnotationElement(new System.Drawing.Point(0, 0), 200, 150);
             window.GraphCanvas.Viewer.AddAnnotationElement(shape);
             int originalBorderWidth = shape.BorderWidth;
-            window.ViewModel.IsDirty = false; //the add above already dirtied it - reset to isolate the escape
+            window.ViewModel.IsDirty = false;
 
             window.GraphCanvas.Viewer.ShowAnnotationPropertiesDialog?.Invoke(shape);
             var sheet = Assert.IsType<ShapePropertiesSheet>(SheetHost.For(window).Content);
             sheet.BorderWidthStepperControl.Value = originalBorderWidth + 23;
             Dispatcher.UIThread.RunJobs();
-            Assert.NotEqual(originalBorderWidth, shape.BorderWidth); //confirms the live-apply actually landed
+            Assert.NotEqual(originalBorderWidth, shape.BorderWidth);
 
             CanvasKeys.KeyDownOn(sheet.BorderWidthStepperControl, Key.Escape);
             Dispatcher.UIThread.RunJobs();
@@ -1902,8 +1805,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(window.ViewModel.IsDirty);
         }
 
-        //The host spans the whole window, titlebar included, so a light-dismiss press on any toolbar item reaches it first.
-        //The canvas's own host (the quick-add palette's) sits inside the canvas and is not this one.
         [AvaloniaFact]
         public void PopoverHost_IsMountedOnce_AndSpansTheWholeWindow() {
             var window = new MainWindow();
@@ -1917,8 +1818,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(rootGrid.Bounds.Height, host.Bounds.Height, 1);
         }
 
-        //Regression: the mounted host is a full-bleed sibling above the canvas in z-order - with nothing
-        //open it must stay out of hit-testing, or every canvas press hits it instead of the node under it.
         [AvaloniaFact]
         public async Task PopoverHost_WithNothingOpen_ARealClickSelectsTheNodeUnderTheCursor() {
             var window = new MainWindow();
@@ -1928,9 +1827,9 @@ namespace Foreman.Mac.UiTests {
             NodeId id = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(pair, new System.Drawing.Point(0, 0));
             BaseNodeElement element = window.GraphCanvas.Viewer.NodeElementDictionary[id];
             element.RequestStateUpdate();
-            element.PrePaint(); //HitTest needs the element's paint bounds computed to find it
-            Dispatcher.UIThread.RunJobs(); //forces layout so GraphCanvas has real Bounds to translate through
-            AnimationClock.Settle(); //a queued layout pass isn't a render tick - settle before trusting arranged bounds
+            element.PrePaint();
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
 
             Point canvasPoint = window.GraphCanvas.Viewport.GraphToScreen(element.Location);
             Point screenPoint = window.GraphCanvas.TranslatePoint(canvasPoint, window)!.Value;

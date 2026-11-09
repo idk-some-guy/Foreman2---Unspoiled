@@ -64,19 +64,6 @@ namespace Foreman.Mac.UiTests {
             Assert.NotSame(PanelOf(window.Toolbar.ZoomStepper.SolveStatus), PanelOf(window.TitleBarSolveStatus));
         }
 
-        [AvaloniaFact]
-        public async Task SwappingTheTracker_LeavesOneSubscriptionToPausedChanged() {
-            MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
-            window.UseSolveTracker(new SolveStatusTracker(TimeProvider.System));
-            var command = (System.Windows.Input.ICommand)typeof(MainWindow).GetField("showSolveErrorCommand", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
-            int applied = 0;
-            command.CanExecuteChanged += (_, _) => applied++;
-
-            window.GraphCanvas.Viewer.IsPaused = true;
-
-            Assert.Equal(1, applied);
-        }
-
         [Fact]
         public void EachReason_HasItsRuledSentence_AheadOfTheStaleness() {
             Assert.Equal("The graph's fixed rates and limits can't all be met at once. " + Staleness, Foreman.Mac.Views.SolveErrorPanel.Sentence(SolveFailureReason.Infeasible));

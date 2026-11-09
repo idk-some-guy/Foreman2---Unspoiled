@@ -30,11 +30,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //The full six-menu structure (contract #menubar): every action in the 22-row table, exact
-    //gestures, the conflict resolutions verbatim, and the grid-dots/inspector/undo placeholders the table
-    //marks as later-plan surfaces. MainWindowShellTests.cs keeps the four older native menu tests
-    //(top-level headers, Save's gesture on both platforms, File's enabled state) - this file covers
-    //everything beyond that baseline.
     public class NativeMenuTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private const string SpaceAgePresetName = "Factorio 2.0 Space Age";
@@ -60,14 +55,11 @@ namespace Foreman.Mac.UiTests {
 
         private static NativeMenu TopMenu(MainWindow window) => NativeMenu.GetMenu(window)!;
 
-        //A: the bold application menu is Application-scoped, not the window's own first item.
         private static NativeMenu AppMenu() => NativeMenu.GetMenu(Application.Current!)!;
 
         private static NativeMenu SubMenu(NativeMenu menu, string header) =>
             menu.Items.OfType<NativeMenuItem>().Single(i => i.Header == header).Menu!;
 
-        //NativeMenuItemSeparator is itself a NativeMenuItem (Header "-"), so every lookup below excludes it
-        //explicitly before grouping/indexing by Header.
         private static IReadOnlyList<NativeMenuItem> RealItems(NativeMenu menu) =>
             [.. menu.Items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator)];
 
@@ -82,18 +74,11 @@ namespace Foreman.Mac.UiTests {
             }
         }
 
-        //The gridline/rate/icon-view popover controls only join the visual tree once ViewOptionsPopover is
-        //open (MainWindowShellTests.cs's own OpenViewOptions precedent) - this.FindControl resolves them
-        //regardless via the compiled NameScope, which is what BuildNativeMenu itself relies on, but
-        //GetVisualDescendants needs the popover open first.
         private static void OpenViewOptions(MainWindow window) {
             window.ViewModel.ToggleViewOptionsCommand.Execute(null);
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         }
 
-        //---- Foreman 2 (app) menu ----
-
-        //Pins both native structures exactly, item by item, including separators - other tests here only look up items by header.
         [AvaloniaFact]
         public void AppMenu_And_WindowMenu_MatchTheContractShapeExactly() {
             var window = new MainWindow();
@@ -117,10 +102,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Null(about.Gesture);
         }
 
-        //Proves the real fix: the app menu is readable on Application.Current before any MainWindow is ever
-        //constructed - it's built in App.Initialize, at the point AvaloniaNativeMenuExporter's own
-        //Application-target constructor actually reads it (AppMenu_And_WindowMenu_MatchTheContractShapeExactly
-        //pins the full shape).
         [AvaloniaFact]
         public void AppMenu_IsPresentOnApplicationBeforeAnyMainWindowExists() {
             NativeMenu appMenu = AppMenu();
@@ -153,7 +134,6 @@ namespace Foreman.Mac.UiTests {
             window.Close();
         }
 
-        //Hide Others/Show All: Avalonia 12.1.2's backing implementation is internal with no public surface, so these are disabled placeholders.
         [AvaloniaFact]
         public void AppMenu_HideOthersAndShowAll_AreDisabledPlaceholders() {
             var window = new MainWindow();
@@ -177,8 +157,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(Key.Q, quit.Gesture!.Key);
             Assert.Equal(KeyModifiers.Meta, quit.Gesture.KeyModifiers);
         }
-
-        //---- File menu ----
 
         [AvaloniaFact]
         public void FileMenu_HeadersInRuledOrder_NoSaveAs_DuplicateIsShiftPrimaryS() {
@@ -390,8 +368,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(KeyModifiers.Meta, close.Gesture.KeyModifiers);
         }
 
-        //---- Edit menu ----
-
         [AvaloniaFact]
         public void EditMenu_UndoRedo_AreDisabledPlaceholdersWithGestures() {
             var window = new MainWindow();
@@ -409,8 +385,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(KeyModifiers.Meta | KeyModifiers.Shift, redo.Gesture.KeyModifiers);
         }
 
-        //Conflict resolution 1 (contract #menubar): Cut/Copy/Paste are Command-bound so they enable/disable/
-        //click correctly, but carry no Gesture - the canvas's own Cmd+C/X/V keeps working unassisted.
         [AvaloniaFact]
         public void EditMenu_CutCopyPaste_AreEnabledWithNoGesture() {
             var window = new MainWindow();
@@ -424,8 +398,6 @@ namespace Foreman.Mac.UiTests {
             }
         }
 
-        //Conflict resolution 3: same gesture-less treatment as Cut/Copy/Paste, since GraphCanvasControl.
-        //OnKeyUp already owns the bare Delete key.
         [AvaloniaFact]
         public void EditMenu_Delete_IsEnabledWithNoGesture() {
             var window = new MainWindow();
@@ -473,8 +445,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Empty(window.GraphCanvas.Viewer.NodeElements);
         }
 
-        //---- View menu: zoom ----
-
         [AvaloniaFact]
         public void ViewMenu_ZoomItems_HaveContractGestures() {
             var window = new MainWindow();
@@ -516,10 +486,6 @@ namespace Foreman.Mac.UiTests {
 
             Assert.Equal(1f, window.GraphCanvas.Viewport.ViewScale);
         }
-
-        //---- View menu: gridlines (contract's grid-dots vocabulary renames the ITEMS, not the flags they
-        //toggle - MinorGridlinesDropDown/MajorGridlinesDropDown/GridlinesCheckbox are unchanged; the dot
-        //rendering itself is a later plan's job) ----
 
         [AvaloniaFact]
         public void ViewMenu_ShowGridlines_IsACheckboxWithOptCmdGGesture() {
@@ -578,7 +544,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal("8", dropdown.SelectedItem);
         }
 
-        //B: NativeMenuItem only recomputes IsEnabled when its Command is (re)assigned, so Command must be set after CommandParameter.
+        //NativeMenuItem only recomputes IsEnabled when its Command is (re)assigned, so Command must be set after CommandParameter.
         [AvaloniaFact]
         public void RadioItems_AllReportEnabledAfterBuildNativeMenu() {
             var window = new MainWindow();
@@ -606,7 +572,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Null(iconView.Gesture);
         }
 
-        //§14 ruling 4: ⌘. is command-only cancel-in-flight, so no menu item may claim it.
         [AvaloniaFact]
         public void PauseAllCalculations_IsBoundToOptCmdP() {
             var window = new MainWindow();
@@ -643,9 +608,6 @@ namespace Foreman.Mac.UiTests {
             Assert.All(items, i => Assert.Equal(MenuItemToggleType.Radio, i.ToggleType));
         }
 
-        //2026-09-17 building-picker ruling: one MainWindow method serves the inspector's own Rate unit row,
-        //View Options' pop-up and the View menu radios - a pick from any of the three mirrors into the other
-        //two, saves immediately, and costs exactly one solve, with one Save per pick.
         [AvaloniaFact]
         public async Task RateUnitPickedFromAnySurface_PersistsTheDefaultThroughSettingsService() {
             MainWindow window = await Inspector.InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -663,7 +625,6 @@ namespace Foreman.Mac.UiTests {
             int solves = 0;
             window.GraphCanvas.Viewer.Session.NodeValuesUpdated += (_, _) => solves++;
 
-            //Surface 1: the inspector's own Rate unit pop-up.
             inspectorRateUnit.Command!.Execute("per 5 minutes");
             Dispatcher.UIThread.RunJobs();
 
@@ -674,7 +635,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(1, settingsService.SaveCallCount);
             Assert.Equal(1, solves);
 
-            //Surface 2: View Options' own pop-up - mirrors back into the inspector and the menu radio.
             dropdown.Command!.Execute("per 10 minutes");
             Dispatcher.UIThread.RunJobs();
 
@@ -685,7 +645,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(2, settingsService.SaveCallCount);
             Assert.Equal(2, solves);
 
-            //Surface 3: the View menu's own radio - mirrors back into the inspector and the dropdown.
             NativeMenuItem oneHour = rateUnitSubmenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "1 hour");
             oneHour.Command!.Execute(oneHour.CommandParameter);
             Dispatcher.UIThread.RunJobs();
@@ -698,8 +657,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(3, solves);
         }
 
-        //The reverse direction: a pick made on View Options must reach a bound Flow segment's own Rate unit
-        //row too, not just the Recipe segment RateUnitPickedFromAnySurface covers.
         [AvaloniaFact]
         public async Task RateUnitPickedFromViewOptions_MirrorsIntoTheFlowSegmentsOwnPopUp() {
             MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
@@ -727,9 +684,6 @@ namespace Foreman.Mac.UiTests {
             return dir;
         }
 
-        //After ApplyLoadedSettings, every menu checkmark/radio-selection must reflect the settings
-        //that were actually loaded, not BuildNativeMenu's construction-time snapshot (taken before Settings
-        //is even assigned).
         [AvaloniaFact]
         public void ViewMenu_ChecksResyncAfterApplyLoadedSettings() {
             var window = new MainWindow();
@@ -739,9 +693,9 @@ namespace Foreman.Mac.UiTests {
 
             NativeMenu viewMenu = SubMenu(TopMenu(window), "View");
             Assert.True(ItemNamed(viewMenu, "Show Gridlines").IsChecked);
-            NativeMenuItem minorEight = SubMenu(viewMenu, "Minor Gridlines").Items.OfType<NativeMenuItem>().Single(i => i.Header == "8"); //index 4
+            NativeMenuItem minorEight = SubMenu(viewMenu, "Minor Gridlines").Items.OfType<NativeMenuItem>().Single(i => i.Header == "8");
             Assert.True(minorEight.IsChecked);
-            NativeMenuItem majorSixtyFour = SubMenu(viewMenu, "Major Gridlines").Items.OfType<NativeMenuItem>().Single(i => i.Header == "64"); //index 7
+            NativeMenuItem majorSixtyFour = SubMenu(viewMenu, "Major Gridlines").Items.OfType<NativeMenuItem>().Single(i => i.Header == "64");
             Assert.True(majorSixtyFour.IsChecked);
             NativeMenuItem hourRate = SubMenu(viewMenu, "Rate Unit").Items.OfType<NativeMenuItem>().Single(i => i.Header == "1 hour");
             Assert.True(hourRate.IsChecked);
@@ -749,8 +703,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.ViewModel.Inspector.IsPinned);
         }
 
-        //Show/Pin Inspector (contract #menubar): the inspector panel itself already exists, so
-        //these are live toggles now - Show flips ShowOverride only, Pin flips IsPinned and persists it.
         [AvaloniaFact]
         public void ViewMenu_ShowInspector_IsCheckboxToggleThatOverridesVisibility() {
             var window = new MainWindow();
@@ -814,8 +766,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Null(customize.Gesture);
         }
 
-        //---- Window menu ----
-
         [AvaloniaFact]
         public void WindowMenu_ItemsAreInContractOrder() {
             var window = new MainWindow();
@@ -867,8 +817,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Null(bringToFront.Gesture);
         }
 
-        //---- selection, Find, window commands, ⌘. and the no-document state (v2 §05, §14 ruling 4, A25) ----
-
         [AvaloniaFact]
         public async Task EditMenu_SelectAllAndDeselectAll_HaveCmdAAndShiftCmdA_AndActOnTheCanvasSelection() {
             MainWindow window = await Inspector.InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -899,7 +847,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Empty(window.GraphCanvas.Viewer.SelectedNodes);
         }
 
-        //A menu key equivalent reaches the menu even with a text field focused, so ⌘A must stay the field's own select-all there.
         [AvaloniaFact]
         public async Task EditMenu_SelectAll_WithATextFieldFocused_SelectsItsTextInsteadOfTheCanvas() {
             MainWindow window = await Inspector.InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -1065,7 +1012,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(WindowState.Maximized, window.WindowState);
         }
 
-        //Settings' Compare Presets… and this item share one rule: fewer than two presets disables both.
         [AvaloniaFact]
         public void WindowMenu_PresetComparator_NeedsTwoPresets_AndOpensTheComparatorOnTheResolvedPresets() {
             var window = new MainWindow();
@@ -1097,14 +1043,11 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(presetResolver.BuildPresetList(settings.CurrentPresetName).Select(p => p.Name), shown!.Select(p => p.Name));
         }
 
-        //The native exporter raises Opening through an internal bridge interface; headless has no exporter, so we call it the same way.
         private static void OpenMenu(NativeMenu menu) {
             Type bridge = typeof(NativeMenu).GetInterfaces().Single(i => i.Name == "INativeMenuExporterEventsImplBridge");
             bridge.GetMethod("RaiseOpening")!.Invoke(menu, null);
             Dispatcher.UIThread.RunJobs();
         }
-
-        //---- Help menu (mac-ui-designer ruling "Help menu items", 2026-09-24) ----
 
         private const string RepoUrl = "https://github.com/idk-some-guy/Foreman2---Unspoiled";
 
@@ -1160,7 +1103,6 @@ namespace Foreman.Mac.UiTests {
             Assert.False(SheetHost.For(window).IsOpen);
         }
 
-        //§14 ruling 4: the frontmost popover or radial (Escape's own order), then the frontmost sheet; the running-solve half is SolveStatusTrackerTests'.
         [AvaloniaFact]
         public async Task CmdPeriod_DismissesTheFrontmostPopover_ThenThePalette_ThenTheFrontmostSheet() {
             MainWindow window = await Inspector.InspectorTestSupport.OpenEmptyWindowAsync();
@@ -1532,7 +1474,6 @@ namespace Foreman.Mac.UiTests {
             created.Close();
         }
 
-        //A25: with no document the ruled items disable, and leaving that state restores each item's own prior enablement.
         [AvaloniaFact]
         public void NoDocument_DisablesTheRuledItems_AndLeavesWindowWelcomeLive() {
             var window = new MainWindow();
@@ -1570,9 +1511,6 @@ namespace Foreman.Mac.UiTests {
             Assert.All(RealItems(SubMenu(view, "Link Routing")), i => Assert.False(i.IsEnabled, i.Header));
         }
 
-        //---- C1: menu dispatch deferral ----
-
-        //C1: Execute must return before the wrapped action runs, and the action must only run once the dispatcher is pumped.
         [AvaloniaFact]
         public void MenuCommand_ExecuteDefersTheWrappedActionToTheDispatcher() {
             var window = new MainWindow();

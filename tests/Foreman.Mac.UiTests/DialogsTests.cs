@@ -9,19 +9,12 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Covers Dialogs.cs's own routing decision: every alert presents as an AlertSheet on the
-    //owner's own SheetHost via ShowStackedAsync - directly when that host is free, stacked on top of
-    //whatever's already open otherwise (the deadlock a queued-behind AlertSheet would hit - see
-    //SheetHostTests' own stacking coverage). AlertSheetTests covers AlertSheet's own button/default/Escape
-    //wiring.
     public class DialogsTests {
         private static Window NewOwner() {
             var owner = new Window { Width = 500, Height = 400 };
             owner.Show();
             return owner;
         }
-
-        //---- host free: routes through AlertSheet -------------------------------------------------------
 
         [AvaloniaFact]
         public async Task ShowConfirmAsync_HostFree_YesButtonClick_ReturnsTrue() {
@@ -74,14 +67,12 @@ namespace Foreman.Mac.UiTests {
             Assert.False(SheetHost.For(owner).IsOpen);
         }
 
-        //---- host busy: stacks the AlertSheet above the open sheet instead of queuing behind it ----------
-
         [AvaloniaFact]
         public async Task ShowConfirmAsync_HostBusyWithAnotherSheet_PresentsAStackedAlertSheet_AndTheBlockingSheetStaysOpen() {
             Window owner = NewOwner();
             SheetHost host = SheetHost.For(owner);
             var blocking = new AlertSheet("", "blocking sheet", AlertButtons.Ok);
-            _ = host.ShowAsync(blocking); //left open on purpose - never completed in this test
+            _ = host.ShowAsync(blocking);
             Dispatcher.UIThread.RunJobs();
             Assert.True(host.IsOpen);
 
@@ -92,7 +83,7 @@ namespace Foreman.Mac.UiTests {
             stacked.YesButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
             Assert.True(await task);
-            Assert.Same(blocking, host.Content); //the blocking sheet's own Result is still pending
+            Assert.Same(blocking, host.Content);
         }
 
         [AvaloniaFact]
@@ -111,7 +102,7 @@ namespace Foreman.Mac.UiTests {
             stacked.YesButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
             await task;
-            Assert.True(host.IsOpen); //the blocking sheet is still open
+            Assert.True(host.IsOpen);
         }
 
         private static string? RenderedText(AlertSheet sheet, string part) =>

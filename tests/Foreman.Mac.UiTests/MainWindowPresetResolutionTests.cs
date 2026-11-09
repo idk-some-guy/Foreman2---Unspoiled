@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Covers io-reference.md §8's cross-preset resolution: MainWindow.ResolveChosenPresetAsync
+    //Covers io-reference.md §8's cross-preset resolution (phase 6 Task 8): MainWindow.ResolveChosenPresetAsync
     //and its wiring into LoadGraphJsonAsync. Runs against the two real bundled test presets (Vanilla/Space
     //Age, same fixtures DialogWindowsEndToEndTests/PresetComparatorWindowTests already use) rather than
     //hand-rolled preset files, since PresetProcessor.TestPreset always reads through PresetProcessor.

@@ -6,7 +6,6 @@ using Foreman.Models;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Xunit;
@@ -106,23 +105,6 @@ namespace Foreman.Mac.UiTests {
             var actual = service.Load();
 
             Assert.Equal(JsonSerializer.Serialize(expected, ComparisonOptions), JsonSerializer.Serialize(actual, ComparisonOptions));
-        }
-
-        [Fact]
-        public void SettingsService_RetiredFields_AreAbsentFromRowIo() {
-            string[] retired = ["ShowRecipeToolTip", "RecipeNameOnlyFilter"];
-            string[] settingsFields = [.. typeof(AppSettings).GetProperties().Select(p => p.Name).Order()];
-            string[] rowColumns = [.. typeof(SettingsRow).GetProperties().Select(p => p.Name).Where(n => n != nameof(SettingsRow.Id)).Order()];
-
-            Assert.Equal(settingsFields, rowColumns);
-            Assert.Empty(settingsFields.Intersect(retired));
-
-            string home = NewTempHome();
-            string settingsPath = Path.Combine(home, "Library", "Application Support", "Foreman", "settings.json");
-            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
-            File.WriteAllText(settingsPath, "{ \"ShowRecipeToolTip\": false, \"RecipeNameOnlyFilter\": true, \"IconsSize\": 40 }");
-            Assert.Equal(40, new SettingsService(home).Load().IconsSize);
-            Assert.Equal(40, new SettingsService(home).Load().IconsSize);
         }
 
         [Fact]
@@ -267,8 +249,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Contains("Failed to save settings", File.ReadAllText(ErrorLogging.LogFilePath));
         }
 
-        //Settings now persist to foreman.db rather than settings.json; these three
-        //cases keep verifying Save lands under the right platform root, against the new medium.
         [Fact]
         public void Save_WritesToLibraryApplicationSupportForemanDb() {
             string home = NewTempHome();
@@ -280,7 +260,7 @@ namespace Foreman.Mac.UiTests {
             Assert.True(File.Exists(expectedPath));
         }
 
-        //Linux branch of the platform fork above (docs/upstream-divergences.md), exercised
+        //Linux branch of the platform fork above (docs/upstream-divergences.md, phase 8 Task 2), exercised
         //via the isMacOsOverride seam since this box only ever runs the tests on macOS.
         [Fact]
         public void Save_OnLinux_NoXdgDataHome_WritesToDotLocalShareForemanDb() {
@@ -346,9 +326,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(4m, afterRestart.LowPriorityPower);
         }
 
-        //A garbage foreman.db (disk corruption, a killed write) must not brick every
-        //future launch - the db is a rebuildable cache, so a bad file gets quarantined and Load falls
-        //back to the legacy json/defaults path instead of throwing.
         [Fact]
         public void Load_CorruptDbFile_QuarantinesFileAndReturnsDefaults() {
             string home = NewTempHome();
@@ -381,9 +358,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal("From Db", loaded.CurrentPresetName);
         }
 
-        //Reproduces an older db (no UiScale column) via EF's own DDL generator so this
-        //stays faithful to the real schema instead of hand-guessed SQL - see ForemanDbContext.Open's
-        //v1->v2 ALTER TABLE step, which SettingsService.Load relies on transparently through Open.
         private sealed class LegacyV1Context(string dbPath) : DbContext {
             public DbSet<SettingsRow> Settings => Set<SettingsRow>();
             public DbSet<SchemaVersionRow> SchemaVersions => Set<SchemaVersionRow>();

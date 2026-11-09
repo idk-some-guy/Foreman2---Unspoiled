@@ -12,8 +12,8 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Exercises PlatformModifiers.Primary's platform fork directly (docs/upstream-divergences.md) - the
-    //UseIsMacOs seam forces each branch without depending on the host OS, since this box only
+    //Exercises PlatformModifiers.Primary's platform fork directly (docs/upstream-divergences.md, phase 8
+    //Task 2) - the UseIsMacOs seam forces each branch without depending on the host OS, since this box only
     //ever runs the tests on macOS.
     public class PlatformModifiersTests {
         [Fact]
@@ -47,7 +47,6 @@ namespace Foreman.Mac.UiTests {
             }
         }
 
-        //The window menu bakes Primary in at construction, so building it under the Linux override proves every chord maps to Ctrl.
         [AvaloniaFact]
         public void OnLinux_MenuChordsUseControl_AndNoTwoItemsShareOne() {
             using IDisposable platform = PlatformModifiers.UseIsMacOs(false);
@@ -66,13 +65,11 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(new KeyGesture(Key.P, KeyModifiers.Control | KeyModifiers.Alt), GestureOf("Pause All Calculations"));
             Assert.Equal(new KeyGesture(Key.T, KeyModifiers.Control | KeyModifiers.Alt), GestureOf("Show Toolbar"));
             Assert.Equal(new KeyGesture(Key.OemQuestion, KeyModifiers.Control | KeyModifiers.Shift), GestureOf("Foreman 2 Help"));
-            //⌃⌘F folds onto ⌃F, Find Node's chord, when Primary is Control.
             Assert.Null(GestureOf("Enter Full Screen"));
             KeyGesture[] gestures = [.. items.Select(i => i.Gesture).OfType<KeyGesture>()];
             Assert.Equal(gestures.Length, gestures.Distinct().Count());
         }
 
-        //The kit's own sheet handler only knows ⌘.; the app command carries Ctrl+period to it on Linux.
         [AvaloniaFact]
         public async Task OnLinux_CtrlPeriod_DismissesTheFrontmostSheet() {
             using IDisposable platform = PlatformModifiers.UseIsMacOs(false);
