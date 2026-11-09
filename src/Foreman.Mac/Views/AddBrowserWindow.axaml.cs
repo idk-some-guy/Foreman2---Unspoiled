@@ -20,7 +20,6 @@ using System.ComponentModel;
 using System.Linq;
 
 namespace Foreman.Mac.Views {
-    //MainWindow keeps one instance alive for the app's lifetime; closing here hides rather than destroys it.
     public sealed partial class AddBrowserWindow : Window, IThemeAware {
         private static readonly string[] FilterLabels = ["Show unavailable", "Show hidden", "Ignore assembler"];
 
@@ -47,8 +46,6 @@ namespace Foreman.Mac.Views {
         private IDisposable? loadingHold;
         private bool syncingFilters;
 
-        //Parameterless so the XAML runtime loader can find it (AVLN3001) - the caller assigns DataContext
-        //separately and OnDataContextChanged below picks it up.
         public AddBrowserWindow() {
             InitializeComponent();
 
@@ -119,8 +116,6 @@ namespace Foreman.Mac.Views {
 
             minSizeScale = new WindowMinSizeScale(this);
 
-            //IsVisible, not Closed, is this window's real open/shut signal (MainWindow hides rather than
-            //closes it); Closed below is just the backstop for a standalone instance.
             PropertyChanged += OnIsVisibleChanged;
             Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
         }
@@ -161,8 +156,6 @@ namespace Foreman.Mac.Views {
                 return;
             if (IsVisible) {
                 AppearanceHub.Current?.Subscribe(this);
-                //An appearance change made while hidden never reached this window - resync now rather
-                //than wait for the next unrelated notification.
                 RefreshTheme();
             } else {
                 RememberSize();
@@ -170,8 +163,6 @@ namespace Foreman.Mac.Views {
             }
         }
 
-        //The sidebar's measured width is the one thing this window computes in code, off live text metrics
-        //that a scale change can move; everything else is DynamicResource-bound kit chrome.
         public void RefreshTheme() {
             minSizeScale.Apply();
             UpdateSidebarWidth();
@@ -267,7 +258,6 @@ namespace Foreman.Mac.Views {
             SyncChrome(vm);
         }
 
-        //A catalogue failure leaves only Close live; a search failure only takes Add away.
         private void SyncChrome(AddBrowserViewModel vm) {
             bool catalogueFailed = vm.Failure == BrowserFailure.Catalogue;
             sidebar.IsEnabled = !catalogueFailed;
@@ -288,7 +278,6 @@ namespace Foreman.Mac.Views {
             syncingFilters = false;
         }
 
-        //Every toggle and the Reset entry change the button's count label, the one change MenuButton raises.
         private void OnFilterMenuToggled() {
             if (syncingFilters || Vm is not AddBrowserViewModel vm || filterButton.Items.Count != FilterLabels.Length)
                 return;
@@ -318,7 +307,6 @@ namespace Foreman.Mac.Views {
                 BrowserState.Error => error,
                 _ => null,
             };
-            //A retry keeps its error panel in place for the loading grace, so a quick repeat failure never blanks it.
             if (next == loadingPanel && retryFrom is not null && ReferenceEquals(grid.StateContent, retryFrom)) {
                 loadingHold ??= DispatcherTimer.RunOnce(ShowHeldLoading, Motion.StatePanelDelay);
                 return;
@@ -390,8 +378,6 @@ namespace Foreman.Mac.Views {
             }
         }
 
-        //A search reads "Group · Subgroup" through the grid's own heading runs; browsing, a link or the
-        //origins picker hand it the section's title whole.
         private void SyncGrid(AddBrowserViewModel vm) {
             string query = vm.SearchText.Trim();
             bool splitHeadings = query.Length > 0 && vm.Sections.All(s => s.Group is not null);
@@ -446,8 +432,6 @@ namespace Foreman.Mac.Views {
             UpdateSidebarWidth();
         }
 
-        //Sizes to the widest realised row (Measure at infinity), floored at BrowserSidebar and capped at
-        //BrowserSidebarMax; past the cap the row trims its own label and carries the full name as a tooltip.
         private void UpdateSidebarWidth() {
             if (Vm is null)
                 return;
@@ -477,7 +461,6 @@ namespace Foreman.Mac.Views {
                 : throw new InvalidOperationException($"AddBrowserWindow: resource '{key}' not found.");
         }
 
-        //Stashed for OnAnyPointerReleased below - the release carries no ClickCount of its own.
         private void OnAnyPointerPressed(object? sender, PointerPressedEventArgs e) {
             lastPointerClickCount = e.ClickCount;
             if (Vm is AddBrowserViewModel vm && (e.Source as Visual)?.FindAncestorOfType<SidebarRow>(includeSelf: true) is { DataContext: BrowserGroup group } row) {
@@ -486,7 +469,6 @@ namespace Foreman.Mac.Views {
             }
         }
 
-        //A recipe has no role to choose, so one click places it; the cell has already selected itself by now.
         private void OnAnyPointerReleased(object? sender, PointerReleasedEventArgs e) {
             if (e.InitialPressMouseButton != MouseButton.Left || lastPointerClickCount != 1 || !IsOnCell(e.Source))
                 return;
@@ -494,7 +476,6 @@ namespace Foreman.Mac.Views {
                 vm.PlaceSelectedRecipe();
         }
 
-        //A Recipes cell already placed on its first press - ignore the DoubleTapped that follows.
         private void OnDoubleTapped(object? sender, TappedEventArgs e) {
             if (Vm is not AddBrowserViewModel vm || !IsOnCell(e.Source) || vm.SelectedCell is null)
                 return;
@@ -517,11 +498,9 @@ namespace Foreman.Mac.Views {
             FocusGroupRow(next, NavigationMethod.Directional);
         }
 
-        //Selecting a group rebuilds the rows, so the new row is focused once the list has realised it.
         private void FocusGroupRow(int index, NavigationMethod method) =>
             Dispatcher.UIThread.Post(() => (groupsList.ContainerFromIndex(index)?.FindDescendantOfType<SidebarRow>(includeSelf: true))?.Focus(method), DispatcherPriority.Loaded);
 
-        //⌘W/Esc both hide rather than close - MainWindow owns one instance for the app's lifetime.
         protected override void OnKeyDown(KeyEventArgs e) {
             bool primary = e.KeyModifiers.HasFlag(PlatformModifiers.Primary);
             if (e.Key == Key.Escape || (e.Key == Key.W && primary)) {
@@ -538,7 +517,6 @@ namespace Foreman.Mac.Views {
             base.OnKeyDown(e);
         }
 
-        //Tunnel, so a ⌘ digit never reaches the grid: ⌘1…⌘7 are the roles' fixed positions, the rest do nothing.
         private void OnRoleShortcut(object? sender, KeyEventArgs e) {
             if (!e.KeyModifiers.HasFlag(PlatformModifiers.Primary) || e.Key is < Key.D1 or > Key.D9)
                 return;
@@ -547,8 +525,6 @@ namespace Foreman.Mac.Views {
                 vm.PickRole(e.Key - Key.D1);
         }
 
-        //Owner-close and app shutdown cascade a Closing here first - only a direct close of this window
-        //(the red button, Cmd+W's own Hide() already short-circuits before this) should cancel-and-hide.
         protected override void OnClosing(WindowClosingEventArgs e) {
             if (e.CloseReason == WindowCloseReason.WindowClosing) {
                 e.Cancel = true;

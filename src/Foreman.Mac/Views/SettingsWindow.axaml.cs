@@ -38,7 +38,6 @@ namespace Foreman.Mac.Views {
             public Preset? SelectedPreset { get; set; }
             public HashSet<IDataObjectBase> EnabledObjects { get; set; } = [];
 
-            //Set by ShowLoadFromSaveAsync on a successful load, alongside its own eager settings.json write.
             public string? LastSaveFileLocation { get; set; }
         }
 
@@ -71,7 +70,6 @@ namespace Foreman.Mac.Views {
         private readonly List<EnabledObjectsListItem> unfilteredRecipeList = [];
         private readonly List<EnabledObjectsListItem> unfilteredQualityList = [];
 
-        //Dedups baked icons by source SKBitmap reference, same intent as upstream's EnabledObjectsIconIndex.
         private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
 
         private const double FixedWidth = 520, FixedHeight = 480, MaxResizableWidth = 900, MaxResizableHeight = 760;
@@ -85,20 +83,10 @@ namespace Foreman.Mac.Views {
         //settings.json when unset, so tests can point it at a temp-directory-scoped instance instead.
         public SettingsService? SettingsService { get; set; }
 
-        //Set by MainWindow to the same live AppSettings instance SettingsSession holds - ShowLoadFromSaveAsync
-        //needs to write LastSaveFileLocation onto it directly (C1: otherwise the next debounced Session save
-        //would overwrite the just-written location with this object's stale in-memory copy).
         public AppSettings? Settings { get; set; }
 
-        //R5 live apply: set by MainWindow right after construction - EnabledObjects membership and a
-        //requested preset switch both react through it (theme/scale/resolve/save), same as every
-        //SettingsViewModel property does via SettingChanged.
         public SettingsSession? Session { get; set; }
 
-        //Picking a preset (or an import that overwrites the active one) swaps the whole live DataCache,
-        //which this window's own Enabled Objects lists are built against - MainWindow closes this window,
-        //reloads, and reopens a fresh instance in response, rather than trying to keep a stale DataCache's
-        //controls alive underneath a live reload.
         internal event Action? ReloadRequested;
         internal void RequestReload() => ReloadRequested?.Invoke();
 
@@ -133,9 +121,7 @@ namespace Foreman.Mac.Views {
             ViewModel.PropertyChanged += (_, _) => UpdateRestoreDefaults();
             tabControls = [presetsTab, enabledObjectsTab, generalTab, advancedTab, annotationsTab, appearanceTab];
 
-            //Bindings must resolve the moment a value changes, not only once a tab is actually clicked into
-            //view - DataContext otherwise only reaches a tab by inheritance once TabBody.Content attaches it,
-            //which never happens for a tab nobody has selected yet.
+            //DataContext reaches a tab by inheritance only once TabBody.Content attaches it, so an unselected tab needs it set here.
             enabledObjectsTab.DataContext = ViewModel;
             generalTab.DataContext = ViewModel;
             advancedTab.DataContext = ViewModel;
@@ -166,8 +152,6 @@ namespace Foreman.Mac.Views {
                 ApplyPaneSize();
             }
         }
-
-        //--- Pane strip -----------------------------------------------------------------------------------
 
         private void SelectTab(int index) {
             if (activeTabIndex == index)
@@ -258,7 +242,6 @@ namespace Foreman.Mac.Views {
             }
         }
 
-        //MainWindow's "Open Presets…" seam (A25 .error) - brings an already-open instance back to its first tab.
         internal void SelectPresetsPane() => SelectTab(0);
 
         internal void ShowPresetLoadFailure(string presetName) {
@@ -269,7 +252,6 @@ namespace Foreman.Mac.Views {
             presetsTab.ShowModListFailure(presetName);
         }
 
-        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
         internal TabStrip PaneStripControl => paneStrip;
         internal int ActiveTabIndex => activeTabIndex;
         internal TextBlock FooterTextControl => footerText;
@@ -285,8 +267,6 @@ namespace Foreman.Mac.Views {
         internal Settings.EnabledObjectsTab EnabledObjectsTabControl => enabledObjectsTab;
         internal Settings.PresetsTab PresetsTabControl => presetsTab;
 
-        //⌘W/Esc close this window - MainWindow tracks one instance for the app's lifetime and hands out a
-        //fresh one next time (see MainWindow.ShowSettings).
         protected override void OnKeyDown(KeyEventArgs e) {
             if (e.KeyModifiers == KeyModifiers.Meta && e.Key is >= Key.D1 and <= Key.D6) {
                 e.Handled = true;
@@ -304,9 +284,6 @@ namespace Foreman.Mac.Views {
 
         private bool closeConfirmed;
 
-        //Cancel-then-reclose (reference MainWindow.OnClosing): Session's pending 300ms coalesced save/
-        //resolve must actually run before this window is gone, not get dropped when MainWindow nulls the
-        //session out from under it on Closed.
         protected override void OnClosing(WindowClosingEventArgs e) {
             RecordPaneSize(appliedScale);
             if (!closeConfirmed && Session is not null) {
@@ -322,8 +299,6 @@ namespace Foreman.Mac.Views {
             closeConfirmed = true;
             Close();
         }
-
-        //--- Presets tab ------------------------------------------------------------------------------------
 
         private TextBlock currentPresetLabel = null!;
         private ListBox modSelectionBox = null!;
@@ -370,23 +345,17 @@ namespace Foreman.Mac.Views {
             ToolTip.SetTip(compare, canCompare ? null : "Import another preset to compare it with this one.");
         }
 
-        //Preset switch is the one thing here that isn't a plain live-apply write: it swaps the whole
-        //DataCache this window's other tabs are built against, so this window closes and MainWindow reopens
-        //a fresh one once the reload lands (RequestReload).
         private void SelectPreset(Preset preset) {
             Options.SelectedPreset = preset;
             Session?.Apply("PresetSwitch");
             RequestReload();
         }
 
-        //Test-only seam: supplies the preset file read in place of the real one.
         internal Func<Preset, Task<PresetInfo>>? PresetInfoReaderStub { get; set; }
 
-        //The latest mod-list read; an older read that lands late is ignored.
         internal Task ModListRead { get; private set; } = Task.CompletedTask;
         private int modListReadGeneration;
 
-        //PresetProcessor.ReadPresetInfo reports a damaged file as this one sentinel mod.
         private const string PresetReadErrorMod = "ERROR READING PRESET!";
 
         private void RefreshModList() => ModListRead = ReadModListAsync(++modListReadGeneration);
@@ -477,8 +446,6 @@ namespace Foreman.Mac.Views {
         private Task ShowWarningAsync(string title, string message) =>
             WarningDialogStub?.Invoke(title, message) ?? Dialogs.ShowWarningAsync(this, title, message);
 
-        //Test-only seam: lets a test drive PresetImportSheet's own seams directly instead of a real SheetHost
-        //presentation.
         internal Func<PresetImportSheet, Task>? ImportPresetDialogStub { get; set; }
 
         private async Task ShowImportPresetAsync() {
@@ -515,12 +482,10 @@ namespace Foreman.Mac.Views {
             ImportSwitchConfirmationStub?.Invoke() ?? Dialogs.ShowConfirmAsync(this, $"Switch to the new preset “{Dialogs.MiddleTruncate(preset.Name)}”?",
                 "The import is saved either way; switching reloads the open graph with this preset’s items and recipes.", "Switch Preset");
 
-        //Test-only seam: lets a test observe the real Compare Presets launch without an actual window.
         internal Func<List<Preset>, Task>? ComparePresetsDialogStub { get; set; }
 
         private PresetComparatorWindow? comparatorWindow;
 
-        //PresetComparatorWindow is non-modal too, one instance, reused/activated on a second click.
         private Task ShowComparePresetsAsync() {
             if (!presetsTab.ComparePresetsButtonControl.IsEnabled)
                 return Task.CompletedTask;
@@ -547,8 +512,6 @@ namespace Foreman.Mac.Views {
             window.Show(this);
             return Task.CompletedTask;
         }
-
-        //--- Enabled Objects tab ----------------------------------------------------------------------------
 
         private void WireEnabledObjectsTab() {
             enabledObjectsTab.LoadEnabledFromSaveButtonControl.Click += (_, _) => Async.Fire(ShowLoadFromSaveAsync(), nameof(ShowLoadFromSaveAsync));
@@ -591,8 +554,6 @@ namespace Foreman.Mac.Views {
                 : origin.OrderByDescending(o => o.Available).ThenBy(o => o.FriendlyName);
 
             foreach (T dataObject in ordered) {
-                //Reads live Enabled straight off the DataCache - no more buffered commit step, so the
-                //checkbox always reflects what the graph would actually see right now.
                 var item = new EnabledObjectsListItem(dataObject, GetOrBakeIcon(dataObject.Icon)) {
                     IsChecked = dataObject.Enabled
                 };
@@ -615,7 +576,6 @@ namespace Foreman.Mac.Views {
                 Options.EnabledObjects.Remove(item.DataObject);
             item.DataObject.Enabled = item.IsChecked;
 
-            //rocket-silo drives the synthetic RocketAssembler pseudo-entity (reference EnableAll below).
             if (item.DataObject is IAssembler { Name: "rocket-silo" })
                 Options.DCache.RocketAssembler?.Enabled = item.IsChecked;
 
@@ -639,7 +599,6 @@ namespace Foreman.Mac.Views {
             return IconBaker.SnapshotToBitmap(surface);
         }
 
-        //Ports EnableAllButton_Click (reference SettingsForm.cs:559-580), now applied live.
         private void EnableAll() {
             Options.EnabledObjects.Clear();
             if (Options.DCache.PlayerAssembler is IAssembler playerAssembler)
@@ -659,8 +618,6 @@ namespace Foreman.Mac.Views {
             ApplyEnabledObjectsLiveFromOptions();
         }
 
-        //Writes Options.EnabledObjects onto the live DataCache in bulk - used by EnableAll and the two
-        //sheets below, which both replace membership wholesale rather than one row at a time.
         private void ApplyEnabledObjectsLiveFromOptions() {
             foreach (IRecipe recipe in Options.DCache.Recipes.Values)
                 recipe.Enabled = Options.EnabledObjects.Contains(recipe);
@@ -673,9 +630,7 @@ namespace Foreman.Mac.Views {
             foreach (IQuality quality in Options.DCache.Qualities.Values)
                 quality.Enabled = Options.EnabledObjects.Contains(quality);
             Options.DCache.DefaultQuality?.Enabled = true;
-            //Unconditional, not gated on TryGetValue's own bool: a silo-less preset must still force this
-            //back to false rather than leave it at the constructor default (reference upstream fix - the
-            //old MainWindow.OpenSettingsAsync tail carried the exact same shape).
+            //Unconditional: a silo-less preset must still force this back to false.
             Options.DCache.RocketAssembler?.Enabled = Options.DCache.Assemblers.TryGetValue("rocket-silo", out IAssembler? silo) && silo?.Enabled == true;
 
             UpdateEnabledStatus();
@@ -725,7 +680,6 @@ namespace Foreman.Mac.Views {
                 ApplyEnabledObjectsLiveFromOptions();
         }
 
-        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
         internal void SimulateCurrentPresetLabelClick() => presetListBox.SelectedItem = null;
         internal void SimulateDoubleClickPreset(Preset preset) {
             presetListBox.SelectedItem = preset;

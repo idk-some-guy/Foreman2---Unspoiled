@@ -13,8 +13,6 @@ using SearchField = Foreman.Mac.Kit.Controls.SearchField;
 using Segmented = Foreman.Mac.Kit.Controls.Segmented;
 
 namespace Foreman.Mac.Views.Settings {
-    //Membership toggling and the load-from-save/science-packs/enable-all orchestration stay on SettingsWindow,
-    //which owns the live DataCache/Options this pane's rows write into.
     public partial class EnabledObjectsTab : UserControl {
         private readonly PopUp categoryPopUp;
         private readonly SearchField filterField;
@@ -104,8 +102,6 @@ namespace Foreman.Mac.Views.Settings {
         internal Button SetEnabledFromSciencePacksButtonControl => setEnabledFromSciencePacksButton;
         internal Button EnableAllButtonControl => enableAllButton;
 
-        //Ports ListView_KeyDown's Ctrl+A (reference SettingsForm.cs:344-347), Cmd on macOS/Ctrl on Linux
-        //(PlatformModifiers.Primary): tunnels ahead of ListBox's own key handling so the shortcut always wins.
         private static void WireSelectAllShortcut(ListBox list) =>
             list.AddHandler(InputElement.KeyDownEvent, (_, e) => {
                 if (e.Key == Key.A && e.KeyModifiers.HasFlag(PlatformModifiers.Primary)) {

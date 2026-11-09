@@ -3,8 +3,6 @@ using Avalonia.Markup.Xaml;
 using Foreman.Mac.Kit.Composites;
 
 namespace Foreman.Mac.Views.Settings {
-    //Every behavior here (preset selection, import, compare, delete, the mod list read) is orchestrated from
-    //SettingsWindow, which owns the window-level services (dialogs, SheetHost) this control has no business owning.
     public partial class PresetsTab : UserControl {
         private readonly TextBlock currentPresetLabel;
         private readonly ListBox modSelectionBox;

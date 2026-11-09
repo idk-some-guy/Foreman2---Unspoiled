@@ -39,7 +39,6 @@ namespace Foreman.Mac.Views.Settings {
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
         internal Segmented ThemeSegmentedControl => themeSegmented;
         internal PopUp UiScalePopUpControl => uiScalePopUp;
         internal Segmented LinkRoutingSegmentedControl => linkRoutingSegmented;

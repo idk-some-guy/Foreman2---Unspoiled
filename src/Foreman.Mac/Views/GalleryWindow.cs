@@ -57,7 +57,6 @@ namespace Foreman.Mac.Views {
             foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Canvas"))
                 tiles.Children.Add(Tile(tile.Name, tile.Build()));
 
-            //Dev-only kit primitives section: type ramp, glyph sheet, a 150% row, focus ring.
             var kitTiles = new WrapPanel { Orientation = Orientation.Horizontal, Width = TileColumnWidth };
             foreach (GalleryTile tile in registry.Tiles.Where(t => t.Family == "Kit"))
                 kitTiles.Children.Add(Tile(tile.Name, tile.Build()));
@@ -91,8 +90,6 @@ namespace Foreman.Mac.Views {
             minSizeScale.Apply();
         }
 
-        //The dev-only tile set, one registration per panel the window shows; new showcase tiles register here
-        //instead of GalleryWindow growing more inline Build* calls.
         private static GalleryRegistry BuildRegistry() {
             var registry = new GalleryRegistry();
             registry.Register(new GalleryTile("Kit", "Type ramp", "Default", BuildTypeRampTile));
@@ -178,7 +175,6 @@ namespace Foreman.Mac.Views {
             return registry;
         }
 
-        //Sample text lifted verbatim from the kit mock's type-row examples (contract #type).
         private static readonly (string Label, string Class, string Sample)[] TypeRampSteps = [
             ("Title — 20/700", "title", "Graph Summary"),
             ("Headline — 13/600", "headline", "Iron Plate Line"),
@@ -201,7 +197,6 @@ namespace Foreman.Mac.Views {
             return stack;
         }
 
-        //All 44 20 pt masters (Themes/Glyphs.axaml), named: the 37 shared glyphs and the seven canvas masters.
         private static readonly string[] GlyphSheetNames = [
             "New", "Open", "Save", "Item", "Recipe", "Connect", "Align", "Export", "Summary",
             "View", "View.Fill", "Passthrough", "Beacon", "Beacon.Fill",
@@ -227,7 +222,6 @@ namespace Foreman.Mac.Views {
             return wrap;
         }
 
-        //Multiplied values live in this container's own Resources so the Default tiles beside it don't also rescale.
         private static readonly string[] KitScaledSizeKeys = [
             "Foreman.Type.LargeTitle.FontSize", "Foreman.Type.EmphasizedBody.FontSize", "Foreman.Type.Body.FontSize",
             "Foreman.Type.Callout.FontSize", "Foreman.Type.Caption.FontSize",
@@ -347,7 +341,6 @@ namespace Foreman.Mac.Views {
             ("On", GalleryButtonState.Normal, true),
         ];
 
-        //No Theme here: a row-hosted item picks up Kit.ToolbarItem from ToolbarRow.Rebuild's own guarded apply.
         private static ToolbarItem KitToolbarItem(string glyphName, string label) {
             Application.Current!.TryGetResource($"Kit.Glyph.{glyphName}.17", null, out object? geometry);
             return new ToolbarItem { Glyph = geometry as Geometry, Label = label };
@@ -395,7 +388,6 @@ namespace Foreman.Mac.Views {
             return container;
         }
 
-        //Shared by Checkbox/Radio/Switch: the five state-grid combinations the kit mock shows for each.
         private static readonly (string Label, GalleryButtonState State, bool On)[] SelectionStates = [
             ("Normal", GalleryButtonState.Normal, false),
             ("Hover", GalleryButtonState.Hover, false),
@@ -552,7 +544,6 @@ namespace Foreman.Mac.Views {
             PopUp menuSource = KitPopUp(false, "Items / s", "Belts / s", "Power / s");
             var openRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { openExample, menuSource.Menu } };
 
-            //Optional leading icon (2026-09-17 building-picker ruling §05): Quality's badge, one colour per tier.
             PopUp withIcon = KitPopUp(false, "Normal", "Rare", "Epic");
             withIcon.SelectedItem = "Rare";
             withIcon.ItemIcons.Add(live.Art("Foreman.Color.TextTertiary"));
@@ -884,7 +875,6 @@ namespace Foreman.Mac.Views {
                     hoverItem.Classes.Add("gallery-hover");
                 if (track.Children.ElementAtOrDefault(2) is Border pressedItem)
                     pressedItem.Classes.Add("gallery-pressed");
-                //Round-trips SelectedIndex so ApplyStateColors picks up the gallery classes added above.
                 toolbar.SelectedIndex = toolbar.Items.Count - 1;
                 toolbar.SelectedIndex = 0;
                 if (track.Children.ElementAtOrDefault(toolbar.SelectedIndex) is Border selectedItem)
@@ -940,7 +930,6 @@ namespace Foreman.Mac.Views {
             return container;
         }
 
-        //Rendered directly rather than through a real hover, matching every other gallery tile's static-swatch convention.
         private static StackPanel BuildTooltipTile() {
             var shortTip = new ToolTip { Theme = KitTheme("Kit.Tooltip"), Content = "Find node — ⌘F" };
             var longTip = new ToolTip {
@@ -1088,7 +1077,6 @@ namespace Foreman.Mac.Views {
             return group;
         }
 
-        //Settings shape (contract §01): a boxed group at the 132 pt window label column.
         private static FormGroup BuildFormGroupBoxedTile() {
             FormRow direction = KitFormRow("Default node direction", KitSegmented("Up", "Down"));
             FormRow width = KitFormRow("Node width", KitStepper(140, "pt"));
@@ -1109,7 +1097,6 @@ namespace Foreman.Mac.Views {
             return KitFormGroup("Canvas", true, direction, width, opacity, smart, linkWidth);
         }
 
-        //Inspector shape (contract §01): plain rows (no well) at the 108 pt sidebar label column.
         private static StackPanel BuildFormRowsInspectorTile() {
             FormRow quality = KitFormRow("Quality", KitPopUp(false, "Normal", "High", "Ultra"), inspector: true);
             FormRow rate = KitFormRow("Rate", KitStepper(12.5, "/s"), inspector: true);
@@ -1123,7 +1110,6 @@ namespace Foreman.Mac.Views {
             };
         }
 
-        //Popover shape (contract §06.1): plain rows at the 86 pt popover label column.
         private static StackPanel BuildFormRowPopoverTile() {
             FormRow show = new() { Theme = KitTheme("Kit.FormRow"), Label = "Show", LabelColumn = FormRowLabelColumn.Popover, Content = new CheckBox { Theme = KitTheme("Kit.CheckBox") } };
             return new StackPanel {
@@ -1157,7 +1143,6 @@ namespace Foreman.Mac.Views {
             };
         }
 
-        //SearchField's loading spinner slot and Chip's owner-handoff contract.
         private static StackPanel BuildFormRowSearchAndChipTile() {
             SearchField loading = KitSearchField();
             loading.IsLoading = true;
@@ -1220,8 +1205,6 @@ namespace Foreman.Mac.Views {
             KitFormRow("Building", KitPopUp(false, "Assembler 3", "Assembler 2"), inspector: true),
         ];
 
-        //Contract §02: group 1 expanded, group 2 hovered, group 3 focused (ring on the whole header row),
-        //group 4 collapsed - a collapsed group never measures its body expanded on first layout.
         private static StackPanel BuildInspectorGroupTile() {
             InspectorGroup expanded = KitInspectorGroup("Recipe", true, RecipeGroupRows());
 
@@ -1283,7 +1266,6 @@ namespace Foreman.Mac.Views {
             "Foreman.Size.ControlGlyphGap", "Foreman.Size.GlyphMicro", "Foreman.Size.PopUpIndicator",
         ];
 
-        //SplitDividerHit is deliberately left out of the scaled-resources override - the hit area stays 5 here too.
         private static StackPanel BuildInspectorAndDividerScaledTile() {
             var container = new StackPanel { Spacing = 16 };
             foreach (string key in InspectorAndDividerScaledSizeKeys)
@@ -1330,7 +1312,6 @@ namespace Foreman.Mac.Views {
             Theme = KitTheme("Kit.PickCell"), IsSelected = selected, IsEmpty = empty, IsMissing = missing, Icon = icon, AccessibleName = name,
         };
 
-        //Addendum §03 state grid: Normal / Hover / Selected / Selected+focused / Disabled, filled then empty.
         private static StackPanel BuildPickCellStatesTile() {
             var live = new LiveColours();
             IImage art = live.Art("Foreman.Color.Accent");
@@ -1376,8 +1357,6 @@ namespace Foreman.Mac.Views {
             });
         }
 
-        //Modules (two filled, two empty, the first selected) and Beacon modules (two filled), each a
-        //PickGrid inside a Kit.FormRow control column, matching the addendum's own figure.
         private static StackPanel BuildPickGridTile() {
             var live = new LiveColours();
             IImage productivity = live.Art("Foreman.Color.Accent");
@@ -1405,9 +1384,6 @@ namespace Foreman.Mac.Views {
             return live.Track(new StackPanel { Spacing = 8, Children = { KitText("Pick grid", "caption", "tertiary"), stack } });
         }
 
-        //Choice mode (2026-09-17 building-picker ruling): a radio group of icon cells - four buildings, one
-        //unavailable and dimmed but still choosable, the third selected; a beacon row with its leading None
-        //cell selected. Matches the building-picker mock's own §02/§03 figures.
         private static StackPanel BuildPickGridChoiceTile() {
             var live = new LiveColours();
             IImage a1 = live.Art("Foreman.Color.Accent");
@@ -1443,8 +1419,6 @@ namespace Foreman.Mac.Views {
             "Foreman.Size.FormLabelColumnInspector", "Foreman.Size.ControlHeightRegular", "Foreman.Type.Callout.FontSize",
         ];
 
-        //Thickness.PickCellGap is deliberately left out of the scaled-resources override - the 2.5pt gap
-        //between cells stays 2.5pt here too (Thickness tokens do not scale, addendum §11).
         private static StackPanel BuildPickCompositesScaledTile() {
             var container = new StackPanel { Spacing = 16 };
             foreach (string key in PickCompositesScaledSizeKeys)
@@ -1461,7 +1435,6 @@ namespace Foreman.Mac.Views {
             Theme = KitTheme("Kit.ChooserCell"), IsSelected = selected, Icon = icon, Label = name, FullName = name,
         };
 
-        //Addendum §04 state grid: Normal / Hover / Selected / Selected+focused / Disabled.
         private static StackPanel BuildChooserCellStatesTile() {
             var live = new LiveColours();
             IImage art = live.Art("Foreman.Color.Accent");
@@ -1488,7 +1461,6 @@ namespace Foreman.Mac.Views {
             });
         }
 
-        //Two "Group · Subgroup" headings, matching the addendum's own search-results figure.
         private static StackPanel BuildChooserGridTile() {
             var live = new LiveColours();
             IImage plate = live.Art("Foreman.Color.Accent");
@@ -1543,7 +1515,6 @@ namespace Foreman.Mac.Views {
             return row;
         }
 
-        //Addendum §05: Scrim + Sheet frame over a mock window area, the "Export an image" sheet.
         private static Border BuildSheetFrameTile() {
             var field = new TextBox { Theme = KitTheme("Kit.TextField"), Text = "2×" };
             var content = new StackPanel { Spacing = 8, Children = { field } };
@@ -1569,7 +1540,6 @@ namespace Foreman.Mac.Views {
             });
         }
 
-        //Addendum §05: the four ButtonRow shapes, in the mock's order.
         private static StackPanel BuildButtonRowShapesTile() {
             ButtonRow oneButton = KitButtonRow(KitRowButton("Done", ButtonRowRole.Default));
             ButtonRow twoButton = KitButtonRow(KitRowButton("Cancel", ButtonRowRole.Cancel), KitRowButton("Save", ButtonRowRole.Default));
@@ -1589,7 +1559,6 @@ namespace Foreman.Mac.Views {
             return stack;
         }
 
-        //Addendum §05: a two-button destructive alert and a three-button alert (destructive leading of Cancel).
         private static StackPanel BuildAlertFramesTile() {
             AlertFrame twoButton = KitAlertFrame(
                 "Discard changes to this graph?",
@@ -1612,7 +1581,6 @@ namespace Foreman.Mac.Views {
             Theme = KitTheme("Kit.AlertFrame"), Icon = AppIconAsset(), Headline = headline, InformativeText = informative, Buttons = buttons, IsOpen = true,
         };
 
-        //The real app icon (AboutWindow renders the same asset), confirmed to decode headless.
         private static readonly Lazy<Bitmap> appIconAsset = new(() => {
             using System.IO.Stream stream = AssetLoader.Open(new Uri("avares://Foreman.Mac/Assets/unspoiled-icon-512.png"));
             return new Bitmap(stream);
@@ -1644,7 +1612,6 @@ namespace Foreman.Mac.Views {
             return container;
         }
 
-        //Anchored below the button, holding a Kit.FormGroup - the view-options checklist the popover replaces.
         private static Border BuildPopoverFrameTile() {
             var anchor = new Button { Theme = KitTheme("Kit.Button"), Content = "View options" };
 
@@ -1670,8 +1637,6 @@ namespace Foreman.Mac.Views {
             });
         }
 
-        //Anchor pinned at the top-left corner - the tail clamps to its 26pt minimum offset instead of
-        //centering under the anchor, and the frame itself clamps flush to the host's edge.
         private static Border BuildPopoverFrameCornerTile() {
             var anchor = new Button { Theme = KitTheme("Kit.Button"), Content = "•" };
             var content = new TextBlock { Theme = KitTheme("Kit.Text"), Text = "Clamped near the corner" };
@@ -1695,7 +1660,6 @@ namespace Foreman.Mac.Views {
         private static readonly string[] RadialRingGlyphKeys = ["RadialCancel", "Recipe", "Item", "RadialSource", "RadialOutput", "RadialPlant"];
         private static readonly string[] RadialRingLabels = ["Cancel", "Recipe", "Item", "Source", "Output", "Plant"];
 
-        //One armed slice (index 2, "Item") - the addendum's own worked example.
         private static Border BuildRadialRingTile() {
             var ring = new RadialRing { Theme = KitTheme("Kit.RadialRing") };
             for (int i = 0; i < RadialRingGlyphKeys.Length; i++)
@@ -1715,8 +1679,6 @@ namespace Foreman.Mac.Views {
             "Foreman.Size.ControlHeightRegular", "Foreman.Metrics.ButtonMinWidth",
         ];
 
-        //The popover's content scales with these keys; the ring row sits alongside it unscaled - it's
-        //excluded from ScaleContract entirely, so its row proves the ring stays 220 regardless.
         private static StackPanel BuildPopoverAndRadialScaledTile() {
             var container = new StackPanel { Spacing = 16 };
             foreach (string key in PopoverAndRadialScaledSizeKeys)
@@ -1728,7 +1690,6 @@ namespace Foreman.Mac.Views {
             return container;
         }
 
-        //Sample values are palette swatches, so the tiles carry no colour literal of their own.
         private static Color SwatchColor(string name, byte alpha) {
             Color rgb = ColorPopover.Swatches(allowsNone: false).Single(s => s.Name == name).Color!.Value;
             return Color.FromArgb(alpha, rgb.R, rgb.G, rgb.B);
@@ -1742,7 +1703,6 @@ namespace Foreman.Mac.Views {
             AccessibleLabel = "Fill",
         };
 
-        //The page's six well states side by side, each captioned, in a host so every live well opens its popover.
         private static PopoverHost BuildColorWellStatesTile() {
             ColorWell focused = KitColorWell("Orange");
             FocusRing.SetShowAlways(focused, true);
@@ -1764,7 +1724,6 @@ namespace Foreman.Mac.Views {
             return new PopoverHost { Width = 480, Height = 340, Children = { row } };
         }
 
-        //A Fill well opened in its host, so the popover draws the None cell, the palette and the Hex row.
         private static PopoverHost BuildColorPopoverTile() {
             ColorWell well = KitColorWell("Blue", allowsNone: true, allowsAlpha: true);
             well.Margin = new Thickness(40, 12, 0, 0);
@@ -1812,11 +1771,9 @@ namespace Foreman.Mac.Views {
                 Child = panel,
             });
 
-        //Unlike StatePanelFrame, this draws nothing: a real toolbar sits directly on its own titlebar material with no rule at either end (addendum §08 Grouping row).
         private static Border ToolbarRowFrame(Control row, double width, double height) =>
             new() { Width = width, Height = height, Child = row };
 
-        //Addendum §07: inspector no-selection (one button) beside a new-graph empty state (two buttons).
         private static StackPanel BuildStatePanelEmptyTile() {
             StatePanel inspector = KitStatePanel(StatePanelShape.Empty, "No node selected",
                 "Select a node on the canvas to edit its recipe, building and modules.",
@@ -1840,7 +1797,6 @@ namespace Foreman.Mac.Views {
             return new StackPanel { Spacing = 8, Children = { KitText("State panel — .no-results", "caption", "tertiary"), StatePanelFrame(panel, 420, 260) } };
         }
 
-        //A .compact instance is forced by giving it a region under RegionMinHeight (196pt) - the panel's own MeasureOverride decision.
         private static StackPanel BuildStatePanelLoadingTile() {
             StatePanel full = KitStatePanel(StatePanelShape.Loading, "Loading Factorio data",
                 "Reading Space Age — mod 3 of 7.", KitButtonRow(KitRowButton("Cancel", ButtonRowRole.Cancel)), progress: 0.42);
@@ -1881,7 +1837,6 @@ namespace Foreman.Mac.Views {
             return container;
         }
 
-        //Slot delegation: the state panel fills the StateContent slot the composite exposes.
         private static StackPanel BuildChooserGridNoResultsTile() {
             var grid = new ChooserGrid { Theme = KitTheme("Kit.ChooserGrid"), Width = 360, Height = 260 };
             grid.StateContent = KitStatePanel(StatePanelShape.NoResults, "No results for “beacn”",
@@ -1916,8 +1871,6 @@ namespace Foreman.Mac.Views {
             return new StackPanel { Spacing = 8, Children = { KitText("Form group — Settings pane load failure", "caption", "tertiary"), group } };
         }
 
-        //Addendum §02 states row: "Unavailable recipe -> the Recipe group renders with Kit.StatePanel.error in its body."
-        //The group's Content is a FormGroup; the state panel fills that body's own StateContent slot.
         private static StackPanel BuildInspectorGroupBodyStateTile() {
             InspectorGroup group = KitInspectorGroup("Recipe", true, []);
             var body = (FormGroup)group.Content!;
@@ -1938,7 +1891,6 @@ namespace Foreman.Mac.Views {
         private static StackPanel ZoomStepperColumn(string caption, ZoomStepper stepper) =>
             new() { Spacing = 6, Children = { KitText(caption, "caption", "tertiary"), stepper } };
 
-        //Addendum §08: the readout swaps its 42pt box for the number, a small spinner mid-solve, or an alert glyph on solve failure - the − and + stay live in every state.
         private static StackPanel BuildZoomStepperTile() {
             ZoomStepper rest = KitZoomStepper();
 
@@ -1964,7 +1916,6 @@ namespace Foreman.Mac.Views {
             return new StackPanel { Spacing = 8, Children = { KitText("Zoom stepper", "caption", "tertiary"), row } };
         }
 
-        //The stepper's hosted SolveStatus owns the error popover; it opens once the status attaches, carrying the same panel a real solve failure builds.
         private static Border BuildZoomStepperPopoverTile() {
             ZoomStepper stepper = KitZoomStepper();
             stepper.SolveStatus.ErrorContent = SolveErrorPanel.Build(new SolveFailure([1], SolveFailureReason.Unknown), () => { }, () => { });
@@ -1996,7 +1947,6 @@ namespace Foreman.Mac.Views {
             return new StackPanel { Spacing = 6, Children = { KitText(caption, "caption", "tertiary"), slot } };
         }
 
-        //Addendum §11: one 16 pt slot in three states, and the popover the triangle opens (anchored, never a sheet).
         private static StackPanel BuildSolveStatusTile() {
             var row = new StackPanel {
                 Orientation = Orientation.Horizontal, Spacing = 16,
@@ -2057,7 +2007,6 @@ namespace Foreman.Mac.Views {
             return container;
         }
 
-        //Addendum §08: title · groups · flexible gap · search · zoom, collapsing in three measured steps as the row narrows.
         private static ToolbarRow KitToolbarRow(bool searchLoading = false) {
             var row = new ToolbarRow { Theme = KitTheme("Kit.ToolbarRow"), Title = "Untitled graph" };
             row.Groups.Add(new ToolbarGroup { Role = ToolbarGroupRole.Document, Items = [KitToolbarItem("New", "New"), KitToolbarItem("Open", "Open"), KitToolbarItem("Save", "Save")] });
@@ -2113,7 +2062,6 @@ namespace Foreman.Mac.Views {
             new() { KeyText = "esc", KeyAccessibleName = "Escape", Description = "Close" },
         ];
 
-        //Addendum §09's quick-add palette: the top row is selected by default, hosted in a Kit.PopoverFrame in the real app.
         private static PalettePanel KitPalettePanel(PaletteFooterHint[] hints, params (string Name, string Kind)[] results) {
             var live = new LiveColours();
             var panel = new PalettePanel { Theme = KitTheme("Kit.PalettePanel") };
@@ -2125,7 +2073,6 @@ namespace Foreman.Mac.Views {
             return live.Track(panel);
         }
 
-        //Hosts a palette panel example in the same PopoverFrame + PopoverHost structure the real quick-add trigger opens against.
         private static Border PalettePopoverTile(PalettePanel panel, double width, double height) {
             var anchor = new Button { Theme = KitTheme("Kit.Button"), Content = "Quick Add" };
             var popover = new PopoverFrame { Theme = KitTheme("Kit.PopoverFrame"), Content = panel, Anchor = anchor };
@@ -2156,7 +2103,6 @@ namespace Foreman.Mac.Views {
             return new StackPanel { Spacing = 8, Children = { KitText("Palette panel", "caption", "tertiary"), PalettePopoverTile(panel, 320, 260) } };
         }
 
-        //Search still loading - the leading glyph has already swapped for the spinner.
         private static StackPanel BuildPalettePanelNoResultsTile() {
             PalettePanel panel = KitPalettePanel(PaletteFooterHintsCloseOnly);
             panel.NoResultsHeadline = "No matches for “beacn”";
@@ -2190,7 +2136,6 @@ namespace Foreman.Mac.Views {
             return container;
         }
 
-        //Addendum §09's welcome-window library entry.
         private static RecentRow KitRecentRow(string label, string preset, int nodes, string relative, string absolute, IBrush icon, bool unavailable = false) {
             var row = new RecentRow {
                 Theme = KitTheme("Kit.RecentRow"),
@@ -2280,9 +2225,6 @@ namespace Foreman.Mac.Views {
             return box;
         }
 
-        //Same TryGetResource(key, variant, fallback) shape as ThemeResources.ResolveColor, typed for the
-        //Thickness/CornerRadius resources - both token dictionaries define every key this calls,
-        //so a miss here means a real bug, not a themeable fallback.
         private static T Resource<T>(string key) {
             Application app = Application.Current!;
             return app.TryGetResource(key, app.ActualThemeVariant, out object? value) && value is T typed

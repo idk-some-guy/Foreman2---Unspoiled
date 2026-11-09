@@ -37,7 +37,6 @@ namespace Foreman.Mac.Views.Settings {
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
         internal Stepper QualityStepsStepperControl => qualityStepsStepper;
         internal Switch RoundAssemblerCountSwitchControl => roundAssemblerCountSwitch;
         internal PopUp AssemblerSelectorStylePopUpControl => assemblerSelectorStylePopUp;

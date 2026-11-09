@@ -94,7 +94,6 @@ namespace Foreman.Mac.Views {
         internal DataCache? LeftCache { get; private set; }
         internal DataCache? RightCache { get; private set; }
 
-        //Test-only seam: lets a test supply load outcomes without a real DataLoadWindow.
         internal Func<Preset, Task<DataLoadResult>>? LoadCacheStub { get; set; }
 
         internal static bool CanCompare(IReadOnlyCollection<Preset>? presets) => presets is { Count: >= 2 };

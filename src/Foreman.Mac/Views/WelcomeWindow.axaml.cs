@@ -171,8 +171,6 @@ namespace Foreman.Mac.Views {
                 rememberedSize = (ClientSize.Width / appliedScale, ClientSize.Height / appliedScale);
         }
 
-        //-------------------------------------------------------------------------------------------------Build
-
         private static ControlTheme KitTheme(string key) {
             Application.Current!.TryGetResource(key, null, out object? theme);
             return theme as ControlTheme ?? throw new InvalidOperationException($"WelcomeWindow: kit theme '{key}' not found.");
@@ -295,8 +293,6 @@ namespace Foreman.Mac.Views {
             group.Children.Add(new GeometryDrawing { Geometry = geometry as Geometry, Pen = new Pen(stroke, 1.5, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round) });
             return new DrawingBrush(group) { Stretch = Stretch.Uniform };
         }
-
-        //-------------------------------------------------------------------------------------------------State
 
         private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e) => ApplyState();
 
@@ -425,8 +421,6 @@ namespace Foreman.Mac.Views {
             Async.Fire(ViewModel.SelectPresetAsync(preset), nameof(WelcomeViewModel.SelectPresetAsync));
         }
 
-        //-------------------------------------------------------------------------------------------------Actions
-
         internal bool ActionsEnabled => ViewModel.ActionsEnabled;
 
         private bool menuActionRunning;
@@ -522,8 +516,6 @@ namespace Foreman.Mac.Views {
                 Async.Fire(OpenRowAsync(row), nameof(OpenRowAsync));
         }
 
-        //-------------------------------------------------------------------------------------------------Keys
-
         private void OnRecentKeyDown(object? sender, KeyEventArgs e) {
             if (SelectedRow is not { } row)
                 return;
@@ -568,8 +560,6 @@ namespace Foreman.Mac.Views {
                     break;
             }
         }
-
-        //-------------------------------------------------------------------------------------------------Test-only seams
 
         internal Border LeftPane => leftPane;
         internal Button NewGraphButton => newGraphButton;

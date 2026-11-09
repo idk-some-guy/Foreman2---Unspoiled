@@ -45,7 +45,6 @@ namespace Foreman.Mac.Views {
         private readonly TextBlock versionTextBlock;
         private readonly TextBlock taglineTextBlock;
 
-        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
         internal Image IconImageControl => appIconImage;
         internal TextBlock AppNameTextBlockControl => appNameTextBlock;
         internal TextBlock VersionTextBlockControl => versionTextBlock;

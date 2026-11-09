@@ -6,7 +6,6 @@ using System.ComponentModel;
 using PopUp = Foreman.Mac.Kit.Controls.PopUp;
 
 namespace Foreman.Mac.Views.Settings {
-    //Kit.PopUp selects by title; the view model stores the index into the same list.
     internal static class PopUpIndexBinding {
         public static void Bind(Control pane, PopUp popUp, IReadOnlyList<string> names, string property,
                 Func<SettingsViewModel, int> get, Action<SettingsViewModel, int> set) {
