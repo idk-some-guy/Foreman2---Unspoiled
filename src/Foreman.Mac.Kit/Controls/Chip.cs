@@ -45,8 +45,6 @@ namespace Foreman.Mac.Kit.Controls {
         private Border? closeHoverFill;
         private Path? closeGlyph;
         private TextBlock? label;
-        private IDisposable? labelBoundsSub;
-        private bool labelTrimmed;
         private bool closeHovering;
         private double glyphIdleOpacity = 0.75;
         private readonly List<IDisposable> subs = [];
@@ -64,7 +62,10 @@ namespace Foreman.Mac.Kit.Controls {
             closeHoverFill = e.NameScope.Find<Border>("PART_CloseHoverFill");
             closeGlyph = e.NameScope.Find<Path>("PART_CloseGlyph");
             label = e.NameScope.Find<TextBlock>("PART_Label");
-            SubscribeLabelBounds();
+            if (label is not null) {
+                TrimmedTooltip.SetHost(label, this);
+                TrimmedTooltip.SetEnabled(label, true);
+            }
             if (closeBox is not null) {
                 closeBox.PointerEntered += OnCloseEntered;
                 closeBox.PointerExited += OnCloseExited;
@@ -76,35 +77,11 @@ namespace Foreman.Mac.Kit.Controls {
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnAttachedToVisualTree(e);
             Subscribe();
-            SubscribeLabelBounds();
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnDetachedFromVisualTree(e);
             Unsubscribe();
-            labelBoundsSub?.Dispose();
-            labelBoundsSub = null;
-        }
-
-        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
-            base.OnPropertyChanged(change);
-            if (change.Property == LabelProperty)
-                ApplyTrimmedTip();
-        }
-
-        //The label only reports its trim after arrange, so the tip follows the label's arranged bounds.
-        private void SubscribeLabelBounds() {
-            labelBoundsSub?.Dispose();
-            labelBoundsSub = label?.GetObservable(BoundsProperty).Subscribe(new BoundsObserver(_ => {
-                labelTrimmed = label!.TextLayout.TextLines.Any(l => l.HasCollapsed);
-                ApplyTrimmedTip();
-            }));
-        }
-
-        private void ApplyTrimmedTip() {
-            string? tip = labelTrimmed ? Label : null;
-            if (!Equals(ToolTip.GetTip(this), tip))
-                ToolTip.SetTip(this, tip);
         }
 
         private void Subscribe() {
@@ -184,12 +161,6 @@ namespace Foreman.Mac.Kit.Controls {
         }
 
         protected override AutomationPeer OnCreateAutomationPeer() => new ChipAutomationPeer(this);
-
-        private sealed class BoundsObserver(Action<Rect> onNext) : IObserver<Rect> {
-            public void OnNext(Rect value) => onNext(value);
-            public void OnError(Exception error) { }
-            public void OnCompleted() { }
-        }
 
         private sealed class ChipAutomationPeer(Chip owner) : ControlAutomationPeer(owner) {
             protected override string? GetNameCore() => base.GetNameCore() is { Length: > 0 } name ? name : owner.Label;

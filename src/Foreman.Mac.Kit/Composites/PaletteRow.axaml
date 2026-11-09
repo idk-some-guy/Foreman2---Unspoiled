@@ -1,7 +1,8 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:kit="using:Foreman.Mac.Kit.Composites"
-                    xmlns:m="using:Foreman.Mac.Kit">
+                    xmlns:m="using:Foreman.Mac.Kit"
+                    xmlns:ctrl="using:Foreman.Mac.Kit.Controls">
 
   <ControlTheme x:Key="Kit.PaletteRow" TargetType="kit:PaletteRow">
     <Setter Property="Height" Value="{DynamicResource Foreman.Size.ListRowHeight}" />
@@ -39,7 +40,8 @@
                          Text="{TemplateBinding Label}"
                          FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
                          VerticalAlignment="Center"
-                         TextTrimming="CharacterEllipsis" />
+                         TextTrimming="CharacterEllipsis"
+                         ctrl:TrimmedTooltip.Enabled="True" />
               <TextBlock x:Name="PART_Kind"
                          Grid.Column="2"
                          Text="{TemplateBinding Kind}"

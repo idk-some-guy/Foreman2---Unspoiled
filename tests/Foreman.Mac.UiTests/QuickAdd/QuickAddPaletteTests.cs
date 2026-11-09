@@ -5,7 +5,9 @@ using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.DataCaching.DataTypes;
@@ -20,6 +22,7 @@ using Foreman.Mac.Views.QuickAdd;
 using Foreman.Models;
 using Foreman.Mac.UiTests.support;
 using SkiaSharp;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
@@ -60,6 +63,79 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.MoveAndClickAt(fx.Control.OpenRadial!.Ring.Bounds.Center + new AvaloniaVector(0, -64));
             Dispatcher.UIThread.RunJobs();
             return fx.Control.OpenPalette!;
+        }
+
+        private static HashSet<Color> TokenColours(ThemeVariant variant) {
+            var kit = new ResourceInclude(new Uri("avares://Foreman.Mac.Kit/")) { Source = new Uri("avares://Foreman.Mac.Kit/Kit.axaml") };
+            var provider = (kit.Loaded as IResourceDictionary)!.ThemeDictionaries[variant];
+            IResourceDictionary dictionary = provider is ResourceInclude include ? include.Loaded : (IResourceDictionary)provider;
+            HashSet<Color> colours = [];
+            foreach (string key in dictionary.Keys.Cast<string>().Where(k => k.StartsWith("Foreman.Color.", StringComparison.Ordinal))) {
+                Application.Current!.TryGetResource(key, variant, out object? value);
+                if (value is ISolidColorBrush brush)
+                    colours.Add(brush.Color);
+                else if (value is Color colour)
+                    colours.Add(colour);
+            }
+            return colours;
+        }
+
+        private static List<(Control Owner, string Property, Color Colour)> ShownBrushes(Control root) {
+            List<(Control, string, Color)> brushes = [];
+            void Add(Control owner, string property, IBrush? brush) {
+                if (brush is ISolidColorBrush solid)
+                    brushes.Add((owner, property, solid.Color));
+            }
+            foreach (Visual visual in root.GetVisualDescendants().Prepend(root)) {
+                switch (visual) {
+                    case Border border:
+                        Add(border, "Background", border.Background);
+                        Add(border, "BorderBrush", border.BorderBrush);
+                        break;
+                    case TextBlock text:
+                        Add(text, "Foreground", text.Foreground);
+                        break;
+                    case Avalonia.Controls.Shapes.Shape shape:
+                        Add(shape, "Fill", shape.Fill);
+                        Add(shape, "Stroke", shape.Stroke);
+                        break;
+                    case Panel panel:
+                        Add(panel, "Background", panel.Background);
+                        break;
+                }
+            }
+            return brushes;
+        }
+
+        [AvaloniaFact]
+        public void AnAppearanceSwitchWhileOpen_RepaintsEveryBrushThePaletteShows() {
+            var app = (App)Application.Current!;
+            ThemeVariant? previous = app.RequestedThemeVariant;
+            try {
+                app.RequestedThemeVariant = ThemeVariant.Light;
+                using var fx = CanvasFixture.WithVanilla();
+                fx.Control.AddItemAsync(new DrawingPoint(300, 200));
+                Dispatcher.UIThread.RunJobs();
+                QuickAddPalette palette = fx.Control.OpenPalette!;
+                palette.Search.Text = "iron";
+                Dispatcher.UIThread.RunJobs();
+                List<(Control Owner, string Property, Color Colour)> light = ShownBrushes(palette);
+                Assert.True(light.Count >= 10, $"only {light.Count} brushes found");
+
+                app.RequestedThemeVariant = ThemeVariant.Dark;
+                Dispatcher.UIThread.RunJobs();
+                List<(Control Owner, string Property, Color Colour)> dark = ShownBrushes(palette);
+
+                HashSet<Color> lightTokens = TokenColours(ThemeVariant.Light);
+                HashSet<Color> darkTokens = TokenColours(ThemeVariant.Dark);
+                lightTokens.ExceptWith(darkTokens);
+                Assert.NotEmpty(lightTokens);
+                Assert.Empty(dark.Where(b => lightTokens.Contains(b.Colour)).Select(b => $"{b.Owner.GetType().Name}.{b.Property} {b.Colour}"));
+                Assert.NotEqual(light.Select(b => b.Colour), dark.Select(b => b.Colour));
+                Assert.Contains(dark, b => TokenColours(ThemeVariant.Dark).Contains(b.Colour));
+            } finally {
+                app.RequestedThemeVariant = previous;
+            }
         }
 
         [AvaloniaFact]

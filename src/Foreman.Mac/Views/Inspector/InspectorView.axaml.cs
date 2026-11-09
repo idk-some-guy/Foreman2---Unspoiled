@@ -71,6 +71,7 @@ namespace Foreman.Mac.Views.Inspector {
             identityIcon = this.FindControl<Image>("IdentityIcon")!;
             identityName = this.FindControl<TextBlock>("IdentityName")!;
             identitySubtitle = this.FindControl<TextBlock>("IdentitySubtitle")!;
+            TrimmedTooltip.SetEnabled(identitySubtitle, true);
             qualityRow = this.FindControl<StackPanel>("QualityRow")!;
             qualityMiniSelect = this.FindControl<PopUp>("QualityMiniSelect")!;
             qualityMiniSelect.Command = new RelayCommand<string>(PickQualityByName);
@@ -161,7 +162,6 @@ namespace Foreman.Mac.Views.Inspector {
             (string name, string subtitle, SKBitmap? icon) = Describe(node);
             identityName.Text = name;
             identitySubtitle.Text = subtitle;
-            ToolTip.SetTip(identitySubtitle, subtitle);
             identityIcon.Source = icon is null ? null : GetOrBakeIcon(icon);
             //The grid deliberately has no visible label (2026-09-17 building-picker ruling) - the building
             //is spoken on focus of this row instead, without the user hunting for the grid. The sub-line is

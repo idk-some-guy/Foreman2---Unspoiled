@@ -24,7 +24,7 @@
             </Panel>
             <TextBlock x:Name="PART_Headline" Theme="{StaticResource Kit.Text}" Classes="headline"
                        HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="NoWrap"
-                       TextTrimming="CharacterEllipsis" Margin="0,12,0,0" />
+                       TextTrimming="CharacterEllipsis" Margin="0,12,0,0" ctrl:TrimmedTooltip.Enabled="True" />
             <TextBlock x:Name="PART_Sentence" Theme="{StaticResource Kit.Text}" Classes="callout secondary"
                        HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxLines="3"
                        MaxWidth="{DynamicResource Foreman.Metrics.StatePanelSentenceMaxWidth}" LineHeight="{DynamicResource Foreman.Type.Callout.LineHeight}" Margin="0,4,0,0"

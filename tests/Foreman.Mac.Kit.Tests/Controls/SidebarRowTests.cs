@@ -239,7 +239,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Contains(label.TextLayout.TextLines, l => l.HasCollapsed);
             double labelRight = label.TranslatePoint(new Point(label.Bounds.Width, 0), row)!.Value.X;
             Assert.True(labelRight <= row.Bounds.Width + 0.5, $"label right edge {labelRight} past the row's {row.Bounds.Width}");
-            Assert.Equal(LongLabel, ToolTip.GetTip(row));
+            Assert.Equal(LongLabel, ToolTip.GetTip(row)?.ToString());
         }
 
         [AvaloniaFact]
@@ -255,7 +255,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         public void Tooltip_FollowsTheTrim_WhenTheSidebarWidens() {
             using var fixture = new KitFixture();
             SidebarRow row = HostedAt(fixture, LongLabel, 160);
-            Assert.Equal(LongLabel, ToolTip.GetTip(row));
+            Assert.Equal(LongLabel, ToolTip.GetTip(row)?.ToString());
 
             ((Border)fixture.Window.Content!).Width = 1200;
             Dispatcher.UIThread.RunJobs();
@@ -272,7 +272,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             row.Label = LongLabel;
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(LongLabel, ToolTip.GetTip(row));
+            Assert.Equal(LongLabel, ToolTip.GetTip(row)?.ToString());
             Assert.Equal(width, row.Bounds.Width);
 
             row.Label = "Ore";
@@ -282,10 +282,21 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void TrimmedLabel_IsNotReadTwiceByVoiceOver() {
+            using var fixture = new KitFixture();
+            SidebarRow row = HostedAt(fixture, LongLabel, 160);
+            Assert.Equal(LongLabel, ToolTip.GetTip(row)?.ToString());
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(row);
+            Assert.Equal(LongLabel, peer.GetName());
+            Assert.NotEqual(peer.GetName(), peer.GetHelpText());
+        }
+
+        [AvaloniaFact]
         public void AccessibleName_IsTheFullLabel_WhileTrimmed() {
             using var fixture = new KitFixture();
             SidebarRow row = HostedAt(fixture, LongLabel, 160);
-            Assert.Equal(LongLabel, ToolTip.GetTip(row));
+            Assert.Equal(LongLabel, ToolTip.GetTip(row)?.ToString());
 
             AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(row);
             Assert.Equal(LongLabel, peer.GetName());

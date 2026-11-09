@@ -392,16 +392,29 @@ namespace Foreman.Mac.UiTests.Views {
             };
             WelcomeWindow window = env.Open();
             Assert.False(window.LoadingStrip.IsVisible);
+            var heights = new List<double>();
+            var opacities = new List<double>();
+            window.LoadingStrip.PropertyChanged += (_, e) => {
+                if (e.Property == Avalonia.Layout.Layoutable.HeightProperty)
+                    heights.Add((double)e.NewValue!);
+                else if (e.Property == Visual.OpacityProperty)
+                    opacities.Add((double)e.NewValue!);
+            };
 
             window.PresetList.SelectedIndex = 2;
             Dispatcher.UIThread.RunJobs();
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(window.LoadingStrip.IsVisible);
-            double halfwayHeight = HeightAfter(75, window.LoadingStrip);
-            AnimationClock.Settle();
+            AssertStripTransitions(window.LoadingStrip);
+            AnimationClock.UntilExpanded(window.LoadingStrip);
             double fullHeight = window.LoadingStrip.Bounds.Height;
-            Assert.InRange(halfwayHeight, 0.01, fullHeight - 0.01);
+            Assert.True(fullHeight > 0);
+            Assert.Equal(0, heights[0]);
+            Assert.Equal(0, opacities[0]);
+            Assert.Contains(heights, h => h > 0 && h < fullHeight);
+            Assert.Contains(opacities, o => o > 0 && o < 1);
+            Assert.Equal(1, opacities[^1]);
             Assert.EndsWith("reading icons (1 of 3).", window.LoadingSentence.Text);
             Assert.StartsWith("Loading “Krastorio 2”: ", window.LoadingSentence.Text);
             Assert.NotNull(window.LoadingBar);
@@ -412,10 +425,22 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.NotEmpty(window.RecentRows);
             Assert.Equal(WelcomeLoadPhase.Loading, window.ViewModel.Phase);
 
+            heights.Clear();
+            opacities.Clear();
             Click(window.CancelButton);
-            double collapsingHeight = HeightAfter(75, window.LoadingStrip);
-            Assert.InRange(collapsingHeight, 0.01, fullHeight - 0.01);
-            AnimationClock.Settle();
+            AssertStripTransitions(window.LoadingStrip);
+            AnimationClock.UntilHidden(window.LoadingStrip);
+            Assert.Equal(fullHeight, heights[0]);
+            //The target 0 is reported before the transition's first frame.
+            int first = heights.FindIndex(h => h > 0 && h < fullHeight);
+            Assert.True(first > 0);
+            Assert.All(heights.Take(first), h => Assert.True(h == fullHeight || h == 0, $"height {h} before the first drawn frame"));
+            for (int i = first + 1; i < heights.Count; i++)
+                Assert.True(heights[i] <= heights[i - 1], $"height rose from {heights[i - 1]} to {heights[i]}");
+            Assert.Contains(heights, h => h > 0 && h < fullHeight);
+            Assert.True(heights[^1] < fullHeight / 2);
+            Assert.Contains(opacities, o => o > 0 && o < 1);
+            Assert.True(opacities[^1] < 0.5);
 
             Assert.Equal(WelcomeLoadOutcome.Cancelled, window.ViewModel.LastOutcome);
             Assert.Equal(WelcomeLoadPhase.Idle, window.ViewModel.Phase);
@@ -435,9 +460,13 @@ namespace Foreman.Mac.UiTests.Views {
             }
         }
 
-        private static double HeightAfter(int milliseconds, Control strip) {
-            AnimationClock.Settle(milliseconds);
-            return strip.Bounds.Height;
+        private static void AssertStripTransitions(Control strip) {
+            var height = strip.Transitions!.OfType<Avalonia.Animation.DoubleTransition>().Single(t => t.Property == Avalonia.Layout.Layoutable.HeightProperty);
+            var opacity = strip.Transitions!.OfType<Avalonia.Animation.DoubleTransition>().Single(t => t.Property == Visual.OpacityProperty);
+            Assert.Equal(Motion.DisclosureDuration, height.Duration);
+            Assert.Equal(Motion.DisclosureDuration, opacity.Duration);
+            Assert.IsType(Motion.EntranceEasing.GetType(), height.Easing);
+            Assert.IsType(Motion.EntranceEasing.GetType(), opacity.Easing);
         }
 
         [AvaloniaFact]

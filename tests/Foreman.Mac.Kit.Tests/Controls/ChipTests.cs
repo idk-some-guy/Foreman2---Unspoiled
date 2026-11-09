@@ -286,7 +286,7 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(TextTrimming.CharacterEllipsis, label.TextTrimming);
             Assert.Equal(1, label.MaxLines);
             Assert.Contains(label.TextLayout.TextLines, l => l.HasCollapsed);
-            Assert.Equal(LongLabel, ToolTip.GetTip(chip));
+            Assert.Equal(LongLabel, ToolTip.GetTip(chip)?.ToString());
             Assert.False(ToolTip.GetServiceEnabled(CloseBox(chip)));
             Assert.False(chip.Resources.ContainsKey(typeof(ToolTip)));
             Assert.True(Application.Current!.TryGetResource(typeof(ToolTip), null, out object? tipTheme));
@@ -312,11 +312,22 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             chip.Label = LongLabel + " Two";
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(LongLabel + " Two", ToolTip.GetTip(chip));
+            Assert.Equal(LongLabel + " Two", ToolTip.GetTip(chip)?.ToString());
 
             chip.Label = "Iron Plate";
             Dispatcher.UIThread.RunJobs();
             Assert.Null(ToolTip.GetTip(chip));
+        }
+
+        [AvaloniaFact]
+        public void TrimmedLabel_IsNotReadTwiceByVoiceOver() {
+            using var fixture = new KitFixture();
+            Chip chip = HostedAt256(fixture, LongLabel);
+            Assert.Equal(LongLabel, ToolTip.GetTip(chip)?.ToString());
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(chip);
+            Assert.Equal(LongLabel, peer.GetName());
+            Assert.NotEqual(peer.GetName(), peer.GetHelpText());
         }
 
         [AvaloniaFact]

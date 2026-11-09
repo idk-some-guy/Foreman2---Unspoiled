@@ -680,7 +680,9 @@ namespace Foreman.Mac.UiTests.Inspector {
             string building = node.SelectedAssembler.Assembler.FriendlyName;
             Assert.Equal($"Recipe node · {building}", subtitle.Text);
             Assert.Equal(Avalonia.Media.TextTrimming.CharacterEllipsis, subtitle.TextTrimming);
-            Assert.Equal(subtitle.Text, ToolTip.GetTip(subtitle));
+            subtitle.MaxWidth = 40;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(subtitle.Text, ToolTip.GetTip(subtitle)?.ToString());
 
             IQuality? higher = cache.DefaultQuality!.NextQuality;
             Assert.NotNull(higher);
@@ -689,7 +691,31 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal($"Recipe node · {building} ({higher!.FriendlyName})", subtitle.Text);
-            Assert.Equal(subtitle.Text, ToolTip.GetTip(subtitle));
+            Assert.Equal(subtitle.Text, ToolTip.GetTip(subtitle)?.ToString());
+        }
+
+        [AvaloniaFact]
+        public async Task Inspector_TrimmedIdentitySubtitle_IsNotReadTwiceByVoiceOver() {
+            DataCache cache = await InspectorTestSupport.GetSpaceAgeCacheAsync();
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.ApplyLoadedSettings();
+            window.GraphCanvas.Viewer.Context.DCache = cache;
+            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
+            var pair = new RecipeQualityPair(cache.Recipes["iron-plate"], cache.DefaultQuality!);
+            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(pair, new System.Drawing.Point(0, 0));
+            Dispatcher.UIThread.RunJobs();
+            InspectorTestSupport.Select(window, window.GraphCanvas.Viewer.Session.View.Nodes.Single());
+
+            TextBlock subtitle = window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!;
+            subtitle.MaxWidth = 40;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.NotNull(ToolTip.GetTip(subtitle));
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(subtitle);
+            Assert.False(string.IsNullOrEmpty(peer.GetName()));
+            Assert.NotEqual(peer.GetName(), peer.GetHelpText());
         }
 
         //The grid deliberately has no visible label (2026-09-17 building-picker ruling) - the building is

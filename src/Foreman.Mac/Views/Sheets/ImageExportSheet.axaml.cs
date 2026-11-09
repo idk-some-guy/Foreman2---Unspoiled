@@ -76,8 +76,7 @@ namespace Foreman.Mac.Views.Sheets {
             scaleSelectionBox.SelectedItem = MultiplierNames[DefaultScaleIndex];
             UpdateSizeLabel();
             ShowSavePath();
-            TooltipWhenTrimmed(savePathLabel, () => savePath.Length > 0);
-            TooltipWhenTrimmed(imageSizeLabel, () => true);
+            TrimmedTooltip.SetEnabled(imageSizeLabel, true);
 
             browseButton.Click += (_, _) => Async.Fire(BrowseAsync(), nameof(BrowseAsync));
             cancelButton.Click += (_, _) => Cancel();
@@ -111,6 +110,7 @@ namespace Foreman.Mac.Views.Sheets {
             bool chosen = savePath.Length > 0;
             savePathLabel.Text = chosen ? HomeRelative(savePath) : "Not chosen";
             savePathLabel.Classes.Set("tertiary", !chosen);
+            TrimmedTooltip.SetEnabled(savePathLabel, chosen);
         }
 
         private static string HomeRelative(string path) {
@@ -119,14 +119,6 @@ namespace Foreman.Mac.Views.Sheets {
                 return "~" + path[home.Length..];
             return path;
         }
-
-        //The full text is the tooltip only while the label is trimmed; a tooltip never feeds back into layout.
-        private static void TooltipWhenTrimmed(TextBlock label, Func<bool> hasTip) => label.LayoutUpdated += (_, _) => {
-            using var full = new TextLayout(label.Text, new Typeface(label.FontFamily, label.FontStyle, label.FontWeight), label.FontSize, null);
-            string? tip = hasTip() && full.WidthIncludingTrailingWhitespace > label.Bounds.Width + 0.5 ? label.Text : null;
-            if (!Equals(ToolTip.GetTip(label), tip))
-                ToolTip.SetTip(label, tip);
-        };
 
         private async Task<string?> RealPickSaveImagePathAsync() {
             if (TopLevel.GetTopLevel(this)?.StorageProvider is not IStorageProvider storage)

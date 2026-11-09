@@ -41,6 +41,12 @@ namespace Foreman.Mac.UiTests.support {
             Until(panel, () => IsOpen(panel), "The sheet never finished opening.");
         }
 
+        public static void UntilExpanded(Control strip) =>
+            Until(strip, () => strip.Opacity >= 1 && double.IsNaN(strip.Height), "The strip never finished expanding.");
+
+        public static void UntilHidden(Control strip) =>
+            Until(strip, () => !strip.IsVisible, "The strip never finished collapsing.");
+
         public static void UntilFadedIn(Visual strip) =>
             Until(strip, () => strip.Opacity >= 1, "The state strip never finished fading in.");
 

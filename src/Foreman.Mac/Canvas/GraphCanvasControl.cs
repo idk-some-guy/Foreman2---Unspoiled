@@ -108,8 +108,6 @@ namespace Foreman.Mac.Canvas {
         static GraphCanvasControl() {
             PanProgressProperty.Changed.AddClassHandler<GraphCanvasControl>((c, e) => c.OnPanProgress(e.GetNewValue<double>()));
             PlacementFlashProgressProperty.Changed.AddClassHandler<GraphCanvasControl>((c, e) => c.OnPlacementFlashProgress(e.GetNewValue<double>()));
-            LabelFadeProgressProperty.Changed.AddClassHandler<GraphCanvasControl>((c, e) => c.OnLabelFadeProgress(e.GetNewValue<double>()));
-            AlignProgressProperty.Changed.AddClassHandler<GraphCanvasControl>((c, e) => c.OnAlignProgress(e.GetNewValue<double>()));
         }
 
         public GraphCanvasControl() {
@@ -553,6 +551,12 @@ namespace Foreman.Mac.Canvas {
             if (OpenPalette is not null && paletteScreenAnchor is null)
                 paletteFrame.AnchorPoint = Viewport.GraphToScreen(paletteGraphAnchor);
             InvalidateVisual();
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
+            base.OnAttachedToVisualTree(e);
+            if (labelFade is not null || alignTween is not null)
+                QueueMotionFrame();
         }
 
         //Viewer/Grid are disposed here and nowhere else: calling it from outside this control would be an
@@ -1195,59 +1199,31 @@ namespace Foreman.Mac.Canvas {
             return (next, placed);
         }
 
-        //---- node motion (§01): count/rate cross-fade and the Align tween, on the same animation clock as the placement flash ----
+        //---- node motion (§01): count/rate cross-fade and the Align tween ----
 
-        internal static readonly StyledProperty<double> LabelFadeProgressProperty =
-            AvaloniaProperty.Register<GraphCanvasControl, double>("LabelFadeProgress");
-        internal static readonly StyledProperty<double> AlignProgressProperty =
-            AvaloniaProperty.Register<GraphCanvasControl, double>("AlignProgress");
+        internal Func<TimeSpan> MotionClock { get; set; } = () => System.Diagnostics.Stopwatch.GetElapsedTime(0);
 
-        private CancellationTokenSource? labelFadeCancellation;
-        private CancellationTokenSource? alignCancellation;
+        private ProgressTween? labelFade;
+        private ProgressTween? alignTween;
+        private bool motionFrameQueued;
+
+        internal bool MotionFrameQueued => motionFrameQueued;
         private IReadOnlyList<GraphViewer.AlignMove>? alignMoves;
 
         //One solve changes many nodes at once; they share a single fade that each change restarts.
         private void StartLabelFade() {
             if (KitMotion.ReduceMotion)
                 return;
-            if (labelFadeCancellation is not null && Viewer.Context.LabelFadeProgress <= 0)
+            if (labelFade is not null && Viewer.Context.LabelFadeProgress <= 0)
                 return;
-            labelFadeCancellation?.Cancel();
-            var cancellation = new CancellationTokenSource();
-            labelFadeCancellation = cancellation;
+            labelFade = new ProgressTween(MotionClock, KitMotion.TabLabelCrossFadeDuration, KitMotion.CrossFadeEasing);
             Viewer.Context.LabelFadeGeneration++;
             Viewer.Context.LabelFadeProgress = 0;
-            _ = RunLabelFade(cancellation);
-        }
-
-        private async Task RunLabelFade(CancellationTokenSource cancellation) {
-            var clock = new Animation {
-                Duration = KitMotion.TabLabelCrossFadeDuration,
-                Easing = KitMotion.CrossFadeEasing,
-                Children = {
-                    new KeyFrame { Cue = new Cue(0), Setters = { new Avalonia.Styling.Setter(LabelFadeProgressProperty, 0d) } },
-                    new KeyFrame { Cue = new Cue(1), Setters = { new Avalonia.Styling.Setter(LabelFadeProgressProperty, 1d) } },
-                },
-            };
-            try {
-                await clock.RunAsync(this, cancellation.Token);
-            } catch (OperationCanceledException) {
-                return;
-            }
-            if (!cancellation.IsCancellationRequested && labelFadeCancellation == cancellation)
-                EndLabelFade();
-        }
-
-        private void OnLabelFadeProgress(double progress) {
-            if (labelFadeCancellation is null)
-                return;
-            Viewer.Context.LabelFadeProgress = progress;
-            RequestRedraw();
+            QueueMotionFrame();
         }
 
         private void EndLabelFade() {
-            labelFadeCancellation?.Cancel();
-            labelFadeCancellation = null;
+            labelFade = null;
             Viewer.Context.LabelFadeProgress = 1;
             RequestRedraw();
         }
@@ -1264,39 +1240,39 @@ namespace Foreman.Mac.Canvas {
                 return;
             }
             alignMoves = moves;
-            var cancellation = new CancellationTokenSource();
-            alignCancellation = cancellation;
-            _ = RunAlign(cancellation);
+            alignTween = new ProgressTween(MotionClock, KitMotion.AlignTweenDuration, KitMotion.EntranceEasing);
+            QueueMotionFrame();
         }
 
-        private async Task RunAlign(CancellationTokenSource cancellation) {
-            var tween = new Animation {
-                Duration = KitMotion.AlignTweenDuration,
-                Easing = KitMotion.EntranceEasing,
-                Children = {
-                    new KeyFrame { Cue = new Cue(0), Setters = { new Avalonia.Styling.Setter(AlignProgressProperty, 0d) } },
-                    new KeyFrame { Cue = new Cue(1), Setters = { new Avalonia.Styling.Setter(AlignProgressProperty, 1d) } },
-                },
-            };
-            try {
-                await tween.RunAsync(this, cancellation.Token);
-            } catch (OperationCanceledException) {
+        private void QueueMotionFrame() {
+            if (motionFrameQueued || TopLevel.GetTopLevel(this) is not { } top)
                 return;
+            motionFrameQueued = true;
+            top.RequestAnimationFrame(_ => TickMotion());
+        }
+
+        internal void TickMotion() {
+            motionFrameQueued = false;
+            if (labelFade is { } fade) {
+                Viewer.Context.LabelFadeProgress = fade.Progress;
+                RequestRedraw();
+                if (fade.Done)
+                    EndLabelFade();
             }
-            if (!cancellation.IsCancellationRequested && alignCancellation == cancellation)
-                FinishAlign();
-        }
-
-        private void OnAlignProgress(double progress) {
-            if (alignMoves is not { } moves)
-                return;
-            Viewer.ApplyAlign(moves, progress, notify: false);
-            RequestRedraw();
+            if (alignTween is { } tween && alignMoves is { } moves) {
+                if (tween.Done)
+                    FinishAlign();
+                else {
+                    Viewer.ApplyAlign(moves, tween.Progress, notify: false);
+                    RequestRedraw();
+                }
+            }
+            if (labelFade is not null || alignTween is not null)
+                QueueMotionFrame();
         }
 
         private void FinishAlign() {
-            alignCancellation?.Cancel();
-            alignCancellation = null;
+            alignTween = null;
             if (alignMoves is not { } moves)
                 return;
             alignMoves = null;

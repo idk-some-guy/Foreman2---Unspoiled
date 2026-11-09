@@ -258,7 +258,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             var label = win.GetVisualDescendants().OfType<TextBlock>()
                 .First(t => t.DataContext is BrowserGroup g && g.Name == longName);
             Assert.Equal(TextTrimming.CharacterEllipsis, label.TextTrimming);
-            Assert.Equal(longName, ToolTip.GetTip(label.FindAncestorOfType<SidebarRow>()!));
+            Assert.Equal(longName, ToolTip.GetTip(label.FindAncestorOfType<SidebarRow>()!)?.ToString());
         }
 
         //A name landing strictly between the floor and the cap must still fit uncrimped.
@@ -317,14 +317,14 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             var label = win.GetVisualDescendants().OfType<TextBlock>()
                 .First(t => t.DataContext is BrowserGroup g && g.Name == longName);
-            Assert.Equal(longName, ToolTip.GetTip(label.FindAncestorOfType<SidebarRow>()!));
+            Assert.Equal(longName, ToolTip.GetTip(label.FindAncestorOfType<SidebarRow>()!)?.ToString());
 
             vm.ShowUnavailable = true;
             Dispatcher.UIThread.RunJobs();
 
             label = win.GetVisualDescendants().OfType<TextBlock>()
                 .First(t => t.DataContext is BrowserGroup g && g.Name == longName);
-            Assert.Equal(longName, ToolTip.GetTip(label.FindAncestorOfType<SidebarRow>()!));
+            Assert.Equal(longName, ToolTip.GetTip(label.FindAncestorOfType<SidebarRow>()!)?.ToString());
         }
 
         [AvaloniaFact]

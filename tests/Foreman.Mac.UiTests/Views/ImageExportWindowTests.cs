@@ -405,7 +405,7 @@ namespace Foreman.Mac.UiTests.Views {
             sheet.SavePath = LongPathUnderHome();
             AnimationClock.Settle();
             Assert.StartsWith("~/", label.Text);
-            Assert.Equal(label.Text, ToolTip.GetTip(label));
+            Assert.Equal(label.Text, ToolTip.GetTip(label)?.ToString());
 
             Assert.Equal("Choose where to save the image.", Avalonia.Automation.AutomationProperties.GetHelpText(sheet.BrowseButtonControl));
             Assert.Equal(ImageExportSheet.SavePanelTitle, sheet.Title);

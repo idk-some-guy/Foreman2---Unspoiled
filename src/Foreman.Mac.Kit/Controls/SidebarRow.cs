@@ -106,6 +106,10 @@ namespace Foreman.Mac.Kit.Controls {
             selectionFill = e.NameScope.Find<Border>("PART_SelectionFill");
             iconRow = e.NameScope.Find<DockPanel>("PART_IconRow");
             labelText = e.NameScope.Find<TextBlock>("PART_Label");
+            if (labelText is not null) {
+                TrimmedTooltip.SetHost(labelText, this);
+                TrimmedTooltip.SetEnabled(labelText, true);
+            }
             glyphPath = e.NameScope.Find<Path>("PART_Glyph");
             iconWell = e.NameScope.Find<Border>("PART_IconWell");
             ApplyIconSlot();
@@ -124,16 +128,6 @@ namespace Foreman.Mac.Kit.Controls {
                 glyphPath.IsVisible = Icon is null;
             if (iconWell is not null)
                 iconWell.IsVisible = Icon is not null;
-        }
-
-        //The label only reports its trim once arranged, and a new label at the same width moves no bounds.
-        protected override Size ArrangeOverride(Size finalSize) {
-            Size arranged = base.ArrangeOverride(finalSize);
-            bool trimmed = labelText is not null && labelText.TextLayout.TextLines.Any(l => l.HasCollapsed);
-            string? tip = trimmed ? Label : null;
-            if (!Equals(ToolTip.GetTip(this), tip))
-                ToolTip.SetTip(this, tip);
-            return arranged;
         }
 
         protected override AutomationPeer OnCreateAutomationPeer() => new SidebarRowAutomationPeer(this);

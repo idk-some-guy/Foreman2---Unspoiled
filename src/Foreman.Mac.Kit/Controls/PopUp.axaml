@@ -40,6 +40,7 @@
                            FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
                            Foreground="{DynamicResource Foreman.Color.Text}"
                            TextTrimming="CharacterEllipsis"
+                           kit:TrimmedTooltip.Enabled="True"
                            VerticalAlignment="Center" />
               </Grid>
               <StackPanel x:Name="PART_TrailingColumn"

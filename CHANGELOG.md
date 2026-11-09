@@ -328,6 +328,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- VoiceOver no longer reads a chip or sidebar row whose text is cut short twice: the full text is spoken once, and the tooltip still shows it. The inspector's sub-line under the node name is no longer read twice either.
+- A recent graph's name, a result in the Quick Add palette, a pop-up's selected value and the title of an empty or error message (such as "No graphs yet") that are cut short with an ellipsis now show their full text in a tooltip, the same as chips and sidebar rows already did.
 - With the default preset removed, choosing New Graph, Open or the Welcome window again while its warning is still showing no longer stacks a second warning on top: the repeat is ignored until the warning is dismissed.
 - Opening a graph from the library, the Welcome window, Open Recent or a dropped file after closing the window that had it open now shows the graph, instead of an empty window.
 - Opening a graph from Open…, Open Recent or the library no longer shows an empty window first: the graph window appears once its contents have loaded, and if the graph can't be opened, nothing is left open but the reason. Cancelling Open… no longer leaves an empty window behind.

@@ -698,6 +698,8 @@ namespace Foreman.Mac.UiTests.Canvas {
         [AvaloniaFact]
         public void CountText_CrossFadesOver120ms_AndSwapsUnderReduceMotion() {
             using CanvasFixture fx = CanvasFixture.WithVanilla();
+            TimeSpan now = TimeSpan.Zero;
+            fx.Control.MotionClock = () => now;
             RecipeNodeElement recipe = IronGearWheel(fx);
             var gear = new ItemQualityPair(fx.Cache.Items["iron-gear-wheel"], fx.Cache.DefaultQuality!);
             NodeId consumer = fx.Viewer.Session.Editor.CreateConsumerNode(gear, new DrawingPoint(0, 300));
@@ -706,7 +708,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             consumerController.SetRateType(RateType.Manual);
             consumerController.SetDesiredSetValue(1);
             fx.Viewer.Graph.UpdateNodeValues();
-            AnimationClock.Settle(200);
+            now += Motion.TabLabelCrossFadeDuration;
+            fx.Control.TickMotion();
             Primed(recipe);
             ItemTabElement outputTab = recipe.SubElements.OfType<ItemTabElement>().Single(tab => tab.LinkType == LinkType.Output);
             string before = recipe.CountLabel.Text;
@@ -723,11 +726,15 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(rateBefore, outputTab.RateLabel.From);
             Assert.Equal(0, outputTab.RateLabel.Progress, 3);
 
-            AnimationClock.Settle(60);
-            Assert.InRange(recipe.CountLabel.Progress, 0.01, 0.99);
-            Assert.InRange(outputTab.RateLabel.Progress, 0.01, 0.99);
+            now += Motion.TabLabelCrossFadeDuration / 2;
+            fx.Control.TickMotion();
+            recipe.PrePaint();
+            Assert.Equal(Motion.CrossFadeEasing.Ease(0.5), recipe.CountLabel.Progress, 3);
+            Assert.Equal(Motion.CrossFadeEasing.Ease(0.5), outputTab.RateLabel.Progress, 3);
 
-            AnimationClock.Settle(120);
+            now += Motion.TabLabelCrossFadeDuration;
+            fx.Control.TickMotion();
+            recipe.PrePaint();
             Assert.Equal(1, recipe.CountLabel.Progress, 3);
             Assert.Equal(1, outputTab.RateLabel.Progress, 3);
 
@@ -762,8 +769,36 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [AvaloniaFact]
+        public void LabelFade_StartedBeforeTheCanvasIsHosted_RunsOnceItIs_AndLaterChangesStillFade() {
+            ScaleGuard.AssertDefault();
+            var control = new GraphCanvasControl();
+            TimeSpan now = TimeSpan.Zero;
+            control.MotionClock = () => now;
+            control.Viewer.Context.LabelValuesChanged!();
+            Assert.Equal(0, control.Viewer.Context.LabelFadeProgress);
+            Assert.False(control.MotionFrameQueued);
+
+            var window = new Avalonia.Controls.Window { Content = control, Width = 900, Height = 700 };
+            try {
+                window.Show();
+                Assert.True(control.MotionFrameQueued);
+
+                now += Motion.TabLabelCrossFadeDuration;
+                control.TickMotion();
+                Assert.Equal(1, control.Viewer.Context.LabelFadeProgress);
+
+                control.Viewer.Context.LabelValuesChanged!();
+                Assert.Equal(0, control.Viewer.Context.LabelFadeProgress);
+            } finally {
+                window.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void Align_TweensOver200ms_AndJumpsUnderReduceMotion() {
             using CanvasFixture fx = CanvasFixture.WithVanilla();
+            TimeSpan now = TimeSpan.Zero;
+            fx.Control.MotionClock = () => now;
             fx.Control.Grid.CurrentGridUnit = 64;
             fx.Control.Grid.ShowGrid = true;
             var ore = new ItemQualityPair(fx.Cache.Items["iron-ore"], fx.Cache.DefaultQuality!);
@@ -776,16 +811,22 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.AlignSelection();
             Assert.Equal(new DrawingPoint(30, 30), node.Location);
 
-            AnimationClock.Settle(60);
-            Assert.NotEqual(new DrawingPoint(30, 30), node.Location);
+            now += Motion.AlignTweenDuration / 2;
+            fx.Control.TickMotion();
+            double eased = Motion.EntranceEasing.Ease(0.5);
+            Assert.Equal(
+                new DrawingPoint(30 + (int)Math.Round((target.X - 30) * eased), 30 + (int)Math.Round((target.Y - 30) * eased)),
+                node.Location);
             Assert.NotEqual(target, node.Location);
 
-            AnimationClock.Settle(200);
+            now += Motion.AlignTweenDuration;
+            fx.Control.TickMotion();
             Assert.Equal(target, node.Location);
 
             fx.Viewer.Session.Editor.SetLocation(id, new DrawingPoint(30, 30));
             fx.Control.AlignSelection();
-            AnimationClock.Settle(40);
+            now += TimeSpan.FromMilliseconds(40);
+            fx.Control.TickMotion();
             fx.ClickAt(new Avalonia.Point(5, 5));
             Assert.Equal(target, node.Location);
 
