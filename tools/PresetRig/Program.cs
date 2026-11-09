@@ -1,3 +1,4 @@
+using Foreman.DataCaching;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -26,6 +27,7 @@ namespace PresetRig {
                 return args[0] switch {
                     "probe" => await ProbeAsync(flags, cancel.Token),
                     "export" => await ExportAsync(flags, cancel.Token),
+                    "build" => await BuildAsync(flags, cancel.Token),
                     "pngs" => CountPngs(flags),
                     _ => Usage(),
                 };
@@ -41,6 +43,7 @@ namespace PresetRig {
         static int Usage() {
             Console.Error.WriteLine("probe --source docker|steam [--image <tag>] [--install <path>] [--binary <path>] --out <file> [--log <file>] [--keep]");
             Console.Error.WriteLine("export --source docker|steam [--image <tag>] [--install <path>] [--binary <path>] --set vanilla|space-age --mod <folder> [--out <file>] [--evidence <file>] [--keep]");
+            Console.Error.WriteLine("build --export <file> --data <Factorio data folder> --name <preset name> --out <folder>");
             Console.Error.WriteLine("pngs --install <path>");
             return 2;
         }
@@ -158,6 +161,34 @@ namespace PresetRig {
             if (instrument.Output.Contains("<<<END-EXPORT-P1>>>", StringComparison.Ordinal) && instrument.Output.Contains("<<<END-EXPORT-P2>>>", StringComparison.Ordinal))
                 return 0;
             return instrument.ExitCode != 0 ? instrument.ExitCode : 1;
+        }
+
+        static async Task<int> BuildAsync(Dictionary<string, string> flags, CancellationToken token) {
+            if (!flags.TryGetValue("export", out string? exportPath) || !flags.TryGetValue("data", out string? dataPath)
+                || !flags.TryGetValue("name", out string? presetName) || !flags.TryGetValue("out", out string? outFolder))
+                return Usage();
+            string scratch = Path.Combine(Path.GetTempPath(), "foreman-rig-build-" + Path.GetRandomFileName());
+            Directory.CreateDirectory(scratch);
+            bool keepScratch = false;
+            try {
+                using IDisposable isolatedLog = ErrorLogging.UseIsolatedLogDirectory(scratch);
+                string modsPath = Path.Combine(scratch, "mods");
+                Directory.CreateDirectory(modsPath);
+                PresetImporter.Result result = await PresetImporter.WritePresetFromExportOutput(
+                    File.ReadAllText(exportPath), dataPath, modsPath, scratch, Path.Combine(outFolder, presetName),
+                    new Progress<KeyValuePair<int, string>>(), (failed, total) => Task.FromResult(true), token);
+                if (result.Outcome != PresetImportOutcome.Ok) {
+                    keepScratch = true;
+                    Console.Error.WriteLine(result.WarningMessage ?? "The preset was not written.");
+                    Console.Error.WriteLine("Failure dumps and the log are in " + scratch);
+                    return 1;
+                }
+                Console.WriteLine("Wrote " + Path.Combine(outFolder, presetName) + ".pjson, .json and .dat");
+                return 0;
+            } finally {
+                if (!keepScratch)
+                    Directory.Delete(scratch, true);
+            }
         }
 
         static IEnumerable<string> LegacyLogLines(string text, string modName) {

@@ -155,6 +155,41 @@ namespace ForemanTest {
         //(PresetResolver's own dual-directory read is covered where PresetResolver lives, in
         //Foreman.Mac.UiTests - this pipeline only owns writing the three files into userPresetsDir.)
 
+        private static string ExportOutput(string ln, string p1, string p2, bool endP2 = true) =>
+            "<<<START-EXPORT-LN>>>\n" + ln + "\n<<<END-EXPORT-LN>>>\n" +
+            "<<<START-EXPORT-P1>>>\n" + p1 + "\n<<<END-EXPORT-P1>>>\n" +
+            "<<<START-EXPORT-P2>>>\n" + p2 + "\n" + (endP2 ? "<<<END-EXPORT-P2>>>\n" : "");
+
+        [TestMethod]
+        public async Task WritePresetFromExportOutput_ValidOutput_WritesThreeFiles() {
+            string output = ExportOutput("$0<#~#>Unknown key: \"Iron Plate\"", "{}", "{\"mods\":[],\"items\":[{\"name\":\"iron-plate\",\"lid\":\"$0\"}]}");
+            string basePath = Path.Combine(NewTempDir(), "Written Preset");
+
+            PresetImporter.Result result = await PresetImporter.WritePresetFromExportOutput(
+                output, NewTempDir(), NewTempDir(), NewTempDir(), basePath, new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
+
+            Assert.AreEqual(PresetImportOutcome.Ok, result.Outcome);
+            Assert.IsTrue(File.Exists(basePath + ".pjson"));
+            Assert.IsTrue(File.Exists(basePath + ".json"));
+            Assert.IsTrue(File.Exists(basePath + ".dat"));
+            string text = File.ReadAllText(basePath + ".pjson");
+            Assert.IsTrue(text.Contains("\"Iron Plate\"", StringComparison.Ordinal));
+            Assert.IsFalse(text.Contains("\"lid\"", StringComparison.Ordinal));
+        }
+
+        [TestMethod]
+        public async Task WritePresetFromExportOutput_MissingEndMarker_FailsAndWritesNothing() {
+            string output = ExportOutput("", "{}", "{\"mods\":[]}", endP2: false);
+            string presetsDir = NewTempDir();
+
+            PresetImporter.Result result = await PresetImporter.WritePresetFromExportOutput(
+                output, NewTempDir(), NewTempDir(), NewTempDir(), Path.Combine(presetsDir, "Broken Preset"), new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
+
+            Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
+            Assert.AreEqual(FactorioRunFailure.ExportIncomplete, result.Failure);
+            Assert.AreEqual(0, Directory.GetFileSystemEntries(presetsDir).Length);
+        }
+
         //---- failure branches: verbatim messages + zero-debris cleanup (reference §4 step 3, 8) -----------
 
         [TestMethod]
@@ -367,6 +402,53 @@ namespace ForemanTest {
             Assert.IsTrue(File.Exists(Path.Combine(scratchDir, "_dataJObjectOut.json")));
             Assert.IsFalse(File.Exists(Path.Combine(MacOsDirOf(installPath), "_iconJObjectOut.json")));
             Assert.IsFalse(File.Exists(Path.Combine(MacOsDirOf(installPath), "_dataJObjectOut.json")));
+        }
+
+        private static Dictionary<string, byte[]> SeedPreset(string userPresetsDir, string name) {
+            var seeded = new Dictionary<string, byte[]>();
+            foreach (string extension in new[] { ".pjson", ".json", ".dat" }) {
+                byte[] bytes = System.Text.Encoding.UTF8.GetBytes("original" + extension);
+                File.WriteAllBytes(Path.Combine(userPresetsDir, name + extension), bytes);
+                seeded[extension] = bytes;
+            }
+            return seeded;
+        }
+
+        private static void AssertSeededPresetUntouched(string userPresetsDir, string name, Dictionary<string, byte[]> seeded) {
+            foreach ((string extension, byte[] bytes) in seeded)
+                CollectionAssert.AreEqual(bytes, File.ReadAllBytes(Path.Combine(userPresetsDir, name + extension)));
+        }
+
+        [TestMethod]
+        public async Task ProcessPreset_ExportMissingMarkers_LeavesAnExistingSameNamedPresetUntouched() {
+            string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
+            StubFactorioHarness.WriteScript(macOsDir, "touch ./temp-save.zip\nprintf 'nothing useful here\\n'\nexit 0\n");
+            string installPath = Path.GetDirectoryName(macOsDir)!;
+            string userPresetsDir = NewTempDir();
+            var seeded = SeedPreset(userPresetsDir, "Existing Preset");
+
+            PresetImporter.Result result = await PresetImporter.ProcessPreset(
+                installPath, new FactorioGameVersion(2, 0, 76), NewTempDir(), NewTempDir(), "Existing Preset", userPresetsDir,
+                new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
+
+            Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
+            Assert.AreEqual(FactorioRunFailure.ExportIncomplete, result.Failure);
+            AssertSeededPresetUntouched(userPresetsDir, "Existing Preset", seeded);
+        }
+
+        [TestMethod]
+        public async Task ProcessPreset_JsonParsingFails_LeavesAnExistingSameNamedPresetUntouched() {
+            var (installPath, modsPath, scratchDir) = BuildFixture("", "not valid json {{{", "{\"mods\":[]}");
+            string userPresetsDir = NewTempDir();
+            var seeded = SeedPreset(userPresetsDir, "Existing Preset");
+
+            PresetImporter.Result result = await PresetImporter.ProcessPreset(
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Existing Preset", userPresetsDir,
+                new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
+
+            Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
+            Assert.AreEqual(FactorioRunFailure.ExportUnreadable, result.Failure);
+            AssertSeededPresetUntouched(userPresetsDir, "Existing Preset", seeded);
         }
 
         //---- debris location: errorExporting.json + debug dumps land in scratch, never the Factorio bundle ----
