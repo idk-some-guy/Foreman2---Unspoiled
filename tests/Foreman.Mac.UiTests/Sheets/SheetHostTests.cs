@@ -580,6 +580,89 @@ namespace Foreman.Mac.UiTests.Sheets {
             summary.Close();
         }
 
+        [AvaloniaFact]
+        public async Task ShowAsync_ForAConfirmQueuedBehindASheet_WhenTheWindowCloses_ResolvesToNo() {
+            var window = new Window { Width = 800, Height = 600, Content = new Button() };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+            Task<bool?> first = host.ShowAsync(new ProbeSheet());
+            Dispatcher.UIThread.RunJobs();
+            Task<ConfirmChoice> queued = host.ShowAsync(new AlertSheet("Delete", "Sure?", AlertButtons.Destructive, "Delete"));
+            Dispatcher.UIThread.RunJobs();
+
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(ConfirmChoice.No, await queued);
+            Assert.Null(await first);
+        }
+
+        [AvaloniaFact]
+        public async Task ShowStackedAsync_ForAConfirmOnAClosedHost_ResolvesToNo() {
+            var window = new Window { Width = 800, Height = 600, Content = new Button() };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+
+            ConfirmChoice choice = await host.ShowStackedAsync(new AlertSheet("Delete", "Sure?", AlertButtons.YesNo));
+
+            Assert.Equal(ConfirmChoice.No, choice);
+        }
+
+        [AvaloniaFact]
+        public async Task ShowAsync_ForTwoSheetsArrivingWhileTheClosedWindowsLastSheetAnimatesOut_ResolvesBoth() {
+            var window = new Window { Width = 800, Height = 600, Content = new Button() };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+            Task<bool?> first = host.ShowAsync(new ProbeSheet());
+            Dispatcher.UIThread.RunJobs();
+
+            window.Close();
+            Task<ConfirmChoice> second = host.ShowAsync(new AlertSheet("Delete", "Sure?", AlertButtons.YesNo));
+            Task<ConfirmChoice> third = host.ShowAsync(new AlertSheet("Delete", "Sure?", AlertButtons.YesNo));
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
+
+            Assert.True(second.IsCompleted);
+            Assert.True(third.IsCompleted);
+            Assert.Equal(ConfirmChoice.No, await second);
+            Assert.Equal(ConfirmChoice.No, await third);
+            Assert.Null(await first);
+        }
+
+        [AvaloniaFact]
+        public async Task ShowAsync_ForASheetAlreadyCancelledOnAClosedHost_ResolvesWithoutCancellingTwice() {
+            var window = new Window { Width = 800, Height = 600, Content = new Button() };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+            var sheet = new SaveFileLoadSheet();
+            sheet.Cancel();
+
+            Foreman.DataCaching.SaveFileLoadOutcome? outcome = await host.ShowAsync(sheet);
+
+            Assert.Equal(Foreman.DataCaching.SaveFileLoadOutcome.Cancel, outcome);
+        }
+
+        [AvaloniaFact]
+        public async Task ShowStackedAsync_ForAConfirmWhileTheClosingWindowsSheetIsStillOpen_ResolvesToNo() {
+            var window = new Window { Width = 800, Height = 600, Content = new Button() };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+            Task<bool?> first = host.ShowAsync(new ProbeSheet());
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(host.IsOpen);
+
+            window.Close();
+            Assert.True(host.IsOpen);
+            ConfirmChoice choice = await host.ShowStackedAsync(new AlertSheet("Delete", "Sure?", AlertButtons.YesNo));
+
+            Assert.Equal(ConfirmChoice.No, choice);
+            Assert.Null(await first);
+        }
+
         //---- Kit frame wiring: headline, width class, and the in-progress / failed states ----------------
 
         [AvaloniaFact]

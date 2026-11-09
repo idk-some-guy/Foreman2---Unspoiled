@@ -118,63 +118,69 @@ namespace Foreman.Mac.Services {
         }
 
         internal static async Task<bool> NewGraphAsync(ShellContext context) {
+            if (context.OpenPending)
+                return false;
             if (!await EnsureLoadedAsync(context).ConfigureAwait(true))
                 return false;
             MainWindow window = EnsureWindow(context);
+            window.RevealDeferred();
             await window.NewGraphAsync().ConfigureAwait(true);
             window.Activate();
             return true;
         }
 
-        internal static async Task<bool> OpenFileAsync(ShellContext context) {
-            if (!await EnsureLoadedAsync(context).ConfigureAwait(true))
-                return false;
-            MainWindow window = EnsureWindow(context);
-            Guid? before = context.Library.OpenGraphId;
-            await window.OpenGraphFileAsync().ConfigureAwait(true);
-            bool opened = context.Library.OpenGraphId is not null && context.Library.OpenGraphId != before;
-            if (opened)
-                window.Activate();
-            return opened;
-        }
+        internal static Task<bool> OpenFileAsync(ShellContext context) =>
+            OpenOnWindowAsync(context, window => window.OpenGraphFileAsync(), (before, after) => after is not null && after != before);
 
         internal static async Task<bool> OpenPathAsync(ShellContext context, string path) {
             if (!await EnsureLoadedAsync(context).ConfigureAwait(true))
                 return false;
             string? json = null;
-            WelcomeWindow? welcome = Current;
-            if (welcome is not null && (json = await MainWindow.ReadGraphFileAsync(welcome, path).ConfigureAwait(true)) is null)
+            if (Current is { } welcome && (json = await MainWindow.ReadGraphFileAsync(welcome, path).ConfigureAwait(true)) is null)
                 return false;
-            bool created = welcome is not null && context.Window is not { IsClosed: false };
-            MainWindow window = EnsureWindow(context, deferShow: created);
-            if (welcome is not null)
-                window.AlertOwner = welcome;
-            Guid? before = context.Library.OpenGraphId;
-            if (json is null)
-                await window.OpenFjsonPathAsync(path).ConfigureAwait(true);
-            else
-                await window.OpenFjsonAsync(json, path).ConfigureAwait(true);
-            bool opened = context.Library.OpenGraphId is not null && context.Library.OpenGraphId != before;
-            window.AlertOwner = null;
-            if (opened) {
-                window.RevealDeferred();
-                window.Activate();
-            } else if (created) {
-                context.Window = null;
-                window.Close();
-            }
-            return opened;
+            return await OpenOnWindowAsync(context, window => json is null ? window.OpenFjsonPathAsync(path) : window.OpenFjsonAsync(json, path),
+                (before, after) => after is not null && after != before).ConfigureAwait(true);
         }
 
-        internal static async Task<bool> OpenGraphAsync(ShellContext context, GraphRow row, Preset? preset) {
-            if (!await EnsureLoadedAsync(context).ConfigureAwait(true))
+        internal static Task<bool> OpenGraphAsync(ShellContext context, GraphRow row, Preset? preset) =>
+            OpenOnWindowAsync(context, window => window.OpenLibraryGraphAsync(row.Id, preset), (_, after) => after == row.Id);
+
+        private static async Task<bool> OpenOnWindowAsync(ShellContext context, Func<MainWindow, Task> open, Func<Guid?, Guid?, bool> openedGraph) {
+            if (context.OpenPending)
                 return false;
-            MainWindow window = EnsureWindow(context);
-            await window.OpenLibraryGraphAsync(row.Id, preset).ConfigureAwait(true);
-            bool opened = context.Library.OpenGraphId == row.Id;
-            if (opened)
-                window.Activate();
-            return opened;
+            context.OpenPending = true;
+            using IDisposable busy = ShellHost.HoldBusy();
+            WelcomeWindow? welcome = null;
+            EventHandler? welcomeClosed = null;
+            try {
+                if (!await EnsureLoadedAsync(context).ConfigureAwait(true))
+                    return false;
+                welcome = Current;
+                bool created = context.Window is not { IsClosed: false };
+                MainWindow window = EnsureWindow(context, deferShow: created);
+                window.AlertOwner = welcome;
+                if (welcome is not null) {
+                    welcomeClosed = (_, _) => window.AlertOwner = null;
+                    welcome.Closed += welcomeClosed;
+                }
+                Guid? before = context.Library.OpenGraphId;
+                await open(window).ConfigureAwait(true);
+                bool opened = openedGraph(before, context.Library.OpenGraphId);
+                window.AlertOwner = null;
+                if (opened) {
+                    window.RevealDeferred();
+                    window.Activate();
+                } else if (created) {
+                    if (ReferenceEquals(context.Window, window))
+                        context.Window = null;
+                    window.CloseAbandoned();
+                }
+                return opened;
+            } finally {
+                if (welcome is not null && welcomeClosed is not null)
+                    welcome.Closed -= welcomeClosed;
+                context.OpenPending = false;
+            }
         }
 
         private static async Task<bool> LoadAsync(ShellContext context, Preset preset, IProgress<KeyValuePair<int, string>> progress, System.Threading.CancellationToken ct) {

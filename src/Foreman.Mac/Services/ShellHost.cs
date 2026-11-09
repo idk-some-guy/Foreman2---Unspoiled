@@ -138,15 +138,15 @@ namespace Foreman.Mac.Services {
         internal static Task OpenPendingFilesAsync() => OpenFilesAsync([]);
 
         internal static async Task<MainWindow?> LiveWindowAsync() {
-            if (MainWindow.ActiveWindow is { IsClosed: false } live)
+            if (MainWindow.ActiveWindow is { IsClosed: false, ShowDeferred: false } live)
                 return live;
             if (Context is not { } context)
                 return null;
             if (WelcomeLauncher.Current is { } welcome) {
                 if (!await welcome.NewGraphFromMenuAsync().ConfigureAwait(true))
                     return null;
-            } else
-                await WelcomeLauncher.NewGraphAsync(context).ConfigureAwait(true);
+            } else if (!await WelcomeLauncher.NewGraphAsync(context).ConfigureAwait(true))
+                return null;
             return context.Window;
         }
 

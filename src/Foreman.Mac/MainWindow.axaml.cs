@@ -974,6 +974,13 @@ namespace Foreman.Mac {
 
         internal bool ShowDeferred { get; set; }
 
+        private Window AlertHost() {
+            if (AlertOwner is { } owner)
+                return owner;
+            RevealDeferred();
+            return this;
+        }
+
         internal void RevealDeferred() {
             if (!ShowDeferred)
                 return;
@@ -984,7 +991,7 @@ namespace Foreman.Mac {
         internal async Task OpenFjsonPathAsync(string path) {
             if (DataCache is null)
                 return;
-            if (await ReadGraphFileAsync(this, path).ConfigureAwait(true) is string json)
+            if (await ReadGraphFileAsync(AlertHost(), path).ConfigureAwait(true) is string json)
                 await OpenFjsonAsync(json, path).ConfigureAwait(true);
         }
 
@@ -1002,7 +1009,7 @@ namespace Foreman.Mac {
         }
 
         private async Task<(string Json, string Path)?> PickGraphFileAsync() {
-            if (StorageProvider is not IStorageProvider storage)
+            if (AlertHost().StorageProvider is not IStorageProvider storage)
                 return null;
 
             Directory.CreateDirectory(AppPaths.SavedGraphsDirectory);
@@ -1083,7 +1090,7 @@ namespace Foreman.Mac {
 
             GraphViewerSaveDocument? document = GraphSaveCodec.ReadViewer(json);
             if (document is null) {
-                await Dialogs.ShowWarningAsync(AlertOwner ?? this, $"Couldn’t open “{Dialogs.MiddleTruncate(name)}”.", UnreadableGraphSentence).ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(AlertHost(), $"Couldn’t open “{Dialogs.MiddleTruncate(name)}”.", UnreadableGraphSentence).ConfigureAwait(true);
                 return false;
             }
 
@@ -1119,7 +1126,7 @@ namespace Foreman.Mac {
                 loadingGraph = false;
             }
             if (!result.Success)
-                await Dialogs.ShowWarningAsync(AlertOwner ?? this, $"Couldn’t open “{Dialogs.MiddleTruncate(name)}”.", result.ErrorMessage ?? UnreadableGraphSentence).ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(AlertHost(), $"Couldn’t open “{Dialogs.MiddleTruncate(name)}”.", result.ErrorMessage ?? UnreadableGraphSentence).ConfigureAwait(true);
             else
                 ApplyLoadedGraphUiState(name);
 
@@ -1513,6 +1520,12 @@ namespace Foreman.Mac {
             "The file is too old or damaged to read. Open it in the previous Foreman release, save it again, then open the new copy here.";
 
         private bool closedByUser;
+        private bool abandoned;
+
+        internal void CloseAbandoned() {
+            abandoned = true;
+            Close();
+        }
 
         protected override void OnClosing(WindowClosingEventArgs e) {
             Library?.PruneUntouched();
@@ -1530,7 +1543,7 @@ namespace Foreman.Mac {
             Library = null;
             ShellHost.Context = context;
             ShellHost.Sync();
-            if (Settings is { ShowWelcomeAtLaunch: true })
+            if (!abandoned && Settings is { ShowWelcomeAtLaunch: true })
                 WelcomeLauncher.Show(context);
         }
 

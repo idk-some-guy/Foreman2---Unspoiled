@@ -720,6 +720,285 @@ namespace Foreman.Mac.UiTests {
             }
         }
 
+        private static async Task<WelcomeWindow> BootedWelcomeAsync() {
+            var settingsService = new SettingsService(NewTempHome());
+            DataCache cache = await LoadedVanillaCacheAsync();
+            WelcomeLauncher.CacheLoaderOverride = _ => Task.FromResult<DataCache?>(cache);
+            await ShellBootstrapper.BootAsync(
+                settingsService,
+                settingsService.Load(),
+                ResolverWithoutUserPresets(),
+                (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
+                (_, _, _) => Task.CompletedTask,
+                () => { },
+                () => Task.CompletedTask);
+            WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
+            await welcome.ViewModel.LoadTask;
+            return welcome;
+        }
+
+        [AvaloniaFact]
+        public async Task OpenGraphAsync_WithTheWelcomeUp_KeepsTheMainWindowHiddenAndAlertsOnTheWelcomeUntilTheContentsLoad() {
+            try {
+                WelcomeWindow welcome = await BootedWelcomeAsync();
+                ShellContext context = ShellHost.Context!;
+                GraphRow row = context.Library.Create("Unreadable", context.Settings.CurrentPresetName, "not a graph", 0, null);
+                context.Library.Detach();
+
+                Task<bool> opening = WelcomeLauncher.OpenGraphAsync(context, row, null);
+                await WaitUntilAsync(() => opening.IsCompleted || context.Window is not null && (SheetHost.For(context.Window).GetVisualDescendants().OfType<AlertSheet>().Any()
+                    || SheetHost.For(welcome).GetVisualDescendants().OfType<AlertSheet>().Any()));
+
+                Assert.False(ShellHost.HasLiveMainWindow);
+                Assert.Empty(SheetHost.For(context.Window!).GetVisualDescendants().OfType<AlertSheet>());
+                AlertSheet alert = Assert.Single(SheetHost.For(welcome).GetVisualDescendants().OfType<AlertSheet>());
+                alert.YesButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                Assert.False(await opening);
+                Assert.True(context.Window is null || context.Window.IsClosed);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenFileAsync_WithTheWelcomeUp_WhenNothingIsPicked_LeavesNoMainWindowBehind() {
+            try {
+                await BootedWelcomeAsync();
+                ShellContext context = ShellHost.Context!;
+
+                bool opened = await WelcomeLauncher.OpenFileAsync(context);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.False(opened);
+                Assert.False(ShellHost.HasLiveMainWindow);
+                Assert.True(context.Window is null || context.Window.IsClosed);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        private static async Task<string> VanillaGraphJsonWithASupplierAsync() {
+            var cache = new DataCache(filterRecipes: true);
+            await cache.LoadAllData(new Preset("Factorio 2.0 Vanilla", true, true), new Progress<KeyValuePair<int, string>>());
+            var graph = new Foreman.ProductionGraph();
+            graph.CreateSupplierNode(new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!), System.Drawing.Point.Empty);
+            return Foreman.Serialization.GraphSaveCodec.WriteViewerDocumentToString(new Foreman.Serialization.GraphViewerSaveDocument {
+                Version = Foreman.Serialization.GraphSaveFormat.SaveFormatVersion,
+                SavedPresetName = cache.PresetName,
+                IncludedMods = new Dictionary<string, string>(cache.IncludedMods),
+                ProductionGraph = Foreman.Serialization.GraphSaveCodec.BuildProductionGraph(graph),
+            });
+        }
+
+        private static void Dismiss(AlertSheet alert) =>
+            alert.YesButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+
+        [AvaloniaFact]
+        public async Task OpenGraphAsync_WhileAnotherOpenIsPending_ReturnsFalseAndLeavesTheWindowAlone() {
+            try {
+                WelcomeWindow welcome = await BootedWelcomeAsync();
+                ShellContext context = ShellHost.Context!;
+                GraphRow unreadable = context.Library.Create("Unreadable", context.Settings.CurrentPresetName, "not a graph", 0, null);
+                GraphRow readable = context.Library.Create("Readable", context.Settings.CurrentPresetName, await VanillaGraphJsonWithASupplierAsync(), 1, null);
+                context.Library.Detach();
+
+                Task<bool> first = WelcomeLauncher.OpenGraphAsync(context, unreadable, null);
+                await WaitUntilAsync(() => SheetHost.For(welcome).GetVisualDescendants().OfType<AlertSheet>().Any());
+                MainWindow pending = context.Window!;
+
+                bool second = await WelcomeLauncher.OpenGraphAsync(context, readable, null);
+
+                Assert.False(second);
+                Assert.False(await WelcomeLauncher.NewGraphAsync(context));
+                Assert.Same(pending, context.Window);
+                Assert.False(pending.IsClosed);
+                Assert.Same(welcome, pending.AlertOwner);
+                Dismiss(Assert.Single(SheetHost.For(welcome).GetVisualDescendants().OfType<AlertSheet>()));
+                Assert.False(await first);
+                Assert.Null(context.Library.OpenGraphId);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenGraphAsync_WhenTheWelcomeClosesWhileItsAlertIsUp_ReleasesTheOpenAndLeavesNoHiddenWindow() {
+            string dir = NewTempHome();
+            try {
+                WelcomeWindow welcome = await BootedWelcomeAsync();
+                ShellContext context = ShellHost.Context!;
+                GraphRow unreadable = context.Library.Create("Unreadable", context.Settings.CurrentPresetName, "not a graph", 0, null);
+                context.Library.Detach();
+
+                Task<bool> opening = WelcomeLauncher.OpenGraphAsync(context, unreadable, null);
+                await WaitUntilAsync(() => SheetHost.For(welcome).GetVisualDescendants().OfType<AlertSheet>().Any());
+                welcome.Close();
+                await WaitUntilAsync(() => opening.IsCompleted);
+
+                Assert.False(await opening);
+                Assert.False(ShellHost.Busy);
+                Assert.True(context.Window is null || context.Window.IsClosed);
+                Assert.False(ShellHost.HasLiveMainWindow);
+                Assert.Null(WelcomeLauncher.Current);
+
+                string dropped = Path.Combine(dir, "dropped.fjson");
+                File.WriteAllText(dropped, await VanillaGraphJsonWithASupplierAsync());
+                await ShellHost.OpenFilesAsync([dropped]);
+                Assert.True(ShellHost.HasLiveMainWindow);
+                Assert.NotNull(context.Library.OpenGraphId);
+            } finally {
+                CloseWelcome();
+                Directory.Delete(dir, true);
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task NewGraphAsync_WhenTheWindowWasLeftDeferred_ShowsIt() {
+            try {
+                WelcomeWindow welcome = await BootedWelcomeAsync();
+                ShellContext context = ShellHost.Context!;
+                welcome.Close();
+                MainWindow hidden = ShellBootstrapper.CreateWindow(context, deferShow: true);
+
+                Assert.True(await WelcomeLauncher.NewGraphAsync(context));
+
+                Assert.Same(hidden, context.Window);
+                Assert.True(ShellHost.HasLiveMainWindow);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenGraphAsync_WithNoWelcomeAndNoWindow_ShowsTheWindowOnlyOnceTheContentsHaveLoaded() {
+            try {
+                WelcomeWindow welcome = await BootedWelcomeAsync();
+                ShellContext context = ShellHost.Context!;
+                GraphRow row = context.Library.Create("Readable", context.Settings.CurrentPresetName, await VanillaGraphJsonWithASupplierAsync(), 1, null);
+                context.Library.Detach();
+                welcome.Close();
+                if (context.Window is { IsClosed: false } existing)
+                    existing.Close();
+                var nodesWhenShown = new List<int>();
+                using IDisposable watch = Window.WindowOpenedEvent.AddClassHandler<MainWindow>((window, _) => nodesWhenShown.Add(window.GraphCanvas.Viewer.Graph.Nodes.Count()));
+
+                Assert.True(await WelcomeLauncher.OpenGraphAsync(context, row, null));
+
+                Assert.Equal([1], nodesWhenShown);
+                Assert.True(ShellHost.HasLiveMainWindow);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenGraphAsync_WithNoWelcomeAndNoWindow_WhenTheGraphIsUnreadable_ShowsTheWindowForTheAlert() {
+            try {
+                WelcomeWindow welcome = await BootedWelcomeAsync();
+                ShellContext context = ShellHost.Context!;
+                GraphRow row = context.Library.Create("Unreadable", context.Settings.CurrentPresetName, "not a graph", 0, null);
+                context.Library.Detach();
+                welcome.Close();
+                if (context.Window is { IsClosed: false } existing)
+                    existing.Close();
+
+                Task<bool> opening = WelcomeLauncher.OpenGraphAsync(context, row, null);
+                await WaitUntilAsync(() => context.Window is { IsClosed: false } window && SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>().Any());
+
+                Assert.True(ShellHost.HasLiveMainWindow);
+                MainWindow created = context.Window!;
+                Dismiss(Assert.Single(SheetHost.For(created).GetVisualDescendants().OfType<AlertSheet>()));
+                Assert.False(await opening);
+                Assert.True(created.IsClosed);
+                Assert.Null(context.Window);
+                Assert.False(ShellHost.HasLiveMainWindow);
+                Assert.Null(WelcomeLauncher.Current);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        private static string WithUnknownPreset(string json) =>
+            System.Text.RegularExpressions.Regex.Replace(json, "\"SavedPresetName\"\\s*:\\s*\"[^\"]*\"", "\"SavedPresetName\": \"Not An Installed Preset\"");
+
+        private static string WithUnloadableContents(string json) =>
+            System.Text.RegularExpressions.Regex.Replace(json, "\"BaseQuality\"\\s*:\\s*\"[^\"]*\"", "\"BaseQuality\": \"missing\"");
+
+        private static PresetSelectionSheet PresetSheetOn(MainWindow window) =>
+            SheetHost.For(window).GetVisualDescendants().OfType<PresetSelectionSheet>().Single();
+
+        [AvaloniaFact]
+        public async Task OpenGraphAsync_WithTheWelcomeUp_WhenThePresetSheetIsCancelled_LeavesNoMainWindowBehind() {
+            try {
+                await BootedWelcomeAsync();
+                ShellContext context = ShellHost.Context!;
+                GraphRow row = context.Library.Create("Elsewhere", context.Settings.CurrentPresetName, WithUnknownPreset(await VanillaGraphJsonWithASupplierAsync()), 1, null);
+                context.Library.Detach();
+
+                Task<bool> opening = WelcomeLauncher.OpenGraphAsync(context, row, null);
+                await WaitUntilAsync(() => context.Window is { } window && SheetHost.For(window).GetVisualDescendants().OfType<PresetSelectionSheet>().Any());
+                MainWindow created = context.Window!;
+                Assert.True(ShellHost.HasLiveMainWindow);
+                PresetSheetOn(created).SimulateCancelClick();
+
+                Assert.False(await opening);
+                Assert.True(created.IsClosed);
+                Assert.Null(context.Window);
+                Assert.False(ShellHost.HasLiveMainWindow);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenGraphAsync_WhenTheWelcomeClosesDuringThePresetSheetAndTheLoadFails_AlertsOnTheMainWindowAndReleasesTheOpen() {
+            try {
+                WelcomeWindow welcome = await BootedWelcomeAsync();
+                ShellContext context = ShellHost.Context!;
+                GraphRow row = context.Library.Create("Broken", context.Settings.CurrentPresetName, WithUnloadableContents(WithUnknownPreset(await VanillaGraphJsonWithASupplierAsync())), 1, null);
+                context.Library.Detach();
+
+                Task<bool> opening = WelcomeLauncher.OpenGraphAsync(context, row, null);
+                await WaitUntilAsync(() => context.Window is { } window && SheetHost.For(window).GetVisualDescendants().OfType<PresetSelectionSheet>().Any());
+                MainWindow created = context.Window!;
+                welcome.Close();
+                PresetSelectionSheet sheet = PresetSheetOn(created);
+                sheet.SimulateSelectRow(((List<PresetRow>)sheet.PresetSelectionListViewControl.ItemsSource!).First(r => r.Name == context.Settings.CurrentPresetName).Preset);
+                sheet.SimulateConfirmClick();
+                await WaitUntilAsync(() => SheetHost.For(created).GetVisualDescendants().OfType<AlertSheet>().Any());
+
+                Dismiss(Assert.Single(SheetHost.For(created).GetVisualDescendants().OfType<AlertSheet>()));
+                Assert.False(await opening);
+                Assert.False(context.OpenPending);
+                Assert.False(ShellHost.Busy);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task OpenPathAsync_WhenAFileIsDroppedWhileAnOpenWaitsOnItsAlert_OpensItOnceTheOpenEnds() {
+            using var library = new LibraryFixture();
+            MainWindow window = await ShellWindowAsync(library);
+            try {
+                string dir = library.NewTempDir();
+                string file = Path.Combine(dir, "b.fjson");
+                File.WriteAllText(file, await EmptyVanillaGraphJsonAsync());
+
+                Task<bool> opening = WelcomeLauncher.OpenPathAsync(ShellHost.Context!, Path.Combine(dir, "missing.fjson"));
+                await WaitUntilAsync(() => AlertsOn(window).Count == 1);
+                await ShellHost.OpenFilesAsync([file]);
+
+                Assert.DoesNotContain(library.Service.All(), r => r.Name == "b");
+                AlertsOn(window)[0].Cancel();
+                Assert.False(await opening);
+                await WaitUntilAsync(() => library.Service.All().Any(r => r.Name == "b"));
+            } finally {
+                ShellHost.Context = null;
+                ShellHost.ResetQueue();
+            }
+        }
+
         [AvaloniaFact]
         public async Task OpenFilesAsync_WhenTheFileFailsToLoadOverAnOpenGraph_KeepsTheOpenGraphAutosaving() {
             using var library = new LibraryFixture();
@@ -868,6 +1147,30 @@ namespace Foreman.Mac.UiTests {
                 Assert.Null(WelcomeLauncher.Current);
                 Assert.Same(cache, ShellHost.Context.Window!.DataCache);
                 CloseWithoutWelcome(ShellHost.Context.Window);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task LiveWindowAsync_WhileAnOpenIsPendingOnAHiddenWindow_ReturnsNull() {
+            try {
+                WelcomeWindow welcome = await BootedWelcomeAsync();
+                ShellContext context = ShellHost.Context!;
+                welcome.Close();
+                if (MainWindow.MostRecentlyOpened is { IsClosed: false } stale)
+                    stale.CloseAbandoned();
+                Assert.Null(WelcomeLauncher.Current);
+                MainWindow hidden = WelcomeLauncher.EnsureWindow(context, deferShow: true);
+                context.OpenPending = true;
+
+                MainWindow? live = await ShellHost.LiveWindowAsync();
+
+                Assert.Null(live);
+                Assert.False(hidden.IsClosed);
+                Assert.True(hidden.ShowDeferred);
+                context.OpenPending = false;
+                hidden.CloseAbandoned();
             } finally {
                 CloseWelcome();
             }

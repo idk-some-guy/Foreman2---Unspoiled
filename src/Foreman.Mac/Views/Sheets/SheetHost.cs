@@ -46,6 +46,7 @@ namespace Foreman.Mac.Views.Sheets {
         private Layer? baseLayer;
         private DispatcherTimer? closingTimer;
         private bool busy;
+        private bool closed;
 
         public bool IsOpen { get; private set; }
         public Control? Content => baseLayer?.Content;
@@ -78,7 +79,10 @@ namespace Foreman.Mac.Views.Sheets {
             var host = new SheetHost { topAnchor = topAnchor };
             Attach(window, host);
             window.AddHandler(InputElement.GotFocusEvent, host.OnWindowGotFocus);
-            window.Closed += (_, _) => hostsByWindow.Remove(window);
+            window.Closed += (_, _) => {
+                hostsByWindow.Remove(window);
+                host.CancelAll();
+            };
             hostsByWindow[window] = host;
             return host;
         }
@@ -113,11 +117,25 @@ namespace Foreman.Mac.Views.Sheets {
             }
         }
 
+        private void CancelAll() {
+            closed = true;
+            while (waitingTurns.Count > 0)
+                waitingTurns.Dequeue().TrySetResult(true);
+            foreach (Layer layer in layers.Where(l => !l.Dismissed).Reverse().ToList())
+                layer.Cancel();
+        }
+
         public async Task<T?> ShowAsync<T>(SheetContent<T> content) {
+            if (closed)
+                return await CancelUnshownAsync(content).ConfigureAwait(true);
             if (busy)
                 await WaitForTurnAsync().ConfigureAwait(true);
             else
                 busy = true;
+            if (closed) {
+                busy = false;
+                return await CancelUnshownAsync(content).ConfigureAwait(true);
+            }
 
             baseLayer = PushLayer(content);
             foreach (Control sibling in blockedSiblings)
@@ -135,7 +153,16 @@ namespace Foreman.Mac.Views.Sheets {
         public Task<T?> ShowStackedAsync<T>(SheetContent<T> content) =>
             IsOpen ? ShowOnTopAsync(content) : ShowAsync(content);
 
+        private static Task<T?> CancelUnshownAsync<T>(SheetContent<T> content) {
+            if (!content.Result.IsCompleted)
+                content.Cancel();
+            (content as IDisposable)?.Dispose();
+            return content.Result;
+        }
+
         private async Task<T?> ShowOnTopAsync<T>(SheetContent<T> content) {
+            if (closed)
+                return await CancelUnshownAsync(content).ConfigureAwait(true);
             Layer layer = PushLayer(content);
             try {
                 return await content.Result.ConfigureAwait(true);
@@ -173,7 +200,10 @@ namespace Foreman.Mac.Views.Sheets {
                 Root = alert,
                 Content = alert,
                 SetOpen = open => frame.IsOpen = open,
-                Cancel = alert.Cancel,
+                Cancel = () => {
+                    if (!alert.Result.IsCompleted)
+                        alert.Cancel();
+                },
                 Buttons = alert.Buttons,
             };
             frame.Cancelled += (_, _) => layer.Cancel();
@@ -195,7 +225,10 @@ namespace Foreman.Mac.Views.Sheets {
                 Root = frame,
                 Content = content,
                 SetOpen = open => frame.IsOpen = open,
-                Cancel = content.Cancel,
+                Cancel = () => {
+                    if (!content.Result.IsCompleted)
+                        content.Cancel();
+                },
                 Buttons = content.Buttons,
                 LegacyDefault = content.Buttons is null ? content.DefaultButton : null,
                 Body = body,

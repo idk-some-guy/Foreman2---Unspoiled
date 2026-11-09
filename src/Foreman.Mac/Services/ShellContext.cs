@@ -9,6 +9,7 @@ namespace Foreman.Mac.Services {
         public SettingsService? SettingsService { get; } = settingsService;
         public PresetResolver? PresetResolver { get; } = presetResolver;
         public MainWindow? Window { get; set; }
+        public bool OpenPending { get; set; }
         public bool CacheLoaded { get; set; } = true;
         public Task<bool>? LoadTask { get; set; }
         public string? LoadingPresetName { get; set; }

@@ -329,6 +329,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - Opening a graph from the library, the Welcome window, Open Recent or a dropped file after closing the window that had it open now shows the graph, instead of an empty window.
+- Opening a graph from Open…, Open Recent or the library no longer shows an empty window first: the graph window appears once its contents have loaded, and if the graph can't be opened, nothing is left open but the reason. Cancelling Open… no longer leaves an empty window behind.
 - Choosing New Graph, Open or the Welcome window when the default preset has been removed now shows
   the same warning as at launch once, and nothing opens. Closing the Welcome window that one of those actions opened while the preset
   loads now cancels the action, and reopening the Welcome after closing it mid-load shows the preset
