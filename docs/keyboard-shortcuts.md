@@ -12,7 +12,7 @@ Foreman 2 on the Mac uses ⌘ for its command shortcuts. On Linux, read Ctrl whe
 | File | New Graph | ⌘N |
 | File | Open… | ⌘O |
 | File | Save | ⌘S |
-| File | Save As… | ⇧⌘S |
+| File | Duplicate | ⇧⌘S |
 | File | Export Image… | ⇧⌘E |
 | File | Close | ⌘W |
 | Edit | Select All | ⌘A |
