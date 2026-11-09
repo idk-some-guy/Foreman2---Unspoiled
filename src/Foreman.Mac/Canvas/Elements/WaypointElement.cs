@@ -34,7 +34,6 @@ namespace Foreman.Mac.Canvas.Elements {
             canvas.DrawCircle(centre, radius - 1f, GraphicsStuff.RentStrokePaint(tokens.Accent, 2f));
         }
 
-        //Snaps to the minor grid when it is on, and a held Shift pins the move to the axis the pointer travelled furthest from the drag origin.
         public static Point DragTarget(Point graphPoint, GridManager grid) {
             Point target = grid.AlignToGrid(graphPoint);
             if (!grid.LockDragToAxis)

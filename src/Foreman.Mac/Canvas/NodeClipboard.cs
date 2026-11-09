@@ -11,7 +11,7 @@ using System.Linq;
 
 namespace Foreman.Mac.Canvas {
     //Ports ProductionGraphViewer_KeyDown's Ctrl+C/X/V block and ImportNodesFromDocument's paste-centering
-    //math (reference §5), plus the annotation splicing: Copy/Cut merge any selected
+    //math (reference §5), plus the annotation splicing added in this task: Copy/Cut merge any selected
     //annotations' save data into the node fragment via AnnotationClipboardCodec.MergeAnnotationsIntoFragment,
     //and Paste independently imports any "Annotations" array via ImportAnnotationsAtOrigin - the two importers
     //don't depend on each other, so a fragment with only nodes, only annotations, or both all paste correctly.

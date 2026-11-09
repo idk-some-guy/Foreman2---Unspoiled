@@ -7,7 +7,7 @@ using System.Drawing;
 
 namespace Foreman.Mac.Canvas.Elements {
     //Ports ProductionGraphView/Elements/BaseLinkElement.cs: the three bezier path shapes (Simple/UShape/
-    //NShape), visibility bounds, and the direction-arrow cap, plus the per-link routings and waypoints. GDI+'s AdjustableArrowCap has no Skia
+    //NShape), visibility bounds, and the direction-arrow cap. GDI+'s AdjustableArrowCap has no Skia
     //equivalent, so the arrowhead is drawn as an explicit filled triangle (GraphicsStuff.DrawArrowHead)
     //instead of a pen end-cap; the underlying line is not inset for it (upstream's cap replaces the last
     //few pixels of stroke) since both are drawn in the same color and the seam isn't visible.
@@ -258,7 +258,6 @@ namespace Foreman.Mac.Canvas.Elements {
             CalculatedBounds = new Rectangle((int)Math.Floor(left), (int)Math.Floor(top), (int)Math.Ceiling(right - left), (int)Math.Ceiling(bottom - top));
         }
 
-        //The polyline every distance question reads; built on demand since only hit tests and waypoint insertion need it.
         public IReadOnlyList<SKPoint> Polyline {
             get {
                 UpdateCurve();
@@ -393,7 +392,6 @@ namespace Foreman.Mac.Canvas.Elements {
             return paint;
         }
 
-        //Fresh paints that carry the state the painter applies, so the colour, width and dash can be asserted.
         public SKPaint StrokePaint => ConfigureStroke(NewStrokePaint(), StrokeColor(TokenBridge.Current, IsUndersupplied), IsUndersupplied);
 
         public SKPaint CasingPaint => ConfigureCasing(NewStrokePaint(), TokenBridge.Current);

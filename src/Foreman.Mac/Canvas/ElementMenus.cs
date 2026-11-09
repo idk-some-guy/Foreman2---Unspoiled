@@ -22,7 +22,6 @@ namespace Foreman.Mac.Canvas {
         //MenuItem to still exist by then.
         public MenuCheckboxState? Checkbox { get; }
 
-        //A radio entry shows its check from Selected and closes the menu like a plain item.
         public bool IsRadio { get; }
         public bool Selected { get; }
 

@@ -32,7 +32,6 @@ namespace Foreman.Mac.Canvas.KitSkia {
     public static class TokenBridge {
         private static CanvasTokens? current;
 
-        //An empty record from before the tokens load is never kept, so the first real resolve raises Changed.
         public static CanvasTokens Current {
             get {
                 if (current is null)
@@ -43,8 +42,6 @@ namespace Foreman.Mac.Canvas.KitSkia {
 
         public static event EventHandler? Changed;
 
-        //AppearanceHub.Changed is the only caller. One OS flip refreshes the hub twice (platform appearance and
-        //ActualThemeVariantChanged), so the record comparison keeps that to a single republish.
         public static void Refresh() {
             if (Resource("Foreman.Color.CanvasBackground") is null)
                 return;
@@ -92,7 +89,7 @@ namespace Foreman.Mac.Canvas.KitSkia {
                 ColorOf("Foreman.Color.TooltipMaterialOpaque"), ColorOf("Foreman.Color.TooltipText"), Number("Foreman.Size.LinkStub"));
         }
 
-        //Off the UI thread ActualThemeVariant throws, so we resolve against Light there, as ThemeResources does.
+        //ActualThemeVariant throws off the UI thread.
         private static object? Resource(string key) {
             Application? app = Application.Current;
             if (app is null)
@@ -109,7 +106,6 @@ namespace Foreman.Mac.Canvas.KitSkia {
 
         private static float Number(string key) => Resource(key) is double value ? (float)value : 0f;
 
-        //The Space ladder stays unscaled for Thickness bindings, so the canvas multiplies it here.
         private static float Space(string key, double scale) => (float)(Number(key) * scale);
 
         private static float Radius(string key) => Resource(key) is CornerRadius radius ? (float)radius.TopLeft : 0f;

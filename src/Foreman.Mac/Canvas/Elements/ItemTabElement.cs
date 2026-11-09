@@ -12,7 +12,8 @@ using System.Drawing;
 using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/ItemTabElement.cs on the §01 tab, plus the right-click delete-connection menu (reference §4d).
+    //Ports ProductionGraphView/Elements/ItemTabElement.cs: draw/tooltip path plus the right-click delete-
+    //connection menu (reference §4d).
     public sealed class ItemTabElement : GraphElement {
         private enum TabStroke { Regular, Overproduced, Short }
 
@@ -69,7 +70,6 @@ namespace Foreman.Mac.Canvas.Elements {
             Layout();
         }
 
-        //22 tall, at least 44 wide: 3 leading · icon 16 · 4 · rate · 6 trailing; the tab grows and never trims the rate.
         private void Layout() {
             CanvasTokens tokens = TokenBridge.Current;
             int weight = tokens.CanvasEmphasizedWeight;

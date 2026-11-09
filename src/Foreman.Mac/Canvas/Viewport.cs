@@ -56,8 +56,6 @@ namespace Foreman.Mac.Canvas {
             UpdateGraphBounds(limitToGraphBounds);
         }
 
-        //View menu's Actual Size (contract #menubar): same anchor-preserving math as ZoomAt, but jumps to an
-        //exact scale instead of stepping by ZoomStepFactor.
         public void SetAbsoluteZoom(AvaloniaPoint anchorScreenPoint, float scale, Rectangle? limitToGraphBounds = null) {
             Point oldAnchor = ScreenToGraph(anchorScreenPoint);
 
@@ -69,9 +67,6 @@ namespace Foreman.Mac.Canvas {
             UpdateGraphBounds(limitToGraphBounds);
         }
 
-        //View menu's Fit to Graph (contract #menubar): scales so the given bounds fit inside the viewport
-        //and centers on them. An empty graph (zero-size bounds) leaves the viewport untouched, same as an
-        //empty-bounds UpdateGraphBounds call.
         public void FitToBounds(Rectangle bounds, Rectangle? limitToGraphBounds = null) {
             if (bounds.Width <= 0 || bounds.Height <= 0)
                 return;
@@ -96,7 +91,6 @@ namespace Foreman.Mac.Canvas {
             UpdateGraphBounds(limitToGraphBounds);
         }
 
-        //margin is in screen points, converted to graph units by ViewScale; ViewScale itself never changes.
         public void PanIntoView(Rectangle nodeBounds, double margin = 0) {
             if (PanIntoViewTarget(nodeBounds, margin) is not Point target)
                 return;
@@ -105,7 +99,6 @@ namespace Foreman.Mac.Canvas {
             UpdateGraphBounds();
         }
 
-        //The ViewOffset that brings nodeBounds inside the inset rect, or null while it already is.
         public Point? PanIntoViewTarget(Rectangle nodeBounds, double margin = 0) {
             int marginGraph = ViewScale > 0 ? (int)Math.Round(margin / ViewScale) : (int)margin;
             Rectangle inset = Rectangle.Inflate(VisibleGraphBounds, -marginGraph, -marginGraph);

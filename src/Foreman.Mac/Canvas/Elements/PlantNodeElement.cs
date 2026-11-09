@@ -7,7 +7,8 @@ using System.Drawing;
 using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/PlantNodeElement.cs on the §01 card: recipe strip, plant glyph, output tabs set the width.
+    //Ports ProductionGraphView/Elements/PlantNodeElement.cs in full - planting/growth node, multiple dynamic
+    //output tabs.
     public sealed class PlantNodeElement : BaseNodeElement {
         private IPlantNodeViewModel PlantViewModel => (IPlantNodeViewModel)ViewModel;
         private string InputName => PlantViewModel.Seed.FriendlyName ?? "";

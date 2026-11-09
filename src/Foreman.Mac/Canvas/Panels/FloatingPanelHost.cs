@@ -11,8 +11,6 @@ namespace Foreman.Mac.Canvas.Panels {
     //Avalonia equivalent of upstream FloatingTooltipControl's panel half (docs/panels-reference.md §7):
     //an overlay child hosted inside the owning canvas's own visual tree rather than a Popup, so it shares
     //the canvas's coordinate space (EditPanelViewportLayout/EditPanelScreenLayout's math) and gets real
-    //Avalonia focus the same way upstream's WinForms child control did. One panel open at a time, matching
-    //upstream's ClearFloatingControls/SubwindowOpen model - Show() always closes whatever was open first.
     //any new toolbar/menu handler that mutates canvas state or opens a modal must call Close() itself
     //(upstream's Leave event did this implicitly; this port closes at handlers - see perf-packaging-reference
     //§2). MainWindow's Closing-gate/save-prompt path (OnClosing/ConfirmCloseAsync) is exempt: it never
@@ -74,9 +72,7 @@ namespace Foreman.Mac.Canvas.Panels {
             AvaloniaCanvas.SetTop(_content, clamped.Y);
         }
 
-        //Gives content a chance to actually reflow to the available space before
-        //EditPanelViewportLayout.Apply measures+clamps it - otherwise Apply can only shrink the outer
-        //Width/Height property, which clips fixed-size content instead of making it smaller.
+        //Content must reflow before EditPanelViewportLayout.Apply measures it, or Apply only shrinks the outer size and clips fixed-size content.
         private DrawingRectangle MeasureReflowableRect(AvaloniaControl content, DrawingPoint anchorGraphPoint, int viewerWidth, int viewerHeight) {
             AvaloniaSize size = EditPanelViewportLayout.Apply(content, viewerWidth, viewerHeight);
             return AnchoredRect(anchorGraphPoint, size);

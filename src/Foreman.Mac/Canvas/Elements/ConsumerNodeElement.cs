@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Drawing;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/ConsumerNodeElement.cs on the §01 card: "Output", or a "Fixed {rate}" chip.
+    //Ports ProductionGraphView/Elements/ConsumerNodeElement.cs in full - "Infinite Sink:" / "Required Output:" node.
     public sealed class ConsumerNodeElement : BaseNodeElement {
         private IConsumerNodeViewModel ConsumerViewModel => (IConsumerNodeViewModel)ViewModel;
         private string ItemName => ConsumerViewModel.ConsumedItem.FriendlyName ?? "";

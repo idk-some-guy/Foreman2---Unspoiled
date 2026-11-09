@@ -9,7 +9,6 @@ using System.Drawing;
 using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //The status row's beacon badge (§01): 16 square, Well fill, 1 pt BorderStrong, radius 4, the beacon glyph at 12.
     internal sealed class BeaconElement : GraphElement {
         private IRecipeNodeViewModel RecipeViewModel => (IRecipeNodeViewModel)parent.ViewModel;
         private readonly RecipeNodeElement parent;

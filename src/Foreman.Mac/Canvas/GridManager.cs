@@ -158,7 +158,6 @@ namespace Foreman.Mac.Canvas {
                         float radius = level.Diameter / 2 * pxPerUnit / viewScale;
                         float step = level.Unit * pxPerUnit;
                         int cells = period / level.Unit;
-                        // Dots on the tile edge stitch their quarters together when the tile repeats
                         for (int row = 0; row <= cells; row++)
                             for (int column = 0; column <= cells; column++)
                                 surface.Canvas.DrawCircle(column * step, row * step, radius, dot);

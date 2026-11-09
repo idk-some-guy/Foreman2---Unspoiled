@@ -9,8 +9,8 @@ using System.Drawing;
 using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/ErrorNoticeElement.cs as the hit target of the node's in-card badge (§02): the
-    //tooltip, left-click autoresolve and the right-click resolution menu (reference §4e). The node paints the badge.
+    //Ports ProductionGraphView/Elements/ErrorNoticeElement.cs: draw/tooltip path plus left-click autoresolve
+    //and the right-click resolution menu (reference §4e).
     public sealed class ErrorNoticeElement : GraphElement {
         private readonly NodeElementContext context;
         private readonly INodeViewModel nodeViewModel;
@@ -22,7 +22,6 @@ namespace Foreman.Mac.Canvas.Elements {
 
         private SKRect hitRect;
 
-        //Element bounds are whole points, so the hit test reads the exact rect.
         internal void Place(SKRect hit) {
             hitRect = hit;
             X = (int)Math.Round(hit.MidX);

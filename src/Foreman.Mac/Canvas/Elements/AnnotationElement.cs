@@ -7,11 +7,11 @@ using System.Collections.Generic;
 using System.Drawing;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/AnnotationElement.cs in full: the read-only slice (bounds,
-    //Draw helpers, ToSaveData/FromSaveData) plus the editing half: 8-handle resize, drag, mouse
+    //Ports ProductionGraphView/Elements/AnnotationElement.cs in full. P3 ported the read-only slice (bounds,
+    //Draw helpers, ToSaveData/FromSaveData); this task adds the P4 half: 8-handle resize, drag, mouse
     //routing, the right-click menu, lasso-edge intersection, and the now-real selection/handle drawing.
-    //Context replaces upstream's constructor-injected graphViewer field, since annotations
-    //are built by static factories with no viewer in scope - GraphViewer.AddAnnotationElement assigns it once
+    //Context replaces upstream's constructor-injected graphViewer field (Task 3 dropped it since annotations
+    //are built by static factories with no viewer in scope) - GraphViewer.AddAnnotationElement assigns it once
     //the element joins the live tree, the same way NodeElementContext is threaded onto BaseNodeElement.
     public abstract class AnnotationElement : GraphElement {
         public bool IsSelected { get; set; }
@@ -24,7 +24,7 @@ namespace Foreman.Mac.Canvas.Elements {
 
         private const float SelectionHighlightScreenPx = 2.5f;
 
-        //Per-instance mutate-reset paints: StrokeWidth tracks ViewScale and the colours track the appearance per frame, so not shareable statics.
+        //Per-instance mutate-reset paints: StrokeWidth tracks ViewScale per frame, so not shareable statics.
         private readonly SKPaint _handleFillPaint = new() { Style = SKPaintStyle.Fill, IsAntialias = true };
         private readonly SKPaint _selectionHighlightPaint = new() { Style = SKPaintStyle.Stroke, IsAntialias = true };
         private readonly SKPaint _handleBorderPaint = new() { Style = SKPaintStyle.Stroke, IsAntialias = true };
@@ -254,7 +254,7 @@ namespace Foreman.Mac.Canvas.Elements {
 
         //----------------------------------------------Drawing helpers for subclasses
 
-        //Real now (was no-op'd for the read-only path): a translucent blue rectangle around graphRect,
+        //Real now (was no-op'd for the P3 read-only path): a translucent blue rectangle around graphRect,
         //stroke width compensated for zoom so it stays a constant screen thickness.
         protected void DrawSelectionHighlight(SKCanvas canvas, Rectangle graphRect) {
             if (!IsSelected || Context?.IsExporting?.Invoke() == true)

@@ -28,10 +28,10 @@ namespace Foreman.Mac.Canvas {
     //Ports ProductionGraphViewer's element-lifecycle wiring (Session_NodeViewModelAdded/Removed,
     //Session_LinkViewModelAdded/Removed, Session_GraphCleared - reference §2) and its paint orchestration
     //(GetPaintingOrder, Paint, LOD/IconsOnly/NodeCountForSimpleView style selection, DynamicLinkWidth
-    //pre-pass - reference §3, §8.12). Mouse-drag/selection/right-click/DraggedLinkElement concerns
-    //stay out; this only drives the read-only element tree from session events plus the read-only half
+    //pre-pass - reference §3, §8.12). Mouse-drag/selection/right-click/DraggedLinkElement concerns are P4
+    //and stay out; this only drives the read-only element tree from session events plus the read-only half
     //of the paint pipeline. GraphCanvasControl owns the Avalonia control surface, pointer input, and the
-    //hover-tooltip overlay (already built); this class owns everything upstream's viewer keeps in
+    //hover-tooltip overlay (already built in Task 6); this class owns everything upstream's viewer keeps in
     //graph/session/element-collection state.
     public sealed partial class GraphViewer : IDisposable {
         //stands in for upstream's Control.DeviceDpi (reference: AnnotationLoader's header comment); internal
@@ -63,9 +63,9 @@ namespace Foreman.Mac.Canvas {
         public HashSet<BaseNodeElement> SelectedNodes { get; } = [];
         public HashSet<BaseNodeElement> CurrentSelectionNodes { get; } = [];
 
-        //Ports selectedAnnotations (reference §1/§2): annotation selection is a separate job from node
-        //dragging, whose follower loop already needs somewhere to read a mixed selection's annotations from,
-        //so this exists now, empty until annotation selection starts populating it.
+        //Ports selectedAnnotations (reference §1/§2): annotation selection itself is Task 6's job, but node
+        //dragging's follower loop already needs somewhere to read a mixed selection's annotations from, so
+        //this exists now, empty until Task 6 starts populating it.
         public HashSet<AnnotationElement> SelectedAnnotations { get; } = [];
 
         public HashSet<LinkElement> SelectedLinks { get; } = [];
@@ -137,7 +137,6 @@ namespace Foreman.Mac.Canvas {
             KitSkia.TokenBridge.Changed += OnTokenBridgeChanged;
         }
 
-        //Flag every live node dirty so the next PrePaint re-derives Width/Height before Draw/ContainsPoint.
         private void OnTokenBridgeChanged(object? sender, EventArgs e) {
             foreach (BaseNodeElement node in NodeElementDictionary.Values)
                 node.RequestStateUpdate();
@@ -277,9 +276,6 @@ namespace Foreman.Mac.Canvas {
 
         //----------------------------------------------Selection functions (reference §1)
 
-        //The aggregate signal (contract #toolbar's Align Selected .disabled empty-selection state)
-        //AlignSelectionCommand's CanExecute re-queries on, raised from every method below that touches
-        //SelectedNodes plus the two raw toggle-select mutations GraphCanvasControl still does directly.
         public event EventHandler? SelectionChanged;
 
         internal void RaiseSelectionChanged() => SelectionChanged?.Invoke(this, EventArgs.Empty);
@@ -383,7 +379,6 @@ namespace Foreman.Mac.Canvas {
 
         public readonly record struct AlignMove(BaseNodeElement Node, Point From, Point To);
 
-        //Grid-snaps every selected node in place; a node already on the grid does not move.
         public IReadOnlyList<AlignMove> PlanAlignSelection() =>
             [.. SelectedNodes.Select(node => new AlignMove(node, node.Location, Grid.AlignToGrid(node.Location))).Where(move => move.From != move.To)];
 
@@ -432,7 +427,6 @@ namespace Foreman.Mac.Canvas {
                 yield return element;
         }
 
-        //The explicit variant covers callers that apply a theme before the app's own variant has flipped.
         public void ApplyTheme(bool dark) =>
             backgroundOverride = KitSkia.TokenBridge.ColorIn("Foreman.Color.CanvasBackground", dark ? ThemeVariant.Dark : ThemeVariant.Light);
 
@@ -451,9 +445,9 @@ namespace Foreman.Mac.Canvas {
 
         //Ports Paint(Graphics, FullGraph) (reference §3 steps 2-8): visibility pass, grid, DynamicLinkWidth
         //pre-pass, PrePaint pass, then the style-selected main draw loop. Doesn't include steps 9-12 (the
-        //ResetTransform-and-beyond screen-space overlays); those are PaintOverlays/PaintPausedFrame below,
+        //ResetTransform-and-beyond screen-space overlays); those are PaintOverlays/PaintPausedBorder below,
         //called separately so GraphCanvasControl can interleave its own hover-tooltip draw between them in
-        //upstream's exact z-order (arrows, tooltip, paused frame last/topmost).
+        //upstream's exact z-order (arrows, tooltip, paused border last/topmost).
         public void Paint(SKCanvas canvas, bool fullGraph = false, bool draggedNodeActive = false, GraphElement? draggedLink = null, bool clearBackground = true, ExportTransform? exportTransform = null) {
             if (clearBackground)
                 canvas.Clear(BackgroundColor);
@@ -525,10 +519,10 @@ namespace Foreman.Mac.Canvas {
             canvas.DrawRect(1, 1, (float)Viewport.Width - 2, (float)Viewport.Height - 2, PausedFramePaint);
         }
 
-        //GraphCanvasControl.OnDetachedFromVisualTree is this class's only caller (it
+        //Final-review I2: GraphCanvasControl.OnDetachedFromVisualTree is this class's only caller now (it
         //owns the GraphViewer it constructs), and Avalonia can raise a detach more than once across a
         //control's lifetime (e.g. a reattach cycle) - the guard keeps a second call a no-op instead of a
-        //double-dispose of the viewer's and Grid's own SKPaints.
+        //double-dispose of _selectionZonePaint/Grid's own SKPaints.
         public bool IsDisposed { get; private set; }
 
         public void Dispose() {

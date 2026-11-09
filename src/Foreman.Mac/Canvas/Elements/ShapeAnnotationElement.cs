@@ -5,8 +5,8 @@ using System;
 using System.Drawing;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/ShapeAnnotationElement.cs in full: Draw/ToSaveData/
-    //FromSaveData plus the editing half: mutable properties for live editing, the blank "Add Shape"
+    //Ports ProductionGraphView/Elements/ShapeAnnotationElement.cs in full. P3 ported Draw/ToSaveData/
+    //FromSaveData; this task adds the P4 half: mutable properties for live editing, the blank "Add Shape"
     //constructors, and SaveDefaults/ApplyDefaults wired to AppSettings' AnnotShape* fields. Unlike
     //TextAnnotationElement there's no cached Skia object to rebuild - Draw already builds its SKPaints fresh
     //per call - so this port has no RebuildGdiObjects counterpart.

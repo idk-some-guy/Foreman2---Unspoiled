@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Drawing;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/SupplierNodeElement.cs on the §01 card: "Source", or a "Fixed {rate}" chip.
+    //Ports ProductionGraphView/Elements/SupplierNodeElement.cs in full - "Infinite Source:" / "Exact Input:" node.
     public sealed class SupplierNodeElement : BaseNodeElement {
         private ISupplierNodeViewModel SupplierViewModel => (ISupplierNodeViewModel)ViewModel;
         private string ItemName => SupplierViewModel.SuppliedItem.FriendlyName ?? "";

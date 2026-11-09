@@ -5,12 +5,10 @@ using System.Collections.Generic;
 using System.Drawing;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //A straight run (ArcRadius 0) or a rounded corner of the given radius between two points.
     public readonly record struct RouteSegment(SKPoint From, SKPoint To, float ArcRadius, SKPoint Corner = default);
 
     public readonly record struct CubicSegment(SKPoint C1, SKPoint C2, SKPoint To);
 
-    //Pure link geometry for the two routings that carry waypoints or axis-aligned runs; the shipped cubic shapes stay in BaseLinkElement.
     internal static class LinkRouter {
         private const float Epsilon = 0.01f;
 
@@ -80,7 +78,6 @@ namespace Foreman.Mac.Canvas.Elements {
             return a.Y > rect.Top + Epsilon && a.Y < rect.Bottom - Epsilon && Math.Max(Math.Min(a.X, b.X), rect.Left) < Math.Min(Math.Max(a.X, b.X), rect.Right) - Epsilon;
         }
 
-        //Every 90 degree turn becomes an arc, with the radius held to half of the shorter run on either side.
         internal static List<RouteSegment> OrthogonalSegments(IReadOnlyList<SKPoint> points, float cornerRadius) {
             var segments = new List<RouteSegment>();
             SKPoint cursor = points[0];
@@ -120,7 +117,6 @@ namespace Foreman.Mac.Canvas.Elements {
             return path;
         }
 
-        //Catmull-Rom through the waypoints in order, with both tab tangents perpendicular to the node edge.
         internal static List<CubicSegment> CatmullRom(Point supplier, NodeDirection supplierDirection, Point consumer, NodeDirection consumerDirection, IReadOnlyList<Point> waypoints) {
             (float supplierSign, float consumerSign) = StubDirections(supplierDirection, consumerDirection);
             var points = new List<SKPoint> { new(supplier.X, supplier.Y) };

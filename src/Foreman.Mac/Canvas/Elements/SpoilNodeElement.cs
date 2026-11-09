@@ -6,7 +6,8 @@ using System.Collections.Generic;
 using System.Drawing;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/SpoilNodeElement.cs on the §01 card: recipe strip, spoil glyph, one output tab.
+    //Ports ProductionGraphView/Elements/SpoilNodeElement.cs in full - spoilage conversion node, single
+    //dynamic output tab.
     public sealed class SpoilNodeElement : BaseNodeElement {
         private ISpoilNodeViewModel SpoilViewModel => (ISpoilNodeViewModel)ViewModel;
         private string InputName => SpoilViewModel.InputItem.FriendlyName ?? "";

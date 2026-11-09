@@ -17,7 +17,6 @@ namespace Foreman.Mac.Canvas.Elements {
 
     internal readonly record struct LabelState(string Text, string? From, double Progress);
 
-    //Count and rate text cross-fade on the canvas's shared label clock; a change that lands under Reduce Motion swaps.
     internal sealed class LabelFade {
         private int generation;
 
@@ -39,9 +38,7 @@ namespace Foreman.Mac.Canvas.Elements {
         }
     }
 
-    //Draws the node card family (§01) from CanvasTokens; sizes arrive already multiplied, radii and strokes stay fixed.
     internal static class NodeCardPainter {
-        //§01 metrics with no §12 key or Space rung, in points at 100 %.
         internal const float KeyLineHeight = 12, BuildingRowHeight = 20, SubRowHeight = 16;
         internal const float CardStrokeWidth = 1, TabStrokeWidth = 1.5f;
         private const float GlyphStrokeWidth = 1.5f, GlyphGrid = 20;
@@ -107,7 +104,6 @@ namespace Foreman.Mac.Canvas.Elements {
 
         internal static float Measure(string text, float size, int weight) => Font(size, weight).MeasureText(text);
 
-        //One line with a trailing ellipsis, as CharacterEllipsis trims.
         internal static string Fit(string text, float maxWidth, float size, int weight, out bool truncated) {
             SKFont font = Font(size, weight);
             truncated = font.MeasureText(text) > maxWidth;
@@ -119,7 +115,6 @@ namespace Foreman.Mac.Canvas.Elements {
             return string.Concat(text.AsSpan(0, length).TrimEnd(), "…");
         }
 
-        //The canvas number: up to 3 decimals below 1, 2 below 10, 1 below 100, whole to 9999, then k/M/G on the same rule.
         internal static string Number(double value) {
             double magnitude = Math.Abs(value);
             if (magnitude == 0)
@@ -172,7 +167,6 @@ namespace Foreman.Mac.Canvas.Elements {
             return created.Filter;
         }
 
-        //A card or tab border sits inside its bounds, as a CSS border-box does.
         internal static void StrokeInside(SKCanvas canvas, SKRect rect, float radius, float width, SKColor color, float[]? dash = null) {
             if (width <= 0)
                 return;
@@ -204,7 +198,6 @@ namespace Foreman.Mac.Canvas.Elements {
 
         internal static void DrawPip(SKCanvas canvas, SKRect pip, SKColor color) => canvas.DrawOval(pip, FillPaint(color));
 
-        //Glyph geometry scales with its box; the stroke keeps the kit's fixed width unless a badge-sized glyph passes its own.
         internal static void DrawGlyph(SKCanvas canvas, string key, SKRect box, SKColor color, float stroke = GlyphStrokeWidth) {
             float scale = box.Width / GlyphGrid;
             canvas.Save();

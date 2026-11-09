@@ -4,7 +4,6 @@ using System.Collections.Generic;
 
 namespace Foreman.Mac.Canvas.KitSkia {
     public static class GlyphPaths {
-        //A compiled StreamGeometry keeps no path text, so the kit masters' data is mirrored here from Themes/Glyphs.axaml.
         private static readonly Dictionary<string, string> Masters = new() {
             ["Kit.Glyph.Node.Over"] = "M10,16 V4.5 M5.5,9 L10,4.5 L14.5,9",
             ["Kit.Glyph.Node.Short"] = "M10,4 V15.5 M5.5,11 L10,15.5 L14.5,11",

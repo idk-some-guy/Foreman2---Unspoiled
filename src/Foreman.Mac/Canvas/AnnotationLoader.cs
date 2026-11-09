@@ -10,7 +10,7 @@ using System.Linq;
 namespace Foreman.Mac.Canvas {
     //Ports the load-only slice of ProductionGraphViewer.Annotations.cs (LoadAnnotationsFromSave,
     //TryCreateAnnotationFromSave, GetAnnotationAtPoint, GetExportBounds) as free functions, since the
-    //ProductionGraphViewer host itself hasn't landed. deviceDpi
+    //ProductionGraphViewer host itself hasn't landed (that's task 12's orchestration layer). deviceDpi
     //stands in for upstream's Control.DeviceDpi read, which has no equivalent until that control exists.
     public static class AnnotationLoader {
         public static IReadOnlyList<AnnotationElement> LoadFromSave(

@@ -40,7 +40,6 @@ namespace Foreman.Mac.Canvas.Elements {
                 linkedNode.RequestStateUpdate();
         }
 
-        //Footprints are graph space, multiplied by the display factor; saved layouts keep their spacing.
         protected static int BaseSimpleHeight => TokenBridge.ScaledInt(96);
         protected static int BaseRecipeHeight => TokenBridge.ScaledInt(144);
         protected static int WidthD => TokenBridge.ScaledInt(24);
@@ -107,13 +106,10 @@ namespace Foreman.Mac.Canvas.Elements {
             LayoutNode();
         }
 
-        //---- card layout (§01), in local coordinates around the node centre ----
-
         private CanvasTokens? layoutTokens;
         private LevelOfDetail layoutDetail;
         private LayoutInputs layoutInputs;
 
-        //Rate type, key status, direction, simple draw, count rounding, the badge, the solve state, icon view and small-text legibility change without a node event until the next solve, so the card compares them each paint.
         private readonly record struct LayoutInputs(RateType RateType, bool KeyNode, string KeyNodeTitle, double DesiredRate, double DesiredSetValue, NodeDirection Direction, ProductionGraph.RateUnit RateUnit, bool SimpleDraw, bool RoundCount, NodeBadgeKind? Badge, NodeSolveState SolveState, bool IconsOnly, bool SmallTextLegible);
 
         private LayoutInputs CurrentInputs() =>
@@ -171,8 +167,6 @@ namespace Foreman.Mac.Canvas.Elements {
             ErrorNotice.Place(LocalBadgeHitRect());
             ErrorNotice.SetVisibility(!badgeRect.IsEmpty && ViewModel.State is NodeState.Error or NodeState.Warning);
         }
-
-        //---- state (§02): badge, solve state, availability ----
 
         private static readonly string[] BadgeWords = ["Unavailable", "Error", "Short", "Warning", "Over"];
         private NodeBadge? pendingBadge;
@@ -283,7 +277,6 @@ namespace Foreman.Mac.Canvas.Elements {
             laidOut.Add(new NodeText(NodeTextRole.Name, name, nameRect, tokens.CalloutFontSize, weight, tokens.Text));
         }
 
-        //The sub row of every non-recipe card: a word, or a chip once the rate is fixed.
         private protected void LayoutSubRow(CanvasTokens tokens, List<NodeText> laidOut, string? glyphKey, string text, bool chip, bool value = false) {
             float s = (float)tokens.Scale;
             float rowTop = Top + NodeCardPainter.DetailRowTop(tokens);
@@ -316,7 +309,6 @@ namespace Foreman.Mac.Canvas.Elements {
 
         protected string RateText(double rate) => NodeCardPainter.Rate(rate, Context.RateUnit);
 
-        //Tabs are centred along their edge with a 6 gap, overhanging it by NodeTabOverhang.
         protected static float TabSpan(List<ItemTabElement> tabs) {
             if (tabs.Count == 0)
                 return 0;
@@ -328,7 +320,6 @@ namespace Foreman.Mac.Canvas.Elements {
 
         protected static int WidthForTabs(float span) => Math.Max(MinWidth, (int)Math.Ceiling(span + (2 * TokenBridge.Current.NodeInsetSide)));
 
-        //A fixed-rate chip wider than the inner width grows the card.
         protected static int WidthForChip(string? chip) {
             if (chip is null)
                 return MinWidth;
@@ -478,8 +469,6 @@ namespace Foreman.Mac.Canvas.Elements {
                 yield return "rates out of date";
         }
 
-        //---- the three ring lanes (§02): border ±1, lane A +2…+4, lane B +6…+9; radii and strokes stay fixed ----
-
         private const float InnerRingInset = 3, LaneACentre = 3, LaneBCentre = 7.5f, FlowStroke = 2, IconRingRadius = 8;
 
         private SKRect GraphRect() => ToGraph(SKRect.Create(Left, Top, Width, Height));
@@ -495,7 +484,6 @@ namespace Foreman.Mac.Canvas.Elements {
 
         private bool BorderIsStateMark => ShowsSelection || FlowUndersupplied || ViewModel.State == NodeState.Error || ViewModel.IsOverproducing();
 
-        //Selection owns the border lane; flow state still shows through the badge and the tab outlines.
         public RingGeometry BorderRing() {
             CanvasTokens tokens = Tokens;
             (SKRect bounds, float radius) = RingBase();
@@ -560,7 +548,6 @@ namespace Foreman.Mac.Canvas.Elements {
 
         internal SKRect DetailGlyphRect() => detailGlyph is (_, SKRect box) ? ToGraph(box) : SKRect.Empty;
 
-        //The card and the tabs paint at ContentOpacity; the border lane stays opaque between them, and the badge and lanes A and B above.
         public override void Paint(SKCanvas canvas, NodeDrawingStyle style) {
             if (!Visible)
                 return;
@@ -666,7 +653,7 @@ namespace Foreman.Mac.Canvas.Elements {
             exclusive ? [new TooltipInfo(new Avalonia.Point(10, 10), Direction.None, text)] : [];
 
         //Ports MouseDown's location-snapshot half (reference §2) - claiming graphViewer.MouseDownElement is
-        //GraphCanvasControl's job, inlined at the pointer-press site rather than the constructor.
+        //GraphCanvasControl's job, inlined at the pointer-press site same as Task 1 left it.
         public void MouseDown(Point graphPoint) {
             mouseDownLocation = graphPoint;
             mouseDownNodeLocation = Location;
@@ -711,7 +698,6 @@ namespace Foreman.Mac.Canvas.Elements {
 
         internal GraphElement HoverTargetAt(Point graphPoint) => SubElements.FirstOrDefault(element => element.ContainsPoint(graphPoint)) ?? this;
 
-        //Whether a tab or the error notice claims this point ahead of the node's own body.
         public bool HasSubElementAt(Point graphPoint) =>
             SubElements.OfType<ItemTabElement>().Any(tab => tab.ContainsPoint(graphPoint)) || ErrorNotice.ContainsPoint(graphPoint);
 

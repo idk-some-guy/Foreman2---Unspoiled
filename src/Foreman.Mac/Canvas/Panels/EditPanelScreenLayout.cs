@@ -4,7 +4,8 @@ using System.Drawing;
 namespace Foreman.Mac.Canvas.Panels {
     //Verbatim port of upstream ProductionGraphView/EditPanelScreenLayout.cs (docs/panels-reference.md §7):
     //screen-space clamping of a floating panel's rectangle inside the viewer's visible client area, plus
-    //anchor-offset placement for choosers.
+    //anchor-offset placement for choosers. ShiftControlsToFit's mutation target moves from upstream's
+    //Control.Location to Canvas.Left/Top, since panels are positioned via Canvas attached properties here.
     public static class EditPanelScreenLayout {
         public const int DefaultMargin = 25;
 

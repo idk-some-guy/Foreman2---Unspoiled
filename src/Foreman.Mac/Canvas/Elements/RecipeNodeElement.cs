@@ -14,7 +14,7 @@ using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
     //Ports ProductionGraphView/Elements/RecipeNodeElement.cs: Draw/DetailsDraw/UpdateState/UpdateValues/
-    //tooltips, plus the ~280-line paste-options right-click menu, AddRClickMenuOptions (reference
+    //tooltips (P3), plus the ~280-line paste-options right-click menu, AddRClickMenuOptions (P4, reference
     //§4c) - the only node subclass whose AddRClickMenuOptions isn't the base no-op.
     public sealed class RecipeNodeElement : BaseNodeElement {
         internal AssemblerElement AssemblerElement { get; }
@@ -93,7 +93,6 @@ namespace Foreman.Mac.Canvas.Elements {
         private bool ShowsExtraProductivity =>
             RecipeViewModel.ExtraProductivity > 0 && (RecipeViewModel.SelectedAssembler.Assembler.EntityType == EntityType.Miner || Context.EnableExtraProductivityForNonMiners);
 
-        //Building row (§01): icon 20 · count 13/600, or a "Fixed ×{n}" chip · building name; then the status row at high detail.
         private protected override void LayoutDetail(CanvasTokens tokens, List<NodeText> detail) {
             float rowTop = Top + NodeCardPainter.DetailRowTop(tokens);
             float rowHeight = NodeCardPainter.BuildingRowHeight * (float)tokens.Scale;
@@ -123,7 +122,6 @@ namespace Foreman.Mac.Canvas.Elements {
             AssemblerElement.SetVisibility(Context.LevelOfDetail != LevelOfDetail.Low);
         }
 
-        //State badge · beacon badge · productivity pips (capped at 6) · extra productivity; missing items collapse leftward.
         private List<StatusItem> LayoutStatusRow(CanvasTokens tokens, List<NodeText> detail) {
             float rowTop = Top + NodeCardPainter.StatusRowTop(tokens);
             float badge = tokens.NodeBadgeHeight;
@@ -300,8 +298,6 @@ namespace Foreman.Mac.Canvas.Elements {
             entries.Add(MenuEntry.Divider);
         }
 
-        //The recipe hover card is retired (contract §03) - it folds into the inspector's own
-        //identity header (RecipeCardView) instead. Help tooltips stay.
         protected override List<TooltipInfo> GetMyToolTips(Point graphPoint, bool exclusive) {
             var tooltips = new List<TooltipInfo>();
 

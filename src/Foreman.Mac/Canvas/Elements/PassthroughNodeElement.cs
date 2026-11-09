@@ -9,8 +9,11 @@ using System.Drawing;
 using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //Ports ProductionGraphView/Elements/PassthroughNodeElement.cs: a §01 card ("Passthrough", or a "Limit {rate}" chip),
-    //or with simple draw on the 72 × 96 bar, a line in the item's colour at the widest link's width.
+    //Ports ProductionGraphView/Elements/PassthroughNodeElement.cs draw path, including the simple-draw
+    //line-only mode. The simple-draw toggle right-click menu (AddRClickMenuOptions) is P4 and stays out.
+    //
+    //Upstream sizes the simple-draw line from the connected LinkElements' live LinkWidth; this reads
+    //Context.GetLinkWidth, which GraphViewer wires to the real LinkElementDictionary lookup.
     public sealed class PassthroughNodeElement : BaseNodeElement {
         private IPassthroughNodeViewModel PassthroughViewModel => (IPassthroughNodeViewModel)ViewModel;
         private string ItemName => PassthroughViewModel.PassthroughItem.FriendlyName ?? "";
@@ -85,7 +88,6 @@ namespace Foreman.Mac.Canvas.Elements {
             if (style != NodeDrawingStyle.Regular)
                 return;
 
-            //The caps sit on the tab points, where the hidden tabs are centred.
             SKPaint capFillPaint = GraphicsStuff.RentFillPaint(lineColor);
             int capRadius = TokenBridge.ScaledInt(6);
             canvas.DrawCircle(inputPoint.X, InputTabs[0].LocalToGraph(new Point(0, 0)).Y, capRadius, capFillPaint);

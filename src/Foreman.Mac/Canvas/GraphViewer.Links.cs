@@ -10,7 +10,6 @@ namespace Foreman.Mac.Canvas {
     public sealed partial class GraphViewer {
         public LinkElement? WaypointSelectionLink => SelectedLinks.FirstOrDefault(link => link.SelectedWaypointIndex >= 0);
 
-        //Waypoints win over their own link, nodes win over both (the caller checks nodes first).
         public (LinkElement Link, WaypointElement? Waypoint)? LinkTargetAt(Point graphPoint) {
             for (int i = LinkElements.Count - 1; i >= 0; i--) {
                 LinkElement link = LinkElements[i];

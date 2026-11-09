@@ -44,8 +44,6 @@ namespace Foreman.Mac.Canvas {
     public enum NewNodeType { Disconnected, Supplier, Consumer }
 
     //Ports the chooser-dependent tail of DraggedLinkElement.EndDrag (reference §3's "exactly one end bound,
-    //dropped on empty space" outcome): an unresolved drag lands here for RequestNewNodeFromLinkDrag to open
-    //the radial menu against.
     public readonly record struct NewNodeLinkDragRequest(NewNodeType NodeType, ItemQualityPair Item, AvaloniaPoint ScreenPoint, DrawingPoint EndpointLocation, BaseNodeElement OriginElement, NodeDirection Direction);
 
     //Ports ProductionGraphViewer's OnPaint transform setup, MouseWheel zoom, middle/right-drag pan,
@@ -56,10 +54,8 @@ namespace Foreman.Mac.Canvas {
     //the ghost's MouseDownElement redirection, passthrough-bus creation) lives here too, alongside the rest
     //of the drag/mouse-routing state (MouseDownElement, CurrentDragOperation) rather than on GraphViewer.
     public sealed partial class GraphCanvasControl : Decorator {
-        //DrawShape never triggers yet: inDrawShapeMode stays false until that mode lands.
         internal enum DragOperation { None, Item, Selection, DrawShape }
 
-        //Already squared (a ~5.5px move), not 30 squared again.
         private const int MinDragDiffSquared = 30;
 
         public Viewport Viewport { get; }
@@ -70,10 +66,6 @@ namespace Foreman.Mac.Canvas {
         public List<LinkElement> LinkElements => Viewer.LinkElements;
         public List<AnnotationElement> Annotations => Viewer.Annotations;
 
-        //Mouse-wheel zoom is the one Viewport.ViewScale-changing path that doesn't go through
-        //a MainWindow method, so it's the one path MainWindow.ResyncZoomLabel's four call sites couldn't
-        //reach directly. Mirrors GraphViewer.SelectionChanged's shape for the same reason - a minimal signal
-        //MainWindow subscribes to, rather than making Viewport itself bindable.
         public event EventHandler? ViewScaleChanged;
 
         internal DragOperation CurrentDragOperation { get; private set; } = DragOperation.None;
@@ -81,7 +73,7 @@ namespace Foreman.Mac.Canvas {
         internal bool ViewBeingDragged { get; private set; }
 
         //Ports draggedLinkElement (reference §3) and SmartNodeDirection (reference §8) - the latter isn't
-        //wired from settings yet, so it defaults false, matching
+        //wired from settings yet (that's task 11's auto-placement polish), so it defaults false, matching
         //upstream's own cold-start default before MainForm_Load reads the setting.
         internal DraggedLinkElement? DraggedLink { get; private set; }
         internal bool SmartNodeDirection { get; set; }
@@ -89,7 +81,7 @@ namespace Foreman.Mac.Canvas {
         //Stands in for upstream's global Control.ModifierKeys read inside UpdateSlaveLinks (reference §3):
         //Avalonia has no such global query, so this tracks the most recently observed KeyModifiers from
         //every pointer/key event and is read from PrePaint instead. Upstream's Ctrl maps to Cmd/Meta here
-        //(docs/interaction-reference.md §7's Cmd-mapping note doesn't cover this
+        //per this task's plan (docs/interaction-reference.md §7's Cmd-mapping note doesn't cover this
         //specific in-drag modifier, since it isn't a selection idiom).
         internal bool IsPassthroughBusModifierHeld { get; private set; }
 
@@ -177,11 +169,6 @@ namespace Foreman.Mac.Canvas {
             MouseDownElement = null;
         }
 
-        //Ports EditNode's dispatch entry point (reference §8/§9 step 6, upstream ProductionGraphViewer.cs
-        //512-586): every node type just selects on a body click now. The paired floating recipe editor and
-        //its standalone recipe card upstream opened for a RecipeNodeElement, and the earlier EditFlowPanel
-        //for everything else, both live in the inspector sidebar's Recipe/Flow segments today (the recipe
-        //pair is retired).
         internal void EditNode(BaseNodeElement node) {
             if (Viewer.Context.DCache is not DataCache)
                 return;
@@ -189,7 +176,6 @@ namespace Foreman.Mac.Canvas {
             Viewer.SetSelection([node]);
         }
 
-        //Closes any open panel first: a load can replace or remove the node it was bound to.
         internal GraphLoadResult LoadDocument(DataCache cache, string json, bool setEnablesFromJson = true) {
             ClosePanels();
             return Viewer.LoadDocument(cache, json, setEnablesFromJson);
@@ -282,7 +268,6 @@ namespace Foreman.Mac.Canvas {
             ring.IsOpen = true;
         }
 
-        //The closed ring stays in the surface, faded and hit-test invisible, until the next ring replaces it.
         private void CloseRadial() {
             if (openRadial is null)
                 return;
@@ -345,7 +330,6 @@ namespace Foreman.Mac.Canvas {
             }
         }
 
-        //UnPlant alone carries the old footer's isDefaultQuality gate; Spoil/UnSpoil/Plant do not.
         private List<RadialChoice> RadialSlicesFor(NewNodeLinkDragRequest request) {
             IItem? item = request.Item.Item;
             bool isDefaultQuality = Viewer.Context.DCache is not DataCache cache || request.Item.Quality == cache.DefaultQuality;
@@ -369,7 +353,6 @@ namespace Foreman.Mac.Canvas {
             return choices;
         }
 
-        //Source/Output: the linked-node placement the browser's footer role buttons make, without the browser trip.
         private void PlaceLinkedRole(NewNodeLinkDragRequest request, NodeType role) {
             if (request.Item.Item is not IItem item)
                 return;
@@ -382,7 +365,6 @@ namespace Foreman.Mac.Canvas {
             PlaceNode(AddCatalog.Candidate(item), new AddRequest(request.EndpointLocation, AddScope.Items, LinkContextFor(request)), role, spoilPlantDirection: direction);
         }
 
-        //UnSpoil/UnPlant: one origin places directly; several hand off to the browser's Origins-of chip via OriginsRole.
         private void PlaceOrBrowseOrigins(NewNodeLinkDragRequest request, NodeType role) {
             if (request.Item.Item is not IItem item)
                 return;
@@ -405,7 +387,6 @@ namespace Foreman.Mac.Canvas {
             return LinkChecker.GetTemperatureRange(fluid, request.OriginElement.ViewModel, direction, true, Viewer.Session);
         }
 
-        //Cmd-held release: skips the radial and builds the passthrough node/link straight from the request.
         internal void CreatePassthroughFromLinkDrag(NewNodeLinkDragRequest request) {
             NodeId newNodeId = Viewer.Session.Editor.CreatePassthroughNode(request.Item, request.EndpointLocation);
             Viewer.Session.Editor.SetDirection(newNodeId, request.Direction);
@@ -423,7 +404,6 @@ namespace Foreman.Mac.Canvas {
             RequestRedraw();
         }
 
-        //Only tab-inflated bounds within 24 of the origin's on both axes move: along the flow axis to a 24 gap, keeping the cross axis, then snapped outward.
         private void ClearOfOrigin(NodeId placedId, BaseNodeElement origin) {
             if (!Viewer.NodeElementDictionary.TryGetValue(placedId, out BaseNodeElement? placed) || placed == origin)
                 return;
@@ -473,7 +453,7 @@ namespace Foreman.Mac.Canvas {
 
         //Internal rather than private: DraggedLinkElement (a different class) also needs to request a
         //repaint at the same state-changing points upstream calls Invalidate() from (reference §3's EndDrag/
-        //AddPassthroughNodesFromSelection tails).
+        //AddPassthroughNodesFromSelection/AddNewNode tails).
         internal void RequestRedraw() {
             RedrawRequestCount++;
             InvalidateVisual();
@@ -488,7 +468,6 @@ namespace Foreman.Mac.Canvas {
             LastContextMenu.Open(this);
         }
 
-        //Find node ruling §02: the pan tweens ViewOffset through a transition-driven progress value, never a wall-clock timer.
         internal static readonly StyledProperty<double> PanProgressProperty =
             AvaloniaProperty.Register<GraphCanvasControl, double>("PanProgress");
 
@@ -496,7 +475,6 @@ namespace Foreman.Mac.Canvas {
         private DrawingPoint panTarget;
         private CancellationTokenSource? panCancellation;
 
-        //Reduce Motion drops the tween and applies the same destination in one step.
         internal void PanIntoView(DrawingRectangle nodeBounds, double margin) {
             if (Viewport.PanIntoViewTarget(nodeBounds, margin) is not DrawingPoint target)
                 return;
@@ -531,7 +509,6 @@ namespace Foreman.Mac.Canvas {
                 return;
             }
 
-            //RunAsync does not leave the last keyframe applied once it completes - pin the destination.
             if (!token.IsCancellationRequested)
                 SetCurrentValue(PanProgressProperty, 1d);
         }
@@ -559,8 +536,8 @@ namespace Foreman.Mac.Canvas {
                 QueueMotionFrame();
         }
 
-        //Viewer/Grid are disposed here and nowhere else: calling it from outside this control would be an
-        //ownership trap, since ImageExportWindow (MainWindow.axaml.cs's
+        //Final-review I2: Viewer/Grid were IDisposable with no caller - dead code, and a real ownership trap
+        //had anything ever called it from outside this control, since ImageExportWindow (MainWindow.axaml.cs's
         //`new ImageExportWindow(GraphCanvas.Viewer)`) holds the SAME live Viewer for its export paint and never
         //disposes it itself. This control is the one place that constructs that Viewer (constructor above), so
         //disposing it here at its own natural teardown is safe as the sole owner - the only way this control
@@ -609,8 +586,6 @@ namespace Foreman.Mac.Canvas {
             RequestRedraw();
         }
 
-        //Ports ProductionGraphViewer_MouseDown (reference §1). Annotation_OnMouseDownDoubleClick/OnMouseDown is
-        //out: annotation click routing lives elsewhere.
         //A Left click on a node claims MouseDownElement and forwards to BaseNodeElement.MouseDown (reference
         //§2); Focus() picks up keyboard input (arrow keys, Shift axis-lock) the same click starts.
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
@@ -625,7 +600,6 @@ namespace Foreman.Mac.Canvas {
                 return;
             }
             AvaloniaPoint screenPoint = e.GetPosition(this);
-            //Off the ring but within the cancel distance, the release commits the armed slice; past it, the press cancels and is swallowed (macOS light dismiss).
             if (openRadial is not null) {
                 if (IsWithinRadialCancelDistance(screenPoint))
                     radialPress = true;
@@ -657,7 +631,6 @@ namespace Foreman.Mac.Canvas {
             DrawingPoint graphPoint = Viewport.ScreenToGraph(screenPoint);
             PointerPointProperties properties = e.GetCurrentPoint(this).Properties;
             UpdateModifiers(e.KeyModifiers);
-            //Pointer events carry fresh OS modifiers; the cached KeyUp/KeyDown state can strand mid-drag, so this self-heals a stuck Shift.
             ApplyAxisLockModifier(e.KeyModifiers);
 
             //Ghost-first priority (reference §1's clickedElement resolution): a link drag in progress claims
@@ -677,8 +650,6 @@ namespace Foreman.Mac.Canvas {
                 return;
             }
 
-            //Double-clicking empty canvas opens the Quick Add palette scoped to everything - guarded on
-            //!inDrawShapeMode so a shape draw's own click-to-place sequence can't misfire this instead.
             if (properties.IsLeftButtonPressed && e.ClickCount == 2 && clickedElement is null && !inDrawShapeMode) {
                 ResetPointerDragState();
                 ShowQuickAdd(new AddRequest(graphPoint, AddScope.All));
@@ -710,7 +681,6 @@ namespace Foreman.Mac.Canvas {
                 if (ModifierFor(e.KeyModifiers) == SelectionModifier.Replace) {
                     bool keepGroupSelection = clickedElement is BaseNodeElement clickedNode && Viewer.SelectedNodes.Contains(clickedNode);
                     if (!keepGroupSelection) {
-                        //select-and-drop in one call so SelectionChanged never sees an empty set in between
                         if (clickedElement is BaseNodeElement nodeToSelect && !nodeToSelect.HasSubElementAt(graphPoint))
                             Viewer.SetSelection([nodeToSelect]);
                         else
@@ -753,7 +723,7 @@ namespace Foreman.Mac.Canvas {
             UpdateLinkHover(graphPoint, hoveredNode);
             PointerPointProperties properties = e.GetCurrentPoint(this).Properties;
             UpdateModifiers(e.KeyModifiers);
-            ApplyAxisLockModifier(e.KeyModifiers); //Same stuck-Shift self-heal as OnPointerPressed
+            ApplyAxisLockModifier(e.KeyModifiers);
 
             //Ports the unconditional draggedLinkElement?.MouseMoved(graph_location) call upstream makes
             //ahead of its own DragOperation switch (reference §3): the ghost tracks the cursor on every move
@@ -858,7 +828,7 @@ namespace Foreman.Mac.Canvas {
                     break;
             }
 
-            //Reference §2: only hard-limit the pan to Graph.Bounds while
+            //Carried from Task 1's review (reference §2): only hard-limit the pan to Graph.Bounds while
             //nothing is being dragged, matching upstream's UpdateGraphBounds(MouseDownElement == null).
             if (ViewBeingDragged) {
                 Viewport.PanTo(screenPoint, viewDragOriginGraphPoint, MouseDownElement is null ? Viewer.Graph.Bounds : null);
@@ -871,7 +841,7 @@ namespace Foreman.Mac.Canvas {
         //Ports ProductionGraphViewer_MouseUp (reference §1/§4/§6). A plain left click with no modifiers
         //forwards to the clicked node's own MouseUp routing (reference §4, upstream lines 258-269), same as a
         //plain right click does - a node click reaching here without a tab/error-notice claim now opens its
-        //real edit panel (reference §8, EditNode below). Annotation routing
+        //real edit panel (reference §8, Task 6's EditNode below). Annotation routing
         //(double-click already short-circuited in OnPointerPressed) mirrors Annotation_OnMouseUpLeft: a
         //tracked annotation (MouseDownElement claimed it because it was already selected) toggles/replaces via
         //HandleTrackedAnnotationMouseUp, an untracked one clicked without a drag selects singly - both only
@@ -918,7 +888,7 @@ namespace Foreman.Mac.Canvas {
                     //DragOperation.Item) straight into element.MouseUp, so a right-click release mid node-
                     //drag (reachable via a chorded left-drag-then-right-release) opens no menu, same as the
                     //Selection case just below it already didn't. Ports the background menu (reference §4a,
-                    //"Add Item"/"Add Recipe" omitted - their choosers don't exist yet) and
+                    //"Add Item"/"Add Recipe" omitted - their P5 choosers don't exist yet, task 12's job) and
                     //the annotation right-click menu (reference §4f) alongside the existing node menu.
                     if (ViewBeingDragged) {
                         ViewBeingDragged = false;
@@ -957,7 +927,6 @@ namespace Foreman.Mac.Canvas {
                         if (!ViewBeingDragged)
                             releaseGhost.MouseUp(graphPoint, MouseButton.Left);
                     } else if (CurrentDragOperation == DragOperation.Item) {
-                        //Nodes and annotations were committed live by OnPointerMoved, so GraphMutated fires once here; a waypoint drag commits its preview.
                         if (MouseDownElement is WaypointElement releasedWaypoint)
                             Viewer.CommitWaypointPreview(releasedWaypoint.Link);
                         else
@@ -994,10 +963,6 @@ namespace Foreman.Mac.Canvas {
             InvalidateVisual();
         }
 
-        //A click that opens a new top-level window mid-press (the browser, from a
-        //radial/palette Add...) can lose capture without this control ever seeing a matching
-        //OnPointerReleased - left alone, CurrentDragOperation stays armed and the next plain PointerMoved
-        //(no button down at all) drags a stray rubber-band across the canvas.
         protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e) {
             base.OnPointerCaptureLost(e);
             dismissingPress = false;
@@ -1063,7 +1028,6 @@ namespace Foreman.Mac.Canvas {
             RequestRedraw();
         }
 
-        //Ports Annotation_AppendContextMenuItems (reference §4a): Add Item/Add Recipe open the Quick Add palette.
         private List<MenuEntry> BuildBackgroundMenu(DrawingPoint graphPoint) => [
             MenuEntry.Item("Add Item", () => AddItemAsync(graphPoint)),
             MenuEntry.Item("Add Recipe", () => AddRecipeAsync(graphPoint)),
@@ -1072,8 +1036,6 @@ namespace Foreman.Mac.Canvas {
             MenuEntry.Item("Add Shape", () => BeginDrawShape(graphPoint)),
         ];
 
-        //MainWindow's toolbar and BuildBackgroundMenu's "Add Item"/"Add Recipe" both just open a
-        //scoped Quick Add palette now - ShowQuickAdd/PlaceCandidate below do the rest.
         internal void AddItemAsync(DrawingPoint graphPoint, AvaloniaPoint? screenAnchor = null) => ShowQuickAdd(new AddRequest(graphPoint, AddScope.Items), screenAnchor);
         internal void AddRecipeAsync(DrawingPoint graphPoint, AvaloniaPoint? screenAnchor = null) => ShowQuickAdd(new AddRequest(graphPoint, AddScope.Recipes), screenAnchor);
 
@@ -1106,7 +1068,6 @@ namespace Foreman.Mac.Canvas {
         private bool IsInsidePalette(object? source) =>
             source is Visual visual && paletteFrame.IsOpen && (ReferenceEquals(visual, paletteFrame) || paletteFrame.IsVisualAncestorOf(visual));
 
-        //The popover host swallows the press that light-dismisses the palette (macOS); its release must not act on the canvas either.
         private void NoteDismissingPress(object? sender, PointerPressedEventArgs e) {
             bool reachedCanvas = pressReachedCanvas;
             pressReachedCanvas = false;
@@ -1125,8 +1086,6 @@ namespace Foreman.Mac.Canvas {
             ResetPointerDragState();
             FloatingPanelHost.Close();
 
-            //Own local per palette instance: the browser can place at any time while this stays open (it's
-            //a separate real window), and its own PlaceCandidate calls must not bleed into this palette's next pick.
             AddRequest current = request;
             ActiveAddRequest = current;
             var vm = new QuickAddViewModel(new AddCatalog(cache, ChooserSettings), request, Viewer.Graph.DefaultAssemblerQuality, bmp => IconBaker.GetOrBake(addIconCache, bmp, 22));
@@ -1148,14 +1107,10 @@ namespace Foreman.Mac.Canvas {
             paletteFrame.Content = palette;
             paletteFrame.AnchorPoint = screenAnchor ?? Viewport.GraphToScreen(request.Location);
             paletteFrame.IsOpen = true;
-            //The panel builds its search field in OnApplyTemplate; until a layout pass runs there is nothing to focus or type into.
             paletteHost.UpdateLayout();
             palette.FocusInitialControl();
         }
 
-        //Pure: returns the advanced request so a caller (the palette above, the browser in
-        //MainWindow.axaml.cs) can track its own placement state across picks - never writes
-        //ActiveAddRequest itself, which exists only as the palette's own tracker/test seam.
         internal AddRequest PlaceCandidate(AddCandidate candidate, AddRequest request, NodeType? roleOverride = null, IQuality? quality = null,
             NodeDirection? spoilPlantDirection = null, IItem? explicitOrigin = null) {
             (AddRequest next, NodeId placed) = PlaceNodeCore(candidate, request, roleOverride, quality, spoilPlantDirection, explicitOrigin);
@@ -1199,8 +1154,6 @@ namespace Foreman.Mac.Canvas {
             return (next, placed);
         }
 
-        //---- node motion (§01): count/rate cross-fade and the Align tween ----
-
         internal Func<TimeSpan> MotionClock { get; set; } = () => System.Diagnostics.Stopwatch.GetElapsedTime(0);
 
         private ProgressTween? labelFade;
@@ -1210,7 +1163,6 @@ namespace Foreman.Mac.Canvas {
         internal bool MotionFrameQueued => motionFrameQueued;
         private IReadOnlyList<GraphViewer.AlignMove>? alignMoves;
 
-        //One solve changes many nodes at once; they share a single fade that each change restarts.
         private void StartLabelFade() {
             if (KitMotion.ReduceMotion)
                 return;
@@ -1228,7 +1180,6 @@ namespace Foreman.Mac.Canvas {
             RequestRedraw();
         }
 
-        //Align moves the selection over AlignTweenDuration; under Reduce Motion, or at the next press, it lands at once.
         public void AlignSelection() {
             FinishAlign();
             IReadOnlyList<GraphViewer.AlignMove> moves = Viewer.PlanAlignSelection();
@@ -1356,12 +1307,8 @@ namespace Foreman.Mac.Canvas {
         private Services.AppSettings? fallbackChooserSettings;
         private Services.AppSettings ChooserSettings => AnnotationSettings ?? (fallbackChooserSettings ??= new Services.AppSettings());
 
-        //Shared by every ProcessNodeRequest caller (PlaceCandidate for the palette/browser path) so the
-        //node-creation switch and its offset/fuel follow-ups don't need each call site's own locals.
         private readonly record struct NewNodeContext(ItemQualityPair BaseItem, DrawingPoint NewLocation, NewNodeType OuterNodeType, BaseNodeElement? OriginElement, NodeDirection NewNodeDirection, bool OffsetLocationToItemTabLevel);
 
-        //Ports ProcessNodeRequest's node-creation switch (reference §3/§10, upstream lines 265-393). Assembler/
-        //fuel auto-selection for a Recipe pick is ApplyAssemblerFuelAutoSelection's job, below.
         private NodeId ProcessNodeRequest(NewNodeContext ctx, NodeType nodeType, RecipeQualityPair recipe, NodeDirection direction, IItem? explicitOrigin = null) {
             if (Viewer.Context.DCache is not DataCache cache)
                 return NodeId.Invalid;
@@ -1403,7 +1350,6 @@ namespace Foreman.Mac.Canvas {
             return newNodeId;
         }
 
-        //an explicit origin from the UnSpoil/UnPlant chip wins over the single-origin rule
         private static IItem? ResolveOrigin(IItem? explicitOrigin, IReadOnlyCollection<IItem> origins) =>
             explicitOrigin ?? (origins.Count == 1 ? origins.First() : null);
 
@@ -1462,9 +1408,7 @@ namespace Foreman.Mac.Canvas {
             if (!newNodeId.IsValid)
                 return;
 
-            //The origin can be deleted from the canvas while its request is still pending (link-drag ->
-            //Add... -> delete the origin -> pick a cell) - CreateLink throws on a node id the registry no
-            //longer holds, so a stale origin just places the node disconnected instead.
+            //CreateLink throws on a node id the registry no longer holds, and the origin can be deleted while its request is pending.
             bool originStillExists = ctx.OriginElement is not null && Viewer.NodeElementDictionary.ContainsKey(ctx.OriginElement.ViewModel.Id);
 
             if (originStillExists)
@@ -1574,9 +1518,7 @@ namespace Foreman.Mac.Canvas {
                     e.Handled = true;
                     return;
                 }
-                //A KeyDown marked Handled never reaches the native TextInput that follows it,
-                //so once the key actually originates inside the panel's own controls (its search box, most
-                //of all) the canvas has to leave it alone rather than eating it like every other hotkey.
+                //A KeyDown marked Handled never reaches the native TextInput that follows it.
                 if (FocusIsInsideFloatingPanel(e))
                     return;
                 e.Handled = true;
@@ -1608,9 +1550,7 @@ namespace Foreman.Mac.Canvas {
             InvalidateVisual();
         }
 
-        //e.Source is the key event's own focused element (KeyboardDevice.ProcessRawEvent sets it that way,
-        //and RaiseEvent does the same for a directly-raised one), so checking it rather than the ambient
-        //FocusManager keeps this correct even under a test's synthetic dispatch.
+        //Check e.Source, not FocusManager: a synthetic dispatch leaves the ambient focus elsewhere.
         private bool FocusIsInsideFloatingPanel(KeyEventArgs e) {
             if (e.Source is TextBox || IsInsidePalette(e.Source))
                 return true;
@@ -1642,9 +1582,6 @@ namespace Foreman.Mac.Canvas {
             return false;
         }
 
-        //Menu-driven equivalents of the Cmd+C/X/V/Delete key handling above (contract #menubar conflict
-        //resolutions 1/3): the native Edit menu's Cut/Copy/Paste/Delete items call these directly instead of
-        //a KeyGesture, so a menu click does exactly what the canvas's own keyboard shortcuts already do.
         public void CopySelection() => Viewer.Context.SetClipboardText?.Invoke(NodeClipboard.Copy(Viewer));
 
         public void CutSelection() => Viewer.Context.SetClipboardText?.Invoke(NodeClipboard.Cut(Viewer));
@@ -1734,7 +1671,6 @@ namespace Foreman.Mac.Canvas {
                 panUnit *= 5;
             }
 
-            //⌘S, ⌘A, ⇧⌘A, ⌘W and ⇧⌘W are menu key equivalents, so a Primary chord never pans.
             bool pan = !modifiers.HasFlag(PlatformModifiers.Primary);
             if (modifiers.HasFlag(KeyModifiers.Alt) && key is Key.Left or Key.Right or Key.Up or Key.Down)
                 return false;
@@ -1795,16 +1731,16 @@ namespace Foreman.Mac.Canvas {
         }
 
         public void Render(SKCanvas canvas) {
-            //Ports Grid.Paint's draggedNodeActive gate (ProductionGraphViewer.cs:691): the locked-axis guide
-            //only draws while an Item drag is actually dragging a node, matching upstream's
+            //Ports Grid.Paint's draggedNodeActive gate (ProductionGraphViewer.cs:691): the locked-axis red
+            //line only draws while an Item drag is actually dragging a node, matching upstream's
             //`(currentDragOperation == DragOperation.Item) ? MouseDownElement as BaseNodeElement : null`.
             bool draggedNodeActive = CurrentDragOperation == DragOperation.Item && MouseDownElement is BaseNodeElement;
             Viewer.Paint(canvas, fullGraph: false, draggedNodeActive: draggedNodeActive, draggedLink: DraggedLink);
 
             //everything below draws directly on screen space, matching upstream's ResetTransform() before
-            //ToolTipRenderer.Paint/the paused frame (reference §3 steps 9-12); tooltip gated on
+            //ToolTipRenderer.Paint/the paused-border rect (reference §3 steps 9-12); tooltip gated on
             //!ViewBeingDragged the same way upstream gates the live hover tooltip, and drawn before the
-            //paused frame so the frame stays topmost like upstream's draw order.
+            //paused border so the border stays topmost like upstream's draw order.
             foreach (TooltipInfo tooltip in HoverTooltips())
                 FloatingTooltipRenderer.Draw(canvas, tooltip);
 

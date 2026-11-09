@@ -9,7 +9,6 @@ using System.Drawing;
 using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
-    //The status row's productivity pips and extra-productivity text (§01).
     public sealed class AssemblerElement : GraphElement {
         private IRecipeNodeViewModel RecipeViewModel => (IRecipeNodeViewModel)parent.ViewModel;
         private readonly RecipeNodeElement parent;
@@ -23,7 +22,6 @@ namespace Foreman.Mac.Canvas.Elements {
 
         public void SetVisibility(bool visible) => Visible = visible;
 
-        //Takes the pip and extra-productivity items of the parent's status row, in the parent's local space.
         internal void Place(IEnumerable<StatusItem> items) {
             List<StatusItem> placed = [.. items];
             if (placed.Count == 0) {

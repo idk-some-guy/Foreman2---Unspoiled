@@ -15,8 +15,8 @@ namespace Foreman.Mac.Canvas {
 
         //DrawText/DrawStringAtPoint run on two real threads - the Avalonia compositor's render thread for
         //the live canvas and the UI thread for ImageExportWindow's direct viewer.Paint() call - so a shared
-        //static paint/font would reintroduce the cross-thread mutation hazard seen in GridManager.
-        //[ThreadStatic] gives each thread its own instance with no locking, and
+        //static paint/font would reintroduce the cross-thread mutation hazard the phase-7 Task 2 review
+        //flagged in GridManager. [ThreadStatic] gives each thread its own instance with no locking, and
         //every call fully overwrites color/typeface/size before drawing, so reuse never leaks a stale value
         //across calls on the same thread.
         [ThreadStatic]
@@ -39,7 +39,7 @@ namespace Foreman.Mac.Canvas {
 
         //Same per-thread scratch pattern as RentPaint/RentFont above, exposed for GraphElement.Draw()
         //implementations that used to hold their own mutate-reset SKPaint/SKPath as per-instance fields
-        //: those fields raced whenever the same element instance painted on two threads
+        //(final-review C1): those fields raced whenever the same element instance painted on two threads
         //at once - the compositor's render thread for the live canvas and the UI thread for
         //ImageExportWindow's direct Paint() call both walk the same shared GraphViewer's element tree.
         //Separate ThreadStatic slots from threadPaint/threadFont above so a Draw() that also calls

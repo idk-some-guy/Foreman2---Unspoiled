@@ -120,7 +120,6 @@ namespace Foreman.Mac.Canvas.Elements {
             return LinkRouter.DistanceToPolyline(Polyline, new SKPoint(graphPoint.X, graphPoint.Y)) <= half;
         }
 
-        //The nearest whole graph point to the path, with the index it takes in the waypoint order.
         public Point NearestPointOnPath(PointF graphPoint, out int insertIndex) {
             IReadOnlyList<SKPoint> line = Polyline;
             var target = new SKPoint(graphPoint.X, graphPoint.Y);
