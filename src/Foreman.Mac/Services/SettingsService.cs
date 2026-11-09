@@ -35,7 +35,7 @@ namespace Foreman.Mac.Services {
 
         internal string DatabasePath => dbPath;
 
-        //Linux equivalent mirrors AppPaths.UserDataDirectory (docs/upstream-divergences.md):
+        //Linux equivalent mirrors AppPaths.UserDataDirectory (docs/upstream-divergences.md, phase 8 Task 2):
         //$XDG_DATA_HOME/Foreman, falling back to ~/.local/share/Foreman when unset.
         public SettingsService(string? baseDirectoryOverride = null, bool? isMacOsOverride = null) {
             string home = baseDirectoryOverride ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -50,14 +50,8 @@ namespace Foreman.Mac.Services {
             dbPath = StoragePaths.DbPath(foremanDir);
         }
 
-        //Legacy settings.json files can carry the upstream-verbatim LowPriorityPower default (1e5),
-        //which overflowed the solver's objective to Infinity (docs/upstream-divergences.md). Heal that
-        //exact value on load and clamp both solver-power fields to the same bounds their NumericUpDown
-        //counterparts enforce in the Settings UI (SettingsViewModel.LoadFrom).
         private const decimal LegacyLowPriorityPower = 100000m;
 
-        //Db row present -> that's authoritative. Otherwise fall back to the legacy json (one-time
-        //import, persisted to db so the file is never consulted again) and finally to defaults.
         public AppSettings Load() {
             SettingsRow? row = TryFindRow();
             if (row is not null) {
@@ -102,7 +96,6 @@ namespace Foreman.Mac.Services {
             SaveToDb(settings);
         }
 
-        //Test-only seam: nothing outside Foreman.Mac.UiTests reads this.
         internal int SaveCallCount { get; private set; }
 
         private SettingsRow? TryFindRow() {

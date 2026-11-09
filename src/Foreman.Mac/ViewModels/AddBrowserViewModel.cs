@@ -28,7 +28,6 @@ namespace Foreman.Mac.ViewModels {
     public sealed record BrowserRole(string Label, NodeType Role, NodeDirection? Direction);
     public sealed record BrowserPick(AddCandidate Candidate, NodeType Role, NodeDirection? SpoilPlantDirection, IQuality Quality, IItem? ExplicitOrigin = null);
 
-    //Group sorting/visibility counting ports the retired on-canvas chooser panels' own logic.
     public sealed partial class AddBrowserViewModel : ObservableObject {
         private const int GroupIconSize = 16;
         private const int QualityIconSize = 16;
@@ -66,19 +65,14 @@ namespace Foreman.Mac.ViewModels {
         private readonly ObservableCollection<BrowserGroup> groups = [];
         private readonly ObservableCollection<BrowserSection> sections = [];
 
-        //Each segment remembers its own last-picked group.
         private IGroup? selectedItemsGroup;
         private IGroup? selectedRecipesGroup;
 
         private AddRequest? request;
         private PendingOrigin? pendingOrigin;
 
-        //The UnSpoil/UnPlant multi-origin chip's remembered target and its origin choices.
         private sealed record PendingOrigin(AddCandidate Target, NodeType Role, IReadOnlyCollection<IItem> Origins);
 
-        //Defaults to the graph's own DefaultAssemblerQuality when the caller has one (MainWindow reads
-        //GraphCanvas.Viewer.Graph), falling back to the cache default only when it doesn't. With a defer,
-        //cell icons not yet baked resolve in a later dispatcher pass while the sidebar is already live.
         public AddBrowserViewModel(AddCatalog catalog, DataCache cache, AppSettings settings, Func<SKBitmap, int, IImage?> bake, IQuality? defaultAssemblerQuality = null, Action<Action>? defer = null) {
             this.catalog = catalog;
             widenedCatalog = new AddCatalog(cache, new AppSettings { ShowUnavailable = true, ShowHidden = true, IgnoreAssemblerStatus = true });
@@ -136,10 +130,8 @@ namespace Foreman.Mac.ViewModels {
 
         public BrowserFailure Failure => failure;
 
-        //Only an error raised by typing or Try Again takes focus; one present on open never does.
         public bool ErrorTakesFocus { get; private set; }
 
-        //Test-only seams: throw from the catalogue build or the search match.
         internal Action? CatalogueFault { get; set; }
         internal Action<string>? SearchFault { get; set; }
 
@@ -147,12 +139,10 @@ namespace Foreman.Mac.ViewModels {
 
         private const int QuotedQueryLimit = 24;
 
-        //What the current query or category would show with every Filter-menu switch on; settings stay untouched.
         public int HiddenMatchCount { get; private set; }
 
         public bool IsSearchNoResults => QueryText.Length > 0;
 
-        //Only a no-results panel raised by typing in this window takes focus; one present on open never does.
         public bool NoResultsTakesFocus { get; private set; }
 
         private string KindNoun => Segment == BrowserSegment.Recipes ? "recipe" : "item";
@@ -185,7 +175,6 @@ namespace Foreman.Mac.ViewModels {
                 : "Nothing in this preset matches the search.";
         }
 
-        //Default last; under a link Remove Constraint appears only where the constraint alone hides the results.
         public IReadOnlyList<NoResultsAction> NoResultsActions {
             get {
                 if (LinkItem is not null) {
@@ -217,8 +206,6 @@ namespace Foreman.Mac.ViewModels {
             : null;
         public bool HasChip => ChipText is not null;
 
-        //MainWindow's own AddRequest only tracks the advancing placement Location; the link itself lives
-        //here so ClearChip() (and any future re-seed) is the one place that can change it.
         internal AddLinkContext? Link => request?.Link;
 
         private IItem? SelectedItem => SelectedCell?.Candidate.Item;
@@ -259,7 +246,6 @@ namespace Foreman.Mac.ViewModels {
 
         public void SelectRole(string? label) => PickRole(Roles.ToList().FindIndex(r => r.Label == label));
 
-        //Fixed positions: a role the selection can't take, or no role at all, changes nothing.
         public void PickRole(int index) {
             if (!IsRoleEnabled(index))
                 return;
@@ -267,7 +253,6 @@ namespace Foreman.Mac.ViewModels {
             SelectedRole = chosenRole;
         }
 
-        //The user's last explicit pick while it is allowed, otherwise the link's side, otherwise Source.
         private BrowserRole ResolveRole() {
             if (chosenRole is { } chosen && (SelectedItem is null || IsRoleEnabled(IndexOf(chosen))))
                 return chosen;
@@ -281,7 +266,6 @@ namespace Foreman.Mac.ViewModels {
 
         public void ClearSearch() => SearchText = "";
 
-        //The one way to complete a link no recipe can serve: the link item itself, on the link's side.
         public void ShowLinkItem() {
             if (LinkItem is not IItem item)
                 return;
@@ -298,7 +282,6 @@ namespace Foreman.Mac.ViewModels {
             Refresh();
         }
 
-        //Reruns the failed step against the preset in memory, through .loading when a defer is available.
         public void Retry() {
             BrowserFailure failed = failure;
             if (failed == BrowserFailure.None)
@@ -363,8 +346,6 @@ namespace Foreman.Mac.ViewModels {
             }
         }
 
-        //Clicking the already-selected group is a no-op - it must not rebuild Groups/Sections
-        //(and so must not retrigger any entrance animation on cells that were already showing).
         public void SelectGroup(IGroup group) {
             if (Equals(SelectedGroupForSegment(Segment), group))
                 return;
@@ -378,8 +359,6 @@ namespace Foreman.Mac.ViewModels {
 
         public void SelectCell(BrowserCell? cell) => SelectedCell = cell;
 
-        //A link-drag's own "Add..." (Scope.All, Link set) always means a recipe search -
-        //only a scope-less/link-less open (the toolbar, background menu, double-click) still defaults to Items.
         public void Seed(AddRequest request) {
             this.request = request;
             pendingOrigin = null;
@@ -394,7 +373,6 @@ namespace Foreman.Mac.ViewModels {
             RaiseChipChanged();
         }
 
-        //Builds the same PendingOrigin the footer's multi-origin Place() branch does, without a SelectCell/Place round-trip.
         public void SeedOrigins(NodeType role) {
             if (request?.Link?.Item.Item is not IItem item)
                 return;
@@ -406,7 +384,6 @@ namespace Foreman.Mac.ViewModels {
             RaiseChipChanged();
         }
 
-        //The x clears both the link and any origins filter, and later picks land disconnected.
         public void ClearChip() {
             pendingOrigin = null;
             if (request is not null)
@@ -415,7 +392,6 @@ namespace Foreman.Mac.ViewModels {
             RaiseChipChanged();
         }
 
-        //UnSpoil/UnPlant with 2+ origins swaps the grid to an origin picker instead of placing directly.
         public void Place(NodeType role, NodeDirection? spoilPlantDirection = null) {
             if (SelectedCell is null)
                 return;
@@ -451,8 +427,6 @@ namespace Foreman.Mac.ViewModels {
             PlaceRequested?.Invoke(this, new BrowserPick(SelectedCell.Candidate, NodeType.Recipe, null, resolvedQuality));
         }
 
-        //Add, double-click and Return: an active origins chip completes that pick, otherwise the segment
-        //decides (a recipe in Recipes, the Add as role in Items).
         public void Add() {
             if (pendingOrigin is { } pending) {
                 Place(pending.Role, NodeDirection.Down);
@@ -523,10 +497,6 @@ namespace Foreman.Mac.ViewModels {
                 selectedRecipesGroup = group;
         }
 
-        //internal: MainWindow calls this on a theme flip to rebuild groups/cells against its freshly
-        //cleared browserIconCache (see MainWindow.RefreshBrowserIcons). forceRebuild bypasses
-        //RefreshSections' own reuse check below, which otherwise keeps the still-bound (and now
-        //stale-icon) cells whenever the candidate set itself hasn't changed.
         internal void Refresh(bool forceRebuild = false) {
             if (forceRebuild) {
                 cellIcons.Clear();
@@ -555,7 +525,6 @@ namespace Foreman.Mac.ViewModels {
             OnPropertyChanged(nameof(State));
         }
 
-        //A group only appears once it has at least one visible-by-availability entry for the segment.
         private void RefreshGroups() {
             CatalogueFault?.Invoke();
             var sorted = new List<IGroup>();
@@ -584,16 +553,8 @@ namespace Foreman.Mac.ViewModels {
 
         private static readonly Regex WhitespaceRun = new(@"\s+", RegexOptions.Compiled);
 
-        //A localised name can still carry a stray newline or run of whitespace (the Foreman-internal
-        //"extra" group joins three category names this way) - collapse any such run to one space.
         private static string CollapseWhitespace(string value) => WhitespaceRun.Replace(value, " ").Trim();
 
-        //Some groups/subgroups carry no localised name - FriendlyName then either mirrors the raw internal
-        //key outright or is left as Factorio's own unresolved locale placeholder ("§§SG:EXTRACTION_ITEMS").
-        //Strip the placeholder prefix and turn the remaining key into a readable phrase; a genuinely
-        //localised name (distinct from Name, no placeholder) passes through with its whitespace collapsed.
-        //A placeholder's own kind marker (SG:, G:, any case) sits right between the "§§" and the real key -
-        //only that leading run is stripped, so a colon later in a real name is never touched.
         private static readonly Regex LocalePlaceholderPrefix = new(@"^§§(?:[A-Za-z]+:)?", RegexOptions.Compiled);
 
         internal static string Humanize(string friendlyName, string name) {
@@ -604,16 +565,11 @@ namespace Foreman.Mac.ViewModels {
             return words.Length == 0 ? words : char.ToUpperInvariant(words[0]) + words[1..];
         }
 
-        //The sidebar shows group names as-is (no upper-casing heading transform), so a humanized one gets
-        //title-cased here; an already-localised name is left exactly as authored (whitespace collapsed).
         private static string HumanizeGroupName(string friendlyName, string name) {
             string humanized = Humanize(friendlyName, name);
             return humanized == CollapseWhitespace(friendlyName) ? humanized : System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(humanized);
         }
 
-        //A rebuild that would produce the exact same content (compared by candidate, not
-        //reference) is skipped outright - Sections stays untouched so its containers survive and don't
-        //replay their entrance animation. Trailing whitespace in a re-typed search is the common case.
         private void RefreshSections(bool forceRebuild = false) {
             List<BrowserSection> candidate;
             int hidden = 0;
@@ -667,7 +623,6 @@ namespace Foreman.Mac.ViewModels {
             }
         }
 
-        //The query without the link, every switch on: whether the constraint alone hides the matches.
         private int ProbeUnconstrainedMatches() {
             probing = true;
             try {
@@ -699,7 +654,6 @@ namespace Foreman.Mac.ViewModels {
             }
         }
 
-        //A failed bake is remembered apart from a pending one: the cell draws the placeholder, not an empty well.
         private IImage? BakeCellIcon(IDataObjectBase entry) {
             try {
                 return bake(entry.Icon, CellIconSize);
@@ -794,7 +748,6 @@ namespace Foreman.Mac.ViewModels {
             }
         }
 
-        //A recipe search also matches on ingredient/product name, not just the recipe's own name.
         private void BuildSearchSection(List<BrowserSection> target, string text, AddCatalog source) {
             SearchFault?.Invoke(text);
             AddScope scope = Segment == BrowserSegment.Items ? AddScope.Items : AddScope.Recipes;
@@ -818,9 +771,6 @@ namespace Foreman.Mac.ViewModels {
             AppendGroupedSections(target, candidates);
         }
 
-        //Link-drag "Add..." (a dragged tab's Compatible-with-{item} chip): Items narrows to the dragged
-        //item itself, Recipes to every recipe AddCatalog.IsCompatible allows for that link's direction -
-        //SearchText (the ⌘↵-seeded query) still narrows either list further.
         private void BuildLinkSections(List<BrowserSection> target, AddLinkContext link, AddCatalog source) {
             string text = SearchText.Trim();
             if (Segment == BrowserSegment.Items) {
@@ -832,9 +782,6 @@ namespace Foreman.Mac.ViewModels {
             }
         }
 
-        //Search/link matches sit one section per subgroup (preset order), titled "Group ·
-        //Subgroup", instead of a single catch-all heading - two similarly named recipes from different
-        //subgroups no longer sit ambiguously side by side under one "Results" list.
         private void AppendGroupedSections(List<BrowserSection> target, IEnumerable<AddCandidate> candidates) {
             var bySubgroup = candidates
                 .Select(c => (Candidate: c, Subgroup: SubgroupOf(c)))
@@ -854,8 +801,6 @@ namespace Foreman.Mac.ViewModels {
             return new BrowserSection(subgroup.MyGroup is { } group ? Humanize(group.FriendlyName, group.Name) : null, subgroupName, cells);
         }
 
-        //Sorts by owning group first, then by the subgroup's own order within it - the same preset order
-        //the sidebar and BuildGroupSections already walk.
         private sealed class SubgroupOrderComparer : IComparer<ISubgroup?> {
             public static readonly SubgroupOrderComparer Instance = new();
             public int Compare(ISubgroup? x, ISubgroup? y) {

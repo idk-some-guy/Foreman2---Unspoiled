@@ -16,7 +16,6 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.ViewModels {
-    //Backs RecipeSegmentView - suppressWrites stops Refresh() from bouncing its own reads back out through the controller.
     public sealed partial class RecipeSegmentViewModel : ObservableObject {
         private const int PickIconSize = 28;
 
@@ -83,12 +82,9 @@ namespace Foreman.Mac.ViewModels {
         public string CurrentQualityName { get; private set; } = "";
         public SKBitmap? CurrentQualityIcon { get; private set; }
 
-        //Recipe card fold: the identity header's own card, built once per assembler/recipe change
-        //from the same recipe data RecipePainter used - null for a recipe with no base recipe resolved.
         public RecipeCardViewModel? Card { get; private set; }
         public bool HasCard => Card is not null;
 
-        //A25 .error: the Recipe group swaps the card for Kit.StatePanel.error when the recipe is missing from the preset - the other groups stay live.
         public bool HasRecipeError { get; private set; }
 
         [ObservableProperty]
@@ -100,9 +96,6 @@ namespace Foreman.Mac.ViewModels {
         [ObservableProperty]
         private double beaconsTotal;
 
-        //Pure functions of the current assembler/recipe, not a one-way latch: this view model outlives
-        //many assembler picks on the same node, so picking a reactor after a plain assembler shows the
-        //neighbours stepper again, and so on.
         public bool ShowsNeighbours { get; private set; }
         public bool ShowsExtraProductivity { get; private set; }
 
@@ -117,9 +110,7 @@ namespace Foreman.Mac.ViewModels {
             Refresh();
         }
 
-        //Re-reads every field from the node - called on construction, on NodeValuesUpdated, and after every
-        //controller call this view model makes itself (assembler/fuel pick, rate toggle). suppressWrites
-        //stops these assignments from round-tripping back through the controller.
+        //suppressWrites stops Refresh's assignments from round-tripping back through the controller
         public void Refresh() {
             suppressWrites = true;
             IsFixedRate = node.RateType == RateType.Manual;
@@ -140,8 +131,6 @@ namespace Foreman.Mac.ViewModels {
             SelectedAssembler = BuildItem(node.SelectedAssembler.Assembler, node.SelectedAssembler.Icon, isSelected: true,
                 isAvailable: node.SelectedAssembler.Assembler.Available && !node.SelectedAssembler.Assembler.IsMissing);
             OnPropertyChanged(nameof(SelectedAssembler));
-            //Flattened onto their own properties: {Binding SelectedAssembler.Icon}/.Name log a [Binding]
-            //warning on the nullable two-hop path (same fix as SelectedBeaconIcon below).
             SelectedAssemblerIcon = SelectedAssembler?.Icon;
             OnPropertyChanged(nameof(SelectedAssemblerIcon));
             SelectedAssemblerName = SelectedAssembler?.Name ?? "";
@@ -159,7 +148,6 @@ namespace Foreman.Mac.ViewModels {
                 : null;
             OnPropertyChanged(nameof(SelectedFuel));
 
-            //See the declaration comment above for why this is a pure recompute, not a one-way latch.
             ShowsNeighbours = node.SelectedAssembler.Assembler.EntityType == EntityType.Reactor;
             OnPropertyChanged(nameof(ShowsNeighbours));
 
@@ -180,8 +168,6 @@ namespace Foreman.Mac.ViewModels {
             RefreshBeacon();
             RefreshQuality();
         }
-
-        //------------------------------------------------------------------------------------------------------Modules
 
         private void RefreshModules() {
             IAssembler assembler = node.SelectedAssembler.Assembler;
@@ -205,7 +191,6 @@ namespace Foreman.Mac.ViewModels {
             OnPropertyChanged(nameof(HasModuleOptions));
         }
 
-        //Recipe's own assembler-module list intersected with what the current assembler actually accepts.
         private List<IModule> GetAssemblerModuleOptions() =>
             node.SelectedAssembler.Assembler.AllowModules && node.BaseRecipe is { Recipe: IRecipe recipe }
                 ? [.. recipe.AssemblerModules.Intersect(node.SelectedAssembler.Assembler.Modules).Where(m => m.Enabled).OrderBy(m => m.LFriendlyName)]
@@ -220,9 +205,6 @@ namespace Foreman.Mac.ViewModels {
             requestRedraw?.Invoke();
         }
 
-        //Mouse path: clicking an option equips it into the currently selected equipped slot - a filled slot
-        //is replaced in place (the other slots keep their positions); no real selection (the grid's own
-        //-1) or a selection past the last filled slot behaves like AddModule, filling the first empty one.
         public void EquipModuleAt(PickGridItem item, int equippedSlotIndex) {
             if (item.Key is not IModule module || node.SelectedAssembler.Assembler.ModuleSlots == 0)
                 return;
@@ -246,8 +228,6 @@ namespace Foreman.Mac.ViewModels {
             requestRedraw?.Invoke();
         }
 
-        //------------------------------------------------------------------------------------------------------Beacon
-
         private void RefreshBeacon() {
             BeaconQualityPair selected = node.SelectedBeacon;
             HasBeacon = selected;
@@ -258,8 +238,6 @@ namespace Foreman.Mac.ViewModels {
                 ? BuildItem(beacon, selected.Icon, isSelected: true, isAvailable: beacon.Available && !beacon.IsMissing)
                 : null;
             OnPropertyChanged(nameof(SelectedBeacon));
-            //Flattened onto its own property: {Binding SelectedBeacon.Icon} logs a [Binding] warning every
-            //time SelectedBeacon is null, which is the common no-beacon-selected state.
             SelectedBeaconIcon = SelectedBeacon?.Icon;
             OnPropertyChanged(nameof(SelectedBeaconIcon));
 
@@ -295,7 +273,6 @@ namespace Foreman.Mac.ViewModels {
                 })];
         }
 
-        //Recipe's own beacon-module list intersected with what the selected beacon actually accepts.
         private List<IModule> GetBeaconModuleOptions() =>
             node.SelectedAssembler.Assembler.AllowBeacons && node.SelectedBeacon.Beacon is IBeacon beacon && node.BaseRecipe is { Recipe: IRecipe recipe }
                 ? [.. recipe.BeaconModules.Intersect(beacon.Modules).Where(m => m.Enabled).OrderBy(m => m.LFriendlyName)]
@@ -317,7 +294,6 @@ namespace Foreman.Mac.ViewModels {
             requestRedraw?.Invoke();
         }
 
-        //Same replace-in-place-or-append shape as EquipModuleAt, for the beacon's own module slots.
         public void EquipBeaconModuleAt(PickGridItem item, int equippedSlotIndex) {
             if (item.Key is not IModule module || node.SelectedBeacon.Beacon is not IBeacon beacon || beacon.ModuleSlots == 0)
                 return;
@@ -359,7 +335,6 @@ namespace Foreman.Mac.ViewModels {
             requestRedraw?.Invoke();
         }
 
-        //Unlike OnBeaconCountChanged above, only the beacon count itself re-solves the graph.
         partial void OnBeaconsPerAssemblerChanged(double value) {
             if (suppressWrites || node.BeaconsPerAssembler == value)
                 return;
@@ -376,8 +351,6 @@ namespace Foreman.Mac.ViewModels {
             requestRedraw?.Invoke();
         }
 
-        //------------------------------------------------------------------------------------------------------Quality
-
         private void RefreshQuality() {
             List<IQuality> qualities = [.. Cache.AvailableQualities.Where(q => q.Enabled)];
             ShowsQuality = qualities.Count > 0;
@@ -391,8 +364,6 @@ namespace Foreman.Mac.ViewModels {
             OnPropertyChanged(nameof(CurrentQualityIcon));
         }
 
-        //Re-qualities the node's current assembler in place and writes straight through, rather than only
-        //setting a default for the next pick.
         public void PickQuality(PickGridItem item) {
             if (item.Key is not IQuality quality || quality == node.SelectedAssembler.Quality)
                 return;
@@ -410,8 +381,6 @@ namespace Foreman.Mac.ViewModels {
             return -1;
         }
 
-        //Switching to Fixed pushes whatever's currently displayed (the solver's own ActualSetValue while the
-        //node was Auto) into DesiredSetValue, so the node doesn't jump to a stale value nobody sees on screen.
         partial void OnIsFixedRateChanged(bool value) {
             if (suppressWrites)
                 return;
@@ -525,7 +494,7 @@ namespace Foreman.Mac.ViewModels {
             if (entityType == EntityType.Generator)
                 return BuildGeneratorStats();
             if (entityType is not (EntityType.Assembler or EntityType.Miner or EntityType.OffshorePump))
-                return ""; //Reactor and anything else outside the assembler stat set: no Speed/Prod/Pollution readout
+                return "";
 
             string speed = node.GetSpeedMultiplier().ToString("P0", DisplayCulture.Format);
             string productivity = node.GetProductivityMultiplier().ToString("P0", DisplayCulture.Format);
@@ -533,9 +502,6 @@ namespace Foreman.Mac.ViewModels {
             return $"Speed {speed} · Prod {productivity} · Pollution {pollution}/m";
         }
 
-        //Temperature range, effectivity, and electrical production for a Generator-type assembler
-        //(RecipeNode.Display.cs's GetGeneratorMinimumTemperature/GetGeneratorMaximumTemperature/
-        //GetGeneratorEffectivity/GetGeneratorElectricalProduction).
         private string BuildGeneratorStats() {
             double minTemp = node.GetGeneratorMinimumTemperature();
             double maxTemp = node.GetGeneratorMaximumTemperature();

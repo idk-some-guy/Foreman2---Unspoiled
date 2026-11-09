@@ -5,10 +5,6 @@ using Foreman.Models.Nodes;
 using System;
 
 namespace Foreman.Mac.ViewModels {
-    //Backs FlowSegmentView: the non-recipe node editor, ported from the retired EditFlowPanel onto
-    //the docked inspector. Setters call the same BaseNodeController/PassthroughNodeController methods
-    //EditFlowPanel called directly - suppressWrites keeps Refresh() (reading node state back into these
-    //properties) from bouncing those same writes back out at the node.
     public sealed partial class FlowSegmentViewModel : ObservableObject {
         private readonly INodeViewModel node;
         private readonly GraphViewer viewer;
@@ -46,8 +42,7 @@ namespace Foreman.Mac.ViewModels {
             Refresh();
         }
 
-        //Re-reads every field from the node - called on construction and on NodeValuesUpdated. suppressWrites
-        //stops these assignments from round-tripping back through the controller.
+        //suppressWrites stops Refresh's assignments from round-tripping back through the controller
         public void Refresh() {
             suppressWrites = true;
             IsFixedRate = node.RateType == RateType.Manual;
@@ -59,8 +54,6 @@ namespace Foreman.Mac.ViewModels {
             suppressWrites = false;
         }
 
-        //Switching to Fixed pushes whatever's currently displayed (the solver's own ActualSetValue while the
-        //node was Auto) into DesiredSetValue, so the node doesn't jump to a stale value nobody sees on screen.
         partial void OnIsFixedRateChanged(bool value) {
             if (suppressWrites)
                 return;

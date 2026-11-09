@@ -7,10 +7,7 @@ using System.Threading.Tasks;
 namespace Foreman.Mac {
     public enum ConfirmChoice { Yes, No }
 
-    //Minimal UserMessages.Show substitution for Avalonia (no built-in MessageBox). Every alert presents as
-    //an AlertSheet on the owner's own SheetHost, via ShowStackedAsync - stacking on top when that host is
-    //already showing another sheet (e.g. a sheet's own pre-flight warning) instead of queuing behind
-    //its dismissal, which would deadlock.
+    //Minimal UserMessages.Show substitution for Avalonia (no built-in MessageBox); later phases reuse this for other warning/info popups.
     public static class Dialogs {
         public static Task ShowWarningAsync(Window owner, string title, string message) =>
             ShowMessageAsync(owner, title, message);
@@ -25,13 +22,11 @@ namespace Foreman.Mac {
 
         //Minimal UserMessages.Show(..., MessageBoxButtons.YesNo) substitution - WinForms' MessageBoxButtons
         //enum has no Avalonia equivalent, so this is its own small dialog rather than a MessageDialog flag.
-        //With a verb the buttons read Cancel · verb, the verb the default; a long message takes the Standard width.
         public static async Task<bool> ShowConfirmAsync(Window owner, string title, string message, string? verb = null, SheetWidthClass width = SheetWidthClass.Alert) {
             ConfirmChoice choice = await SheetHost.For(owner).ShowStackedAsync(new AlertSheet(title, message, AlertButtons.YesNo, verb, width)).ConfigureAwait(true);
             return choice == ConfirmChoice.Yes;
         }
 
-        //Destructive confirms (discard a graph, delete a preset): the verb is never the default, so Return cancels.
         public static async Task<bool> ShowDestructiveConfirmAsync(Window owner, string headline, string message, string verb) {
             ConfirmChoice choice = await SheetHost.For(owner).ShowStackedAsync(new AlertSheet(headline, message, AlertButtons.Destructive, verb)).ConfigureAwait(true);
             return choice == ConfirmChoice.Yes;

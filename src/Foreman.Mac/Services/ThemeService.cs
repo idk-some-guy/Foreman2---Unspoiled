@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Styling;
 
 namespace Foreman.Mac.Services {
-    //Owns the FlagDarkMode tri-state -> Avalonia RequestedThemeVariant mapping; System hands RequestedThemeVariant to Avalonia's own OS-follow (Default).
     public sealed class ThemeService {
         private readonly Application app;
 

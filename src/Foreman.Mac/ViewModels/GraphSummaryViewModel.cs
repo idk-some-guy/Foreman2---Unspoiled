@@ -13,8 +13,6 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.ViewModels {
-    //Builds every BuildingRow/BeaconRow/ItemRow/KeyNodeRow the Graph Summary window shows, rebuilt from
-    //scratch by Refresh; the window owns filtering, sorting and CSV export.
     internal sealed partial class GraphSummaryViewModel : ObservableObject {
         private sealed class ItemCounter(double i, double iu, double o, double ou, double oo, double p, double c) {
             public double Input { get; set; } = i;
@@ -76,7 +74,6 @@ namespace Foreman.Mac.ViewModels {
             PowerProduction = recipeNodes.Sum(n => n.GetTotalGeneratorElectricalProduction());
         }
 
-        //Ports LoadUnfilteredSelectedAssemblerList (reference upstream GraphSummaryForm.cs:134-165).
         private List<BuildingRow> LoadUnfilteredSelectedAssemblerList(IEnumerable<IRecipeNodeViewModel> origin) {
             var buildingCounters = new Dictionary<AssemblerQualityPair, int>();
             var buildingElectricalPower = new Dictionary<AssemblerQualityPair, (double Assembler, double Beacon)>();
@@ -114,7 +111,6 @@ namespace Foreman.Mac.ViewModels {
             return destination;
         }
 
-        //Ports LoadUnfilteredBeaconList (reference upstream GraphSummaryForm.cs:167-214).
         private List<BeaconRow> LoadUnfilteredBeaconList(IEnumerable<IRecipeNodeViewModel> origin) {
             var beaconCounters = new Dictionary<BeaconQualityPair, int>();
             HashSet<BeaconQualityPair> staleBeacons = [];
@@ -151,10 +147,6 @@ namespace Foreman.Mac.ViewModels {
             return destination;
         }
 
-        //Ports LoadUnfilteredItemLists (reference upstream GraphSummaryForm.cs:216-299): unlinked recipe
-        //inputs go to In(x link), linked ones to Consumed; recipe outputs always add to Produced, unlinked
-        //ones also to Out(x link), overproduced ones add the overflow to Overprod - these three checks are
-        //independent (a linked output can still overproduce). Suppliers add to In, consumers add to Out.
         private List<ItemRow> LoadUnfilteredItemLists(IEnumerable<INodeViewModel> nodes, bool fluids, ProductionGraph.RateUnit unit) {
             var itemCounters = new Dictionary<ItemQualityPair, ItemCounter>();
 
@@ -233,8 +225,6 @@ namespace Foreman.Mac.ViewModels {
             return destination;
         }
 
-        //Ports LoadUnfilteredKeyNodesList (reference upstream GraphSummaryForm.cs:301-358): recipe-node rows
-        //show Throughput=0/Factories=ActualSetValue, every other node type shows the reverse.
         private List<KeyNodeRow> LoadUnfilteredKeyNodesList(IEnumerable<INodeViewModel> origin, ProductionGraph.RateUnit unit) {
             var destination = new List<KeyNodeRow>();
             foreach (INodeViewModel node in origin) {
@@ -277,7 +267,6 @@ namespace Foreman.Mac.ViewModels {
             return destination;
         }
 
-        //Dedups baked icons by source SKBitmap reference (same intent as SettingsWindow.GetOrBakeIcon).
         private Bitmap? GetOrBakeIcon(SKBitmap? icon) => icon is null ? null : IconBaker.GetOrBake(bakedIconCache, icon, 24);
     }
 }

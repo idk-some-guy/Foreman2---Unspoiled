@@ -48,13 +48,8 @@ namespace Foreman.Mac {
         public ShellViewModel Commands { get; }
         public MainWindowViewModel ViewModel { get; }
 
-        //Wraps MenuZoomIn/MenuZoomOut (contract #toolbar's zoom stepper, marked "(new)") so the
-        //stepper's own buttons and BuildNativeMenu's View > Zoom In/Zoom Out items share one command
-        //instance each - the same shared-instance pattern Commands.SaveCommand etc. already use across the
-        //toolbar and the native menu (see Bind/MenuItem below).
         public IRelayCommand ZoomInCommand { get; }
         public IRelayCommand ZoomOutCommand { get; }
-        //The readout-click command (contract #toolbar's zoom stepper), shared the same way ZoomIn/Out are.
         public IRelayCommand ActualSizeCommand { get; }
         public ContentControl GraphViewerHost { get; }
         public GraphCanvasControl GraphCanvas { get; }
@@ -101,24 +96,16 @@ namespace Foreman.Mac {
         private List<BaseNodeElement> searchMatches = [];
         private readonly SearchAnnouncer searchAnnouncer = new() { Name = "SearchAnnouncer", Opacity = 0, Width = 0, Height = 0, IsHitTestVisible = false };
 
-        //Test-only seam: the built toolbar row, its search field and zoom stepper.
         internal ToolbarRow Toolbar => toolbar;
         internal bool DocumentEdited => documentEdited;
 
-        //One "Add to Graph" browser for the window's lifetime; BrowseRequested reopens/reseeds it.
         private AddBrowserWindow? browser;
         internal AddBrowserWindow? BrowserWindow => browser;
         internal AddRequest? BrowserRequest { get; private set; }
-        //Keyed on (bitmap, size): OpenBrowser bakes the same source icons at 16px (group sidebar) and
-        //40px (cell grid), and DataCache.UnknownIcon is one shared SKBitmap instance across every entry.
         private readonly Dictionary<(SKBitmap, int), Bitmap> browserIconCache = [];
 
-        //Test-only seam: lets a test drive the Settings window headless instead of a real Show(this) - the
-        //window is fully constructed and wired (ViewModel, Session, ReloadRequested) either way.
         internal Action<SettingsWindow>? SettingsDialogStub { get; set; }
 
-        //MainWindow owns one Settings instance and one comparator-adjacent session for the app's
-        //lifetime - ⌘, reuses/activates it rather than stacking a second window.
         private SettingsWindow? settingsWindow;
         private SettingsSession? settingsSession;
 
@@ -132,10 +119,8 @@ namespace Foreman.Mac {
         //ShowDialog.
         internal Action<GraphViewer>? ImageExportDialogStub { get; set; }
 
-        //Test-only seam: lets a test supply Export as .fjson's picker result, given the suggested file name.
         internal Func<string, Task<string?>>? ExportFilePathStub { get; set; }
 
-        //Test-only seam: lets a test supply the Open picker's file.
         internal Func<Task<(string Json, string Path)?>>? OpenFileStub { get; set; }
 
         //Test-only seam: lets a test supply the cross-preset PresetSelectionWindow's outcome (io-reference.md
@@ -148,8 +133,6 @@ namespace Foreman.Mac {
         //§8) without a real modal ShowDialog.
         internal Func<string, Task>? PresetSwitchInfoStub { get; set; }
 
-        //Test-only seam: lets a test observe/short-circuit the About panel without a real modal ShowDialog,
-        //same shape as the other dialog stubs above.
         internal Action? AboutDialogStub { get; set; }
 
         internal Action<IReadOnlyList<Preset>>? PresetComparatorDialogStub { get; set; }
@@ -177,9 +160,6 @@ namespace Foreman.Mac {
             }
         }
 
-        //A (contract #menubar): the bold app menu lives on Application, built once in App.Initialize
-        //before any MainWindow exists (see the call site there), so its About/Settings/Hide items can't
-        //close over a window instance - they resolve the live target here instead, at click time.
         internal static MainWindow? MostRecentlyOpened { get; private set; }
 
         internal static MainWindow? ActiveWindow =>
@@ -220,8 +200,6 @@ namespace Foreman.Mac {
             Inspector.PickAnotherRecipeRequested += (_, node) =>
                 OpenBrowser(new AddRequest(node.Location, AddScope.Recipes, SeedText: node.BaseRecipe.FriendlyName ?? ""));
             Inspector.RateUnitChanged += (_, unit) => SetRateUnit(unit);
-            //Keeps AlignSelectionCommand's CanExecute in step with the canvas's live selection -
-            //GraphViewer.SelectionChanged is the aggregate signal every selection-mutating method raises.
             GraphCanvas.Viewer.SelectionChanged += (_, _) => Commands.AlignSelectionCommand.NotifyCanExecuteChanged();
 
             GraphCanvas.BrowseRequested += (_, request) => OpenBrowser(request);
@@ -229,11 +207,9 @@ namespace Foreman.Mac {
             ViewModel = new MainWindowViewModel();
             DataContext = ViewModel;
 
-            //Same SelectionChanged signal AlignSelectionCommand.CanExecute uses above - not a second tracker.
             GraphCanvas.Viewer.SelectionChanged += (_, _) =>
                 ViewModel.Inspector.SetSelection([.. GraphCanvas.Viewer.SelectedNodes.Select(n => n.ViewModel)]);
             Inspector.IsVisible = ViewModel.IsInspectorVisible;
-            //Commits once per resize gesture; converts the rendered (scaled) pixel value back to InspectorWidth's logical units before saving.
             Inspector.WidthCommitted += (_, value) => {
                 if (Settings is AppSettings inspectorSettings) {
                     inspectorSettings.InspectorWidth = Math.Clamp(value / WindowScaler.CurrentScale, 260, 380);
@@ -252,10 +228,6 @@ namespace Foreman.Mac {
                     viewOptionsPopover.IsOpen = ViewModel.IsViewOptionsOpen;
             };
 
-            //One genuine graph-mutated signal (contract #toolbar's Save .on dirty-tint state) -
-            //node/link add/remove, node-property edits, a committed node drag, annotation add/remove/edit.
-            //Replaces the old five-event wiring: NodeValuesUpdated fired on a plain solve too, so Save lit
-            //up with nothing to save - a UI hint only, never the close-confirmation gate.
             GraphCanvas.Viewer.Session.GraphMutated += (_, _) => OnGraphMutated();
 
             BuildToolbarRow();
@@ -270,7 +242,6 @@ namespace Foreman.Mac {
                     ApplyToolbarShown();
                 }
             };
-            //Mouse-wheel zoom bypasses every other ResyncZoomLabel call site, so it gets its own via this signal.
             GraphCanvas.ViewScaleChanged += (_, _) => ResyncZoomLabel();
             NativeMenu.SetMenu(this, BuildNativeMenu());
             Opened += (_, _) => MostRecentlyOpened = this;
@@ -279,8 +250,6 @@ namespace Foreman.Mac {
                 activatable.Deactivated += flushOnResign;
                 Closed += (_, _) => activatable.Deactivated -= flushOnResign;
             }
-            //SheetHost overlays Content directly (spanning child); TitleBarRow as the anchor keeps sheets
-            //flush under the toolbar instead of covering it.
             Views.Sheets.SheetHost.For(this, this.FindControl<Grid>("TitleBarRow"));
             minSizeScale = new WindowMinSizeScale(this, (1150, 720));
 
@@ -295,7 +264,6 @@ namespace Foreman.Mac {
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        //v2 §02: document -> add -> arrange -> share/view; Settings stays app-menu-only (no gear).
         private void BuildToolbarRow() {
             saveItem = ToolbarButton("SaveButton", "Save", "Save", Commands.SaveCommand, acceleratorKey: "⌘S");
             toolbar.Groups.Add(new ToolbarGroup {
@@ -363,7 +331,6 @@ namespace Foreman.Mac {
             return new Avalonia.Point(under.X, Math.Max(0, under.Y));
         }
 
-        //Label copy is the ratified mock's own (v2 §06.1, A16/A22/A26): "Show"/"Minor"/"Major" under "Gridlines", "Rate unit"/"Display" under "Graph".
         private void BuildViewOptionsPopover() {
             minorGridlinesPopUp = new PopUp { Name = "MinorGridlinesDropDown", Theme = KitTheme("Kit.PopUp") };
             majorGridlinesPopUp = new PopUp { Name = "MajorGridlinesDropDown", Theme = KitTheme("Kit.PopUp") };
@@ -408,7 +375,6 @@ namespace Foreman.Mac {
             contentPopoverHost.Surface.Children.Add(viewOptionsPopover);
         }
 
-        //AutomationName carries the full command name for VoiceOver; acceleratorKey is the command's own menu-bar shortcut, when it has one.
         private static ToolbarItem ToolbarButton(string name, string glyphName, string label, IRelayCommand command, string? automationName = null, string? acceleratorKey = null) {
             var item = new ToolbarItem { Name = name, Glyph = ToolbarGlyph(glyphName), Label = label, AutomationName = automationName, Command = command, IsEnabled = command.CanExecute(null) };
             if (acceleratorKey is not null)
@@ -426,7 +392,6 @@ namespace Foreman.Mac {
                 NativeWindowChrome.SetDocumentEdited(handle.Handle, isDirty);
         }
 
-        //Raw P/Invoke, not LibraryImport: CA2101's source-generated marshalling needs AllowUnsafeBlocks project-wide.
         private static class NativeWindowChrome {
             [DllImport("/usr/lib/libobjc.dylib")]
             private static extern IntPtr sel_registerName(IntPtr name);
@@ -444,7 +409,6 @@ namespace Foreman.Mac {
             }
         }
 
-        //⌘F/⌘G/⇧⌘G reach the search field regardless of focus (v2 §02).
         protected override void OnKeyDown(KeyEventArgs e) {
             if (e.Key == Key.F && e.KeyModifiers == PlatformModifiers.Primary) {
                 FocusSearchField();
@@ -528,7 +492,6 @@ namespace Foreman.Mac {
             return replay.Handled;
         }
 
-        //Find node ruling §01: matches each node's drawn name (recipe/item FriendlyName, or "<name> Spoilage"/"<name> Planting") plus KeyNodeTitle on key nodes; type banners, assembler/module names, item tabs and annotations are never in NodeElements, so they're excluded for free.
         internal static string? DrawnName(BaseNodeElement node) => node.ViewModel switch {
             IRecipeNodeViewModel r => r.BaseRecipe.FriendlyName,
             ISupplierNodeViewModel s => s.SuppliedItem.FriendlyName,
@@ -539,7 +502,6 @@ namespace Foreman.Mac {
             _ => null,
         };
 
-        //Trimmed, substring, culture-aware case-insensitive per §01; an all-whitespace query matches nothing.
         internal static bool MatchesSearchQuery(BaseNodeElement node, string query) {
             string trimmed = query.Trim();
             if (trimmed.Length == 0)
@@ -548,11 +510,9 @@ namespace Foreman.Mac {
                 (node.ViewModel.KeyNode && node.ViewModel.KeyNodeTitle.Contains(trimmed, StringComparison.CurrentCultureIgnoreCase));
         }
 
-        //Order (centre Y, centre X, id): a node's own Location is already its centre, so no extra bounds math is needed to rank matches.
         private List<BaseNodeElement> OrderedSearchMatches(string query) =>
             CanvasTraversal.ReadingOrder(GraphCanvas.Viewer.NodeElements.Where(n => MatchesSearchQuery(n, query)));
 
-        //The first match at or after a graph point, in the same (Y, X) order OrderedSearchMatches ranks by.
         private int FirstSearchMatchIndexAtOrAfter(System.Drawing.Point point) {
             for (int i = 0; i < searchMatches.Count; i++) {
                 System.Drawing.Point at = searchMatches[i].Location;
@@ -562,7 +522,6 @@ namespace Foreman.Mac {
             return -1;
         }
 
-        //Find node ruling §03 row 1: the current selection, else the viewport centre, else the first match.
         private int AnchorSearchMatchIndex() {
             if (searchMatches.Count == 0)
                 return -1;
@@ -583,7 +542,6 @@ namespace Foreman.Mac {
             GraphCanvas.RequestRedraw();
         }
 
-        //Find node ruling §02: the current match is the canvas selection, panned into view only if needed, never zoomed.
         private void SelectCurrentSearchMatch() {
             BaseNodeElement match = searchMatches[searchMatchIndex];
             GraphCanvas.Viewer.SetSelection([match]);
@@ -591,7 +549,6 @@ namespace Foreman.Mac {
             GraphCanvas.RequestRedraw();
         }
 
-        //Find node ruling §03 rows 1-2: the current match is set the moment the query first produces matches, never a silent reset to 1; a node that is still current after an edit stays current, renumbered.
         private void ResetSearchMatches() {
             string query = toolbar.SearchField.Text ?? "";
             BaseNodeElement? wasCurrent = searchMatchIndex >= 0 && searchMatchIndex < searchMatches.Count ? searchMatches[searchMatchIndex] : null;
@@ -607,7 +564,6 @@ namespace Foreman.Mac {
             ScheduleSearchResultAnnouncement(query);
         }
 
-        //Find node ruling §03 "Graph changes mid-find": a node added, deleted or renamed recomputes the run, so the count never outlives its nodes; the index only re-selects when the node it pointed at is gone.
         private void RecomputeSearchMatchesOnGraphChange() {
             string query = toolbar.SearchField.Text ?? "";
             if (string.IsNullOrWhiteSpace(query))
@@ -628,12 +584,10 @@ namespace Foreman.Mac {
             UpdateSearchMatchStatus();
         }
 
-        //⌘G/Return and ⇧⌘G/⇧Return wrap both ways silently; the count going from "3 of 3" to "1 of 3" is the only feedback.
         private void StepSearchMatch(bool forward) {
             if (searchMatches.Count == 0)
                 return;
 
-            //The step is the answer to the step: the query's pending summary would otherwise land on top of it.
             searchAnnounceTimer?.Stop();
             int next = searchMatchIndex + (forward ? 1 : -1);
             bool wrapped = next < 0 || next >= searchMatches.Count;
@@ -644,7 +598,6 @@ namespace Foreman.Mac {
             AnnounceSearchStep(searchMatches[searchMatchIndex], wrapped, forward);
         }
 
-        //Find node ruling §04: the field's only three states are empty, "No matches", and "n of N".
         private void UpdateSearchMatchStatus() {
             string query = toolbar.SearchField.Text ?? "";
             toolbar.SearchField.MatchStatus = string.IsNullOrWhiteSpace(query) ? null
@@ -654,7 +607,7 @@ namespace Foreman.Mac {
 
         private static string MatchCountLabel(int count) => count == 1 ? "1 match" : string.Create(DisplayCulture.Format, $"{count} matches");
 
-        //Find node ruling §05: DispatcherTimer, not Task.Delay - a delay outliving its window fires on another test's UI thread.
+        //DispatcherTimer, not Task.Delay: a delay outliving its window fires on another test's UI thread
         private static readonly TimeSpan SearchAnnounceDebounce = TimeSpan.FromMilliseconds(300);
         private DispatcherTimer? searchAnnounceTimer;
 
@@ -675,7 +628,6 @@ namespace Foreman.Mac {
             return timer;
         }
 
-        //Find node ruling §05: the wrap announcement names the direction, the only place wrap is signalled to VoiceOver.
         private void AnnounceSearchStep(BaseNodeElement match, bool wrapped, bool forward) {
             string name = DrawnName(match) ?? match.ViewModel.KeyNodeTitle;
             string text = string.Create(DisplayCulture.Format, $"{searchMatchIndex + 1} of {searchMatches.Count}, {name}");
@@ -687,7 +639,6 @@ namespace Foreman.Mac {
             AutomationProperties.SetName(searchAnnouncer, text);
         }
 
-        //Visually hidden live region for search-result announcements, separate from the field's own accessible name ("Find node").
         private sealed class SearchAnnouncer : TextBlock {
             protected override AutomationPeer OnCreateAutomationPeer() => new AnnouncerAutomationPeer(this);
 
@@ -697,28 +648,19 @@ namespace Foreman.Mac {
             }
         }
 
-        //The canvas has no DynamicResource of its own to pick up a live theme (System mode's OS flip),
-        //accent, contrast, or scale change, so it re-seeds here on every AppearanceHub notification.
         public void RefreshTheme() {
             minSizeScale.Apply();
             ApplyCanvasTheme();
             RefreshBrowserIcons();
         }
 
-        //browserIconCache carries no theme tint of its own (same as InspectorView's caches) - clearing it
-        //forces the next GetOrBake to rebake fresh. Unlike InspectorView's direct Source reassignment, the
-        //browser's cells flow through an ObservableCollection an ItemsControl rebinds asynchronously, so an
-        //old bitmap can still be mid-render when the flip lands; only vm.Refresh()'s freshly baked instances
-        //replace it, and letting the stale ones fall out of scope (rather than disposing them here) is what
-        //keeps a still-attached Image from measuring an already-disposed one. Driven from here, not
-        //AddBrowserWindow's own RefreshTheme, since the cache and the browser instance both live on MainWindow.
+        //Stale baked icons fall out of scope instead of being disposed: a still-attached Image can be measuring one
         private void RefreshBrowserIcons() {
             browserIconCache.Clear();
             if (browser?.DataContext is AddBrowserViewModel vm)
                 vm.Refresh(forceRebuild: true);
         }
 
-        //lazy: DataCache/Settings are not ready at construction; PlaceRequested is wired once here
         internal void OpenBrowser(AddRequest request) {
             if (DataCache is not Foreman.DataCaching.DataCache cache || Settings is not AppSettings settings)
                 return;
@@ -733,7 +675,6 @@ namespace Foreman.Mac {
                 vm.PlaceRequested += (_, pick) => {
                     if (BrowserRequest is not AddRequest activeRequest)
                         return;
-                    //Re-read the vm's link fresh: ClearChip can change it between placements.
                     AddRequest requestForPlacement = activeRequest with { Link = vm.Link };
                     BrowserRequest = GraphCanvas.PlaceCandidate(pick.Candidate, requestForPlacement, pick.Role, pick.Quality, pick.SpoilPlantDirection, pick.ExplicitOrigin);
                 };
@@ -769,7 +710,7 @@ namespace Foreman.Mac {
 
             //DCache/DefaultAssemblerQuality previously stayed unset until the first Load (LoadDocument was the
             //only assigner) - a fresh/New graph had neither, so recipe-node creation (CreateRecipeNode throws
-            //without DefaultAssemblerQuality) and the Add Item/Add Recipe choosers (need DCache) were
+            //without DefaultAssemblerQuality) and this task's Add Item/Add Recipe choosers (need DCache) were
             //unreachable before ever opening a file. Both belong here alongside the rest of this boot-time seed.
             if (DataCache is Foreman.DataCaching.DataCache cache) {
                 GraphCanvas.Viewer.Context.DCache = cache;
@@ -781,16 +722,10 @@ namespace Foreman.Mac {
             GraphCanvas.Viewer.Context.EnableExtraProductivityForNonMiners = settings.EnableExtraProductivityForNonMiners;
             GraphCanvas.Viewer.IconsOnly = settings.IconsOnlyView;
 
-            //WindowScaler.SetScale moved here from OpenSettingsAsync's own Confirm
-            //tail - this is the same seam (boot, preset reload, every Settings Confirm) the theme seed
-            //below already replays through, so a persisted UiScale now takes effect at cold start instead
-            //of only after the user opens Settings once.
             WindowScaler.SetScale(settings.UiScale);
 
             ApplyCanvasTheme();
 
-            //Seeds the pin the same way UiScale/theme are seeded above - boot, preset
-            //reload, and every Settings Confirm all replay through this one seam.
             ViewModel.Inspector.IsPinned = settings.InspectorPinned;
             ViewModel.Inspector.Width = Math.Clamp(settings.InspectorWidth, 260, 380) * WindowScaler.CurrentScale;
 
@@ -839,10 +774,7 @@ namespace Foreman.Mac {
 
         //Ports MainForm.SetDarkMode/SetLightMode's cold-start read (upstream MainForm.cs:36-46): App.
         //ApplyTheme only swaps the window chrome's ThemeVariant, so the canvas needs its own seed here -
-        //replayed at boot, preset reload, and every Settings Confirm (all via ApplyLoadedSettings above,
-        //which calls this directly), and now also on a live OS appearance flip while FlagDarkMode is
-        //System (RefreshTheme, this window's AppearanceHub subscription) - GraphCanvas's Skia surface has
-        //no DynamicResource of its own to pick that last one up for free.
+        //same seam boot, preset reload, and every Settings Confirm already replay through.
         private void ApplyCanvasTheme() {
             if (Settings is not AppSettings settings)
                 return;
@@ -853,7 +785,7 @@ namespace Foreman.Mac {
             GraphCanvas.RequestRedraw();
         }
 
-        //The value/enable resync below replays safely on every call; the checkbox subscriptions are guarded to wire exactly once.
+        //Runs on every settings load: the checkbox subscriptions must wire exactly once
         private bool viewOptionControlsBound;
 
         private void BindViewOptionControls(AppSettings settings) {
@@ -927,10 +859,6 @@ namespace Foreman.Mac {
             SetRateUnit((ProductionGraph.RateUnit)Array.IndexOf(RateUnitOptions, item));
         }
 
-        //Rate unit is a graph-level setting shared by the inspector's own pop-up, View Options' pop-up and
-        //the View menu radios (2026-09-17 building-picker ruling) - one method serves every entry point, so
-        //a pick from any of them mirrors into the other two and persists immediately rather than waiting on
-        //the window-close flush.
         private void SetRateUnit(ProductionGraph.RateUnit unit) {
             GraphCanvas.Viewer.Graph.SelectedRateUnit = unit;
             GraphCanvas.Viewer.Graph.UpdateNodeValues();
@@ -952,8 +880,6 @@ namespace Foreman.Mac {
             if (Settings is AppSettings settings)
                 settings.DefaultRateUnit = unit;
 
-            //A plain file Load reaches this method directly (ApplyLoadedGraphUiState), not through
-            //BindViewOptionControls, so the Rate Unit submenu's checkmark needs its own resync here too.
             ResyncNativeMenuCheckedStates();
         }
 
@@ -1361,7 +1287,6 @@ namespace Foreman.Mac {
                 ProductionGraphSaveDocument document = GraphSaveCodec.ReadGraphPayload(json) ?? throw new InvalidOperationException(
                     "This save file is too old or corrupt. Try opening it in the previous Foreman release and saving it again, then open the new file here.");
                 System.Drawing.Point origin = GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2));
-                //Belt-and-braces: ImportNodesFromDocument below re-sets the selection itself right after this.
                 ViewModel.Inspector.SetSelection([]);
                 GraphCanvas.Viewer.ImportNodesFromDocument(cache, document, origin, applySolverSettings: true);
                 GraphCanvas.RequestRedraw();
@@ -1584,7 +1509,6 @@ namespace Foreman.Mac {
             GraphCanvas.ClosePanels();
             ViewModel.Inspector.SetSelection([]);
 
-            //R5/⌘, - one instance for the app's lifetime; a second invocation just brings it forward.
             if (settingsWindow is { } existing) {
                 if (selectPresetsPane)
                     existing.SelectPresetsPane();
@@ -1623,9 +1547,6 @@ namespace Foreman.Mac {
             };
             window.SettingsService = settingsService;
             window.Settings = settings;
-            //Every General/Advanced/Annotations/Appearance field is AppSettings-backed already (unlike the
-            //old Options DTO, nothing here has a separate "live GraphViewer state" to seed from - settings
-            //itself stays authoritative since this window is the only thing that ever changes these fields).
             window.ViewModel.LoadFrom(settings);
 
             var session = new SettingsSession(settings, settingsService, (Application.Current as App)!,
@@ -1644,7 +1565,6 @@ namespace Foreman.Mac {
                     settingsWindow = null;
                     settingsSession = null;
                 }
-                //See FloatingPanelHost's own focus-restore comment further down this file.
                 if (!GraphCanvas.IsPanelOpen)
                     GraphCanvas.Focus();
             };
@@ -1767,9 +1687,6 @@ namespace Foreman.Mac {
                 GraphCanvas.Focus();
         }
 
-        //Foreman 2 > About Foreman 2 (contract #menubar): the ratified About panel (design doc .about-card),
-        //carrying ViewModel.VersionLabel (== AppVersion.VersionedDisplay). The titlebar's own version
-        //TextBlock is gone, so this panel is now the label's only reader.
         private void ShowAbout() => Async.Fire(ShowAboutAsync(), nameof(ShowAboutAsync));
 
         internal Task ShowAboutAsync() {
@@ -1834,9 +1751,7 @@ namespace Foreman.Mac {
         //mirrors upstream attaching this as MainForm's own delegate rather than folding it into
         //ProductionGraphViewer_KeyDown itself, since it needs to reach the toolbar's gridlines checkbox.
         private void OnGraphCanvasKeyDown(object? sender, KeyEventArgs e) {
-            //GraphCanvasControl's OnKeyDown does not mark a panel-bound key Handled, so Space typed into the
-            //search box now reaches this subscription too - this guard is what keeps it from toggling
-            //gridlines while the panel is open.
+            //OnKeyDown does not mark panel-bound keys Handled: Space typed in the search box reaches this subscription, so the guard stays
             if (GraphCanvas.IsPanelOpen)
                 return;
             if (e.Key != Key.Space)
@@ -1848,16 +1763,8 @@ namespace Foreman.Mac {
             e.Handled = true;
         }
 
-        //Test-only seam: counts genuine BeginMoveDrag requests raised by OnTitleBarPointerPressed below, so
-        //a headless test can prove the empty titlebar background is draggable while a toolbar button press
-        //(which the Button itself handles first) never reaches this handler at all.
         internal int TitleBarDragRequestCount { get; private set; }
 
-        //Ports macOS's native "drag empty titlebar to move, double-click to zoom" behavior onto the unified
-        //titlebar toolbar (macos-design window conventions): ExtendClientAreaToDecorationsHint hands us the
-        //whole row as ordinary content, so both gestures need an explicit handler here. Buttons placed on
-        //top of this Grid already mark PointerPressed handled before it bubbles here, so only clicks on the
-        //empty background between/around them ever reach this method.
         private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e) {
             if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
                 return;
@@ -1871,9 +1778,6 @@ namespace Foreman.Mac {
             BeginMoveDrag(e);
         }
 
-        //Live references to the built radio/checkbox NativeMenuItems, kept so ResyncNativeMenuCheckedStates
-        //below can update their IsChecked after BuildNativeMenu's own one-time snapshot (taken before Settings
-        //is even assigned - see ApplyLoadedSettings' own boot-ordering comment).
         private NativeMenuItem showGridlinesMenuItem = null!;
         private NativeMenuItem iconViewMenuItem = null!;
         private NativeMenuItem pauseCalculationsMenuItem = null!;
@@ -1883,11 +1787,6 @@ namespace Foreman.Mac {
         private NativeMenuItem[] majorGridlinesMenuItems = [];
         private NativeMenuItem[] rateUnitMenuItems = [];
 
-        //Keeps the View menu's checkmarks/radio selections in step with the popover controls they mirror -
-        //called from BindViewOptionControls' own resync tail (boot, preset switch, every Settings Confirm),
-        //ResyncRateOptionsDropDown (the plain-file-Load path that bypasses OnRateOptionsCommitted by design),
-        //and each of the popover's own commit/IsCheckedChanged handlers (a popover- or Space-driven change),
-        //so no trigger source ever leaves the menu stale.
         private void ResyncNativeMenuCheckedStates() {
             showGridlinesMenuItem.IsChecked = gridlinesCheckBox.IsChecked == true;
             iconViewMenuItem.IsChecked = iconViewCheckBox.IsChecked == true;
@@ -1904,7 +1803,6 @@ namespace Foreman.Mac {
                 items[i].IsChecked = i == selectedIndex;
         }
 
-        //Native menu action handlers (contract #menubar), plain methods rather than ShellViewModel commands since none of them is toolbar-shared.
         private void MenuCut() { GraphCanvas.CutSelection(); GraphCanvas.RequestRedraw(); }
 
         private void MenuCopy() => GraphCanvas.CopySelection();
@@ -1956,13 +1854,6 @@ namespace Foreman.Mac {
         private void ResyncZoomLabel() =>
             toolbar.ZoomStepper.Value = Math.Round(GraphCanvas.Viewport.ViewScale * 100);
 
-        //Mirrors OnGraphCanvasKeyDown's own Space handler (reference §7): mutates Grid/Viewer/Settings and the
-        //popover control's displayed value directly, rather than only flipping the control and trusting
-        //BindViewOptionControls' IsCheckedChanged handler to carry it the rest of the way. ShellBootstrapper
-        //shows MainWindow (and its NativeMenu) before ApplyLoadedSettings ever runs (preset resolution and
-        //data-cache loading happen in between), so a menu click has the same live-before-bound window Space
-        //already had to handle - if BindViewOptionControls' handler is already subscribed by the time this
-        //runs, its re-write of the same values is redundant but harmless.
         private void MenuToggleShowGridlines() {
             GraphCanvas.Grid.ShowGrid = !GraphCanvas.Grid.ShowGrid;
             gridlinesCheckBox.IsChecked = GraphCanvas.Grid.ShowGrid;
@@ -1988,15 +1879,11 @@ namespace Foreman.Mac {
             GraphCanvas.InvalidateVisual();
         }
 
-        //Show Inspector overrides visibility for the current session only - it never touches the pin,
-        //so it reverts to whatever IsPinned/selection already implied the next time both are false.
         private void MenuToggleShowInspector() {
             ViewModel.Inspector.ShowOverride = !ViewModel.Inspector.ShowOverride;
             ResyncNativeMenuCheckedStates();
         }
 
-        //Pin Inspector persists through the same settings-save path Settings Confirm uses for UiScale
-        //(settingsService.Save below) - there's no dialog step for this one, so the toggle itself writes.
         private void MenuTogglePinInspector() {
             ViewModel.Inspector.IsPinned = !ViewModel.Inspector.IsPinned;
             if (Settings is AppSettings settings) {
@@ -2073,7 +1960,6 @@ namespace Foreman.Mac {
             bool shown = showToolbar || searchRevealsToolbar;
             double height = shown ? ToolbarTitleBarHeight : PlainTitleBarHeight;
             double growth = ExtendClientAreaTitleBarHeightHint - height;
-            //The viewport keeps its centre through a resize, so the offset takes half the canvas growth to hold the graph still on screen.
             if (growth != 0 && GraphCanvas.Bounds.Height > 0) {
                 Viewport viewport = GraphCanvas.Viewport;
                 viewport.ViewOffset = new System.Drawing.Point(viewport.ViewOffset.X, viewport.ViewOffset.Y + (int)Math.Round(growth / 2 / viewport.ViewScale));
@@ -2136,13 +2022,10 @@ namespace Foreman.Mac {
             window.Show(this);
         }
 
-        //Also seeds the popover's MinorGridlinesDropDown/MajorGridlinesDropDown pop-ups - one list either way.
         internal static readonly string[] GridlineLabels = ["None", "1", "2", "4", "8", "16", "32", "64", "128", "256", "512", "1024"];
         private static readonly string[] RateUnitLabels = ["1 sec", "1 min", "5 min", "10 min", "30 min", "1 hour"];
-        //v2 §06.1's own popover copy (A22): the long-form values, distinct from the View menu's abbreviated RateUnitLabels above.
         internal static readonly string[] RateUnitOptions = ["per second", "per minute", "per 5 minutes", "per 10 minutes", "per 30 minutes", "per hour"];
 
-        //A (contract #menubar): lives on Application.Current, not the window - see App.Initialize's call site.
         internal static NativeMenu BuildAppMenu() {
             var menu = new NativeMenu();
             menu.Items.Add(WindowActionItem("About Foreman 2", w => w.ShowAbout()));
@@ -2160,8 +2043,6 @@ namespace Foreman.Mac {
             return menu;
         }
 
-        //Built before any MainWindow exists (App.Initialize), so unlike ActionItem/MenuItem below this
-        //resolves the live window at click time instead of closing over `this`, opening one when none is left.
         private static NativeMenuItem WindowActionItem(string header, Action<MainWindow> action, KeyGesture? gesture = null) =>
             new(header) { Command = new DeferredMenuCommand(new RelayCommand(() => Async.Fire(RunOnLiveWindowAsync(action), header))), Gesture = gesture };
 
@@ -2222,9 +2103,7 @@ namespace Foreman.Mac {
                 },
             };
 
-            //Cut/Copy/Paste/Delete are Command-bound but gesture-less by design (contract #menubar conflicts
-            //1/3): GraphCanvasControl.OnKeyDown/OnKeyUp already own Cmd+C/X/V/Delete, so registering the same
-            //KeyGesture here would risk the native menu's key equivalent stealing the event, or firing twice.
+            //Cut/Copy/Paste/Delete carry no gesture: GraphCanvasControl owns Cmd+C/X/V/Delete, and a second binding would steal or double-fire
             var editMenu = new NativeMenu {
                 Items = {
                     DisabledItem("Undo", new KeyGesture(Key.Z, PlatformModifiers.Primary)),
@@ -2246,8 +2125,7 @@ namespace Foreman.Mac {
             majorGridlinesMenuItems = RadioItems(GridlineLabels, MenuSetMajorGridlines, Array.IndexOf(GridlineLabels, majorGridlinesPopUp.SelectedItem));
             rateUnitMenuItems = RadioItems(RateUnitLabels, MenuSetRateUnit, Array.IndexOf(RateUnitOptions, rateOptionsPopUp.SelectedItem));
 
-            //⌥⌘G, not upstream's bare Space (contract #menubar conflict 2): a global NativeMenu gesture on an
-            //unmodified key would fire even while a text field has focus, swallowing every space typed there.
+            //A NativeMenu gesture on an unmodified key swallows every space typed in a text field
             showGridlinesMenuItem = new NativeMenuItem("Show Gridlines") {
                 ToggleType = MenuItemToggleType.CheckBox,
                 IsChecked = gridlinesCheckBox.IsChecked == true,
@@ -2364,7 +2242,6 @@ namespace Foreman.Mac {
             };
         }
 
-        //⌃⌘F folds onto Find Node's ⌃F where Primary is Control.
         private static KeyGesture? EnterFullScreenGesture() =>
             PlatformModifiers.Primary == KeyModifiers.Meta ? new KeyGesture(Key.F, KeyModifiers.Meta | KeyModifiers.Control) : null;
 
@@ -2467,7 +2344,6 @@ namespace Foreman.Mac {
             GraphCanvas.RequestRedraw();
         }
 
-        //Rounded and Orthogonal act on the selected links and show a check only when every one of them agrees.
         internal void UpdateLinkRoutingMenu() {
             if (roundedRoutingMenuItem is null || orthogonalRoutingMenuItem is null || clearWaypointsMenuItem is null)
                 return;
@@ -2484,9 +2360,6 @@ namespace Foreman.Mac {
         private static NativeMenuItem DisabledItem(string header, KeyGesture? gesture = null) =>
             new(header) { IsEnabled = false, Gesture = gesture };
 
-        //Builds one radio-toggle NativeMenuItem per label (contract #menubar's Minor/Major Gridlines and Rate
-        //Unit submenus): each item carries its own index as CommandParameter rather than a closure per item,
-        //so RadioItems can share one RelayCommand<int> across the whole group.
         private static NativeMenuItem[] RadioItems(string[] labels, Action<int> onSelect, int currentIndex) {
             var command = new DeferredMenuCommand(new RelayCommand<int>(onSelect));
             var items = new NativeMenuItem[labels.Length];
@@ -2494,7 +2367,7 @@ namespace Foreman.Mac {
                 items[i] = new NativeMenuItem(labels[i]) {
                     ToggleType = MenuItemToggleType.Radio,
                     IsChecked = i == currentIndex,
-                    //B: CommandParameter must be set before Command, or IsEnabled snapshots CanExecute(null).
+                    //CommandParameter must be set before Command, or IsEnabled snapshots CanExecute(null)
                     CommandParameter = i,
                     Command = command,
                 };
@@ -2517,7 +2390,7 @@ namespace Foreman.Mac {
             };
         }
 
-        //C1: defers Execute past AppKit's synchronous menu dispatch, so an async sheet doesn't strand the menu open.
+        //Defers Execute past AppKit's synchronous menu dispatch, or an async sheet strands the menu open
         internal sealed class DeferredMenuCommand(ICommand inner) : ICommand {
             internal ICommand Inner { get; } = inner;
 

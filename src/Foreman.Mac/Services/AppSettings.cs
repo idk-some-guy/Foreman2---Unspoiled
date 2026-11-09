@@ -58,25 +58,17 @@ namespace Foreman.Mac.Services {
         public bool PullConsumerNodes { get; set; }
         public decimal PullConsumerNodesPower { get; set; } = 1;
 
-        //No upstream counterpart (WinForms has no display-scale setting of its own).
-        //Clamped to [1.0, 2.0] on load (SettingsService.HealUiScale); the Settings UI only ever offers
-        //the discrete 100/110/125/150/200% steps within that range.
         public double UiScale { get; set; } = 1.0;
 
-        //The View menu's Pin Inspector item writes here; ApplyLoadedSettings seeds
-        //InspectorViewModel.IsPinned from it at boot.
         public bool InspectorPinned { get; set; }
 
-        //Logical units, independent of UiScale; clamped 260-380 on read (SettingsService.HealLoadedDefaults).
         public double InspectorWidth { get; set; } = 300;
 
-        //The Add to Graph browser's size in logical units and the last category picked per segment (by group Name).
         public double BrowserWidth { get; set; } = 760;
         public double BrowserHeight { get; set; } = 520;
         public string BrowserItemsGroup { get; set; } = "";
         public string BrowserRecipesGroup { get; set; } = "";
 
-        //The two resizable Settings panes' sizes in logical units; null until the pane is first resized.
         public double? SettingsEnabledObjectsWidth { get; set; }
         public double? SettingsEnabledObjectsHeight { get; set; }
         public double? SettingsAdvancedWidth { get; set; }
@@ -88,13 +80,11 @@ namespace Foreman.Mac.Services {
         public double? GraphSummaryHeight { get; set; }
         public int GraphSummarySegment { get; set; }
 
-        //A10: the routing a new link takes.
         public LinkRouting DefaultLinkRouting { get; set; } = LinkRouting.Rounded;
 
         public bool ShowToolbar { get; set; } = true;
         public bool ShowWelcomeAtLaunch { get; set; } = true;
 
-        //UTC; Open Recent lists only graphs opened after it.
         public DateTime? OpenRecentClearedAt { get; set; }
     }
 }

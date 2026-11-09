@@ -15,13 +15,7 @@ using System.Reflection;
 namespace Foreman.Mac.ViewModels {
     public enum SettingsPane { Presets, EnabledObjects, General, Advanced, Annotations, Appearance }
 
-    //Settings window's Graph Options tab and Enabled Objects lists, split off SettingsWindow.axaml.cs's
-    //former LoadGraphOptionsTab/CommitGraphOptionsTab/UpdateFilteredLists. Presets-tab
-    //orchestration (window services: dialogs, preset-list rebuilds) stays in the code-behind.
     public sealed partial class SettingsViewModel : ObservableObject {
-        //R5 live apply: every AppSettings-backed property raises this on change so SettingsSession can
-        //react (theme/scale/resolve/save). The Enabled Objects tab's own search/filter state isn't
-        //AppSettings-backed, so it's excluded rather than spamming a session with nothing to apply.
         private static readonly HashSet<string> ExcludedFromSettingChanged = [
             nameof(FilterText), nameof(ShowUnavailablesFilterChecked),
             nameof(AssemblerObjects), nameof(MinerObjects), nameof(PowerObjects), nameof(BeaconObjects),
@@ -74,7 +68,6 @@ namespace Foreman.Mac.ViewModels {
         [NotifyPropertyChangedFor(nameof(ThemeIndex))]
         private ThemeMode flagDarkMode;
 
-        //The Theme segmented control's index; FlagDarkMode carries the change.
         public int ThemeIndex {
             get => (int)FlagDarkMode;
             set => FlagDarkMode = (ThemeMode)value;
@@ -133,10 +126,6 @@ namespace Foreman.Mac.ViewModels {
         [ObservableProperty]
         private string uiScaleLabel = ScaleLabels[0];
 
-        //Ports LoadGraphOptionsTab (reference SettingsWindow.axaml.cs): seeds every widget-backing
-        //property from an AppSettings snapshot. NodeCountForSimpleView/LowPriorityPower/
-        //PullConsumerNodesPower keep the widget-Maximum clamp their NumericUpDown counterparts carry in
-        //XAML (2000/6/5) - a stale value above the visible range would otherwise show past it.
         public void LoadFrom(AppSettings settings) {
             QualityStepsValue = settings.QualitySteps;
             LevelOfDetailIndex = Enum.IsDefined(typeof(LevelOfDetail), settings.LevelOfDetail) ? settings.LevelOfDetail : (int)LevelOfDetail.Medium;
@@ -173,9 +162,6 @@ namespace Foreman.Mac.ViewModels {
             UiScaleLabel = ScaleLabels[ScaleContract.Steps.Select((step, i) => (Distance: Math.Abs(step - settings.UiScale), Index: i)).Min().Index];
         }
 
-        //Ports CommitGraphOptionsTab (reference SettingsWindow.axaml.cs). FlagDarkMode round-trips
-        //losslessly through the tri-state Theme control - unlike upstream's strictly binary SetDarkMode/
-        //SetLightMode pair, System survives an apply that never touched appearance.
         public void ApplyTo(AppSettings settings) {
             settings.QualitySteps = (int)QualityStepsValue.GetValueOrDefault();
             settings.LevelOfDetail = LevelOfDetailIndex;
@@ -212,8 +198,6 @@ namespace Foreman.Mac.ViewModels {
             int step = Array.IndexOf(ScaleLabels, UiScaleLabel);
             settings.UiScale = ScaleContract.Steps[Math.Max(step, 0)];
         }
-
-        //--- Restore Defaults ----------------------------------------------------------------------------
 
         //Per pane, in restore order; LoadBarrelingChecked goes last because changing it reloads the window.
         private static readonly Dictionary<SettingsPane, string[]> PaneProperties = new() {
@@ -253,8 +237,6 @@ namespace Foreman.Mac.ViewModels {
         }
 
         private static PropertyInfo Property(string name) => typeof(SettingsViewModel).GetProperty(name)!;
-
-        //--- Enabled Objects tab ------------------------------------------------------------------------
 
         [ObservableProperty]
         private string? filterText = "";
@@ -306,9 +288,6 @@ namespace Foreman.Mac.ViewModels {
         private List<EnabledObjectsListItem> unfilteredRecipes = [];
         private List<EnabledObjectsListItem> unfilteredQualities = [];
 
-        //Called once after the window bakes every category's icons/tooltips (reference LoadUnfilteredLists
-        //in SettingsWindow.axaml.cs) - the baked EnabledObjectsListItem instances are handed over as-is,
-        //still shared with the window's own PropertyChanged/Options.EnabledObjects wiring.
         public void LoadUnfilteredLists(
             List<EnabledObjectsListItem> assemblers,
             List<EnabledObjectsListItem> miners,
@@ -336,9 +315,7 @@ namespace Foreman.Mac.ViewModels {
         partial void OnEnabledObjectsShowIndexChanged(int value) => RefreshFilteredLists();
         partial void OnEnabledObjectsCategoryIndexChanged(int value) => UpdateVisibleObjects();
 
-        //Ports UpdateFilteredLists (reference SettingsWindow.axaml.cs): reassigns every filtered property
-        //to a fresh list on every call - FRESH-LIST rule, ItemsSource reference-equality short-circuits a
-        //mutated-in-place reassignment and the bound ListBox never re-renders.
+        //Assign fresh lists: ItemsSource short-circuits on reference equality, so an in-place mutation never re-renders
         public void RefreshFilteredLists() {
             AssemblerObjects = FilterList(unfilteredAssemblers);
             MinerObjects = FilterList(unfilteredMiners);

@@ -24,7 +24,6 @@ namespace Foreman.Mac {
 
         public ThemeService Theme { get; private set; }
 
-        //one hub per app: every window subscribes to it, ThemeService keeps the ThemeMode mapping
         public AppearanceHub Hub { get; private set; }
 
         //Rescaled is a static event: replace the previous App's handler or the list grows per test
@@ -34,8 +33,6 @@ namespace Foreman.Mac {
             InstallAppearance(null);
         }
 
-        //The OS colour event reaches the platform appearance leg, wired to the hub; a null argument takes
-        //the production seam.
         [MemberNotNull(nameof(Hub), nameof(Theme))]
         internal void InstallAppearance(IPlatformAppearance? appearance) {
             Hub?.Dispose();
@@ -51,14 +48,9 @@ namespace Foreman.Mac {
             WindowScaler.Rescaled += rescaledHandler;
         }
 
-        //AvaloniaNativeMenuExporter reads Application's NativeMenu exactly once, from its own constructor,
-        //which AvaloniaNativePlatformExtensions.UseAvaloniaNative runs via AfterSetup - after Initialize()
-        //but before OnFrameworkInitializationCompleted (AppBuilder.Setup). Setting it any later (MainWindow's
-        //constructor, which only runs from OnFrameworkInitializationCompleted) is invisible to the exporter,
-        //which falls back to its own "About Avalonia" menu and never looks again.
+        //The native menu exporter reads NativeMenu once, before OnFrameworkInitializationCompleted; set it here or it is never seen
         public override void Initialize() {
             AvaloniaXamlLoader.Load(this);
-            //The XAML load replaces the resources the hub wrote from the constructor.
             Hub.Refresh();
             NativeMenu.SetMenu(this, MainWindow.BuildAppMenu());
         }
@@ -136,7 +128,6 @@ namespace Foreman.Mac {
 
         public void ApplyTheme(ThemeMode mode) => Theme.Apply(mode);
 
-        //for environments without PlatformSettings
         private sealed class NullPlatformAppearance : IPlatformAppearance {
             public Color? AccentColor => null;
             public ColorContrastPreference ContrastPreference => ColorContrastPreference.NoPreference;

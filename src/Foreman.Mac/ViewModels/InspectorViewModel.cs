@@ -14,7 +14,7 @@ namespace Foreman.Mac.ViewModels {
         [NotifyPropertyChangedFor(nameof(IsVisible))]
         private bool showOverride;
 
-        //Rendered (scaled) pixels; MainWindow converts to and from AppSettings.InspectorWidth's logical units.
+        //Rendered (scaled) pixels, not AppSettings.InspectorWidth's logical units
         [ObservableProperty]
         private double width = 300;
 

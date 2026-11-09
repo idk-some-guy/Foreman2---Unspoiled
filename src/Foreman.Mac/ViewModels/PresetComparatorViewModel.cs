@@ -7,8 +7,6 @@ using SkiaSharp;
 using System.Collections.Generic;
 
 namespace Foreman.Mac.ViewModels {
-    //Per-tab row assembly for PresetComparatorWindow: RebuildTab hands back fresh lists per bucket, the
-    //shared objects paired into one row each; ProcessMods/ProcessObjects/EvaluateSimilarity stay on the window.
     internal sealed partial class PresetComparatorViewModel : ObservableObject {
         private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
 
@@ -51,7 +49,6 @@ namespace Foreman.Mac.ViewModels {
             return rows;
         }
 
-        //The bucket key is "{mod}_{version}"; the row reads "{mod} {version}" while the filter still matches the raw key.
         private static ComparatorRow NewModRow(string key) {
             int split = key.LastIndexOf('_');
             string text = split < 0 ? key : key[..split] + " " + key[(split + 1)..];

@@ -6,12 +6,9 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Services {
-    //R5's live-apply reaction dispatcher: SettingsWindow's tabs write onto the shared AppSettings/ViewModel
-    //as the person edits, then call Apply(propertyName) here to react.
     public sealed class SettingsSession {
         private static readonly TimeSpan CoalesceDelay = TimeSpan.FromMilliseconds(300);
 
-        //R5's solver-affecting list - everything else on the tabs is cosmetic or advisory.
         private static readonly HashSet<string> SolverAffectingProperties = [
             nameof(ViewModels.SettingsViewModel.AssemblerSelectorStyleIndex),
             nameof(ViewModels.SettingsViewModel.ShowProductivityBonusOnAllChecked),
@@ -86,8 +83,6 @@ namespace Foreman.Mac.Services {
             ResolveCallCount++;
         }
 
-        //Test seam, and SettingsWindow.OnClosing's close-must-flush-first path: runs whatever's pending
-        //right now instead of waiting on the timer.
         public async Task FlushAsync() {
             if (saveTimer is { IsEnabled: true } save) {
                 save.Stop();

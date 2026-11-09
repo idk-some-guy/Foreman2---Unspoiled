@@ -2,7 +2,6 @@ using CommunityToolkit.Mvvm.Input;
 using System;
 
 namespace Foreman.Mac.ViewModels {
-    //One command per upstream MainForm toolbar button (MainForm.Designer.cs MenuButtonsTable/GridLinesGroupBox/ProductionGroupBox).
     public sealed class ShellViewModel {
         public IRelayCommand NewCommand { get; }
         public IRelayCommand LoadCommand { get; }
@@ -25,8 +24,6 @@ namespace Foreman.Mac.ViewModels {
             AddItemCommand = new RelayCommand(onAddItem);
             AddRecipeCommand = new RelayCommand(onAddRecipe);
             AutoconnectCommand = new RelayCommand(onAutoconnect);
-            //Align Selected's .disabled empty-selection state (contract #toolbar) defaults to
-            //always-enabled so ShellViewModelTests' plain constructor call keeps working unchanged.
             AlignSelectionCommand = new RelayCommand(onAlignSelection, canExecuteAlignSelection ?? (() => true));
             SettingsCommand = new RelayCommand(onSettings);
             GraphSummaryCommand = new RelayCommand(onGraphSummary);

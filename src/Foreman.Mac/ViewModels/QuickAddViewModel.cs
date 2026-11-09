@@ -62,7 +62,6 @@ namespace Foreman.Mac.ViewModels {
         public AddLinkContext? Link => request.Link;
         private string? LinkItemName => request.Link?.Item.Item?.FriendlyName;
 
-        //Supplier lists recipes that make the dragged item, Consumer those that take it (AddCatalog.IsCompatible's split).
         private string? LinkVerb => request.Link?.NodeType switch {
             NewNodeType.Supplier => "make",
             NewNodeType.Consumer => "take",
@@ -90,7 +89,6 @@ namespace Foreman.Mac.ViewModels {
 
         partial void OnQueryChanged(string value) => Refresh();
 
-        //Dropping the constraint also drops the link: placement becomes a plain one at the drop point.
         public void RemoveConstraint() {
             if (request.Link is null)
                 return;
@@ -112,7 +110,6 @@ namespace Foreman.Mac.ViewModels {
             RowsChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        //A row that survives the query change keeps its own instance (Move, not Remove+Add).
         private void SyncRows(List<QuickAddRow> desired) {
             var desiredCandidates = new HashSet<AddCandidate>(desired.Select(r => r.Candidate));
             for (int i = rows.Count - 1; i >= 0; i--)

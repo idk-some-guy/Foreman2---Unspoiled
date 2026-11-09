@@ -15,7 +15,6 @@
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaTitleBarHeightHint="52"
         Background="{DynamicResource Foreman.Color.WindowBackground}">
-  <!-- Titlebar and toolbar are one row (v2 §02); TrafficLightInsetConverter turns the top-only WindowDecorationMargin into the row's left-only clearance. -->
   <Grid RowDefinitions="Auto,*">
     <Grid Name="TitleBarRow" Grid.Row="0" Height="{Binding #RootWindow.ExtendClientAreaTitleBarHeightHint}"
           ClipToBounds="True" ZIndex="1" Background="{DynamicResource Foreman.Color.TitlebarMaterial}"
@@ -30,17 +29,12 @@
                               HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" IsVisible="False" />
     </Grid>
 
-    <!-- Inspector's IsVisible is set from MainWindow.axaml.cs, not bound here. Overlay, not a column
-         (contract §03, ruled over the mock's own sidebar-as-column reading): the canvas
-         fills the whole row, and the sidebar sits in the same cell, right-aligned and above it in z-order -
-         showing or hiding it never resizes the canvas underneath. -->
     <Grid Grid.Row="1">
       <ContentControl Name="GraphViewerHost" />
       <inspector:InspectorView Name="Inspector" DataContext="{Binding Inspector}"
                                 HorizontalAlignment="Right" ZIndex="1" />
     </Grid>
 
-    <!-- PopoverFrame requires a PopoverHost ancestor; this one spans both rows so a press anywhere - the titlebar/toolbar strip included - dismisses an open popover rather than also acting on whatever it hit. -->
     <composites:PopoverHost Name="ContentPopoverHost" Grid.Row="0" Grid.RowSpan="2" ZIndex="2" />
   </Grid>
 </Window>
