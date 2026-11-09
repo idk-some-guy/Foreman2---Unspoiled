@@ -14,7 +14,6 @@ using System.Linq;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Theming {
-    //The scale contract: asserts against ScaleContract's token values and live bindings.
     [Collection(ScaleTestGroup.Name)]
     public class UiScaleTests : IDisposable {
         public UiScaleTests() => WindowScaler.SetScale(1.0);
@@ -50,8 +49,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(Avalonia.Media.Color.Parse("#80000000"), scrim);
         }
 
-        //A window opened after a scale change picks up the multiplied resources immediately, since they
-        //live on Application.Resources rather than a per-window wrapper - the whole point of the re-push.
         [AvaloniaFact]
         public void Window_OpenedAfterScaleChange_ShowsMultipliedValuesThroughLiveBinding() {
             WindowScaler.SetScale(1.5);
@@ -80,7 +77,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(33.0, probe.Width);
         }
 
-        //Kit.PopoverFrame renders directly in PopoverHost's Canvas, so DynamicResource reaches it live with no LayoutTransformControl needed anywhere in its ancestry.
         [AvaloniaFact]
         public void SetScale_ViewOptionsPopoverContent_FollowsWithoutAnyLayoutTransform() {
             var window = new MainWindow();
@@ -96,7 +92,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(11.0, label.FontSize);
             Assert.Equal(272, panel.Bounds.Width);
 
-            //The trailing group owns no bottom margin, so the panel's own padding is the last row's only gap below it.
             FormRow lastRow = popover.GetVisualDescendants().OfType<FormRow>().Last();
             double panelContentBottom = panel.TranslatePoint(new Point(0, panel.Bounds.Height), window)!.Value.Y - panel.BorderThickness.Bottom;
             double rowBottom = lastRow.TranslatePoint(new Point(0, lastRow.Bounds.Height), window)!.Value.Y;
@@ -133,7 +128,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(720.0, window.MinHeight);
         }
 
-        //No contract endpoint on this window, so its minimum is plain base times the scale step.
         [AvaloniaFact]
         public void SetScale_AtOneFifty_ScalesAddBrowserWindowMinimumSize_ByBaseTimesScale() {
             var window = new AddBrowserWindow();
@@ -160,8 +154,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(720.0, window.MinHeight);
         }
 
-        //AddBrowserWindow leaves the hub while MainWindow hides it, so a scale change made during that
-        //gap must still land once it is shown again, not wait for the next unrelated notification.
         [AvaloniaFact]
         public void AddBrowserWindow_MinimumSizeResyncsOnShow_AfterAScaleChangeWhileHidden() {
             var window = new AddBrowserWindow();
@@ -187,7 +179,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(2.0, WindowScaler.CurrentScale);
         }
 
-        //A persisted UiScale takes effect at boot, not just after opening Settings once.
         [AvaloniaFact]
         public void ApplyLoadedSettings_UiScaleFromSettings_ScalesResourcesAtBoot() {
             var window = new MainWindow { Settings = new AppSettings { UiScale = 1.5 } };
@@ -212,7 +203,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.False(window.Content is LayoutTransformControl);
         }
 
-        //ViewScale is the graph's own zoom (mouse wheel only) - UiScale must never touch it.
         [AvaloniaFact]
         public void SetScale_DoesNotAlterGraphCanvasViewportZoom() {
             var window = new MainWindow();

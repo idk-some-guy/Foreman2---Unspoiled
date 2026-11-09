@@ -6,8 +6,6 @@ using System.Linq;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.ViewModels {
-    //Covers PresetSelectionViewModel: Load ranks the packages by overall match and builds the rows through
-    //PresetSelectionSheet.BuildRows; Selected mirrors the sheet's list selection.
     public class PresetSelectionViewModelTests {
         private static PresetErrorPackage NewPackage(Preset preset, int missingMods) {
             var errors = new PresetErrorPackage(preset);
@@ -43,7 +41,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
         public void Load_RanksByModsThenItemsThenRecipesPercent_Descending() {
             var vm = new PresetSelectionViewModel();
 
-            //PresetErrorPackage.CompareTo counts missing mods first, so it would put B (0 missing, 1 wrong version, 50 %) above A (90 %).
             vm.Load([
                 Package("B", requiredMods: 2, wrongVersionMods: 1),
                 Package("A", requiredMods: 10, missingMods: 1),

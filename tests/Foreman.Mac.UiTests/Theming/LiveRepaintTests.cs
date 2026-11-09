@@ -29,10 +29,6 @@ using Xunit;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.Theming {
-    //Opens Settings, a sheet, the comparator, and the browser, flips the theme through the app-wide
-    //AppearanceHub, confirms each repaints, and confirms none of them are still subscribed once closed.
-    //GraphThemeTests/DarkModeTests already cover MainWindow's own canvas repaint and the System-mode
-    //platform-follow path; this file covers the rest of the surface list.
     public class LiveRepaintTests : IDisposable {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
 
@@ -68,8 +64,6 @@ namespace Foreman.Mac.UiTests.Theming {
 
         private static Color ColorOf(IBrush brush) => Assert.IsType<ImmutableSolidColorBrush>(brush).Color;
 
-        //--- Settings ---------------------------------------------------------------------------------------
-
         [AvaloniaFact]
         public async Task Settings_ThemeFlip_KeepsItsHubSubscription_AndNoSubscriberLeakAfterClose() {
             App app = CurrentApp;
@@ -92,8 +86,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(baseline, app.Hub.SubscriberCount);
         }
 
-        //--- The browser (AddBrowserWindow) -----------------------------------------------------------------
-
         [AvaloniaFact]
         public void AddBrowserWindow_ThemeFlip_DynamicResourceBoundSidebarRepaints_AndNoSubscriberLeakAfterClose() {
             App app = CurrentApp;
@@ -114,14 +106,10 @@ namespace Foreman.Mac.UiTests.Theming {
 
             Assert.NotEqual(beforeColor, ColorOf(sidebar.Background!));
 
-            //Close hides this window; the kit grid still in its tree keeps its own subscription.
             window.Close();
             Assert.Equal(shown - 1, app.Hub.SubscriberCount);
         }
 
-        //MainWindow owns browserIconCache and hands AddBrowserViewModel a bake delegate closed over it -
-        //RefreshTheme must dispose+clear that cache and rebuild the viewmodel so a bound cell's icon is a
-        //freshly baked Bitmap instance, not the stale one from before the flip.
         [AvaloniaFact]
         public void AddBrowserWindow_ThemeFlip_BoundCellIconIsRebaked() {
             using ShellFixture shell = ShellFixture.Open();
@@ -138,8 +126,6 @@ namespace Foreman.Mac.UiTests.Theming {
             BrowserCell after = vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Equals(before.Candidate));
             Assert.NotSame(iconBefore, after.Icon);
         }
-
-        //--- MainWindow's own hub subscription --------------------------------------------------------------
 
         [AvaloniaFact]
         public void MainWindow_Close_UnsubscribesFromTheAppWideHub() {

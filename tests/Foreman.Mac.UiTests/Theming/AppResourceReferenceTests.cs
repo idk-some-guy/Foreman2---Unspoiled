@@ -23,7 +23,7 @@ namespace Foreman.Mac.UiTests.Theming {
             new(@"x:Key\s*=\s*[""']([^""']+)[""']", RegexOptions.Compiled);
 
         private static readonly HashSet<string> PlatformKeyAllowlist =
-            new(StringComparer.Ordinal) { "SystemChromeMediumColor" }; // Avalonia's, not ours to declare
+            new(StringComparer.Ordinal) { "SystemChromeMediumColor" };
 
         private static IEnumerable<string> AxamlFiles() =>
             Directory.EnumerateFiles(AppSourceDirectory, "*.axaml", SearchOption.AllDirectories)

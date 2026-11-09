@@ -14,8 +14,6 @@ using AvaloniaWindow = Avalonia.Controls.Window;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.support {
-    //Shared real-vanilla-preset canvas fixture for tests driving a GraphCanvasControl end to end (real
-    //pointer events, real DataCache), plus drag/click helpers for the palette/radial flows.
     internal sealed class CanvasFixture : IDisposable {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private static readonly Lazy<DataCache> VanillaCache = new(LoadVanilla);
@@ -70,9 +68,6 @@ namespace Foreman.Mac.UiTests.support {
             return fx;
         }
 
-        //Same shape as the Vanilla-cache pair above, but against a caller-supplied cache - the radial's
-        //spoil/plant slice tests need custom item data (SpoilOrigins/SpoilResult) the shared vanilla preset
-        //doesn't carry.
         public static CanvasFixture WithCacheAndOneSupplierOf(DataCache cache, ItemQualityPair pair, out AvaloniaPoint outputTabScreenPoint) {
             (GraphCanvasControl control, AvaloniaWindow window) = NewControl(cache);
             var fx = new CanvasFixture { Cache = cache, Control = control, Window = window };

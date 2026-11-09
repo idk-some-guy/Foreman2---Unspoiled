@@ -4,9 +4,6 @@ using System.Globalization;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Converters {
-    //WindowDecorationMargin only ever carries a top-only
-    //titlebar-height inset on macOS - this converter is the single place that turns "extension active"
-    //(Top > 0) into the traffic lights' left-only clearance, so it's tested in isolation from any window.
     public class TrafficLightInsetConverterTests {
         [Fact]
         public void Convert_ExtendedTopInset_ReturnsLeftOnlyTrafficLightInset() {

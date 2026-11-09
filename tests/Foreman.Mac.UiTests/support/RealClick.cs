@@ -18,13 +18,11 @@ namespace Foreman.Mac.UiTests.support {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //Back to back, same spot - raises a real DoubleTapped, ClickCount 1 then 2, like a fast double-click.
         public static void DoubleClick(Control target) {
             On(target);
             On(target);
         }
 
-        //a press elsewhere resets MouseDevice's click count by position, no timing involved
         public static void TwoSeparateClicks(Control target) {
             On(target);
             On(NeutralSpotFarFrom(target));

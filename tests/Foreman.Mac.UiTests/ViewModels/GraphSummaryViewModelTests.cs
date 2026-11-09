@@ -15,10 +15,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.ViewModels {
-    //GraphSummaryWindow.axaml.cs's row-assembly moved into GraphSummaryViewModel. Fixture helpers
-    //below are the same solved-graph recipe used by Views/GraphSummaryWindowTests.cs (RateType.Manual +
-    //SetDesiredSetValue pins an isolated node's rate exactly - see that file's header comment for why every
-    //count/beacon expectation below is exact and hand-checkable).
     public class GraphSummaryViewModelTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private const string AssemblerRecipeName = "iron-gear-wheel";
@@ -108,9 +104,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal("4", beaconRow.CountText);
             Assert.Equal(expectedBeaconPower, beaconRow.PowerBValue, precision: 6);
 
-            //Assembler contributes iron-plate (unlinked input) and iron-gear-wheel (unlinked, overproduced
-            //output); the miner contributes iron-ore (unlinked, overproduced output) - three item rows, no
-            //fluids.
             Assert.Equal(3, vm.Items.Count);
             Assert.Empty(vm.Fluids);
             ItemRow gearRow = vm.Items.Single(r => r.Name.Contains("Gear", StringComparison.OrdinalIgnoreCase));

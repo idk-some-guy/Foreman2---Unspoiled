@@ -13,19 +13,16 @@ using Xunit;
 
 namespace Foreman.Mac.UiTests.ViewModels {
     public class SettingsViewModelTests {
-        //Round-trip contract: LoadFrom seeds every widget-backing property from an
-        //AppSettings snapshot, ApplyTo writes them back onto a fresh snapshot - mutating a property before
-        //ApplyTo must change only that field, leaving everything else exactly as LoadFrom read it.
         [Fact]
         public void RoundTrip_LoadThenApply_ReflectsOnlyTheMutatedFields() {
             var original = new AppSettings();
             var vm = new SettingsViewModel();
             vm.LoadFrom(original);
 
-            vm.FlagDarkMode = ThemeMode.Dark; //tri-state enum
-            vm.LevelOfDetailIndex = 2; //enum-backed (LevelOfDetail)
-            vm.LowPriorityPowerValue = 5.5m; //solver decimal, passes through unchanged
-            vm.PullConsumerNodesPowerValue = 2.25m; //solver decimal, passes through unchanged
+            vm.FlagDarkMode = ThemeMode.Dark;
+            vm.LevelOfDetailIndex = 2;
+            vm.LowPriorityPowerValue = 5.5m;
+            vm.PullConsumerNodesPowerValue = 2.25m;
 
             var applied = new AppSettings();
             vm.ApplyTo(applied);
@@ -105,8 +102,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.False(applied.UseRecipeBWfilters);
         }
 
-        //Round-trip contract, all three states: FlagDarkMode carries System/Light/Dark losslessly through
-        //LoadFrom/ApplyTo now that the tri-state ComboBox replaced the binary checkbox.
         [Theory]
         [InlineData(ThemeMode.System)]
         [InlineData(ThemeMode.Light)]
@@ -122,9 +117,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal(mode, applied.FlagDarkMode);
         }
 
-        //FlagDarkModeChecked is tri-state, not bool: Confirm must round-trip System correctly - even one
-        //that never touched appearance - rather than collapsing it into Light. Loading System and applying
-        //after an unrelated edit must still come out as System.
         [Fact]
         public void ApplyTo_SystemLoadedThenUnrelatedSettingChanged_StaysSystem() {
             var settings = new AppSettings { FlagDarkMode = ThemeMode.System };
@@ -139,7 +131,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal(ThemeMode.System, applied.FlagDarkMode);
         }
 
-        //An apply that never touches the scale control must write back exactly the value LoadFrom read.
         [Theory]
         [InlineData(1.00, "100 %")]
         [InlineData(1.10, "110 %")]
@@ -172,8 +163,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal(1.5, applied.UiScale);
         }
 
-        //An off-list value (legacy data, a hand-edited db) snaps to its nearest step on load rather than
-        //throwing or silently defaulting to 100%.
         [Fact]
         public void LoadFrom_OffListUiScale_SnapsToNearestStep() {
             var settings = new AppSettings { UiScale = 1.4 };
@@ -184,9 +173,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal("150 %", vm.UiScaleLabel);
         }
 
-        //UiScaleLabel is plain string storage, not an enum - no real caller can put
-        //a value in it that isn't one of UiScaleSteps' own labels, but ApplyTo must not throw if one ever
-        //does (a future widget bug, a bad test double); FirstOrDefault falls back to 100% instead.
         [Fact]
         public void ApplyTo_UiScaleLabelNotOnList_FallsBackToOneHundredPercent() {
             var vm = new SettingsViewModel { UiScaleLabel = "not-a-real-step" };
@@ -197,9 +183,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal(1.0, applied.UiScale);
         }
 
-        //FRESH-LIST rule: repopulating the unfiltered lists must swap in a brand new IReadOnlyList
-        //instance, never a mutated-in-place one - Avalonia's ItemsSource binding short-circuits a
-        //reference-equal reassignment and the bound ListBox never re-renders.
         [Fact]
         public void RefreshFilteredLists_ProducesANewListInstanceEveryCall() {
             var vm = new SettingsViewModel();
@@ -269,8 +252,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
                 vm.EnabledObjectsCategoryLabels);
         }
 
-        //R5 live apply: SettingChanged is the seam SettingsSession reacts through - every AppSettings-backed
-        //property raises it by name.
         [Fact]
         public void SettingChanged_FiresWithThePropertyName_WhenAnAppSettingsBackedPropertyChanges() {
             var vm = new SettingsViewModel();
@@ -283,8 +264,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal([nameof(vm.SmartNodeDirectionChecked), nameof(vm.FlagDarkMode)], raised);
         }
 
-        //The Enabled Objects tab's own search/filter state has no AppSettings counterpart - raising
-        //SettingChanged for it would just spam SettingsSession with nothing to apply.
         [Fact]
         public void SettingChanged_DoesNotFire_ForFilterOrListProperties() {
             var vm = new SettingsViewModel();
@@ -299,8 +278,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Empty(raised);
         }
 
-        //Minimal IDataObjectBase stand-in - filtering only ever reads Available/FriendlyName, so every
-        //other member is a stub.
         private sealed class FakeDataObject(string friendlyName, bool available) : IDataObjectBase {
             public static FakeDataObject NewAvailable(string friendlyName = "Widget") => new(friendlyName, available: true);
             public static FakeDataObject NewUnavailable(string friendlyName = "Widget") => new(friendlyName, available: false);

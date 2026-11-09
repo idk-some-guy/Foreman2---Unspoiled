@@ -65,8 +65,6 @@ namespace Foreman.Mac.UiTests {
         private static string Serialize(MainWindow window) =>
             GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(window.GraphCanvas.Viewer, window.DataCache!), writeIndented: true);
 
-        //---- autosave -----------------------------------------------------------------------------------
-
         [AvaloniaFact]
         public async Task EditThenTwoSecondsOnTheTestClock_DataRoundTrips_ModifiedAtAdvances() {
             using var library = new LibraryFixture();
@@ -209,8 +207,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(4, library.Store.Get(id)!.NodeCount);
             Assert.Single(SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>());
         }
-
-        //---- Save, versions, restore --------------------------------------------------------------------
 
         [AvaloniaFact]
         public async Task Save_CreatesOneSavedVersion_AndClearsTheEditedDot() {
@@ -440,8 +436,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(3, Automatic());
         }
 
-        //---- Open, import ------------------------------------------------------------------------------
-
         [AvaloniaFact]
         public async Task OpenTwice_SameFjson_YieldsOneRow() {
             using var library = new LibraryFixture();
@@ -508,8 +502,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(baseline, library.Store.ListByLastOpened().Count);
         }
 
-        //---- Thumbnail ----------------------------------------------------------------------------------
-
         [AvaloniaFact]
         public async Task Thumbnail_IsNullForAnEmptyGraph_ThenA60By60PngWithTheNodeDrawnOnTheCanvasBackground() {
             using var library = new LibraryFixture();
@@ -530,8 +522,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Contains(Enumerable.Range(20, 20).SelectMany(x => Enumerable.Range(20, 20).Select(y => bitmap.GetPixel(x, y))),
                 pixel => pixel != window.GraphCanvas.Viewer.BackgroundColor);
         }
-
-        //---- autosave worker ----------------------------------------------------------------------------
 
         private static int snapshotNodes;
 

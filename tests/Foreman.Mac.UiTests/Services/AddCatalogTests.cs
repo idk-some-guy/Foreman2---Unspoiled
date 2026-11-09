@@ -31,8 +31,6 @@ namespace Foreman.Mac.UiTests.Services {
             Assert.Empty(new AddCatalog(fx.Cache, new AppSettings()).Search("", AddScope.All, null));
         }
 
-        //The radial's Source/Output/UnSpoil/UnPlant slices own the dragged item's own row now,
-        //so a link-scoped search lists only the recipes AddCatalog.IsCompatible allows - no item row.
         [AvaloniaFact]
         public void LinkContext_ListsOnlyCompatibleRecipes() {
             CatalogFixture fx = CatalogFixture.WithProductionChain();
@@ -46,8 +44,6 @@ namespace Foreman.Mac.UiTests.Services {
             Assert.Equal(["Iron Gear"], consumers.Select(r => r.Name));
         }
 
-        //Ports the retired on-canvas chooser's temperature-filter test: a temperature-dependent fluid link
-        //only matches recipes whose accepted ingredient range covers it.
         [AvaloniaFact]
         public void LinkContext_TemperatureRange_ExcludesOutOfRangeIngredientRecipes() {
             CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: [], recipes: []);
@@ -73,7 +69,6 @@ namespace Foreman.Mac.UiTests.Services {
             Assert.NotEmpty(catalog.Search("iron", AddScope.All, null));
         }
 
-        //Ports the retired on-canvas chooser's Ignore Assembler toggle test.
         [Fact]
         public void IgnoreAssemblerStatus_IncludesRecipesWithNoEnabledAssembler() {
             CatalogFixture fx = CatalogFixture.WithItemsAndRecipes(items: [], recipes: ["Iron Plate"]);

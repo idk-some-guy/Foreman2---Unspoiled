@@ -13,10 +13,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Theming {
-    //WindowScaler carries no DynamicResource of its own (it wraps each window's Content in a
-    //LayoutTransformControl directly), so a scale change needs to reach the hub the same way a
-    //theme/accent/contrast flip does, and subscribers with baked, size-dependent visuals refresh off
-    //the one Changed/Subscribe path instead of a second scale-specific hook.
     [Collection(ScaleTestGroup.Name)]
     public class AppearanceHubWiringTests : IDisposable {
         private sealed class RecordingSubscriber : IThemeAware {
@@ -42,7 +38,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.True(subscriber.RefreshCount > 0);
         }
 
-        //AddBrowserWindow's real open/shut signal is IsVisible, not Closed - MainWindow hides rather than closes it.
         [AvaloniaFact]
         public void AddBrowserWindow_JoinsTheHubOnShow_AndLeavesOnHide() {
             int before = SubscriberCount;
@@ -53,7 +48,6 @@ namespace Foreman.Mac.UiTests.Theming {
             int shown = SubscriberCount;
             Assert.True(shown > before);
 
-            //The kit grid inside keeps its own subscription while the hidden window stays in its tree.
             window.Hide();
             Assert.Equal(shown - 1, SubscriberCount);
         }

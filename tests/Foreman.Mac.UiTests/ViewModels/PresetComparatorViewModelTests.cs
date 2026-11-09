@@ -7,9 +7,6 @@ using System.Collections.Generic;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.ViewModels {
-    //Covers PresetComparatorViewModel's row-assembly split off PresetComparatorWindow.axaml.cs:
-    //ProcessMods/ProcessObjects/EvaluateSimilarity stay on the window (existing tests call them there
-    //unchanged) and feed straight into RebuildTab here, matching how the window itself will wire it.
     public class PresetComparatorViewModelTests {
         private static DataCache NewEmptyCache() => new(filterRecipes: false);
 
@@ -91,10 +88,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal("Only Item", itemsRowName);
         }
 
-        //Regression net for the same reference-equality bug PresetComparatorWindowTests.
-        //Comparator_RealTabClicks_RepaintTheRows_AndAFilterThatEmptiesAListShowsNoMatches guards at the UI layer: every
-        //RebuildTab call must hand back brand-new list instances so a bound ListBox always sees the
-        //change, even across two calls with identical input.
         [Fact]
         public void RebuildTab_CalledTwice_ProducesFreshListInstancesEachTime() {
             var leftMods = new Dictionary<string, string> { ["m"] = "1.0" };

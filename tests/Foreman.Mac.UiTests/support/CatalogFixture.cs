@@ -77,7 +77,6 @@ namespace Foreman.Mac.UiTests.support {
             return fx;
         }
 
-        //ore -> "Iron Plate" (produces plate), plate -> "Iron Gear" (consumes plate), unrelated "Copper Cable".
         public static CatalogFixture WithProductionChain() {
             CatalogFixture fx = NewBase();
             ItemPrototype ore = fx.AddOrGetItem("Iron Ore");
@@ -101,7 +100,6 @@ namespace Foreman.Mac.UiTests.support {
             return fx;
         }
 
-        //The production chain plus one item whose name overflows the palette's chip column, made from Iron Plate.
         public static CatalogFixture WithProductionChainAndALongNamedProduct(string longName, out ItemPrototype longItem) {
             CatalogFixture fx = WithProductionChain();
             longItem = fx.AddOrGetItem(longName);
@@ -127,7 +125,6 @@ namespace Foreman.Mac.UiTests.support {
 
         private static string Capitalize(string name) => name.Length == 0 ? name : char.ToUpperInvariant(name[0]) + name[1..];
 
-        //Two groups, each with at least one recipe so both segments sort something into Groups[1].
         public static CatalogFixture WithGroups() {
             var cache = new DataCache(filterRecipes: true);
             DataCacheStore store = Store(cache);
@@ -186,7 +183,6 @@ namespace Foreman.Mac.UiTests.support {
             return new CatalogFixture { Cache = cache, Subgroup = storage, Assembler = assembler };
         }
 
-        //One group/subgroup pair under a caller-chosen friendly name, for sidebar-width tests.
         public static CatalogFixture WithGroupNamed(string groupFriendlyName) {
             var cache = new DataCache(filterRecipes: true);
             var quality = new QualityPrototype(cache, "normal", "Normal", "a");
@@ -208,8 +204,6 @@ namespace Foreman.Mac.UiTests.support {
             return fx;
         }
 
-        //One group with a single subgroup carrying a caller-chosen internal name (SubgroupPrototype has no
-        //separate localised name of its own - FriendlyName always mirrors it), for the subhead-humanizing test.
         public static CatalogFixture WithSubgroupNamed(string subgroupName) {
             var cache = new DataCache(filterRecipes: true);
             var quality = new QualityPrototype(cache, "normal", "Normal", "a");

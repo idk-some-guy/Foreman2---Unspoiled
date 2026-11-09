@@ -5,10 +5,6 @@ using Foreman.Mac.Converters;
 using System.Globalization;
 
 namespace Foreman.Mac.UiTests.support {
-    //Window.WindowDecorationMargin is a read-only
-    //DirectProperty, so no test can force a real platform's nonzero metric onto it - this hosts the same
-    //titlebar shape MainWindow.axaml uses (leading button group, row 0, canvas slot in row 1), wired to a
-    //settable proxy instead, so the layout math can be driven the way the probe drove it.
     public class SimulatedChromeWindow : Window {
         public static readonly StyledProperty<Thickness> DecorationMarginProxyProperty =
             AvaloniaProperty.Register<SimulatedChromeWindow, Thickness>(nameof(DecorationMarginProxy));

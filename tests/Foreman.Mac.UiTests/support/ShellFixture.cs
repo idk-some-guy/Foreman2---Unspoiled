@@ -16,7 +16,6 @@ using System.Threading.Tasks;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.support {
-    //Wraps InspectorTestSupport's MainWindow fixture, synchronously, with Settings assigned.
     internal sealed class ShellFixture : IDisposable {
         public required MainWindow Window { get; init; }
 
@@ -25,25 +24,14 @@ namespace Foreman.Mac.UiTests.support {
         internal ManualTaskScheduler SolveWorker => (ManualTaskScheduler)Graph.Solver.Worker;
 
         public static ShellFixture Open() {
-            //Reset first, not just in Dispose - WindowScaler is process-wide, so a scale left non-default
-            //by a test that ran earlier (and never got as far as its own Dispose) would otherwise bake into
-            //this window's LayoutTransformControl at Track time.
             WindowScaler.SetScale(1.0);
-            //Pre-warms the shared vanilla cache off-thread first (see OpenWithSpaceAge's own comment) so
-            //OpenEmptyWindowAsync's internal GetCacheAsync() always hits its already-loaded fast path -
-            //a cold GetAwaiter().GetResult() here would otherwise risk the same deadlock.
             Task.Run(InspectorTestSupport.GetCacheAsync).GetAwaiter().GetResult();
             MainWindow window = InspectorTestSupport.OpenEmptyWindowAsync().GetAwaiter().GetResult();
             window.Settings = new AppSettings();
             return new ShellFixture { Window = window };
         }
 
-        //Space Age ships spoilage/quality data vanilla doesn't (RecipeSegmentQualityTests uses the same
-        //shared cache) - the browser placement suite's Spoil/Plant/quality coverage needs it. The cache
-        //fetch runs via Task.Run rather than a plain GetAwaiter().GetResult(): on a cold cache, an await
-        //inside the load chain resumes on this thread's own SynchronizationContext, which never gets
-        //pumped because this same thread is blocked waiting on it - Task.Run gives the load a thread with
-        //no ambient context to deadlock on.
+        //A cold cache load awaited on this thread deadlocks on its SynchronizationContext, so it runs through Task.Run.
         public static ShellFixture OpenWithSpaceAge() {
             WindowScaler.SetScale(1.0);
             DataCache cache = Task.Run(InspectorTestSupport.GetSpaceAgeCacheAsync).GetAwaiter().GetResult();
@@ -58,9 +46,6 @@ namespace Foreman.Mac.UiTests.support {
             return new ShellFixture { Window = window };
         }
 
-        //A supplier node for "iron-plate", plus the AddLinkContext a Consumer-direction drag off its
-        //output tab would produce - CatalogFixture.LinkContextFor's shape, against a full MainWindow shell
-        //so the browser under test can actually open.
         public static ShellFixture OpenWithVanillaAndOneSupplier(out AddLinkContext link) {
             ShellFixture shell = Open();
             DataCache cache = shell.Window.DataCache!;

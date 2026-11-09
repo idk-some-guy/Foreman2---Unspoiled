@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.support {
-    //Presents a sheet body on a real SheetHost so a test can read the kit frame's rendered geometry.
     internal static class SheetFixture {
         public static (Window Window, SheetHost Host, Task<T?> Result) Present<T>(SheetContent<T> sheet, double width = 900, double height = 700) {
             var window = new Window { Width = width, Height = height, Content = new Panel() };

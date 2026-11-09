@@ -7,8 +7,6 @@ using Avalonia.VisualTree;
 using Foreman.Mac.Kit.Composites;
 
 namespace Foreman.Mac.UiTests.support {
-    //Mirrors Foreman.Mac.Kit.Tests.support.AnimationClock: Dispatcher.RunJobs never promotes
-    //DispatcherTimers, so the render clock only keeps pulsing inside a real dispatcher frame.
     public static class AnimationClock {
         public static void Settle(int atLeastMilliseconds = 250) {
             Dispatcher.UIThread.RunJobs();
@@ -18,7 +16,6 @@ namespace Foreman.Mac.UiTests.support {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //Pumps the render clock until root's kit height reflows finish; the timer only fails a hang, it never ends a pass.
         public static void UntilReflowsSettled(Avalonia.Visual root) {
             Dispatcher.UIThread.RunJobs();
             System.Threading.Tasks.Task settled = Foreman.Mac.Kit.Motion.ReflowsSettled(root);
@@ -57,7 +54,6 @@ namespace Foreman.Mac.UiTests.support {
             Until(panel, () => IsOpen(panel), "The popover never finished opening.");
         }
 
-        //The timer only fails a hang, it never ends a pass.
         private static void Until(Visual watched, Func<bool> reached, string failure) {
             Dispatcher.UIThread.RunJobs();
             if (!reached()) {

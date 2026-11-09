@@ -49,9 +49,6 @@ namespace Foreman.Mac.UiTests.Theming {
             return sharedCache;
         }
 
-        //Bare fake for AppearanceHub's own seam (Foreman.Mac.Kit.Appearance.IPlatformAppearance) - this
-        //file only needs a hub to exist so the System-mode variant flip below has somewhere to route
-        //through (AppearanceHub.Current), not to exercise accent/contrast/motion behavior.
         private sealed class FakeAppearance : IPlatformAppearance {
             private EventHandler? changed;
 
@@ -63,8 +60,6 @@ namespace Foreman.Mac.UiTests.Theming {
 
             public event EventHandler? Changed { add => changed += value; remove => changed -= value; }
         }
-
-        //--- ThemeService ---------------------------------------------------------------------------------
 
         [AvaloniaFact]
         public void Apply_Dark_ForcesRequestedThemeVariantDark() {
@@ -86,10 +81,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(ThemeVariant.Light, Application.Current!.ActualThemeVariant);
         }
 
-        //ThemeService has no live-follow logic of its own - System hands RequestedThemeVariant to
-        //Avalonia's built-in OS-follow, and the headless platform can't be driven to prove that follow
-        //(GraphThemeTests hits the same wall: its System-mode variant leg is a direct assignment, not a
-        //raised platform event). So this stays a ThemeService unit test: Default is the whole contract.
         [AvaloniaFact]
         public void Apply_System_SetsRequestedThemeVariantToDefault() {
             var service = new ThemeService((App)Application.Current!);
@@ -99,12 +90,6 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Equal(ThemeVariant.Default, Application.Current!.RequestedThemeVariant);
         }
 
-        //MainWindow subscribes to AppearanceHub like every other window (IThemeAware.RefreshTheme ->
-        //ApplyCanvasTheme, which reads Application.Current.ActualThemeVariant): GraphCanvas's Skia surface
-        //has no DynamicResource of its own to follow a live OS flip, and the hub is its single notification
-        //path. Avalonia guards IPlatformSettings against test doubles, so the flip is forced the same way
-        //this file's other tests fake an "ambient dark system" - a direct RequestedThemeVariant
-        //assignment, which the hub hears on its own ActualThemeVariantChanged hook.
         [AvaloniaFact]
         public void OsColorFlip_InSystemMode_ChangesCanvasBackgroundColor() {
             AppearanceHub? previousCurrent = AppearanceHub.Current;

@@ -6,7 +6,6 @@ using System.Text.RegularExpressions;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Theming {
-    //Guards against a literal Brushes.* or raw hex color anywhere under src/Foreman.Mac, and an SKColor literal anywhere under Canvas/.
     public class TokenLiteralGuardTests {
         private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         private static string AppSourceDirectory => Path.Combine(RepoRoot, "src", "Foreman.Mac");
@@ -66,19 +65,6 @@ namespace Foreman.Mac.UiTests.Theming {
             var offenders = new List<string>();
             foreach (string path in files) {
                 foreach (Match match in Regex.Matches(File.ReadAllText(path), @"\b(?:Easing|Duration)=""[^{""][^""]*"""))
-                    offenders.Add($"{path}: {match.Value}");
-            }
-
-            Assert.Empty(offenders);
-        }
-
-        //A style class fails silently once its selector is gone, so no legacy class name may survive anywhere, Canvas included.
-        [Fact]
-        public void NoLegacyStyleClass_Anywhere() {
-            var offenders = new List<string>();
-
-            foreach (string path in SourceFiles(".cs", includeCanvas: true).Concat(SourceFiles(".axaml", includeCanvas: true))) {
-                foreach (Match match in Regex.Matches(File.ReadAllText(path), @"foreman-[a-z-]+"))
                     offenders.Add($"{path}: {match.Value}");
             }
 

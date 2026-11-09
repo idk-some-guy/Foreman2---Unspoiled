@@ -8,9 +8,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Services {
-    //R5's live-apply reaction dispatcher: Apply(propertyName) coalesces a 300ms save on every change and,
-    //for the solver-affecting subset, a 300ms debounced resolve - FlushAsync is the deterministic test seam
-    //that runs whatever is pending right now instead of waiting on the real timers.
     public class SettingsSessionTests {
         private static string NewTempDir() {
             string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());

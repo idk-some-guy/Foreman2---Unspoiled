@@ -4,8 +4,6 @@ using Xunit;
 
 namespace Foreman.Mac.UiTests.ViewModels {
     public class MainWindowViewModelTests {
-        //contract #toolbar's document title "Iron Plate Line — Edited": the app name lives in the
-        //menu bar now, not the titlebar - an untitled document shows just "Untitled".
         [Fact]
         public void Constructor_DefaultsDocumentTitleToUntitled() {
             var vm = new MainWindowViewModel();
@@ -63,8 +61,6 @@ namespace Foreman.Mac.UiTests.ViewModels {
             Assert.Equal(AppVersion.VersionedDisplay, vm.VersionLabel);
         }
 
-        //The View Options popover (contract #toolbar, Gridlines + Graph Options fold) is chrome
-        //state, same category as WindowTitle - closed by default so the canvas gets the full window on boot.
         [Fact]
         public void IsViewOptionsOpen_DefaultsToFalse() {
             var vm = new MainWindowViewModel();

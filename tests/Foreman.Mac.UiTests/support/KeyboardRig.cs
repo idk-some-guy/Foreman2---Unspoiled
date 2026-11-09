@@ -16,7 +16,6 @@ namespace Foreman.Mac.UiTests.support {
 
         public GraphCanvasControl Canvas => Fixture.Control;
 
-        //Reading order is (0,0), (200,0), (0,200).
         public static KeyboardRig ThreeSuppliers() {
             CanvasFixture fx = CanvasFixture.WithVanilla();
             return new KeyboardRig {
@@ -57,7 +56,6 @@ namespace Foreman.Mac.UiTests.support {
             return Press(canvas, new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = modifiers });
         }
 
-        //Whether the canvas itself consumed the key, before a parent such as the window's focus loop sees it.
         public static bool Press(GraphCanvasControl canvas, KeyEventArgs args) {
             bool consumed = false;
             void Observe(object? sender, KeyEventArgs e) => consumed = e.Handled;

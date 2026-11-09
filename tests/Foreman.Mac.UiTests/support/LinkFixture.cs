@@ -17,7 +17,6 @@ using AvaloniaPoint = Avalonia.Point;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.support {
-    //A canvas in a headless window over a synthetic one-quality cache, for link geometry and pointer tests.
     internal sealed class LinkFixture : IDisposable {
         internal const int Half = 450;
 
@@ -37,7 +36,6 @@ namespace Foreman.Mac.UiTests.support {
             return Over(control, window, atDefaultScale);
         }
 
-        //Builds the synthetic cache over a canvas that already exists, such as the one inside a MainWindow.
         public static LinkFixture Over(GraphCanvasControl control, AvaloniaWindow? window = null, bool atDefaultScale = true) {
             if (atDefaultScale)
                 ScaleGuard.AssertDefault();

@@ -5,7 +5,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 
 namespace Foreman.Mac.UiTests.support {
-    //XUnit has no built-in assembly-initialize hook, so a module initializer stands in -
+    //Final-review C2: xUnit has no built-in assembly-initialize hook, so a module initializer stands in -
     //it runs once when the runtime loads this assembly, before any test method. Mirrors ForemanTest's
     //AssemblyInitialize: points ErrorLogging's process-wide default at a per-run temp directory so no test
     //in this assembly can reach the real errorlog.txt path, even one that reads LogFilePath without
@@ -18,9 +18,6 @@ namespace Foreman.Mac.UiTests.support {
             string directory = Path.Combine(Path.GetTempPath(), "foreman-uitests-errorlog-" + Guid.NewGuid().ToString("N"));
             ErrorLogging.SetDefaultLogDirectory(directory);
 
-            //PresetProcessor/PresetImporter now open a db (foreman.db) whenever a caller
-            //omits its own directory override - same reasoning as the log directory above, pointed at a
-            //per-run temp directory instead of the real AppPaths.UserDataDirectory.
             string dbDirectory = Path.Combine(Path.GetTempPath(), "foreman-uitests-db-" + Guid.NewGuid().ToString("N"));
             PresetProcessor.SetDefaultUserDataDirectoryOverride(dbDirectory);
 
