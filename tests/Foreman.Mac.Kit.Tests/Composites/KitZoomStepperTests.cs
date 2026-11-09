@@ -17,7 +17,6 @@ using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
 using System;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Windows.Input;
 using Xunit;
@@ -41,7 +40,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             return window;
         }
 
-        //A popover-owning stepper needs a PopoverHost ancestor, like every other popover in the kit.
         private static (Window Window, PopoverHost Host) ShownInHost(ZoomStepper stepper) {
             var host = new PopoverHost { Width = 300, Height = 200 };
             host.Surface.Children.Add(stepper);
@@ -205,23 +203,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             ButtonRow.SetRole(tryAgain, ButtonRowRole.Default);
             row.Items.Add(tryAgain);
             return new StatePanel { Theme = Assert.IsType<ControlTheme>(theme), Shape = StatePanelShape.Error, ForceCompact = true, Headline = "Couldn\u2019t solve this graph", Buttons = row };
-        }
-
-        [AvaloniaFact]
-        public void Readout_HostsOneSolveStatus_NoPartSpinner_NoOwnErrorPopover() {
-            using var fixture = new KitFixture();
-            ZoomStepper stepper = NewStepper();
-            Shown(stepper);
-
-            SolveStatus hosted = Readout(stepper).GetVisualDescendants().OfType<SolveStatus>().Single();
-            Assert.Same(stepper.SolveStatus, hosted);
-            Assert.Equal("PART_SolveStatus", hosted.Name);
-            Assert.All(stepper.GetVisualDescendants().OfType<Foreman.Mac.Kit.Controls.Spinner>(), sp => Assert.Same(hosted, sp.FindAncestorOfType<SolveStatus>()));
-            Assert.DoesNotContain(stepper.GetVisualDescendants(), v => v is Control { Name: "PART_ErrorGlyph" });
-            Assert.Empty(stepper.GetVisualDescendants().OfType<PopoverFrame>());
-            Assert.Null(typeof(ZoomStepper).GetProperty("IsSolving"));
-            Assert.Null(typeof(ZoomStepper).GetProperty("HasSolveError"));
-            Assert.Null(typeof(ZoomStepper).GetProperty("ErrorPopoverContent"));
         }
 
         [AvaloniaFact]

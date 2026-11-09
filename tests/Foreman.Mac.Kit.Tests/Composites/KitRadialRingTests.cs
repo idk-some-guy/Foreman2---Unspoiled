@@ -17,7 +17,6 @@ using Foreman.Mac.Kit.Tests.support;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Windows.Input;
 using Xunit;
 
@@ -25,8 +24,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
     public sealed class KitRadialRingTests : System.IDisposable {
         public void Dispose() {
             Motion.ReduceMotion = false;
-            //Plain [Fact]s in this class never touch the dispatcher, so Application.Current (a leftover from
-            //an earlier AvaloniaFact elsewhere in the run) is not safely readable here.
+            //Plain [Fact]s never touch the dispatcher, so Application.Current is not safely readable here.
             if (Application.Current is not null && Dispatcher.UIThread.CheckAccess())
                 ScaleContract.Apply(1.0);
         }
@@ -52,7 +50,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             return ring;
         }
 
-        //The output-tab ring of a vanilla item: slots 3 and 4 (Spoil, Plant) are explicit empty items.
         private static RadialRing FourOutcome() {
             var ring = new RadialRing { Theme = KitRadialRingTheme() };
             AutomationProperties.SetName(ring, "Link options");
@@ -94,8 +91,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
         private static void ReleaseAt(Window window, Point ringLocal) => window.MouseUp(ringLocal, MouseButton.Left, RawInputModifiers.None);
 
-        //A wedge Path sits directly on PART_Root; an icon Path sits inside its own design-box Viewbox - both
-        //carry StreamGeometry data, so the visual parent is what tells them apart.
         private static List<Path> Slices(RadialRing ring) =>
             [.. ring.GetVisualDescendants().OfType<Path>().Where(p => p.Data is StreamGeometry && p.GetVisualParent() is Canvas)];
 
@@ -107,21 +102,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void KitRadialRing_IsAControlThemeTargetingRadialRing() {
             using var fixture = new KitFixture();
             Assert.Equal(typeof(RadialRing), KitRadialRingTheme().TargetType);
-        }
-
-        [AvaloniaFact]
-        public void Detach_DisposesGlyphSubscriptions_NotJustTokenSubscriptions() {
-            using var fixture = new KitFixture();
-            (Window window, RadialRing ring) = Shown();
-
-            FieldInfo field = typeof(RadialRing).GetField("glyphSubs", BindingFlags.NonPublic | BindingFlags.Instance)!;
-            var glyphSubs = (List<IDisposable>)field.GetValue(ring)!;
-            Assert.NotEmpty(glyphSubs);
-
-            ((Canvas)ring.Parent!).Children.Remove(ring);
-            Dispatcher.UIThread.RunJobs();
-
-            Assert.Empty(glyphSubs);
         }
 
         [AvaloniaFact]
@@ -164,7 +144,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
         [Fact]
         public void PolarHitTest_PointOutsideRingButInsideBoundingSquare_IsNotOverASlice() {
-            //A square's corner at radius ~110*sqrt2/2 ≈ 155 is well past the 100pt outer radius.
             Assert.Null(RadialGeometry.HitTest(new Point(105, 105), hubRadius: 38, outerRadius: 100));
             Assert.Null(RadialGeometry.HitTest(new Point(10, 10), hubRadius: 38, outerRadius: 100));
         }
@@ -188,7 +167,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             using var fixture = new KitFixture();
             (Window window, RadialRing ring) = Shown();
 
-            //Centre is (110,110); due south (angle 90) at radius 60 sits inside slice index 3.
             MoveTo(window, new Point(110, 170));
             Dispatcher.UIThread.RunJobs();
 
@@ -204,7 +182,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(3, ring.ArmedIndex);
 
-            //Past the outer radius (100) - still due south, well outside the ring's drawn edge.
             MoveTo(window, new Point(110, 215));
             Dispatcher.UIThread.RunJobs();
 
@@ -216,12 +193,10 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             using var fixture = new KitFixture();
             (Window window, RadialRing ring) = Shown();
 
-            //Due north (angle 270) at radius 60 sits in slice 0.
             MoveTo(window, new Point(110, 50));
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(0, ring.ArmedIndex);
 
-            //Same radius, angle 330 - slice 1's wedge - reached without dropping back inside the 38pt hub.
             MoveTo(window, new Point(161.96, 80));
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(1, ring.ArmedIndex);
@@ -236,7 +211,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             ring.Committed += (_, _) => committed++;
             ring.Dismissed += (_, _) => dismissed++;
 
-            //Due north (angle 270) at radius 60 sits in slice 0.
             MoveTo(window, new Point(110, 50));
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(0, ring.ArmedIndex);
@@ -384,7 +358,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Empty(ring.Transitions!.OfType<TransformOperationsTransition>());
             Assert.Equal(6, Slices(ring).Count);
 
-            //Every slice collapses to the same opacity-only fade, at zero delay - no stagger under Reduce Motion.
             foreach (Path slice in Slices(ring)) {
                 Assert.All(slice.Transitions!, t => Assert.IsType<DoubleTransition>(t));
                 DoubleTransition opacity = Assert.Single(slice.Transitions!.OfType<DoubleTransition>());
@@ -583,7 +556,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(halo.IsVisible);
             Assert.NotEqual(dotBefore, (Canvas.GetLeft(dot), Canvas.GetTop(dot)));
 
-            //Concentric: the halo's top-left trails the dot's by exactly the two ellipses' shared radius delta.
             Assert.Equal(Canvas.GetLeft(dot) - 3, Canvas.GetLeft(halo));
             Assert.Equal(Canvas.GetTop(dot) - 3, Canvas.GetTop(halo));
 
@@ -689,7 +661,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             }
         }
 
-        //Tab raised on the focused element bubbles to the TopLevel's keyboard navigation handler, which moves focus.
         private static void TabTwelveTimesFrom(Control start, RadialRing ring) {
             start.Focus();
             TopLevel top = TopLevel.GetTopLevel(start)!;

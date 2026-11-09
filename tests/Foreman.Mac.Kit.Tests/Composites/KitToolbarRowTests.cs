@@ -34,11 +34,9 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             return Assert.IsType<ControlTheme>(theme);
         }
 
-        //Tag is the stable lookup key: icon-only only hides the label visually, the Label property itself never changes.
         private static ToolbarItem Item(string label) =>
             new() { Theme = KitToolbarItemTheme(), Label = label, Tag = label };
 
-        //Mirrors the addendum §08 order: document (3) · add (2) · arrange (1) · share/view (2).
         private static ToolbarRow NewRow(double? width = null) {
             var row = new ToolbarRow { Theme = KitToolbarRowTheme(), Title = "Untitled graph" };
             row.Groups.Add(new ToolbarGroup { Role = ToolbarGroupRole.Document, Items = [Item("New"), Item("Open"), Item("Save")] });
@@ -54,8 +52,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             var window = new Window { Width = windowWidth, Height = 120, Content = row };
             window.Show();
             Dispatcher.UIThread.RunJobs();
-            //A style-driven property (icon-only's own MinWidth Setter) settles a pass behind the class that drives it, so the
-            //collapse search needs the dispatcher pumped to a real fixed point, not just one RunJobs().
+            //A style-driven property settles a pass behind its class, so the dispatcher must be pumped to a fixed point.
             AnimationClock.Settle(50);
             return window;
         }
@@ -63,7 +60,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         private static ToolbarItem[] AllItems(ToolbarRow row) =>
             [.. row.Groups.SelectMany(g => g.Items)];
 
-        //A ToolbarItem's own Bounds are parent-relative (its group's StackPanel); comparing items across groups needs a common ancestor.
+        //Bounds are parent-relative, so comparing items across groups needs a common ancestor.
         private static double RootLeft(Visual v, Visual root) =>
             Avalonia.VisualExtensions.TranslatePoint(v, new Point(0, 0), root)?.X ?? double.NaN;
 
@@ -88,7 +85,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(typeof(ToolbarRow), KitToolbarRowTheme().TargetType);
         }
 
-        //Rebuild applies Kit.ToolbarItem itself, so a consumer that forgets Theme doesn't fall back to the stock Fluent Button template and arrange at 0x0.
         [AvaloniaFact]
         public void Rebuild_AppliesKitToolbarItemTheme_ToUnthemedItems() {
             using var fixture = new KitFixture();
@@ -357,7 +353,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal("Extra", extra.Label);
             Assert.Equal("Extra", AutomationProperties.GetName(extra));
 
-            //The new group is appended last, so it - not the original share/view group - is now the trailing overflow group.
             Assert.Equal(["Extra"], row.OverflowButton.ActionItems.Select(a => a.Text));
         }
 
@@ -402,7 +397,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(220, row.SearchField.Width);
         }
 
-        //Deep enough into icon-only that the search field has also shrunk to its min width, but not deep enough for overflow.
         [AvaloniaFact]
         public void NarrowWidth_DropsLabelsAndShrinksSearchField() {
             using var fixture = new KitFixture();
@@ -477,13 +471,9 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Dispatcher.UIThread.RunJobs();
             Assert.Contains("icon-only", newItem.Classes);
 
-            //The icon-only MinWidth is a style Setter that settles one layout pass behind the class
-            //that drives it, so the item's own real width still reads as labeled right at the crossing.
             var sampledWidths = new List<double>();
             newItem.LayoutUpdated += (_, _) => sampledWidths.Add(newItem.Bounds.Width);
 
-            //Pumped generously past the style-settle lag; what's pinned below is the number of real
-            //layout passes it actually took, not how long the pump ran for.
             for (int pump = 0; pump < 10 && newItem.Bounds.Width != iconOnlyWidth; pump++)
                 AnimationClock.Settle(50);
 
@@ -501,7 +491,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.All(groupPanels, g => AssertNoSizeTransitions(g.Transitions));
             Assert.Null(panel.Transitions);
 
-            //Hover-fill and label cross-fade transitions stay attached through the collapse.
             Assert.All(items, i => Assert.True(
                 i.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_HoverFill").Transitions is { } t &&
                 t.OfType<DoubleTransition>().Any(dt => dt.Property == Visual.OpacityProperty)));
@@ -548,7 +537,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(AutomationControlType.ToolBar, peer.GetAutomationControlType());
         }
 
-        //We pin only that the row's peer tree surfaces a "Zoom" group; ZoomStepper's own child count is its own contract.
         [AvaloniaFact]
         public void ZoomStepperAutomationGroup_IsReachableFromTheRowsPeerTree() {
             using var fixture = new KitFixture();
@@ -631,7 +619,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             ToolbarRow row = NewRow(260);
             Shown(row, 320);
 
-            //The trailing (Share/View) group is folded into the overflow button at this width; "Align" is the last item still in the roving order.
             ToolbarItem last = AllItems(row).Last(i => i.Parent is StackPanel group && group.IsVisible);
 
             fixture.StateOf(last).Focus();
@@ -769,7 +756,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             ToolbarRow row = NewRow(260);
             Shown(row, 320);
 
-            //At this width only the trailing group (Share) folds into overflow - built independently of FocusTargets(), the method under test.
             List<Control> expected = [.. row.Groups.Take(row.Groups.Count - 1).SelectMany(g => g.Items), row.OverflowButton];
             Button[] stepperButtons = [.. row.ZoomStepper.GetVisualDescendants().OfType<Button>()];
             foreach (string name in new[] { "PART_Minus", "PART_Readout", "PART_Plus" })
@@ -809,7 +795,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             ToolbarRow row = NewRow(900);
             Shown(row, 1000);
 
-            //Dirty state is host-owned (a dot on the close button, A21) - the row never decorates Title itself.
             row.Title = "Untitled graph";
             Dispatcher.UIThread.RunJobs();
 

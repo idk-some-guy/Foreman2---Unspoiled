@@ -23,7 +23,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             return Assert.IsType<ControlTheme>(theme);
         }
 
-        //Four buildings, matching the building-picker mock §02 (one unavailable, the third selected).
         private static PickGrid FourCandidates(int selected = 2) {
             var grid = new PickGrid {
                 Theme = KitPickGridTheme(),
@@ -91,7 +90,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             PickCell[] cells = Cells(grid);
             Assert.All(cells, c => Assert.True(
                 Avalonia.VisualExtensions.TranslatePoint(c, new Point(c.Bounds.Width, 0), host)!.Value.X <= 108.01));
-            //At 108pt (three per row, per the mock's 260pt-minimum figure) a fourth candidate wraps to row two.
             Assert.True(cells[3].Bounds.Y > cells[0].Bounds.Y);
         }
 
@@ -152,8 +150,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(noneBox.IsVisible);
         }
 
-        //Choice mode's own rebuild path (Rebuild() swaps Grid<->WrapPanel and rebinds every cell) never
-        //loops or grows unbounded across repeated Slots writes (composites addendum's pumping rule).
         [AvaloniaFact]
         public void Choice_RebuildPumping_StaysBounded() {
             using var fixture = new KitFixture();
@@ -170,8 +166,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(grid.Bounds.Width > 0);
         }
 
-        //A25 Loading state (§05 States): icons unresolved renders plain cells, no per-cell spinner, the
-        //composites addendum rule carried into choice mode.
         [AvaloniaFact]
         public void Choice_LoadingState_IconsUnresolved_RendersPlainCells_NoGlyphOrSpinner() {
             using var fixture = new KitFixture();
@@ -304,7 +298,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
             Assert.Equal(0, grid.SelectedIndex);
             Assert.True(Cells(grid)[0].IsSelected);
-            //The focused (not armed) cell now carries the ring alone.
             Assert.True(FocusRing.GetShowAlways(Cells(grid)[1]));
             Assert.False(FocusRing.GetShowAlways(Cells(grid)[0]));
         }
@@ -349,8 +342,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(2, chosen);
         }
 
-        //Left/Right are plain linear index steps; a WrapPanel lays cells out in that same reading order, so
-        //stepping past a row's last cell lands on the next row's first cell for free - no row-aware code.
         [AvaloniaFact]
         public void LeftAndRightArrows_WrapAtRowEnds_AndClampAtTheGridEnds() {
             using var fixture = new KitFixture();
@@ -366,21 +357,20 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             fixture.StateOf(grid).Focus();
 
             PickCell[] cells = Cells(grid);
-            Assert.True(cells[2].Bounds.Y > cells[1].Bounds.Y); //sanity: two rows of two, B ends row one
-
-            fixture.StateOf(grid).KeyDown(Key.Right); //index0 -> 1 (B, last of row one)
-            fixture.StateOf(grid).KeyDown(Key.Right); //wraps to row two's first cell
+            Assert.True(cells[2].Bounds.Y > cells[1].Bounds.Y);
+            fixture.StateOf(grid).KeyDown(Key.Right);
+            fixture.StateOf(grid).KeyDown(Key.Right);
             Assert.True(FocusRing.GetShowAlways(cells[2]));
 
-            fixture.StateOf(grid).KeyDown(Key.Left); //wraps back to row one's last cell
+            fixture.StateOf(grid).KeyDown(Key.Left);
             Assert.True(FocusRing.GetShowAlways(cells[1]));
 
             fixture.StateOf(grid).KeyDown(Key.End);
-            fixture.StateOf(grid).KeyDown(Key.Right); //clamps at the last cell
+            fixture.StateOf(grid).KeyDown(Key.Right);
             Assert.True(FocusRing.GetShowAlways(cells[3]));
 
             fixture.StateOf(grid).KeyDown(Key.Home);
-            fixture.StateOf(grid).KeyDown(Key.Left); //clamps at the first cell
+            fixture.StateOf(grid).KeyDown(Key.Left);
             Assert.True(FocusRing.GetShowAlways(cells[0]));
             Assert.Equal(0, grid.SelectedIndex);
         }
@@ -398,16 +388,14 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             fixture.StateOf(grid).Focus();
 
             PickCell[] cells = Cells(grid);
-            Assert.True(cells[3].Bounds.Y > cells[2].Bounds.Y); //sanity: row two starts at index 3 (two cells)
-
+            Assert.True(cells[3].Bounds.Y > cells[2].Bounds.Y);
             fixture.StateOf(grid).KeyDown(Key.Right);
-            fixture.StateOf(grid).KeyDown(Key.Right); //focus index 2, the last (rightmost) cell of row one
-
+            fixture.StateOf(grid).KeyDown(Key.Right);
             fixture.StateOf(grid).KeyDown(Key.Down);
-            Assert.True(FocusRing.GetShowAlways(cells[4])); //row two's rightmost cell sits nearer index 2's X than its leftmost
+            Assert.True(FocusRing.GetShowAlways(cells[4]));
             Assert.Equal(0, grid.SelectedIndex);
 
-            fixture.StateOf(grid).KeyDown(Key.Down); //already the last row - clamps
+            fixture.StateOf(grid).KeyDown(Key.Down);
             Assert.True(FocusRing.GetShowAlways(cells[4]));
             Assert.Equal(0, grid.SelectedIndex);
         }
@@ -425,13 +413,12 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             fixture.StateOf(grid).Focus();
 
             PickCell[] cells = Cells(grid);
-            fixture.StateOf(grid).KeyDown(Key.End); //focus index 4, row two's last cell
-
+            fixture.StateOf(grid).KeyDown(Key.End);
             fixture.StateOf(grid).KeyDown(Key.Up);
-            Assert.True(FocusRing.GetShowAlways(cells[1])); //row one's middle cell sits nearest index 4's X
+            Assert.True(FocusRing.GetShowAlways(cells[1]));
             Assert.Equal(0, grid.SelectedIndex);
 
-            fixture.StateOf(grid).KeyDown(Key.Up); //already the first row - clamps
+            fixture.StateOf(grid).KeyDown(Key.Up);
             Assert.True(FocusRing.GetShowAlways(cells[1]));
             Assert.Equal(0, grid.SelectedIndex);
         }
@@ -460,9 +447,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             return Assert.IsType<ControlTheme>(theme);
         }
 
-        //The choice grid's own 150% coverage (moved off the gallery tile, which now keeps only registration):
-        //the cell multiplies with the display factor, the gap thickness does not, and the wrap recompute
-        //against the scaled control column can turn a one-row list into two (§04's own 100%/150% pair).
         [AvaloniaFact]
         public void At150Percent_CellIs39_GapStaysAt5_AndAOneRowListWrapsToTwoRows() {
             using var fixture = new KitFixture();
@@ -476,15 +460,14 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Dispatcher.UIThread.RunJobs();
 
             PickCell[] before = [.. grid.GetVisualDescendants().OfType<PickCell>()];
-            Assert.All(before, c => Assert.Equal(before[0].Bounds.Y, c.Bounds.Y)); //one row at 100%
-
+            Assert.All(before, c => Assert.Equal(before[0].Bounds.Y, c.Bounds.Y));
             ScaleContract.Apply(1.5);
             Dispatcher.UIThread.RunJobs();
 
             PickCell[] cells = [.. grid.GetVisualDescendants().OfType<PickCell>()];
             Assert.Equal(39, cells[0].Bounds.Width);
-            Assert.Equal(new Thickness(2.5), cells[0].Margin); //Foreman.Thickness.PickCellGap does not multiply
-            Assert.True(cells[2].Bounds.Y > cells[0].Bounds.Y); //the same three candidates now take two rows
+            Assert.Equal(new Thickness(2.5), cells[0].Margin);
+            Assert.True(cells[2].Bounds.Y > cells[0].Bounds.Y);
         }
     }
 
@@ -545,8 +528,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(peer.IsEnabled());
         }
 
-        //A choice grid is a radio group by definition, never a set of slots - NamesSlots' default (true,
-        //meant for the equipped/options grids) must not leak "slot" wording into a choice grid's own names.
         [AvaloniaFact]
         public void NamesSlotsLeftAtDefault_ChoiceCellsStillNameWithNoSlotWording() {
             using var fixture = new KitFixture();

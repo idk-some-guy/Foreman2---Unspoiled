@@ -631,7 +631,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             return well;
         }
 
-        //A popover anchored in the body draws above the panel and takes the clicks over it.
         [AvaloniaFact]
         public void Popover_OpenedFromTheBody_IsHostedByTheFrame_AboveThePanel() {
             using var fixture = new KitFixture();
@@ -672,7 +671,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(well.IsOpen);
         }
 
-        //A multi-line field keeps plain Return for its newline; Command-Return still reaches the default button.
         [AvaloniaFact]
         public void CommandReturn_InAMultiLineField_FiresTheDefault_PlainReturnDoesNot() {
             using var fixture = new KitFixture();
@@ -705,7 +703,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(frame is null || frame.IsOpen, $"focus landed in a closed popover ({focused})");
         }
 
-        //A popover that opened once stays in the host's surface; closed, it must never join the sheet's tab cycle.
         [AvaloniaFact]
         public void Tab_AfterAPopoverOpenedAndClosed_StillWrapsBetweenTheBodyAndTheButtons() {
             using var fixture = new KitFixture();
@@ -734,7 +731,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(save.IsFocused, $"Shift+Tab off the first body control should wrap to the last button, not {Focused(sheet)}.");
         }
 
-        //Tab alternates between the grid and the Hex field; focus never leaves the popover for the sheet's controls.
         [AvaloniaFact]
         public void Tab_InsideAnOpenPopover_StaysInThePopover() {
             using var fixture = new KitFixture();
@@ -752,7 +748,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(well.IsOpen);
         }
 
-        //An Escape the sheet routes to an open popover from outside it cancels, the same as one pressed inside.
         [AvaloniaFact]
         public void Escape_FromOutsideAnOpenPopover_RestoresTheColourItHadWhenItOpened() {
             using var fixture = new KitFixture();

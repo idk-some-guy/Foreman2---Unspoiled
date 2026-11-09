@@ -638,7 +638,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Contains("Delete Graph: Command Backspace.", help);
         }
 
-        //No AXCustomAction provider exists in Avalonia; menu commands are mirrored into HelpText.
         [AvaloniaFact]
         public void Pumping_ContextMenu_SteadyStateAfterOpen_RaisesNoFurtherLayout() {
             using var fixture = new KitFixture();

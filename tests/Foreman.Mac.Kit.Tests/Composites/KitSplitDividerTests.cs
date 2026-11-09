@@ -433,7 +433,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             ScaleContract.Apply(1.0);
         }
 
-        //The cascade sets Minimum and Maximum through two separate resource notifications; CoerceValue must tolerate the transient crossing either way.
+        //Minimum and Maximum arrive through two resource notifications, so CoerceValue must tolerate a transient crossing.
         [AvaloniaFact]
         public void MinimumAndMaximum_TrackTheTokensAcrossAScaleCrossing_AndNeverThrow() {
             using var fixture = new KitFixture();

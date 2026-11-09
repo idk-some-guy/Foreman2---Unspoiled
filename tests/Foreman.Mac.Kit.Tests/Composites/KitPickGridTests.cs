@@ -319,7 +319,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(2, grid.SelectedIndex);
         }
 
-        //The cell's own EmptyItemNoun is covered in KitPickCellTests; this pins the hop from the grid.
         [AvaloniaFact]
         public void EmptyItemNoun_ReachesTheEmptyCellsTooltip() {
             using var fixture = new KitFixture();
@@ -351,8 +350,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.False(grid.IsVisible);
         }
 
-        //A host never writes IsVisible to bootstrap a grid: a grid still waiting for its first layout pass
-        //(so never templated) derives visibility from Slots on its own, in both directions.
         [AvaloniaFact]
         public void UntemplatedGrid_DerivesIsVisibleFromItsSlots() {
             using var fixture = new KitFixture();
@@ -440,7 +437,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.False(e.Handled);
         }
 
-        //Arming needs no listener; only the app's own move-focus-to-the-options-grid side effect rides on ChooseRequested.
         [AvaloniaFact]
         public void ReturnWithNoChooseRequestedSubscriber_StillArmsTheFocusedSlot_AndIsHandled() {
             using var fixture = new KitFixture();
@@ -540,8 +536,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.False(alertBox.IsVisible);
         }
 
-        //A stale index >= the shrunk count defeats the keyboard-entry guard (GotFocus only takes the first
-        //cell when SelectedIndex is < 0), so a shrink must clamp it itself.
         [AvaloniaFact]
         public void SlotsShrink_ClampsAStaleSelectedIndex_ToTheNewLastSlot() {
             using var fixture = new KitFixture();
@@ -572,7 +566,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(-1, grid.SelectedIndex);
         }
 
-        //The ring persists across a blur, so a later Tab-in lands back on the same cell.
         [AvaloniaFact]
         public void GotFocus_ShowsTheFocusRingOnTheFocusedCell_LostFocusHidesIt() {
             using var fixture = new KitFixture();
@@ -592,7 +585,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
     }
 
-    //The equipped role's FocusedIndex/SelectedIndex split, keyboard contract and arming note (designer ruling 2026-09-17).
     public sealed class KitPickGridSlotArmingTests {
         private static ControlTheme KitPickGridTheme() {
             Assert.True(Application.Current!.TryGetResource("Kit.PickGrid", null, out object? theme));
@@ -728,7 +720,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         [AvaloniaFact]
         public void ArmingNote_NothingArmed_NamesTheNextEmptySlot() {
             using var fixture = new KitFixture();
-            PickGrid grid = FourSlots(); //Productivity, Speed, empty, empty - 2 of 4 filled
+            PickGrid grid = FourSlots();
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
@@ -776,7 +768,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal("All 4 slots full. Select a slot to replace.", grid.ArmingNote);
         }
 
-        //A kit-generic Slots list can carry a hole anywhere, so the next target is the first empty index, not the filled count.
         [AvaloniaFact]
         public void ArmingNote_AHoleBeforeTheEnd_NamesTheHoleNotTheFilledCount() {
             using var fixture = new KitFixture();
@@ -793,7 +784,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal("1 of 4 slots filled. The next module fills slot 1.", grid.ArmingNote);
         }
 
-        //The equipped grid's AXValue is the note line, and it changes live with the arm state.
         [AvaloniaFact]
         public void EquippedGrid_AutomationValueIsTheArmingNote_AndChangesWithSelectedIndex() {
             using var fixture = new KitFixture();
@@ -811,7 +801,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal("Replacing slot 2. Press Escape to cancel.", value.Value);
         }
 
-        //Arming, disarming and equipping post the new note line politely, without moving focus (ruling row 4).
         [AvaloniaFact]
         public void ArmingViaSpace_PostsTheNewNoteAsAnAutomationEvent_WithoutMovingFocus() {
             using var fixture = new KitFixture();
@@ -831,7 +820,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(1, grid.FocusedIndex);
         }
 
-        //Each option cell's AXHelp names the host-fed target, so the fact is there without reading the note.
         [AvaloniaFact]
         public void OptionCell_HelpTextNamesTheTarget_FillsWhenNothingIsArmed_ReplacesWhenASlotIs() {
             using var fixture = new KitFixture();
@@ -851,7 +839,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal("Replaces slot 2", AutomationProperties.GetHelpText(Cells(options)[0]));
         }
 
-        //Full and unarmed is the one state with no target: dimmed to the unavailable token, still hit-testable, commit a no-op.
         [AvaloniaFact]
         public void FullAndUnarmed_DimsEveryOptionCellToTheUnavailableToken_AndKeepsThemHitTestable() {
             using var fixture = new KitFixture();
@@ -905,14 +892,13 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal("All slots full — select a slot to replace", ToolTip.GetTip(cell));
             Assert.Equal("All slots full — select a slot to replace", AutomationProperties.GetHelpText(cell));
 
-            options.TargetSlot = 1; //a slot is armed - both revert (2026-09-17 ruling)
+            options.TargetSlot = 1;
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal("Efficiency Module 1", ToolTip.GetTip(cell));
             Assert.Equal("Fills slot 1", AutomationProperties.GetHelpText(cell));
         }
 
-        //A cell both unavailable in the save and full-and-unarmed reads the full state: the click is a no-op either way.
         [AvaloniaFact]
         public void FullAndUnarmed_OutranksTheMissingAndUnavailableTooltips() {
             using var fixture = new KitFixture();
@@ -933,7 +919,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             });
         }
 
-        //A re-solve changes a slot's content, not the arming state, so VoiceOver hears nothing until an arm does change it.
         [AvaloniaFact]
         public void ReSolvingASlotsContent_PostsNoArmingAnnouncement_UnlikeAnArm() {
             using var fixture = new KitFixture();

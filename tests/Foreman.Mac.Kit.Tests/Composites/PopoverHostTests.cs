@@ -11,9 +11,6 @@ using System.Reflection;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Composites {
-    //A host mounted as a content-spanning overlay (MainWindow's row-1 grid) sits on top of real sibling
-    //controls in z-order; its own empty background must stay out of hit-testing until a frame is open,
-    //without blocking a Surface child (an always-visible trigger like ZoomStepper's readout) either way.
     public sealed class PopoverHostTests {
         private static (Window Window, PopoverHost Host, Border Sibling) Layered() {
             var sibling = new Border { Width = 400, Height = 300, Background = Brushes.Transparent };
@@ -27,7 +24,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             return (window, host, sibling);
         }
 
-        //A host that wraps content of its own (a sheet frame's template) still draws its popovers on top.
         [AvaloniaFact]
         public void Surface_StaysAboveChildrenAddedAfterIt() {
             var host = new PopoverHost();
@@ -54,8 +50,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(1, presses);
         }
 
-        //A trigger placed permanently in Surface (ZoomStepper's readout, a toolbar anchor) must stay
-        //clickable whether or not any popover is currently open.
         [AvaloniaFact]
         public void WithNothingOpen_APressOverASurfaceChildStillReachesIt() {
             (Window window, PopoverHost host, _) = Layered();
@@ -98,8 +92,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Null(host.Background);
         }
 
-        //A frame removed from Surface while still open (a consumer's Remove, or a direct
-        //Surface.Children mutation) must drop the host's hit surface too, not just a later IsOpen flip.
         [AvaloniaFact]
         public void RemovingAnOpenFrameFromSurface_RemovesTheHostsBackground_AndAPressReachesTheSiblingBehind() {
             (Window window, PopoverHost host, Border sibling) = Layered();
@@ -118,8 +110,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(1, presses);
         }
 
-        //macOS resigns key on the whole window, not a click point, so this drives Deactivated directly -
-        //the headless platform never raises window activation events at all.
+        //The headless platform never raises window activation events, so this drives Deactivated directly.
         [AvaloniaFact]
         public void TopLevelDeactivating_ClosesTheOpenFrame_AndReturnsFocusToTheAnchor() {
             var anchor = new Button { Width = 80, Height = 22 };

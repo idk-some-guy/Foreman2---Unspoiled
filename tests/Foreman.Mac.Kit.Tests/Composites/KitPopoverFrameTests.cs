@@ -49,8 +49,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             return (window, host, anchor, popover);
         }
 
-        //A tiny fixed-size content (a bare 10x10 Border, not a measured TextBlock) so the panel's DesiredSize
-        //is predictable enough to hand-place the anchor for a trailing/leading placement test.
         private static (Window Window, PopoverHost Host, Button Anchor, PopoverFrame Popover) ShownTiny(double windowWidth, double windowHeight, double anchorX, double anchorY) {
             var anchor = new Button { Width = 20, Height = 20 };
             var host = new PopoverHost { Width = windowWidth, Height = windowHeight };
@@ -92,7 +90,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(radius, Panel(popover).CornerRadius);
         }
 
-        //No PanelWidth set: the panel sizes to its content plus its own padding and border, never a kit-wide default.
         [AvaloniaFact]
         public void PanelWidth_Default_SizesToContent() {
             using var fixture = new KitFixture();
@@ -101,7 +98,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(40, Panel(popover).Bounds.Width);
         }
 
-        //A consumer that wants a fixed width (e.g. the View Options popover) sets PanelWidth itself.
         [AvaloniaFact]
         public void PanelWidth_WhenSet_ArrangesThePanelToIt() {
             using var fixture = new KitFixture();
@@ -182,7 +178,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(PopoverEdge.Top, popover.ResolvedPlacement);
         }
 
-        //Content measured only after the frame opened (a body templated on first open) still flips the edge.
         [AvaloniaFact]
         public void ResolvedPlacement_FollowsThePanelsMeasuredSize_WhenTheContentGrowsAfterOpening() {
             using var fixture = new KitFixture();
@@ -198,13 +193,10 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
         [AvaloniaFact]
         public void ResolvedPlacement_FallsBackToTrailingThenLeading_BeforeClamping() {
-            //Anchor hugs the left edge - centering below/above would push the frame off-window on X, so only
-            //trailing has room.
             PopoverPlacementResult trailing = PopoverFrame.ResolvePlacement(
                 anchor: new Rect(0, 140, 10, 22), window: new Size(600, 300), popover: new Size(160, 120), gap: 6, tailClamp: 26);
             Assert.Equal(PopoverEdge.Right, trailing.Edge);
 
-            //Anchor hugs the right edge - below/above and trailing all run off-window, only leading fits.
             PopoverPlacementResult leading = PopoverFrame.ResolvePlacement(
                 anchor: new Rect(590, 140, 10, 22), window: new Size(600, 300), popover: new Size(160, 120), gap: 6, tailClamp: 26);
             Assert.Equal(PopoverEdge.Left, leading.Edge);
@@ -222,8 +214,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
         [AvaloniaFact]
         public void TailOffset_ClampsToAtLeast26FromEitherCorner() {
-            //Nothing fits (the popover is bigger than the window), so the frame clamps flush to (0,0) and the
-            //anchor's own centre - far from the frame's own centre - is what pushes the tail to its clamp.
             PopoverPlacementResult nearLeftCorner = PopoverFrame.ResolvePlacement(
                 anchor: new Rect(2, 2, 4, 4), window: new Size(120, 90), popover: new Size(160, 120), gap: 6, tailClamp: 26);
             Assert.Equal(PopoverEdge.Bottom, nearLeftCorner.Edge);
@@ -252,19 +242,15 @@ namespace Foreman.Mac.Kit.Tests.Composites {
                 Assert.Equal(expectedOrigin, panel.RenderTransformOrigin.Point);
             }
 
-            //Below: the seam faces down into the panel, so the visible corner points up.
             (_, _, _, PopoverFrame below) = Shown(anchorY: 40);
             AssertEdge(below, PopoverEdge.Bottom, new Thickness(1, 1, 0, 0), new Rect(150, 40, 80, 22), new Size(400, 300));
 
-            //Above: the seam faces up, the visible corner points down.
             (_, _, _, PopoverFrame above) = Shown(windowHeight: 260, anchorY: 220);
             AssertEdge(above, PopoverEdge.Top, new Thickness(0, 0, 1, 1), new Rect(150, 220, 80, 22), new Size(400, 260));
 
-            //Trailing: the seam faces left (toward the anchor), the visible corner points right.
             (_, _, _, PopoverFrame trailing) = ShownTiny(windowWidth: 100, windowHeight: 300, anchorX: 0, anchorY: 140);
             AssertEdge(trailing, PopoverEdge.Right, new Thickness(1, 0, 0, 1), new Rect(0, 140, 20, 20), new Size(100, 300));
 
-            //Leading: the seam faces right, the visible corner points left.
             (_, _, _, PopoverFrame leading) = ShownTiny(windowWidth: 135, windowHeight: 300, anchorX: 110, anchorY: 140);
             AssertEdge(leading, PopoverEdge.Left, new Thickness(0, 1, 1, 0), new Rect(110, 140, 20, 20), new Size(135, 300));
         }
@@ -272,8 +258,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         [AvaloniaFact]
         public void AnchorMoveWithinTheSameEdge_DoesNotReraiseResolvedPlacement_ButTracksTheExactTailOffset() {
             using var fixture = new KitFixture();
-            //A window smaller than the popover in every direction forces the nothing-fits fallback (always
-            //Bottom, frame.X clamped to 0) for both anchor positions below - only the tail's clamped offset moves.
             var anchor = new Button { Width = 4, Height = 4 };
             var host = new PopoverHost { Width = 120, Height = 90 };
             Canvas.SetLeft(anchor, 2);
@@ -661,7 +645,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(1, ScaleOf(panel), 3);
         }
 
-        //The radial ring's 0.9 and its easing belong to the ring; the frame's motion never follows radial retuning.
         [Fact]
         public void Motion_TheFrameReferencesNoRadialToken() {
             string dir = AppContext.BaseDirectory;

@@ -25,7 +25,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
     public sealed class KitStatePanelTests : IDisposable {
         public void Dispose() => Motion.ReduceMotion = false;
 
-
         private static ControlTheme KitStatePanelTheme() {
             Assert.True(Application.Current!.TryGetResource("Kit.StatePanel", null, out object? theme));
             return Assert.IsType<ControlTheme>(theme);
@@ -323,7 +322,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
                 Assert.Equal(48, box.Bounds.Width);
                 Assert.Equal(48, box.Bounds.Height);
 
-                //The Path itself never scales - its master geometry stays 32; the Viewbox is what carries it to 48 on screen.
                 Path pathEl = Glyph(panel);
                 Assert.Equal(32, pathEl.Width);
                 Point topLeft = pathEl.TranslatePoint(new Point(0, 0), window) ?? default;
@@ -380,7 +378,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
                 Assert.Equal(24, box.Bounds.Width);
                 Assert.Equal(24, box.Bounds.Height);
 
-                //The Path itself never scales - its master geometry stays 16; the Viewbox is what carries it to 24 on screen.
                 Path pathEl = Glyph(panel, "PART_CompactGlyph");
                 Assert.Equal(16, pathEl.Width);
                 Point topLeft = pathEl.TranslatePoint(new Point(0, 0), window) ?? default;
@@ -544,7 +541,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             row.Items.Add(Btn("Open Presets…", ButtonRowRole.Other));
             row.Items.Add(Btn("Pick Another Recipe…", ButtonRowRole.Default));
             StatePanel panel = NewPanel(StatePanelShape.Error, buttons: row);
-            //280pt: above Kit.StatePanel's 260pt full-layout floor, wide enough per-button but forcing the cluster to wrap.
             Shown(panel, width: 280, height: 200);
 
             Assert.False(panel.IsCompact);
@@ -604,8 +600,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             row.Items.Add(Btn("Cancel", ButtonRowRole.Cancel));
             row.Items.Add(Btn("Try Again", ButtonRowRole.Default));
             StatePanel panel = NewPanel(StatePanelShape.Error, sentence: "Try again?", buttons: row);
-            //Clicks need the panel in the fixture's own window - a pointer-driven test can't reach a control in a second, unrelated window.
-            //Width stays well above the compact row's natural content width; height alone forces .compact.
             fixture.Window.Width = 400;
             fixture.Window.Height = 90;
             fixture.Window.Content = panel;
@@ -725,7 +719,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             return panel;
         }
 
-        //The strip sits at the sheet's content width, as the host lays it out.
         private static Window ShownAsStrip(StatePanel panel, double width = 320) {
             var window = new Window { Width = width, Height = 400, Content = new StackPanel { Children = { panel } } };
             window.Show();
