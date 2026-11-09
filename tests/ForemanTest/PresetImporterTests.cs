@@ -64,7 +64,7 @@ namespace ForemanTest {
             var progress = new Progress<KeyValuePair<int, string>>(progressValues.Add);
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "My Test Preset", userPresetsDir, progress, AlwaysContinue, CancellationToken.None);
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "My Test Preset", userPresetsDir, progress, AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Ok, result.Outcome);
             Assert.AreEqual("My Test Preset", result.NewPresetName);
@@ -101,7 +101,7 @@ namespace ForemanTest {
             string userDataDir = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Icon Db Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Icon Db Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None,
                 userDataDirectoryOverride: userDataDir);
 
@@ -146,7 +146,7 @@ namespace ForemanTest {
                 "exit 0\n");
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Cwd Pinned Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Cwd Pinned Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Ok, result.Outcome);
@@ -167,7 +167,7 @@ namespace ForemanTest {
             string userPresetsDir = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Blocked Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Blocked Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -188,7 +188,7 @@ namespace ForemanTest {
             string userPresetsDir = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Crashed Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Crashed Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -217,7 +217,7 @@ namespace ForemanTest {
             string userPresetsDir = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Export Crash Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Export Crash Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -231,7 +231,7 @@ namespace ForemanTest {
             string installPath = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, NewTempDir(), NewTempDir(), "No Exe Preset", NewTempDir(),
+                installPath, new FactorioGameVersion(2, 0, 76), NewTempDir(), NewTempDir(), "No Exe Preset", NewTempDir(),
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -247,7 +247,7 @@ namespace ForemanTest {
 
             try {
                 PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                    installPath, Path.Combine(readOnlyParent, "mods"), scratchDir, "No Access Preset", NewTempDir(),
+                    installPath, new FactorioGameVersion(2, 0, 76), Path.Combine(readOnlyParent, "mods"), scratchDir, "No Access Preset", NewTempDir(),
                     new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
                 Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -264,7 +264,7 @@ namespace ForemanTest {
             File.WriteAllText(modsFile, "not a folder");
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsFile, scratchDir, "File Mods Preset", NewTempDir(),
+                installPath, new FactorioGameVersion(2, 0, 76), modsFile, scratchDir, "File Mods Preset", NewTempDir(),
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -277,7 +277,7 @@ namespace ForemanTest {
             File.WriteAllText(Path.Combine(modsPath, "foremanexport_2.0.0"), "not a folder");
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Squatted Preset", NewTempDir(),
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Squatted Preset", NewTempDir(),
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -294,7 +294,7 @@ namespace ForemanTest {
             string userPresetsDir = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "No Save Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "No Save Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -317,7 +317,7 @@ namespace ForemanTest {
             string userPresetsDir = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Conflict Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Conflict Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -338,7 +338,7 @@ namespace ForemanTest {
             string userPresetsDir = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Save Missing Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Save Missing Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -355,7 +355,7 @@ namespace ForemanTest {
             string userPresetsDir = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Bad Json Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Bad Json Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -381,7 +381,7 @@ namespace ForemanTest {
             string userPresetsDir = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Debris Location Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Debris Location Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -404,7 +404,7 @@ namespace ForemanTest {
 
             try {
                 PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                    installPath, modsPath, scratchDir, "Unwritable Scratch Preset", userPresetsDir,
+                    installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Unwritable Scratch Preset", userPresetsDir,
                     new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
                 Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -426,7 +426,7 @@ namespace ForemanTest {
             string userPresetsDir = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Inconsistent Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Inconsistent Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
@@ -446,7 +446,7 @@ namespace ForemanTest {
             string userPresetsDir = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Declined Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Declined Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), NeverContinue, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Cancel, result.Outcome);
@@ -461,7 +461,7 @@ namespace ForemanTest {
             Func<int, int, Task<bool>> confirm = (f, t) => { captured = (f, t); return Task.FromResult(true); };
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "Confirmed Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Confirmed Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), confirm, CancellationToken.None);
 
             Assert.AreEqual(PresetImportOutcome.Ok, result.Outcome);
@@ -485,7 +485,7 @@ namespace ForemanTest {
 
             try {
                 PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                    installPath, modsPath, scratchDir, "Db Fail Preset", userPresetsDir,
+                    installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Db Fail Preset", userPresetsDir,
                     new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None,
                     userDataDirectoryOverride: userDataDir);
 
@@ -521,6 +521,63 @@ namespace ForemanTest {
             Assert.IsFalse(File.Exists(presetBasePath + ".pjson"));
             Assert.IsFalse(File.Exists(presetBasePath + ".json"));
             Assert.IsFalse(File.Exists(presetBasePath + ".dat"));
+        }
+
+        [TestMethod]
+        public async Task ProcessPreset_LeftoverExportModOfOtherVersion_IsRemovedBeforeRun() {
+            var (installPath, modsPath, scratchDir) = BuildFixture("", "{}", "{\"mods\":[]}");
+            string stubPath = Path.Combine(MacOsDirOf(installPath), "factorio");
+            File.WriteAllText(stubPath, File.ReadAllText(stubPath).Replace("#!/bin/sh\n", "#!/bin/sh\nls \"$2\" >> ./seen.txt\n", StringComparison.Ordinal));
+            string nested = Path.Combine(modsPath, "foremanexport_2.1.0", "nested");
+            Directory.CreateDirectory(nested);
+            File.WriteAllText(Path.Combine(modsPath, "foremanexport_2.1.0", "info.json"), "{}");
+            File.WriteAllText(Path.Combine(nested, "control.lua"), "stale");
+
+            PresetImporter.Result result = await PresetImporter.ProcessPreset(
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "Leftover Preset", NewTempDir(),
+                new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
+
+            Assert.AreEqual(PresetImportOutcome.Ok, result.Outcome, result.WarningMessage);
+            Assert.IsFalse(Directory.Exists(Path.Combine(modsPath, "foremanexport_2.1.0")));
+            Assert.IsFalse(Directory.Exists(Path.Combine(modsPath, "foremanexport_2.0.0")));
+            string seen = File.ReadAllText(Path.Combine(scratchDir, "seen.txt"));
+            Assert.Contains("foremanexport_2.0.0", seen);
+            Assert.DoesNotContain("foremanexport_2.1.0", seen);
+        }
+
+        [TestMethod]
+        public async Task ProcessPreset_UnsupportedVersion_FailsWithoutTouchingModsFolder() {
+            var (installPath, modsPath, scratchDir) = BuildFixture("", "{}", "{\"mods\":[]}");
+            Directory.CreateDirectory(Path.Combine(modsPath, "foremanexport_2.1.0"));
+            File.WriteAllText(Path.Combine(modsPath, "mod-list.json"), "{\"mods\":[{\"name\":\"foremanexport\",\"enabled\":true}]}");
+            string[] before = [.. Directory.GetFileSystemEntries(modsPath, "*", SearchOption.AllDirectories).Order()];
+            string modListBefore = File.ReadAllText(Path.Combine(modsPath, "mod-list.json"));
+
+            PresetImporter.Result result = await PresetImporter.ProcessPreset(
+                installPath, new FactorioGameVersion(3, 0, 0), modsPath, scratchDir, "Unsupported Preset", NewTempDir(),
+                new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
+
+            Assert.AreEqual(PresetImportOutcome.Failed, result.Outcome);
+            Assert.AreEqual(FactorioRunFailure.InvalidInstall, result.Failure);
+            Assert.AreEqual(FactorioInstallProblem.TooNew, result.InstallCheck?.Problem);
+            CollectionAssert.AreEqual(before, Directory.GetFileSystemEntries(modsPath, "*", SearchOption.AllDirectories).Order().ToArray());
+            Assert.AreEqual(modListBefore, File.ReadAllText(Path.Combine(modsPath, "mod-list.json")));
+        }
+
+        [TestMethod]
+        public void CleanupFailedImport_LeftoverExportModOfAnyVersion_IsRemoved() {
+            string modsPath = NewTempDir();
+            foreach (string folder in new[] { "foremanexport_2.0.0", "foremanexport_2.1.0" }) {
+                Directory.CreateDirectory(Path.Combine(modsPath, folder, "nested"));
+                File.WriteAllText(Path.Combine(modsPath, folder, "nested", "control.lua"), "stale");
+            }
+            Directory.CreateDirectory(Path.Combine(modsPath, "other-mod_1.0.0"));
+
+            PresetImporter.CleanupFailedImport(Path.Combine(NewTempDir(), "temp-save.zip"), modsPath);
+
+            Assert.IsFalse(Directory.Exists(Path.Combine(modsPath, "foremanexport_2.0.0")));
+            Assert.IsFalse(Directory.Exists(Path.Combine(modsPath, "foremanexport_2.1.0")));
+            Assert.IsTrue(Directory.Exists(Path.Combine(modsPath, "other-mod_1.0.0")));
         }
 
         private static void AssertNoDebris(string scratchDir, string modsPath, string userPresetsDir, string presetName) {

@@ -4,6 +4,7 @@ using ForemanTest.support;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.IO;
+using System.Text.Json.Nodes;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,7 +42,7 @@ namespace ForemanTest {
 
             string userPresetsDir = NewTempDir();
             PresetImporter.Result importResult = await PresetImporter.ProcessPreset(
-                installPath, NewTempDir(), NewTempDir(), "Imported Icon Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), NewTempDir(), NewTempDir(), "Imported Icon Preset", userPresetsDir,
                 NullProgress.Instance, AlwaysContinue, CancellationToken.None, userDataDirectoryOverride: userPresetsDir);
             Assert.AreEqual(PresetImportOutcome.Ok, importResult.Outcome, importResult.WarningMessage);
 
@@ -52,6 +53,30 @@ namespace ForemanTest {
 
             var store = TestDataCacheHelper.RequireStore(cache);
             Assert.IsGreaterThan(0, store.IconCache?.Count ?? 0, "expected the imported preset's own icon cache, not the bundle's empty one.");
+        }
+
+        [TestMethod]
+        public async Task GameVersion_PresetWithoutMarker_ReadsBaseModVersion() {
+            if (!VanillaDataCacheFixture.PresetsAvailable)
+                Assert.Inconclusive($"Preset folder not found: {VanillaDataCacheFixture.PresetsDirectory}");
+
+            DataCache cache = await VanillaDataCacheFixture.GetLoadedAsync();
+
+            Assert.AreEqual(new FactorioGameVersion(2, 0, 76), cache.GameVersion);
+        }
+
+        [TestMethod]
+        public void GameVersion_MarkerPresent_WinsOverBaseMod() {
+            JsonObject preset = PresetJson.ParseObject("{\"game_version\":\"2.1.24\",\"mods\":[{\"name\":\"base\",\"version\":\"2.0.76\"}]}");
+
+            Assert.AreEqual(new FactorioGameVersion(2, 1, 24), DataCache.ReadGameVersion(preset));
+        }
+
+        [TestMethod]
+        public void GameVersion_NoMarkerNoBase_IsNull() {
+            JsonObject preset = PresetJson.ParseObject("{\"mods\":[{\"name\":\"core\",\"version\":\"1.0\"}]}");
+
+            Assert.IsNull(DataCache.ReadGameVersion(preset));
         }
     }
 }

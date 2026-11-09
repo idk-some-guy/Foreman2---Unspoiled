@@ -18,11 +18,7 @@ namespace Foreman.DataCaching {
     //the same way SaveFileReader (§5) already is. PresetImportWindow (Foreman.Mac) wraps this with the form
     //fields, live validation, and the interactive icon-failure confirmation this pipeline can't show itself.
     internal static class PresetImporter {
-        //Only Factorio 2.x installs reach this pipeline (FactorioInstallValidator's major==2 gate), and the
-        //repo only ships the 2.0.0 build of the bundled export mod - upstream instead derives this string
-        //from FileVersionInfo.ProductMajorPart at call time, which this port has no PE-resource source for
-        //anyway (docs/upstream-divergences.md).
-        private const string ForemanExportModName = "foremanexport_2.0.0";
+        private const string ExportModFolderPrefix = "foremanexport_";
         private const string AnotherInstanceMessage =
             "Foreman export could not be completed because this instance of Factorio is currently running. Please stop expanding the factory for just a brief moment and let the export commence in peace!";
 
@@ -43,6 +39,7 @@ namespace Foreman.DataCaching {
 
         public static async Task<Result> ProcessPreset(
             string installPath,
+            FactorioGameVersion gameVersion,
             string modsPath,
             string scratchDirectory,
             string newPresetName,
@@ -64,11 +61,15 @@ namespace Foreman.DataCaching {
                 return Fail("factorio.exe not found...", FactorioRunFailure.InvalidInstall, install: new FactorioInstallCheck(FactorioInstallProblem.ExecutableMissing, ""));
             }
 
+            if (SupportedGameVersions.LineFor(gameVersion) is not SupportedGameLine line)
+                return Fail("Factorio " + gameVersion + " can not be used with this version of Foreman.", FactorioRunFailure.InvalidInstall,
+                    install: new FactorioInstallCheck(SupportedGameVersions.Classify(gameVersion), gameVersion.ToString()));
+            string exportModName = line.ExportModFolder;
+
             try {
                 if (!Directory.Exists(modsPath))
                     Directory.CreateDirectory(modsPath);
-                if (Directory.Exists(Path.Combine(modsPath, ForemanExportModName)))
-                    Directory.Delete(Path.Combine(modsPath, ForemanExportModName));
+                FactorioBundledModHelper.DeleteInstalledCopies(modsPath, ExportModFolderPrefix);
             } catch (Exception e) {
                 CleanupFailedImport(tempSavePath, modsPath);
                 if (e is UnauthorizedAccessException) {
@@ -111,15 +112,15 @@ namespace Foreman.DataCaching {
             FactorioModListHelper.SetModState(modsPath, "foremanexport", enabled: true, removeFromListWhenDisabled: false);
 
             try {
-                FactorioBundledModHelper.CopyToModsFolder(ForemanExportModName, modsPath, "info.json", "instrument-after-data.lua", "instrument-control.lua");
+                FactorioBundledModHelper.CopyToModsFolder(exportModName, modsPath, "info.json", "instrument-after-data.lua", "instrument-control.lua");
             } catch (Exception e) {
                 CleanupFailedImport(tempSavePath, modsPath);
                 if (e is UnauthorizedAccessException) {
                     ErrorLogging.LogException(e, "copying of foreman export mod files failed - insufficient access");
-                    return Fail("Insufficient access to copy foreman export mod files (Mods/" + ForemanExportModName + "/) to the factorio mods folder. Please ensure factorio mods are in an accessible folder, or launch Foreman with Administrator privileges.", FactorioRunFailure.ModsFolderNoAccess);
+                    return Fail("Insufficient access to copy foreman export mod files (Mods/" + exportModName + "/) to the factorio mods folder. Please ensure factorio mods are in an accessible folder, or launch Foreman with Administrator privileges.", FactorioRunFailure.ModsFolderNoAccess);
                 }
                 ErrorLogging.LogException(e, "copying of foreman export mod files failed");
-                return Fail("could not copy foreman export mod files (Mods/" + ForemanExportModName + "/) to the factorio mods folder. Reinstall foreman?", FactorioRunFailure.HelperModCopyFailed);
+                return Fail("could not copy foreman export mod files (Mods/" + exportModName + "/) to the factorio mods folder. Reinstall foreman?", FactorioRunFailure.HelperModCopyFailed);
             }
 
             progress.Report(new(20, "Running Factorio - foreman export scripts."));
@@ -139,8 +140,7 @@ namespace Foreman.DataCaching {
 
             if (File.Exists(tempSavePath))
                 File.Delete(tempSavePath);
-            if (Directory.Exists(Path.Combine(modsPath, ForemanExportModName)))
-                Directory.Delete(Path.Combine(modsPath, ForemanExportModName), true);
+            FactorioBundledModHelper.DeleteInstalledCopies(modsPath, ExportModFolderPrefix);
 
             progress.Report(new(25, "Processing mod files."));
 
@@ -179,7 +179,7 @@ namespace Foreman.DataCaching {
                 iconJObject = PresetJson.ParseObject(iconString);
                 dataJObject = PresetJson.ParseObject(dataString);
             } catch (Exception ex) {
-                ErrorLogging.LogException(ex, "json parsing of export mod output failed (" + ForemanExportModName + "); consult _iconJObjectOut.json and _dataJObjectOut.json");
+                ErrorLogging.LogException(ex, "json parsing of export mod output failed (" + exportModName + "); consult _iconJObjectOut.json and _dataJObjectOut.json");
                 try {
                     Utf8File.WriteAllText(Path.Combine(scratchDirectory, "_iconJObjectOut.json"), iconString);
                     Utf8File.WriteAllText(Path.Combine(scratchDirectory, "_dataJObjectOut.json"), dataString);
@@ -267,11 +267,8 @@ namespace Foreman.DataCaching {
             if (File.Exists(tempSavePath))
                 File.Delete(tempSavePath);
 
-            if (!string.IsNullOrEmpty(modsPath)) {
-                string modFolder = Path.Combine(modsPath, ForemanExportModName);
-                if (Directory.Exists(modFolder))
-                    Directory.Delete(modFolder, true);
-            }
+            if (!string.IsNullOrEmpty(modsPath))
+                FactorioBundledModHelper.DeleteInstalledCopies(modsPath, ExportModFolderPrefix);
 
             if (!string.IsNullOrEmpty(presetBasePath)) {
                 foreach (string extension in new[] { ".pjson", ".json", ".dat" }) {

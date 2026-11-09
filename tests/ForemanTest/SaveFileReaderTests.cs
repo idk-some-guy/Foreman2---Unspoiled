@@ -232,6 +232,48 @@ namespace ForemanTest {
             Assert.AreEqual(FactorioRunFailure.HelperModCopyFailed, result.Failure);
         }
 
+        private const string EmptySaveReport =
+            "cat <<'FOREMAN_EOF'\n<<<START-EXPORT-P0>>>\n{\"mods\":[]}\n<<<END-EXPORT-P0>>>\nFOREMAN_EOF\nexit 0";
+
+        private static string ModsFolderOf(string savePath) =>
+            Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(savePath)!)!, "mods");
+
+        private static string RewriteStubToListMods(string macOsDir, string savePath, string seenFile, string version) =>
+            WriteFactorioStub(macOsDir, version, "ls \"" + ModsFolderOf(savePath) + "\" > \"" + seenFile + "\"\n" + EmptySaveReport);
+
+        [TestMethod]
+        public void ReadSave_TwoZeroInstall_CopiesTwoZeroSaveReader() {
+            string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
+            string savePath = BuildSaveFixture(WriteFactorioStub(macOsDir, "2.0.76", "exit 0"));
+            string seenFile = Path.Combine(Path.GetDirectoryName(savePath)!, "seen.txt");
+            RewriteStubToListMods(macOsDir, savePath, seenFile, "2.0.76");
+
+            SaveFileReader.Result result = SaveFileReader.Load(savePath, CancellationToken.None);
+
+            Assert.AreEqual(SaveFileLoadOutcome.Ok, result.Outcome);
+            Assert.AreEqual("foremansavereader_2.0.0", File.ReadAllText(seenFile).Trim().Split('\n')[0]);
+            Assert.IsFalse(Directory.Exists(Path.Combine(ModsFolderOf(savePath), "foremansavereader_2.0.0")));
+        }
+
+        [TestMethod]
+        public void ReadSave_LeftoverSaveReaderOfOtherVersion_IsRemovedBeforeRun() {
+            string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
+            string savePath = BuildSaveFixture(WriteFactorioStub(macOsDir, "2.0.76", "exit 0"));
+            string seenFile = Path.Combine(Path.GetDirectoryName(savePath)!, "seen.txt");
+            RewriteStubToListMods(macOsDir, savePath, seenFile, "2.0.76");
+            string leftover = Path.Combine(ModsFolderOf(savePath), "foremansavereader_2.1.0", "nested");
+            Directory.CreateDirectory(leftover);
+            File.WriteAllText(Path.Combine(leftover, "control.lua"), "stale");
+
+            SaveFileReader.Result result = SaveFileReader.Load(savePath, CancellationToken.None);
+
+            Assert.AreEqual(SaveFileLoadOutcome.Ok, result.Outcome);
+            string seen = File.ReadAllText(seenFile);
+            Assert.Contains("foremansavereader_2.0.0", seen);
+            Assert.DoesNotContain("foremansavereader_2.1.0", seen);
+            Assert.IsFalse(Directory.Exists(Path.Combine(ModsFolderOf(savePath), "foremansavereader_2.1.0")));
+        }
+
         [TestMethod]
         public void Load_MissingFactorioCurrentLog_ReturnsAbort() {
             string savePath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName(), "saves", "mysave.zip");

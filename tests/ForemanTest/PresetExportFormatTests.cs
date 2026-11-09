@@ -40,5 +40,12 @@ namespace ForemanTest {
             string log = File.ReadAllText(ErrorLogging.LogFilePath);
             Assert.DoesNotContain("older version of Foreman", log);
         }
+
+        [TestMethod]
+        public void ExportMod_TwoZero_WritesTheBaseModVersionAsGameVersion() {
+            string lua = File.ReadAllText(Path.Combine(AppPaths.ExecutableDirectory, "Mods", "foremanexport_2.0.0", "instrument-control.lua"));
+
+            Assert.Contains("etable['game_version'] = script.active_mods['base']", lua);
+        }
     }
 }

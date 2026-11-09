@@ -23,6 +23,7 @@
     <InternalsVisibleTo Include="ForemanTest" />
     <InternalsVisibleTo Include="Foreman.Mac" />
     <InternalsVisibleTo Include="Foreman.Mac.UiTests" />
+    <InternalsVisibleTo Include="PresetRig" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Graphics/BurnerGeneratorIcon.png">
@@ -52,8 +53,7 @@
     <Content Include="Graphics/UnknownIcon.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Mods/foremanexport_2.0.0/**" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Mods/foremansavereader_2.0.0/**" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Mods/**" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="baseCustom.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

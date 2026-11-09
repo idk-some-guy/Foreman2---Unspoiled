@@ -24,6 +24,8 @@ namespace Foreman.DataCaching {
             public FactorioInstallCheck? InstallCheck { get; init; }
         }
 
+        private const string SaveReaderModFolderPrefix = "foremansavereader_";
+
         public static Result Load(string saveFilePath, CancellationToken token) {
             string modsPath = "";
             try {
@@ -41,16 +43,28 @@ namespace Foreman.DataCaching {
                         InstallCheck = installCheck,
                     };
 
+                if (installCheck.GameVersion is not { } gameVersion || SupportedGameVersions.LineFor(gameVersion) is not { } line) {
+                    var unreadable = new FactorioInstallCheck(FactorioInstallProblem.VersionUnreadable, "");
+                    return new Result {
+                        Outcome = SaveFileLoadOutcome.Cancel,
+                        WarningMessage = FactorioInstallValidator.UserMessage(unreadable),
+                        Failure = FactorioRunFailure.InvalidInstall,
+                        InstallCheck = unreadable,
+                    };
+                }
+                string saveReaderModName = line.SaveReaderModFolder;
+
                 modsPath = Path.Combine(userDataPath ?? "", "mods");
                 if (!Directory.Exists(modsPath))
                     Directory.CreateDirectory(modsPath);
                 try {
-                    FactorioBundledModHelper.CopyToModsFolder("foremansavereader_2.0.0", modsPath, "info.json", "instrument-control.lua");
+                    FactorioBundledModHelper.DeleteInstalledCopies(modsPath, SaveReaderModFolderPrefix);
+                    FactorioBundledModHelper.CopyToModsFolder(saveReaderModName, modsPath, "info.json", "instrument-control.lua");
                 } catch (Exception ex) {
                     ErrorLogging.LogException(ex, "copying of foreman save reader mod files failed");
                     return new Result {
                         Outcome = SaveFileLoadOutcome.Abort,
-                        WarningMessage = "could not copy foreman save reader mod files (Mods/foremansavereader_2.0.0/) to the factorio mods folder. Reinstall foreman?",
+                        WarningMessage = "could not copy foreman save reader mod files (Mods/" + saveReaderModName + "/) to the factorio mods folder. Reinstall foreman?",
                         Failure = FactorioRunFailure.HelperModCopyFailed,
                     };
                 }
@@ -65,17 +79,13 @@ namespace Foreman.DataCaching {
                         Path.GetFileName(saveFilePath)),
                     Path.GetDirectoryName(factorioPath) ?? "",
                     token,
-                    () => {
-                        if (Directory.Exists(Path.Combine(capturedModsPath, "foremansavereader_2.0.0")))
-                            Directory.Delete(Path.Combine(capturedModsPath, "foremansavereader_2.0.0"), true);
-                    });
+                    () => FactorioBundledModHelper.DeleteInstalledCopies(capturedModsPath, SaveReaderModFolderPrefix));
 
                 string resultString = readRun.Output;
                 if (string.IsNullOrEmpty(resultString) && token.IsCancellationRequested)
                     return new Result { Outcome = SaveFileLoadOutcome.Cancel };
 
-                if (Directory.Exists(Path.Combine(modsPath, "foremansavereader_2.0.0")))
-                    Directory.Delete(Path.Combine(modsPath, "foremansavereader_2.0.0"), true);
+                FactorioBundledModHelper.DeleteInstalledCopies(modsPath, SaveReaderModFolderPrefix);
 
                 if (FactorioBenchmarkRunner.IsAnotherInstanceRunning(resultString))
                     return new Result {
@@ -103,8 +113,8 @@ namespace Foreman.DataCaching {
                 return new Result { Outcome = SaveFileLoadOutcome.Ok, SaveFileInfo = ParseP0Export(resultString) };
             } catch (Exception ex) {
                 ErrorLogging.LogException(ex, string.Format(CultureInfo.InvariantCulture, "Error reading save file '{0}'", saveFilePath));
-                if (!string.IsNullOrEmpty(modsPath) && Directory.Exists(Path.Combine(modsPath, "foremansavereader_2.0.0")))
-                    Directory.Delete(Path.Combine(modsPath, "foremansavereader_2.0.0"), true);
+                if (!string.IsNullOrEmpty(modsPath))
+                    FactorioBundledModHelper.DeleteInstalledCopies(modsPath, SaveReaderModFolderPrefix);
                 return new Result { Outcome = SaveFileLoadOutcome.Abort, Failure = FactorioRunFailure.Unmapped };
             }
         }

@@ -275,7 +275,7 @@ namespace Foreman.Mac.UiTests {
             string userPresetsDir = NewTempDir();
 
             PresetImporter.Result result = await PresetImporter.ProcessPreset(
-                installPath, modsPath, scratchDir, "My Imported Preset", userPresetsDir,
+                installPath, new FactorioGameVersion(2, 0, 76), modsPath, scratchDir, "My Imported Preset", userPresetsDir,
                 new Progress<KeyValuePair<int, string>>(), (_, _) => Task.FromResult(true), CancellationToken.None);
 
             Assert.Equal(PresetImportOutcome.Ok, result.Outcome);

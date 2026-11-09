@@ -130,6 +130,7 @@ local function ExportModList()
 		end
 	end
 	etable['mods'] = tmods
+	etable['game_version'] = script.active_mods['base']
 end
 
 local function ExportResearch()

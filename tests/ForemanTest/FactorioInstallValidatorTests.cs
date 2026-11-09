@@ -89,6 +89,36 @@ namespace ForemanTest {
         }
 
         [TestMethod]
+        public void CheckExecutable_StdoutVersion2x_ExposesTheParsedGameVersion() {
+            string exePath = StubFactorioHarness.WriteVersionScript(StubFactorioHarness.CreateExecutableDirectory(), "2.0.76");
+
+            FactorioInstallCheck check = Check(exePath);
+
+            Assert.AreEqual(new FactorioGameVersion(2, 0, 76), check.GameVersion);
+        }
+
+        [TestMethod]
+        public void CheckExecutable_UnreadableVersionText_HasNoGameVersion() {
+            Assert.IsNull(new FactorioInstallCheck(FactorioInstallProblem.VersionUnreadable, "").GameVersion);
+        }
+
+        [TestMethod]
+        public void ProductVersion_NonEmptyButUnparseable_IsNotAcceptedAsAVersion() {
+            Assert.IsFalse(FactorioInstallValidator.TryParseProductVersion("2.0", out _, out _));
+            Assert.IsTrue(FactorioInstallValidator.TryParseProductVersion("2.0.28.0", out FactorioGameVersion version, out string text));
+            Assert.AreEqual(new FactorioGameVersion(2, 0, 28), version);
+            Assert.AreEqual("2.0.28.0", text);
+        }
+
+        [TestMethod]
+        public void UserMessage_TooNewTwoX_SaysTheVersionIsNewerThanSupported() {
+            string message = FactorioInstallValidator.UserMessage(new FactorioInstallCheck(FactorioInstallProblem.TooNew, "2.1.24"))!;
+
+            Assert.Contains("2.1.24", message);
+            Assert.Contains("newer than this Foreman supports", message);
+        }
+
+        [TestMethod]
         public void CheckExecutable_MissingExecutable_IsExecutableMissing() {
             string exePath = Path.Combine(StubFactorioHarness.CreateExecutableDirectory(), "factorio");
 

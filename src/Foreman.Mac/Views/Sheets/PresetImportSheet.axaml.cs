@@ -254,7 +254,7 @@ namespace Foreman.Mac.Views.Sheets {
 
             ImportStarted = true;
             Func<string, string, string, string, string, IProgress<KeyValuePair<int, string>>, Func<int, int, Task<bool>>, CancellationToken, Task<PresetImporter.Result>> defaultProcess =
-                (a, b, c, d, e, f, g, h) => PresetImporter.ProcessPreset(a, b, c, d, e, f, g, h);
+                (a, b, c, d, e, f, g, h) => PresetImporter.ProcessPreset(a, installCheck.GameVersion!.Value, b, c, d, e, f, g, h);
             var process = ProcessPresetStub ?? defaultProcess;
             PresetImporter.Result result = await Task.Run(() => process(
                 installPath, modsPath, AppPaths.ScratchDirectory, NewPresetName, AppPaths.UserPresetsDirectory,
