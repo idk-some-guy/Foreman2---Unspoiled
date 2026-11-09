@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.Kit.Composites {
-    //Overlay layer a window adds above its content: owns the Canvas a PopoverFrame positions itself against.
     public class PopoverHost : Panel {
         public Canvas Surface { get; } = new();
 
@@ -29,7 +28,6 @@ namespace Foreman.Mac.Kit.Composites {
         }
 
         public PopoverHost() {
-            //Content a template nests inside the host joins Children after the Surface; the z-index keeps popovers on top.
             Surface.ZIndex = 1;
             Children.Add(Surface);
             Surface.Children.CollectionChanged += (_, _) => UpdateBackground();
@@ -38,7 +36,6 @@ namespace Foreman.Mac.Kit.Composites {
             UpdateBackground();
         }
 
-        //Every consumer reaches the Surface through Add/Remove so a mutation fired mid-layout (e.g. TemplateApplied) queues instead of corrupting the enumeration in flight.
         internal void Add(Control popover, Action? onAdded = null) => RunOrDefer(() => {
             Surface.Children.Add(popover);
             onAdded?.Invoke();
@@ -75,7 +72,6 @@ namespace Foreman.Mac.Kit.Composites {
             base.OnDetachedFromVisualTree(e);
         }
 
-        //macOS dismisses an open popover when its window resigns key - closing every open frame here mirrors that.
         private void OnTopLevelDeactivated(object? sender, EventArgs e) {
             foreach (PopoverFrame frame in Surface.Children.OfType<PopoverFrame>().Where(f => f.IsOpen).ToList())
                 frame.Close();
@@ -99,7 +95,6 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
-        //Mid-layout or mid-detach both defer, so a mutation never corrupts a pass or cascade in flight.
         private void RunOrDefer(Action mutate) {
             if (layoutDepth == 0 && !isDetaching) {
                 mutate();
@@ -126,7 +121,6 @@ namespace Foreman.Mac.Kit.Composites {
             if (new Rect(open.Bounds.Size).Contains(local))
                 return;
             open.Close();
-            //macOS light-dismiss swallows the click that closes an overlay.
             e.Handled = true;
         }
     }

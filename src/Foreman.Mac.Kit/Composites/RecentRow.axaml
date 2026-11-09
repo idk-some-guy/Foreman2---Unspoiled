@@ -98,7 +98,6 @@
       <Setter Property="IsVisible" Value="False" />
     </Style>
 
-    <!-- Gallery-only: mirrors the real hover fill since Avalonia won't let outside code set IsPointerOver. -->
     <Style Selector="^.gallery-hover /template/ Border#PART_Fill">
       <Setter Property="Opacity" Value="1" />
       <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />

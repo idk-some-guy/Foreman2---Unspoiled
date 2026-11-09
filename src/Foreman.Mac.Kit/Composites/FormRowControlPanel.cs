@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using System;
 
 namespace Foreman.Mac.Kit.Composites {
-    //A form row's control, then its unit Gap after it: a filling control runs to the trailing edge less the unit, any other keeps its desired width.
     public sealed class FormRowControlPanel : Panel {
         public static readonly StyledProperty<bool> FillProperty =
             AvaloniaProperty.Register<FormRowControlPanel, bool>(nameof(Fill));

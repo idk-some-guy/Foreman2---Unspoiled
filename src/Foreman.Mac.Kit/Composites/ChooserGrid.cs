@@ -20,11 +20,10 @@ using System.Collections.Specialized;
 using System.Linq;
 
 namespace Foreman.Mac.Kit.Composites {
-    //The add-browser grid (addendum §04); a cell never receives real keyboard focus, so all navigation lives here.
     public class ChooserGrid : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(ChooserGrid);
 
-        private const double RowPitch = 96; //Size.ChooserCell 88 + Space.Space2 8
+        private const double RowPitch = 96;
 
         public static readonly StyledProperty<string?> QueryProperty =
             AvaloniaProperty.Register<ChooserGrid, string?>(nameof(Query));
@@ -233,7 +232,6 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
-        //Rows come from real rendered Bounds, not a tracked column count, so any laid-out width works.
         private void MoveVertical(int index, int direction) {
             ChooserCell current = cells[index];
             int section = sectionOfCell[index];
@@ -383,7 +381,6 @@ namespace Foreman.Mac.Kit.Composites {
             Dispatcher.UIThread.Post(() => cell.Classes.Remove("entering"), DispatcherPriority.Loaded);
         }
 
-        //A leaving cell gets one last no-heading wrap of its own so it keeps rendering while it fades.
         private void FadeOutAndRemove(ChooserCell cell) {
             if (track is null)
                 return;

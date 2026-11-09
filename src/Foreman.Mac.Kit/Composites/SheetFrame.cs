@@ -262,14 +262,12 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
-        //Layout maths (MaxWidth clamp) lives here, never a LayoutUpdated handler writing it back.
         protected override Size ArrangeOverride(Size finalSize) {
             if (panel is not null)
                 panel.MaxWidth = Math.Max(0, finalSize.Width - 24);
             return base.ArrangeOverride(finalSize);
         }
 
-        //Reduce Motion is read at each open and close, so a live toggle takes effect on the next one; under it the panel never moves.
         private void ApplyOpenState(bool open) {
             TimeSpan duration = open ? Motion.SheetOpenDuration : Motion.SheetCloseDuration;
             Avalonia.Animation.Easings.Easing easing = open ? Motion.EntranceEasing : Motion.LeavingEasing;
@@ -288,7 +286,6 @@ namespace Foreman.Mac.Kit.Composites {
             IsHitTestVisible = open;
             if (open) {
                 focusToRestore = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as InputElement;
-                //Deferred: content isn't realized into the visual tree until its template applies.
                 Dispatcher.UIThread.Post(FocusFirst, DispatcherPriority.Loaded);
             } else {
                 focusToRestore?.Focus();
@@ -307,7 +304,6 @@ namespace Foreman.Mac.Kit.Composites {
         private void OnKeyDown(object? sender, KeyEventArgs e) {
             if (!IsOpen)
                 return;
-            //An open popover owns the keyboard: Escape and Command-period close it first, and Return and Tab stay inside it.
             if (popoverHost?.OpenFrame is { } popover) {
                 if (PopoverFrame.IsCancelKey(e) && !(e.Source is Visual source && popover.IsVisualAncestorOf(source))) {
                     popover.Cancel();
@@ -342,7 +338,6 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
-        //The cycle is the panel's own controls; the popover layer beside it is never part of it.
         private void TrapTab(KeyEventArgs e) {
             if (panel is null)
                 return;

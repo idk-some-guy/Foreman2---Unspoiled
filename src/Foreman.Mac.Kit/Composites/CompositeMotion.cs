@@ -12,12 +12,10 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Kit.Composites {
-    //Shared reflow/fade-out idioms FormRow, PalettePanel and ChooserGrid otherwise duplicated byte-for-byte.
     internal static class CompositeMotion {
         private static readonly ConditionalWeakTable<Control, StrongBox<int>> reflowsInFlight = [];
         private static event Action? ReflowEnded;
 
-        //Scoped to one visual root: a reflow whose clock stopped with another root's session must not hold this one up.
         internal static Task ReflowsSettled(Visual root) {
             if (!IsReflowing(root))
                 return Task.CompletedTask;
@@ -36,8 +34,6 @@ namespace Foreman.Mac.Kit.Composites {
             root.GetSelfAndVisualDescendants().OfType<Control>()
                 .Any(c => reflowsInFlight.TryGetValue(c, out StrongBox<int>? count) && count.Value > 0);
 
-        //FormRow and PalettePanel both drop back to auto height the same way: on detach, and once a reflow
-        //settles. Cancels any in-flight reflow so its continuation never fires after the field is cleared.
         internal static void ClearExplicitHeight(Control host, ref CancellationTokenSource? reflowCancellation) {
             reflowCancellation?.Cancel();
             reflowCancellation = null;
@@ -47,10 +43,6 @@ namespace Foreman.Mac.Kit.Composites {
             host.Transitions = transitions;
         }
 
-        //Kit.FormRow's reflow idiom: pins the current height, then eases to newHeightAfterMeasure() once
-        //posted past the layout pass a content change triggers, clearing back to auto on completion via
-        //the caller's own onSettled (usually ClearExplicitHeight against its own field - async methods
-        //can't take ref parameters, so the caller closes over its field instead).
         internal static void ReflowHeight(Control host, Func<double> newHeightAfterMeasure, Action onSettled, ref CancellationTokenSource? reflowCancellation) {
             if (Motion.ReduceMotion || TopLevel.GetTopLevel(host) is null)
                 return;
@@ -103,7 +95,6 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
-        //A leaving cell/row gets its own throwaway wrap so it keeps rendering while it fades, then is removed.
         internal static void FadeOutAndRemove(Control control, Panel wrap, Panel track) {
             if (control.Parent is Panel oldParent)
                 oldParent.Children.Remove(control);

@@ -13,13 +13,10 @@ using System.Globalization;
 namespace Foreman.Mac.Kit.Composites {
     public enum PopoverEdge { Bottom, Top, Right, Left }
 
-    //Flush: placed at a point rather than an anchor control, with no tail, no padding and no material, so the content supplies the look.
     public enum PopoverFrameMode { Anchored, Flush }
 
-    //Where the frame landed and how its tail should sit - computed by the pure ResolvePlacement.
     public readonly record struct PopoverPlacementResult(PopoverEdge Edge, Point FramePosition, double TailOffset, Point RenderOrigin);
 
-    //Translucent popover chrome with a tail that tracks its anchor; requires a PopoverHost ancestor to clamp against and to close it on an outside press.
     public class PopoverFrame : ContentControl {
         protected override Type StyleKeyOverride => typeof(PopoverFrame);
 
@@ -32,14 +29,12 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly DirectProperty<PopoverFrame, PopoverEdge> ResolvedPlacementProperty =
             AvaloniaProperty.RegisterDirect<PopoverFrame, PopoverEdge>(nameof(ResolvedPlacement), o => o.resolvedPlacement);
 
-        //NaN sizes the panel to its content; a consumer that wants a fixed width (e.g. View Options) sets this.
         public static readonly StyledProperty<double> PanelWidthProperty =
             AvaloniaProperty.Register<PopoverFrame, double>(nameof(PanelWidth), double.NaN);
 
         public static readonly StyledProperty<PopoverFrameMode> ModeProperty =
             AvaloniaProperty.Register<PopoverFrame, PopoverFrameMode>(nameof(Mode));
 
-        //Host-surface coordinates; read only in Flush mode.
         public static readonly StyledProperty<Point> AnchorPointProperty =
             AvaloniaProperty.Register<PopoverFrame, Point>(nameof(AnchorPoint));
 
@@ -53,7 +48,6 @@ namespace Foreman.Mac.Kit.Composites {
         public event EventHandler? Closed;
         public event EventHandler? Cancelled;
 
-        //Gap and corner clamp are pointer-sized constants, not named tokens - only the tail's 12pt square got a key.
         private const double Gap = 6;
         private const double TailClamp = 26;
 
@@ -74,7 +68,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         public PopoverFrame() {
             AddHandler(KeyDownEvent, OnKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
-            //An unopened frame must not swallow clicks meant for whatever sits behind it.
             IsHitTestVisible = IsOpen;
             ApplyNavigation(IsOpen);
         }
@@ -111,7 +104,6 @@ namespace Foreman.Mac.Kit.Composites {
             UpdatePlacement();
         }
 
-        //Content measured after the frame opened (a first open, a growing body) re-resolves the edge from the panel's real size.
         private void SubscribePanelSize() {
             panelSizeSub?.Dispose();
             panelSizeSub = panel?.GetObservable(Visual.BoundsProperty).Subscribe(new ChangeObserver<Rect>(_ => UpdatePlacement()));
@@ -146,7 +138,6 @@ namespace Foreman.Mac.Kit.Composites {
             panelSizeSub = null;
         }
 
-        //The tail's static footprint depends only on the PopoverTail token, never on where the frame lands.
         private void ApplyTailGeometry() {
             if (tail is null || panel is null)
                 return;
@@ -167,7 +158,6 @@ namespace Foreman.Mac.Kit.Composites {
             Avalonia.Automation.AutomationProperties.SetName(this, name);
         }
 
-        //Driven by the anchor's and the host's own Bounds, never by this control's arrange pass.
         private void UpdatePlacement() {
             if (panel is null || this.FindAncestorOfType<PopoverHost>() is not { } host)
                 return;
@@ -193,14 +183,12 @@ namespace Foreman.Mac.Kit.Composites {
         private void ApplyTailPlacement(PopoverPlacementResult placement) {
             if (tail is null || panel is null)
                 return;
-            //Only the two edges facing away from the body are stroked, so the tail's border never doubles up with the panel's seam.
             tail.BorderThickness = placement.Edge switch {
                 PopoverEdge.Bottom => new Thickness(1, 1, 0, 0),
                 PopoverEdge.Top => new Thickness(0, 0, 1, 1),
                 PopoverEdge.Right => new Thickness(1, 0, 0, 1),
                 _ => new Thickness(0, 1, 1, 0),
             };
-            //Panel-local geometry offset by the shared half-tail margin - the tail's unrotated top-left cancels the panel's own (half, half) offset.
             tail.Margin = placement.Edge switch {
                 PopoverEdge.Bottom => new Thickness(placement.TailOffset, 0, 0, 0),
                 PopoverEdge.Top => new Thickness(placement.TailOffset, panel.DesiredSize.Height, 0, 0),
@@ -234,13 +222,11 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
-        //Under Reduce Motion the panel stays at full size, so a fade-out never shows a shrink.
         private static TransformOperations PanelScale(bool open) {
             double scale = open || Motion.ReduceMotion ? 1 : Motion.PopoverOpenScale;
             return TransformOperations.Parse($"scale({scale.ToString(CultureInfo.InvariantCulture)})");
         }
 
-        //A closed frame stays in its host's surface, so it and its content leave the tab order until it opens again.
         private void ApplyNavigation(bool open) {
             Focusable = open;
             KeyboardNavigation.SetIsTabStop(this, open);
@@ -249,13 +235,11 @@ namespace Foreman.Mac.Kit.Composites {
 
         internal void Close() => IsOpen = false;
 
-        //Dismisses the way Escape does: the content puts back what it had when the frame opened, then the frame closes.
         internal void Cancel() {
             Cancelled?.Invoke(this, EventArgs.Empty);
             Close();
         }
 
-        //Escape and Command-period are both cancelOperation: in AppKit.
         internal static bool IsCancelKey(KeyEventArgs e) =>
             e.Key == Key.Escape || (e.Key == Key.OemPeriod && e.KeyModifiers == KeyModifiers.Meta);
 
@@ -279,7 +263,6 @@ namespace Foreman.Mac.Kit.Composites {
             public void OnCompleted() { }
         }
 
-        //Top-left at the point; each axis flips to the point's other side on its own when the frame would leave the host, then clamps.
         internal static Point ResolvePointPlacement(Point point, Size host, Size frame) {
             double x = point.X + frame.Width <= host.Width ? point.X : point.X - frame.Width;
             double y = point.Y + frame.Height <= host.Height ? point.Y : point.Y - frame.Height;
@@ -288,7 +271,6 @@ namespace Foreman.Mac.Kit.Composites {
                 Math.Clamp(y, 0, Math.Max(0, host.Height - frame.Height)));
         }
 
-        //Preferred edge below the anchor, flipping to above then trailing then leading, and only then clamping - the frame never leaves the host.
         internal static PopoverPlacementResult ResolvePlacement(Rect anchor, Size window, Size popover, double gap, double tailClamp) {
             double centerX = anchor.X + anchor.Width / 2;
             double centerY = anchor.Y + anchor.Height / 2;

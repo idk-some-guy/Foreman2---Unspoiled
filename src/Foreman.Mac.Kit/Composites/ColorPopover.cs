@@ -13,10 +13,8 @@ using System.Globalization;
 using System.Linq;
 
 namespace Foreman.Mac.Kit.Composites {
-    //A palette entry; a null Color is the None cell.
     public readonly record struct ColorSwatch(string Name, Color? Color);
 
-    //The colour well's popover body: a fixed 8 × 4 swatch grid in choice mode above a Hex row.
     public class ColorPopover : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(ColorPopover);
 
@@ -39,10 +37,8 @@ namespace Foreman.Mac.Kit.Composites {
         public bool AllowsAlpha { get => GetValue(AllowsAlphaProperty); set => SetValue(AllowsAlphaProperty, value); }
         public string? Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
 
-        //Raised when a cell is committed (Return, Space or a click); the host closes the popover.
         public event EventHandler? CommitRequested;
 
-        //The opacity a colour cell brings back when the colour is at None.
         internal byte RestoreAlpha { get; set; } = 255;
 
         internal PickGrid? Grid { get; private set; }
@@ -80,13 +76,11 @@ namespace Foreman.Mac.Kit.Composites {
 
         public static IReadOnlyList<ColorSwatch> Swatches(bool allowsNone) => allowsNone ? PaletteWithNone : Palette;
 
-        //Matched on RGB across the full palette, Charcoal included.
         public static string? NameOf(Color color) =>
             Palette.FirstOrDefault(s => SameRgb(s.Color!.Value, color)).Name;
 
         public static string ToHex(Color color) => string.Create(CultureInfo.InvariantCulture, $"{color.R:X2}{color.G:X2}{color.B:X2}");
 
-        //Three or six hex digits in any case, with or without a leading "#".
         public static bool TryParseHex(string? text, out Color rgb) {
             rgb = default;
             string digits = (text ?? "").Trim().TrimStart('#');
@@ -126,7 +120,6 @@ namespace Foreman.Mac.Kit.Composites {
             ApplyLabel();
         }
 
-        //The palette's 4 pt gap is the kit's 2 pt half-gap on each side of a cell.
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnAttachedToVisualTree(e);
             gapSub?.Dispose();
@@ -195,7 +188,6 @@ namespace Foreman.Mac.Kit.Composites {
                 HexRow.Error = null;
         }
 
-        //A colour cell keeps the current opacity, or brings back RestoreAlpha from None; without alpha it is opaque.
         private Color Resolve(Color? rgb) {
             if (rgb is not Color chosen)
                 return Color.FromArgb(0, Color.R, Color.G, Color.B);
@@ -215,7 +207,6 @@ namespace Foreman.Mac.Kit.Composites {
             CommitRequested?.Invoke(this, EventArgs.Empty);
         }
 
-        //Selection follows focus: an arrow or type-to-select move previews the colour it lands on.
         private void OnGridKeyDown(object? sender, KeyEventArgs e) {
             if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End)
                 PreviewFocused();
@@ -248,7 +239,6 @@ namespace Foreman.Mac.Kit.Composites {
             return true;
         }
 
-        //Tab alternates between the grid and the Hex field and never leaves the popover; leaving an edited field commits it.
         private void OnTabKey(object? sender, KeyEventArgs e) {
             if (e.Key != Key.Tab || Grid is null || HexField is null)
                 return;

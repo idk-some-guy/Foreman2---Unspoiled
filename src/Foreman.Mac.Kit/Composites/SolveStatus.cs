@@ -22,7 +22,6 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<bool> IsErrorPopoverOpenProperty =
             AvaloniaProperty.Register<SolveStatus, bool>(nameof(IsErrorPopoverOpen));
 
-        //For a status that is not a descendant of the host (a toolbar row beside the window's popover layer).
         public static readonly StyledProperty<PopoverHost?> PopoverHostProperty =
             AvaloniaProperty.Register<SolveStatus, PopoverHost?>(nameof(PopoverHost));
 
@@ -119,7 +118,6 @@ namespace Foreman.Mac.Kit.Composites {
                 ErrorDismissed?.Invoke(this, EventArgs.Empty);
         }
 
-        //Built once per host attach; PopoverHost defers the Surface add when a layout pass is mid-flight.
         private void OpenErrorPopover() {
             if (errorPopover is { } existing) {
                 existing.Content = ErrorContent;

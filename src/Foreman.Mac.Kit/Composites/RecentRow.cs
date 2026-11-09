@@ -13,7 +13,6 @@ using System.Globalization;
 using System.Linq;
 
 namespace Foreman.Mac.Kit.Composites {
-    //RemoveRequested payload: Item is the row's DataContext, enough for a host to re-add it.
     public sealed class RecentRowRemoveRequestedEventArgs(object? item) : EventArgs {
         public object? Item { get; } = item;
     }
@@ -36,11 +35,9 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<int> NodeCountProperty =
             AvaloniaProperty.Register<RecentRow, int>(nameof(NodeCount));
 
-        //Preformatted by the host - relative-date formatting is locale-sensitive and not this control's job.
         public static readonly StyledProperty<string?> RelativeTimeProperty =
             AvaloniaProperty.Register<RecentRow, string?>(nameof(RelativeTime));
 
-        //Absolute date, also preformatted by the host; shown in the tooltip and folded into HelpText.
         public static readonly StyledProperty<string?> AbsoluteTimeProperty =
             AvaloniaProperty.Register<RecentRow, string?>(nameof(AbsoluteTime));
 
@@ -53,7 +50,6 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<bool> IsKeyProperty =
             AvaloniaProperty.Register<RecentRow, bool>(nameof(IsKey), true);
 
-        //Unavailable: tertiary italic name, thumbnail at Opacity.Unavailable, still selectable and focusable.
         public static readonly StyledProperty<bool> IsUnavailableProperty =
             AvaloniaProperty.Register<RecentRow, bool>(nameof(IsUnavailable));
 
@@ -62,7 +58,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         public event EventHandler? OpenRequested;
 
-        //Carries the row's item so a host can undo a ⌫ removal; the row never draws its own toast.
         public event EventHandler<RecentRowRemoveRequestedEventArgs>? RemoveRequested;
 
         public string? Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
@@ -192,7 +187,6 @@ namespace Foreman.Mac.Kit.Composites {
                 Controls.FocusRing.SetShowAlways(frame, hasKeyboardFocus);
         }
 
-        //Selection: AccentSoft + AccentText when key and selected, SelectionInactive + plain text when not; hover suppressed on selected row.
         private void ApplyState() {
             if (fill is null || selectionFill is null)
                 return;
@@ -219,7 +213,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void OnMenuHostClosed(object? sender, EventArgs e) => IsMenuOpen = false;
 
-        //Placement for the open in progress - stays pending until a popup exists to apply it to.
         private PlacementMode pendingPlacement = PlacementMode.BottomEdgeAlignedLeft;
 
         private void OnIsMenuOpenChanged(bool isOpen) {
@@ -240,7 +233,6 @@ namespace Foreman.Mac.Kit.Composites {
             IsMenuOpen = true;
         }
 
-        //Programmatic open, always row-anchored - there's no pointer event here to anchor to.
         public void Open() => OpenContextMenu(viaPointer: false);
 
         private void CopyMenuItems() {
@@ -261,7 +253,6 @@ namespace Foreman.Mac.Kit.Composites {
                 phrase += ", preset not installed";
             AutomationProperties.SetName(this, phrase);
 
-            //No AXCustomAction provider exists in Avalonia; menu items are mirrored into HelpText.
             string actions = string.Join(". ", MenuItems.Where(i => !i.IsSeparator).Select(i => i.Text));
             string remove = RemoveRequested is null ? "" : " Remove: Backspace.";
             string hints = string.IsNullOrEmpty(HelpHints) ? "" : $" {HelpHints}";

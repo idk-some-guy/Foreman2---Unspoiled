@@ -18,7 +18,6 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<double?> TrailingGapProperty =
             AvaloniaProperty.Register<FormGroup, double?>(nameof(TrailingGap));
 
-        //A25 load-failure state (Settings pane): delegates to Kit.StatePanel.
         public static readonly StyledProperty<object?> StateContentProperty =
             AvaloniaProperty.Register<FormGroup, object?>(nameof(StateContent));
 
@@ -74,7 +73,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void Subscribe() {
             Unsubscribe();
-            //Group-to-group gap is fixed at every scale step (not in ScaleContract.MultipliedKeys), same as the row gap it shares a token with.
             subs.Add(this.GetResourceObservable("Foreman.Space.Space4").Subscribe(new ResourceSinks.DoubleSink(v => {
                 groupGap = v;
                 ApplyMargin();

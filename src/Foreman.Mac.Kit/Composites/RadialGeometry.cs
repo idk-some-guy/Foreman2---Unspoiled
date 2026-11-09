@@ -2,7 +2,6 @@ using Avalonia;
 using System;
 
 namespace Foreman.Mac.Kit.Composites {
-    //Pure angle/hit-test maths for Kit.RadialRing, testable without a control, window or layout pass. Angle 0 is east, increasing clockwise; slice 0 is centred north (270°) and each following slice continues clockwise by 60°.
     internal static class RadialGeometry {
         public const int SliceCount = 6;
         public const double SliceSpan = 360.0 / SliceCount;
@@ -24,7 +23,6 @@ namespace Foreman.Mac.Kit.Composites {
             return 0;
         }
 
-        //null outside the ring (past the outer radius) or inside the hub - the polar hit test a rectangle can't express.
         public static int? HitTest(Point vectorFromCenter, double hubRadius, double outerRadius) {
             double r = Length(vectorFromCenter);
             if (r < hubRadius || r > outerRadius)

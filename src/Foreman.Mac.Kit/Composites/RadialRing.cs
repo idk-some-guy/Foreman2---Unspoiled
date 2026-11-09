@@ -18,7 +18,6 @@ using System.Linq;
 using System.Threading;
 
 namespace Foreman.Mac.Kit.Composites {
-    //A slice arms when the pointer crosses the hub radius into its wedge and stays armed until it crosses out again; arrows/diagonals arm the same way, any other printable key opens a context menu of the same filled items (A24). Items is always six slots; an empty slot keeps its bare wedge and never arms. Fixed 220pt across every ScaleContract step.
     public class RadialRing : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(RadialRing);
 
@@ -37,7 +36,6 @@ namespace Foreman.Mac.Kit.Composites {
         public int ArmedIndex { get => GetValue(ArmedIndexProperty); set => SetValue(ArmedIndexProperty, value); }
         public bool IsOpen { get => GetValue(IsOpenProperty); set => SetValue(IsOpenProperty, value); }
 
-        //A25: a link drag with fewer than two outcomes must never open a ring with disabled slices.
         public bool CanOpen => canOpen;
 
         public AvaloniaList<RadialItem> Items { get; } = [];
@@ -136,7 +134,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void RecomputeCanOpen() => SetAndRaise(CanOpenProperty, ref canOpen, Items.Count(i => i.IsEnabled && !i.IsEmpty) >= 2);
 
-        //A fixed 10pt margin beyond the 100pt outer radius, not derived from it - matches the mock's own 0..220 viewBox regardless of the radii tokens.
         private double Center => diameter / 2;
 
         private void RebuildVisuals() {
@@ -240,7 +237,6 @@ namespace Foreman.Mac.Kit.Composites {
             return geometry;
         }
 
-        //Colour and stroke weight change together, so the armed slice survives Increase Contrast (A18).
         private void UpdateArmedVisuals() {
             for (int i = 0; i < sliceVisuals.Count; i++) {
                 bool armed = i == ArmedIndex;
@@ -287,19 +283,16 @@ namespace Foreman.Mac.Kit.Composites {
                 _ = HideAfterCloseFade();
         }
 
-        //Under Reduce Motion the ring stays at full size, so its fades never show a scale.
         private static TransformOperations OpenScale(bool open) {
             double scale = open || Motion.ReduceMotion ? 1 : Motion.RadialOpenScale;
             return TransformOperations.Parse($"scale({scale.ToString(CultureInfo.InvariantCulture)})");
         }
 
-        //A closed ring stays in its host's surface, so it leaves the tab order until it opens again.
         private void ApplyNavigation(bool open) {
             Focusable = open;
             KeyboardNavigation.SetIsTabStop(this, open);
         }
 
-        //The close fade runs on the animation clock; the ring leaves the tree only once that clock has run out.
         private async System.Threading.Tasks.Task HideAfterCloseFade() {
             var cancellation = new CancellationTokenSource();
             closeFade = cancellation;
@@ -319,7 +312,6 @@ namespace Foreman.Mac.Kit.Composites {
                 IsVisible = false;
         }
 
-        //Slices wipe in clockwise over RadialSweepDuration, staggered by index; Reduce Motion collapses every slice to the same opacity-only fade at zero delay.
         private void ApplySweep(bool open) {
             if (!open)
                 return;
@@ -343,7 +335,6 @@ namespace Foreman.Mac.Kit.Composites {
             Arm(position);
         }
 
-        //The cursor dot and its halo are the only visuals this touches - everything else keeps the position RebuildVisuals gave it.
         private void UpdateCursorPosition(Point position) {
             if (cursorDot is null || cursorHalo is null)
                 return;
@@ -363,7 +354,6 @@ namespace Foreman.Mac.Kit.Composites {
             CommitOrDismiss();
         }
 
-        //Tracks direction continuously once past the hub, wedge to wedge; re-entering the hub clears the arm.
         private void Arm(Point position) {
             Point vector = position - new Point(Center, Center);
             double radius = RadialGeometry.Length(vector);
@@ -416,7 +406,6 @@ namespace Foreman.Mac.Kit.Composites {
             if (!IsPrintable(e.Key) || (e.KeyModifiers & (KeyModifiers.Meta | KeyModifiers.Control)) != 0)
                 return;
 
-            //A printable key dismisses and reopens the filled items as a context menu - A24's accessible fallback since a direction gesture has no accessible equivalent.
             e.Handled = true;
             Dismissed?.Invoke(this, EventArgs.Empty);
             ContextMenuRequested?.Invoke(this, [.. Items.Where(i => !i.IsEmpty)]);
@@ -426,7 +415,6 @@ namespace Foreman.Mac.Kit.Composites {
             key is (>= Key.A and <= Key.Z) or (>= Key.D0 and <= Key.D9) or (>= Key.NumPad0 and <= Key.NumPad9)
                 or Key.Space or (>= Key.Multiply and <= Key.Divide) or (>= Key.OemSemicolon and <= Key.OemBackslash);
 
-        //Numpad follows a physical keypad's compass layout (8=N, 6=E, 2=S, 4=W, 7/9/1/3 the diagonals); arrow keys cover the four cardinals the same way.
         private static double? KeyAngle(Key key) => key switch {
             Key.Up or Key.NumPad8 => 270,
             Key.Right or Key.NumPad6 => 0,
@@ -441,7 +429,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         protected override AutomationPeer OnCreateAutomationPeer() => new RadialRingAutomationPeer(this);
 
-        //A menu the host names, with one item per filled wedge in clockwise slot order; empty wedges stay out of the tree.
         private sealed class RadialRingAutomationPeer(RadialRing owner) : ControlAutomationPeer(owner) {
             protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Menu;
             protected override bool IsControlElementCore() => owner.IsOpen;

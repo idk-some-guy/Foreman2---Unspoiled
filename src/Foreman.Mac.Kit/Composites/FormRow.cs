@@ -15,7 +15,6 @@ using System.Linq;
 using System.Threading;
 
 namespace Foreman.Mac.Kit.Composites {
-    //Window is the 132pt document-form shape; Inspector and Popover are the two narrower sidebar/chrome shapes.
     public enum FormRowLabelColumn { Window, Inspector, Popover }
 
     public class FormRow : ContentControl {
@@ -33,21 +32,15 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<string?> UnitProperty =
             AvaloniaProperty.Register<FormRow, string?>(nameof(Unit));
 
-        //A choice grid's selected-name note is a value, not help copy (2026-09-17 building-picker ruling:
-        //TextSecondary, not Tertiary) - orthogonal to Note itself so ordinary help notes elsewhere are untouched.
         public static readonly StyledProperty<bool> NoteIsValueProperty =
             AvaloniaProperty.Register<FormRow, bool>(nameof(NoteIsValue));
 
-        //A second TextTertiary run after the note, separated by " · " (the Assembler row's stats readout).
         public static readonly StyledProperty<string?> NoteSuffixProperty =
             AvaloniaProperty.Register<FormRow, string?>(nameof(NoteSuffix));
 
-        //The zero-candidate row is "not researched", not "invalid input" - amber, not red (2026-09-17 ruling).
         public static readonly StyledProperty<bool> ErrorIsWarningProperty =
             AvaloniaProperty.Register<FormRow, bool>(nameof(ErrorIsWarning));
 
-        //A choice grid's value line turns Warning-coloured when the armed selection is missing from the
-        //preset (A25 error state) - the grid itself stays visible, so this rides the Note row, not Error.
         public static readonly StyledProperty<bool> NoteIsWarningProperty =
             AvaloniaProperty.Register<FormRow, bool>(nameof(NoteIsWarning));
 
@@ -168,7 +161,6 @@ namespace Foreman.Mac.Kit.Composites {
             UnwatchContent();
         }
 
-        //A control that stretches (Stretch alignment, no explicit Width) fills the column to the trailing inset; any other keeps its own width.
         private void WatchContent() {
             UnwatchContent();
             if (Content is Control content && this.IsAttachedToVisualTree()) {
@@ -207,7 +199,6 @@ namespace Foreman.Mac.Kit.Composites {
             return result;
         }
 
-        //Clicking the label moves focus to the row's control (addendum's keyboard row).
         private void OnLabelPressed(object? sender, PointerPressedEventArgs e) {
             if (label is null || !e.GetCurrentPoint(label).Properties.IsLeftButtonPressed)
                 return;
@@ -315,12 +306,10 @@ namespace Foreman.Mac.Kit.Composites {
             if (textHost is not null && FirstLine(textHost) is TextLine hostLine)
                 return textHost.TranslatePoint(new Point(0, hostLine.Baseline), this)?.Y;
 
-            //No text of its own: center an assumed line (the label's own metrics) on the control's own arranged height.
             double fallbackLocal = (content.Bounds.Height - labelLine.Height) / 2 + labelLine.Baseline;
             return content.TranslatePoint(new Point(0, fallbackLocal), this)?.Y;
         }
 
-        //Mirrors ControlFirstLineBaselineY's fallback with DesiredSize standing in for Bounds pre-arrange.
         private double PredictedLabelOverflow() {
             if (label is null || Content is not Control content)
                 return 0;
@@ -337,7 +326,6 @@ namespace Foreman.Mac.Kit.Composites {
                 ? hostLine.Baseline
                 : (contentHeight - labelLine.Height) / 2 + labelLine.Baseline;
 
-            //Only the part of the shifted label that hangs below the row's own height needs room.
             double shift = controlBaselineLocal - labelLine.Baseline;
             double labelHeight = label.DesiredSize.Height;
             double rowHeight = Math.Max(Math.Max(labelHeight, contentHeight), rowMinHeight);
@@ -366,7 +354,6 @@ namespace Foreman.Mac.Kit.Composites {
             AutomationProperties.SetHelpText(contentControl, !string.IsNullOrEmpty(Error) ? Error : Note);
         }
 
-        //Error replaces the note rather than stacking with it (addendum §01).
         private void ApplyRowState() {
             bool hasError = !string.IsNullOrEmpty(Error);
             PseudoClasses.Set(":error", hasError);

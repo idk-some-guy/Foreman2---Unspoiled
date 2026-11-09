@@ -85,7 +85,6 @@ namespace Foreman.Mac.Kit.Composites {
                 inset = v;
                 ApplyInset();
             }, inset)));
-            //Group-to-group gap, fixed at every scale step (not in ScaleContract.MultipliedKeys), same as FormGroup's own.
             subs.Add(this.GetResourceObservable("Foreman.Space.Space3").Subscribe(new ResourceSinks.DoubleSink(v => {
                 groupGap = v;
                 ApplyInset();

@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 
 namespace Foreman.Mac.Kit.Composites {
-    //Kit.SheetFrame at SheetWidthAlert 300 (Standard for a long message) with the alert body baked in: app icon, headline, informative text.
     public class AlertFrame : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(AlertFrame);
 
@@ -48,7 +47,6 @@ namespace Foreman.Mac.Kit.Composites {
         private Grid? body;
         private readonly List<IDisposable> tokenSubs = [];
 
-        //Gap between the icon column and the text stack (addendum §05: Foreman.Space.Space3).
         private double bodyGapSpace3 = 12;
         private double iconSize = 32;
 
@@ -102,7 +100,6 @@ namespace Foreman.Mac.Kit.Composites {
         private void OnSheetClosed(object? sender, EventArgs e) => Closed?.Invoke(this, EventArgs.Empty);
         private void OnSheetCancelled(object? sender, EventArgs e) => Cancelled?.Invoke(this, EventArgs.Empty);
 
-        //A headline-only alert never collapses the leading 32pt icon column + gap.
         private void ApplyInformative() {
             if (informativeText is not null)
                 informativeText.IsVisible = !string.IsNullOrEmpty(InformativeText);

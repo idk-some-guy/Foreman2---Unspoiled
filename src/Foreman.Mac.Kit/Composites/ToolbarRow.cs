@@ -13,11 +13,9 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.Kit.Composites {
-    //The unified titlebar row (composites addendum §08): title · groups · flexible gap · search · zoom; collapses as width shrinks, title and zoom never collapse.
     public class ToolbarRow : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(ToolbarRow);
 
-        //2pt within a group (Space.Space1 4 minus 2) - fixed at every scale step, like the row's 16pt group spacer.
         private const double GroupItemGap = 2;
 
         private static readonly Dictionary<ToolbarGroupRole, string> GroupNames = new() {
@@ -84,7 +82,6 @@ namespace Foreman.Mac.Kit.Composites {
                 panel.CollapseStepChanged -= RehomeRovingTabStop;
         }
 
-        //Composed children resolve their own theme from this control's resource scope, once attached - never a one-shot constructor read.
         private void ApplyTheme(string key, StyledElement target) {
             if (target.Theme is null && this.TryFindResource(key, null, out object? theme) && theme is ControlTheme controlTheme)
                 target.Theme = controlTheme;
@@ -131,7 +128,6 @@ namespace Foreman.Mac.Kit.Composites {
             SetRovingTabStop(null);
         }
 
-        //One tab stop for the roving group (composites addendum §08 keyboard row): a null target falls back to the leading visible one.
         private void SetRovingTabStop(Control? target) {
             if (panel is null)
                 return;
@@ -141,7 +137,6 @@ namespace Foreman.Mac.Kit.Composites {
                 t.IsTabStop = ReferenceEquals(t, rovingTarget);
         }
 
-        //Fired when ToolbarRowPanel folds/restores the trailing group - re-homes the roving stop when its current target left the group.
         private void RehomeRovingTabStop() {
             if (panel is null)
                 return;
@@ -157,7 +152,6 @@ namespace Foreman.Mac.Kit.Composites {
             if (targets.Count == 0)
                 return;
 
-            //Only rove when focus is already on one of our own items/overflow button - the search field and zoom stepper own ←/→ inside themselves.
             Control? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
             int current = focused is not null ? targets.IndexOf(focused) : -1;
             if (current < 0)
@@ -169,7 +163,6 @@ namespace Foreman.Mac.Kit.Composites {
             e.Handled = true;
         }
 
-        //The trailing group's own commands, mirrored as plain overflow actions (composites addendum §08: "the least-used trailing group moves into a Kit.MenuButton overflow").
         private void PopulateOverflow(ToolbarGroup group) {
             OverflowButton.ActionItems.Clear();
             foreach (ToolbarItem item in group.Items) {

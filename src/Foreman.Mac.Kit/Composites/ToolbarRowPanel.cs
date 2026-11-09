@@ -9,10 +9,8 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.Kit.Composites {
-    //Gap owed before a child, resolved to a real number at arrange time - never a margin, so the collapse search below can read it back.
     internal enum ToolbarGapKind { None, Group, Flex }
 
-    //Kit.ToolbarRow's layout: leading-to-trailing children with title/zoom fixed, three collapse steps (icon-only, search shrink, trailing group to overflow) as width runs out.
     public sealed class ToolbarRowPanel : Panel {
         private readonly List<ToolbarGapKind> gaps = [];
         private List<ToolbarItem> allItems = [];
@@ -28,7 +26,6 @@ namespace Foreman.Mac.Kit.Composites {
         private SearchField? searchField;
         private ZoomStepper? zoomStepper;
 
-        //Raised once per real collapse-step change, after visibility is applied - the row uses it to re-home its roving tab stop.
         internal event Action? CollapseStepChanged;
 
         private double groupGap = 16;
@@ -70,7 +67,6 @@ namespace Foreman.Mac.Kit.Composites {
             subs.Clear();
         }
 
-        //Called once per ToolbarRow.Rebuild(): flat leading-to-trailing child list tagged with gap kind, group panels, and the trailing group's overflow pairing.
         internal void SetContent(IReadOnlyList<(Control Child, ToolbarGapKind Gap)> content, IReadOnlyList<ToolbarItem> items, IReadOnlyList<StackPanel> groups, StackPanel? overflowGroup, MenuButton? overflow, SearchField? field, ZoomStepper? zoom) {
             Children.Clear();
             gaps.Clear();
@@ -117,7 +113,6 @@ namespace Foreman.Mac.Kit.Composites {
                 searchField.Width = appliedStep >= 2 ? searchMinWidth : searchNaturalWidth;
         }
 
-        //Deterministic, so no styling pass and no live-item mutation: each floor (icon-only, labeled) is its own MinWidth token vs. the item's real padding-plus-content width.
         private void RecacheItemWidths() {
             double paddingH = itemPadding.Left + itemPadding.Right;
             double iconOnly = Math.Max(iconOnlyWidthToken, paddingH + glyph17);
@@ -131,10 +126,8 @@ namespace Foreman.Mac.Kit.Composites {
         internal double IconOnlyWidthOf(ToolbarItem item) => iconOnlyWidths.GetValueOrDefault(item);
         internal double RequiredWidthAtStep(int step) => requiredByStep[step];
 
-        //Roving-tabindex order (composites addendum §08 keyboard row): visible items group by group, the overflow button when it's showing, then the zoom stepper's three buttons.
         internal List<Control> FocusTargets() => FocusCandidates(onlyVisible: true);
 
-        //Every possible roving-group member regardless of visibility - clears a stale IsTabStop left on a member whose group just folded away.
         internal List<Control> AllFocusCandidates() => FocusCandidates(onlyVisible: false);
 
         private List<Control> FocusCandidates(bool onlyVisible) {
@@ -155,7 +148,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         private static readonly string[] ZoomStepperButtonNames = ["PART_Minus", "PART_Readout", "PART_Plus"];
 
-        //Picks the roving target after a collapse-step change moved the previous one out of the tree: the overflow button when it swallowed the previous target's group, otherwise the leading visible target.
         internal Control? ReplacementFocusTarget(Control? previous) {
             List<Control> targets = FocusTargets();
             if (previous is not null && targets.Contains(previous))
@@ -180,7 +172,6 @@ namespace Foreman.Mac.Kit.Composites {
             return sum + (group.Spacing * (its.Length - 1));
         }
 
-        //requiredByStep[n] is constant for this content until it changes (a resize, a token change) - computed once, not on every Measure.
         private void RecomputeRequiredWidths() {
             double titleWidth = Children.Count > 0 ? Children[0].DesiredSize.Width : 0;
             double zoomWidth = Children.Count > 0 ? Children[^1].DesiredSize.Width : 0;
@@ -246,7 +237,6 @@ namespace Foreman.Mac.Kit.Composites {
             return finalSize;
         }
 
-        //Steps 0-3: shown, icon-only, +search at min width, +trailing group folds into overflow; applied once per real decision change.
         private void ApplyCollapseStep(int step) {
             bool iconOnly = step >= 1;
             foreach (ToolbarItem item in allItems) {

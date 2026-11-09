@@ -15,10 +15,8 @@ using ProgressBarControl = Foreman.Mac.Kit.Controls.ProgressBar;
 using SpinnerControl = Foreman.Mac.Kit.Controls.Spinner;
 
 namespace Foreman.Mac.Kit.Composites {
-    //Loading first so it is the default value - the one shape a bare `new StatePanel()` may carry without a button.
     public enum StatePanelShape { Loading, Empty, NoResults, Error }
 
-    //A25's four shapes: glyph or spinner, headline, sentence, [progress], centered buttons - or one compact line under 196x260.
     public class StatePanel : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(StatePanel);
 
@@ -60,16 +58,12 @@ namespace Foreman.Mac.Kit.Composites {
         public string? Sentence { get => GetValue(SentenceProperty); set => SetValue(SentenceProperty, value); }
         public ButtonRow? Buttons { get => GetValue(ButtonsProperty); set => SetValue(ButtonsProperty, value); }
         public double? Progress { get => GetValue(ProgressProperty); set => SetValue(ProgressProperty, value); }
-        //The host's own row (or button) stands in as the required way out; the panel draws no button and never touches it.
         public Control? ExternalButtons { get => GetValue(ExternalButtonsProperty); set => SetValue(ExternalButtonsProperty, value); }
 
-        //A host strip (a sheet's footer) asks for the compact form whatever the region's size.
         public bool ForceCompact { get => GetValue(ForceCompactProperty); set => SetValue(ForceCompactProperty, value); }
 
-        //Opt-in: moves focus to the primary button on appear; left false, Return still activates it wherever focus already is.
         public bool MovesFocusOnAppear { get => GetValue(MovesFocusOnAppearProperty); set => SetValue(MovesFocusOnAppearProperty, value); }
 
-        //A host that already waited out the grace before showing .loading sets this to zero.
         public TimeSpan LoadingDelay { get => GetValue(LoadingDelayProperty); set => SetValue(LoadingDelayProperty, value); }
 
         private bool isCompact;
@@ -97,7 +91,6 @@ namespace Foreman.Mac.Kit.Composites {
         private double glyph16 = 16;
         private double barGap = 8;
 
-        //One operation runs from .loading's first appearance until the shape changes or the panel detaches.
         private bool barLatched;
         private double barValue;
         private double tallestLoading;
@@ -145,7 +138,6 @@ namespace Foreman.Mac.Kit.Composites {
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnAttachedToVisualTree(e);
             isAttached = true;
-            //Re-creates the glyph geometry/size subscriptions torn down on the previous detach.
             ApplyShape();
             SubscribeLayoutTokens();
             ApplyProgress();
@@ -164,7 +156,6 @@ namespace Foreman.Mac.Kit.Composites {
             ResetOperation();
         }
 
-        //The compact .loading strip never shrinks within one operation, so a stage sentence losing a line cannot jolt the sheet.
         protected override Size MeasureOverride(Size availableSize) {
             bool compact = ForceCompact || availableSize.Width < RegionMinWidth || availableSize.Height < RegionMinHeight;
             if (compact != IsCompact) {
@@ -197,7 +188,6 @@ namespace Foreman.Mac.Kit.Composites {
             }, barGap)));
         }
 
-        //The leading slot centres on the sentence's first line box, never on the whole wrapped block.
         private void ApplyCompactGeometry() {
             if (compactGlyphBox is not null)
                 compactGlyphBox.Margin = new Thickness(0, Math.Max(0, (calloutLineHeight - glyph16) / 2), 0, 0);
@@ -213,13 +203,11 @@ namespace Foreman.Mac.Kit.Composites {
             protected override AutomationLiveSetting GetLiveSettingCore() => AutomationLiveSetting.Polite;
         }
 
-        //Tunnel so Return activates the primary regardless of which control inside the panel has focus.
         private void OnKeyDown(object? sender, KeyEventArgs e) {
             if (e.Key == Key.Enter && Buttons?.TryInvokeDefault() == true)
                 e.Handled = true;
         }
 
-        //Fires only on an actual Shape change - Loading, the enum default, never fires this on bare construction.
         private void OnShapeChanged() {
             if (Shape != StatePanelShape.Loading)
                 ResetOperation();
@@ -228,7 +216,6 @@ namespace Foreman.Mac.Kit.Composites {
             ApplyShape();
             ApplyHeadline();
             ApplyProgress();
-            //Restarts the cross-fade (and .loading delay) instead of letting the previous shape's transition finish.
             if (isAttached)
                 ApplyAppear();
         }
@@ -239,7 +226,6 @@ namespace Foreman.Mac.Kit.Composites {
             ApplyButtonsHost();
         }
 
-        //A non-loading shape with no button is a build failure, not a lint rule.
         private void ValidateButtons() {
             if (Buttons is not null && ExternalButtons is not null)
                 throw new InvalidOperationException("Kit.StatePanel: carries either its own button row or the host's, not both.");
@@ -263,7 +249,6 @@ namespace Foreman.Mac.Kit.Composites {
                 compactButtonsHost.Content = IsCompact ? BuildCompactPrimaryButton() : null;
         }
 
-        //One optional Kit.Button.plain for the primary, never the full row; proxies its click back to ButtonRow.
         private Button? BuildCompactPrimaryButton() {
             Button? source = Buttons?.ResolveDefaultButton();
             if (source is null)
@@ -336,8 +321,6 @@ namespace Foreman.Mac.Kit.Composites {
                 AutomationProperties.SetName(progressBar, Sentence);
         }
 
-        //.loading only, and only a determinate bar - an unknown total shows the spinner alone, never an indeterminate bar alongside it.
-        //Once an operation has a bar it keeps it: never bar → spinner, and the value never moves backward.
         private void ApplyProgress() {
             if (Shape == StatePanelShape.Loading && Progress is double progress) {
                 barValue = barLatched ? Math.Max(barValue, progress) : progress;
@@ -352,7 +335,6 @@ namespace Foreman.Mac.Kit.Composites {
             ApplyCompactProgress(show);
         }
 
-        //The determinate strip drops its leading slot and stacks the sentence over the bar; spinner and bar are removed, not hidden.
         private void ApplyCompactProgress(bool show) {
             if (compactLayout is null || compactGlyphBox is null || compactProgress is null || compactSpinner is null)
                 return;
@@ -384,7 +366,6 @@ namespace Foreman.Mac.Kit.Composites {
             PseudoClasses.Set(":compact", IsCompact);
         }
 
-        //Fades in on the cross-fade clock; .loading also waits StatePanelDelay so a fast solve never flashes one.
         private void ApplyAppear() {
             TimeSpan delay = Shape == StatePanelShape.Loading ? LoadingDelay : TimeSpan.Zero;
             Opacity = 0;
@@ -394,7 +375,6 @@ namespace Foreman.Mac.Kit.Composites {
                 Dispatcher.UIThread.Post(FocusPrimary, DispatcherPriority.Loaded);
         }
 
-        //The same shape shown again (a repeat failure): the live region speaks it once more, with no fade.
         public void Reannounce() =>
             ControlAutomationPeer.CreatePeerForElement(this).RaisePropertyChangedEvent(AutomationElementIdentifiers.NameProperty, null, Headline);
 

@@ -109,7 +109,6 @@
     <Style Selector="^:disabled">
       <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
     </Style>
-    <!-- Opacity means "unavailable", never "inert" (A22 amended): the cell stays enabled/hit-testable. -->
     <Style Selector="^:unavailable">
       <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Unavailable}" />
     </Style>

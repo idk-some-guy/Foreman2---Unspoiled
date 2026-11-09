@@ -9,7 +9,6 @@ using System;
 using System.Collections.Generic;
 
 namespace Foreman.Mac.Kit.Composites {
-    //Addendum §09's quick-add result row: selection (IsSelected/IsKey) is driven externally by the hosting panel, mirroring Kit.ListRow.
     public class PaletteRow : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(PaletteRow);
 
@@ -137,7 +136,6 @@ namespace Foreman.Mac.Kit.Composites {
             subs.Clear();
         }
 
-        //Selection follows the row rule (addendum §09): AccentSoft + AccentText at 600 when key, SelectionInactive with normal text when not - hover suppressed on the selected row.
         private void ApplyState() {
             if (fill is null || selectionFill is null)
                 return;
@@ -153,7 +151,6 @@ namespace Foreman.Mac.Kit.Composites {
                 labelText.Foreground = foreground;
                 labelText.FontWeight = IsSelected && IsKey ? selectedWeight : normalWeight;
             }
-            //Trailing kind is always TextTertiary - it disambiguates, it doesn't track selection.
             if (kindText is not null)
                 kindText.Foreground = textTertiary;
         }

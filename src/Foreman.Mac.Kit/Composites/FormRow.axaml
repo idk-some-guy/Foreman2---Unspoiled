@@ -108,17 +108,14 @@
       <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Error}" />
     </Style>
 
-    <!-- A choice grid's selected-name note is a value, not help copy (2026-09-17 building-picker ruling). -->
     <Style Selector="^:value /template/ TextBlock#PART_Note">
       <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
     </Style>
 
-    <!-- The armed selection is missing from the preset (A25 error state): wins over :value below it. -->
     <Style Selector="^:note-warning /template/ TextBlock#PART_Note">
       <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Warning}" />
     </Style>
 
-    <!-- The zero-candidate row is "not researched", not "invalid input" - amber, not red. -->
     <Style Selector="^:error:warning /template/ Path#PART_ErrorGlyph">
       <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.Warning}" />
     </Style>

@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.Kit.Composites {
-    //ButtonRow's own panel: leading helper separated by a flexible gap from the trailing cluster (Other/Destructive/Cancel/Default), never full-bleed.
     public sealed class ButtonRowPanel : Panel {
         private double gap = 8;
         private double minButtonWidth = 64;
@@ -67,7 +66,6 @@ namespace Foreman.Mac.Kit.Composites {
             double avail = availableSize.Width;
             double rowHeight = Children.Count == 0 ? 0 : Children.Max(c => c.DesiredSize.Height);
 
-            //Wrap decision is the same regardless of alignment - only Arrange differs on IsCentered.
             (Control? helper, List<Control> cluster) = Groups();
             double clusterWidth = LineWidth(cluster, gap);
             double helperWidth = helper?.DesiredSize.Width ?? 0;
@@ -140,7 +138,6 @@ namespace Foreman.Mac.Kit.Composites {
         private static double LineWidth(List<Control> line, double gap) =>
             line.Count == 0 ? 0 : line.Sum(c => c.DesiredSize.Width) + (gap * (line.Count - 1));
 
-        //Fills from the trailing (Default) end backward, so overflow moves up a line rather than shrinking.
         private static List<List<Control>> WrapCluster(List<Control> cluster, double maxWidth, double gap) {
             var lines = new List<List<Control>>();
             var current = new List<Control>();

@@ -47,7 +47,6 @@ namespace Foreman.Mac.Kit.Composites {
             set => SetValue(ValueProperty, value);
         }
 
-        //Which edge the driven pane grows toward - Trailing toward the pane's far edge, the opposite of Leading.
         public SplitDividerAnchor Anchor {
             get => GetValue(AnchorProperty);
             set => SetValue(AnchorProperty, value);
@@ -55,7 +54,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         public event EventHandler<double>? ValueChanged;
 
-        //Fires once per resize gesture (drag release, keyboard step, reset settling), not per intermediate write.
         public event EventHandler<double>? ValueCommitted;
 
         private bool isDragging;

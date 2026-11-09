@@ -10,7 +10,6 @@ using System.Linq;
 namespace Foreman.Mac.Kit.Composites {
     public enum ButtonRowRole { Helper, Other, Cancel, Default, Destructive }
 
-    //Trailing-aligned action row: [helper] ····· [other] [Cancel] [default], or [other][Destructive][Cancel] when the trailing action is destructive.
     public class ButtonRow : ItemsControl {
         protected override Type StyleKeyOverride => typeof(ButtonRow);
 
@@ -28,7 +27,6 @@ namespace Foreman.Mac.Kit.Composites {
             set => SetValue(IsCenteredProperty, value);
         }
 
-        //Carries the role actually resolved, Default or the promoted Cancel, so a host can tell the two invocations apart.
         public event EventHandler<ButtonRowRole>? DefaultInvoked;
         public event EventHandler? CancelInvoked;
         public event EventHandler? DestructiveInvoked;
@@ -54,11 +52,9 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e) => ApplyRoles();
 
-        //.default styling goes on the Default-role button when present, else promoted onto Cancel when a Destructive button is present.
         private void ApplyRoles() {
             Button[] buttons = [.. Items.OfType<Button>()];
             foreach (Button b in buttons) {
-                //Never full-bleed/equal-width: the row arranges every button at its own desired size.
                 b.HorizontalAlignment = HorizontalAlignment.Left;
                 b.Classes.Set("primary", false);
                 b.Classes.Set("destructive", GetRole(b) == ButtonRowRole.Destructive);
@@ -100,7 +96,6 @@ namespace Foreman.Mac.Kit.Composites {
             return true;
         }
 
-        //Exposed for a host that needs the resolved default button without depending on the "primary" class's visual-tree realization.
         public Button? ResolveDefaultButton() => EffectiveDefault();
 
         private Button? EffectiveDefault() {
@@ -112,7 +107,6 @@ namespace Foreman.Mac.Kit.Composites {
             Button? cancel = Find(buttons, ButtonRowRole.Cancel);
             if (destructive is not null && cancel is not null)
                 return cancel;
-            //Dismiss-only row (a lone "Done"): its one button is both default and cancel target.
             return buttons.Length == 1 ? buttons[0] : null;
         }
 
@@ -125,7 +119,6 @@ namespace Foreman.Mac.Kit.Composites {
         private static bool Click(Button? button) {
             if (button is null || !button.IsEffectivelyEnabled)
                 return false;
-            //Mirrors Button.OnClick: Command runs only if nothing handled Click first.
             var click = new RoutedEventArgs(Button.ClickEvent);
             button.RaiseEvent(click);
             if (!click.Handled && button.Command is { } command && command.CanExecute(button.CommandParameter))
@@ -133,7 +126,6 @@ namespace Foreman.Mac.Kit.Composites {
             return true;
         }
 
-        //Tunnel so Return/Escape/⌘⌫ win over whichever row button happens to have focus.
         private void OnKeyDown(object? sender, KeyEventArgs e) {
             switch (e.Key) {
                 case Key.Enter:

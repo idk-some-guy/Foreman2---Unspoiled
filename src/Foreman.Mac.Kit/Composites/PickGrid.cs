@@ -14,54 +14,41 @@ using System.Collections.Specialized;
 using System.Linq;
 
 namespace Foreman.Mac.Kit.Composites {
-    //A row (or, given Columns, a wrapped block) of PickCell slots; the grid is the sole tab stop, so arrow/Home/End/Return/Delete are all handled here.
-    //Choice mode (.choice, 2026-09-17 building-picker ruling) repurposes the same cells as a radio group: a
-    //wrapping track instead of a fixed-column Grid, a focus cursor kept apart from the armed SelectedIndex,
-    //and pointer/Return committing instead of merely selecting.
     public class PickGrid : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(PickGrid);
 
         public static readonly StyledProperty<int> ColumnsProperty =
             AvaloniaProperty.Register<PickGrid, int>(nameof(Columns));
 
-        //-1 is the grid's own "nothing armed" state, the default until a click/Space/Return arms a cell.
         public static readonly StyledProperty<int> SelectedIndexProperty =
             AvaloniaProperty.Register<PickGrid, int>(nameof(SelectedIndex), -1);
 
-        //The keyboard cursor: Tab/arrows move this and never touch SelectedIndex, and it survives a blur.
         public static readonly StyledProperty<int> FocusedIndexProperty =
             AvaloniaProperty.Register<PickGrid, int>(nameof(FocusedIndex), -1);
 
         public static readonly StyledProperty<string?> GroupLabelProperty =
             AvaloniaProperty.Register<PickGrid, string?>(nameof(GroupLabel), "Slots");
 
-        //Equipped grids hold fixed positions ("slot"); a catalog/option grid holds none - the host says which by setting this false.
         public static readonly StyledProperty<bool> NamesSlotsProperty =
             AvaloniaProperty.Register<PickGrid, bool>(nameof(NamesSlots), true);
 
-        //The empty-cell tooltip's noun, propagated to every PickCell - the kit names none by default.
         public static readonly StyledProperty<string?> EmptyItemNounProperty =
             AvaloniaProperty.Register<PickGrid, string?>(nameof(EmptyItemNoun));
 
-        //A radio group of icon cells (2026-09-17 building-picker ruling): exactly one cell selected, no
-        //empty cells, Delete does nothing, arrows move a focus cursor and Space/Return commits it.
         public static readonly StyledProperty<bool> IsChoiceModeProperty =
             AvaloniaProperty.Register<PickGrid, bool>(nameof(IsChoiceMode));
 
-        //Options role, host-fed: null keeps the legacy help text, 0 is "no target", N>=1 is the 1-based slot a commit hits.
         public static readonly StyledProperty<int?> TargetSlotProperty =
             AvaloniaProperty.Register<PickGrid, int?>(nameof(TargetSlot));
 
         public static readonly StyledProperty<bool> TargetIsReplaceProperty =
             AvaloniaProperty.Register<PickGrid, bool>(nameof(TargetIsReplace));
 
-        //The equipped role's arming state in words, for a host to bind a note slot to; empty in the other two roles.
         public static readonly DirectProperty<PickGrid, string> ArmingNoteProperty =
             AvaloniaProperty.RegisterDirect<PickGrid, string>(nameof(ArmingNote), g => g.armingNote);
 
         public AvaloniaList<PickSlot> Slots { get; }
 
-        //0 = natural width, one row sized to the slot count (addendum §03: "the grid's natural width is its cell count").
         public int Columns {
             get => GetValue(ColumnsProperty);
             set => SetValue(ColumnsProperty, value);
@@ -115,11 +102,8 @@ namespace Foreman.Mac.Kit.Composites {
         public event EventHandler<int>? ChooseRequested;
         public event EventHandler<int>? Cleared;
 
-        //Fires on a pointer click specifically (never on keyboard/arrow selection) - the app's own equip
-        //flow needs to tell "the user clicked this cell" apart from SelectedIndex simply changing.
         public event EventHandler<int>? CellClicked;
 
-        //For a Cleared handler whose model compacts: the host names the arm target, so the grid leaves the positional hole alone.
         public void ArmAfterClear(int index) {
             hostArmedAfterClear = true;
             SetCurrentValue(SelectedIndexProperty, index >= 0 && index < Slots.Count ? index : -1);
@@ -163,7 +147,6 @@ namespace Foreman.Mac.Kit.Composites {
                 if (IsChoiceMode) {
                     SetCurrentValue(FocusedIndexProperty, SelectedIndex >= 0 ? SelectedIndex : (Slots.Count > 0 ? 0 : -1));
                 } else {
-                    //Tab never arms: the cursor lands where it last was, slot 0 on first entry.
                     int candidate = FocusedIndex >= 0 && FocusedIndex < Slots.Count ? FocusedIndex : (Slots.Count > 0 ? 0 : -1);
                     SetCurrentValue(FocusedIndexProperty, candidate);
                 }
@@ -196,7 +179,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         protected override AutomationPeer OnCreateAutomationPeer() => new PickGridAutomationPeer(this);
 
-        //Arrows/Home/End move the cursor only; a re-solve or an arm happens on commit, never on traversal.
         private int NavIndex => FocusedIndex;
 
         private void SetNavIndex(int index) => SetCurrentValue(FocusedIndexProperty, index);
@@ -249,18 +231,15 @@ namespace Foreman.Mac.Kit.Composites {
                     break;
                 case Key.Delete:
                 case Key.Back:
-                    //Choice mode: nothing to empty, so Delete/Backspace do nothing (2026-09-17 ruling).
                     if (IsChoiceMode || nav < 0 || Cleared is null)
                         break;
                     hostArmedAfterClear = false;
                     Cleared.Invoke(this, nav);
-                    //Only an ArmAfterClear call counts as the host naming its own target; equal values never do.
                     if (NamesSlots && !hostArmedAfterClear)
-                        SetCurrentValue(SelectedIndexProperty, nav); //the hole just made is the target
+                        SetCurrentValue(SelectedIndexProperty, nav);
                     e.Handled = true;
                     break;
                 case Key.Escape:
-                    //Only the equipped role arms, so only it defines an Escape (2026-09-17 ruling).
                     if (IsChoiceMode || !NamesSlots)
                         break;
                     if (SelectedIndex >= 0) {
@@ -273,7 +252,6 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
-        //Three ways by role: choice commits, the equipped role arms (Return also hands focus on), options echo a click.
         private void HandleCommitKey(KeyEventArgs e, int nav) {
             if (IsChoiceMode) {
                 if (nav < 0 || ChooseRequested is null)
@@ -298,16 +276,14 @@ namespace Foreman.Mac.Kit.Composites {
             e.Handled = true;
         }
 
-        //Options role: Return/Space equal a click (A22 §5), so a second Return equips into the next empty slot.
         private void CommitOptionCell(int index) {
             if (TargetSlot == 0)
-                return; //full and unarmed: a click or Return here is a no-op
+                return;
             SetCurrentValue(SelectedIndexProperty, index);
             SetCurrentValue(FocusedIndexProperty, index);
             CellClicked?.Invoke(this, index);
         }
 
-        //Type-to-select by entity name (choice mode only, 2026-09-17 ruling): moves focus, never commits.
         protected override void OnTextInput(TextInputEventArgs e) {
             base.OnTextInput(e);
             if (!IsChoiceMode || string.IsNullOrEmpty(e.Text) || Slots.Count == 0)
@@ -328,7 +304,6 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
-        //Rows come from real rendered Bounds (the choice track wraps freely), not a tracked column count.
         private void MoveVerticalChoice(int index, int direction) {
             if (index < 0 || cells.Count == 0) {
                 SetNavIndex(0);
@@ -340,7 +315,7 @@ namespace Foreman.Mac.Kit.Composites {
             List<int> candidates = [.. Enumerable.Range(0, cells.Count)
                 .Where(i => direction > 0 ? cells[i].Bounds.Y > y + 1 : cells[i].Bounds.Y < y - 1)];
             if (candidates.Count == 0)
-                return; //clamps at the grid's top/bottom edge
+                return;
 
             double targetY = direction > 0 ? candidates.Min(i => cells[i].Bounds.Y) : candidates.Max(i => cells[i].Bounds.Y);
             int target = candidates.Where(i => Math.Abs(cells[i].Bounds.Y - targetY) <= 1)
@@ -390,7 +365,6 @@ namespace Foreman.Mac.Kit.Composites {
             UpdateArmingNote();
         }
 
-        //The equipped role's four ruled strings, served as its AXValue and posted politely whenever the line changes.
         private void UpdateArmingNote() {
             string previous = armingNote;
             if (IsChoiceMode || !NamesSlots || Slots.Count == 0) {
@@ -406,7 +380,6 @@ namespace Foreman.Mac.Kit.Composites {
                 else if (filled >= slotCount)
                     ArmingNote = $"All {slotCount} slots full. Select a slot to replace.";
                 else
-                    //A hole can sit anywhere, so the next target is the first empty index, not the filled count.
                     ArmingNote = $"{filled} of {slotCount} slots filled. The next {noun} fills slot {FirstEmptyIndex() + 1}.";
             }
             if (!IsChoiceMode && NamesSlots)
@@ -427,7 +400,6 @@ namespace Foreman.Mac.Kit.Composites {
             peer.RaisePropertyChangedEvent(AutomationElementIdentifiers.HelpTextProperty, null, armingNote);
         }
 
-        //Options role: refreshes every cell's AXHelp/tooltip once the host changes what a commit would target.
         private void RefreshOptionCellState() {
             if (IsChoiceMode || NamesSlots)
                 return;
@@ -441,12 +413,8 @@ namespace Foreman.Mac.Kit.Composites {
             int slot => TargetIsReplace ? $"Replaces slot {slot}" : $"Fills slot {slot}",
         };
 
-        //Replacing one slot (the common solve-driven case: content changed, count didn't) updates that cell
-        //in place instead of tearing down the whole track - a full Rebuild toggles IsVisible false mid-pass
-        //(see below), which drops keyboard focus on whichever cell held it.
+        //A full Rebuild toggles IsVisible false mid-pass and drops keyboard focus, so one replaced slot updates its cell in place.
         private void OnSlotsChanged(object? sender, NotifyCollectionChangedEventArgs e) {
-            //Ahead of the untemplated return: an invisible subtree is never measured, so a grid that waited
-            //for slots would never template and never reach the Rebuild that derives this.
             IsVisible = Slots.Count > 0;
             if (track is null && wrap is null)
                 return;
@@ -475,7 +443,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void ApplyCellAutomation(PickCell cell, PickSlot slot, int index) {
             string content = slot.IsEmpty && !IsChoiceMode ? "Empty" : slot.Name ?? "Empty";
-            //A choice grid is never a set of slots by definition, regardless of NamesSlots' default.
             string position = !IsChoiceMode && NamesSlots ? $"slot {index + 1} of {Slots.Count}" : $"{index + 1} of {Slots.Count}";
             AutomationProperties.SetName(cell, $"{content}, {position}");
             AutomationProperties.SetHelpText(cell, IsChoiceMode ? BuildChoiceCellHelpText(slot)
@@ -560,7 +527,6 @@ namespace Foreman.Mac.Kit.Composites {
                         ChooseRequested?.Invoke(this, index);
                         AnnounceCommit(index);
                     } else if (NamesSlots) {
-                        //Equipped role: a click arms the slot, or disarms it if already armed (2026-09-17 ruling).
                         SetCurrentValue(SelectedIndexProperty, SelectedIndex == index ? -1 : index);
                         SetCurrentValue(FocusedIndexProperty, index);
                         Focus(NavigationMethod.Pointer);
@@ -593,8 +559,6 @@ namespace Foreman.Mac.Kit.Composites {
                 cells.Add(cell);
             }
 
-            //A Slots shrink can leave SelectedIndex pointing past the new end - clamp here too, not only on
-            //an explicit SelectedIndex write, or a stale index defeats the keyboard-entry guard.
             if (SelectedIndex >= Slots.Count)
                 SetCurrentValue(SelectedIndexProperty, Slots.Count - 1);
             else
@@ -602,8 +566,6 @@ namespace Foreman.Mac.Kit.Composites {
             ApplyAutomationName();
         }
 
-        //Committing announces the new value (choice mode only, 2026-09-17 ruling) - an arrow key only moves
-        //focus and never reaches here, so VoiceOver speaks a change exactly when the graph re-solves.
         private void AnnounceCommit(int index) {
             if (!IsChoiceMode || index < 0 || index >= Slots.Count)
                 return;
@@ -637,7 +599,6 @@ namespace Foreman.Mac.Kit.Composites {
                 return [ControlAutomationPeer.CreatePeerForElement(Grid.cells[Grid.SelectedIndex])];
             }
 
-            //The equipped role's AXValue is its own arming note (ruling row 4); empty elsewhere.
             bool IValueProvider.IsReadOnly => true;
             string? IValueProvider.Value => Grid.ArmingNote;
             void IValueProvider.SetValue(string? value) { }

@@ -10,7 +10,6 @@ using Avalonia.Media.Immutable;
 using System;
 
 namespace Foreman.Mac.Kit.Composites {
-    //A single module/beacon slot; PickGrid drives selection and focus from outside since cells never receive real focus.
     public class PickCell : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(PickCell);
 
@@ -26,15 +25,12 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<bool> IsMissingProperty =
             AvaloniaProperty.Register<PickCell, bool>(nameof(IsMissing));
 
-        //Choice mode: enabled in the preset but not researched in this save (A22 amended) - dims, stays choosable.
         public static readonly StyledProperty<bool> IsUnavailableProperty =
             AvaloniaProperty.Register<PickCell, bool>(nameof(IsUnavailable));
 
-        //Choice mode: the leading "None" cell (Beacon) - a real member of the set, not an empty slot.
         public static readonly StyledProperty<bool> IsNoneProperty =
             AvaloniaProperty.Register<PickCell, bool>(nameof(IsNone));
 
-        //Options role: the paired equipped grid is full and unarmed, so a click here is a no-op at :unavailable opacity.
         public static readonly StyledProperty<bool> IsFullAndUnarmedProperty =
             AvaloniaProperty.Register<PickCell, bool>(nameof(IsFullAndUnarmed));
 
@@ -44,8 +40,6 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<Color?> SwatchProperty =
             AvaloniaProperty.Register<PickCell, Color?>(nameof(Swatch));
 
-        //The empty-slot tooltip's noun ("module", "beacon", ...) - the kit itself names no consumer's
-        //vocabulary, so a grid without one set reads as a plain "press Return to choose".
         public static readonly StyledProperty<string?> EmptyItemNounProperty =
             AvaloniaProperty.Register<PickCell, string?>(nameof(EmptyItemNoun));
 
@@ -94,8 +88,6 @@ namespace Foreman.Mac.Kit.Composites {
 
         internal const string FullAndUnarmedMessage = "All slots full — select a slot to replace";
 
-        //Choice mode: set by the owning PickGrid so this cell's automation peer reports RadioButton/IsSelected
-        //instead of the slot grid's plain Button - not an AvaloniaProperty, since nothing visual reads it.
         internal bool IsChoiceItem { get; set; }
 
         public string? AccessibleName {

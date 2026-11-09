@@ -15,7 +15,6 @@
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="ctrl:FocusRing.IsEnabled" Value="True" />
     <Setter Property="ctrl:FocusRing.CornerRadius" Value="4" />
-    <!-- Reachable only via the toolbar row's roving tab stop - never independently Tab-stoppable. -->
     <Setter Property="IsTabStop" Value="False" />
     <Setter Property="Template">
       <ControlTemplate>

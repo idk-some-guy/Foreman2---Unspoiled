@@ -20,21 +20,17 @@ using System.Linq;
 using System.Threading;
 
 namespace Foreman.Mac.Kit.Composites {
-    //One quick-add result: Kind disambiguates two rows sharing a Name ("Iron plate" item vs. recipe).
     public sealed record PaletteResult(string Name, string Kind, IBrush? Icon);
 
-    //One footer key hint (a Kit.KeyCap + its description), e.g. "↩ Add".
     public sealed class PaletteFooterHint {
         public string? KeyText { get; set; }
         public string? KeyAccessibleName { get; set; }
         public string? Description { get; set; }
     }
 
-    //Addendum §09's quick-add popover body: search header, staggered rows, a compact no-results StatePanel and a key-hint footer; the host owns filtering, the top row is always the default selection.
     public class PalettePanel : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(PalettePanel);
 
-        //Below StatePanel.RegionMinHeight (196) so the no-results state always renders .compact inside the narrow popover.
         private const double NoResultsMaxHeight = 180;
 
         public static readonly StyledProperty<PaletteResult?> SelectedItemProperty =
@@ -147,7 +143,6 @@ namespace Foreman.Mac.Kit.Composites {
             Rebuild();
         }
 
-        //Coalesces a query's whole burst of collection edits into one Rebuild, or the no-op rule never fires on any single intermediate edit.
         private void ScheduleRebuild() {
             if (rebuildScheduled)
                 return;
@@ -160,7 +155,6 @@ namespace Foreman.Mac.Kit.Composites {
             }, DispatcherPriority.Loaded);
         }
 
-        //Composed children resolve their own theme from this control's resource scope, once attached - never a one-shot constructor read.
         private void ApplyTheme(string key, StyledElement target) {
             if (target.Theme is null && this.TryFindResource(key, null, out object? theme) && theme is ControlTheme controlTheme)
                 target.Theme = controlTheme;
@@ -185,7 +179,6 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
-        //The no-op rule: a keystroke yielding an identical result set replays nothing, no transitions, no new containers.
         private void Rebuild() {
             if (track is null)
                 return;
@@ -250,7 +243,6 @@ namespace Foreman.Mac.Kit.Composites {
             Dispatcher.UIThread.Post(() => row.Classes.Remove("entering"), DispatcherPriority.Loaded);
         }
 
-        //A leaving row gets its own throwaway wrap so it keeps rendering while it fades.
         private void FadeOutAndRemove(PaletteRow row) {
             if (track is null)
                 return;
@@ -258,7 +250,6 @@ namespace Foreman.Mac.Kit.Composites {
             CompositeMotion.FadeOutAndRemove(row, wrap, track);
         }
 
-        //Forwards the ambient ListHost.IsKey (inherited from whatever real window hosts this panel) onto every row.
         private void ApplyIsKeyToRows() {
             foreach (PaletteRow row in rows)
                 row.IsKey = isKey;
@@ -288,7 +279,6 @@ namespace Foreman.Mac.Kit.Composites {
                 CommittedAsSource?.Invoke(this, item);
         }
 
-        //Handled on the tunnel so these keys always win over the search box's own key handling, wherever focus sits (mirrors Kit.SheetFrame).
         private void OnKeyDown(object? sender, KeyEventArgs e) {
             switch (e.Key) {
                 case Key.Up:
@@ -314,7 +304,6 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
-        //An empty query with nothing listed is first use (the host's Empty slot); anything else with nothing listed is no-results.
         private void ApplyStateVisibility() {
             bool noResults = (currentItems?.Count ?? 0) == 0;
             if (track is not null)
@@ -370,7 +359,6 @@ namespace Foreman.Mac.Kit.Composites {
             }
         }
 
-        //The panel's own height eases to the new content height (addendum §09) - mirrors Kit.FormRow's reflow exactly.
         private void BeginHeightReflow() {
             CompositeMotion.ReflowHeight(this, () => {
                 //Measure keeps the constraint it is given as the one layout re-measures with, so reuse the host's width, not Bounds.
