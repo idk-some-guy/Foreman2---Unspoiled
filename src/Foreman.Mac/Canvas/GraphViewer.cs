@@ -475,8 +475,10 @@ namespace Foreman.Mac.Canvas {
                     foreach (AnnotationElement annotation in Annotations)
                         annotation.ForceVisible();
 
-                if (!fullGraph)
+                if (!fullGraph) {
+                    Grid.ShowOriginAxes = NodeElements.Count == 0;
                     Grid.Paint(canvas, Viewport.ViewScale, Viewport.VisibleGraphBounds, draggedNodeActive);
+                }
 
                 UpdateLinkWidths();
 

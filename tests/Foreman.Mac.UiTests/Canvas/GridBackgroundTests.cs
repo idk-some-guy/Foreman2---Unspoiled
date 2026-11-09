@@ -7,6 +7,7 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Foreman.Mac;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
@@ -146,7 +147,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         [AvaloniaFact]
         public void ShowGridlinesOff_NoDotsNoAxes_GroundStays() {
             SKColor ground = TokenBridge.Current.CanvasBackground;
-            using var grid = new GridManager { ShowGrid = false, CurrentGridUnit = 10, CurrentMajorGridUnit = 40 };
+            using var grid = new GridManager { ShowGrid = false, ShowOriginAxes = true, CurrentGridUnit = 10, CurrentMajorGridUnit = 40 };
             using SKSurface off = NewSurface();
             grid.Paint(off.Canvas, 1f, Visible);
             Assert.Equal(0, CountNot(off, ground));
@@ -262,20 +263,37 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [AvaloniaFact]
-        public void OriginAxes_FollowShowGridlines_DrawnAsBorderStrongOverGroundAtGraphZero() {
+        public void OriginAxes_DrawnOnlyWhileTheGraphIsEmpty_AsBorderStrongOverGroundAtGraphZero() {
             SKColor expected = Over(TokenBridge.Current.BorderStrong, TokenBridge.Current.CanvasBackground);
+            using CanvasFixture fx = CanvasFixture.WithVanilla();
+            fx.Control.Viewport.SetSize(ControlSize, ControlSize);
+            fx.Control.Grid.ShowGrid = true;
+            fx.Control.Grid.CurrentGridUnit = 20;
+            fx.Control.Grid.CurrentMajorGridUnit = 0;
+            AvaloniaPoint vertical = fx.Control.Viewport.GraphToScreen(new System.Drawing.Point(0, 10));
+            AvaloniaPoint horizontal = fx.Control.Viewport.GraphToScreen(new System.Drawing.Point(10, 0));
 
-            GraphCanvasControl on = NewRenderedControl(showGrid: true);
-            using SKSurface withGrid = SKSurface.Create(new SKImageInfo(ControlSize, ControlSize));
-            on.Render(withGrid.Canvas);
-            Assert.True(AnyPixelNear(withGrid, on.Viewport.GraphToScreen(new System.Drawing.Point(0, 10)), expected), "vertical axis at graph x = 0");
-            Assert.True(AnyPixelNear(withGrid, on.Viewport.GraphToScreen(new System.Drawing.Point(10, 0)), expected), "horizontal axis at graph y = 0");
+            bool AxesDrawn() {
+                using SKSurface surface = SKSurface.Create(new SKImageInfo(ControlSize, ControlSize));
+                fx.Control.Render(surface.Canvas);
+                bool v = AnyPixelNear(surface, vertical, expected);
+                bool h = AnyPixelNear(surface, horizontal, expected);
+                Assert.Equal(v, h);
+                return v;
+            }
 
-            GraphCanvasControl off = NewRenderedControl(showGrid: false);
-            using SKSurface withoutGrid = SKSurface.Create(new SKImageInfo(ControlSize, ControlSize));
-            off.Render(withoutGrid.Canvas);
-            Assert.False(AnyPixelNear(withoutGrid, off.Viewport.GraphToScreen(new System.Drawing.Point(0, 10)), expected));
-            Assert.False(AnyPixelNear(withoutGrid, off.Viewport.GraphToScreen(new System.Drawing.Point(10, 0)), expected));
+            Assert.True(AxesDrawn());
+
+            int redrawsBeforeAdd = fx.Control.RedrawRequestCount;
+            BaseNodeElement node = KeyboardRig.AddSupplier(fx, "iron-plate", new System.Drawing.Point(600, 600));
+            Assert.True(fx.Control.RedrawRequestCount > redrawsBeforeAdd);
+            Assert.False(AxesDrawn());
+
+            fx.Viewer.SetSelection([node]);
+            int redrawsBeforeRemove = fx.Control.RedrawRequestCount;
+            fx.Control.DeleteSelection();
+            Assert.True(fx.Control.RedrawRequestCount > redrawsBeforeRemove);
+            Assert.True(AxesDrawn());
         }
 
         [AvaloniaFact]

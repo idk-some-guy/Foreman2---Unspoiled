@@ -12,6 +12,7 @@ namespace Foreman.Mac.Canvas {
         public int CurrentGridUnit { get; set; }
         public int CurrentMajorGridUnit { get; set; }
         public bool ShowGrid { get; set; }
+        public bool ShowOriginAxes { get; set; }
         public bool LockDragToAxis { get; set; }
         public Point DragOrigin { get; set; }
 
@@ -60,9 +61,11 @@ namespace Foreman.Mac.Canvas {
                         DrawDots(canvas, _majorTile, viewScale, density, visibleGraphBounds, majorLevel);
                 }
 
-                _originAxisPaint.StrokeWidth = 1 / viewScale;
-                canvas.DrawLine(0, visibleGraphBounds.Y, 0, visibleGraphBounds.Y + visibleGraphBounds.Height, _originAxisPaint);
-                canvas.DrawLine(visibleGraphBounds.X, 0, visibleGraphBounds.X + visibleGraphBounds.Width, 0, _originAxisPaint);
+                if (ShowOriginAxes) {
+                    _originAxisPaint.StrokeWidth = 1 / viewScale;
+                    canvas.DrawLine(0, visibleGraphBounds.Y, 0, visibleGraphBounds.Y + visibleGraphBounds.Height, _originAxisPaint);
+                    canvas.DrawLine(visibleGraphBounds.X, 0, visibleGraphBounds.X + visibleGraphBounds.Width, 0, _originAxisPaint);
+                }
             }
 
             if (LockDragToAxis && draggedNodeActive) {

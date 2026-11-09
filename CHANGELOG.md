@@ -328,6 +328,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- With the default preset removed, choosing New Graph, Open or the Welcome window again while its warning is still showing no longer stacks a second warning on top: the repeat is ignored until the warning is dismissed.
 - Opening a graph from the library, the Welcome window, Open Recent or a dropped file after closing the window that had it open now shows the graph, instead of an empty window.
 - Opening a graph from Open…, Open Recent or the library no longer shows an empty window first: the graph window appears once its contents have loaded, and if the graph can't be opened, nothing is left open but the reason. Cancelling Open… no longer leaves an empty window behind.
 - Choosing New Graph, Open or the Welcome window when the default preset has been removed now shows
@@ -536,6 +537,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- The two origin lines on the canvas now show only while a graph is empty.
 - The solve error now says why the graph could not be solved: its fixed rates and limits cannot all be
   met at once, or nothing limits its rates. A graph that has never solved says rates will show once a
   solve works, "Show Node" reads "Show Nodes" for a group, and while calculations are paused the button

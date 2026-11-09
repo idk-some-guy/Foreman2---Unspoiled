@@ -1349,6 +1349,63 @@ namespace Foreman.Mac.UiTests {
             }
         }
 
+        private static (ShellContext Context, List<string> Warnings, TaskCompletionSource Dismiss) MissingDefaultWithHeldWarning() {
+            (ShellContext context, List<string> warnings) = MissingDefaultWithWarnings();
+            var dismiss = new TaskCompletionSource();
+            WelcomeLauncher.WarningOverride = (_, _, message) => { warnings.Add(message); return dismiss.Task; };
+            return (context, warnings, dismiss);
+        }
+
+        [AvaloniaFact]
+        public async Task NoWindowAction_WhileTheMissingDefaultWarningIsUp_IsDropped_AndWarnsAgainOnceItIsDismissed() {
+            (ShellContext context, List<string> warnings, TaskCompletionSource dismiss) = MissingDefaultWithHeldWarning();
+            try {
+                Task<bool> first = WelcomeLauncher.NewGraphAsync(context);
+                Assert.Single(warnings);
+
+                Task<bool> secondNew = WelcomeLauncher.NewGraphAsync(context);
+                Task<bool> secondOpen = WelcomeLauncher.OpenPathAsync(context, Path.Combine(NewTempHome(), "none.fjson"));
+                Assert.Null(WelcomeLauncher.Show(context));
+                Assert.True(secondNew.IsCompletedSuccessfully);
+                Assert.False(secondNew.Result);
+                Assert.True(secondOpen.IsCompletedSuccessfully);
+                Assert.False(secondOpen.Result);
+                Assert.Single(warnings);
+
+                dismiss.SetResult();
+                Assert.False(await first);
+                Assert.False(await WelcomeLauncher.NewGraphAsync(context));
+                Assert.Equal(2, warnings.Count);
+            } finally {
+                dismiss.TrySetResult();
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task Show_WhileTheMissingDefaultWarningIsUp_IsDropped_AndWarnsAgainOnceItIsDismissed() {
+            (ShellContext context, List<string> warnings, TaskCompletionSource dismiss) = MissingDefaultWithHeldWarning();
+            try {
+                Assert.Null(WelcomeLauncher.Show(context));
+                Assert.Single(warnings);
+
+                Assert.Null(WelcomeLauncher.Show(context));
+                Task<bool> second = WelcomeLauncher.NewGraphAsync(context);
+                Assert.True(second.IsCompletedSuccessfully);
+                Assert.False(second.Result);
+                Assert.Single(warnings);
+
+                dismiss.SetResult();
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(context.WarningPending);
+                Assert.Null(WelcomeLauncher.Show(context));
+                Assert.Equal(2, warnings.Count);
+            } finally {
+                dismiss.TrySetResult();
+                CloseWelcome();
+            }
+        }
+
         [AvaloniaFact]
         public async Task BootAsync_WithAStaleCurrentPresetName_LoadsTheResolvedDefaultExactlyOnce() {
             var settingsService = new SettingsService(NewTempHome());
@@ -1560,6 +1617,35 @@ namespace Foreman.Mac.UiTests {
             await window.NewGraphAsync();
             ShellHost.Context = window.ShellContext;
             return window;
+        }
+
+        [AvaloniaFact]
+        public async Task OpenLibraryGraphAsync_WhenTheWindowClosesDuringTheOpen_EndsQuietlyAndReturnsFalse() {
+            using var library = new LibraryFixture();
+            using var logIsolation = ErrorLogging.UseIsolatedLogDirectory(NewTempHome());
+            ErrorLogging.ClearLog();
+            MainWindow window = await ShellWindowAsync(library);
+            try {
+                GraphRow stored = library.Service.Create("Stored", window.DataCache!.PresetName!, await VanillaGraphJsonWithASupplierAsync(), 1, null);
+                library.Service.Detach();
+
+                var loadFinished = new TaskCompletionSource<DataLoadResult>();
+                bool loadStarted = false;
+                window.DataLoadStub = (_, _) => { loadStarted = true; return loadFinished.Task; };
+                Task<bool> opening = window.OpenLibraryGraphAsync(stored.Id, new Preset("Another Preset", true, true));
+                Async.Fire(opening, nameof(MainWindow.OpenLibraryGraphAsync));
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(loadStarted);
+                window.Close();
+                loadFinished.SetResult(new DataLoadResult(window.DataCache, DataLoadOutcome.Loaded));
+
+                Assert.False(await opening);
+                Assert.True(window.IsClosed);
+                Assert.False(ShellHost.HasLiveMainWindow);
+                Assert.False(File.Exists(ErrorLogging.LogFilePath) && File.ReadAllText(ErrorLogging.LogFilePath).Length > 0);
+            } finally {
+                CloseWelcome();
+            }
         }
 
         //---- solver warmup seam (perf-packaging-reference.md §1c: first-node freeze) ----

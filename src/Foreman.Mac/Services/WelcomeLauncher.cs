@@ -31,7 +31,8 @@ namespace Foreman.Mac.Services {
             if (initialPreset is null && !context.CacheLoaded && context.PresetResolver is { } resolver) {
                 initialPreset = ShellBootstrapper.TryResolve(resolver, context.Settings.CurrentPresetName, out DefaultPresetUnavailableException? failure);
                 if (failure is not null) {
-                    Async.Fire(ShellBootstrapper.WarnUnavailableAsync(failure, Warning), nameof(ShellBootstrapper.WarnUnavailableAsync));
+                    if (!context.WarningPending)
+                        Async.Fire(WarnOnceAsync(context, failure), nameof(ShellBootstrapper.WarnUnavailableAsync));
                     return null;
                 }
             }
@@ -90,6 +91,26 @@ namespace Foreman.Mac.Services {
                 ? context.PresetResolver?.BuildPresetList(context.Settings.CurrentPresetName).FirstOrDefault(p => p.Name == name)
                 : null;
 
+        private static async Task WarnOnceAsync(ShellContext context, DefaultPresetUnavailableException failure) {
+            context.WarningPending = true;
+            try {
+                await ShellBootstrapper.WarnUnavailableAsync(failure, Warning).ConfigureAwait(true);
+            } finally {
+                context.WarningPending = false;
+            }
+        }
+
+        private static async Task<Preset?> ResolveOrWarnOnceAsync(ShellContext context, PresetResolver resolver) {
+            if (context.WarningPending)
+                return null;
+            context.WarningPending = true;
+            try {
+                return await ShellBootstrapper.ResolveOrWarnAsync(resolver, context.Settings.CurrentPresetName, Warning).ConfigureAwait(true);
+            } finally {
+                context.WarningPending = false;
+            }
+        }
+
         internal static async Task<bool> EnsureLoadedAsync(ShellContext context) {
             if (context.CacheLoaded)
                 return true;
@@ -98,7 +119,7 @@ namespace Foreman.Mac.Services {
             if (created) {
                 initial = RunningPick(context);
                 if (initial is null && context.PresetResolver is { } resolver)
-                    initial = await ShellBootstrapper.ResolveOrWarnAsync(resolver, context.Settings.CurrentPresetName, Warning).ConfigureAwait(true);
+                    initial = await ResolveOrWarnOnceAsync(context, resolver).ConfigureAwait(true);
                 if (initial is null)
                     return false;
             }

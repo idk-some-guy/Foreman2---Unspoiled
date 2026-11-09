@@ -1040,23 +1040,26 @@ namespace Foreman.Mac {
                 await OpenLibraryGraphAsync(existing.Id).ConfigureAwait(true);
                 return;
             }
-            if (!await LoadReplacingAsync(data, name, null).ConfigureAwait(true))
+            if (!await LoadReplacingAsync(data, name, null).ConfigureAwait(true) || Library is null)
                 return;
 
             GraphRow row = Library.Create(name, CurrentPresetName, data, GraphCanvas.Viewer.Graph.Nodes.Count(), path);
             ShowOpenedGraph(row);
         }
 
-        internal async Task OpenLibraryGraphAsync(Guid id, Preset? presetOverride = null) {
+        internal async Task<bool> OpenLibraryGraphAsync(Guid id, Preset? presetOverride = null) {
             if (Library is null || Library.OpenGraphId == id)
-                return;
+                return false;
             Library.FlushAndWait();
             if (Library.Find(id) is not GraphRow stored)
-                return;
+                return false;
             if (!await LoadReplacingAsync(stored.Data, stored.Name, presetOverride, announcePresetSwitch: false).ConfigureAwait(true))
-                return;
+                return false;
+            if (Library is null)
+                return false;
 
             ShowOpenedGraph(Library.Open(id) ?? stored);
+            return true;
         }
 
         private async Task<bool> LoadReplacingAsync(string json, string name, Preset? presetOverride, bool announcePresetSwitch = true) {

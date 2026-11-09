@@ -66,6 +66,7 @@ namespace Foreman.Mac.Canvas {
             emptyState.IsVisible = NodeElements.Count == 0;
             IsTabStop = NodeElements.Count > 0;
             ValidateFocus();
+            RequestRedraw();
             (ControlAutomationPeer.FromElement(this) as CanvasAutomationPeer)?.NotifyChildrenChanged();
         }
 
