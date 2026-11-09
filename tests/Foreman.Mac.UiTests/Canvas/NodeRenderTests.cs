@@ -187,7 +187,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Prime(fx, viewModel);
             element.PrePaint();
 
-            //The node's top edge is at y=-48; the output tab overhangs it by 13, up to y=-61.
             Assert.True(element.ContainsPoint(new Point(0, -58)));
         }
     }

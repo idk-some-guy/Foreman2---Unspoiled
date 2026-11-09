@@ -87,8 +87,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             return shape;
         }
 
-        //---- Annotation add/remove drives the session's one GraphMutated signal (reference §8's dirty tint) ----
-
         [AvaloniaFact]
         public async Task AddingTextAnnotation_RaisesOneGraphMutated_RemovingItRaisesOne() {
             Fixture fx = NewFixture();
@@ -447,7 +445,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Same(shape, invoked[0]);
         }
 
-        //---- ShapePropertiesSheet / TextPropertiesSheet: kit form rows, colour wells, live preview, Cancel-revert, OK-persists ----
+        //---- ShapePropertiesWindow / TextPropertiesWindow: live preview, Cancel-revert, OK-persists ----
 
         private static void ClickSwatch(AvaloniaWindow window, ColorWell well, int cell) {
             well.IsOpen = true;
@@ -460,7 +458,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         private static Avalonia.Input.IInputElement? Focused(Avalonia.Controls.Control inside) =>
             Avalonia.Controls.TopLevel.GetTopLevel(inside)!.FocusManager!.GetFocusedElement();
 
-        //Tab from whatever holds focus and check each control in turn; a composite counts when focus is anywhere inside it.
         private static AutomationPeer FocusedPeer(AvaloniaWindow window) =>
             ((WindowBaseAutomationPeer)ControlAutomationPeer.CreatePeerForElement(window)).GetFocus()!;
 
@@ -471,7 +468,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             }
         }
 
-        //A row is as tall as its control (22, the slider 26) or its label when a narrow font wraps it, never taller.
         private static void AssertRowsHugTheirControls(FormRow[] rows) {
             foreach (FormRow row in rows) {
                 double control = ((Avalonia.Controls.Control)row.Content!).Bounds.Height;
@@ -513,7 +509,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             }
         }
 
-        //Every row writes through to the shape as it changes; opacity is the fill's alpha in percent, 0 % reading as None.
         [AvaloniaFact]
         public void ShapeProperties_Fields_ApplyLive_OpacityIsTheFillAlphaInPercent() {
             var shape = new ShapeAnnotationElement(new Point(0, 0), 200, 150) {
@@ -746,7 +741,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new SkiaSharp.SKColor(0xFF, 0x95, 0x00, 255), text.BackColor);
         }
 
-        //Command-Return reaching OK is the NSTextView convention for a sheet.
         [AvaloniaFact]
         public async Task TextProperties_Keyboard_OpensWithTheTextSelected_TabWalksTheRows_ReturnIsANewline_CommandReturnFiresOk() {
             var text = new TextAnnotationElement(new Point(0, 0)) { Text = "Iron" };

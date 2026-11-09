@@ -41,8 +41,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(control.Bounds.Height, control.Viewport.Height);
         }
 
-        //IsPassthroughBusModifierHeld tracks PlatformModifiers.Primary (docs/upstream-divergences.md) - Cmd
-        //on macOS, Ctrl on Linux via the UseIsMacOs seam.
+        //IsPassthroughBusModifierHeld tracks PlatformModifiers.Primary (docs/upstream-divergences.md, phase 8
+        //Task 2) - Cmd on macOS, Ctrl on Linux via the UseIsMacOs seam.
         [AvaloniaFact]
         public void IsPassthroughBusModifierHeld_OnMacOs_TracksMetaKey() {
             using IDisposable platform = PlatformModifiers.UseIsMacOs(true);
@@ -73,9 +73,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.False(control.IsPassthroughBusModifierHeld);
         }
 
-        //Every ChooserSettings access reads the persisted AppSettings, not a fresh instance, so a toggle
-        //(Show Hidden, Ignore Assembler, ...) has somewhere to persist - the next Quick Add open must not
-        //discard whatever the user just changed.
+        //Rider 6 (final fix wave): every ChooserSettings access with no AnnotationSettings assigned used to
+        //build a fresh AppSettings, so IRChooserPanel.PersistSettings had nowhere to write - the very next
+        //chooser open discarded whatever the user just toggled (Show Hidden, Ignore Assembler, ...).
         [AvaloniaFact]
         public void ChooserSettings_NoAnnotationSettings_ReturnsSameInstanceAcrossAccesses() {
             var control = new GraphCanvasControl();
@@ -87,8 +87,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Same(first, second);
         }
 
-        //EditNode has a DCache guard like every other chooser entry point in
-        //this file: an edit before DataCache finishes loading must no-op like its siblings, not throw.
+        //Rider 7 (final fix wave): EditNode had no DCache guard, unlike every other chooser/edit-panel entry
+        //point in this file - a RecipeNodeElement edit before DataCache finishes loading threw straight out
+        //of EditRecipePanel's ctor instead of safely no-op'ing like its siblings.
         [AvaloniaFact]
         public void EditNode_NoDataCache_DoesNotThrowAndOpensNoPanel() {
             var cache = new DataCache(filterRecipes: true);
@@ -117,9 +118,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.False(control.FloatingPanelHost.IsOpen);
         }
 
-        //A recipe node's body click only selects: the paired floating editor and its standalone
-        //recipe card upstream opened here (ProductionGraphViewer.cs 538-576) now live in the inspector
-        //sidebar's Recipe segment instead.
         [AvaloniaFact]
         public void EditNode_RecipeNode_SelectsOnly_NoFloatingPanel() {
             var cache = new DataCache(filterRecipes: true);
@@ -169,7 +167,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Contains(element, control.Viewer.SelectedNodes);
         }
 
-        //Viewer/Grid were IDisposable with no caller (dead code). This proves the control's
+        //Final-review I2: Viewer/Grid were IDisposable with no caller (dead code). This proves the control's
         //own natural teardown - detaching from the visual tree, which is what happens when its owning window
         //closes - now actually disposes the Viewer it constructed.
         [AvaloniaFact]
@@ -185,7 +183,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.True(control.Viewer.IsDisposed);
         }
 
-        //The ownership trap this guards against is ImageExportWindow holding the SAME live
+        //Final-review I2: the ownership trap this guards against is ImageExportWindow holding the SAME live
         //Viewer as the owning MainWindow's canvas (MainWindow.axaml.cs's `new ImageExportWindow(GraphCanvas.
         //Viewer)`) - proves that while the owning control stays attached (the only state ImageExportWindow's
         //modal ShowDialog can coexist with, since it blocks the owner's own close), the shared Viewer is

@@ -26,7 +26,7 @@ using InputPointer = Avalonia.Input.Pointer;
 namespace Foreman.Mac.UiTests.Canvas {
     //Exercises reference §3's DraggedLinkElement lifecycle: starting a drag from a tab, endpoint tracking,
     //EndDrag's three outcomes (connect / new-node chooser stub / cancel), and the Cmd+drag passthrough-bus
-    //fan-out (upstream Ctrl, mapped to Cmd).
+    //fan-out (upstream Ctrl, mapped to Cmd per this task's plan).
     public class LinkDragTests {
         private const int Half = 300;
 
@@ -169,7 +169,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.True(fx.Control.Viewer.LinkElementDictionary.ContainsKey(link.Id));
         }
 
-        //---- EndDrag outcome (b): unresolved (reference §3 "Completion", the chooser-stub branch) ----
+        //---- EndDrag outcome (b): unresolved (reference §3 "Completion", the P5-stub branch) ----
 
         [AvaloniaFact]
         public void ReleaseOverIncompatibleNode_DoesNotCreateLink_RecordsNewNodeRequest() {
@@ -380,12 +380,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             SKColor pixel = pixmap.GetPixelColor((int)farPoint.X, (int)farPoint.Y);
             SKColor ground = fx.Control.Viewer.BackgroundColor;
             byte Blend(byte stroke, byte back) => (byte)Math.Round((stroke * 0.6) + (back * 0.4));
-            Assert.Equal(new SKColor(Blend(210, ground.Red), Blend(90, ground.Green), Blend(30, ground.Blue)), pixel); //the ghost is the item colour at 60 %
+            Assert.Equal(new SKColor(Blend(210, ground.Red), Blend(90, ground.Green), Blend(30, ground.Blue)), pixel);
         }
 
-        //---- a link-drag release opens the radial menu ----
-
-        //These four used to drive the retired on-canvas chooser's footer buttons off a link-drag release; that release now opens RadialMenu instead.
         [AvaloniaFact]
         public void ReleaseOverEmptySpace_OpensTheRadialInsteadOfTheChooser() {
             Fixture fx = NewFixture();

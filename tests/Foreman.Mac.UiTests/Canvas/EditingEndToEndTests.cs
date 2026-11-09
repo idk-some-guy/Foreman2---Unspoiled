@@ -33,9 +33,9 @@ using AvaloniaPoint = Avalonia.Point;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //Builds a small factory purely through synthesized interactions - the chooser path,
+    //Task 7's phase gate: builds a small factory purely through synthesized interactions - the chooser path,
     //link drag, clipboard, annotations, and the Delete key all in one flow - then proves it round-trips
-    //through a real save/reload (reference §11 step 12's "demoable end-to-end" goal).
+    //through a real save/reload (reference §11 step 12's "P4 demoable end-to-end" goal).
     public class EditingEndToEndTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private const int Half = 400;
@@ -69,8 +69,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             return control;
         }
 
-        //Add Recipe now opens the Quick Add palette scoped to recipes - searching the recipe's own
-        //friendly name and pressing Enter picks the top (and only) match; Enter closes the palette.
         private static Task<RecipeNodeElement> AddRecipeViaChooser(GraphCanvasControl control, DataCache cache, string recipeName, Point location) {
             IRecipe recipe = cache.Recipes[recipeName];
             int before = control.NodeElements.Count;
@@ -99,7 +97,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         //Plain click (MouseDown+MouseUp at the same screen point, no drag) - drives the real click-to-edit
-        //path rather than Click(Control)'s direct-to-control synth above, which is for panel-internal
+        //path (Task 6) rather than Click(Control)'s direct-to-control synth above, which is for panel-internal
         //buttons once a panel is already open.
         private static void ClickCanvasPoint(GraphCanvasControl control, Point screenPoint) {
             var window = (AvaloniaWindow)Avalonia.Controls.TopLevel.GetTopLevel(control)!;
@@ -113,9 +111,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             ClickCanvasPoint(control, new Point((int)screen.X, (int)screen.Y));
         }
 
-        //MainWindow nests GraphCanvas under a toolbar/menu bar, unlike NewControl's bare
-        //window-is-the-canvas fixture above, so a real click needs the canvas point translated into the
-        //window's own coordinate space first.
         private static void ClickNodeBodyOnMainWindow(MainWindow window, BaseNodeElement node) {
             AvaloniaPoint canvasPoint = window.GraphCanvas.Viewport.GraphToScreen(node.Location);
             AvaloniaPoint screen = Avalonia.VisualExtensions.TranslatePoint(window.GraphCanvas, canvasPoint, window) ?? canvasPoint;
@@ -123,9 +118,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
         }
 
-        //A real MouseDown/Up through the window, translated from the target control's own bounds - unlike
-        //Click(Control)'s direct-to-control synth above, this is what a PickGrid cell (a real Avalonia
-        //Button) needs to register its own Click.
         private static void ClickThroughWindow(AvaloniaWindow window, Avalonia.Controls.Control control) {
             var center = new AvaloniaPoint(control.Bounds.Width / 2, control.Bounds.Height / 2);
             AvaloniaPoint screen = Avalonia.VisualExtensions.TranslatePoint(control, center, window) ?? center;
@@ -134,8 +126,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //Left-click selects the recipe node, the assembler changes through the inspector's Recipe segment
-        //(not a direct controller call), then the edit must survive a save/reload round-trip.
         [AvaloniaFact]
         public async Task ClickToEdit_RecipeNode_ChangeAssembler_PersistsThroughSaveAndReload() {
             DataCache cache = await GetCacheAsync();
@@ -180,7 +170,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(alternateAssembler, reloadedRecipe.SelectedAssembler.Assembler);
         }
 
-        //Same as above for a supplier node's fixed rate, set through the inspector's Flow segment controls.
         [AvaloniaFact]
         public async Task ClickToEdit_SupplierNode_SetFixedRate_PersistsThroughSaveAndReload() {
             DataCache cache = await GetCacheAsync();
@@ -285,8 +274,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(originalLocations, reloadedLocations);
         }
 
-        //---- demo render for the SDD workspace (this file's own visual-gate substitute, same offscreen
-        //technique GraphViewerIntegrationTests' gate already established) ----
+        //---- demo render for the SDD workspace (task 7's own visual-gate substitute, same offscreen
+        //technique GraphViewerIntegrationTests' phase-3 gate already established) ----
 
         [AvaloniaFact]
         public async Task VisualGate_BuiltFactory_OverviewRendersToSddWorkspace() {

@@ -16,11 +16,6 @@ using AvaloniaPoint = Avalonia.Point;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //Exercises the click-to-edit wiring (docs/panels-reference.md §8/§9 step 6): BaseNodeElement.MouseUpLeft's
-    //fallback calls Context.EditNode (GraphCanvasControl.EditNode), which now just selects the clicked node
-    //for every node type - the Recipe segment's own paired floating editor and the earlier
-    //EditFlowPanel both live in the inspector sidebar instead. This file covers the dispatch itself:
-    //that a body click only selects, and that a tab claims the click first.
     public class ClickToEditTests {
         private const int Half = 200;
 
@@ -136,8 +131,6 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         private static void ClickNodeBody(Fixture fx, BaseNodeElement node) =>
             ClickScreenPoint(fx.Window, fx.Control.Viewport.GraphToScreen(node.Location));
-
-        //---- body click selects only, for every node type (reference §8) ----
 
         [AvaloniaFact]
         public void ClickRecipeNodeBody_SelectsOnly_NoFloatingPanel() {

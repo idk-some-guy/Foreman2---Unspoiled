@@ -16,9 +16,9 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //perf-packaging-reference.md §1a: builds a 1000+-node graph to verify the port's scale
+    //Phase 7 task 4 (perf-packaging-reference.md §1a): builds a 1000+-node graph to verify the port's scale
     //story against upstream's exact semantics - NodeCountForSimpleView's strict ">" dispatch, visible-rect
-    //culling, and one full LP solve at scale - and records the scale baseline.
+    //culling, and one full LP solve at scale - and records the phase's scale baseline (task-4-report.md).
     //
     //Upstream's LOD enum (ProductionGraphViewer.cs:27, {Low,Medium,High}) maps differently here: this
     //port's element detail visibility (assembler/beacon icons, percentage text) uses LevelOfDetail, while
@@ -28,18 +28,15 @@ namespace Foreman.Mac.UiTests.Canvas {
     //tiers: IconsOnly (bitmap only, cheapest), Simple (background/border, no DetailsDraw), Regular (adds
     //DetailsDraw - icons, module dots, percentage text, the most expensive tier).
     //
-    //Captured absolutes (recorded here for a quick regression
+    //Captured absolutes (task-4-report.md carries the full baseline; recorded here for a quick regression
     //reference, not asserted on - this machine, one run, and order-dependent across the whole suite: which
     //test happens to touch the solver/JIT/element-tree first affects every number below): graph is 2984
     //nodes (1000 recipe + 1984 supplier/consumer) and 1984 links. Wide-viewport paint: IconsOnly 3.6ms,
     //Simple 7.6ms, Regular 16.7ms. Culled small-viewport paint: 6.4ms vs. an uncalled fullGraph paint (all
-    //2984 nodes, PrintStyle): 47.8ms.
-    //
-    //The solve figure below is an OR-Tools-era baseline, captured before the default solver switched to
-    //HiGHS - keep reading it as historical, not current: one full solve
-    //of the 1000-node graph, 143.5ms, a cold-solver figure (no prior CreateSolver call in this run primes
-    //OR-Tools' native dylib load, a 94ms-11s cold-cache finding), not the warm
-    //per-solve cost the app pays after ShellBootstrapper's background warmup completes.
+    //2984 nodes, PrintStyle): 47.8ms. One full solve of the 1000-node graph: 143.5ms - a cold-solver figure
+    //(no prior CreateSolver call in this run primes OR-Tools' native dylib load, reference: Task 1's
+    //94ms-11s cold-cache finding), not the warm per-solve cost the app pays after ShellBootstrapper's
+    //background warmup completes.
     public class ScaleGraphPerfTests {
         private const string PresetName = "Factorio 2.0 Space Age";
         private const int Width = 1600, Height = 1200;
@@ -188,8 +185,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.NotEqual(atThreshold, belowThreshold);
         }
 
-        //---- (b) LOD/style draw-operation counts ----
-
         [AvaloniaFact]
         public async Task WideViewportPaint_IconsOnlyAndSimple_IssueFewerDrawOperationsThanRegular() {
             GraphViewer viewer = await GetLargeGraphViewerAsync();
@@ -228,7 +223,7 @@ namespace Foreman.Mac.UiTests.Canvas {
                 $"Culled small-viewport paint ({culled} operations) should issue far fewer than an uncalled fullGraph paint ({fullGraphPaint}).");
         }
 
-        //---- (c) one solve at scale (no timing assertion here) ----
+        //---- (c) one solve at scale (absolute recorded in task-4-report.md, no timing assertion here) ----
 
         [AvaloniaFact]
         public async Task Solve_1000NodeGraph_CompletesWithoutThrowing() {

@@ -19,7 +19,7 @@ using AvaloniaVector = Avalonia.Vector;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //Exercises the host primitive (docs/panels-reference.md §7/§9 step 1): the ported
+    //Exercises the Task 1 host primitive (docs/panels-reference.md §7/§9 step 1): the ported
     //EditPanelScreenLayout/EditPanelViewportLayout clamp math wired to a real GraphCanvasControl overlay,
     //upstream's ClearFloatingControls-on-every-click/one-panel-at-a-time/SubwindowOpen semantics, and
     //Escape-closes - all validated with a trivial placeholder panel (a plain Border) per the task brief.
@@ -171,11 +171,12 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Contains(node, fx.Control.Viewer.SelectedNodes);
         }
 
-        //OnPointerPressed and OnPointerReleased both guard panel-chrome clicks: a MouseUp landing inside the
-        //panel must not reach OnPointerReleased's own hit-testing and open a node's context menu (or act on
-        //whatever selection state) right underneath the panel. The node sits at the same screen point the
-        //panel covers (see ClickInsidePanel_DoesNotCloseAndDoesNotActOnCanvas above), so an unguarded
-        //release would both find and act on it.
+        //CRITICAL 1(b) (final fix wave): only OnPointerPressed guarded panel-chrome clicks - a MouseUp
+        //landing inside the panel still reached OnPointerReleased's own hit-testing, opening a node's
+        //context menu (or acting on whatever selection state) right underneath the panel, since the press
+        //itself never claimed MouseDownElement/CurrentDragOperation for it to gate on. The node sits at the
+        //same screen point the panel covers (see ClickInsidePanel_DoesNotCloseAndDoesNotActOnCanvas above),
+        //so an unguarded release would both find and act on it.
         [AvaloniaFact]
         public void MouseUpInsidePanel_ChangesNoSelectionAndOpensNoMenuUnderneath() {
             Fixture fx = NewFixture();
@@ -220,11 +221,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.False(fx.Control.FloatingPanelHost.IsOpen);
         }
 
-        //Close() restores focus to the canvas, so an Escape-close (or a chooser-selection close) leaves
-        //canvas keyboard shortcuts live - same as the click-outside path, since OnPointerPressed calls
-        //Focus() unconditionally right after closing. A selected node's arrow-key move is the same
-        //canvas-shortcut proof ArrowKey_InertWhilePanelFocused below uses, just checked for the opposite
-        //(restored) outcome.
+        //IMPORTANT 3 (final fix wave): Close() never restored focus to the canvas, so an Escape-close (or a
+        //chooser-selection close) left canvas keyboard shortcuts dead until the user clicked - the
+        //click-outside path already worked, since OnPointerPressed calls Focus() unconditionally right after
+        //closing. A selected node's arrow-key move is the same canvas-shortcut proof
+        //ArrowKey_InertWhilePanelFocused below uses, just checked for the opposite (now-restored) outcome.
         [AvaloniaFact]
         public void Escape_ClosesPanel_RestoresCanvasFocus_SoArrowKeyMovesSelectedNode() {
             Fixture fx = NewFixture();
@@ -250,13 +251,12 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //---- pan/zoom tracking: the panel repositions whenever the Viewport changes underneath it ----
 
-        //Upstream suppresses MouseWheel entirely while a hosted panel holds focus
-        //(ProductionGraphViewer_MouseWheel's `if (ContainsFocus && !this.Focused) return;`, ahead of its own
-        //zoom/ClearFloatingControls), since an unsuppressed wheel would zoom the canvas (and drag the panel
-        //along with it) right underneath an open chooser/edit panel. FloatingPanelHost.IsOpen stands in for
-        //that guard here (Show() always focuses its content), so the panel must stay exactly where it was
-        //and the canvas must not zoom, regardless of whether the wheel point lands on the panel's own
-        //chrome.
+        //CRITICAL 1(a) (final fix wave): upstream suppresses MouseWheel entirely while a hosted panel holds
+        //focus (ProductionGraphViewer_MouseWheel's `if (ContainsFocus && !this.Focused) return;`, ahead of
+        //its own zoom/ClearFloatingControls) - this used to zoom the canvas (and drag the panel along with
+        //it) right underneath an open chooser/edit panel. FloatingPanelHost.IsOpen stands in for that guard
+        //here (Show() always focuses its content), so the panel must now stay exactly where it was and the
+        //canvas must not zoom, regardless of whether the wheel point lands on the panel's own chrome.
         [AvaloniaFact]
         public void WheelZoom_WhilePanelOpen_IsFullySuppressed_NeitherZoomsNorMovesPanel() {
             Fixture fx = NewFixture();

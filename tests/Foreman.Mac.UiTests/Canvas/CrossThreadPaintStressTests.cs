@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //MainWindow hands ImageExportWindow the LIVE GraphViewer (MainWindow.axaml.cs's
+    //Final-review C1: MainWindow hands ImageExportWindow the LIVE GraphViewer (MainWindow.axaml.cs's
     //`new ImageExportWindow(GraphCanvas.Viewer)`), so ImageExportWindow.ExportAsync paints on the UI thread
     //while GraphCanvasControl.Render paints the same viewer on the compositor's render thread - both
     //walking the exact same BaseLinkElement/PassthroughNodeElement/ShapeAnnotationElement instances at

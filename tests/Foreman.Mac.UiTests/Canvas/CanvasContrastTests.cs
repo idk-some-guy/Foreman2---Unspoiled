@@ -52,7 +52,6 @@ namespace Foreman.Mac.UiTests.Canvas {
                     yield return pixmap.GetPixelColor(Half + x, Half + y);
         }
 
-        //Glyph stems reach the text colour at their core, so the pixel furthest from the ground is the rendered text colour.
         private static SKColor Strongest(SKSurface surface, SKRect rect, SKColor ground) =>
             Pixels(surface, rect).OrderByDescending(pixel => Ratio(pixel, ground)).First();
 

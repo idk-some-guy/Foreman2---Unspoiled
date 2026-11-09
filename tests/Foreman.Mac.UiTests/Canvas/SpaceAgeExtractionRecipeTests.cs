@@ -21,12 +21,17 @@ namespace Foreman.Mac.UiTests.Canvas {
     //Investigates the human-reported "no extraction recipe in the chooser" gate finding against the real
     //Space Age preset (not vanilla - a prior agent's vanilla-only check wrongly cleared it). The extraction
     //recipe (§§r:e:<item>) is present, Available, Enabled, and correctly linked to its mining-drill
-    //Assemblers for every Space Age resource including the fluid-yielding ones (crude-oil, lava, water, ...).
-    //The real root cause lived one layer down: the extraction group's own icon rendered blank
-    //(IconCache.GetIcon resolving its Graphics/*.png path against the wrong working directory - see
-    //IconPipelineTests.cs and the upstream-divergences.md entry for the fix). These tests pin that the
-    //extraction recipe and its group stay reachable through AddCatalog/AddBrowserViewModel, the retired
-    //on-canvas chooser panel's successors.
+    //Assemblers for every Space Age resource including the fluid-yielding ones (crude-oil, lava, water, ...)
+    //- the data-loading and RecipeChooserPanel filter/group logic (RecipeMatchesKeyItem, GetSubgroupList,
+    //GetSortedGroups) are byte-for-byte upstream ports and behave correctly, confirmed here. The real root
+    //cause lives one layer down: the "Resource Extraction" group's own icon rendered blank (IconCache.GetIcon
+    //resolving its Graphics/*.png path against the wrong working directory - see IconPipelineTests.cs and
+    //the upstream-divergences.md entry for the fix), so nothing drew the group button apart from its plain
+    //gray fill, and it went unnoticed in the group row. Space Age surfaces this far more than vanilla only
+    //because it gives raw resources a second, differently-grouped producer (recycling, crushing) that
+    //happens to populate the sticky default group (IRChooserPanel's process-wide `startingGroup`,
+    //docs/panels-reference.md §2) with something, so there's no empty-grid cue to go looking at another tab.
+    //These tests pin that the extraction recipe and its group stay reachable at the data/filter layer.
     public class SpaceAgeExtractionRecipeTests {
         private const string PresetName = "Factorio 2.0 Space Age";
 
@@ -73,8 +78,11 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         //Ports the human's first-reported repro (link-drag from a consumer's input, which resolves to
-        //NewNodeType.Supplier): AddCatalog.IsCompatible surfaces the extraction recipe for a Supplier link
-        //on the raw ore, exactly as the retired chooser's ingredient/product filter used to.
+        //NewNodeType.Supplier - GraphCanvasControl.cs's DraggedLinkElement.EndDrag): on a fresh chooser
+        //(no sticky group carried over from an earlier panel), the reroute-to-nearest-match logic upstream
+        //itself ports (IRChooserPanel.GetSubgroupList's alternateGroup search) lands directly on the
+        //"Resource Extraction" group, since that's the only group with a matching Product recipe for a raw
+        //ore with no prior recycling/crushing byproduct chain competing for group real estate.
         [AvaloniaFact]
         public async Task LinkFromConsumerInput_ExtractionRecipeIsCompatible() {
             DataCache cache = await GetCacheAsync();
@@ -87,8 +95,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Contains(rows, r => r.Recipe?.Name == "§§r:e:iron-ore");
         }
 
-        //Ports the human's second-reported repro (the Add Item flow): the extraction group stays listed
-        //and its recipe section still surfaces the extraction recipe once selected.
+        //Ports the human's second-reported repro (the Add Item flow -> RecipeChooserPanel with
+        //NewNodeType.Disconnected). Even when the sticky "logistics" group shows an unrelated match first
+        //(concrete's recipe consumes iron ore as an ingredient, matching Disconnected mode's Ingredient-or-
+        //Product filter), the "Resource Extraction" group icon stays present, enabled, and reachable -
+        //selecting it surfaces the real extraction recipe.
         [AvaloniaFact]
         public async Task ResourceExtractionGroup_IsListedAndPopulated() {
             DataCache cache = await GetCacheAsync();

@@ -7,10 +7,9 @@ using System.Diagnostics;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //The shared IconBaker's PNG-encode round-trip (perf-packaging-reference.md §1b): times an 80-cell
-    //chooser-grid-sized fill of IconBaker.Bake calls. 24x24 matches SettingsWindow's own grid cell size.
-    //Every caller,
-    //including the Add Browser and Quick Add palette, bakes through this one shared implementation.
+    //Phase 7 task 3 (perf-packaging-reference.md §1b, IconButton.Bake's PNG-encode round-trip): times an
+    //80-cell chooser-grid-sized fill of IconButton.Bake calls, the shape task-3-report.md's before/after
+    //numbers were measured against. 24x24 matches SettingsWindow's own grid cell size.
     public class IconBakePerfTests {
         private const int CellCount = 80;
         private const int CellSize = 24;
@@ -34,7 +33,7 @@ namespace Foreman.Mac.UiTests.Canvas {
 
                 //Generous margin, not a tight regression gate - wall-clock timing is inherently noisy in CI.
                 //This only needs to catch a gross regression (e.g. an accidental revert to the PNG
-                //round-trip), which measured roughly twice as slow in manual runs.
+                //round-trip), which measured roughly twice as slow in manual runs (task-3-report.md).
                 Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(2), $"80-cell bake fill took {stopwatch.Elapsed}");
             } finally {
                 foreach (SKBitmap? icon in icons)

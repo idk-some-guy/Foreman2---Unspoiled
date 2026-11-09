@@ -105,7 +105,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             return Painted(new ConsumerNodeElement(fx.Context, fx.Session.View.Nodes.OfType<IConsumerNodeViewModel>().Last()));
         }
 
-        //A manual supplier with no output link overproduces everything it makes.
         private static SupplierNodeElement Overproducing(Fixture fx) {
             SupplierNodeElement supplier = Supplier(fx, fx.NewItem("plastic-bar"));
             BaseNodeController controller = fx.Controller(supplier.ViewModel);
@@ -114,7 +113,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             return Painted(supplier);
         }
 
-        //A manual consumer with no input link is short of its required rate.
         private static ConsumerNodeElement Undersupplied(Fixture fx, ItemPrototype item) {
             ConsumerNodeElement consumer = Consumer(fx, item);
             BaseNodeController controller = fx.Controller(consumer.ViewModel);
@@ -150,7 +148,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             return Painted(new PlantNodeElement(fx.Context, fx.Session.View.Nodes.OfType<IPlantNodeViewModel>().Last()));
         }
 
-        //Core never puts a passthrough in Warning, and its Error needs an impossible link, so the state is stubbed over a real node.
         private sealed class StatedPassthrough(IPassthroughNodeViewModel inner) : IPassthroughNodeViewModel {
             private NodeState? state;
 
@@ -203,7 +200,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             return surface;
         }
 
-        //The tabs sit on the card's border: where a tab crosses the edge the pixel is the tab's own paint, elsewhere the ring's.
         private static void AssertTabCoversTheBorder(BaseNodeElement node, SKSurface surface, SKColor ring) {
             SKRect bounds = GraphBounds(node);
             ItemTabElement tab = node.SubElements.OfType<ItemTabElement>().First();
@@ -269,8 +265,6 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         private static SKPoint Centre(SKRect rect) => new(rect.MidX, rect.MidY);
 
-        //---- §02 fidelity assertions ----
-
         [AvaloniaFact]
         public void BorderLane_SelectedIsNodeSelected2_OverproducingIsWarningDash4And3_BothIsNodeSelectedAndStillOver() {
             Fixture fx = NewFixture();
@@ -327,7 +321,6 @@ namespace Foreman.Mac.UiTests.Canvas {
                 Assert.Equal("Over", over.Badge()?.Text);
                 Assert.Equal([4f, 3f], Tab(over, LinkType.Output).TabGeometry().Dash ?? []);
 
-                //The bar has no card; its ring wraps the 72·s × 96·s bounds at radius 10.
                 Painted(bar);
                 Assert.Equal(72 * s, bar.Width, 0.5f);
                 Assert.Equal(96 * s, bar.Height, 0.5f);
@@ -336,7 +329,6 @@ namespace Foreman.Mac.UiTests.Canvas {
                 Assert.Equal(10f, barRing.Radius);
                 Assert.Equal(selected, barRing.Color);
 
-                //Icon view: the ring wraps the 32 box at radius 8, and badges hide.
                 fx.Context.IconsOnly = true;
                 try {
                     Painted(supplier);
@@ -381,7 +373,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(error, input.RateText.Color);
             Assert.Equal(new NodeBadge(NodeBadgeKind.Undersupplied, "Short"), consumer.Badge());
 
-            //The inner line is centred 3 inside the top edge, so it half-covers the pixel row starting there.
             using SKSurface surface = Render(consumer);
             SKColor card = Resolve("Foreman.Color.ControlBackground");
             AssertClose(error, Pixel(surface, bounds.MidX, bounds.Top + 0.5f), tolerance: 2);
@@ -621,7 +612,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             }
             WindowScaler.SetScale(1.0);
 
-            //A passthrough that would carry a badge draws as the card; a drawn bar never has one.
             Fixture piped = NewFixture();
             var stated = new StatedPassthrough(LinkedPassthrough(piped, piped.NewItem("coal")));
             var passthrough = new PassthroughNodeElement(piped.Context, stated);

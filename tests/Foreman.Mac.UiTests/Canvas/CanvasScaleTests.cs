@@ -14,7 +14,6 @@ using Xunit;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //Canvas painters read KitSkia.TokenBridge.Current directly, no ambient transform.
     [Collection(ScaleTestGroup.Name)]
     public class CanvasScaleTests : IDisposable {
         public CanvasScaleTests() => WindowScaler.SetScale(1.0);
@@ -24,7 +23,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             GC.SuppressFinalize(this);
         }
 
-        //A node's own overall Width/Height follows UpdateState the same way tab geometry already did.
         [AvaloniaFact]
         public void SetScale_AtOneFifty_RecipeNodeBoundsAreOnePointFiveTimesDefault() {
             using CanvasFixture fx = CanvasFixture.WithVanilla();
@@ -40,8 +38,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(heightAtDefault * 1.5, element.Bounds.Height, 0);
         }
 
-        //Proves hit-testing reads the same multiplied Bounds paint uses, not a value stuck at construction:
-        //a point just past the 100% edge misses, then hits once the box has genuinely grown around it.
         [AvaloniaFact]
         public void SetScale_AtOneFifty_APointJustPastTheDefaultEdgeMissesThenHitsAtTheScaledEdge() {
             using CanvasFixture fx = CanvasFixture.WithVanilla();
@@ -56,7 +52,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.True(element.ContainsPoint(pointJustPastDefaultEdge));
         }
 
-        //Switching back to 100% must restore the exact original bounds, not merely shrink toward them.
         [AvaloniaFact]
         public void SetScale_BackToOneHundred_RestoresOriginalRecipeNodeBounds() {
             using CanvasFixture fx = CanvasFixture.WithVanilla();
@@ -76,10 +71,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(heightAtDefault, element.Bounds.Height);
         }
 
-        //The full visual footprint of a recipe node - its own box plus every sub-element that
-        //paints outside it (assembler/beacon icons offset to the side, item tabs above/below) - must scale
-        //together, or the pieces drift apart relative to each other at higher scale even though each one's
-        //own size is individually correct.
         [AvaloniaFact]
         public void SetScale_AtOneFifty_RecipeNodeFullPaintedBoundsAreOnePointFiveTimesDefault() {
             using CanvasFixture fx = CanvasFixture.WithVanilla();
@@ -92,10 +83,6 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             Rectangle envelopeAtOneFifty = FullPaintedBounds(element);
 
-            //A tolerance, not exact equality: five-plus sub-elements (assembler, beacon, error notice, each
-            //item tab) each independently truncate their own Width/2 and Height/2 to ints, so the union's
-            //extreme edges compound a few pixels off an exact 1.5x multiple even though every individual
-            //element's own size scales precisely.
             double expectedWidth = envelopeAtDefault.Width * 1.5;
             double expectedHeight = envelopeAtDefault.Height * 1.5;
             Assert.InRange(envelopeAtOneFifty.Width, expectedWidth - 8, expectedWidth + 8);

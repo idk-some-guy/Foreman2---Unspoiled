@@ -29,8 +29,8 @@ using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Canvas {
     //Exercises GraphCanvasControl.HitTest's node/annotation picking precedence (reference §6), the
-    //PointerMoved -> InvalidateVisual hover wiring (risk 5), and RecipeNodeElement's help tooltip and
-    //RecipePainter against a real vanilla recipe (risk 4).
+    //PointerMoved -> InvalidateVisual hover wiring (risk 5), and RecipeNodeElement's ShowRecipeToolTip-gated
+    //recipe tooltip against a real vanilla recipe (risk 4, RecipePainter).
     public class HitTestAndTooltipTests {
         private const int Half = 200;
 
@@ -165,7 +165,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Same(annotation, fx.Control.HitTest(fx.Control.Viewport.GraphToScreen(Point.Empty)));
         }
 
-        //With GraphViewer's real GetPaintingOrder, HitTest's reverse
+        //Task 7 carried requirement: once GraphViewer's real GetPaintingOrder exists, HitTest's reverse
         //iteration over NodeElements must still pick the topmost (last-painted) node on overlap - this
         //drives the nodes through the control's own live Graph/session sync (not manually-added elements
         //like the fixture above) so the regression actually exercises GetPaintingOrder's node segment.
@@ -283,7 +283,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             return fx.Session.View.Nodes.OfType<IRecipeNodeViewModel>().Single();
         }
 
-        //The recipe hover card folds into the inspector's identity header; only the help tooltip remains.
         [Fact]
         public async Task GetToolTips_HoverRecipeNode_NeverShowsRecipeCard() {
             RecipeFixture fx = NewRecipeFixture(await GetRecipeCacheAsync());

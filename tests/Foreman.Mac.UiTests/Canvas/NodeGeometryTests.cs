@@ -62,8 +62,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.True(Math.Abs(expected.Red - actual.Red) <= 2 && Math.Abs(expected.Green - actual.Green) <= 2 && Math.Abs(expected.Blue - actual.Blue) <= 2 && Math.Abs(expected.Alpha - actual.Alpha) <= 2,
                 $"expected {expected}, got {actual}");
 
-        //---- synthetic fixture: spoil and plant need item data the vanilla preset lacks ----
-
         private sealed class Fixture {
             public required DataCache Cache { get; init; }
             public required SubgroupPrototype Subgroup { get; init; }
@@ -197,15 +195,12 @@ namespace Foreman.Mac.UiTests.Canvas {
         private static IEnumerable<NodeText> AllTexts(BaseNodeElement node) =>
             node.Texts.Concat(node.SubElements.OfType<ItemTabElement>().Select(tab => tab.RateText));
 
-        //GlyphPaths mirrors the kit's 20 pt master, so a painter glyph and the kit glyph are the same path.
         private static void AssertMirrorsKitMaster(string key) {
             string glyphs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "Foreman.Mac.Kit", "Themes", "Glyphs.axaml");
             XElement master = XDocument.Load(glyphs).Descendants().Single(e => (string?)e.Attribute(XName.Get("Key", "http://schemas.microsoft.com/winfx/2006/xaml")) == key + ".20");
             using SKPath kit = SKPath.ParseSvgPathData(master.Value);
             Assert.Equal(kit.ToSvgPathData(), GlyphPaths.Get(key).ToSvgPathData());
         }
-
-        //---- vanilla recipe helpers ----
 
         private static RecipeNodeElement IronGearWheel(CanvasFixture fx, DrawingPoint? at = null) {
             var pair = new RecipeQualityPair(fx.Cache.Recipes["iron-gear-wheel"], fx.Cache.DefaultQuality!);
@@ -215,8 +210,6 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         private static RecipeNodeController Controller(CanvasFixture fx, BaseNodeElement node) =>
             (RecipeNodeController)fx.Viewer.Session.Editor.RequestNodeController(node.ViewModel.Id)!;
-
-        //---- §01 fidelity assertions ----
 
         [AvaloniaFact]
         public void RecipeNode_OneInOneOut_Is144By144High_144By96Low_AndScales() {
@@ -236,7 +229,6 @@ namespace Foreman.Mac.UiTests.Canvas {
                 Assert.Equal((144 * step, 96 * step), ((double)recipe.Width, (double)recipe.Height));
             }
 
-            //A unit switch re-derives every width about fixed centres.
             fx.Viewer.Context.LevelOfDetail = LevelOfDetail.High;
             var circuit = new RecipeQualityPair(fx.Cache.Recipes["advanced-circuit"], fx.Cache.DefaultQuality!);
             RecipeNodeElement wide = Primed((RecipeNodeElement)fx.Viewer.NodeElementDictionary[fx.Viewer.Session.Editor.CreateRecipeNode(circuit, new DrawingPoint(400, 0))]);
@@ -290,7 +282,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Context.RateUnitLookup = null;
             WindowScaler.SetScale(1.0);
 
-            //A bar that falls back to the card (here by losing its output link) grows about its stored centre.
             using CanvasFixture solved = CanvasFixture.WithVanilla();
             var stone = new ItemQualityPair(solved.Cache.Items["stone"], solved.Cache.DefaultQuality!);
             var centre = new DrawingPoint(300, 40);
@@ -321,7 +312,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal((144, 96), (falling.Width, falling.Height));
             Assert.Equal(centre, falling.LocalToGraph(DrawingPoint.Empty));
 
-            //Toggling simple draw, per node or as the graph default, moves no centre.
             BaseNodeElement[] all = [.. cards, bar, passthroughCard, limited];
             DrawingPoint[] before = [.. all.Select(node => node.LocalToGraph(DrawingPoint.Empty))];
             foreach (PassthroughNodeElement passthrough in new[] { bar, passthroughCard }) {
@@ -333,7 +323,6 @@ namespace Foreman.Mac.UiTests.Canvas {
                 Primed(node);
             Assert.Equal(before, all.Select(node => node.LocalToGraph(DrawingPoint.Empty)));
 
-            //A save laid out at 72 loads at its stored centres; the wider card is not re-centred or written back.
             using CanvasFixture saved = CanvasFixture.WithVanilla();
             var ore = new ItemQualityPair(saved.Cache.Items["iron-ore"], saved.Cache.DefaultQuality!);
             NodeId savedPassthroughId = saved.Viewer.Session.Editor.CreatePassthroughNode(ore, new DrawingPoint(200, 0));
@@ -510,7 +499,6 @@ namespace Foreman.Mac.UiTests.Canvas {
                 AssertClose(Over(geometry.Stroke, geometry.Fill), Pixel(surface, geometry.Rect.MidX, geometry.Rect.Top + 0.75f));
             }
 
-            //Every rate unit draws the canvas number and its suffix; tabs and chips grow to fit and never trim.
             fx.Context.RateUnitLookup = () => fx.Graph.SelectedRateUnit;
             SupplierNodeElement fixedSupplier = Supplier(fx, "coal");
             ConsumerNodeElement fixedConsumer = Consumer(fx, "plate");
@@ -609,9 +597,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             AssertMirrorsKitMaster("Kit.Glyph.RadialPlant");
         }
 
-        //---- status row, low detail, motion ----
-
-        //The state badge leads the status row; the rest follow it after a 6 gap.
         private static float StatusRowStart(RecipeNodeElement recipe, SKRect bounds, float s) {
             if (recipe.Badge() is null)
                 return bounds.Left + (12 * s);
@@ -662,7 +647,6 @@ namespace Foreman.Mac.UiTests.Canvas {
                 Assert.Equal(row[0].Rect.Right + (6 * s), row[1].Rect.Left, 3);
                 DrawingPoint badgeCentre = recipe.BeaconElement.LocalToGraph(DrawingPoint.Empty);
                 Rectangle badge = recipe.BeaconElement.Bounds;
-                //Element bounds are whole points; the status row after a state badge can start between them.
                 SKRect hit = SKRect.Create(badgeCentre.X + badge.X, badgeCentre.Y + badge.Y, badge.Width, badge.Height);
                 Assert.Equal(row[0].Rect.Left, hit.Left, 0.5f);
                 Assert.Equal(row[0].Rect.Top, hit.Top, 0.5f);

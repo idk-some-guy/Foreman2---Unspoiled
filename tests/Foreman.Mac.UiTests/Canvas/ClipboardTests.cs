@@ -417,7 +417,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Single(fx.Control.Viewer.NodeElements); //Cmd+C doesn't delete
         }
 
-        //Linux branch of the platform fork above (docs/upstream-divergences.md): Ctrl+C on
+        //Linux branch of the platform fork above (docs/upstream-divergences.md, phase 8 Task 2): Ctrl+C on
         //Linux does the same thing Cmd+C does on macOS, via the UseIsMacOs seam.
         [AvaloniaFact]
         public async Task CtrlC_OnLinux_CopiesSelectionFragmentToClipboard() {
@@ -471,10 +471,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Single(target.Control.Viewer.NodeElements);
         }
 
-        //---- menu-driven equivalents (contract #menubar conflict resolutions 1/3): Edit > Cut/Copy/Paste/
-        //Delete call these directly instead of routing back through a KeyGesture, so a menu click does
-        //exactly what the Cmd+C/X/V/Delete key handling above already does. ----
-
         [AvaloniaFact]
         public async Task CopySelection_CopiesSelectionFragmentToClipboard() {
             Fixture fx = NewFixture(await GetCacheAsync());
@@ -489,7 +485,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             ProductionGraphSaveDocument? document = GraphSaveCodec.ReadGraphPayload(written!);
             Assert.NotNull(document);
             Assert.Single(document.Nodes);
-            Assert.Single(fx.Control.Viewer.NodeElements); //Copy doesn't delete
+            Assert.Single(fx.Control.Viewer.NodeElements);
         }
 
         [AvaloniaFact]
@@ -535,12 +531,10 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Empty(control.Viewer.NodeElements);
         }
 
-        //DeleteSelection routes to TryDeleteSelection (combined node+annotation delete) whenever any
-        //annotation is selected, leaving an unrelated, unselected node untouched.
         [AvaloniaFact]
         public async Task DeleteSelection_AnnotationsSelected_DeletesAnnotationAndLeavesUnselectedNodeAlone() {
             Fixture fx = NewFixture(await GetCacheAsync());
-            AddRecipeNode(fx, "iron-gear-wheel", Point.Empty); //not selected
+            AddRecipeNode(fx, "iron-gear-wheel", Point.Empty);
             var shape = new ShapeAnnotationElement(new Point(0, 0), 50, 50);
             fx.Control.Viewer.AddAnnotationElement(shape);
             fx.Control.Viewer.SelectedAnnotations.Add(shape);

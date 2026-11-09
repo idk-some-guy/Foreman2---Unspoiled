@@ -17,7 +17,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         private const string MovedTokenKey = "Foreman.Color.NodeRecipe";
         private static readonly AvColor MovedTokenValue = AvColor.FromRgb(0x01, 0x02, 0x03);
 
-        //Staging an override the bridge has not resolved yet puts it in the state an appearance change would.
         private static void StageMovedCanvasToken() {
             TokenBridge.Refresh();
             Application.Current!.Resources[MovedTokenKey] = MovedTokenValue;
@@ -46,8 +45,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             }
         }
 
-        //App wires WindowScaler.Rescaled to AppearanceHub.Refresh() only; Hub.Changed is TokenBridge's one
-        //trigger, so a single SetScale must resolve the bridge exactly once, not once per hook.
         [AvaloniaFact]
         public void SetScale_RefreshesTheTokenBridgeExactlyOnce() {
             if (WindowScaler.CurrentScale != 1.0)
@@ -66,8 +63,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             }
         }
 
-        //Bare fake for AppearanceHub's own seam, matching DarkModeTests.FakeAppearance - only
-        //ContrastPreference matters here, the rest is inert plumbing the hub still needs to construct.
         private sealed class HighContrastAppearance : IPlatformAppearance {
             private EventHandler? changed;
             public AvColor? AccentColor => null;
@@ -78,7 +73,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             public event EventHandler? Changed { add => changed += value; remove => changed -= value; }
         }
 
-        //Raisable fake for AppearanceHub's own seam - PlatformAppearance's half of the shared OS event.
         private sealed class RaisableAppearance : IPlatformAppearance {
             private EventHandler? changed;
             public AvColor? AccentColor => null;
@@ -90,7 +84,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             public void Raise() => changed?.Invoke(this, EventArgs.Empty);
         }
 
-        //A System-mode OS colour event raises the platform appearance leg, the app's only hook onto it.
         [AvaloniaFact]
         public void AppearanceEvent_InSystemMode_RefreshesTheAppsHubAndBridgeExactlyOnce() {
             App app = (App)Application.Current!;
@@ -120,8 +113,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             }
         }
 
-        //A System-mode OS flip raises the platform appearance event and ActualThemeVariantChanged, so the
-        //hub refreshes on both legs; the bridge resolves the same values the second time and stays quiet.
         //Avalonia guards IPlatformSettings against test doubles, so the variant leg is a direct assignment.
         [AvaloniaFact]
         public void SystemModeVariantFlip_RefreshesTheHubTwiceAndRepublishesTheBridgeOnce() {
@@ -153,8 +144,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             }
         }
 
-        //An explicit theme change reaches the app's own hub through ActualThemeVariantChanged once and
-        //nothing else - the companion case to the OS-event collapse above, on wiring no test replaced.
         [AvaloniaFact]
         public void ApplyThemeDark_RefreshesHubAndBridgeExactlyOnce() {
             App app = (App)Application.Current!;
@@ -181,9 +170,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             }
         }
 
-        //AppearanceHub.Dispose() clears Increase Contrast's resource overrides - FocusRing.Width back at
-        //3.0, Border and SplitGripIdle absent - even when the guarded block throws. Moving hub?.Dispose()
-        //out of this try's finally (so it never runs on the throw below) fails every assertion here.
         [AvaloniaFact]
         public void HighContrastHub_DisposeInFinally_ClearsOverridesEvenWhenTheGuardedAssertionFails() {
             AppearanceHub? previousCurrent = AppearanceHub.Current;
@@ -199,7 +185,7 @@ namespace Foreman.Mac.UiTests.Canvas {
                     hub?.Dispose();
                 }
             } catch (Exception) {
-                // expected: proves Dispose() still ran even though the guarded block threw
+                //The throw is the point: the assertions after the try prove Dispose() ran from the finally.
             } finally {
                 AppearanceHub.Current = previousCurrent;
             }

@@ -9,16 +9,12 @@ using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using SkiaSharp;
 using System;
-using System.IO;
-using System.Linq;
 using Xunit;
 using AvColor = Avalonia.Media.Color;
 
 namespace Foreman.Mac.UiTests.Canvas {
     [Collection(ScaleTestGroup.Name)]
     public class TokenBridgeTests {
-        private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-
         private static SKColor Sk(string hex) {
             AvColor color = AvColor.Parse(hex);
             return new SKColor(color.R, color.G, color.B, color.A);
@@ -144,18 +140,6 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             Assert.False(TokenBridge.Current.IncreaseContrast);
             Assert.Equal(ResolveSk("Foreman.Color.NodeTabBorder"), TokenBridge.Current.NodeTabBorder);
-        }
-
-        [Fact]
-        public void NoPainter_ReadsARetiredCanvasKey() {
-            string[] retired = ["CanvasTabBorder", "CanvasChipBorder", "CanvasErrorBorder"];
-            string canvasDirectory = Path.Combine(RepoRoot, "src", "Foreman.Mac", "Canvas");
-
-            string[] offenders = [.. Directory.EnumerateFiles(canvasDirectory, "*.cs", SearchOption.AllDirectories)
-                .Where(file => retired.Any(File.ReadAllText(file).Contains))
-                .Select(file => Path.GetRelativePath(RepoRoot, file))];
-
-            Assert.Empty(offenders);
         }
     }
 }

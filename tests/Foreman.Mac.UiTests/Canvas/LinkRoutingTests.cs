@@ -33,7 +33,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             GC.SuppressFinalize(this);
         }
 
-        //A vertical link: the cubic's control points collapse onto the centreline, so distances to it are exact.
         private static LinkElement Straight(LinkFixture fx, ItemPrototype item, LinkRouting? routing = null) =>
             fx.AddLink(item, new Point(0, 150), NodeDirection.Up, new Point(0, -150), NodeDirection.Up, routing);
 

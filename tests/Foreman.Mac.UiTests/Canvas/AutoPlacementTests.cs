@@ -26,7 +26,7 @@ using AvaloniaWindow = Avalonia.Controls.Window;
 using InputPointer = Avalonia.Input.Pointer;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //Exercises the SmartNodeDirection auto-placement branch (reference §8), Autoconnect/Align Selected
+    //Exercises task 7's SmartNodeDirection auto-placement branch (reference §8), Autoconnect/Align Selected
     //toolbar wiring, the node menu's selection-scoped auto-connect pair (reference §4b, consolidated onto
     //Core's GraphAutoconnect per §11 step 11), and the Delete-key keyboard-map completion (reference §7).
     public class AutoPlacementTests {
@@ -50,7 +50,10 @@ namespace Foreman.Mac.UiTests.Canvas {
                 return new ItemQualityPair(item, Quality);
             }
 
-            //Gives an item a trivial production recipe so palette-driven placement tests have something to pick.
+            //ItemChooserPanel (task 3) only shows an item with a production/consumption recipe behind an
+            //enabled assembler (docs/panels-reference.md §2's "visible"/"validAssembler" gates) - this
+            //fixture's items had no recipes at all before this task's real chooser existed, so tests that
+            //drive Add Item through the panel need at least a trivial one.
             public void WireProduction(string itemName) {
                 ItemPrototype item = (ItemPrototype)Pair(itemName).Item!;
                 var assembler = new AssemblerPrototype(Cache, "§§test:asm-" + itemName, "Assembler", EntityType.Assembler, EnergySource.Electric) { Available = true };
@@ -189,10 +192,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         //---- disconnected creation (background menu / toolbar, reference §4a/§10): no origin -> the node
         //creation default (Graph.DefaultNodeDirection) applies with no explicit direction call needed ----
 
-        //Picking "iron-plate" straight from the Quick Add palette Add Item opens (scope Items, no
-        //origin) creates the disconnected Supplier node directly - PlaceCandidate's role default for a
-        //Disconnected outer type is Supplier, matching the retired flow's "Source" footer button. A plain
-        //Return places and closes the palette.
         [AvaloniaFact]
         public void AddItemAsync_ChoosesItemThenSource_CreatesSupplierNodeSelectedAtGraphPoint() {
             Fixture fx = NewFixture();

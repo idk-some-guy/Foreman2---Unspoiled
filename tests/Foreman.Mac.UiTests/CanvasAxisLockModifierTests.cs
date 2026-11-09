@@ -21,7 +21,7 @@ namespace Foreman.Mac.UiTests {
             window.Show();
             Dispatcher.UIThread.RunJobs();
             window.GraphCanvas.Focus();
-            CanvasKeys.KeyDownOnCanvas(window.GraphCanvas, Key.LeftShift, KeyModifiers.Shift); //no matching KeyUp - mirrors the sheet swallowing it
+            CanvasKeys.KeyDownOnCanvas(window.GraphCanvas, Key.LeftShift, KeyModifiers.Shift);
             Assert.True(window.GraphCanvas.Grid.LockDragToAxis);
 
             window.MouseDown(CanvasCenter(window), MouseButton.Left, RawInputModifiers.None);
@@ -43,7 +43,6 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.GraphCanvas.Grid.LockDragToAxis);
         }
 
-        //Headless keyboard focus is process-wide, so a LostFocus-driven clear would wipe a lock the user still holds.
         [AvaloniaFact]
         public void LosingFocusToAnotherControl_DoesNotClearAnActiveAxisLock() {
             var canvas = new GraphCanvasControl();

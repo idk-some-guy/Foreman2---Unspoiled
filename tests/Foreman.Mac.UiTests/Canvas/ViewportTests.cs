@@ -104,8 +104,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             viewport.UpdateGraphBounds();
         }
 
-        //Menu View > Actual Size (contract #menubar): sets ViewScale to exactly 100%, anchored at the given
-        //screen point like ZoomAt, rather than stepping by ZoomStepFactor.
         [Fact]
         public void SetAbsoluteZoom_SetsExactViewScale() {
             var viewport = new Viewport(800, 600);
@@ -141,8 +139,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(Viewport.MinViewScale, viewport.ViewScale);
         }
 
-        //Menu View > Fit to Graph (contract #menubar): scales and centers so the whole graph bounds fit
-        //within the viewport, mirroring UpdateGraphBounds' own inverse-of-GraphToScreen centering math.
         [Fact]
         public void FitToBounds_ScalesSoBoundsFitInsideViewport() {
             var viewport = new Viewport(800, 600);
@@ -183,11 +179,10 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(Viewport.MaxViewScale, viewport.ViewScale);
         }
 
-        //Find node ruling §02: a match inside the raw visible bounds but within the margin of its edge still pans.
         [Fact]
         public void PanIntoView_MatchWithinTheMarginOfAnEdge_PansTheShortestDistance() {
-            var viewport = new Viewport(800, 600); //VisibleGraphBounds = (-400,-300,800,600)
-            var nodeBounds = new Rectangle(300, -50, 40, 40); //right edge at 340: inside 400, outside the 80pt inset (320)
+            var viewport = new Viewport(800, 600);
+            var nodeBounds = new Rectangle(300, -50, 40, 40);
 
             viewport.PanIntoView(nodeBounds, margin: 80);
 
@@ -206,7 +201,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(offsetBefore, viewport.ViewOffset);
         }
 
-        //Ruling §02 "Motion": the canvas tweens the offset over Motion.EntranceDuration rather than jumping to it.
         [AvaloniaFact]
         public void PanIntoView_OnTheCanvas_AnimatesTheOffset_AndSettlesOnTheRuledTarget() {
             bool wasReduced = Motion.ReduceMotion;
@@ -228,7 +222,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             }
         }
 
-        //Ruling §02 "Motion": under Reduce Motion the same destination is applied in one step, and clearing the flag brings the tween back.
         [AvaloniaFact]
         public void PanIntoView_UnderReduceMotion_JumpsInOneStep_AndTweensAgainWhenTheFlagClears() {
             bool wasReduced = Motion.ReduceMotion;
@@ -268,9 +261,8 @@ namespace Foreman.Mac.UiTests.Canvas {
         [Fact]
         public void PanIntoView_MarginScalesWithViewScale() {
             var viewport = new Viewport(800, 600);
-            SetScaleAndOffset(viewport, 2f, new Point(0, 0)); //VisibleGraphBounds halves to (-200,-150,400,300)
+            SetScaleAndOffset(viewport, 2f, new Point(0, 0));
 
-            //80 screen points at 2x scale is 40 graph units, so the inset's right edge sits at 160.
             viewport.PanIntoView(new Rectangle(150, -20, 20, 20), margin: 80);
 
             Assert.Equal(new Point(-10, 0), viewport.ViewOffset);

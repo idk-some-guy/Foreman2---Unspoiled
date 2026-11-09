@@ -16,7 +16,7 @@ using Xunit;
 using AvaloniaPoint = Avalonia.Point;
 
 namespace Foreman.Mac.UiTests.Canvas {
-    //THE acceptance path: a repo sample .fjson through the real Load path
+    //THE phase-3 acceptance path (task-7 brief): a repo sample .fjson through the real Load path
     //(GraphViewer.LoadDocument, GraphSaveLoader under the hood - reference §8.12), rendered end to end.
     //Also pins the two carried requirements from earlier task reviews: element-lifecycle disposal on graph
     //clear, and that GetPaintingOrder's node order stays lockstep with HitTest's reverse-iteration pick.
@@ -157,7 +157,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.NotEqual(before, after);
         }
 
-        //---- carried requirement 1: element lifecycle/teardown ----
+        //---- carried requirement 1: element lifecycle/teardown (Task 6 review) ----
 
         [AvaloniaFact]
         public async Task ClearGraph_DisposesNodeAndLinkElements_NotJustDropsThemFromTheLists() {
@@ -173,7 +173,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Empty(firstNode.SubElements); //proves Dispose() ran (cascaded into the node's own subelement tree), not just list removal
         }
 
-        //---- carried requirement 2: NodeValuesUpdated resyncs node state ----
+        //---- carried requirement 2: NodeValuesUpdated resyncs node state (final-review finding 3) ----
 
         [AvaloniaFact]
         public async Task RateUnitChange_FiresNodeValuesUpdatedOnly_StillResyncsNodeState() {
@@ -196,12 +196,12 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.True(firstNode.UpdateStateCallCount > baseline);
         }
 
-        //---- the visual gate, offscreen substitute ----
+        //---- the phase-3 visual gate, offscreen substitute ----
         //
         //The brief's real-app gate (boot the live window, screenshot it via osascript/screencapture) needs a
         //working Avalonia.Native GPU render loop; this sandbox's WindowServer session can't provide one (any
         //Avalonia app, this one included, aborts in AppBuilder.Setup with "Avalonia.Native was not able to
-        //start the RenderTimer" before a single line of app code runs - confirmed independent of these
+        //start the RenderTimer" before a single line of app code runs - confirmed independent of this task's
         //changes). This test exercises the identical code path (GraphViewer.LoadDocument -> fit-to-view ->
         //zoom-in render) through the same offscreen SKSurface technique every other Canvas/ test already
         //uses, and writes both frames plus wall-clock timings to the SDD workspace for the eyeball pass.

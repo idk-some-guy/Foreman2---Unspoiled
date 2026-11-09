@@ -114,11 +114,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         //---- LineType.Simple: supplier below consumer, both NodeDirection.Up ----
-        //Supplier at (0,150), consumer at (0,-150). Output/input tab connection points land 61px outside
-        //each node's own center along its facing edge (BaseSimpleHeight/2=48 + the tab's 13 overhang)
-        //-> supplierOrigin (0,89), consumerOrigin (0,-89). Both pull points collapse to the graph origin by
-        //construction (max((89-(-89))/2,20) = 89, pulled back the full distance from each origin), so the cubic
-        //is exactly symmetric about (0,0) and its parametric midpoint lands there too.
 
         [AvaloniaFact]
         public void LinkElement_SimpleShape_PathPassesThroughDerivedEndpointsAndMidpoint() {
@@ -150,11 +145,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         //---- LineType.UShape: opposite directions, wide-enough X gap to keep the flat top non-degenerate ----
-        //Supplier at (0,0) facing Up, consumer at (400,0) facing Down -> supplierOrigin (0,-61), consumerOrigin
-        //(400,-61) (Down flips which edge the input tab sits on, landing at the same -61 offset). xOffset caps
-        //at circlePull*2=200 (since |Δx|=400 > 200), so midUB=(100,-161) and midUC=(300,-161) stay distinct -
         //that top segment is a straight line (its control points collapse onto its own endpoints), so its true
-        //midpoint (200,-161) sits exactly on the path.
 
         [AvaloniaFact]
         public void LinkElement_UShape_PathPassesThroughDerivedEndpointsAndFlatTopMidpoint() {
@@ -175,9 +166,6 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //---- LineType.NShape: same direction, wrong order, wide X gap ----
         //Supplier at (-300,-200) facing Up, consumer at (300,200) facing Up, so consumerOrigin.Y > supplierOrigin.Y
-        //while both face Up - the "wrong order" that forces the N-shaped detour. supplierOrigin (-300,-261),
-        //consumerOrigin (300,261); |Δx|=600 > 2*circlePull so midX is the plain X midpoint (0). midNC=(0,-261)
-        //and midND=(0,261) are connected by a straight segment (again a collapsed-control-point line), so its
         //midpoint (0,0) sits exactly on the path.
 
         [AvaloniaFact]
@@ -214,7 +202,7 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //---- dynamic width: LinkWidth is a plain settable property BaseLinkElement.Draw honors directly;
         //the flow -> width mapping itself lives in the not-yet-ported viewer (reference §5), so this exercises
-        //the stroke-thickness contract: whatever LinkWidth is set to is what gets drawn. ----
+        //the stroke-thickness contract Task 4 owns: whatever LinkWidth is set to is what gets drawn. ----
 
         private static int MeasureStrokeThicknessAt(SKSurface surface, int graphX, int graphYCenter, SKColor lineColor) {
             using SKImage image = surface.Snapshot();
@@ -238,7 +226,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             using SKSurface thinSurface = RenderLink(link);
             int thinThickness = MeasureStrokeThicknessAt(thinSurface, 200, -161, lineColor);
 
-            link.LinkWidth = 24f; //simulates what the future flow->width mapping would assign
+            link.LinkWidth = 24f; //simulates what the future flow->width mapping (task 12) would assign
             using SKSurface wideSurface = RenderLink(link);
             int wideThickness = MeasureStrokeThicknessAt(wideSurface, 200, -161, lineColor);
 
@@ -246,9 +234,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         //---- direction arrows: ArrowsOnLinks && !DynamicLinkWidth && !iconOnlyDraw gates the arrowhead ----
-        //Reusing the Simple-shape fixture: consumerOrigin (0,-89), consumerPull (0,0) (its tangent anchor), so
-        //the arrowhead triangle for the default LinkWidth=3 has vertices tip(0,-89), (6,-80), (-6,-80) - a
-        //point at (3,-83) sits inside that triangle but outside the plain 3px-wide line (|x|<=1.5).
 
         [AvaloniaFact]
         public void LinkElement_ArrowsOnLinksTrue_DrawsArrowheadNearConsumerEndpoint() {
@@ -291,7 +276,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(CanvasBackground, SamplePixel(surface, 3, -83));
         }
 
-        //---- allocation: BaseLinkElement.Draw reuses a per-instance SKPath instead of building one per call ----
+        //---- allocation: BaseLinkElement.Draw reuses a per-instance SKPath instead of building one per call
+        //(fix-round item 4, task-2-report.md's fold-in) ----
 
         [AvaloniaFact]
         public void LinkElement_RepeatedPaint_KeepsPerDrawAllocationLow() {

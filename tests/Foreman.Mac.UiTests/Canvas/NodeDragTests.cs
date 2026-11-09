@@ -21,7 +21,7 @@ using AvaloniaWindow = Avalonia.Controls.Window;
 namespace Foreman.Mac.UiTests.Canvas {
     //Exercises reference §2's node-dragging semantics: leader grid-snap/axis-lock, raw-delta followers
     //(nodes and annotations), tab-vs-node disambiguation, arrow-key steps, and the carried Viewport.PanTo
-    //hard-limit seam.
+    //hard-limit seam from Task 1's review.
     public class NodeDragTests {
         private const int Half = 200;
 
@@ -117,7 +117,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.True(fx.Control.Grid.LockDragToAxis);
             Assert.Equal(new Point(30, 0), fx.Control.Grid.DragOrigin); //re-anchored to the node's current, aligned location
 
-            //C2: pointer events re-derive the lock from their own KeyModifiers each move, so these keep holding Shift.
             fx.Window.MouseMove(start + new AvaloniaPoint(55, 15), RawInputModifiers.LeftMouseButton | RawInputModifiers.Shift);
             Assert.Equal(new Point(60, 0), node.Location); //|dx|>|dy| from DragOrigin -> Y pinned, X free
 
@@ -125,8 +124,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new Point(30, 40), node.Location); //overshoot flips it: |dy|>|dx| now -> X pinned back to DragOrigin, Y free
         }
 
-        //---- axis-lock guide gating (GridManager.Paint's draggedNodeActive gate, reference §2/§8.12's
-        //Grid.Paint call) ----
+        //---- locked-axis line rendering (GridManager.Paint's draggedNodeActive gate, reference §2/§8.12's
+        //Grid.Paint call) - GraphViewer.Paint now threads GraphCanvasControl's own drag state through so
+        //this can ever draw at all ----
 
         private static SKColor LockedAxisColor => TokenBridge.Current.Accent;
 
@@ -223,7 +223,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Point tabGraphPoint = node.LocalToGraph(tab.Location);
 
             node.MouseDown(tabGraphPoint);
-            node.Dragged(tabGraphPoint + new Size(20, 0), fx.Control.Grid); //first call off a tab hit: never arms a link drag
+            node.Dragged(tabGraphPoint + new Size(20, 0), fx.Control.Grid); //first call off a tab hit: never arms (would redirect to a link drag once Task 3+ exists)
             node.Dragged(tabGraphPoint + new Size(40, 0), fx.Control.Grid); //tabHit re-checks the fixed MouseDown location every call, so this still doesn't arm
 
             Assert.Equal(new Point(0, 0), node.Location);
@@ -293,7 +293,6 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //---- WASD panning (reference §2/§7) ----
 
-        //⌘A, ⇧⌘A and ⌘W are menu key equivalents (Select All, Deselect All, Close), so Primary chords never pan.
         [AvaloniaFact]
         public void WasdKeys_PanTheViewByPanUnit_InEachDirection_AndLeavePrimaryChordsToTheMenu() {
             Fixture fx = NewFixture();
@@ -335,7 +334,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(new Point(origin.X, origin.Y + 50), fx.Control.Viewport.ViewOffset); //10*5
         }
 
-        //---- Viewport.PanTo's hard-limit seam (reference §2's carried note) ----
+        //---- Viewport.PanTo's hard-limit seam (reference §2's carried note from Task 1's review) ----
 
         [AvaloniaFact]
         public void PlainPan_NearCanvasEdge_ClampsViewOffsetToGraphBounds() {
