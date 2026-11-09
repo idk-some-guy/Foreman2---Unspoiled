@@ -98,8 +98,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(expected, Assert.IsAssignableFrom<ISolidColorBrush>(path.Fill).Color);
         }
 
-        //Composites addendum §10/§14: Plus/Minus land as their own 12pt masters, SlotAdd is the pick
-        //cell's own name for Plus, one geometry, two keys.
         [AvaloniaFact]
         public void PlusAndMinus_ExistAtTwelvePoints() {
             using var fixture = new KitFixture();
@@ -185,7 +183,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             path.Classes.Add("size20");
             fixture.Window.Content = path;
 
-            //The class Setter is a fixed master box; a scaling consumer wraps this Path in a Viewbox.
             ScaleContract.Apply(1.5);
 
             Assert.Equal(20.0, path.Width);

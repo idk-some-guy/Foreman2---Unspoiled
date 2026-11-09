@@ -160,7 +160,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             Application.Current!.TryGetResource("Foreman.Radius.Pill", Application.Current.ActualThemeVariant, out object? radius);
             Application.Current!.TryGetResource("Foreman.FocusRing.Offset", Application.Current.ActualThemeVariant, out object? offset);
-            //Rectangle deflates its rendered geometry by StrokeThickness/2, so the drawn half-extent is bounds/2 + offset.
             double expected = Math.Min(((CornerRadius)radius!).TopLeft + (double)offset!,
                 Math.Min(toggle.Bounds.Width / 2 + (double)offset!, toggle.Bounds.Height / 2 + (double)offset!));
             Assert.Equal(expected, ring.RadiusX);

@@ -482,7 +482,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.True(popup.IsKeyboardFocusWithin);
         }
 
-        //A font menu draws each family's name in that family; a row the consumer gives no face keeps the menu's own.
         [AvaloniaFact]
         public void MenuRows_DrawTheirLabelInTheItemsOwnFontFamily_WhenOneIsGiven() {
             using var fixture = new KitFixture();

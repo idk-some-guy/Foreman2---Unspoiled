@@ -264,7 +264,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(25, slider.Value);
         }
 
-        //A host that rules its own page step (the sheets' 10 % opacity) sets PageStep; unset keeps the quarter-range default.
         [AvaloniaFact]
         public void PageStep_WhenSet_ReplacesTheQuarterRangePage() {
             using var fixture = new KitFixture();

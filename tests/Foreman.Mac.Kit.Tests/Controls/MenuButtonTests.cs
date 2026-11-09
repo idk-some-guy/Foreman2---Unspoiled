@@ -239,7 +239,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             fixture.Window.Content = button;
             fixture.StateOf(button).Focus();
 
-            //Nothing is non-default, so Reset starts disabled; three Downs from item 0 must skip both it and the separator, wrapping to item 0.
             fixture.StateOf(button).KeyDown(Key.Space);
             for (int i = 0; i < 3; i++)
                 fixture.StateOf(button).KeyDown(Key.Down);

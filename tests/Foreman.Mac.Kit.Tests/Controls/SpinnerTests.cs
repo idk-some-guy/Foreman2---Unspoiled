@@ -172,14 +172,12 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             AssertHeadStaysInsideTheSpinner(spinner);
         }
 
-        //Geometry.Bounds after a transform is unreliable for a partial arc, so we check the head's real transformed bounds instead.
         internal static void AssertHeadStaysInsideTheSpinner(Spinner spinner) {
             Arc head = Head(spinner);
 
             Matrix transform = head.TransformToVisual(spinner) ?? Matrix.Identity;
             Rect transformedBounds = new Rect(head.Bounds.Size).TransformToAABB(transform);
 
-            //Allowance scales with the head's own size: it absorbs float rounding in the rotation matrix, not a real drift.
             double tolerance = head.Bounds.Width / 18.0;
             Assert.True(new Rect(spinner.Bounds.Size).Inflate(tolerance).Contains(transformedBounds),
                 $"head's transformed bounds {transformedBounds} escaped the spinner's own bounds {spinner.Bounds} — the head has drifted off-center");

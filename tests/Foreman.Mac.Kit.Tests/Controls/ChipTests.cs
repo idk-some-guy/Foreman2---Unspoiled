@@ -297,7 +297,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         [AvaloniaFact]
         public void ShortLabel_InA256PointHost_HugsItsLabel_WithNoTrimAndNoTooltip() {
             using var fixture = new KitFixture();
-            //Headless glyphs run about one em wide, so the ruled "Compatible with Iron Plate" already overflows 256 here.
             Chip chip = HostedAt256(fixture, "Iron Plate");
 
             Assert.True(chip.Bounds.Width < 256, $"chip is {chip.Bounds.Width} wide");

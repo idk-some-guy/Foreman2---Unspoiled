@@ -201,7 +201,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(Brushes.Transparent.ToImmutable(), plain.Background?.ToImmutable());
             Assert.Equal(Brushes.Transparent.ToImmutable(), plain.BorderBrush?.ToImmutable());
             Assert.Equal(new Thickness(6, 0), plain.Padding);
-            //The mock's .btn.plain changes only background/border/colour/padding - the label must not render lighter than its siblings.
             Assert.Equal(standard.FontWeight, plain.FontWeight);
             Assert.Equal(standard.BorderThickness, plain.BorderThickness);
         }

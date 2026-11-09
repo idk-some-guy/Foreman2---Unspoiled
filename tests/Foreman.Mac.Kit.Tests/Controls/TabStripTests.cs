@@ -477,7 +477,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Border ItemNow() => strip.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "PART_Track")
                 .Children.OfType<Border>().Single();
 
-            //Rebuild() replaces every item Border wholesale on a token change, so re-query rather than reuse.
             Assert.Equal(46, ItemNow().Height);
             Assert.Equal(18, ItemNow().GetVisualDescendants().OfType<Viewbox>().Single().Bounds.Width);
 

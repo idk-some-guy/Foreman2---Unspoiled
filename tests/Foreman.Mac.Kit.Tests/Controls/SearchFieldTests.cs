@@ -130,7 +130,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Path disc = ClearButton(field).GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_Disc");
             Path knockout = ClearButton(field).GetVisualDescendants().OfType<Path>().Single(p => p.Name == "PART_Knockout");
 
-            //Both glyphs are authored on the 16pt grid already; stretching would blow the knockout past the disc.
             Assert.Equal(Stretch.None, disc.Stretch);
             Assert.Equal(Stretch.None, knockout.Stretch);
         }
@@ -200,7 +199,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal("belt", field.Text);
         }
 
-        //Find node ruling §05: ⇧Return steps backward, the Return-key twin of ⇧⌘G.
         [AvaloniaFact]
         public void ShiftReturn_RaisesSearchCommittedBackward_NotSearchCommitted() {
             using var fixture = new KitFixture();
@@ -379,8 +377,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.False(LoadingSpinner(field).IsVisible);
         }
 
-        //The delayed reveal is an animation-clock opacity transition, not a wall-clock timer - the spinner's
-        //own Opacity stays at zero rather than a plain IsVisible flip landing after a DispatcherTimer fires.
         [AvaloniaFact]
         public void IsLoading_ClearedBeforeTheGraceElapses_NeverShowsTheSpinner() {
             using var fixture = new KitFixture();
@@ -428,7 +424,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.False(MatchStatusText(field).IsVisible);
         }
 
-        //Ruling §06 token 2: the hide edge is read from SearchFieldCountFloor, not a private literal.
         [AvaloniaFact]
         public void MatchStatus_HidesBelowTheCountFloorResource_EvenWhenSet() {
             using var fixture = new KitFixture();
@@ -459,7 +454,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.True(MatchStatusText(field).IsVisible);
         }
 
-        //Ruling §04/§05: AXHelp and the tooltip carry the count at every width, including below the floor where the slot is hidden.
         [AvaloniaFact]
         public void MatchStatus_CarriesAXHelpAndTooltip_AtEveryWidthIncludingTheMinWidthFloor() {
             using var fixture = new KitFixture();
@@ -485,7 +479,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal("2 of 3", ToolTip.GetTip(field));
         }
 
-        //Ruling §02 count slot: between the text run and the clear button, with the ruled gaps, tabular numerals and a brush that differs for "No matches".
         [AvaloniaFact]
         public void MatchStatus_SitsBetweenTheTextRunAndTheClearButton_WithRuledGapsAndBrush() {
             using var fixture = new KitFixture();
@@ -542,7 +535,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(330, field.Width);
         }
 
-        //Ruling §04 "The field at 150 %": the capsule and the count scale together, so the hide edge is the scaled floor, never the unscaled 168.
         [AvaloniaFact]
         public void MatchStatusHideEdge_TracksTheScaledCountFloor() {
             using var fixture = new KitFixture();

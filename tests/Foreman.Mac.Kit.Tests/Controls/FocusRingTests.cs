@@ -231,8 +231,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
             fixture.StateOf(control).Focus();
 
-            //Rectangle deflates its rendered geometry by StrokeThickness/2, so the true drawn
-            //half-height is control.Height/2 + offset (11), not the ring box's own half-height (12.5).
             Rectangle ring = Assert.IsType<Rectangle>(RingOn(control));
             Assert.Equal(11, ring.RadiusX);
             Assert.Equal(11, ring.RadiusY);
@@ -250,7 +248,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Dispatcher.UIThread.RunJobs();
 
             Rectangle ring = Assert.IsType<Rectangle>(RingOn(control));
-            //A looping/self-intersecting capsule draws past the ring's own box; a true one stays inside it.
             Rect rendered = ring.RenderedGeometry!.Bounds;
             Assert.True(rendered.Width <= ring.Bounds.Width + 0.01, $"rendered width {rendered.Width} > ring width {ring.Bounds.Width}");
             Assert.True(rendered.Height <= ring.Bounds.Height + 0.01, $"rendered height {rendered.Height} > ring height {ring.Bounds.Height}");

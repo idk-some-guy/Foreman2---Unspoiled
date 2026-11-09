@@ -45,7 +45,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.True(Application.Current!.TryGetResource(typeof(ToolTip), null, out object? implicitTheme));
             Assert.Same(KitTooltipTheme(), implicitTheme);
 
-            //A window without the fixture's scoped FluentTheme, so the lookup reaches the application the way the app's windows do.
             var window = new Window { Width = 200, Height = 100 };
             var tip = new ToolTip { Content = "Iron chest" };
             window.Content = tip;

@@ -49,7 +49,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         internal static Grid Track(Segmented segmented) =>
             segmented.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Track");
 
-        //Every label sits inside its own cell, and after settling on each index PART_Selection's real (transformed) rect matches that cell's rect.
         internal static void AssertLayoutMatchesCells(Segmented segmented) {
             Dispatcher.UIThread.RunJobs();
 

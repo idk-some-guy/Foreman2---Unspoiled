@@ -199,8 +199,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
     }
 
-    //Pop-up menu rows with a leading item icon (2026-09-17 ruling amending the building-picker page): the
-    //checkmark column is never displaced - NSMenuItem's own state/image/title slot order, check first.
     public sealed class KitMenuRowIconTests {
         private static ControlTheme KitMenuPanelTheme() {
             Assert.True(Application.Current!.TryGetResource("Kit.MenuPanel", null, out object? theme));

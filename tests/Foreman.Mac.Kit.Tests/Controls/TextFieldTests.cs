@@ -32,7 +32,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(typeof(TextBox), KitTextFieldTheme().TargetType);
         }
 
-        //A fixed prefix the field draws but never edits (the colour popover's "#").
         [AvaloniaFact]
         public void InnerLeftContent_SitsBeforeTheText_InsideTheBorder() {
             using var fixture = new KitFixture();

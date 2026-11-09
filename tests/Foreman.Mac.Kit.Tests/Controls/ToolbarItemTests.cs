@@ -185,7 +185,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             var hoverTarget = fixture.Brush("Foreman.Color.ControlBackgroundHover").ToImmutable();
 
             fixture.StateOf(item).Hover();
-            //Mid fade: the overlay is still transitioning over Motion.HoverDuration, not swapped in the same pass.
             AnimationClock.Settle(60);
             Assert.Equal(restBackground, item.Background?.ToImmutable());
             double midOpacity = Fill(item).Opacity;
@@ -296,7 +295,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             item.Classes.Add("icon-only");
             Dispatcher.UIThread.RunJobs();
 
-            //Fading, not cut: still visible right after the class flips, not yet at zero opacity.
             Assert.True(label.IsVisible);
             DoubleTransition opacity = Assert.Single(label.Transitions!.OfType<DoubleTransition>(), t => t.Property == Visual.OpacityProperty);
             Assert.Equal(Motion.TabLabelCrossFadeDuration, opacity.Duration);
@@ -342,8 +340,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         private static Border Fill(ToolbarItem item) =>
             item.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_HoverFill");
 
-        //Before this fix PART_HoverFill sat inside the padded content Border, inset by ToolbarItemPadding on
-        //every side - the fill covered a smaller rect than the item itself, at 100% and even more so at 150%.
         [AvaloniaTheory]
         [InlineData(1.0)]
         [InlineData(1.5)]

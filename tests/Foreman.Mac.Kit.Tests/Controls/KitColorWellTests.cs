@@ -109,7 +109,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(Token("Foreman.Opacity.Disabled"), well.Opacity);
         }
 
-        //Inset 2 is measured from the inner edge of the 1 pt border.
         [AvaloniaFact]
         public void Swatch_Is26By16_InsetTwoInsideTheBorder_AtRadiusSwatch_WithTheSwatchStroke() {
             using var fixture = new KitFixture();
@@ -266,7 +265,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.True(well.IsFocused);
         }
 
-        //Escape belongs to the popover: it closes it and never travels on to whatever hosts the well.
         [AvaloniaFact]
         public void Escape_WithThePopoverOpen_ClosesThePopoverAndStopsThere() {
             using var fixture = new KitFixture();
@@ -331,7 +329,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(6, Part<SwatchChecker>(well, "PART_Checker").SquareSize);
         }
 
-        //The 1 pt border stays a hairline at every step; the swatch is what the scaled inset and chevron column leave over.
         [AvaloniaTheory]
         [InlineData(1.0, 3, 3, 26, 16)]
         [InlineData(1.5, 4, 4, 40, 25)]
