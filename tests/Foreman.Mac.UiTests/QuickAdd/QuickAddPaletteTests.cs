@@ -57,7 +57,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             return Assert.IsType<double>(width);
         }
 
-        //A link drag released on empty canvas, then the radial's top slice (Add…) - the palette opens constrained.
         private static QuickAddPalette OpenFromLinkDrag(CanvasFixture fx, Point tab, Point drop) {
             fx.DragFrom(tab).To(drop).Release();
             fx.MoveAndClickAt(fx.Control.OpenRadial!.Ring.Bounds.Center + new AvaloniaVector(0, -64));

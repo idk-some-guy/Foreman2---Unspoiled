@@ -8,8 +8,6 @@ using System.Collections.Generic;
 using System.Drawing;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Builds real node view models through a bare ProductionGraphSession (no GraphCanvasControl, no
-    //Avalonia) over the cached vanilla DataCache, so InspectorViewModelTests can stay plain [Fact].
     internal static class FakeNodes {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private static readonly Lazy<(DataCache Cache, ProductionGraphSession Session)> LazyFixture = new(BuildFixture);

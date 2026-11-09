@@ -22,24 +22,14 @@ using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Migrates every EditFlowPanelTests.cs behavior onto the docked FlowSegmentView: the non-recipe
-    //node editor now lives in the inspector sidebar instead of a floating panel. Rate value (SelectedRateUnit-
-    //aware, already handled by Foreman.Core's ActualRate/DesiredRate), fixed/auto toggle, simple-passthrough
-    //toggle, and key-node controls all go through FlowSegmentViewModel, which calls the same controllers
-    //EditFlowPanel used to call directly.
     public class FlowSegmentTests {
         private static DataCacheStore Store(DataCache cache) {
             FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
             return (DataCacheStore)field.GetValue(cache)!;
         }
 
-        //---- brief step 1 ----
-
         [AvaloniaFact]
         public async Task FixedRate_WritesDesiredSetValueThroughController() {
-            //Supplier -> consumer, matching EditFlowPanelTests' own FixedRateEdit_UpdatesNodeAndResolvesDownstream
-            //fixture: a passthrough with nothing feeding it can never push anything past itself, so it can't
-            //stand in for the original's downstream-resolve assertion the way it does for the rest of this file.
             MainWindow window = await InspectorTestSupport.OpenEmptyWindowAsync();
             DataCache cache = window.DataCache!;
             var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
@@ -62,7 +52,7 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             Assert.Equal(RateType.Manual, supplier!.RateType);
             Assert.Equal(90, supplier.DesiredRate, 3);
-            Assert.Equal(90, consumer!.ActualSetValue, 3); //downstream resolve, matching EditFlowPanelTests' original assertion
+            Assert.Equal(90, consumer!.ActualSetValue, 3);
         }
 
         [AvaloniaFact]
@@ -80,10 +70,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal("Main output", node.KeyNodeTitle);
         }
 
-        //EditFlowPanel threaded a RequestRedraw callback from GraphCanvasControl through every one of these
-        //edits; FlowSegmentViewModel now takes the same callback as an optional constructor parameter, and
-        //InspectorView wires it from MainWindow (GraphCanvas.InvalidateVisual). Overriding the callback with
-        //a counter before Select forces FlowSegmentView.Bind to capture that override.
         [AvaloniaFact]
         public async Task FixedRateToggle_KeyNodeToggle_TitleEdit_AndSimplifyToggle_EachRequestCanvasRedraw() {
             MainWindow window = await InspectorTestSupport.OpenEmptyWindowAsync();
@@ -182,8 +168,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.NotNull(window.Inspector.FindControl<FlowSegmentView>("FlowSegment"));
         }
 
-        //---- migrated from EditFlowPanelTests.cs ----
-
         [AvaloniaFact]
         public async Task FixedOptionChecked_SwitchesNodeToManualRateType() {
             MainWindow window = await InspectorTestSupport.OpenEmptyWindowAsync();
@@ -239,20 +223,16 @@ namespace Foreman.Mac.UiTests.Inspector {
             if (window.GraphCanvas.Viewer.Session.Editor.RequestNodeController(supplierId) is not BaseNodeController controller)
                 throw new Xunit.Sdk.XunitException("Supplier node has no controller.");
             controller.SetRateType(RateType.Manual);
-            controller.SetDesiredSetValue(2); //2 items/sec while SelectedRateUnit is Per1Sec
+            controller.SetDesiredSetValue(2);
 
             InspectorTestSupport.Select(window, supplier!);
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
             Assert.Equal(2, view.FindControl<Stepper>("RateValue")!.Value);
 
-            //Same underlying rate, new display unit, through the real View menu path (MenuSetRateUnit) -
-            //no re-select: InspectorView.RefreshSegment forwards the change straight to the bound segment.
             SetRateUnitViaMenu(window, "1 min");
-            Assert.Equal(120, view.FindControl<Stepper>("RateValue")!.Value); //2/sec * 60
+            Assert.Equal(120, view.FindControl<Stepper>("RateValue")!.Value);
         }
 
-        //The passthrough Rate group's own Rate unit row (2026-09-17 building-picker ruling): a Kit.PopUp on
-        //the same graph-level setting View Options' pop-up writes, listing all six values.
         [AvaloniaFact]
         public async Task RateUnitPopUp_ListsAllSixValues_AndWritesThroughToTheGraph() {
             MainWindow window = await InspectorTestSupport.OpenEmptyWindowAsync();
@@ -275,8 +255,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal("per minute", rateUnitPopUp.SelectedItem);
         }
 
-        //Mirrors NativeMenuTests.cs's own TopMenu/SubMenu helpers (not shared - private to that file) to
-        //drive MenuSetRateUnit the same way a real View > Rate Unit click does.
         private static void SetRateUnitViaMenu(MainWindow window, string header) {
             NativeMenu viewMenu = NativeMenu.GetMenu(window)!.Items.OfType<NativeMenuItem>().Single(i => i.Header == "View").Menu!;
             NativeMenu rateUnitMenu = viewMenu.Items.OfType<NativeMenuItem>().Single(i => i.Header == "Rate Unit").Menu!;
@@ -303,22 +281,22 @@ namespace Foreman.Mac.UiTests.Inspector {
                 throw new Xunit.Sdk.XunitException("Consumer node has no controller.");
             consumerController.SetRateType(RateType.Manual);
             consumerController.SetDesiredSetValue(7);
-            supplierController.SetDesiredSetValue(999); //stale: supplier stays Auto, so solve never reads this
+            supplierController.SetDesiredSetValue(999);
             window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
 
             Assert.Equal(RateType.Auto, supplier!.RateType);
-            Assert.Equal(7, supplier.ActualSetValue, 3); //solved to satisfy the consumer's demand
-            Assert.Equal(999, supplier.DesiredSetValue, 3); //still stale, untouched by an Auto-node solve
+            Assert.Equal(7, supplier.ActualSetValue, 3);
+            Assert.Equal(999, supplier.DesiredSetValue, 3);
 
             InspectorTestSupport.Select(window, supplier);
             var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
-            Assert.Equal(7, view.FindControl<Stepper>("RateValue")!.Value); //displayed value is what the solver actually produced
+            Assert.Equal(7, view.FindControl<Stepper>("RateValue")!.Value);
 
-            view.FindControl<Segmented>("RateMode")!.SelectedIndex = 1; //toggle only - never touch RateValue directly
+            view.FindControl<Segmented>("RateMode")!.SelectedIndex = 1;
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(RateType.Manual, supplier.RateType);
-            Assert.Equal(7, supplier.DesiredSetValue, 3); //applies the displayed value, not the stale 999
+            Assert.Equal(7, supplier.DesiredSetValue, 3);
         }
 
         [AvaloniaFact]
@@ -341,8 +319,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(200, titleBox.Text?.Length);
             Assert.Equal(200, node.KeyNodeTitle.Length);
         }
-
-        //---- new: node types the migration bullet calls out by name ----
 
         [AvaloniaFact]
         public async Task SpoilAndPlantNodes_GetFlowSegment() {

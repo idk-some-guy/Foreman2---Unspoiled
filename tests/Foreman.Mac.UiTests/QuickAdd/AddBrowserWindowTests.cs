@@ -65,7 +65,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.True(vm.Groups[1].IsSelected);
         }
 
-        //AddCatalog.Search ties-break by FriendlyName, so "chest" returns Iron before Wooden alphabetically.
         [AvaloniaFact]
         public void SearchFiltersAcrossAllGroups_AndClearingRestoresTheGroupView() {
             var (_, vm) = Open();
@@ -77,9 +76,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(["Storage", "Belt"], vm.Sections.Select(s => s.Title));
         }
 
-        //The browser's search box lives in its own window, never a descendant of
-        //GraphCanvasControl, so the palette's KeyDown-swallowing regression never touched it - this pins
-        //that down with the same real-keyboard-path check the palette itself now gets.
         [AvaloniaFact]
         public void TypingChestThroughTheRealWindowKeyboardPath_FillsTheSearchBox() {
             var (win, vm) = Open();
@@ -111,7 +107,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             UnavailableCell_IsDimmed_AndADoubleClickStillAddsIt();
         }
 
-        //A22 amended: opacity means "unavailable", never "inert".
         private static void UnavailableCell_IsDimmed_AndADoubleClickStillAddsIt() {
             var settings = new AppSettings { ShowUnavailable = true };
             var (win, vm) = Open(settings);
@@ -165,7 +160,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Same(vm.Qualities[0], vm.Quality);
         }
 
-        //Mirrors the retired on-canvas chooser's quality picker (ported from its own population test).
         [AvaloniaFact]
         public void QualitySelectExcludesDisabledQualities() {
             var fx = CatalogFixture.WithQualities(["normal", "epic", "legendary"], disabled: ["legendary"]);
@@ -195,16 +189,12 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Null(vm.SelectedCell);
         }
 
-        //An unresolved Factorio locale placeholder becomes a readable phrase; a normal
-        //FriendlyName (distinct from the raw internal Name) is left alone.
         [Fact]
         public void HumanizeStripsAnUnresolvedLocalePlaceholder_AndLeavesARealFriendlyNameAlone() {
             Assert.Equal("Extraction items", AddBrowserViewModel.Humanize("§§SG:EXTRACTION_ITEMS", "extraction-items"));
             Assert.Equal("Storage", AddBrowserViewModel.Humanize("Storage", "storage"));
         }
 
-        //The placeholder's own kind marker ("SG:", "G:", any case) sits right after "§§" and
-        //must go too, not just the "§§" itself - a colon elsewhere in a real name is left alone.
         [Fact]
         public void HumanizeStripsTheKindMarkerAfterTheLocalePlaceholder_CaseInsensitively() {
             Assert.Equal("Extraction items", AddBrowserViewModel.Humanize("§§sg:extraction_items", "extraction-items"));
@@ -212,15 +202,11 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal("Mod: Things", AddBrowserViewModel.Humanize("Mod: Things", "mod-things"));
         }
 
-        //A localised FriendlyName can carry embedded newlines - Humanize collapses any
-        //whitespace run to one space regardless of the source.
         [Fact]
         public void HumanizeCollapsesEmbeddedWhitespaceRuns_IncludingNewlines() {
             Assert.Equal("Foo Bar Baz", AddBrowserViewModel.Humanize("Foo\nBar\r\n  Baz", "foo-bar-baz"));
         }
 
-        //A subgroup whose FriendlyName is Factorio's own unresolved locale key surfaces as a readable
-        //heading instead of the raw "§§SG:..." text.
         [AvaloniaFact]
         public void SubheadHumanizesAnUnresolvedLocalePlaceholder() {
             var fx = CatalogFixture.WithSubgroupNamed("§§SG:EXTRACTION_ITEMS");
@@ -230,9 +216,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Contains("Extraction items", vm.Sections.Select(s => s.Title));
         }
 
-        //A group whose FriendlyName is Factorio's own unresolved locale key surfaces in
-        //the sidebar title-cased, not merely sentence-cased the way Humanize alone would leave it - the
-        //sidebar shows group names as-is, so HumanizeGroupName title-cases on top of Humanize's own output.
         [AvaloniaFact]
         public void SidebarGroupNameIsTitleCased_ForAnUnresolvedLocalePlaceholder() {
             var fx = CatalogFixture.WithGroupNamed("§§SG:EXTRACTION_ITEMS");
@@ -261,7 +244,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(longName, ToolTip.GetTip(label.FindAncestorOfType<SidebarRow>()!)?.ToString());
         }
 
-        //A name landing strictly between the floor and the cap must still fit uncrimped.
         [AvaloniaFact]
         public void SidebarWidthFitsAMidBandGroupName_NoClippingNoTooltip() {
             const string midName = "Fluid power";
@@ -279,7 +261,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
                 .First(t => t.DataContext is BrowserGroup g && g.Name == midName);
             Assert.Null(ToolTip.GetTip(label.FindAncestorOfType<SidebarRow>()!));
 
-            //Window-relative, same as GridCellsShareAUniformHeight below - Bounds is parent-relative.
+            //Bounds is parent-relative, so compare in window coordinates.
             double labelRight = Avalonia.VisualExtensions.TranslatePoint(label, new Point(0, 0), win)!.Value.X + label.Bounds.Width;
             double sidebarRight = Avalonia.VisualExtensions.TranslatePoint(sidebar, new Point(0, 0), win)!.Value.X + sidebar.Bounds.Width;
             Assert.True(labelRight <= sidebarRight, $"label right edge ({labelRight}) overflows the sidebar ({sidebarRight})");
@@ -308,8 +290,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             win.Show();
             Dispatcher.UIThread.RunJobs();
 
-            //Recipes has no cells in this fixture, so the switch empties Groups, then restoring Items
-            //repopulates it with fresh BrowserGroup instances.
             vm.Segment = BrowserSegment.Recipes;
             Dispatcher.UIThread.RunJobs();
             vm.Segment = BrowserSegment.Items;
@@ -350,13 +330,10 @@ namespace Foreman.Mac.UiTests.QuickAdd {
                     $"'{((BrowserGroup)label.DataContext!).Name}' right edge ({right}) overflows the sidebar's padded edge ({sidebarRight - sidebar.Padding.Right})");
             }
 
-            //Bounds-fitting alone doesn't catch this - a trimmed label still stays inside the
-            //sidebar via ellipsis. "Intermediate products" must actually fit, not just get clipped to fit.
             TextBlock intermediateProducts = labels.First(l => ((BrowserGroup)l.DataContext!).Name == "Intermediate products");
             Assert.Null(ToolTip.GetTip(intermediateProducts.FindAncestorOfType<SidebarRow>()!));
         }
 
-        //The widest bundled group name must render untrimmed at every UI scale.
         [AvaloniaFact]
         public void SidebarWidthFitsIntermediateProductsUntrimmed_AtEveryUiScale() {
             WindowScaler.SetScale(1.0);
@@ -378,9 +355,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
                     Assert.Null(ToolTip.GetTip(label.FindAncestorOfType<SidebarRow>()!));
 
-                    //Both corners go through TranslatePoint (not origin + local Bounds.Width) - at scale != 1
-                    //the ambient LayoutTransform means a translated origin and a local width live in different
-                    //units, so adding them crosses coordinate spaces.
+                    //At scale != 1 a translated origin and a local width are in different units, so translate both corners.
                     double labelRight = Avalonia.VisualExtensions.TranslatePoint(label, new Point(label.Bounds.Width, 0), win)!.Value.X;
                     double sidebarRight = Avalonia.VisualExtensions.TranslatePoint(sidebar, new Point(sidebar.Bounds.Width, 0), win)!.Value.X;
                     Assert.True(labelRight <= sidebarRight + 0.5, $"at scale {scale}, label right edge ({labelRight}) overflows the sidebar ({sidebarRight})");
@@ -390,9 +365,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             }
         }
 
-        //The Foreman-internal "extra" group's FriendlyName used to join three category
-        //names with embedded newlines; it's a single line now (DataCacheBootstrap), but this stays as a
-        //defense-in-depth check that no sidebar row or subgroup heading ever renders a raw newline.
         [AvaloniaFact]
         public void GroupNamesWithEmbeddedNewlinesRenderOnOneLine_InTheRealSpaceAgePreset() {
             using ShellFixture shell = ShellFixture.OpenWithSpaceAge();
@@ -434,9 +406,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.True(first.IsVisible);
         }
 
-        //A link-drag's own "Add..." (radial Add.../the palette's Cmd+Enter after it)
-        //always seeds a Link, so it must open on Recipes - a scope-less/link-less open (the toolbar,
-        //background menu, double-click) still defaults to Items.
         [AvaloniaFact]
         public void LinkDragAddOpensOnRecipes_ScopeAllWithoutALinkStillOpensOnItems() {
             using ShellFixture shell = ShellFixture.OpenWithVanillaAndOneSupplier(out AddLinkContext link);
@@ -534,7 +503,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             AddAs_RemembersTheLastPickedRole_AndFallsBackToSourceWhereItIsDimmed();
         }
 
-        //The sticky default: the last explicit pick while the selection allows it, never overwritten by a fallback.
         private static void AddAs_RemembersTheLastPickedRole_AndFallsBackToSourceWhereItIsDimmed() {
             var fx = CatalogFixture.WithItemsAndRecipes(["seed", "plate"], []);
             ((ItemPrototype)fx.Cache.Items["seed"]).PlantResult = new PlantProcessPrototype(fx.Cache, "seed-planting");
@@ -660,7 +628,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //The panel speaks only about switches that are off and hide matches, never about ones that are on.
         private static void AssertNeverBlamesAnActiveFilter(StatePanel panel) {
             string[] strings = [panel.Headline ?? "", panel.Sentence ?? "", .. ButtonLabels(panel)];
             Assert.DoesNotContain(strings, t => t is "Clear Filters" or "Reset Filters");
@@ -734,7 +701,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Equal(["Clear Search", "Show All"], ButtonLabels(panel));
             AssertNeverBlamesAnActiveFilter(panel);
 
-            //R11 lists only groups with an available entry, so a category empties through hidden entries.
             var categoryFx = CatalogFixture.WithItemsAndRecipes(["ore"], [], hidden: ["ore"]);
             var categorySettings = new AppSettings();
             var categoryVm = new AddBrowserViewModel(new AddCatalog(categoryFx.Cache, categorySettings), categoryFx.Cache, categorySettings, (_, _) => null);
@@ -783,7 +749,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             });
         }
 
-        //The designer's link ruling: a seeded constraint keeps its own copy and offers only a button that reveals something.
         private static void NoResults_UnderALink_KeepTheLinkCopy_AndOfferOnlyWhatReveals() {
             var chain = CatalogFixture.WithProductionChain();
             ((RecipePrototype)chain.Cache.Recipes["Iron Plate"]).Available = false;
@@ -967,7 +932,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.All(strings, t => Assert.DoesNotMatch(@"Exception|at |/|\\", t));
         }
 
-        //The designer's error ruling: two causes with their own copy; one undecodable icon is not an error.
         private static void Errors_ShowTheRuledPanelAroundALiveClose_AndTryAgainRecovers() {
             var (win, vm) = Open();
             ChooserGrid grid = win.FindControl<ChooserGrid>("Grid")!;
@@ -1124,8 +1088,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         public void OwnerClosingOrAppShutdownIsNotCancelled() {
             var (win, _) = Open();
             var onClosing = typeof(AddBrowserWindow).GetMethod("OnClosing", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            //WindowClosingEventArgs's own constructor is internal to Avalonia.Controls - reflection is the
-            //only way to build one from here to drive OnClosing directly with a specific CloseReason.
+            //WindowClosingEventArgs's constructor is internal to Avalonia.Controls, so reflection builds one with a specific CloseReason.
             var ctor = typeof(WindowClosingEventArgs).GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, [typeof(WindowCloseReason), typeof(bool)])!;
 
             var ownerClosing = (WindowClosingEventArgs)ctor.Invoke([WindowCloseReason.OwnerWindowClosing, true]);

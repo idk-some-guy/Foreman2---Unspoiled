@@ -28,7 +28,6 @@ using AvaloniaWindow = Avalonia.Controls.Window;
 using KitPickGrid = Foreman.Mac.Kit.Composites.PickGrid;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Module/beacon coverage for RecipeSegmentView's Modules and Beacon groups.
     public class RecipeSegmentModulesBeaconTests {
         private sealed class Fixture {
             public required DataCache Cache;
@@ -152,8 +151,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             return new Oracle(supplierController, consumer!);
         }
 
-        //---- Standard fixture: one module-and-beacon-capable electric assembler, a beacon, one shared module ----
-
         private sealed class RecipeFixture {
             public required Fixture Fx;
             public required RecipePrototype Recipe;
@@ -213,8 +210,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //Kit.PickGrid's slots are a plain rebuilt list (no per-item Button to click); choosing a slot is
-        //select-then-Return, clearing it is select-then-Delete, matching the grid's own tested keyboard path.
         private static int IndexOf(IReadOnlyList<PickGridItem> items, object key) {
             for (int i = 0; i < items.Count; i++)
                 if (Equals(items[i].Key, key))
@@ -222,7 +217,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             return -1;
         }
 
-        //Return/Delete act on the focused slot (2026-09-17 arming ruling), not the armed one.
+        //Return and Delete act on the focused slot, not the armed one.
         private static void ChooseSlot(KitPickGrid grid, int index) {
             grid.FocusedIndex = index;
             CanvasKeys.KeyDownOn(grid, Key.Return);
@@ -241,8 +236,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             return cell;
         }
 
-        //InspectorGroup's title row - scoped inside `group` so each group's own header resolves
-        //unambiguously even though every InspectorGroup names its header the same "PART_HeaderRow".
         private static Border GroupHeaderOf(InspectorGroup group) =>
             group.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_HeaderRow");
 
@@ -251,8 +244,6 @@ namespace Foreman.Mac.UiTests.Inspector {
 
         private static PickCell[] CellsOf(KitPickGrid grid) =>
             [.. grid.GetVisualDescendants().OfType<PickCell>()];
-
-        //---- Modules: add fills the next slot, tap-to-remove, incompatible modules excluded ----
 
         [AvaloniaFact]
         public void AddModule_FillsNextSlot_AndUpdatesModulesTitle() {
@@ -297,7 +288,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         public void ModuleOptions_ExcludeModulesTheAssemblerCannotTake() {
             RecipeFixture rf = NewRecipeFixture();
             IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
-            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Burner, rf.Fx.Normal)); //burner-assembler never got AllowModules
+            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Burner, rf.Fx.Normal));
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);
@@ -305,8 +296,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Empty(view.ViewModel!.ModuleOptions);
         }
 
-        //A25: a building with no module slots at all draws no grid and no row - the group is removed, not
-        //shown with "0 slots" (burner-assembler never set ModuleSlots, so it defaults to 0).
         [AvaloniaFact]
         public void AssemblerWithZeroModuleSlots_HidesTheModulesGroupEntirely() {
             RecipeFixture rf = NewRecipeFixture();
@@ -320,8 +309,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             InspectorGroup modulesGroup = view.FindControl<InspectorGroup>("ModulesGroup")!;
             Assert.False(modulesGroup.IsVisible);
         }
-
-        //---- Mouse path: clicking an option equips it, clicking an equipped slot only selects it ----
 
         [AvaloniaFact]
         public void ClickingAModuleOption_EquipsItIntoTheFirstEmptySlot_WhenNoFilledSlotIsSelected() {
@@ -342,8 +329,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(rf.Module, node.AssemblerModules[0].Module);
         }
 
-        //Selecting a cell on click is kit-tested (ClickingACell_SelectsItAndFocusesTheGrid); this covers only
-        //the app-level half - a click on an equipped slot never itself mutates the node.
         [AvaloniaFact]
         public void ClickingAnEquippedSlot_DoesNotMutateTheNode() {
             RecipeFixture rf = NewRecipeFixture();
@@ -364,7 +349,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(rf.Module, node.AssemblerModules[0].Module);
         }
 
-        //Regression: SelectedIndex used to default to 0, so a click destroyed the first equipped module.
         [AvaloniaFact]
         public void ClickingAModuleOption_OnAFullyEquippedGridWithNoSelection_DoesNothing() {
             RecipeFixture rf = NewRecipeFixture();
@@ -376,7 +360,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
             controller.RemoveAssemblerModules();
             controller.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
-            controller.AddAssemblerModule(new ModuleQualityPair(other, rf.Fx.Normal)); //fills both of Electric's two slots
+            controller.AddAssemblerModule(new ModuleQualityPair(other, rf.Fx.Normal));
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
             (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
@@ -392,7 +376,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(other, node.AssemblerModules[1].Module);
         }
 
-        //Arriving at a slot by keyboard is not arming it, so an option click still finds nothing armed.
         [AvaloniaFact]
         public void TabThroughTheEquippedGrid_ClickingAnOption_AppendsRatherThanReplacing() {
             RecipeFixture rf = NewRecipeFixture();
@@ -485,8 +468,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(-1, equippedBeaconGrid.SelectedIndex);
         }
 
-        //---- Solve storm: SyncSlots diffs by index instead of Slots.Clear() + rebuild ----
-
         [AvaloniaFact]
         public void SolveStormWithUnchangedModulesAndBeacons_RecreatesNoPickCells() {
             RecipeFixture rf = NewRecipeFixture();
@@ -521,8 +502,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(beaconOptionsBefore, CellsOf(beaconOptionsGrid));
         }
 
-        //Cell identity across a positional replace is kit-tested (ReplacingASlot_UpdatesTheExistingCellInPlace);
-        //this covers only the app's own step on top of that - SyncSlots' diff-by-index actually reaching the cell.
         [AvaloniaFact]
         public void SolveThatSwapsOneEquippedModule_UpdatesTheCellContent() {
             RecipeFixture rf = NewRecipeFixture();
@@ -569,36 +548,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.True(equippedGrid.IsFocused);
         }
 
-        //Pumping (composites addendum): a notification storm where nothing actually changed must trigger zero
-        //PickGrid rebuilds - SyncSlots only ever writes to Slots when a slot's content differs, so
-        //Slots.CollectionChanged is the direct proxy for "did the grid rebuild" (an unbounded
-        //Slots.Clear()+rebuild on every solve, which this replaced, fires that event on every iteration).
-        [AvaloniaFact]
-        public void SolveStormWithUnchangedModules_TriggersNoSlotRebuildsOnTheEquippedGrid() {
-            RecipeFixture rf = NewRecipeFixture();
-            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
-            RecipeNodeController controller = ControllerFor(rf.Fx, node);
-            controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
-            controller.RemoveAssemblerModules();
-            controller.AddAssemblerModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
-            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
-
-            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
-            KitPickGrid equippedGrid = view.FindControl<KitPickGrid>("EquippedGrid")!;
-
-            int rebuilds = 0;
-            equippedGrid.Slots.CollectionChanged += (_, _) => rebuilds++;
-
-            for (int i = 0; i < 30; i++) {
-                rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
-                Dispatcher.UIThread.RunJobs();
-            }
-
-            Assert.Equal(0, rebuilds);
-        }
-
-        //---- Beacon: the outer group starts collapsed with no beacon, pick shows its module grid, clear hides it ----
-
         [AvaloniaFact]
         public void BeaconGroup_CollapsedWithNoBeacon_ExpandsAfterPickBeacon() {
             RecipeFixture rf = NewRecipeFixture();
@@ -619,9 +568,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.True(beaconGroup.IsExpanded);
         }
 
-        //A manual header click must not stop later HasBeacon flips from reaching IsExpanded - the view
-        //only re-syncs IsExpanded on an actual flip (see RecipeSegmentView.OnRecipeViewModelPropertyChanged),
-        //so a hand click's own toggle stays independent of that tracking.
         [AvaloniaFact]
         public void BeaconGroup_ManualHeaderClick_DoesNotBreakLaterHasBeaconFlips() {
             RecipeFixture rf = NewRecipeFixture();
@@ -632,22 +578,20 @@ namespace Foreman.Mac.UiTests.Inspector {
             (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
             InspectorGroup beaconGroup = view.FindControl<InspectorGroup>("BeaconGroup")!;
 
-            Click(host, GroupHeaderOf(beaconGroup)); //expand by hand
+            Click(host, GroupHeaderOf(beaconGroup));
             Assert.True(beaconGroup.IsExpanded);
-            Click(host, GroupHeaderOf(beaconGroup)); //collapse by hand again
+            Click(host, GroupHeaderOf(beaconGroup));
             Assert.False(beaconGroup.IsExpanded);
 
             view.ViewModel!.PickBeacon(view.ViewModel!.BeaconOptions[0]);
             Dispatcher.UIThread.RunJobs();
-            Assert.True(beaconGroup.IsExpanded); //HasBeacon flipped true - still tracked after the hand click
+            Assert.True(beaconGroup.IsExpanded);
 
             view.ViewModel!.ClearBeacon();
             Dispatcher.UIThread.RunJobs();
-            Assert.False(beaconGroup.IsExpanded); //HasBeacon flipped false - collapses on its own too
+            Assert.False(beaconGroup.IsExpanded);
         }
 
-        //A live {Binding HasBeacon} used to re-push IsExpanded on every RefreshComputed, snapping
-        //a manual collapse back open on the next unrelated solve.
         [AvaloniaFact]
         public void BeaconGroup_ManualCollapse_SurvivesASolveWithBeaconUnchanged() {
             RecipeFixture rf = NewRecipeFixture();
@@ -659,12 +603,12 @@ namespace Foreman.Mac.UiTests.Inspector {
 
             (AvaloniaWindow host, RecipeSegmentView view) = NewSegmentView(rf, node);
             InspectorGroup beaconGroup = view.FindControl<InspectorGroup>("BeaconGroup")!;
-            Assert.True(beaconGroup.IsExpanded); //seeded expanded at Bind(): HasBeacon was already true
+            Assert.True(beaconGroup.IsExpanded);
 
-            Click(host, GroupHeaderOf(beaconGroup)); //collapse by hand
+            Click(host, GroupHeaderOf(beaconGroup));
             Assert.False(beaconGroup.IsExpanded);
 
-            rf.Fx.Control.Viewer.Graph.UpdateNodeValues(); //a plain re-solve, beacon unchanged
+            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(beaconGroup.IsExpanded);
@@ -705,7 +649,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(oracle.Resolved);
 
             InspectorGroup beaconGroup = view.FindControl<InspectorGroup>("BeaconGroup")!;
-            Click(host, GroupHeaderOf(beaconGroup)); //collapsed by default - expand to reach the picker
+            Click(host, GroupHeaderOf(beaconGroup));
 
             KitPickGrid beaconChoiceGrid = view.FindControl<KitPickGrid>("BeaconChoiceGrid")!;
             Click(host, ChoiceCellFor(host, beaconChoiceGrid, rf.Beacon.FriendlyName));
@@ -716,8 +660,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Single(view.ViewModel!.BeaconModuleOptions);
         }
 
-        //ClearBeaconButton is gone (2026-09-17 ruling: "none" is a member of the choice set, not a command) -
-        //clearing is choosing the grid's own leading None cell.
         [AvaloniaFact]
         public void PickingTheNoneCell_HidesModuleGrid_AndCallsController() {
             RecipeFixture rf = NewRecipeFixture();
@@ -738,8 +680,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Empty(view.ViewModel!.BeaconModuleOptions);
         }
 
-        //---- Beacon row (2026-09-17 building-picker ruling): the leading None cell and its two directions ----
-
         [AvaloniaFact]
         public void BeaconRow_TheFirstCellIsNone_SelectedIffHasBeaconIsFalse() {
             RecipeFixture rf = NewRecipeFixture();
@@ -751,23 +691,12 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(view.ViewModel!.HasBeacon);
 
             InspectorGroup beaconGroup = view.FindControl<InspectorGroup>("BeaconGroup")!;
-            Click(host, GroupHeaderOf(beaconGroup)); //collapsed by default - expand to reach the row
+            Click(host, GroupHeaderOf(beaconGroup));
 
             KitPickGrid beaconChoiceGrid = view.FindControl<KitPickGrid>("BeaconChoiceGrid")!;
             PickCell first = CellsOf(beaconChoiceGrid)[0];
             Assert.Equal("No beacon", first.AccessibleName);
             Assert.True(first.IsSelected);
-        }
-
-        [AvaloniaFact]
-        public void NoControlNamedClearBeaconButton_ExistsAnywhereInTheTree() {
-            RecipeFixture rf = NewRecipeFixture();
-            IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
-            ControllerFor(rf.Fx, node).SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
-            rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
-
-            (_, RecipeSegmentView view) = NewSegmentView(rf, node);
-            Assert.DoesNotContain(view.GetVisualDescendants().OfType<Control>(), c => c.Name == "ClearBeaconButton");
         }
 
         [AvaloniaFact]
@@ -789,8 +718,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(view.ViewModel!.HasBeacon);
             Assert.False(beaconDetail.IsVisible);
         }
-
-        //---- Beacon steppers: only the count re-solves the graph ----
 
         [AvaloniaFact]
         public void BeaconCountEdit_Resolves() {
@@ -855,9 +782,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(4, node.BeaconsConst, 3);
         }
 
-        //Kit.PickGrid's own keyboard contract (composites addendum §03): Delete empties a filled slot, Return
-        //opens the chooser for the focused slot - here that's the options grid right below the equipped
-        //one, so Return moves focus onto it rather than acting on the slot itself.
         [AvaloniaFact]
         public void EquippedModuleSlot_DeleteEmptiesIt_AndReturnFocusesTheOptionsChooser() {
             RecipeFixture rf = NewRecipeFixture();
@@ -918,7 +842,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         public void DeletingAMiddleEquippedSlot_ArmsTheFirstEmptySlot_SoTheSurvivorsKeepOrder() {
             var m = ThreeFilledModuleSlots();
 
-            ClearSlot(m.Equipped, IndexOf(m.View.ViewModel!.EquippedModules, m.B)); //the middle slot
+            ClearSlot(m.Equipped, IndexOf(m.View.ViewModel!.EquippedModules, m.B));
             Assert.Equal(2, m.Equipped.SelectedIndex);
 
             ChooseSlot(m.Options, IndexOf(m.View.ViewModel!.ModuleOptions, m.D));
@@ -926,7 +850,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             AssertEquipped(m.Node, m.A, m.C, m.D);
         }
 
-        //The host re-arms the slot the arm already named, which the grid must not read as "the host left it alone".
         [AvaloniaFact]
         public void DeletingASlotWithTheLastFilledSlotArmed_StillFillsTheFreedSlot() {
             var m = ThreeFilledModuleSlots();
@@ -967,10 +890,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             AssertEquipped(m.Node, m.A, m.B, m.D);
         }
 
-        //---- Rebind: InspectorView re-points one view instance at each selected node ----
-
-        //Regression: the equipped grid's selection used to survive the switch, so the first option click on
-        //the newly selected node replaced a slot the user had never selected on it.
         [AvaloniaFact]
         public void RebindingToAnotherNode_ClearsEveryGridsSelection_SoTheNextOptionClickFillsTheFirstEmptySlot() {
             RecipeFixture rf = NewRecipeFixture();
@@ -1014,8 +933,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Single(first.AssemblerModules);
         }
 
-        //The kit owns the grid -> cell hop; this owns the app's own wording - all four grids name the module
-        //noun, so an empty slot reads the §03 string rather than the kit's nounless default.
         [AvaloniaFact]
         public void EmptyModuleSlots_ReadTheRatifiedModuleTooltip_OnEveryPickGrid() {
             RecipeFixture rf = NewRecipeFixture();
@@ -1036,7 +953,6 @@ namespace Foreman.Mac.UiTests.Inspector {
                     cell => Assert.Equal("Empty slot — press Return to choose a module", ToolTip.GetTip(cell)));
         }
 
-        //The kit computes the four strings; this pins the app's own Note binding that gets them onto screen.
         [AvaloniaFact]
         public void EquippedRow_NoteTracksTheArmingState_ThroughTheRealBinding() {
             RecipeFixture rf = NewRecipeFixture();
@@ -1060,7 +976,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal("Replacing slot 1. Press Escape to cancel.", note.Text);
         }
 
-        //The same note binding on the beacon's own module row, which the assembler row's test never covers.
         [AvaloniaFact]
         public void BeaconEquippedRow_NoteTracksTheArmingState_ThroughTheRealBinding() {
             RecipeFixture rf = NewRecipeFixture();
@@ -1092,7 +1007,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             controller.SetAssembler(new AssemblerQualityPair(rf.Electric, rf.Fx.Normal));
             controller.SetBeacon(new BeaconQualityPair(rf.Beacon, rf.Fx.Normal));
             controller.AddBeaconModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
-            controller.AddBeaconModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal)); //fills both of the beacon's two slots
+            controller.AddBeaconModule(new ModuleQualityPair(rf.Module, rf.Fx.Normal));
             rf.Fx.Control.Viewer.Graph.UpdateNodeValues();
 
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);

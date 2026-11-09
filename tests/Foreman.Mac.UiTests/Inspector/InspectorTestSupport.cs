@@ -13,9 +13,6 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Shared MainWindow + cached vanilla DataCache spin-up for the inspector sidebar test suite - same
-    //shape as MainWindowShellTests' own GetCacheAsync/ApplyLoadedSettings pattern, kept separate so this
-    //file doesn't reach into that class's private members.
     internal static class InspectorTestSupport {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private const string SpaceAgePresetName = "Factorio 2.0 Space Age";
@@ -26,9 +23,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         internal static async Task<DataCache> GetCacheAsync() {
             if (sharedCache is not null)
                 return sharedCache;
-            //ConfigureAwait(false) on both awaits: a sync caller blocking on this via GetAwaiter().GetResult()
-            //(ShellFixture.Open()) would otherwise deadlock on a cold cache, since the continuation after
-            //either await would try to resume on that blocked thread's own SynchronizationContext.
+            //ConfigureAwait(false) on both awaits: a sync caller blocking on this deadlocks on a cold cache otherwise.
             await CacheGate.WaitAsync().ConfigureAwait(false);
             try {
                 if (sharedCache is null) {
@@ -42,7 +37,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             return sharedCache;
         }
 
-        //Vanilla ships no qualities at all; the icon+tint test needs the DLC preset instead.
         internal static async Task<DataCache> GetSpaceAgeCacheAsync() {
             if (sharedSpaceAgeCache is not null)
                 return sharedSpaceAgeCache;
@@ -59,18 +53,13 @@ namespace Foreman.Mac.UiTests.Inspector {
             return sharedSpaceAgeCache;
         }
 
-        //One recipe node on an otherwise-empty graph, so tests can select it and assert on the sidebar's
-        //identity row without each test re-deriving the cache/window boilerplate.
         internal static async Task<MainWindow> OpenWindowWithGraphAsync() {
             DataCache cache = await GetCacheAsync();
             var window = new MainWindow();
             window.Show();
             window.DataCache = cache;
             window.ApplyLoadedSettings();
-            //ApplyLoadedSettings only seeds Context.DCache/DefaultAssemblerQuality when Settings is set (a
-            //full boot does that); no test-only AppSettings exists here, so set both directly - same as
-            //OpenEmptyWindowAsync below, and needed by the Recipe segment (RecipeSegmentViewModel reads
-            //Context.DCache directly).
+            //ApplyLoadedSettings seeds Context.DCache and DefaultAssemblerQuality only when Settings is set.
             window.GraphCanvas.Viewer.Context.DCache = cache;
             window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
             var pair = new RecipeQualityPair(cache.Recipes["iron-plate"], cache.DefaultQuality!);
@@ -79,27 +68,19 @@ namespace Foreman.Mac.UiTests.Inspector {
             return window;
         }
 
-        //A MainWindow with an empty graph over the shared vanilla cache, for tests that build their own
-        //node mix (FlowSegmentTests' rate/key-node/simplify coverage) rather than reusing the one recipe
-        //node OpenWindowWithGraphAsync seeds.
         internal static async Task<MainWindow> OpenEmptyWindowAsync() {
             DataCache cache = await GetCacheAsync();
             var window = new MainWindow();
             window.Show();
             window.DataCache = cache;
             window.ApplyLoadedSettings();
-            //ApplyLoadedSettings only seeds Context.DCache/DefaultAssemblerQuality when Settings is set (a
-            //full boot does that); no test-only AppSettings exists here, so set both directly - EditNode's
-            //click dispatch (FlowSegmentTests' click-selects-only coverage) bails out without Context.DCache.
             window.GraphCanvas.Viewer.Context.DCache = cache;
             window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
             Dispatcher.UIThread.RunJobs();
             return window;
         }
 
-        //One passthrough node, selected-ready - the fixture the brief's Step 1 tests build against. Primes
-        //RequestStateUpdate/PrePaint the same way ClickToEditTests' AddSupplierNode does, so a real click
-        //lands on the node's actual (not still-centred) hit-test geometry.
+        //RequestStateUpdate and PrePaint move the node to its real hit-test geometry before a click.
         internal static async Task<(MainWindow Window, INodeViewModel Node)> OpenWithPassthroughAsync() {
             MainWindow window = await OpenEmptyWindowAsync();
             DataCache cache = window.DataCache!;
@@ -113,8 +94,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             return (window, node!);
         }
 
-        //Selects a node the same way a real click does (GraphViewer.SetSelection), so the inspector's
-        //Node/Segment/SegmentHost wiring reacts exactly as it would through the canvas.
         internal static void Select(MainWindow window, INodeViewModel node) {
             BaseNodeElement element = window.GraphCanvas.NodeElements.Single(n => n.ViewModel.Id == node.Id);
             window.GraphCanvas.Viewer.SetSelection([element]);

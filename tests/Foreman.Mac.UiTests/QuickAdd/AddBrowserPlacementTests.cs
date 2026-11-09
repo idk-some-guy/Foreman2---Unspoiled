@@ -21,12 +21,6 @@ using Xunit;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.QuickAdd {
-    //The browser's footer role buttons, recipe double-click/Enter placement, and the two filter
-    //chips (link-drag "Compatible with", UnSpoil/UnPlant "Origins of"), all routed through
-    //GraphCanvasControl.PlaceCandidate/ProcessNodeRequest exactly like the palette. Supersedes the retired
-    //on-canvas chooser's footer/origin-picker coverage for this surface; its quality-picker population,
-    //temperature filtering, and link-drag tab-offset coverage were re-covered through the palette path
-    //instead (QuickAddCanvasTests.cs, AddBrowserWindowTests.cs, AddCatalogTests.cs).
     public sealed class AddBrowserPlacementTests {
         private static ChooserCell CellFor(AddBrowserWindow window, BrowserCell cell) =>
             window.GetVisualDescendants().OfType<ChooserCell>().First(c => c.FullName == cell.Label);
@@ -122,8 +116,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
 
             shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(300, 0), AddScope.All, consumerLink));
             AddBrowserViewModel vm = shell.BrowserVm;
-            //A link-drag "Add..." now opens on Recipes by default - role buttons are
-            //Items-only, so switch back for this role-direction check.
+            //Role buttons are Items-only and a link-drag Add opens on Recipes.
             vm.Segment = BrowserSegment.Items;
             vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First());
             Assert.False(vm.CanSource);
@@ -167,8 +160,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             using ShellFixture shell = ShellFixture.OpenWithVanillaAndOneSupplier(out AddLinkContext link);
             shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(300, 0), AddScope.All, link));
             AddBrowserViewModel vm = shell.BrowserVm;
-            //A link-drag "Add..." now opens on Recipes by default - this test's own
-            //subject is the chip/filtering behaviour on each segment, starting from Items as before.
             vm.Segment = BrowserSegment.Items;
 
             Assert.Equal("Compatible with Iron plate", vm.ChipText);
@@ -216,8 +207,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             shell.Window.GraphCanvas.AddItemAsync(toolbarAnchor);
             QuickAddPalette palette = shell.Window.GraphCanvas.OpenPalette!;
 
-            //The browser places a Consumer node linked to the origin supplier - its own request/link,
-            //independent from the palette's still-pending one.
             shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.All, link));
             AddBrowserViewModel vm = shell.BrowserVm;
             vm.SelectCell(vm.Sections.SelectMany(s => s.Cells).First());
@@ -228,8 +217,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Dispatcher.UIThread.RunJobs();
             CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
 
-            //The palette's own pick must land as a disconnected Supplier at its own anchor, not the
-            //browser's Consumer/link/location.
             SupplierNode paletteNode = Assert.Single(shell.Graph.Nodes.Except(before).OfType<SupplierNode>());
             Assert.Equal(toolbarAnchor.X, paletteNode.Location.X);
             Assert.Equal(toolbarAnchor.Y, paletteNode.Location.Y);
@@ -252,7 +239,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.All(labels, l => Assert.Contains("gear", l, StringComparison.CurrentCultureIgnoreCase));
         }
 
-        //A recipe has no options to choose, so one click places it.
         [AvaloniaFact]
         public void RealPointerClickOnARecipeCellPlacesItImmediately() {
             using ShellFixture shell = ShellFixture.Open();
@@ -269,10 +255,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.True(window.IsVisible);
         }
 
-        //The cell now genuinely slides into place on entry, so its rendered position moves for
-        //the entrance's own duration - settle that first, or the two synthetic clicks below would land at
-        //two different points (RealClick recomputes screen position per click) and never count as a real
-        //double-click. A real double-click doesn't have this problem: the mouse doesn't move between clicks.
+        //Settle the entrance animation first, or the two clicks land at different points and never count as a double-click.
         [AvaloniaFact]
         public void DoubleClickSequenceOnARecipeCellPlacesExactlyOnce() {
             using ShellFixture shell = ShellFixture.Open();
@@ -289,7 +272,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Single(shell.Graph.Nodes.OfType<RecipeNode>());
         }
 
-        //Two genuinely separate clicks, unlike the double-click sequence above, must both place.
         [AvaloniaFact]
         public void TwoSeparateSingleClicksOnARecipeCellPlaceTwice() {
             using ShellFixture shell = ShellFixture.Open();

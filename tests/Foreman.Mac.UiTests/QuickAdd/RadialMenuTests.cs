@@ -25,7 +25,6 @@ using AvaloniaPoint = Avalonia.Point;
 using AvaloniaVector = Avalonia.Vector;
 
 namespace Foreman.Mac.UiTests.QuickAdd {
-    //The link-drag release chooser's slice set depends on drag direction and the dragged item's spoil/plant data.
     public sealed class RadialMenuTests : IDisposable {
         public void Dispose() => WindowScaler.SetScale(1.0);
 
@@ -174,7 +173,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)).Release();
 
             RadialMenu radial = fx.Control.OpenRadial!;
-            fx.MoveTo(radial.Ring.Bounds.Center + new AvaloniaVector(0, -64)); //top slice: Add is always centred here
+            fx.MoveTo(radial.Ring.Bounds.Center + new AvaloniaVector(0, -64));
             Assert.Equal(RadialMenu.SlotOf(RadialChoice.Add), radial.Ring.ArmedIndex);
 
             fx.ClickAt(radial.Ring.Bounds.Center + new AvaloniaVector(0, -64));
@@ -214,7 +213,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Null(hub.Control.OpenRadial);
             Assert.Single(hub.Viewer.Graph.Nodes);
 
-            //A tip drop clears the source by 24 along the flow axis; a side drop stays put and snaps outward on the grid.
             foreach (double step in new[] { 1.0, 1.5 }) {
                 foreach (RadialChoice choice in new[] { RadialChoice.Passthrough, RadialChoice.Output }) {
                     float s = (float)step;
@@ -312,7 +310,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             }
         }
 
-        //Tab raised on the focused element bubbles to the TopLevel's keyboard navigation handler, which moves focus.
         private static void TabTwelveTimesFromTheCanvas(CanvasFixture fx, RadialRing ring) {
             fx.Control.Focus();
             for (int i = 0; i < 12; i++) {
@@ -337,7 +334,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         [AvaloniaFact]
         public void EscapeDuringALinkDragCancelsIt() {
             using var fx = CanvasFixture.WithVanillaAndOneSupplier(out AvaloniaPoint outputTab);
-            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300)); //no release
+            fx.DragFrom(outputTab).To(new AvaloniaPoint(400, 300));
             CanvasKeys.PressOnCanvas(fx.Control, Key.Escape);
             Assert.Null(fx.Control.DraggedLink);
 
@@ -353,15 +350,13 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             ClickSlice(fx, fx.Control.OpenRadial!, RadialChoice.Add);
 
             var box = fx.Control.OpenPalette!.Search;
-            CanvasKeys.KeyDownOn(box, Key.Enter); //top row: the top-ranked compatible recipe (the item row is gone - Source/Output own that role now)
+            CanvasKeys.KeyDownOn(box, Key.Enter);
             CanvasKeys.KeyDownOn(box, Key.Enter);
 
             Assert.Equal(2, fx.Viewer.Graph.NodeLinks.Count());
             var placed = fx.Viewer.Graph.Nodes.Where(n => n is not SupplierNode || n.Location.Y != 0).OrderBy(n => n.Location.X).ToList();
             Assert.Equal(120, placed[1].Location.X - placed[0].Location.X, 0.5);
         }
-
-        //---- direction/spoil-dependent slice sets ----
 
         [AvaloniaFact]
         public void InputTabDragOnAnItemWithSpoilOrigins_SlicesAreAddSourcePassthroughUnspoilCancel() {
@@ -425,8 +420,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
                 [RadialChoice.Add, RadialChoice.Output, RadialChoice.Passthrough, RadialChoice.Cancel],
                 consumerRequest.Control.OpenRadial!.Slices);
         }
-
-        //---- Source/Output/Spoil/UnSpoil outcomes ----
 
         [AvaloniaFact]
         public void ClickingSourcePlacesALinkedSupplierNode() {
@@ -537,7 +530,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             Assert.Null(fx.Control.OpenRadial);
         }
 
-        //Six fixed 60° slots, slot 0 centred at the top and clockwise from there, whatever the outcome count.
         private static AvaloniaVector OffsetFor(RadialChoice choice, double radius = 60) {
             double angleDeg = 270 + (RadialMenu.SlotOf(choice) * 60);
             double angleRad = angleDeg * Math.PI / 180;
@@ -548,9 +540,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             fx.MoveAndClickAt(radial.Ring.Bounds.Center + OffsetFor(choice));
         }
 
-        //A minimal fresh-food/rotten-food pair (mirrors LinkDragTests' own spoil fixture): rottenFood.SpoilOrigins
-        //defaults to one origin (freshFood); originCount adds more freshFood-* items spoiling into the same
-        //rottenFood for the multi-origin browse-handoff case.
         private static DataCache SpoilCache(out ItemPrototype rottenFood, out ItemPrototype freshFood, int originCount = 1) {
             var cache = new DataCache(filterRecipes: true);
             var subgroup = new SubgroupPrototype(cache, "§§test:subgroup", "z");
@@ -576,8 +565,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             return cache;
         }
 
-        //A seed/crop pair (mirrors SpoilCache): crop.PlantOrigins defaults to one origin (seed), plus a
-        //second, non-default quality for the UnPlant default-quality gate tests.
         private static DataCache PlantCache(out ItemPrototype seed, out ItemPrototype crop, out IQuality nonDefaultQuality, int originCount = 1) {
             var cache = new DataCache(filterRecipes: true);
             var subgroup = new SubgroupPrototype(cache, "§§test:subgroup", "z");
@@ -613,7 +600,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             return cache;
         }
 
-        //One item that both spoils and plants, so an output-tab drag fills all six slots.
         private static DataCache SixOutcomeCache(out ItemPrototype seed) {
             DataCache cache = SpoilCache(out ItemPrototype rottenFood, out seed);
             DataCacheStore store = Store(cache);

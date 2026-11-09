@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //Real-preset icon-compositing coverage for RecipeSegmentViewModel.PickQuality, which writes through immediately to the node's own assembler.
     public class RecipeSegmentQualityTests {
         private const string PresetName = "Factorio 2.0 Space Age";
 
@@ -45,7 +44,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         private static (GraphCanvasControl Control, IQuality Normal, IQuality Legendary, IRecipeNodeViewModel Node) NewFixture(DataCache cache) {
             IQuality normal = cache.DefaultQuality!;
             IQuality legendary = cache.Qualities["legendary"];
-            IRecipe recipe = cache.Recipes["wooden-chest"]; //9 module options, no beacon needed for module coverage
+            IRecipe recipe = cache.Recipes["wooden-chest"];
             IAssembler assembler = cache.Assemblers["assembling-machine-2"];
 
             var control = new GraphCanvasControl();

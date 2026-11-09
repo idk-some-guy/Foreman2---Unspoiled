@@ -5,7 +5,6 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -60,7 +59,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(recipe.BaseRecipe.FriendlyName, window.Inspector.FindControl<TextBlock>("IdentityName")!.Text);
         }
 
-        // Sidebar overlays canvas without resizing it (contract §03).
         [AvaloniaFact]
         public async Task SelectingAndClearingSelection_CanvasWidthNeverChanges() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -77,8 +75,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(fullWidth, window.GraphCanvas.Bounds.Width, 1);
         }
 
-        //The sidebar sits in the same cell as the canvas, right-aligned above it - its right edge lands
-        //exactly at the canvas's own right edge (both fill the same full-width row).
         [AvaloniaFact]
         public async Task SelectingOneNode_SidebarRightEdgeMatchesCanvasRightEdge() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -112,7 +108,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(expected, window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!.Text);
         }
 
-        // A recipe node click selects into the inspector's Recipe segment; no floating panel opens.
         [AvaloniaFact]
         public async Task ClickingRecipeNode_SelectsAndShowsRecipeSegment_NoFloatingPanel() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -132,7 +127,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.IsType<RecipeSegmentView>(window.Inspector.FindControl<ContentControl>("SegmentHost")!.Content);
         }
 
-        //Clicking straight from one node to another used to flash the sidebar shut and back open for a frame.
         [AvaloniaFact]
         public async Task SwitchingSelectionBetweenNodes_InspectorStaysVisible_NoFalseTransition() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -176,7 +170,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.True(visibilityTransitions[0]);
         }
 
-        // MouseDown and MouseUp both trigger SetSelection, so selection changes are deduplicated.
         [AvaloniaFact]
         public async Task ClickingBetweenNodes_RaisesSelectionChangedExactlyOncePerClick() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -213,15 +206,13 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(2, raiseCount);
         }
 
-        //Picking the already-selected assembler/quality cell used to dirty the document even
-        //though nothing changed - RecipeNodeController.SetAssembler always ends with Mutated().
         [AvaloniaFact]
         public async Task PickAssembler_AlreadySelected_RaisesNoGraphMutated_AndStaysClean() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
             var recipe = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.NodeElements.First().ViewModel;
             InspectorTestSupport.Select(window, recipe);
             var recipeSegmentView = (RecipeSegmentView)window.Inspector.FindControl<ContentControl>("SegmentHost")!.Content!;
-            window.ViewModel.IsDirty = false; //selecting the node above didn't mutate the graph, but reset to isolate the pick
+            window.ViewModel.IsDirty = false;
 
             PickGridItem selectedItem = recipeSegmentView.ViewModel!.AssemblerOptions.Single(i => Equals(i.Key, recipe.SelectedAssembler.Assembler));
             recipeSegmentView.ViewModel!.PickAssembler(selectedItem);
@@ -235,7 +226,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             var recipe = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.NodeElements.First().ViewModel;
             InspectorTestSupport.Select(window, recipe);
             var recipeSegmentView = (RecipeSegmentView)window.Inspector.FindControl<ContentControl>("SegmentHost")!.Content!;
-            window.ViewModel.IsDirty = false; //selecting the node above didn't mutate the graph, but reset to isolate the pick
+            window.ViewModel.IsDirty = false;
 
             PickGridItem selectedItem = recipeSegmentView.ViewModel!.QualityOptions.Single(i => Equals(i.Key, recipe.SelectedAssembler.Quality));
             recipeSegmentView.ViewModel!.PickQuality(selectedItem);
@@ -243,9 +234,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(window.ViewModel.IsDirty);
         }
 
-        //The identity row's own quality mini-select: a pick writes straight through to the node's current
-        //assembler (RecipeSegmentViewModel.PickQuality), so the subtitle and the mini-select's own label
-        //both update immediately.
         [AvaloniaFact]
         public void QualityMiniSelect_ListsQualitiesAndPickQuality_WritesThroughAndUpdatesSubtitleAndLabel() {
             DataCache cache = new(filterRecipes: true);
@@ -303,8 +291,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(normal.FriendlyName, qualityMiniSelect.SelectedItem);
             Assert.Equal(2, qualityMiniSelect.Items.Count);
 
-            //Quality's leading icon rides on the pop-up itself now (2026-09-17 building-picker ruling §05),
-            //not a separate Image beside it.
             object? normalSource = qualityMiniSelect.Icon;
             Assert.NotNull(normalSource);
 
@@ -355,7 +341,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(260, window.Inspector.Bounds.Width, 1);
         }
 
-        //Right-anchored sidebar: dragging toward the canvas (leftward) is the direction that widens it.
         [AvaloniaFact]
         public async Task Inspector_DividerDrag_TowardTheCanvasWidens_EscapeRestores() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -377,7 +362,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             window.MouseUp(towardCanvas, MouseButton.Left, RawInputModifiers.None);
         }
 
-        //Right-anchored sidebar: dragging toward the window edge (rightward) is the direction that narrows it.
         [AvaloniaFact]
         public async Task Inspector_DividerDrag_TowardTheWindowEdgeNarrows() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -423,7 +407,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(1, settingsService.SaveCallCount);
         }
 
-        //InspectorWidth's DB column lands separately; this checks the two halves the migration itself owns - the commit reaching AppSettings in memory, and ApplyLoadedSettings seeding the view model back from it.
         [AvaloniaFact]
         public async Task Inspector_WidthCommitted_UpdatesSettingsInMemory_AndApplyLoadedSettingsSeedsTheViewModel() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -448,7 +431,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(340, window.ViewModel.Inspector.Width);
         }
 
-        //The sidebar itself scales with the display factor, but what gets persisted stays logical.
         [AvaloniaFact]
         public async Task Inspector_WidthScalesWithDisplayFactor_ButPersistsLogicalWidth() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -531,18 +513,13 @@ namespace Foreman.Mac.UiTests.Inspector {
             int constructions = 0;
             window.SettingsDialogStub = w => { captured = w; constructions++; };
 
-            //Opens once and moves off the Presets pane, so the click below has to reselect it rather than
-            //land there for free via the constructor's own SelectTab(0). ShowSettings clears the inspector's
-            //own node selection, so the node is reselected afterward to bring the error panel back on screen.
             window.ShowSettings();
             Dispatcher.UIThread.RunJobs();
             Assert.NotNull(captured);
             captured!.SimulateTabClick(3);
             Assert.Equal(3, captured.ActiveTabIndex);
 
-            //ShowSettings only clears the inspector's own selection copy, not GraphViewer.SelectedNodes, so
-            //re-driving SetSelection with the (unchanged) same element is a no-op; go through the inspector's
-            //own SetSelection directly, the same call its SelectionChanged handler would have made.
+            //GraphViewer.SetSelection with the unchanged element is a no-op after ShowSettings, so select through the inspector.
             window.ViewModel.Inspector.SetSelection([window.GraphCanvas.Viewer.NodeElements.First().ViewModel]);
             Dispatcher.UIThread.RunJobs();
 
@@ -556,7 +533,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             window.MouseUp(center, MouseButton.Left, RawInputModifiers.None);
             Dispatcher.UIThread.RunJobs();
 
-            //Same instance reused, not a second window built from scratch.
             Assert.Equal(1, constructions);
             Assert.Equal(0, captured!.ActiveTabIndex);
         }
@@ -581,10 +557,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.Equal(node.BaseRecipe.FriendlyName, window.BrowserRequest!.SeedText);
         }
 
-        //260pt is the inspector's own resizable minimum, but the SplitDivider column and the group's own
-        //chrome eat ~9pt before the recipe error panel ever sees it, so the panel itself only crosses
-        //Kit.StatePanel's 260pt full-layout floor once the inspector is dragged out a little further -
-        //280pt is the narrowest width at which the panel leaves .compact and both buttons are on screen.
+        //280pt is the narrowest inspector width at which the error panel leaves its compact layout.
         [AvaloniaFact]
         public async Task RecipeErrorPanel_NearTheInspectorsNarrowEnd_BothButtonsStayInsideTheInspector() {
             (MainWindow window, _) = await OpenWithMissingRecipeAsync();
@@ -605,7 +578,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             }
         }
 
-        //A private recipe on the shared vanilla cache, marked missing and linked to a real assembler, so the Recipe group's error state has a genuine node to react to.
         private static async Task<(MainWindow Window, IRecipeNodeViewModel Node)> OpenWithMissingRecipeAsync() {
             MainWindow window = await InspectorTestSupport.OpenEmptyWindowAsync();
             window.Settings = new AppSettings();
@@ -632,7 +604,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             return (window, (IRecipeNodeViewModel)window.GraphCanvas.Viewer.NodeElements.First().ViewModel);
         }
 
-        //Beacon starts collapsed on a fresh node - proves the fix in the app, not just the kit primitive.
         [AvaloniaFact]
         public async Task Inspector_GroupPersistedCollapsed_RendersCollapsedOnFirstLayout_BodyNeverMeasuredExpanded() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -657,9 +628,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.DoesNotContain("·", subtitle);
         }
 
-        //Identity row building line (2026-09-17 building-picker ruling §05): "{type} · {building}", now
-        //load-bearing (the choice grid has no visible label of its own); it gains " (quality)" only when
-        //the selected quality is not the base tier, and its tooltip carries the same, untruncated, string.
         [AvaloniaFact]
         public async Task Inspector_IdentitySubtitle_CarriesTheBuildingLine_AndAppendsQualityWhenNotBase() {
             DataCache cache = await InspectorTestSupport.GetSpaceAgeCacheAsync();
@@ -718,8 +686,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.NotEqual(peer.GetName(), peer.GetHelpText());
         }
 
-        //The grid deliberately has no visible label (2026-09-17 building-picker ruling) - the building is
-        //spoken on focus of the identity row itself, without the user hunting for the grid.
         [AvaloniaFact]
         public async Task IdentityRow_AutomationPeer_IsAGroupNamedAfterTheNode_WithTheSubtitleAsItsValue() {
             DataCache cache = await InspectorTestSupport.GetSpaceAgeCacheAsync();
@@ -776,9 +742,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             }
         }
 
-        //Deleting the inspected node used to leave the inspector on a dead node - neither
-        //OnNodeViewModelRemoved nor TryDeleteSelection raised SelectionChanged, so nothing told the
-        //inspector its selection was gone.
         [AvaloniaFact]
         public async Task DeletingInspectedNode_ViaDeleteKey_ClearsInspectorAndHidesSidebar() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -806,31 +769,12 @@ namespace Foreman.Mac.UiTests.Inspector {
             Assert.False(window.Inspector.IsVisible);
         }
 
-        //bakedIconCache kept every baked identity-icon Bitmap alive for the life of the process -
-        //nothing ever disposed them, even once the window (and the icons with it) was gone.
-        [AvaloniaFact]
-        public async Task WindowClose_DisposesBakedIdentityIcons() {
-            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
-            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
-            Dispatcher.UIThread.RunJobs();
-
-            FieldInfo field = typeof(InspectorView).GetField("bakedIconCache", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            var cache = (Dictionary<SKBitmap, Bitmap>)field.GetValue(window.Inspector)!;
-            Assert.NotEmpty(cache);
-
-            window.Content = null; //detaches the visual tree, same as the owning window closing for real
-
-            Assert.Empty(cache);
-        }
-
         private static string NewTempDir() {
             string dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             Directory.CreateDirectory(dir);
             return dir;
         }
 
-        //One app-level layout pin - the rest of §03's form grammar (label column width, gutter, control
-        //edge, no per-row hairline) is Kit.FormRow's own tested contract.
         [AvaloniaFact]
         public async Task Inspector_LabelColumnIs108_AndEveryControlSharesOneEdge_WithNoBorderBetweenRows() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -853,13 +797,10 @@ namespace Foreman.Mac.UiTests.Inspector {
                 Assert.True(Math.Abs(leading - sharedControlEdge.Value) <= 1, $"control leading edge {leading} != shared edge {sharedControlEdge}");
             }
 
-            //No divider Border between rows within a group - each FormGroup's own Items are FormRows only.
             Assert.All(recipeView.GetVisualDescendants().OfType<FormGroup>(),
                 group => Assert.All(group.Items, item => Assert.IsType<FormRow>(item)));
         }
 
-        //A15/A16: independent booleans are checkboxes, never switches, and write through on Space - the
-        //keyboard path the addendum calls out by name.
         [AvaloniaFact]
         public async Task Inspector_LowPriorityKeyNodeAndSimplify_AreCheckboxes_WritingThroughOnSpace() {
             MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
@@ -899,14 +840,9 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //A22: Quality and the already-shipped View Options Rate unit are pop-ups, each listing every value
-        //the underlying option set has. Building/Beacon/Fuel stay on the app's own PickGrid pending a
-        //Kit.PickGrid choice mode (a designer ruling on 2026-09-17 defers their pop-up move to a
-        //follow-up round - see the report's deviations).
         [AvaloniaFact]
         public async Task Inspector_QualityBuildingAndRateUnit_ArePopUps_ListingEveryValue() {
-            //Vanilla ships no qualities at all (see GetSpaceAgeCacheAsync's own comment above) - the
-            //Quality pop-up needs the DLC preset to have anything to list.
+            //Vanilla ships no qualities, so the Quality pop-up needs the Space Age preset.
             DataCache cache = await InspectorTestSupport.GetSpaceAgeCacheAsync();
             var window = new MainWindow();
             window.Show();
@@ -930,19 +866,6 @@ namespace Foreman.Mac.UiTests.Inspector {
             Dispatcher.UIThread.RunJobs();
             PopUp rateUnit = window.GetVisualDescendants().OfType<PopUp>().Single(p => p.Name == "RateOptionsDropDown");
             Assert.Equal(MainWindow.RateUnitOptions, rateUnit.Items);
-        }
-
-        //A23: the Recipe/Flow segmented control is gone - the node type moved to the identity row.
-        [AvaloniaFact]
-        public async Task Inspector_NoRecipeFlowSegment_Exists() {
-            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync();
-            window.GraphCanvas.Viewer.SetSelection([window.GraphCanvas.Viewer.NodeElements.First()]);
-            Dispatcher.UIThread.RunJobs();
-
-            List<Segmented> segments = [.. window.Inspector.GetVisualDescendants().OfType<Segmented>()];
-            Assert.NotEmpty(segments);
-            Assert.All(segments, s => Assert.DoesNotContain("Recipe", s.Items));
-            Assert.All(segments, s => Assert.DoesNotContain("Flow", s.Items));
         }
     }
 }

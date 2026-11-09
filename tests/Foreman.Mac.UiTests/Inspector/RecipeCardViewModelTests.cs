@@ -10,10 +10,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Inspector {
-    //RecipeCardViewModel in isolation (contract §03 CSS 708-718): the recipe card folded into the
-    //identity header, replacing the canvas's retired hover tooltip. Built from the real vanilla iron-plate
-    //recipe (Factorio 2.0 Vanilla preset: 1 iron ore -> 1 iron plate, 3.2s) - the brief's own worked
-    //example uses illustrative numbers, but the crafting-time/base-rate formula it pins matches exactly.
     public class RecipeCardViewModelTests {
         private static async Task<IRecipe> GetIronPlateRecipeAsync() {
             DataCache cache = await InspectorTestSupport.GetCacheAsync();

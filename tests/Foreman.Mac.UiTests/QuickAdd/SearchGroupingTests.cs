@@ -8,9 +8,6 @@ using Xunit;
 using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.QuickAdd {
-    //Two similarly named recipes used to turn up side by side under one "RESULTS" heading, the
-    //second truncated to look identical to the first. A search now groups its matches one section per
-    //subgroup, titled "Group · Subgroup".
     public sealed class SearchGroupingTests {
         [AvaloniaFact]
         public void SearchingSulfuricOnSpaceAge_GroupsMatchesBySubgroup_InsteadOfOneResultsSection() {
@@ -19,8 +16,6 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             AddBrowserViewModel vm = shell.BrowserVm;
             vm.ShowUnavailable = true;
 
-            //"Sulfuric acid" itself (fluid-recipes) and "Carbon" (raw-material, an ingredient-match on the
-            //acid it consumes) would have shared one "Results" heading before this fix.
             BrowserSection? fluidRecipes = vm.Sections.FirstOrDefault(s => s.Cells.Any(c => c.Candidate.Entry.Name == "sulfuric-acid"));
             BrowserSection? rawMaterial = vm.Sections.FirstOrDefault(s => s.Cells.Any(c => c.Candidate.Entry.Name == "carbon"));
 
