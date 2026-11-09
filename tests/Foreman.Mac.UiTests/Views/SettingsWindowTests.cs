@@ -41,12 +41,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //SettingsWindow is a non-modal, toolbar-tabbed shell now - Presets and Enabled Objects keep
-    //their old content and behavior (just reachable through their own tab UserControl), the old single
-    //Graph Options tab splits across General/Advanced/Annotations/Appearance, and there's no more Confirm/
-    //Cancel: every widget writes straight through SettingsViewModel. MainWindow-level live-apply (save/
-    //resolve debounce, preset-switch reload cascade) is MainWindowSettingsDialogTests.cs's job, not this
-    //file's - this file covers the window and its tabs in isolation.
     public class SettingsWindowTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private const string SpaceAgePresetName = "Factorio 2.0 Space Age";
@@ -79,8 +73,6 @@ namespace Foreman.Mac.UiTests.Views {
 
         private static SettingsWindow.SettingsWindowOptions NewOptions(DataCache cache, List<Preset> presets) =>
             new(cache) { Presets = presets, SelectedPreset = presets.FirstOrDefault(p => p.IsCurrentlySelected) };
-
-        //--- Tab shell -----------------------------------------------------------------------------------
 
         private static readonly string[] PaneNames = ["Presets", "Enabled Objects", "General", "Advanced", "Annotations", "Appearance"];
 
@@ -197,8 +189,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(AppVersion.VersionedDisplay, about.VersionTextBlockControl.Text);
         }
 
-        //Closing hides nothing behind it and needs no Confirm - Esc/⌘W both just close this instance
-        //(MainWindow.ShowSettings hands out a fresh one next time).
         [AvaloniaFact]
         public async Task EscapeKey_ClosesTheWindow() {
             var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
@@ -211,9 +201,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.True(closed);
         }
 
-        //Property-coverage regression (brief's "nothing lost in the split"): every AppSettings field the OLD
-        //Graph Options tab bound (git show HEAD:src/Foreman.Mac/Views/SettingsWindow.axaml) must still have a
-        //bound control on one of the four tabs that replaced it.
         [AvaloniaFact]
         public async Task EveryOldGraphOptionsAppSettingsField_HasABoundControlOnOneOfTheFourReplacementTabs() {
             var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
@@ -285,7 +272,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Null(window.PresetsTabControl.PresetListBoxControl.SelectedItem);
         }
 
-        //Bold marks "this is the active preset" (upstream SettingsForm.cs:263-265),
+        //Minor#2 (final fix wave, upstream SettingsForm.cs:263-265): bold marks "this is the active preset",
         //so it drops once the list picks out a different candidate and returns once that pick is cleared.
         [AvaloniaFact]
         public async Task CurrentPresetLabel_BoldOnlyWhenPresetListSelectionIsEmpty() {
@@ -451,8 +438,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(["base_2.0.76"], window.PresetsTabControl.ModSelectionBoxControl.ItemsSource!.Cast<string>());
             Assert.False(SheetHost.For(window).IsOpen);
         }
-
-        //--- Form grammar across the five panes --------------------------------------------------------------
 
         private static readonly int[] FormPanes = [0, 1, 2, 3, 4, 5];
 
@@ -630,8 +615,6 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         //--- Preset switch via double-click / select menu item --------------------------------------------
-        //Picking a preset swaps the whole live DataCache, so it no longer closes with a bool result -
-        //it sets SelectedPreset and asks MainWindow (via ReloadRequested) to close/reload/reopen.
 
         [AvaloniaFact]
         public async Task PresetListBox_DoubleClickPreset_SetsSelectedPresetAndRequestsReload() {
@@ -662,8 +645,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Same(other, options.SelectedPreset);
             Assert.Equal(1, reloadRequests);
         }
-
-        //--- Context menu ----------------------------------------------------------------------------------
 
         [AvaloniaFact]
         public async Task ContextMenu_ReadsUsePresetAndDeletePreset_WithDeleteDisabledForTheDefaultPreset() {
@@ -720,8 +701,6 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Contains(spared, options.Presets!);
         }
-
-        //--- Delete preset db cleanup --------------------------------------------------
 
         private static ForemanDbContext OpenSharedDb() =>
             ForemanDbContext.Open(StoragePaths.DbPath(PresetProcessor.ResolveUserDataDirectory()));
@@ -786,9 +765,6 @@ namespace Foreman.Mac.UiTests.Views {
             }
         }
 
-        //Pins the staleness regression the review found: before this fix, DeletePresetAsync cleared only
-        //the disk trio, so a different preset hand-placed under the deleted name still read back the first
-        //preset's cached db content instead of its own - silently wrong data, not a crash.
         [AvaloniaFact]
         public async Task DeletePresetMenuItem_Confirmed_ThenDifferentPresetHandPlacedUnderSameName_ServesTheNewContent() {
             string presetName = "Delete-Staleness-" + Guid.NewGuid().ToString("N");
@@ -939,13 +915,6 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         //--- Enabled Objects tab: sub-tab shell -------------------------------------------------------------
-        //TransitioningContentControl only wires its Content into the logical tree (and so propagates
-        //DataContext to it) once the control tree is actually rooted - Show() first, matching what a real
-        //click always gets for free (the window is already on screen by the time anyone can click a tab).
-        //Enabled Objects also now writes straight onto DataObject.Enabled on toggle (R5 live apply) - the
-        //old Options.EnabledObjects buffer always started empty per test, so resetting every object back to
-        //disabled here reproduces that same starting condition and keeps these tests order-independent
-        //against each other and against whatever a prior test left enabled on the shared fixture cache.
         private static SettingsWindow NewEnabledObjectsWindow(DataCache cache) {
             foreach (IRecipe recipe in cache.Recipes.Values) recipe.Enabled = false;
             foreach (IAssembler assembler in cache.Assemblers.Values) assembler.Enabled = false;
@@ -956,7 +925,7 @@ namespace Foreman.Mac.UiTests.Views {
             var window = new SettingsWindow(NewOptions(cache, [new Preset(VanillaPresetName, true, true)]));
             window.Show();
             window.SimulateTabClick(1);
-            Dispatcher.UIThread.RunJobs(); //completes the virtualizing panel's pending realization before any test reads it
+            Dispatcher.UIThread.RunJobs();
             return window;
         }
 
@@ -1173,15 +1142,13 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         //--- Enabled Objects tab: live check toggle -----------------------------------------------------------
-        //A checked row now writes straight onto the live DataObject.Enabled too, not just the Options
-        //buffer - both are asserted below.
 
         [AvaloniaFact]
         public async Task CheckingARecipeRow_AddsItToEnabledObjectsAndEnablesItLiveImmediately() {
             var cache = await GetCacheAsync();
             var window = NewEnabledObjectsWindow(cache);
             var item = window.ViewModel.RecipeObjects[0];
-            Assert.False(item.IsChecked); //NewEnabledObjectsWindow resets the fixture cache to all-disabled
+            Assert.False(item.IsChecked);
             Assert.DoesNotContain(item.DataObject, window.Options.EnabledObjects);
 
             item.IsChecked = true;
@@ -1282,7 +1249,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Empty(window.Options.EnabledObjects);
         }
 
-        //Linux branch of the platform fork above (docs/upstream-divergences.md): Ctrl+A on
         //Linux does the same thing Cmd+A does on macOS, via the UseIsMacOs seam.
         [AvaloniaFact]
         public async Task CtrlA_OnActiveSubTab_OnLinux_SelectsEveryRowWithoutCheckingThem() {
@@ -1301,8 +1267,6 @@ namespace Foreman.Mac.UiTests.Views {
 
         //--- Enabled Objects tab: Load from save (reference io-reference.md §5) -------------------------------
 
-        //Drives SaveFileLoadSheet's own seams through LoadFromSaveDialogStub instead of a real SheetHost
-        //presentation - RunAsync is exactly what the sheet's Loaded handler would otherwise trigger.
         //Regression (C2): the eager settings.json write in ShowLoadFromSaveAsync ran through this path
         //against the real ~/Library/.../settings.json until SettingsService gained an injectable seam -
         //pointing this at a temp home and asserting on that file (not the real one) guards against a
@@ -1362,8 +1326,6 @@ namespace Foreman.Mac.UiTests.Views {
 
         //--- Enabled Objects tab: Assign from science packs (reference io-reference.md §6) -----------------
 
-        //Drives SciencePacksSheet's own Accepted flag through AssignFromSciencePacksDialogStub instead of
-        //a real SheetHost presentation - mirrors LoadEnabledFromSaveButton's stub convention above.
         [AvaloniaFact]
         public async Task SetEnabledFromSciencePacksButton_Click_Accepted_RefreshesCheckedState() {
             var cache = await GetCacheAsync();
@@ -1405,12 +1367,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.IsType<Image>(recipeItem.TooltipContent);
             Assert.Null(assemblerItem.TooltipContent);
         }
-
-        //--- General/Advanced/Annotations/Appearance tabs: standalone binding + wiring checks ------------------
-        //These four are plain SettingsViewModel-bound UserControls (the R7 split) -
-        //no window services involved, so they're exercised directly with an explicit DataContext rather than
-        //through the full SettingsWindow (which only attaches the active tab - see the Enabled Objects
-        //section's own comment on that).
 
         [AvaloniaFact]
         public void SettingsPanes_CarryTheRuledValuesAndUpstreamRanges() {

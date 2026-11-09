@@ -431,7 +431,6 @@ namespace Foreman.Mac.UiTests.Views {
             AssertStripTransitions(window.LoadingStrip);
             AnimationClock.UntilHidden(window.LoadingStrip);
             Assert.Equal(fullHeight, heights[0]);
-            //The target 0 is reported before the transition's first frame.
             int first = heights.FindIndex(h => h > 0 && h < fullHeight);
             Assert.True(first > 0);
             Assert.All(heights.Take(first), h => Assert.True(h == fullHeight || h == 0, $"height {h} before the first drawn frame"));

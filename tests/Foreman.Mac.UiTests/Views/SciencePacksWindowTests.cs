@@ -22,10 +22,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Covers the science-packs sheet (io-reference.md §6): the Kit.ChooserCell pack grid, the prerequisite
-    //cascade in both directions including upstream's documented OR-as-AND imprecision (ported as-is,
-    //docs/upstream-divergences.md), Confirm's subset rule through the shared EnabledObjectsDerivation, and the
-    //pane's own scrolling.
     public class SciencePacksWindowTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private static readonly SemaphoreSlim CacheGate = new(1, 1);
@@ -52,9 +48,6 @@ namespace Foreman.Mac.UiTests.Views {
         private static bool StateOf(SciencePacksSheet sheet, DataCache cache, string name) =>
             sheet.SciencePackButtonStates[sheet.PackButtonFor(PackNamed(cache, name))!];
 
-        //Presents the sheet on a real, shown owner window through SheetHost - needed for the real-click
-        //tests below, which prove the constructor's own Click wiring rather than just the cascade logic
-        //behind it.
         private static (SciencePacksSheet Sheet, Window Window) NewShownSheet(DataCache cache, HashSet<IDataObjectBase> enabledObjects) {
             (SciencePacksSheet sheet, Window window) = ShowWhileSliding(cache, enabledObjects);
             AnimationClock.UntilSheetOpen(sheet.PackButtonFor(PackNamed(cache, "automation-science-pack"))!);
@@ -71,8 +64,6 @@ namespace Foreman.Mac.UiTests.Views {
             return (sheet, window);
         }
 
-        //Real click through the actual input pipeline (MouseDown/MouseUp at the button's own screen point
-        //on the owner window), not a direct handler call.
         private static void ClickPack(SciencePacksSheet sheet, Window window, IItem pack) {
             ChooserCell button = sheet.PackButtonFor(pack)!;
             Point screen = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
@@ -104,9 +95,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.True(AnimationClock.SheetPanelIsOpen(cell));
             Assert.NotEqual(early, Centre());
         }
-
-        //---- population (reference §6: DisabledPackBGColor, now Foreman.Color.Error, one button per
-        //DCache.SciencePacks) ----------------------------------------------------------------------------
 
         [AvaloniaFact]
         public async Task Constructor_PopulatesOneUnselectedCellPerSciencePack_NamedForThePack() {
@@ -239,8 +227,6 @@ namespace Foreman.Mac.UiTests.Views {
             //referenced through the shared helper above.
             Assert.DoesNotContain("AssociatedItems.Select(item => item.ProductionRecipes)", source);
         }
-
-        //---- the kit sheet: named width, chooser cells, trailing button row ------------------------------
 
         [AvaloniaFact]
         public async Task SciencePacks_Width_IsTheNamedWidthToken() {

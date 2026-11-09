@@ -19,9 +19,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Covers PresetSelectionSheet (io-reference.md §8) against hand-built PresetErrorPackage fixtures: the
-    //percent formulas, the tooltip, the ranked list, the four-column row template, keyboard and VoiceOver, and
-    //the failed-read strip. MainWindow.ResolveChosenPresetAsync is the only production call site.
     public class PresetSelectionWindowTests {
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
@@ -49,8 +46,6 @@ namespace Foreman.Mac.UiTests.Views {
             return errors;
         }
 
-        //---- Percent formulas: the unit in the value, a figure space before the percent sign ------------
-
         [AvaloniaFact]
         public void BuildRows_PercentTextMatchesUpstreamFormula_WithTheUnitInTheValue() {
             var preset = new Preset("P", false, false);
@@ -67,8 +62,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal("80\u2007%", row.ItemsText);
             Assert.Equal("60\u2007%", row.RecipesText);
         }
-
-        //---- Tooltip: the full name, the preset's mods, then upstream's breakdown ---------------------------
 
         [AvaloniaFact]
         public void BuildRows_TooltipCarriesTheFullNameAndModList_ThenTheUpstreamBreakdown() {
@@ -130,8 +123,6 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Null(sheet.ChosenPreset);
         }
-
-        //---- the kit sheet: the wide width, the column set, the best match live on open ------------------
 
         private static readonly int[] GutterColumns = [1, 3, 5];
 
@@ -230,8 +221,6 @@ namespace Foreman.Mac.UiTests.Views {
             }
         }
 
-        //---- the list: ItemTemplate rows aligned under the header, heights from the row token, figures, weight ----
-
         private static List<PresetErrorPackage> Presets(int count) =>
             [.. Enumerable.Range(0, count).Select(i => NewPackage(new Preset("Preset " + i, false, false), 2, 0, 0, 0, 4, 0, 4, 0, 0))];
 
@@ -320,8 +309,6 @@ namespace Foreman.Mac.UiTests.Views {
 
             Assert.Equal("Space Age + Quality", Assert.IsType<PresetRow>(list.SelectedItem).Name);
         }
-
-        //---- failed read: the strip, Try Again, and nothing chosen until a read succeeds ---------------------
 
         [AvaloniaFact]
         public async Task LoadPreset_WhenThePresetCannotBeRead_ShowsTheFailureStrip_AndTryAgainLoadsItOnceReadable() {

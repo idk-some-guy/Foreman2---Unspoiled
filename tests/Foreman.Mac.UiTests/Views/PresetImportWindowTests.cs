@@ -20,9 +20,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Covers PresetImportSheet's own wiring (io-reference.md §4): the live name checks, the pre-flight problems
-    //as row errors, Cancel, the failure strip, and the hand-off into PresetImporter.ProcessPreset (run for real
-    //against StubFactorioHarness in ForemanTest, never here).
     [UnsupportedOSPlatform("windows")]
     public class PresetImportWindowTests {
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
@@ -158,8 +155,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal("", sheet.NewPresetName);
             Assert.Equal(false, sheet.DialogResultValue);
         }
-
-        //---- pre-flight problems are row errors with focus on the field, never an alert (reference §4 steps 1-7) ----
 
         private static FormRow RowLabelled(PresetImportSheet sheet, string label) =>
             sheet.GetVisualDescendants().OfType<FormRow>().Single(r => r.Label == label);
@@ -378,7 +373,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.False(sheet.ShowLogButtonControl.IsVisible);
         }
 
-        //The sentence follows the reported percent band, never the pipeline's text; a lower band never moves it back, nor does Continue on the missing-icons confirm.
         [AvaloniaFact]
         public async Task PresetImport_StageSentences_FollowThePercentBands_AndNeverMoveBackward() {
             var sheet = new PresetImportSheet([]);
@@ -486,8 +480,6 @@ namespace Foreman.Mac.UiTests.Views {
             return dir;
         }
 
-        //---- the kit sheet: the wide width, the three window-column rows, notes inside the sheet, Escape cancels the run ----
-
         [AvaloniaFact]
         public void PresetImport_Width_IsTheNamedWidthToken() {
             var sheet = new PresetImportSheet([], []);
@@ -512,7 +504,6 @@ namespace Foreman.Mac.UiTests.Views {
             }
         }
 
-        //Escape and the Cancel button share Cancel(), so Escape cancels the in-flight pipeline's token too.
         [AvaloniaFact]
         public async Task Escape_WhilePipelineInFlight_CancelsTheTokenAndDisposesTheSheet() {
             var pipelineStarted = new SemaphoreSlim(0, 1);
@@ -543,10 +534,9 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.True(capturedToken.IsCancellationRequested);
             Assert.True(sheet.Disposed);
 
-            pipelineGate.TrySetResult(); //let the still-awaiting background pipeline finish so nothing leaks past the test.
+            pipelineGate.TrySetResult();
         }
 
-        //A pipeline result landing after Cancel disposed the sheet must not overwrite the cancelled state.
         [AvaloniaFact]
         public async Task RunImportAsync_LateResultAfterCancel_DoesNotOverwriteCancelledState() {
             var pipelineStarted = new SemaphoreSlim(0, 1);
@@ -571,8 +561,8 @@ namespace Foreman.Mac.UiTests.Views {
             CanvasKeys.KeyDownOn(sheet.PresetNameTextBoxControl, Key.Escape);
             Assert.Null(await task);
 
-            pipelineGate.TrySetResult(); //the pipeline resolves Ok only after the sheet already cancelled+disposed
-            await Task.Delay(50); //give RunImportAsync's continuation a chance to run (and, pre-fix, corrupt state)
+            pipelineGate.TrySetResult();
+            await Task.Delay(50);
 
             Assert.Equal("", sheet.NewPresetName);
             Assert.Equal(false, sheet.DialogResultValue);

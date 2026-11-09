@@ -291,8 +291,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.False(PresetComparatorWindow.EvaluateSimilarity(7, "Mod", left, "Mod", productivityDiffers).SimilarInternals);
         }
 
-        //--- Window ------------------------------------------------------------------------------------------
-
         private static DataStore NewStore() => new();
 
         private sealed class DataStore {

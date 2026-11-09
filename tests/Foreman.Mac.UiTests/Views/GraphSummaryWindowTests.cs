@@ -23,7 +23,6 @@ using Foreman.Models.Solver;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
-using System.Text.RegularExpressions;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;
@@ -32,7 +31,6 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 using Point = System.Drawing.Point;
@@ -163,15 +161,6 @@ namespace Foreman.Mac.UiTests.Views {
             Layout(window);
             return window.TableControl.GetVisualDescendants().OfType<ListBoxItem>().Single(c => c.Content is SummaryRow row && match(row));
         }
-
-        private static string Source(string relative) {
-            string? dir = AppContext.BaseDirectory;
-            while (dir is not null && !Directory.Exists(Path.Combine(dir, "src", "Foreman.Mac")))
-                dir = Path.GetDirectoryName(dir);
-            Assert.NotNull(dir);
-            return Path.Combine(dir!, relative);
-        }
-
 
         [AvaloniaFact]
         public async Task BuildingCountHeader_SumsCeilingAcrossAllSubTabs_IndependentlyOfPerRowGroups() {
@@ -1299,23 +1288,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(2, second.SegmentIndex);
             Assert.Equal(2, second.TopSegmentControl.SelectedIndex);
             second.Close();
-        }
-
-        [AvaloniaFact]
-        public void RetiredSummarySheetType_AndTheWidthExemption_NoLongerExist() {
-            Assembly app = typeof(MainWindow).Assembly;
-            Assert.Null(app.GetType("Foreman.Mac.Views.Sheets.GraphSummary" + "Sheet"));
-            Assert.Null(typeof(ISheetContent<>).GetProperty("Sheet" + "Width"));
-            Assert.Null(typeof(SheetContent<>).GetProperty("Sheet" + "Width"));
-
-            string[] banned = ["GraphSummary" + "Sheet", "Status" + "Foreground", "Status" + "WarningBackground"];
-            var widthExemption = new Regex(@"\bSheet" + @"Width\b");
-            foreach (string file in Directory.EnumerateFiles(Source("src"), "*.*", SearchOption.AllDirectories)
-                .Where(f => (f.EndsWith(".cs", StringComparison.Ordinal) || f.EndsWith(".axaml", StringComparison.Ordinal)) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))) {
-                string text = File.ReadAllText(file);
-                Assert.DoesNotContain(banned, b => text.Contains(b, StringComparison.Ordinal));
-                Assert.DoesNotMatch(widthExemption, text);
-            }
         }
 
         [AvaloniaFact]

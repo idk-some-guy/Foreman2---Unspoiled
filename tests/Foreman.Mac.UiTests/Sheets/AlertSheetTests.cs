@@ -13,7 +13,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Sheets {
-    //Routing lives in Dialogs.cs's tests; AlertFrame's geometry and keys are pinned in the kit suite.
     public class AlertSheetTests {
         [AvaloniaFact]
         public void Message_ShowsVerbatim_AsTheHeadlineWhenUntitled_AndAsInformativeTextUnderATitle() {
@@ -53,8 +52,6 @@ namespace Foreman.Mac.UiTests.Sheets {
 
         private static string[] Labels(AlertSheet sheet) => [.. sheet.Buttons!.Items.Cast<Button>().Select(b => (string)b.Content!)];
 
-        //---- Ok: one button, labeled OK, the sheet's own default; Escape completes it --------------------
-
         [AvaloniaFact]
         public async Task OkMode_OneOKButton_TheDefault_AndEscapeResolvesYes() {
             var sheet = new AlertSheet("Couldn’t open “Iron smelting”.", "The file is too old or damaged to read.", AlertButtons.Ok);
@@ -68,8 +65,6 @@ namespace Foreman.Mac.UiTests.Sheets {
 
             Assert.Equal(ConfirmChoice.Yes, await task);
         }
-
-        //---- YesNo: the plain confirm the sheets still raise; Yes is the default, Escape and No resolve No
 
         [AvaloniaFact]
         public async Task YesNoMode_YesIsTheDefault_EscapeAndTheNoButtonResolveNo_AndAVerbReplacesYesNo() {
@@ -94,7 +89,6 @@ namespace Foreman.Mac.UiTests.Sheets {
             Assert.Equal(ConfirmChoice.No, await task);
             AnimationClock.Settle();
 
-            //With a verb the confirm reads Cancel · verb, the verb the default Return fires.
             var verbed = new AlertSheet("Use this save anyway?", "The save’s mods don’t match the current preset’s.", AlertButtons.YesNo, "Use Save");
             Assert.Equal(["Cancel", "Use Save"], verbed.Buttons!.Items.Cast<Button>().Select(b => b.Content));
             Assert.Equal(ButtonRowRole.Cancel, ButtonRow.GetRole(verbed.NoButtonControl));
@@ -105,8 +99,6 @@ namespace Foreman.Mac.UiTests.Sheets {
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(ConfirmChoice.Yes, await confirmed);
         }
-
-        //---- Destructive: the verb is destructive and never the default; Cancel keeps Return -------------
 
         [AvaloniaFact]
         public async Task DestructiveAlert_VerbThenCancel_ReturnCancels_CmdBackspaceConfirms() {

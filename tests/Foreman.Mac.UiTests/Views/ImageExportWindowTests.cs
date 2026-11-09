@@ -23,10 +23,6 @@ using Xunit;
 using Point = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Covers the PNG export sheet (io-reference.md §3): scale mapping, the live size label, the view-limited and
-    //full-graph transforms, transparency, the in-sheet guards, and the in-progress and failed strips.
-    //ShapeAnnotationElement stands in for a node: its fixed graph-space rect and settable FillColor make
-    //pixel sampling exact, and none of this sheet's maths touches DataCache.
     public class ImageExportWindowTests {
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
@@ -113,7 +109,6 @@ namespace Foreman.Mac.UiTests.Views {
             };
         }
 
-        //Invariant digits with no thousands separator, U+00D7 between them, whatever the display culture.
         [AvaloniaFact]
         public void ImageSizeLabel_ReadsPlainDimensions_UnderEveryCulture() {
             foreach (string culture in new[] { "de-DE", "en-US" })
@@ -197,8 +192,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(TokenBridge.Current.CanvasBackground, filled.GetPixel(5, 5));
             Assert.Equal(0, transparent.GetPixel(5, 5).Alpha);
         }
-
-        //---- guards: a field problem is the Save to row's error, an operation problem the strip, never an alert ----
 
         private static FormRow SaveToRow(ImageExportSheet sheet) =>
             sheet.GetVisualDescendants().OfType<FormRow>().Single(r => r.Label == "Save to");
@@ -316,9 +309,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Same(window.GraphCanvas.Viewer, captured);
         }
 
-        //---- the kit sheet: named width, window-column rows, trailing button row, failed save ------------
-
-        //Tab starts on Browse…, skips the path label, and walks Scale, the two options and the buttons before wrapping.
         [AvaloniaFact]
         public void ImageExport_SheetIsStandardWidth_AndTabWalksTheControls() {
             var sheet = new ImageExportSheet(NewViewer(400, 300));
@@ -341,13 +331,10 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal("Limit to the visible area", sheet.ViewLimitCheckBoxControl.Content);
         }
 
-        //---- Save to row: a front-truncating path label with Browse… trailing at its natural width ----
-
         private static string LongPathUnderHome() =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 "Documents", "Factorio", "Builds", "Megabase", "Iron and copper smelting columns", "west block", "iron-plate-line-final.png");
 
-        //At the default font and a wider Linux-like one (1.12x) the label absorbs the growth and Browse never overlaps it.
         [AvaloniaFact]
         public void SaveTo_LongPath_TruncatesTheLabel_AndBrowseKeepsItsNaturalWidthAtTheTrailingEdge() {
             foreach (double fontFactor in new[] { 1.0, 1.12 })
@@ -462,8 +449,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.True(await result);
             File.Delete(path);
         }
-
-        //---- in progress: the paint is recorded on the UI thread, the pixels are encoded and written on a worker ----
 
         [AvaloniaFact]
         public async Task ExportAsync_WhileEncoding_ShowsTheRenderingStrip_AndCancelDiscardsTheLateResult() {

@@ -31,17 +31,12 @@ using Slider = Foreman.Mac.Kit.Controls.Slider;
 using Spinner = Foreman.Mac.Kit.Controls.Spinner;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Task: dev-only gallery smoke test (docs entry: "--gallery" mode). Builds a small fixture cache - a
-    //recipe with an electric assembler (modules + beacon) alongside a burner alternative (fuel) - feeding
-    //the theme/enabled-objects/comparator showcase tiles below, then proves every expected tile gets built.
     public class GalleryWindowTests {
         private static DataCacheStore Store(DataCache cache) {
             FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
             return (DataCacheStore)field.GetValue(cache)!;
         }
 
-        //Reused by Theming/AppearanceHubWiringTests - GalleryWindow builds its Canvas/Kit tiles at
-        //construction, which needs enough of a cache to not throw.
         internal static DataCache NewFixtureCache() {
             var cache = new DataCache(filterRecipes: true);
             var quality = new QualityPrototype(cache, "normal", "Normal", "a");
@@ -106,7 +101,6 @@ namespace Foreman.Mac.UiTests.Views {
             return cache;
         }
 
-        //The declarative registry lists exactly the tiles the window renders, in the same order.
         [AvaloniaFact]
         public void Registry_ListsATileForEveryPanelTheWindowShows() {
             DataCache cache = NewFixtureCache();
@@ -217,7 +211,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains("Stepper", captions);
             Assert.Contains("Slider", captions);
             Assert.Contains("Text field, Search field, Stepper & Slider (150%)", captions);
-            //A sample from each end of the shared glyph set, proving the full set rendered with name labels.
             Assert.Contains("New", captions);
             Assert.Contains("Category.Modules", captions);
         }
@@ -232,7 +225,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains(window.GetVisualDescendants().OfType<ToolbarItem>(), i => i.Height == 60 && i.MinWidth == 66);
         }
 
-        //Addendum §12 "New glyphs": the path column, on the 20 grid.
         private static readonly (string Name, string Path)[] CanvasMasters = [
             ("Node.Over", "M10,16 V4.5 M5.5,9 L10,4.5 L14.5,9"),
             ("Node.Short", "M10,4 V15.5 M5.5,11 L10,15.5 L14.5,11"),
@@ -243,7 +235,6 @@ namespace Foreman.Mac.UiTests.Views {
             ("Link.Rounded", "M3,15 C9,15 11,5 17,5"),
         ];
 
-        //The tile draws each canvas master from the kit geometry; GlyphPaths hands the painters the same shapes.
         [AvaloniaFact]
         public void GlyphsTile_DrawsTheSevenCanvasMasters_ThatGlyphPathsMirrors() {
             DataCache cache = NewFixtureCache();
@@ -340,7 +331,6 @@ namespace Foreman.Mac.UiTests.Views {
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            //The chevron Path keeps Stretch=None at its master size; a wrapping Viewbox scales the drawn box.
             StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Segmented, Pop-up buttons & Menu button (150%)");
             Viewbox[] chevronBoxes = [.. tile.GetVisualDescendants().OfType<Viewbox>()
                 .Where(v => v.Child is Path p && (p.Name == "PART_Chevron" || p.Name == "PART_PulldownChevron"))];
@@ -354,7 +344,6 @@ namespace Foreman.Mac.UiTests.Views {
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            //Stretch="None" means the Path's own RenderedGeometry never inflates; only the ancestor Viewbox grows.
             StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Segmented, Pop-up buttons & Menu button (150%)");
             Path[] chevrons = [.. tile.GetVisualDescendants().OfType<Path>().Where(p => p.Name == "PART_Chevron" || p.Name == "PART_PulldownChevron")];
             var master = (Geometry)Application.Current!.FindResource("Kit.Glyph.Chevron.10")!;
@@ -419,7 +408,6 @@ namespace Foreman.Mac.UiTests.Views {
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            //PART_CloseGlyph keeps Stretch=None at its 12pt master size; a wrapping Viewbox scales the drawn box.
             StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Tooltip, Spinner & progress, Chips & Key caps (150%)");
             Application.Current!.TryGetResource("Foreman.Size.GlyphMicro", Application.Current.ActualThemeVariant, out object? glyphMicroObj);
             double expected = (double)glyphMicroObj! * 1.5;
@@ -437,8 +425,6 @@ namespace Foreman.Mac.UiTests.Views {
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            //Scoped to the two Focus ring tiles: composites legitimately reuse "Save" as a Kit.ButtonRow
-            //default-button label elsewhere in the gallery.
             StackPanel[] focusRingTiles = [.. window.GetVisualDescendants().OfType<StackPanel>()
                 .Where(s => s.Name is "Focus ring" or "Focus ring (150%)")];
             Button[] saveButtons = [.. focusRingTiles.SelectMany(t => t.GetVisualDescendants().OfType<Button>())
@@ -509,7 +495,6 @@ namespace Foreman.Mac.UiTests.Views {
             return Assert.IsType<Border>(((StackPanel)divider.GetVisualParent()!).Children[0]);
         }
 
-        //The gallery joins AppearanceHub like every other window; scale never wraps Content in a LayoutTransformControl.
         [AvaloniaFact]
         public void Construction_DoesNotWrapContentInALayoutTransform() {
             DataCache cache = NewFixtureCache();
@@ -529,9 +514,6 @@ namespace Foreman.Mac.UiTests.Views {
             window.MouseUp(center, MouseButton.Left, RawInputModifiers.None);
         }
 
-        //The gallery's own ScrollViewer stretches its content well past the fixed 1000pt window, and
-        //BringIntoViewOnFocusChange is off, so a real pointer click on a control past the fold needs the
-        //viewport scrolled to it directly (the same idiom QuickAddPalette.BringHighlightIntoView uses).
         private static void ScrollIntoView(Control control) {
             if (control.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault() is not ScrollViewer scrollViewer)
                 return;
@@ -598,8 +580,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(5, divider.Bounds.Width);
         }
 
-        //Addendum §03's grid figure draws the first module slot selected; the tile says so itself rather
-        //than leaning on a default SelectedIndex the grid no longer has.
         [AvaloniaFact]
         public void PickGridTile_DrawsTheFiguresSelectedCell() {
             DataCache cache = NewFixtureCache();
@@ -615,7 +595,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(1, cells.Count(c => c.IsSelected));
         }
 
-        //Quality's own shape: a leading badge riding beside the word, one colour per tier in the menu too.
         [AvaloniaFact]
         public void PopUpButtonsTile_TheLeadingIconExampleCarriesAnIconAndPerItemMenuIcons() {
             DataCache cache = NewFixtureCache();
@@ -630,8 +609,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.All(withIcon.ItemIcons, Assert.NotNull);
         }
 
-        //The building-picker mock's own §02 figure: four candidates, the fourth dimmed but still a real
-        //cell, the third selected; the beacon row's first cell is the None member.
         [AvaloniaFact]
         public void PickGridChoiceTile_DrawsTheFiguresSelectedCellAndUnavailableCandidate() {
             DataCache cache = NewFixtureCache();
@@ -655,8 +632,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.True(beaconCells[0].IsNone);
         }
 
-        //The choice grid's own 150% scaling (cell size, gap non-multiplication, wrap recompute) is
-        //KitPickGridChoiceScaleTests now - this tile keeps only the registration/tile-presence assertion.
         [AvaloniaFact]
         public void PickCompositesScaledTile_CellScalesButGapStaysAtTwoPointFive() {
             DataCache cache = NewFixtureCache();
@@ -686,7 +661,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.True(wells[4].GetVisualDescendants().OfType<Viewbox>().Single(v => v.Name == "PART_NoneBox").IsVisible);
             Assert.False(wells[5].IsEnabled);
 
-            //The wells sit in the tile's own popover host, so a click or Space opens a real popover instead of throwing.
             ScrollIntoView(wells[0]);
             AnimationClock.UntilReflowsSettled(window);
             Point restCentre = wells[0].TranslatePoint(new Point(wells[0].Bounds.Width / 2, wells[0].Bounds.Height / 2), window)!.Value;
@@ -748,8 +722,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(132, cell.Bounds.Width);
         }
 
-        //Caption.LineHeight joined the scale ramp but the tile's own scoped keys never picked it up - the
-        //cell's label font grew while its line box stayed at the unscaled 13.2.
         [AvaloniaFact]
         public void ChooserCompositesScaledTile_CellLabelLineHeightScalesWithItsFontSize() {
             DataCache cache = NewFixtureCache();
@@ -769,8 +741,6 @@ namespace Foreman.Mac.UiTests.Views {
             window.Show();
 
             StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Scrim, Sheet frame, Button row & Alert frame (150%)");
-            //Three SheetFrames live in this tile (the plain sheet plus one nested in each AlertFrame) -
-            //the plain one is the only Standard-width sheet.
             SheetFrame sheet = tile.GetVisualDescendants().OfType<SheetFrame>().Single(s => s.WidthClass == SheetWidthClass.Standard);
             Border panel = sheet.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Panel");
 
@@ -780,9 +750,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(96, rowButton.MinWidth);
         }
 
-        //AlertIcon and Callout.LineHeight joined the scale ramp but the tile's own scoped keys never picked
-        //them up - the alert's icon, its column and its informative line box stayed at 100% while the sheet
-        //width scaled around them.
         [AvaloniaFact]
         public void SheetCompositesScaledTile_AlertIconAndItsColumnResolveTheScaledAlertIconToken() {
             DataCache cache = NewFixtureCache();
@@ -792,8 +759,6 @@ namespace Foreman.Mac.UiTests.Views {
 
             StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Scrim, Sheet frame, Button row & Alert frame (150%)");
             Image icon = tile.GetVisualDescendants().OfType<Image>().First(i => i.Name == "PART_Icon");
-            //SheetFrame's own PART_Body (the content host, zero columns) shares the name with AlertFrame's
-            //three-column body - the alert's grid is the one that actually carries the icon column.
             Grid body = tile.GetVisualDescendants().OfType<Grid>().First(g => g.Name == "PART_Body" && g.ColumnDefinitions.Count == 3);
 
             Assert.Equal(48, icon.Bounds.Width);
@@ -892,8 +857,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(48, bottomRight.Y - topLeft.Y, 0.01);
         }
 
-        //Callout.LineHeight joined the scale ramp but the tile's own scoped keys never picked it up - the
-        //sentence's type grew while its line box stayed at the unscaled 16.8.
         [AvaloniaFact]
         public void StatePanelScaledTile_SentenceLineHeightScalesWithItsFontSize() {
             DataCache cache = NewFixtureCache();
@@ -1105,8 +1068,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(33, icon.Bounds.Width);
         }
 
-        //The panel's search field is a hosted primitive, not a key the composite reads directly - its own
-        //glyph box (Foreman.Size.SearchFieldGlyph) must resolve the tile's scaled token, not the ambient 100%.
         [AvaloniaFact]
         public void PalettePanelScaledTile_SearchFieldGlyphWidthResolvesTheScaledToken() {
             DataCache cache = NewFixtureCache();

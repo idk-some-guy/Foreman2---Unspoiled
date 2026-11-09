@@ -17,10 +17,6 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
-    //Covers the save-file load sheet (io-reference.md §5): the picker cancel path, SaveFileReader.Result onto
-    //Outcome and SaveFileInfo, the failure strip and its retry, the mod-mismatch confirm, the enabled-object
-    //derivation, and Cancel's honest non-preemptive behaviour. SaveFileReader's own pipeline is covered against
-    //StubFactorioHarness in ForemanTest; LoadPipelineStub stands in for it here.
     public class SaveFileLoadWindowTests {
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
@@ -61,8 +57,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(SaveFileLoadOutcome.Cancel, sheet.Outcome);
             Assert.Null(sheet.SaveFileInfo);
         }
-
-        //---- presenting the sheet triggers RunAsync (reference §5: "runs immediately on show") -----------
 
         //Every other test in this file drives RunAsync directly through LoadFromSaveDialogStub or a direct
         //call - none of them exercise the constructor's own "Loaded += (_, _) => _ = RunAsync();" line. A
@@ -227,7 +221,6 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(SaveFileLoadOutcome.Cancel, sheet.Outcome); //the late Ok result must not overwrite it.
         }
 
-        //Escape and the Cancel button share Cancel(), so Escape cancels the in-flight pipeline's token too.
         [AvaloniaFact]
         public async Task Escape_WhilePipelineInFlight_CancelsTheTokenAndDisposesTheSheet() {
             var pipelineStarted = new SemaphoreSlim(0, 1);
@@ -256,7 +249,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.True(capturedToken.IsCancellationRequested);
             Assert.True(sheet.Disposed);
 
-            pipelineGate.TrySetResult(); //let the still-blocked background thread finish so nothing leaks past the test.
+            pipelineGate.TrySetResult();
         }
 
         //---- ProcessSaveData: mod-mismatch gate + §§/save-recipe/transitive-derive pipeline (reference §5) -
@@ -324,15 +317,13 @@ namespace Foreman.Mac.UiTests.Views {
                 Assert.Contains(cache.PlayerAssembler, enabledObjects);
         }
 
-        //---- the mod-mismatch confirm stacks on the still-open sheet instead of queuing behind it -----------
-
         [AvaloniaFact]
         public async Task ProcessSaveDataAsync_ModsMismatch_RealConfirmStacksOnTheOpenSheet_AndResolvesWithoutDeadlock() {
             DataCache cache = await GetVanillaCacheAsync();
             var enabledObjects = new HashSet<IDataObjectBase>();
             var sheet = new SaveFileLoadSheet(cache, enabledObjects) {
                 SaveFileInfo = new SaveFileInfo(),
-                OpenSaveFilePathStub = () => new TaskCompletionSource<string?>().Task, //never resolves - keeps RunAsync from racing ProcessSaveDataAsync below
+                OpenSaveFilePathStub = () => new TaskCompletionSource<string?>().Task,
             };
             var window = new Window { Width = 800, Height = 600 };
             window.Show();
@@ -355,12 +346,10 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), alertPanel.Bounds.Width, 0.5);
             confirm.YesButtonControl.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
-            await processTask; //no deadlock: the stacked confirm resolves and ProcessSaveDataAsync completes on its own
+            await processTask;
             Assert.NotEmpty(enabledObjects);
-            Assert.False(outerTask.IsCompleted); //the outer sheet is still open - its own RunAsync never got a save path
+            Assert.False(outerTask.IsCompleted);
         }
-
-        //---- the kit sheet: named width, the reading strip, Show Log… · Cancel · Load ---------------------------
 
         [AvaloniaFact]
         public void SaveFileLoad_Width_IsTheNamedWidthToken() {

@@ -104,7 +104,6 @@ namespace Foreman.Mac.UiTests.Sheets {
 
         private static Border PanelOf(SheetHost host, Control content) => PanelOf(FrameOf(host, content));
 
-        //A stacked layer dims what lies beneath it with its own open scrim, spanning the lower sheet's panel.
         private static void AssertScrimmedOver(SheetHost host, Control upper, Control lower) {
             SheetFrame upperFrame = FrameOf(host, upper);
             Assert.True(host.Children.IndexOf(upperFrame) > host.Children.IndexOf(FrameOf(host, lower)));
@@ -295,7 +294,6 @@ namespace Foreman.Mac.UiTests.Sheets {
             SheetHost host = SheetHost.For(fixture.Window);
             Assert.Same(host, SheetHost.For(fixture.Window));
 
-            //SheetHost.For runs while Content is still the real root Grid, so it lands as a spanning child.
             var grid = Assert.IsType<Grid>(fixture.Window.Content);
             Assert.Contains(host, grid.Children);
 
@@ -306,8 +304,6 @@ namespace Foreman.Mac.UiTests.Sheets {
             Assert.True(host.IsOpen);
             Assert.Same(sheet, host.Content);
         }
-
-        //---- ShowStackedAsync: layers above an open sheet instead of queuing behind it -------------------
 
         [AvaloniaFact]
         public async Task ShowStackedAsync_WithNoSheetOpen_BehavesLikeShowAsync() {
@@ -383,7 +379,7 @@ namespace Foreman.Mac.UiTests.Sheets {
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(host.IsOpen);
-            Assert.Same(underlying, host.Content); //the underlying sheet is still the host's own Content - alertTask is layered above it
+            Assert.Same(underlying, host.Content);
 
             AssertScrimmedOver(host, alert, underlying);
             Assert.True(alert.Field.IsFocused);
@@ -491,8 +487,6 @@ namespace Foreman.Mac.UiTests.Sheets {
             Assert.True(alert.Result.IsCompleted);
             Assert.False(underlying.Result.IsCompleted);
         }
-
-        //MainWindow's panel sits below its titlebar row and paints above it regardless of ZIndex.
 
         [AvaloniaFact]
         public async Task For_OnAGridRootWindow_RealClickReachesTheSheetsOwnButton() {
@@ -663,8 +657,6 @@ namespace Foreman.Mac.UiTests.Sheets {
             Assert.Null(await first);
         }
 
-        //---- Kit frame wiring: headline, width class, and the in-progress / failed states ----------------
-
         [AvaloniaFact]
         public void Sheet_Headline_RendersFromISheetContentTitle_InSentenceCase() {
             var window = new Window { Width = 800, Height = 600, Content = new Button() };
@@ -730,7 +722,6 @@ namespace Foreman.Mac.UiTests.Sheets {
             Assert.Equal(strip.Bounds.Width, bar.Bounds.Width, 0.5);
             Assert.DoesNotContain(CompactLayoutOf(strip).GetVisualDescendants(), v => v is Foreman.Mac.Kit.Controls.Spinner);
 
-            //The host's height clamp re-measures inside its own pass; with the spinner running, layout must stay quiet.
             int layoutPasses = 0;
             host.LayoutUpdated += (_, _) => layoutPasses++;
             AnimationClock.Settle(300);
