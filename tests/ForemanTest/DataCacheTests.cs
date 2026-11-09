@@ -188,8 +188,6 @@ namespace ForemanTest {
             Assert.AreEqual(0, normal.Level);
         }
 
-        //The extra group's FriendlyName is one line: the "Add to Graph" browser renders it raw, so newlines
-        //between its three category names would show.
         [TestMethod]
         public void ExtraGroup_FriendlyNameIsASingleLine() {
             var cache = new DataCache(filterRecipes: true);

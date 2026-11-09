@@ -12,21 +12,13 @@ namespace Foreman.DataCaching {
     public static class PresetProcessor {
         private static string? defaultUserDataDirectoryOverride;
 
-        //Test-only seam (mirrors ErrorLogging.SetDefaultLogDirectory / AppPaths.SetIsMacOsOverride): lets
-        //a test assembly point the preset/icon db at a per-run temp directory once, so no test reaches the
-        //real AppPaths.UserDataDirectory (~/Library/Application Support/Foreman) even without its own
-        //per-call override.
         internal static void SetDefaultUserDataDirectoryOverride(string? path) => defaultUserDataDirectoryOverride = path;
 
-        //The db root for the preset/icon store: an explicit per-call override wins (the same seam
-        //GetPresetPath's userPresetsDirectoryOverride already is - reused here rather than adding a new
-        //parameter), then the test-assembly default above, then the real AppPaths location.
         internal static string ResolveUserDataDirectory(string? userDataDirectoryOverride = null) =>
             userDataDirectoryOverride ?? defaultUserDataDirectoryOverride ?? AppPaths.UserDataDirectory;
 
         //File-location policy (docs/upstream-divergences.md): a preset is read from the user's writable
         //Presets directory when it exists there, falling back to the bundle-shipped one otherwise - the user
-        //copy wins on a name collision (its content, not just its name), since that's what the import
         //overwrite path just wrote. The two directory overrides are test-only seams (default to the real
         //AppPaths locations); every production call site omits them.
         internal static string GetPresetPath(string presetName, string extension,
@@ -36,9 +28,6 @@ namespace Foreman.DataCaching {
             return File.Exists(userPath) ? userPath : Path.Combine(bundleDirectory, presetName + extension);
         }
 
-        //The write/delete target for a user-owned preset - never the bundle-shipped copy. No-override
-        //callers resolve through ResolveUserDataDirectory, the same seam the db root uses, so the
-        //test-assembly default redirects this path too instead of only the db.
         internal static string GetUserPresetPath(string presetName, string extension, string? userPresetsDirectoryOverride = null) =>
             Path.Combine(userPresetsDirectoryOverride ?? Path.Combine(ResolveUserDataDirectory(), "Presets"), presetName + extension);
 
@@ -63,22 +52,12 @@ namespace Foreman.DataCaching {
 
         }
 
-        //Db-first: a preset already in PresetStore/IconStore is read straight from
-        //the db; the first load of a preset reads the legacy .pjson/.json/.dat files exactly as before,
-        //imports both stores, then proceeds from the db it just wrote - so a second load never touches
-        //the legacy files again. GetPresetPath's dual-dir resolution (user directory wins) is unchanged
-        //and still runs, both for the first-load legacy read and to notice presetCustom.json edits below.
         //The two directory overrides are the same test-only seam GetPresetPath already takes; every
-        //production call site omits them (userPresetsDirectoryOverride also doubles as the db-root
-        //override - see ResolveUserDataDirectory).
         public static JsonObject PrepPreset(Preset preset, string? userPresetsDirectoryOverride = null, string? bundlePresetsDirectoryOverride = null) {
             using ForemanDbContext db = OpenDb(userPresetsDirectoryOverride);
 
             (string pjsonText, string? overlayText) = ReadOrImportPreset(db, preset.Name, userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
 
-            //A user can edit presetCustom.json between runs; re-import the overlay part whenever its
-            //current text no longer matches what's stored, so the edit takes effect on this load. A
-            //missing file is no news, not an edit - it must never wipe an overlay already in the db.
             string presetCustomPath = GetPresetPath(preset.Name, ".json", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
             string? currentOverlayText = File.Exists(presetCustomPath) ? Utf8File.ReadAllText(presetCustomPath) : null;
             if (currentOverlayText is not null && currentOverlayText != overlayText) {
@@ -92,8 +71,6 @@ namespace Foreman.DataCaching {
             return jsonData;
         }
 
-        //Icons for the same preset, once PrepPreset has guaranteed the db is populated (this always runs
-        //after PrepPreset in DataCache.LoadAllData, matching upstream's own load order).
         internal static IReadOnlyList<(string Name, int Tint, byte[] PngBytes)> GetPresetIconEntries(Preset preset, string? userPresetsDirectoryOverride = null) {
             using ForemanDbContext db = OpenDb(userPresetsDirectoryOverride);
             return [.. IconStore.ReadPresetIcons(db, preset.Name)];
@@ -104,10 +81,6 @@ namespace Foreman.DataCaching {
 
         private static (string PJsonText, string? OverlayText) ReadOrImportPreset(
                 ForemanDbContext db, string presetName, string? userPresetsDirectoryOverride, string? bundlePresetsDirectoryOverride) {
-            //Split: a preset with no .dat file never gets a PresetIconRow, so gating
-            //the pjson import on icon-row presence too meant it re-read and re-imported .pjson off disk
-            //on every single load - and threw FileNotFoundException outright once that file was deleted
-            //after the first "cached" load. The pjson and icon halves now cache independently.
             bool presetDataCached = db.Presets.Any(row => row.PresetName == presetName);
             bool iconsCached = db.PresetIcons.Any(row => row.PresetName == presetName);
 
@@ -121,8 +94,6 @@ namespace Foreman.DataCaching {
                 try {
                     PresetStore.Import(db, presetName, pjsonText, overlayText);
                 } catch (DbUpdateException) {
-                    //Another caller imported this exact preset name concurrently and won the race - its
-                    //data is what we'd have written anyway, so drop our own failed insert and read theirs.
                     db.ChangeTracker.Clear();
                 }
             }
@@ -133,9 +104,6 @@ namespace Foreman.DataCaching {
                     try {
                         IconStore.ImportFoic(db, presetName, datPath);
                     } catch (DbUpdateException) {
-                        //IconBlobs.Sha256 is shared across presets by design, so a different preset's concurrent
-                        //import of the same byte-identical icon can trip this catch and leave our own
-                        //PresetIcons rows missing; ImportFoic is idempotent, so retry it once now.
                         db.ChangeTracker.Clear();
                         if (!db.PresetIcons.Any(row => row.PresetName == presetName))
                             IconStore.ImportFoic(db, presetName, datPath);
@@ -147,7 +115,6 @@ namespace Foreman.DataCaching {
         }
 
         //this preset comparer loads a 'light' version of the preset - basically loading the items and entities as strings only (no data), and only the minimal info for recipes (name, ingredients + amounts, products + amounts)
-        //this speeds things up such that the comparison takes roughly 150ms for a large preset like seablock (10x vanilla), instead of 250ms as for a full datacache load.
         //still, this is only really helpful if you are using 10 presets (1.5 sec load inatead of 2.5 sec) or more, but hey; i will keep it.
         //any changes to preset json style have to be reflected here though (unlike for a full data cache loader above, which just incorporates any changes to data cache as long as they dont impact the outputs)
         public static async Task<PresetErrorPackage> TestPreset(Preset preset, Dictionary<string, string> modList, List<string> itemList, List<string> qualityList, List<RecipeShort> recipeShorts, List<PlantShort> plantShorts) {

@@ -12,13 +12,6 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
 namespace ForemanTest.Storage {
-    //Covers db-first preset read wiring: DataCache.LoadAllData routes through
-    //PresetProcessor's db-backed read path now, importing a preset into PresetStore/IconStore the
-    //first time it's loaded and reading straight from the db afterward. The pjson here is a byte-for-byte
-    //copy of the real bundled Vanilla preset (same reasoning as DataCacheImportedPresetTests: a
-    //hand-rolled minimal preset risks tripping DataCachePostLoadProcessor's consistency checks), paired
-    //with a genuinely miniature writer-built FOIC .dat (one icon) so the icon round trip stays cheap
-    //to assert byte-for-byte.
     [TestClass]
     public class PresetDbFlowTests {
         private const string PresetName = "Db Flow Miniature";
@@ -62,7 +55,6 @@ namespace ForemanTest.Storage {
             };
             await ForemanIconCacheFile.WriteAsync(datPath, icons);
 
-            //control: the untouched legacy readers, on the original files, before any db involvement.
             JsonObject controlJson = PresetJson.ParseObject(pjsonText);
             int controlItemCount = PresetJson.CountArray(controlJson, "items");
             int controlRecipeCount = PresetJson.CountArray(controlJson, "recipes");
@@ -119,8 +111,6 @@ namespace ForemanTest.Storage {
 
             string dbPath = StoragePaths.DbPath(tempDir);
 
-            //Stand-in for the state a swallowed cross-preset IconBlobs.Sha256 race can leave behind:
-            //the preset row committed, but no PresetIcons rows for it yet.
             using (var db = ForemanDbContext.Open(dbPath))
                 PresetStore.Import(db, PresetName, pjsonText, null);
 
@@ -135,9 +125,6 @@ namespace ForemanTest.Storage {
             CollectionAssert.AreEqual(controlIronPngBytes, iconEntries.Single(entry => entry.Name == IconName).PngBytes);
         }
 
-        //presetCustom.json going missing between runs must not read back as "the
-        //overlay was cleared" - a deleted file is no news, not an edit, and the stored overlay must
-        //keep applying.
         [TestMethod]
         public void PrepPreset_OverlayFileDeletedAfterImport_KeepsStoredOverlayApplied() {
             if (!VanillaDataCacheFixture.PresetsAvailable)
@@ -150,9 +137,6 @@ namespace ForemanTest.Storage {
             File.WriteAllText(pjsonPath, pjsonText);
             File.WriteAllText(overlayPath, "{\"items\":[{\"name\":\"overlay-test-item\"}]}");
 
-            //Needs a .dat too - otherwise PresetIcons never gets a row for this preset name, the preset
-            //never counts as cached, and every load falls through ReadOrImportPreset's own reimport
-            //branch regardless of the overlay diff under test.
             using SKBitmap ironBitmap = SolidBitmap(200, 40, 40);
             var icons = new Dictionary<string, IconColorPair> {
                 [IconName] = new IconColorPair(ironBitmap, Color.FromArgb(255, 10, 20, 30)),
@@ -170,9 +154,6 @@ namespace ForemanTest.Storage {
                 "overlay should still apply from the db after presetCustom.json is deleted");
         }
 
-        //A preset row alone should cache the pjson, independent of whether any icon
-        //rows exist yet - a preset with no .dat file must still stop re-reading .pjson off disk after
-        //its first load, the same one-time-import every other preset already gets.
         [TestMethod]
         public void PrepPreset_NoDatFile_CachesPjsonOnFirstLoad_SecondLoadSurvivesPjsonDeletion() {
             if (!VanillaDataCacheFixture.PresetsAvailable)
@@ -194,9 +175,6 @@ namespace ForemanTest.Storage {
             Assert.AreEqual(controlItemCount, PresetJson.CountArray(secondLoad, "items"));
         }
 
-        //Companion to the above: a .dat file that shows up after the preset's first (icon-less) load
-        //must still get imported on the next load - the pjson cache gate must not swallow the icon
-        //import too.
         [TestMethod]
         public void PrepPreset_DatFileAppearsAfterFirstLoad_ImportsIconsOnNextLoad() {
             if (!VanillaDataCacheFixture.PresetsAvailable)
@@ -222,8 +200,6 @@ namespace ForemanTest.Storage {
             Assert.AreEqual(1, iconEntries.Count);
         }
 
-        //PrepPreset must recover from a corrupt foreman.db the same way SettingsService
-        //does - quarantine the bad file and reimport straight from the legacy .pjson/.dat still on disk.
         [TestMethod]
         public void PrepPreset_CorruptDbFile_QuarantinesAndReimportsFromDisk() {
             if (!VanillaDataCacheFixture.PresetsAvailable)

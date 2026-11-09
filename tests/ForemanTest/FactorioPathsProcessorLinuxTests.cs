@@ -4,8 +4,6 @@ using System;
 using System.IO;
 
 namespace ForemanTest {
-    //Mirrors FactorioPathsProcessorMacTests but for the Linux branch (docs/upstream-divergences.md),
-    //exercised via the isMacOsOverride seam since this box only ever runs on macOS.
     [TestClass]
     public class FactorioPathsProcessorLinuxTests {
         [TestMethod]

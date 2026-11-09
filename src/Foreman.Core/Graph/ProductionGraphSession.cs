@@ -31,14 +31,8 @@ namespace Foreman.Graph {
         public event EventHandler? GraphCleared;
         public event EventHandler? NodeValuesUpdated;
 
-        //Fires once per real graph mutation - node/link add/remove, every node-property setter,
-        //a committed node drag, an annotation add/remove/edit. A plain solve (NodeValuesUpdated) never
-        //raises this; that was the old dirty wiring's bug.
         public event EventHandler? GraphMutated;
 
-        //internal, not private: the drag-end and annotation-apply paths in Foreman.Mac commit their own
-        //mutations directly (they can't route through a BaseNodeController - annotations aren't domain
-        //nodes, and a location commit is a UI-level decision, not a per-move one).
         internal void NotifyMutated() => GraphMutated?.Invoke(this, EventArgs.Empty);
 
         public void Attach() {

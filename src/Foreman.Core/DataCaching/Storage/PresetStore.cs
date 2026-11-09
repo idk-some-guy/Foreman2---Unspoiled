@@ -5,9 +5,6 @@ using System.Text;
 using ZstdSharp;
 
 namespace Foreman.DataCaching.Storage {
-    //Persists a preset's base pjson (zstd-compressed) and its optional presetCustom overlay as
-    //separate columns, so a changed overlay never requires re-importing the base. The overlay MERGE
-    //itself stays at the consumer (PresetJson.MergePresetOverlay in PresetProcessor).
     public static class PresetStore {
         private const int DefaultCompressionLevel = 19;
 

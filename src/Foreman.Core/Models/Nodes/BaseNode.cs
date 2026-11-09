@@ -156,18 +156,12 @@ namespace Foreman {
         private readonly BaseNode MyNode = myNode;
         private bool suppressMutated;
 
-        //The session's GraphMutated (dirty tint) traces back to here. A node not yet part of the
-        //graph (mid-construction, e.g. RecipeNode auto-selecting its assembler before NodeAdded fires)
-        //notifies nobody - there's no session listening for it yet either way.
         protected void Mutated() {
             if (suppressMutated || !MyNode.MyGraph.Nodes.Contains(MyNode))
                 return;
             MyNode.MyGraph.NotifyNodeMutated();
         }
 
-        //For a setter whose own body calls other setters (RecipeNodeController.SetAssembler cascading
-        //into SetFuel/ClearBeacon/SetBeacon): runs those inner calls under suppression so only the
-        //outer setter's own Mutated() call reaches the session.
         protected void RunWithoutMutationNotify(Action action) {
             bool wasSuppressed = suppressMutated;
             suppressMutated = true;
@@ -181,8 +175,6 @@ namespace Foreman {
         public void SetKeyNode(bool keyNode) { MyNode.KeyNode = keyNode; MyNode.KeyNodeTitle = keyNode ? MyNode.NodeID.ToString(DisplayCulture.Format) : ""; Mutated(); }
         public void SetKeyNodeTitle(string title) { if (MyNode.KeyNode) { MyNode.KeyNodeTitle = title; Mutated(); } }
 
-        //Drives live node-drag rendering (called on every pointer move) - deliberately excluded from
-        //Mutated() so a drag doesn't flood GraphMutated. The UI commits the mutation once at drag end.
         public void SetLocation(Point location) { if (MyNode.Location != location) MyNode.Location = location; }
 
         public void SetRateType(RateType type) { if (MyNode.RateType != type) { MyNode.RateType = type; Mutated(); } }

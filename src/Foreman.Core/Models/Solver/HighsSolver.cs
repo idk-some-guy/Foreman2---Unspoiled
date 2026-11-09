@@ -4,18 +4,8 @@ using System.Linq;
 using System.Threading;
 
 namespace Foreman.Models.Solver {
-    // ILpSolver calls arrive one variable/constraint/coefficient at a time, but Highs.Native's
-    // HighsLpSolver only takes a whole HighsModel via passLp. We accumulate the model here and
-    // materialize it at Solve() time.
     public class HighsSolver : ILpSolver {
-        // HiGHS rejects objective coefficients >= 1e20 outright (solve-time kError/kUnknown, no
-        // solution) and warns above 1e10. This isn't just a guard
-        // against a caller bypassing an already-capped app dial: GraphOptimisation.cs caps
-        // LowPriorityPower's exponent at 6 (1e6, comfortably inside range), but PullOutputNodesPower
-        // goes through uncapped there - ProductionGraph's own default of 10 gives 1e10, HiGHS's
-        // warning threshold, and only the Settings UI masks the exponent to <= 5. ProductionSolver's
-        // error-objective coefficient (1e2 / min(1e-3, minRecipeOutRate)) is uncapped altogether and
-        // can clear 1e7 on an extreme minRecipeOutRate. This clamp is what actually keeps those live.
+        // HiGHS rejects objective coefficients >= 1e20 and warns above 1e10, so clamp them.
         private const double MaxObjectiveCoefficient = 1e9;
 
         private readonly List<(double Low, double High)> columns = [];
@@ -63,8 +53,6 @@ namespace Foreman.Models.Solver {
             return status;
         }
 
-        // kWarning can still carry an optimal solution (e.g. postsolve residuals) - only kError
-        // means there is nothing to read back.
         internal static bool IsUsableSolution(HighsStatus runStatus, HighsModelStatus modelStatus) =>
             runStatus != HighsStatus.kError && modelStatus == HighsModelStatus.kOptimal;
 
@@ -125,8 +113,6 @@ namespace Foreman.Models.Solver {
         }
     }
 
-    // Adapters over Highs.Native's plain-data model: HighsSolver only exposes column/row indices
-    // internally, so these wrap the index and dispatch back through it.
     internal sealed class HighsLpVariable(HighsSolver solver, int index) : ILpVariable {
         internal int Index { get; } = index;
 

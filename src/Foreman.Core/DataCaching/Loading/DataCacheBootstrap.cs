@@ -139,8 +139,6 @@ namespace Foreman.DataCaching.Loading {
             store.MissingPlantProcesses.Clear();
 
             if (store.IconCache != null) {
-                //DisposeIfDecoded, not iconset.Icon?.Dispose(): a lazily-decoded IconColorPair
-                //that nothing ever read must not get force-decoded just to be thrown away.
                 foreach (var iconset in store.IconCache.Values)
                     iconset.DisposeIfDecoded();
                 store.IconCache.Clear();

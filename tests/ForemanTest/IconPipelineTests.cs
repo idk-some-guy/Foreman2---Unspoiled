@@ -46,7 +46,6 @@ namespace ForemanTest {
             Assert.DoesNotContain("IconCache.GetIcon failed", log);
         }
 
-        //Live gate finding: DataCacheBootstrap's extraction chooser group icon (and every other
         //Foreman-bundled Graphics/*.png - UnknownIcon, SpoilAssembler, PlantAssembler, HeatIcon,
         //BurnerGeneratorIcon, PlayerAssembler, RocketAssembler, ElectricityIcon, NoBeacon) rendered blank
         //when launched via `dotnet run` from the project directory. Root cause: every GetIcon call site

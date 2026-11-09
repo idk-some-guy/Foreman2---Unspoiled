@@ -2,9 +2,7 @@ using System;
 using System.Collections.Generic;
 
 namespace Foreman.DataCaching.Storage {
-    //One typed column per AppSettings property (Foreman.Mac/Services/AppSettings.cs).
-    //Foreman.Core can't reference Foreman.Mac, so columns mirror the property SHAPES: enums as int,
-    //decimals as decimal. Keep this in lockstep with AppSettings when either one changes.
+    //Keep these columns in lockstep with AppSettings.
     public sealed class SettingsRow {
         public int Id { get; set; }
 
@@ -54,13 +52,10 @@ namespace Foreman.DataCaching.Storage {
         public bool PullConsumerNodes { get; set; }
         public decimal PullConsumerNodesPower { get; set; }
 
-        //Added schema version 2 - see ForemanDbContext.Open's v1->v2 ALTER TABLE step.
         public double UiScale { get; set; }
 
-        //Added schema version 3 - see ForemanDbContext.Open's v2->v3 ALTER TABLE step.
         public bool InspectorPinned { get; set; }
 
-        //Added schema version 4 with ShowRecipeToolTip and RecipeNameOnlyFilter dropped.
         public double InspectorWidth { get; set; }
         public double BrowserWidth { get; set; }
         public double BrowserHeight { get; set; }
@@ -72,7 +67,6 @@ namespace Foreman.DataCaching.Storage {
         public double? SettingsAdvancedHeight { get; set; }
         public int DefaultLinkRouting { get; set; }
 
-        //Added schema version 5.
         public bool ShowToolbar { get; set; } = true;
         public bool ShowWelcomeAtLaunch { get; set; } = true;
         public DateTime? OpenRecentClearedAt { get; set; }
@@ -83,8 +77,6 @@ namespace Foreman.DataCaching.Storage {
         public int GraphSummarySegment { get; set; }
     }
 
-    //A single imported preset, compressed with zstd; CustomOverlayJson holds the presetCustom
-    //overlay when the user has one layered on top.
     public sealed class PresetDataRow {
         public string PresetName { get; set; } = "";
         public byte[] CompressedPJson { get; set; } = [];
@@ -92,8 +84,6 @@ namespace Foreman.DataCaching.Storage {
         public DateTime ImportedUtc { get; set; }
     }
 
-    //Content-addressed icon storage; PresetIconRow rows point in by Sha256 so identical icons
-    //across presets share one blob.
     public sealed class IconBlob {
         public string Sha256 { get; set; } = "";
         public byte[] PngBytes { get; set; } = [];

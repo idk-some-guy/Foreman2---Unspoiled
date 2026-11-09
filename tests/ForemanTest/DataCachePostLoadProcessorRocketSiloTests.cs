@@ -5,7 +5,6 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Reflection;
 
 namespace ForemanTest {
-    //ProcessAvailableStatuses indexed store.Assemblers["rocket-silo"]
     //directly (DataCachePostLoadProcessor.cs:226-227), the same KeyNotFoundException shape as
     //MainWindow.OpenSettingsAsync's own rocket-silo bug, but hit earlier - at data-load time, not
     //settings-open time - since a bare DataCache already carries a non-null RocketAssembler (the

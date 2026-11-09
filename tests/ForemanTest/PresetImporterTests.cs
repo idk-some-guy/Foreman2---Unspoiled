@@ -85,8 +85,6 @@ namespace ForemanTest {
             Assert.IsFalse(File.Exists(Path.Combine(MacOsDirOf(installPath), "temp-save.zip")));
         }
 
-        //---- FOIC write lands the real bytes on disk and in the db ----------------------
-
         [TestMethod]
         public async Task ProcessPreset_ResolvedIcon_RealBytesLandOnDiskAndInDb() {
             string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
@@ -473,11 +471,6 @@ namespace ForemanTest {
             Assert.IsTrue(File.Exists(basePath + ".dat"));
         }
 
-        //---- db import failure after a completed export must not discard the result ----
-
-        //The .pjson/.json/.dat are already safely on disk by the time the db import runs - PrepPreset's
-        //own reimport-on-cache-miss picks them up on the next load regardless, so a db write failure here
-        //must log and still report success rather than tell the user their export failed.
         [TestMethod]
         public async Task ProcessPreset_DbImportFails_StillReturnsOk_FilesRemainOnDisk() {
             const string p2 = "{\"mods\":[]}";
@@ -485,13 +478,8 @@ namespace ForemanTest {
             string userPresetsDir = NewTempDir();
             string userDataDir = NewTempDir();
 
-            //Seed the schema while the directory is still writable, then lock the directory down - the db
-            //file itself stays readable, so ForemanDbContext.Open succeeds, but the write transaction
-            //PresetStore.Import/IconStore.ImportFoic need (journal/WAL files alongside it) cannot land.
             using (ForemanDbContext db = ForemanDbContext.Open(StoragePaths.DbPath(userDataDir)))
                 _ = db.SchemaVersions.Count();
-            //Microsoft.Data.Sqlite pools connections by path; without clearing the pool, the write below
-            //would reuse a handle opened before the chmod and never actually hit the permission wall.
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             File.SetUnixFileMode(userDataDir, UnixFileMode.UserRead | UnixFileMode.UserExecute);
 

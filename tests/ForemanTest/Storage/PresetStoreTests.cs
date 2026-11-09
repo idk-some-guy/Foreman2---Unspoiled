@@ -4,8 +4,6 @@ using System.IO;
 using System.Linq;
 
 namespace ForemanTest.Storage {
-    //Exercises PresetStore with a small structural pjson sample, never the bundled
-    //1.1MB preset file. Temp dir only.
     [TestClass]
     public class PresetStoreTests {
         private string tempRoot = "";

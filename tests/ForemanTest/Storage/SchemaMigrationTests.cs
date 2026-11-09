@@ -7,11 +7,6 @@ using System.IO;
 using System.Linq;
 
 namespace ForemanTest.Storage {
-    //Proves the v1->v2 additive migration: EF's EnsureCreated is a no-op against an
-    //already-existing db file, so a column added to SettingsRow (UiScale) never reaches a db written by
-    //older code without a real ALTER TABLE step. LegacyV1Context below reproduces that exact
-    //pre-migration schema (every SettingsRow column except UiScale) via EF's own DDL generator, so the
-    //fixture is faithful rather than hand-guessed SQL.
     [TestClass]
     public class SchemaMigrationTests {
         private string tempRoot = "";
@@ -133,9 +128,6 @@ namespace ForemanTest.Storage {
             Assert.AreEqual("pre-migration-preset", reopened.Settings.Single().CurrentPresetName);
         }
 
-        //Reproduces a process death between the ALTER TABLE and the SchemaVersion bump: the column
-        //landed but the version row is still 1, so a naive re-run would re-issue the same ALTER TABLE
-        //and hit SQLITE_ERROR "duplicate column name".
         private string BuildCrashedMigrationFixture() {
             string dbPath = BuildV1Fixture();
             using (var legacy = new LegacyV1Context(dbPath)) {
@@ -157,9 +149,6 @@ namespace ForemanTest.Storage {
             Assert.AreEqual(5, context.SchemaVersions.Single().Version);
         }
 
-        //The v2->v3 additive migration (Settings.InspectorPinned). LegacyV2Context
-        //reproduces the schema with UiScale present but InspectorPinned absent, the same way LegacyV1Context
-        //reproduces the schema before it.
         private sealed class SettingsRowV2 {
             public int Id { get; set; }
             public string CurrentPresetName { get; set; } = "";
@@ -265,7 +254,6 @@ namespace ForemanTest.Storage {
             Assert.AreEqual("pre-migration-preset", reopened.Settings.Single().CurrentPresetName);
         }
 
-        //Reproduces a process death between the InspectorPinned ALTER TABLE and the SchemaVersion bump.
         private string BuildCrashedV2MigrationFixture() {
             string dbPath = BuildV2Fixture();
             using (var legacy = new LegacyV2Context(dbPath)) {

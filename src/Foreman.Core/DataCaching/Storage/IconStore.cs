@@ -5,8 +5,6 @@ using System.Linq;
 using System.Security.Cryptography;
 
 namespace Foreman.DataCaching.Storage {
-    //Content-hash icon store: dedups PNG blobs across presets by SHA-256, importing straight from
-    //ForemanIconCacheFile's decode-free entry enumerator so import never pays for SKBitmap decode.
     public static class IconStore {
         public static void ImportFoic(ForemanDbContext db, string presetName, string datPath) {
             List<ForemanIconCacheFile.FoicEntry> entries = ForemanIconCacheFile.ReadEntriesAsync(datPath).GetAwaiter().GetResult();
@@ -33,10 +31,6 @@ namespace Foreman.DataCaching.Storage {
             RemoveOrphanedBlobs(db);
         }
 
-        //Sweeps any IconBlob no PresetIconRow references anymore - safe since blobs are content-addressed
-        //and shared by hash across presets. Runs after ImportFoic's own row replacement (a re-import with
-        //a changed icon set can orphan a blob) and after preset delete (SettingsWindow.DeletePresetDbRows).
-        //Key-only: never materializes a blob's PngBytes just to decide whether to delete it.
         public static void RemoveOrphanedBlobs(ForemanDbContext db) {
             HashSet<string> referencedHashes = [.. db.PresetIcons.Select(row => row.Sha256)];
             db.IconBlobs.Where(blob => !referencedHashes.Contains(blob.Sha256)).ExecuteDelete();

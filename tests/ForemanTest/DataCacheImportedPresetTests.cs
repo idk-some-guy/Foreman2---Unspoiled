@@ -9,13 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace ForemanTest {
-    //DataCache.LoadAllData must read a user-imported preset's icon cache from the user's own Presets
-    //directory, not the bundle's (Path.Combine(AppPaths.ExecutableDirectory, "Presets", ...)), or it loads
-    //with zero icons: IconCache.LoadIconCache's
-    //missing-file branch just returns [] silently. Drives the real import pipeline (StubFactorioHarness,
-    //same as PresetImporterTests) into a temp user directory, pointing both the import and the later load
-    //at the same db root (as production always does - a single AppPaths.UserDataDirectory), then loads it
-    //back through DataCache.LoadAllData pointed at that same directory via the seam
     //PresetProcessor.PrepPreset/GetPresetPath already carry. The exported data payload is the real bundled
     //Vanilla preset's own .pjson content (its "mods" list only names core/base, both exempt from
     //IconCacheProcessor's mod-folder lookup) so DataCachePostLoadProcessor's full consistency checks

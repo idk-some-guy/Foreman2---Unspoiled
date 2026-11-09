@@ -8,11 +8,6 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace ForemanTest {
-    // HiGHS writes its solve banner/iteration table straight to the process's stdout file
-    // descriptor via native C stdio, bypassing Console.SetOut entirely - so verifying silence needs
-    // real fd-level redirection, not the managed Console API. At scale (a large graph decomposes
-    // into hundreds of independent connected components, each solved separately) an unsilenced
-    // solver means hundreds of banners per pass, not just console noise.
     [TestClass]
     public class HighsSolverTest {
         [DllImport("libc", SetLastError = true)]
@@ -62,9 +57,6 @@ namespace ForemanTest {
         [DataRow(HighsStatus.kOk, HighsModelStatus.kInfeasible, false)]
         public void IsUsableSolution_AcceptsKWarningAlongsideKOk_RejectsOnlyKErrorOrNonOptimalModel(
                 HighsStatus runStatus, HighsModelStatus modelStatus, bool expected) {
-            // kWarning can still carry an optimal solution (e.g. postsolve residuals) - discarding
-            // it would zero out a whole connected component for no reason. Only kError means there
-            // is nothing to read back.
             Assert.AreEqual(expected, HighsSolver.IsUsableSolution(runStatus, modelStatus));
         }
 

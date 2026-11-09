@@ -6,8 +6,6 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Linq;
 
 namespace ForemanTest {
-    // Proves the constructor-injected ILpSolver seam works end to end: ProductionSolver built with an
-    // explicit HiGHS-backed solver must match SolverTest.cs's simplest case (TestBasicSolve).
     [TestClass]
     public class ProductionSolverSeamTest : ForemanTestBase {
         [TestMethod]

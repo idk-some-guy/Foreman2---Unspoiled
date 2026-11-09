@@ -6,8 +6,6 @@ using System.Linq;
 using System.Threading;
 
 namespace Foreman.Models.Solver {
-    // Expresses a factory as a system of linear constraints and hands them to an ILpSolver
-    // (HiGHS by default) to solve.
     public class ProductionSolver {
         public double LowPriorityMultiplier { get; set; }
 
@@ -73,9 +71,6 @@ namespace Foreman.Models.Solver {
             solver.SetObjectiveCoefficient(nodeRate, factoryObjectiveCoefficient * factoryRateCoefficient * (node.LowPriority ? LowPriorityMultiplier : 1));
         }
 
-        // Returns null if no optimal solution can be found. Technically a backend can return
-        // non-optimal solutions, but since I don't have any inputs that generate those I'm opting
-        // on the side of safety by treating those as non-solutions.
         public Solution? Solve() {
             RunLp(CancellationToken.None);
             return BuildSolution();
@@ -98,7 +93,7 @@ namespace Foreman.Models.Solver {
                 return new Solution([], []); //no nodes mean empty solution (no errors)
 
             if (LastStatus != LpSolveStatus.Optimal)
-                return null; //error solution -> the caller keeps the last good values and records the failure
+                return null;
 
             var nodeSolutions = nodes
                 .ToDictionary(x => x, x => SolutionFor(Tuple.Create(x, RateType.ACTUAL)));

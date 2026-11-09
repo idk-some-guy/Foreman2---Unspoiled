@@ -101,8 +101,6 @@ namespace Foreman {
         public event EventHandler<EventArgs>? NodeValuesUpdated;
         public event EventHandler? GraphCleared;
 
-        //The one channel a BaseNodeController setter has back to the session it belongs to -
-        //controllers only ever see their node's own graph, never the session that wraps it.
         internal event EventHandler? NodeMutated;
         internal void NotifyNodeMutated() {
             Bump();
@@ -339,7 +337,7 @@ namespace Foreman {
                         SolveNow();
                     else {
                         Solver.Request();
-                        return; //the apply step raises NodeValuesUpdated
+                        return;
                     }
                 } catch (OverflowException ex) {
                     ErrorLogging.LogException(ex, "OptimizeGraphNodeValues overflow");

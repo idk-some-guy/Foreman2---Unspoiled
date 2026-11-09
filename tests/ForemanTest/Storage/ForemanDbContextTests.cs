@@ -6,8 +6,6 @@ using System.Linq;
 using System.Runtime.Versioning;
 
 namespace ForemanTest.Storage {
-    //Exercises ForemanDbContext's lifecycle: temp-dir-only, never touches real
-    //~/Library. No production consumer yet - this proves the EF plumbing on its own.
     [TestClass]
     public class ForemanDbContextTests {
         private string tempRoot = "";
@@ -25,7 +23,6 @@ namespace ForemanTest.Storage {
             }
         }
 
-        //A brand new db's EnsureCreated builds the current-model schema, so it seeds the current version.
         [TestMethod]
         public void Open_CreatesDbFile_AndSeedsSchemaVersionOnce() {
             string dbPath = StoragePaths.DbPath(tempRoot);
@@ -61,17 +58,12 @@ namespace ForemanTest.Storage {
             }
         }
 
-        //A locked-down directory is a different failure from corruption (SQLITE_READONLY vs
-        //SQLITE_NOTADB/SQLITE_CORRUPT): quarantining a perfectly good db file over a transient write
-        //failure would itself be a data-loss bug, so Open must let this one propagate untouched.
         [TestMethod]
         [UnsupportedOSPlatform("windows")]
         public void Open_ReadOnlyDirectory_PropagatesSqliteException_DoesNotQuarantine() {
             string dbPath = StoragePaths.DbPath(tempRoot);
             using (ForemanDbContext.Open(dbPath)) { }
 
-            //Microsoft.Data.Sqlite pools connections by path; without clearing the pool, the reopen
-            //below would reuse a handle opened before the chmod and never hit the permission wall.
             SqliteConnection.ClearAllPools();
             File.SetUnixFileMode(tempRoot, UnixFileMode.UserRead | UnixFileMode.UserExecute);
 

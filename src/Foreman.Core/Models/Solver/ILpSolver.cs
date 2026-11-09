@@ -16,8 +16,6 @@ namespace Foreman.Models.Solver {
         void SetCoefficient(ILpVariable variable, double coefficient);
     }
 
-    // The exact set of LP operations ProductionSolver needs: variables, constraints with bounds,
-    // objective coefficients, solving, and reading back the status and solution values.
     public interface ILpSolver {
         ILpVariable MakeNumVar(double low, double high);
         ILpConstraint MakeConstraint(double low, double high);

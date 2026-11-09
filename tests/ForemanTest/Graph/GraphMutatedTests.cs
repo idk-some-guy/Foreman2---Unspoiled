@@ -9,9 +9,6 @@ using System.Drawing;
 using System.Linq;
 
 namespace ForemanTest.Graph {
-    // ProductionGraphSession.GraphMutated drives dirty tracking. Each test below covers one mutation
-    // entry point and asserts it raises the event exactly once, plus the negative case (a solve with no
-    // mutation raises none).
     [TestClass]
     public class GraphMutatedTests : ForemanTestBase {
         [TestMethod]
@@ -26,9 +23,6 @@ namespace ForemanTest.Graph {
             Assert.AreEqual(1, count);
         }
 
-        // Regression for the recipe-node creation path specifically: CreateRecipeNode calls
-        // AutoSetAssembler/AutoSetAssemblerModules on the new node before it's added to the graph, so
-        // those setter calls must not sneak in an extra raise ahead of the one NodeAdded triggers.
         [TestMethod]
         public void CreateRecipeNode_AutoSelectsAssemblerButRaisesGraphMutatedOnce() {
             GraphBuilder.BuiltData built = GraphSessionTestHelper.BuildSimpleChain();
@@ -126,14 +120,11 @@ namespace ForemanTest.Graph {
             int count = 0;
             session.GraphMutated += (_, _) => count++;
 
-            controller.SetRateType(RateType.Auto); //already Auto - no-op
+            controller.SetRateType(RateType.Auto);
 
             Assert.AreEqual(0, count);
         }
 
-        // SetLocation drives live node-drag rendering, called on every pointer move - it must not raise
-        // GraphMutated itself, or a single drag would fire dozens of times. The UI commits the mutation
-        // once at drag end via the same internal NotifyMutated() this test calls directly.
         [TestMethod]
         public void SetLocation_NeverRaisesGraphMutated_CommitIsTheCallersJob() {
             var ctx = GraphSessionTestHelper.CreateContext();

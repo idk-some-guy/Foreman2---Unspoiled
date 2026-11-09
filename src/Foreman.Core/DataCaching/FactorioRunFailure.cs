@@ -1,5 +1,4 @@
 namespace Foreman.DataCaching {
-    //Why a Factorio-driven pipeline stopped, so a caller picks its own sentence instead of parsing WarningMessage (kept for the log).
     public enum FactorioRunFailure {
         None,
         Unmapped,

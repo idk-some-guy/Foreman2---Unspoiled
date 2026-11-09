@@ -22,18 +22,11 @@ namespace Foreman.DataCaching.Storage {
         public DbSet<GraphRow> Graphs => Set<GraphRow>();
         public DbSet<GraphVersionRow> GraphVersions => Set<GraphVersionRow>();
 
-        //Guards first-time schema creation/seeding against concurrent Open calls on the same process
-        //(PresetProcessor/PresetImporter open the db far more often than the original
-        //single settings-service caller did, so two callers racing a brand-new db file is now a real
-        //scenario, not just a theoretical one) - EnsureCreated and the SchemaVersion seed insert aren't
-        //safe to run from two threads at once against the same not-yet-existing file.
         private static readonly object BootstrapLock = new();
 
         //EnsureCreated never alters an existing file's schema, so each bump needs its own step in MigrateToCurrent.
         private const int CurrentSchemaVersion = 5;
 
-        //Opens (creating if needed) the db at dbPath and seeds SchemaVersion=1 (or migrates a v1 db
-        //forward to CurrentSchemaVersion) exactly once; idempotent across repeated calls on the same path.
         public static ForemanDbContext Open(string dbPath) {
             string? directory = Path.GetDirectoryName(dbPath);
             if (!string.IsNullOrEmpty(directory)) {
@@ -45,8 +38,6 @@ namespace Foreman.DataCaching.Storage {
 
                 SchemaVersionRow? versionRow = context.SchemaVersions.SingleOrDefault();
                 if (versionRow is null) {
-                    //Brand new file - EnsureCreated just built the full current-model schema (UiScale
-                    //and InspectorPinned columns included), so there's nothing to migrate.
                     context.SchemaVersions.Add(new SchemaVersionRow { Version = CurrentSchemaVersion });
                     context.SaveChanges();
                 } else if (versionRow.Version < CurrentSchemaVersion) {
@@ -57,15 +48,9 @@ namespace Foreman.DataCaching.Storage {
             }
         }
 
-        //SchemaVersionRow keys itself by Version (no separate id column), so bumping the version is a
-        //remove-then-add rather than an in-place field update.
         private static void MigrateToCurrent(ForemanDbContext context, SchemaVersionRow versionRow) {
             using IDbContextTransaction transaction = context.Database.BeginTransaction();
 
-            //A prior Open may have crashed after an ALTER but before the version bump below; the column
-            //would then already be there, and re-issuing the same ALTER would throw "duplicate column
-            //name" - each step below is independently guarded so a v1 db can jump straight to current
-            //in one Open call, picking up every column a v2 db would only need the second of.
             if (versionRow.Version == 1 && !ColumnExists(context, "Settings", "UiScale")) {
                 context.Database.ExecuteSqlRaw("ALTER TABLE Settings ADD COLUMN UiScale REAL NOT NULL DEFAULT 1.0");
             }
@@ -177,16 +162,9 @@ namespace Foreman.DataCaching.Storage {
             return false;
         }
 
-        //SQLITE_NOTADB - the file isn't a SQLite database at all; SQLITE_CORRUPT - its own header/pages
-        //are corrupt. Anything else a write can throw (locked, readonly, disk full, ...) is a real failure
-        //the caller needs to see - quarantining a perfectly good db file over a transient write failure
-        //would be its own data-loss bug.
         private const int SqliteErrorNotADatabase = 26;
         private const int SqliteErrorCorrupt = 11;
 
-        //foreman.db is a rebuildable cache (settings fall back to json/defaults, presets reimport from
-        //the legacy .pjson/.dat still on disk), so a file EnsureCreated can't open because it's actually
-        //corrupt gets moved aside instead of taking the whole app down on every launch.
         private static ForemanDbContext OpenOrQuarantine(string dbPath) {
             ForemanDbContext context = new ForemanDbContext(dbPath);
             try {
@@ -194,9 +172,7 @@ namespace Foreman.DataCaching.Storage {
                 return context;
             } catch (SqliteException ex) when (ex.SqliteErrorCode is SqliteErrorNotADatabase or SqliteErrorCorrupt) {
                 context.Dispose();
-                //Microsoft.Data.Sqlite pools native connections by file path; without clearing the pool
-                //here, a fresh connection after the file move below can still hand back a handle bound
-                //to the old (now-renamed) inode instead of the new file.
+                //Microsoft.Data.Sqlite pools native connections by path; clear the pool before moving the file.
                 SqliteConnection.ClearAllPools();
                 ErrorLogging.LogException(ex, $"foreman.db at '{dbPath}' is unreadable; quarantining and recreating");
                 QuarantineCorruptDb(dbPath);

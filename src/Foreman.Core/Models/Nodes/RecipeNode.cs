@@ -607,9 +607,6 @@ namespace Foreman {
         public void SetBeaconsPerAssembler(double beacons) { if (MyNode.BeaconsPerAssembler != beacons) { MyNode.BeaconsPerAssembler = beacons; Mutated(); } }
         public void SetBeaconsCont(double beacons) { if (MyNode.BeaconsConst != beacons) { MyNode.BeaconsConst = beacons; Mutated(); } }
 
-        //Cascades into SetFuel/AutoSetFuel and ClearBeacon/SetBeacon below - each raises its own Mutated()
-        //when called directly from the inspector, so the cascade here runs suppressed and this is the only
-        //call that reaches the session for a single assembler change.
         public void SetAssembler(AssemblerQualityPair assembler) {
             RunWithoutMutationNotify(() => {
                 MyNode.SelectedAssembler = assembler;
@@ -751,8 +748,6 @@ namespace Foreman {
             MyNode.UpdateState();
         }
 
-        //Positional swap: keeps the module's slot order instead of a remove-then-append, which would
-        //shift every module after it up one slot.
         public void ReplaceAssemblerModule(int index, ModuleQualityPair module) {
             if (index >= 0 && index < MyNode.AssemblerModules.Count) {
                 MyNode.AssemblerModulesReplaceAt(index, module);
@@ -833,7 +828,6 @@ namespace Foreman {
             MyNode.UpdateState();
         }
 
-        //Same positional swap as ReplaceAssemblerModule, for the beacon's own module slots.
         public void ReplaceBeaconModule(int index, ModuleQualityPair module) {
             if (index >= 0 && index < MyNode.BeaconModules.Count) {
                 MyNode.BeaconModulesReplaceAt(index, module);

@@ -45,9 +45,6 @@ namespace ForemanTest {
 
         [TestMethod]
         public void WarmupSolve_RunsARealSolveThroughHighs_ReturnsOptimal() {
-            // This is the delegate RunAsync()'s default overload runs - proving it returns Optimal
-            // proves the throwaway solve actually reached HiGHS's native run(), not just a managed
-            // HighsSolver allocation.
             Assert.AreEqual(LpSolveStatus.Optimal, SolverWarmup.WarmupSolve());
         }
     }

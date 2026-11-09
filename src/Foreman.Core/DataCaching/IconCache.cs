@@ -8,10 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Foreman.DataCaching {
-    //Icon and Color pair. The Icon side can be an already-decoded bitmap, or PNG
-    //bytes that decode on first .Icon access - the Lazy<T> is shared across every copy of the struct,
-    //so a dictionary entry and whatever DataObjectBase stores from it decode once, thread-safely
-    //(ExecutionAndPublication), and every later read reuses the same SKBitmap.
     public readonly struct IconColorPair {
         private readonly SKBitmap? eagerIcon;
         private readonly Lazy<SKBitmap?>? lazyIcon;
@@ -33,8 +29,6 @@ namespace Foreman.DataCaching {
         public SKBitmap? Icon => lazyIcon is not null ? lazyIcon.Value : eagerIcon;
         public Color Color { get; }
 
-        //Disposes the decoded bitmap only if it was actually decoded - clearing a cache full of
-        //never-requested lazy entries must not force a decode just to immediately throw it away.
         internal void DisposeIfDecoded() {
             if (lazyIcon is not null) {
                 if (lazyIcon.IsValueCreated)
@@ -46,7 +40,6 @@ namespace Foreman.DataCaching {
     }
 
     public static class IconCache {
-        //Testable seam: counts PNG decodes that lazy IconColorPair.Icon access triggers.
         internal static int LazyDecodeCount => Volatile.Read(ref lazyDecodeCount);
         private static int lazyDecodeCount;
         internal static void ResetLazyDecodeCount() => Volatile.Write(ref lazyDecodeCount, 0);
@@ -64,8 +57,6 @@ namespace Foreman.DataCaching {
 
         private static readonly SKSamplingOptions BilinearSampling = new(SKFilterMode.Linear, SKMipmapMode.None);
 
-        //Testable seam: counts the loads the three cached icons below trigger, so a
-        //concurrency test can prove exactly one load happens under a race rather than one per racing thread.
         internal static int CachedIconLoadCount => Volatile.Read(ref cachedIconLoadCount);
         private static int cachedIconLoadCount;
         internal static void ResetCachedIconsForTests() {
@@ -75,9 +66,6 @@ namespace Foreman.DataCaching {
             plantingIcon = new Lazy<SKBitmap?>(LoadPlantingIcon, LazyThreadSafetyMode.ExecutionAndPublication);
         }
 
-        //No longer warmed eagerly at load, so first touch can come from concurrent render
-        //threads; Lazy with ExecutionAndPublication guarantees one load and one shared bitmap, the same
-        //mode IconColorPair's own lazy decode above already uses.
         private static Lazy<SKBitmap> unknownIcon = new(LoadUnknownIcon, LazyThreadSafetyMode.ExecutionAndPublication);
         private static Lazy<SKBitmap?> spoilageIcon = new(LoadSpoilageIcon, LazyThreadSafetyMode.ExecutionAndPublication);
         private static Lazy<SKBitmap?> plantingIcon = new(LoadPlantingIcon, LazyThreadSafetyMode.ExecutionAndPublication);
@@ -186,9 +174,6 @@ namespace Foreman.DataCaching {
             }
         }
 
-        //Db-first, lazy counterpart to LoadIconCache: builds the icon
-        //dictionary straight from IconStore.ReadPresetIcons' undecoded PNG bytes without touching
-        //SKBitmap.Decode - each entry's pixels decode (and cache) on first IconColorPair.Icon access.
         public static Task<Dictionary<string, IconColorPair>> LoadIconCacheFromStore(
                 IReadOnlyList<(string Name, int Tint, byte[] PngBytes)> presetIcons,
                 IProgress<KeyValuePair<int, string>> progress, int endingPercent) {

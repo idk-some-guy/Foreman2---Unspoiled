@@ -107,7 +107,6 @@ namespace Foreman.DataCaching {
             }
         }
 
-        //One parsed FOIC entry before PNG decode - the shape IconStore's content-hash import needs.
         internal readonly record struct FoicEntry(string Name, int ColorArgb, byte[] PngBytes);
 
         internal static Task<List<FoicEntry>> ReadEntriesAsync(string path, CancellationToken cancellationToken = default) =>
@@ -179,8 +178,6 @@ namespace Foreman.DataCaching {
             return await DecodeEntriesAsync(entries, progress, cancellationToken).ConfigureAwait(false);
         }
 
-        //Eager whole-atlas decode for the raw-file path (ReadAsync, still used by the FOIC round trip
-        //and tests). The db-backed path (IconCache.LoadIconCacheFromStore) decodes lazily instead.
         internal static async Task<Dictionary<string, IconColorPair>> DecodeEntriesAsync(
             IReadOnlyList<FoicEntry> entries,
             IProgress<(int Decoded, int Total)>? progress,

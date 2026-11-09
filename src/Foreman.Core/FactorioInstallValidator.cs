@@ -14,7 +14,6 @@ namespace Foreman {
     public sealed record FactorioInstallCheck(FactorioInstallProblem Problem, string VersionText);
 
     public static class FactorioInstallValidator {
-        //Every rejection logs the upstream wording (the dev.13 pointer, the Discord line); the UI words its own sentence from Problem.
         public static FactorioInstallCheck CheckExecutable(string factorioExePath) {
             if (!File.Exists(factorioExePath))
                 return Rejected(new FactorioInstallCheck(FactorioInstallProblem.ExecutableMissing, ""));

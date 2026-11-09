@@ -41,8 +41,6 @@ namespace Foreman.DataCaching {
             public FactorioInstallCheck? InstallCheck { get; init; }
         }
 
-        //userDataDirectoryOverride is the same test-only db-root seam PresetProcessor.ResolveUserDataDirectory
-        //takes; every production call site omits it.
         public static async Task<Result> ProcessPreset(
             string installPath,
             string modsPath,
@@ -243,12 +241,6 @@ namespace Foreman.DataCaching {
 
             FactorioModListHelper.SetModState(modsPath, "foremanexport", enabled: false, removeFromListWhenDisabled: true);
 
-            //Mirrors PresetProcessor.ReadOrImportPreset's own db-import pattern: the real FOIC bytes land
-            //on disk at the normal preset path, then get imported into the db from that same file, so a
-            //deleted foreman.db still leaves every imported preset recoverable.
-            //By this point the export itself already succeeded and every file is on disk, so a db failure
-            //here logs and falls through rather than reporting the export as failed - the next PrepPreset
-            //call reimports from those same files on its own cache miss.
             try {
                 using ForemanDbContext db = ForemanDbContext.Open(StoragePaths.DbPath(PresetProcessor.ResolveUserDataDirectory(userDataDirectoryOverride)));
                 string pjsonText = Utf8File.ReadAllText(presetBasePath + ".pjson");
