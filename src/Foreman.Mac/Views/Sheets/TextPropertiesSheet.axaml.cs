@@ -9,7 +9,6 @@ using SkiaSharp;
 using System;
 
 namespace Foreman.Mac.Views.Sheets {
-    //cancel reverts from a construction-time snapshot; OK calls SaveDefaults
     public partial class TextPropertiesSheet : SheetContent<bool> {
         private static readonly string[] CuratedFontFamilies = ["Segoe UI", "Helvetica Neue", "Arial", "Times New Roman", "Courier New"];
         private static readonly string[] AlignmentNames = ["Left", "Center", "Right"];
@@ -135,7 +134,6 @@ namespace Foreman.Mac.Views.Sheets {
                     RebuildAndRefit();
                 }
             };
-            //None is alpha 0 (a transparent background); any colour cell is opaque.
             backColorWell.PropertyChanged += (_, e) => {
                 if (e.Property == ColorWell.ColorProperty && !suppressLiveUpdates) {
                     element.BackColor = ToSkia(backColorWell.Color);
@@ -158,8 +156,6 @@ namespace Foreman.Mac.Views.Sheets {
             RequestRedraw?.Invoke();
         }
 
-        //-------------------------------------------------------------------------------------------------Test-only seams
-
         internal TextBox TextInputControl => textInput;
         internal PopUp FontPopUpControl => fontPopUp;
         internal Stepper FontSizeStepperControl => fontSizeStepper;
@@ -171,16 +167,11 @@ namespace Foreman.Mac.Views.Sheets {
         internal Button OKButtonControl => okButton;
         internal Button CancelButtonControl => cancelButton;
 
-        //Ports the OK path (reference §6): SaveDefaults persists the current values as the session/AppSettings
-        //defaults, then completes the sheet true.
         internal void ApplyOk() {
             TextAnnotationElement.SaveDefaults(element, Settings);
             Complete(true);
         }
 
-        //Ports the Cancel path (reference §6): reverts every field from the construction-time snapshot -
-        //overrides SheetContent<T>.Cancel so the Cancel button and SheetHost's own Escape handling (which
-        //calls this same method) both revert the live-previewed edits before completing false.
         public override void Cancel() {
             original.RevertOnto(element);
             RequestRedraw?.Invoke();

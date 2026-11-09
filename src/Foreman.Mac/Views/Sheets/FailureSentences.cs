@@ -2,7 +2,6 @@ using Foreman.DataCaching;
 using System;
 
 namespace Foreman.Mac.Views.Sheets {
-    //One reason sentence per failure kind for the sheets' failure strips; the pipeline's own text stays in the log.
     internal static class FailureSentences {
         public const string SeeTheLog = "The details are in Foreman’s log.";
 
@@ -32,7 +31,6 @@ namespace Foreman.Mac.Views.Sheets {
             _ => NotAFactorioFolder,
         };
 
-        //Upstream's phase wording, trimmed so the sentence stays within the strip's three lines.
         private static string CrashPhrase(FactorioCrashPhase phase) => phase switch {
             FactorioCrashPhase.CreatingTestSave => "creating the test save",
             FactorioCrashPhase.RunningExportScripts => "running the preset export scripts",

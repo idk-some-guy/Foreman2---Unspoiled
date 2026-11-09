@@ -18,10 +18,6 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Views.Sheets {
-    //Ports ImageExportForm(+.Designer.cs) (reference io-reference.md §3, upstream ImageExportForm.cs) - see
-    //that reference for the scale/size-label/export math this sheet still owns. Export completes true;
-    //Cancel and Escape complete false. The paint is recorded on the UI thread; rasterising, encoding and
-    //writing run on a worker behind the in-progress strip.
     public partial class ImageExportSheet : SheetContent<bool>, IDisposable {
         private static readonly float[] Multipliers = [0.05f, 0.1f, 0.2f, 0.5f, 1f, 2f, 3f];
         private static readonly string[] MultiplierNames = ["1/20", "1/10", "1/5", "1/2", "1", "2", "3"];
@@ -42,12 +38,9 @@ namespace Foreman.Mac.Views.Sheets {
 
         public const string SavePanelTitle = "Export an image";
 
-        //Test-only seam: lets a test supply the Browse picker's result without a real modal SaveFileDialog
-        //(same convention as MainWindow/GraphSummaryWindow's own SaveFilePathStub).
         internal Func<Task<string?>>? SaveFilePathStub { get; set; }
         internal byte[]? LastPngBytes { get; private set; }
 
-        //Test-only seams: EncodeGate holds the worker between rasterising and encoding; WriteImageStub replaces the file write.
         internal Func<Task>? EncodeGate { get; set; }
         internal Func<string, byte[], Task>? WriteImageStub { get; set; }
 
@@ -90,14 +83,12 @@ namespace Foreman.Mac.Views.Sheets {
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        //Ports button1_Click (reference §3): the picker only fills the path textbox, it doesn't export.
         internal async Task BrowseAsync() {
             string? path = await (SaveFilePathStub?.Invoke() ?? RealPickSaveImagePathAsync()).ConfigureAwait(true);
             if (path is not null)
                 SavePath = path;
         }
 
-        //The chosen file; the row shows it read-only, home as "~", truncated from the front so the file name survives.
         internal string SavePath {
             get => savePath;
             set {
@@ -136,9 +127,6 @@ namespace Foreman.Mac.Views.Sheets {
             return file?.Path.LocalPath;
         }
 
-        //Ports ExportButton_Click/ExportBitmap (reference §3): the view-limited branch always renders
-        //(upstream never guards it against an empty graph); only the full-graph branch checks
-        //GraphExportBounds.IsExportable. A path problem is the Save to row's error, the rest the strip.
         internal async Task ExportAsync() {
             ClearActivity();
             saveToRow.Error = null;
@@ -222,7 +210,6 @@ namespace Foreman.Mac.Views.Sheets {
             return recorder.EndRecording();
         }
 
-        //Bands give the strip a real fill: each replays the recorded picture clipped to its own rows.
         private static async Task<byte[]> RasteriseAndEncodeAsync(SKPicture picture, int width, int height, IProgress<double> progress, Func<Task>? gate) {
             using SKSurface surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
             SKCanvas canvas = surface.Canvas;
@@ -254,12 +241,9 @@ namespace Foreman.Mac.Views.Sheets {
             GC.SuppressFinalize(this);
         }
 
-        //Ports ViewLimitedBounds (reference §3): graph-space extent of the current viewport, independent of
-        //ViewOffset - only used to size the export image.
         private Rectangle ViewLimitedBounds() =>
             new(0, 0, (int)(viewer.Viewport.Width / viewer.Viewport.ViewScale), (int)(viewer.Viewport.Height / viewer.Viewport.ViewScale));
 
-        //Ports UpdateSizeLabel (reference §3); the row's "Scale" label replaces upstream's "Image Size:" prefix.
         private float SelectedMultiplier() => Multipliers[Math.Max(0, Array.IndexOf(MultiplierNames, scaleSelectionBox.SelectedItem))];
 
         private void UpdateSizeLabel() {
@@ -275,8 +259,6 @@ namespace Foreman.Mac.Views.Sheets {
                 ? string.Create(CultureInfo.InvariantCulture, $"{GraphExportBounds.ScaledWidth(bounds, scale)} × {GraphExportBounds.ScaledHeight(bounds, scale)} px")
                 : "Nothing to export";
         }
-
-        //-------------------------------------------------------------------------------------------------------Test-only seams
 
         internal TextBlock SavePathLabelControl => savePathLabel;
         internal Button BrowseButtonControl => browseButton;

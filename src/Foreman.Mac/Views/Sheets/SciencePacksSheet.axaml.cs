@@ -13,11 +13,6 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.Views.Sheets {
-    //Ports Forms/SciencePacksLoadForm.cs(+.Designer.cs) (reference io-reference.md §6): a grid of
-    //Kit.ChooserCells built from DCache.SciencePacks, an accepted pack shown selected, with a prerequisite
-    //cascade in both directions. Confirm re-derives EnabledObjects from the accepted packs, reusing
-    //EnabledObjectsDerivation (Foreman.Core, shared with SaveFileLoadSheet's ProcessSaveData - io-
-    //reference.md risk 5) for the assembler/beacon/module transitive-enable step rather than a second copy.
     public partial class SciencePacksSheet : SheetContent<bool?> {
         private const int IconSize = 48;
 
@@ -79,10 +74,6 @@ namespace Foreman.Mac.Views.Sheets {
             }
         }
 
-        //Ports Button_Click's cascade (reference §6, SciencePacksLoadForm.cs:79-105) verbatim, including
-        //upstream's own documented imprecision (its comment at :87-88, docs/upstream-divergences.md): a
-        //science pack reachable through multiple alternate tech-tree branches gets every branch's
-        //prerequisites treated as required (AND) instead of any one branch (OR) - not fixed here.
         private void Toggle(ChooserCell clicked) {
             if (clicked.Tag is not IItem sciPack)
                 return;
@@ -108,7 +99,6 @@ namespace Foreman.Mac.Views.Sheets {
             cell.IsSelected = accepted;
         }
 
-        //Ports ConfirmationButton_Click (reference §6, SciencePacksLoadForm.cs:121-161).
         private void Confirm() {
             var accepted = sciencePackButtons.Where(kvp => kvp.Value).Select(kvp => (IItem)kvp.Key.Tag!).ToHashSet();
 
@@ -124,7 +114,6 @@ namespace Foreman.Mac.Views.Sheets {
 
         private Bitmap GetOrBakeIcon(SKBitmap icon) => IconBaker.GetOrBake(bakedIconCache, icon, IconSize);
 
-        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
         internal Button ConfirmationButtonControl => confirmationButton;
         internal Button CancellationButtonControl => cancellationButton;
         internal IReadOnlyDictionary<ChooserCell, bool> SciencePackButtonStates => sciencePackButtons;

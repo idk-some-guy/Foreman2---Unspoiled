@@ -10,7 +10,6 @@ using System;
 using Slider = Foreman.Mac.Kit.Controls.Slider;
 
 namespace Foreman.Mac.Views.Sheets {
-    //cancel reverts from a construction-time snapshot; OK calls SaveDefaults
     public partial class ShapePropertiesSheet : SheetContent<bool> {
         private readonly ShapeAnnotationElement element;
         private readonly Snapshot original;
@@ -82,7 +81,6 @@ namespace Foreman.Mac.Views.Sheets {
             borderWidthStepper.Value = element.BorderWidth;
         }
 
-        //Opacity is the fill's alpha in percent; the well keeps the RGB when it reaches 0, so 0 % reads as None.
         private void WireLiveUpdateHandlers() {
             shapeSegments.PropertyChanged += (_, e) => {
                 if (e.Property != Segmented.SelectedIndexProperty)
@@ -119,8 +117,6 @@ namespace Foreman.Mac.Views.Sheets {
             };
         }
 
-        //-------------------------------------------------------------------------------------------------Test-only seams
-
         internal Segmented ShapeSegmentsControl => shapeSegments;
         internal ColorWell FillWellControl => fillWell;
         internal Slider OpacitySliderControl => opacitySlider;
@@ -134,8 +130,6 @@ namespace Foreman.Mac.Views.Sheets {
             Complete(true);
         }
 
-        //Overrides SheetContent<T>.Cancel so the Cancel button and SheetHost's own Escape handling (which
-        //calls this same method) both revert the live-previewed edits before completing false.
         public override void Cancel() {
             original.RevertOnto(element);
             RequestRedraw?.Invoke();

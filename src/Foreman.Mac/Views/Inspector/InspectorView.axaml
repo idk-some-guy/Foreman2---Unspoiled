@@ -6,12 +6,6 @@
              xmlns:insp="using:Foreman.Mac.Views.Inspector"
              x:Class="Foreman.Mac.Views.Inspector.InspectorView"
              x:DataType="vm:InspectorViewModel">
-  <!-- IsVisible is driven from MainWindow.axaml.cs (ViewModel.IsInspectorVisible), not a binding here -
-       InspectorView's own DataContext is the nested Inspector view model, not MainWindowViewModel, and
-       compiled bindings can't cross that boundary from a XAML attribute on this same element. Overlay,
-       not a column (contract §03): MainWindow sits this Border in the same grid cell as the
-       canvas, right-aligned above it - this Border owns its own soft left shadow instead of relying on
-       a reserved column to separate it from the canvas; the split divider draws the boundary hairline. -->
   <Border Width="{Binding Width}"
           Background="{DynamicResource Foreman.Color.InspectorBackground}"
           BoxShadow="{DynamicResource Foreman.Shadow.Sidebar}">
@@ -40,8 +34,6 @@
           </Grid>
         </insp:IdentityRow>
 
-        <!-- Only the body scrolls - the identity header above stays pinned. Named so tests can find this
-             specific ScrollViewer, not one buried in a TextBox's own template part. -->
         <ScrollViewer Grid.Row="1" Name="InspectorScroller">
           <ContentControl Name="SegmentHost" IsVisible="{Binding HasNode}" />
         </ScrollViewer>

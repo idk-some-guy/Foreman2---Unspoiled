@@ -11,9 +11,6 @@ using Foreman.Mac.ViewModels;
 using System;
 
 namespace Foreman.Mac.Views.Inspector {
-    //Docked replacement for EditFlowPanel: rate + node groups for every non-recipe node. RateMode
-    //isn't bound in XAML - Kit.Segmented has no data-bindable SelectedItem, so its SelectedIndex is synced
-    //by hand both ways here, same shape as the RadioButton pair it replaces.
     public partial class FlowSegmentView : UserControl {
         private readonly Segmented rateMode;
         private readonly Stepper rateValue;
@@ -22,8 +19,6 @@ namespace Foreman.Mac.Views.Inspector {
 
         public FlowSegmentViewModel? ViewModel { get; private set; }
 
-        //Rate unit is a graph-level setting shared with View Options and the View menu radios - see
-        //RecipeSegmentView's own RateUnitChanged for the mirror this feeds.
         public event EventHandler<ProductionGraph.RateUnit>? RateUnitChanged;
 
         public FlowSegmentView() {
@@ -53,9 +48,6 @@ namespace Foreman.Mac.Views.Inspector {
             viewer.Session.NodeValuesUpdated += OnNodeValuesUpdated;
         }
 
-        //Re-reads the bound node (NodeValuesUpdated, or a rate-unit change forwarded from InspectorView.
-        //RefreshSegment) without waiting for the node to change - IsFixedRate's own TwoWay binding already
-        //resyncs the stepper, but RateMode isn't bound (see the class comment) so it needs its own nudge here.
         internal void Refresh() {
             ViewModel?.Refresh();
             if (ViewModel is null)
@@ -70,7 +62,6 @@ namespace Foreman.Mac.Views.Inspector {
                 ViewModel.IsFixedRate = rateMode.SelectedIndex == 1;
         }
 
-        //Reports the pick and writes nothing - see RecipeSegmentView's own PickRateUnitByName.
         private void PickRateUnitByName(string? name) {
             if (boundViewer is null || name is null)
                 return;

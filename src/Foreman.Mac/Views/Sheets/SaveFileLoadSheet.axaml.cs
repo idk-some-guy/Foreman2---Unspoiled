@@ -14,12 +14,6 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Views.Sheets {
-    //Ports SaveFileLoadForm(+.Designer.cs) (reference io-reference.md §5, upstream SavefileLoadForm.cs):
-    //runs immediately once the sheet is presented - picks a save .zip, then hands it to SaveFileReader.Load
-    //(the process pipeline, Foreman.Core) and applies the parsed result to the live enabled-objects set.
-    //Cancellation is honest about FactorioBenchmarkRunner.Run not being preemptive (docs/io-reference.md §4
-    //caution): the Cancel button completes the sheet immediately without waiting for an in-flight run to
-    //actually stop. A failed read keeps the sheet open on its failure strip; Load (Try Again) rereads the same save.
     public partial class SaveFileLoadSheet : SheetContent<SaveFileLoadOutcome?>, IDisposable {
         private readonly DataCache dCache;
         private readonly HashSet<IDataObjectBase> enabledObjects;
@@ -32,25 +26,17 @@ namespace Foreman.Mac.Views.Sheets {
         private bool completed;
         private bool disposed;
 
-        //Defaults to Cancel (not the enum's own Ok=0) - a completion that never explicitly sets Outcome
-        //(nothing else has run yet) must still read as "nothing loaded" rather than falling through to Ok.
+        //Defaults to Cancel so a completion that never sets Outcome reads as nothing loaded.
         internal SaveFileLoadOutcome Outcome { get; private set; } = SaveFileLoadOutcome.Cancel;
         internal SaveFileInfo? SaveFileInfo { get; set; }
 
-        //Ports LoadSaveFile's LastSaveFileLocation write (reference §5 step 6): the caller (SettingsWindow)
-        //owns actually persisting this into AppSettings, since this sheet has no SettingsService of its own.
         internal string? ResolvedSaveFileLocation { get; private set; }
 
-        //Test-only seams (see ImageExportSheet's SaveFilePathStub for the established convention).
         internal Func<Task<string?>>? OpenSaveFilePathStub { get; set; }
         internal Func<string, string, Task<bool>>? ConfirmDialogStub { get; set; }
-        //Lets a test replace SaveFileReader.Load with a scripted result, without spawning a real (or even
-        //stub-script) process - SaveFileReader's own pipeline correctness is covered separately against
-        //StubFactorioHarness under ForemanTest (Foreman.Core), where that harness actually lives.
         internal Func<string, CancellationToken, SaveFileReader.Result>? LoadPipelineStub { get; set; }
         internal Func<Task>? ShowLogStub { get; set; }
 
-        //The save being read; set by the picker, kept for Try Again.
         internal string? SavePath { get; set; }
 
         public SaveFileLoadSheet() : this(new DataCache(false), []) {
@@ -80,11 +66,7 @@ namespace Foreman.Mac.Views.Sheets {
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        //Ports CancellationButton_Click (reference §5): does not await the in-flight load - the run isn't
-        //preemptive (docs/io-reference.md §4 caution, FactorioBenchmarkRunner.Run blocks on ReadToEnd until
-        //the child exits), so this completes the sheet immediately and leaves that background task to finish
-        //on its own. Overrides SheetContent<T>.Cancel so the Cancel button and SheetHost's own Escape
-        //handling (which calls this same method) behave identically.
+        //FactorioBenchmarkRunner.Run is not preemptive, so Cancel completes without awaiting the in-flight load.
         public override void Cancel() {
             cts.Cancel();
             Outcome = SaveFileLoadOutcome.Cancel;
@@ -100,8 +82,6 @@ namespace Foreman.Mac.Views.Sheets {
             Dispose();
         }
 
-        //Ports the upstream "using var form = new SaveFileLoadForm(...)" disposal (reference §5's caller,
-        //SettingsForm.cs:535): cts is the only disposable field, released once the sheet completes.
         public void Dispose() {
             if (disposed)
                 return;
@@ -110,8 +90,6 @@ namespace Foreman.Mac.Views.Sheets {
             GC.SuppressFinalize(this);
         }
 
-        //Ports ProgressForm_Load (reference §5): file picker -> SaveFileReader.Load -> ProcessSaveData on
-        //success.
         internal async Task RunAsync() {
             running = true;
             try {
@@ -137,7 +115,7 @@ namespace Foreman.Mac.Views.Sheets {
             string quoted = $"“{Dialogs.MiddleTruncate(SaveName, 24)}”";
             ReportProgress($"Reading {quoted} — running Factorio.");
             SaveFileReader.Result result = await Task.Run(() => load(path, token)).ConfigureAwait(true);
-            if (completed) //Cancel already completed the sheet while the run was in flight - discard the late result.
+            if (completed)
                 return;
             ClearActivity();
 
@@ -180,9 +158,6 @@ namespace Foreman.Mac.Views.Sheets {
             return files.Count > 0 ? files[0].Path.LocalPath : null;
         }
 
-        //Ports ProcessSaveData (reference §5): mod-mismatch gate, then §§-pseudo-recipes always enabled
-        //plus save-driven recipe enables, then the shared transitive assembler/beacon/module derivation
-        //(EnabledObjectsDerivation, reused by SciencePacksSheet - io-reference.md risk 5).
         internal async Task ProcessSaveDataAsync() {
             var notInSave = new List<string>();
             var differentVersion = new List<string>();
@@ -217,7 +192,6 @@ namespace Foreman.Mac.Views.Sheets {
             EnabledObjectsDerivation.DeriveAssemblersBeaconsModules(dCache, enabledObjects);
         }
 
-        //One line per non-empty side, each capped at five names; the full lists go to the log.
         internal static string MismatchLines(IReadOnlyList<string> notInSave, IReadOnlyList<string> differentVersion, IReadOnlyList<string> notInPreset) {
             var lines = new StringBuilder();
             foreach ((string label, IReadOnlyList<string> mods) in new[] { ("Not in the save: ", notInSave), ("Different version: ", differentVersion), ("Not in the preset: ", notInPreset) })
@@ -241,8 +215,6 @@ namespace Foreman.Mac.Views.Sheets {
         private Task<bool> ShowConfirmAsync(string title, string message) =>
             ConfirmDialogStub?.Invoke(title, message)
             ?? Dialogs.ShowConfirmAsync((Window)TopLevel.GetTopLevel(this)!, title, message, "Use Save", SheetWidthClass.Standard);
-
-        //-------------------------------------------------------------------------------------------------Test-only seams
 
         internal Button CancelButtonControl => cancelButton;
         internal Button LoadButtonControl => loadButton;

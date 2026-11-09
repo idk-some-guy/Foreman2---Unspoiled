@@ -12,7 +12,6 @@ using System;
 namespace Foreman.Mac.Views.Sheets {
     public enum AlertButtons { Ok, YesNo, Destructive }
 
-    //Destructive: Return cancels, the verb takes a click or ⌘⌫.
     public partial class AlertSheet : SheetContent<ConfirmChoice> {
         private static readonly Lazy<Bitmap> appIcon = new(() => {
             using System.IO.Stream stream = AssetLoader.Open(new Uri("avares://Foreman.Mac/Assets/unspoiled-icon-512.png"));
@@ -27,7 +26,6 @@ namespace Foreman.Mac.Views.Sheets {
         public AlertSheet() : this("", "", AlertButtons.Ok) {
         }
 
-        //verb labels the affirmative button: required for Destructive, optional for YesNo (then Cancel · verb, or secondaryLabel · verb).
         public AlertSheet(string title, string message, AlertButtons buttons, string? verb = null, SheetWidthClass width = SheetWidthClass.Alert, string? secondaryLabel = null) {
             InitializeComponent();
             this.buttons = buttons;
@@ -37,7 +35,6 @@ namespace Foreman.Mac.Views.Sheets {
             frame.WidthClass = width;
             ButtonRow row = this.FindControl<ButtonRow>("Row")!;
 
-            //An untitled alert leads with its message, as NSAlert's messageText does.
             bool titled = !string.IsNullOrEmpty(title);
             Title = titled ? title : message;
             frame.Headline = Title;
@@ -91,8 +88,6 @@ namespace Foreman.Mac.Views.Sheets {
             AlertButtons.YesNo or AlertButtons.Destructive => ConfirmChoice.No,
             _ => ConfirmChoice.Yes,
         });
-
-        //-------------------------------------------------------------------------------------------------Test-only seams
 
         internal AlertFrame FrameControl => frame;
         internal Button NoButtonControl => noButton;

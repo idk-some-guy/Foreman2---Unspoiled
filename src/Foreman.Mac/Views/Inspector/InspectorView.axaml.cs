@@ -43,26 +43,17 @@ namespace Foreman.Mac.Views.Inspector {
         private readonly RecipeSegmentView recipeSegmentView;
         private InspectorViewModel? boundViewModel;
 
-        //Set by MainWindow right after construction (InspectorView's own DataContext only ever carries the
-        //InspectorViewModel, not the canvas) - the Flow segment needs it to build FlowSegmentViewModel.
         public GraphViewer? Viewer { get; set; }
 
-        //Set by MainWindow to GraphCanvas.InvalidateVisual - EditFlowPanel's own RequestRedraw callback,
-        //ported here since the floating panel it used to thread that through no longer exists.
         public Action? RequestRedraw { get; set; }
 
-        //Set by MainWindow to Commands.AddRecipeCommand - the no-selection state panel's own action.
         public ICommand? AddRecipeCommand { get; set; }
 
-        //Fires once per resize gesture (SplitDivider.ValueCommitted) - the seam MainWindow saves through.
         public event EventHandler<double>? WidthCommitted;
 
-        //Forwarded from the Recipe segment's error panel (A25 .error) - MainWindow wires these to ShowSettings/OpenBrowser.
         public event EventHandler? OpenPresetsRequested;
         public event EventHandler<IRecipeNodeViewModel>? PickAnotherRecipeRequested;
 
-        //Forwarded from whichever segment's Rate unit row was just picked - MainWindow applies it and
-        //mirrors it into its View Options pop-up, the View menu radios and AppSettings.DefaultRateUnit.
         public event EventHandler<ProductionGraph.RateUnit>? RateUnitChanged;
 
         public InspectorView() {
@@ -84,11 +75,7 @@ namespace Foreman.Mac.Views.Inspector {
             addRecipeButton.Click += (_, _) => AddRecipeCommand?.Execute(null);
             emptyState.Buttons = new ButtonRow { Theme = KitTheme("Kit.ButtonRow"), Items = { addRecipeButton } };
 
-            //The compiled XAML name scope is sealed right after InitializeComponent runs (Avalonia calls
-            //INameScope.Complete once loading finishes), so a control built later in code - FlowSegmentView/
-            //RecipeSegmentView, swapped into SegmentHost.Content on selection - could never register into
-            //it. This scope is ours instead, built once with every existing named part plus the two segment
-            //instances Refresh() reuses, so FindControl keeps working for both old and new names.
+            //The compiled XAML name scope is sealed after InitializeComponent, so controls built in code register into this scope instead.
             flowSegmentView = new FlowSegmentView { Name = "FlowSegment" };
             recipeSegmentView = new RecipeSegmentView { Name = "RecipeSegment" };
             recipeSegmentView.OpenPresetsRequested += (_, _) => OpenPresetsRequested?.Invoke(this, EventArgs.Empty);
@@ -113,8 +100,6 @@ namespace Foreman.Mac.Views.Inspector {
             DetachedFromVisualTree += (_, _) => DisposeBakedIcons();
             BindViewModel();
 
-            //Baked icons carry no theme tint of their own; dispose-then-Refresh rebakes and reassigns
-            //Source synchronously, so nothing paints a disposed bitmap in between.
             ThemeAware.Attach(this, () => {
                 DisposeBakedIcons();
                 Refresh();
@@ -163,9 +148,6 @@ namespace Foreman.Mac.Views.Inspector {
             identityName.Text = name;
             identitySubtitle.Text = subtitle;
             identityIcon.Source = icon is null ? null : GetOrBakeIcon(icon);
-            //The grid deliberately has no visible label (2026-09-17 building-picker ruling) - the building
-            //is spoken on focus of this row instead, without the user hunting for the grid. The sub-line is
-            //the row's AXValue, not its help text, so it isn't read twice.
             AutomationProperties.SetName(identityRow, name);
             identityRow.AccessibleValue = subtitle;
 
@@ -188,8 +170,6 @@ namespace Foreman.Mac.Views.Inspector {
             }
         }
 
-        //Kit.PopUp's own 16pt leading-icon slot (2026-09-17 building-picker ruling): the badge rides beside
-        //the word in the button and in every menu item, one icon per quality tier.
         private void SetQualityMiniSelect(RecipeSegmentViewModel? recipeViewModel) {
             bool shows = recipeViewModel?.ShowsQuality ?? false;
             qualityRow.IsVisible = shows;
@@ -209,8 +189,6 @@ namespace Foreman.Mac.Views.Inspector {
             qualityMiniSelect.Icon = icon is null ? null : IconBaker.GetOrBake(qualityIconCache, icon, QualityIconSize);
         }
 
-        //Picking a quality re-quals the node's assembler directly (RecipeSegmentViewModel.PickQuality), so
-        //the identity subtitle and the mini-select's own label both need a fresh Refresh() here.
         private void PickQualityByName(string? name) {
             PickGridItem? item = recipeSegmentView.ViewModel?.QualityOptions.FirstOrDefault(i => i.Name == name);
             if (item is null)
@@ -225,9 +203,6 @@ namespace Foreman.Mac.Views.Inspector {
             return first?.Focus(NavigationMethod.Tab) == true;
         }
 
-        //Forwarded from MainWindow's two rate-unit change paths (MenuSetRateUnit, the View Options
-        //popover's SelectionChanged) - DesiredSetValue/ActualSetValue read in the new unit immediately, but
-        //nothing else tells an already-bound segment its display is stale.
         public void RefreshSegment() {
             if (segmentHost.Content == flowSegmentView)
                 flowSegmentView.Refresh();
@@ -235,9 +210,6 @@ namespace Foreman.Mac.Views.Inspector {
                 recipeSegmentView.Refresh();
         }
 
-        //A23/2026-09-17 building-picker ruling §05: sub-line names the node type then the building - the
-        //pinned, always-visible text form of what the Building grid selects - and carries the quality in
-        //parentheses when it isn't the base tier (PrevQuality null).
         private static (string Name, string Subtitle, SKBitmap? Icon) Describe(INodeViewModel node) => node switch {
             IRecipeNodeViewModel recipe => (
                 recipe.BaseRecipe.FriendlyName ?? "",
@@ -265,8 +237,6 @@ namespace Foreman.Mac.Views.Inspector {
         }
     }
 
-    //A named Border subclass so the row's own automation peer can be a Group carrying a value pattern - a
-    //stock Border's peer is neither (2026-09-17 building-picker ruling §05).
     internal sealed class IdentityRow : Border {
         public static readonly StyledProperty<string?> AccessibleValueProperty =
             AvaloniaProperty.Register<IdentityRow, string?>(nameof(AccessibleValue));

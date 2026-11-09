@@ -15,7 +15,6 @@ using System.Linq;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Views.Sheets {
-    //Each sheet is one Kit.SheetFrame layer (an AlertSheet brings its own Kit.AlertFrame); stacked layers sit above the base one.
     public sealed class SheetHost : Panel {
         private const double ClampMargin = 12;
         private const int TopmostZIndex = 10_000;
@@ -53,7 +52,6 @@ namespace Foreman.Mac.Views.Sheets {
 
         private Layer? TopLayer => layers.LastOrDefault(l => !l.Dismissed);
 
-        //An alert's ⌘. lives on its button row; a sheet frame's own handler closes the frame's open popover before the sheet.
         internal InputElement? FrontmostCancelTarget => !IsOpen || TopLayer is not { } top ? null
             : top.Root is SheetFrame frame ? frame
             : (InputElement?)top.Buttons ?? top.Root;
@@ -63,15 +61,12 @@ namespace Foreman.Mac.Views.Sheets {
             ZIndex = TopmostZIndex;
             AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
 
-            //The host outlives any one sheet, so it is the one stable subscription forwarding theme refreshes.
             ThemeAware.Attach(this, () => {
                 foreach (Layer layer in layers)
                     (layer.Content as IThemeAware)?.RefreshTheme();
             });
         }
 
-        //topAnchor (MainWindow's titlebar/toolbar row) keeps the panel flush under it instead of at y=0 -
-        //only read on first construction, since a window has exactly one host for its whole lifetime.
         public static SheetHost For(Window window, Control? topAnchor = null) {
             if (hostsByWindow.TryGetValue(window, out SheetHost? existing))
                 return existing;
@@ -87,8 +82,7 @@ namespace Foreman.Mac.Views.Sheets {
             return host;
         }
 
-        //blockedSiblings is captured before the host joins the collection so it never blocks itself; the toolbar row stays live (v2 §04).
-        //A layout panel (DockPanel, StackPanel) would lay the host out as one more child, so only a plain Panel takes it as an overlay.
+        //Only a plain Panel takes the host as an overlay; a DockPanel or StackPanel lays it out as one more child.
         private static void Attach(Window window, SheetHost host) {
             switch (window.Content) {
                 case Grid grid:
@@ -149,7 +143,7 @@ namespace Foreman.Mac.Views.Sheets {
             }
         }
 
-        //stacks above the open sheet: queuing would deadlock a sheet that raises its own alert
+        //Queuing would deadlock a sheet that raises its own alert.
         public Task<T?> ShowStackedAsync<T>(SheetContent<T> content) =>
             IsOpen ? ShowOnTopAsync(content) : ShowAsync(content);
 
@@ -185,7 +179,6 @@ namespace Foreman.Mac.Views.Sheets {
             Children.Add(layer.Root);
             ApplyActivity(layer, content.Activity);
 
-            //Opened once templates are realized, so the kit's open transition runs instead of snapping to :open.
             Dispatcher.UIThread.Post(() => {
                 if (!layer.Dismissed)
                     layer.SetOpen(true);
@@ -233,7 +226,6 @@ namespace Foreman.Mac.Views.Sheets {
                 LegacyDefault = content.Buttons is null ? content.DefaultButton : null,
                 Body = body,
             };
-            //A row Cancel button that completes the sheet on its own click has already run by the time the frame reports Escape.
             frame.Cancelled += (_, _) => {
                 if (!content.Result.IsCompleted)
                     layer.Cancel();
@@ -276,7 +268,6 @@ namespace Foreman.Mac.Views.Sheets {
                     def.Content = TryAgainLabel;
             }
 
-            //One strip per operation, updated in place, so it never shrinks or loses its bar mid-operation.
             if (layer.Body.Strip is not StatePanel panel) {
                 panel = new StatePanel {
                     Theme = KitTheme("Kit.StatePanel"),
@@ -290,7 +281,6 @@ namespace Foreman.Mac.Views.Sheets {
             panel.Progress = activity.Progress;
         }
 
-        //Mirrors Button.OnClick: Command runs only if nothing handled Click first.
         private static void Click(Button button) {
             var click = new RoutedEventArgs(Button.ClickEvent);
             button.RaiseEvent(click);
@@ -340,7 +330,7 @@ namespace Foreman.Mac.Views.Sheets {
             timer.Start();
         }
 
-        //Marked dismissed before closing so the focus the kit hands back lands on the layer now on top.
+        //Dismissed is set before SetOpen so the focus the kit hands back lands on the layer now on top.
         private void Retire(Layer layer) {
             layer.Dismissed = true;
             if (layer.Content is ISheetActivitySource source)
@@ -354,12 +344,10 @@ namespace Foreman.Mac.Views.Sheets {
             if (layer.Body is not null)
                 layer.Body.Release();
 
-            //backstop: dispose here on every dismissal path even if the sheet forgot
             if (layer.Content is IDisposable disposable)
                 disposable.Dispose();
         }
 
-        //Legacy sheets keep their default button in the body; the kit frame only knows a Kit.ButtonRow.
         private void OnKeyDown(object? sender, KeyEventArgs e) {
             if (!IsOpen || e.Key != Key.Enter || TopLayer is not { Buttons: null, LegacyDefault: { } button })
                 return;
@@ -370,7 +358,6 @@ namespace Foreman.Mac.Views.Sheets {
                 Click(button);
         }
 
-        //IsHitTestVisible=false only blocks pointer input; this yanks focus back to where it was in the topmost layer.
         private void OnWindowGotFocus(object? sender, RoutedEventArgs e) {
             if (!IsOpen || TopLayer is not { } top)
                 return;
@@ -396,7 +383,6 @@ namespace Foreman.Mac.Views.Sheets {
             target?.Focus();
         }
 
-        //The kit clamps width only; the unconstrained probe measure gives the frame's chrome, which a constrained one would clip.
         protected override Size MeasureOverride(Size availableSize) {
             double width = 0, height = 0;
             foreach (Control child in Children) {
@@ -414,7 +400,6 @@ namespace Foreman.Mac.Views.Sheets {
             return new Size(width, height);
         }
 
-        //The frame's Content: the sheet's body, then an optional state strip above the button row.
         private sealed class SheetBody : Panel {
             public static readonly StyledProperty<double> StripGapProperty =
                 AvaloniaProperty.Register<SheetBody, double>(nameof(StripGap), 16);
@@ -456,7 +441,6 @@ namespace Foreman.Mac.Views.Sheets {
                 return true;
             }
 
-            //Detaches the sheet so a caller can re-host the same content instance later.
             public void Release() => Children.Clear();
 
             private double StripHeight => strip is null ? 0 : strip.DesiredSize.Height + StripGap;

@@ -8,7 +8,6 @@ using System.Linq;
 namespace Foreman.Mac.Views.QuickAdd {
     public enum RadialChoice { Add, Source, Output, Passthrough, Spoil, Unspoil, Plant, Unplant, Cancel }
 
-    //The link-drag release chooser on Kit.RadialRing: every outcome has a fixed slot, and one the item cannot take leaves its wedge empty.
     public sealed class RadialMenu {
         private const int SlotCount = 6;
 
@@ -16,7 +15,6 @@ namespace Foreman.Mac.Views.QuickAdd {
 
         public IReadOnlyList<RadialChoice?> Slots { get; }
 
-        //The filled outcomes in clockwise slot order.
         public IReadOnlyList<RadialChoice> Slices { get; }
 
         public event EventHandler<RadialChoice>? Chosen;
@@ -43,7 +41,6 @@ namespace Foreman.Mac.Views.QuickAdd {
             Ring.ContextMenuRequested += (_, _) => MenuRequested?.Invoke(this, EventArgs.Empty);
         }
 
-        //A release off the ring but within the cancel distance: the armed slice commits, nothing armed dismisses.
         public void CommitArmed() {
             if (Ring.ArmedIndex is >= 0 and < SlotCount && Slots[Ring.ArmedIndex] is RadialChoice choice)
                 Chosen?.Invoke(this, choice);
@@ -84,7 +81,6 @@ namespace Foreman.Mac.Views.QuickAdd {
             _ => "RadialCancel",
         };
 
-        //The same outcomes in slot order, grouped add/role/passthrough · spoil/plant · cancel; an empty group is dropped.
         public IReadOnlyList<MenuRow> FallbackRows(Action<RadialChoice> choose) {
             int[][] groups = [[0, 1, 2], [3, 4], [5]];
             var rows = new List<MenuRow>();

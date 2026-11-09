@@ -24,7 +24,6 @@ namespace Foreman.Mac.Views.Sheets {
         void Cancel();
     }
 
-    //Complete finishes Result with a value; Cancel (Esc or otherwise) finishes it with null.
     public abstract class SheetContent<T> : UserControl, ISheetContent<T>, ISheetActivitySource {
         private readonly TaskCompletionSource<T?> completion = new();
 
@@ -43,7 +42,6 @@ namespace Foreman.Mac.Views.Sheets {
         protected void ReportProgress(string sentence, double? progress = null) =>
             SetActivity(new SheetActivity(SheetActivityKind.InProgress, sentence, progress));
 
-        //The sheet stays open with its fields; its default becomes Try Again and re-runs the same action.
         protected void ReportFailure(string sentence) => SetActivity(new SheetActivity(SheetActivityKind.Failed, sentence));
 
         protected void ClearActivity() => SetActivity(null);
@@ -53,7 +51,6 @@ namespace Foreman.Mac.Views.Sheets {
             ActivityChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        //virtual so Escape and the Cancel button share one override
         public virtual void Cancel() => completion.TrySetResult(default);
     }
 }

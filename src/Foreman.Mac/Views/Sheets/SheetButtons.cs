@@ -5,7 +5,6 @@ using Foreman.Mac.Kit.Composites;
 using System;
 
 namespace Foreman.Mac.Views.Sheets {
-    //A sheet's Kit.ButtonRow lives in the frame, not the body, so each pane builds it in code.
     internal static class SheetButtons {
         public static Button Make(string label, ButtonRowRole role) {
             var button = new Button { Theme = KitTheme("Kit.Button"), Content = label };

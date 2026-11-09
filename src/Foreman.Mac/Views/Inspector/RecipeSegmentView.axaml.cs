@@ -18,10 +18,6 @@ using System.Linq;
 using KitPickGrid = Foreman.Mac.Kit.Composites.PickGrid;
 
 namespace Foreman.Mac.Views.Inspector {
-    //The inspector's Rate/Assembler/Fuel/Modules/Beacon groups for a recipe node. RateMode isn't bound in
-    //XAML - Kit.Segmented has no data-bindable SelectedItem, so its SelectedIndex is synced by hand both
-    //ways here, same pattern as FlowSegmentView. Building/Fuel/Beacon are Kit.PickGrid choice mode
-    //(2026-09-17 building-picker ruling); module and beacon-module slots stay Kit.PickGrid slot mode.
     public partial class RecipeSegmentView : UserControl {
         private readonly Segmented rateMode;
         private readonly PopUp rateUnitPopUp;
@@ -54,12 +50,9 @@ namespace Foreman.Mac.Views.Inspector {
 
         public RecipeSegmentViewModel? ViewModel { get; private set; }
 
-        //A25 .error's two buttons - the host (InspectorView) fills these in, same seam shape as EmptyState's AddRecipeCommand.
         public event EventHandler? OpenPresetsRequested;
         public event EventHandler<IRecipeNodeViewModel>? PickAnotherRecipeRequested;
 
-        //Rate unit is a graph-level setting shared with View Options and the View menu radios - the segment
-        //only reports the pick; MainWindow is the single writer that applies, mirrors and persists it.
         public event EventHandler<ProductionGraph.RateUnit>? RateUnitChanged;
 
         public RecipeSegmentView() {
@@ -130,7 +123,6 @@ namespace Foreman.Mac.Views.Inspector {
                     ViewModel?.PickFuel(item);
             });
 
-            //Index 0 is the leading None cell (2026-09-17 ruling: "none" is a member of the set, not a command).
             beaconChoiceGrid.ChooseRequested += (_, index) => {
                 if (ViewModel is null)
                     return;
@@ -185,8 +177,7 @@ namespace Foreman.Mac.Views.Inspector {
             rateUnitPopUp.SelectedItem = MainWindow.RateUnitOptions[(int)viewer.Graph.SelectedRateUnit];
             lastHasBeacon = ViewModel.HasBeacon;
             beaconGroup.IsExpanded = lastHasBeacon;
-            //Every grid is re-pointed at a different node below, so nothing it held for the old one may
-            //survive: a stale SelectedIndex would aim the next option click at a slot never picked here.
+            //A stale SelectedIndex aims the next option click at a slot never picked for this node.
             equippedGrid.SelectedIndex = -1;
             equippedGrid.FocusedIndex = -1;
             moduleOptionsGrid.SelectedIndex = -1;
@@ -220,8 +211,6 @@ namespace Foreman.Mac.Views.Inspector {
                 ViewModel.IsFixedRate = rateMode.SelectedIndex == 1;
         }
 
-        //Reports the pick and writes nothing: the graph write, the solve, the mirrors and the save all
-        //belong to MainWindow's one rate-unit method, so a pick here costs exactly one solve.
         private void PickRateUnitByName(string? name) {
             if (boundViewer is null || name is null)
                 return;
@@ -238,7 +227,6 @@ namespace Foreman.Mac.Views.Inspector {
             RetargetArmAfterDelete(equippedGrid);
         }
 
-        //The equip path for a click and for an option cell's Space/Return alike; the equip itself disarms.
         private void ModuleOptionsGrid_CellClicked(object? sender, int index) {
             if (ViewModel is null || index < 0 || index >= ViewModel.ModuleOptions.Count)
                 return;
@@ -260,17 +248,15 @@ namespace Foreman.Mac.Views.Inspector {
             equippedBeaconGrid.SelectedIndex = -1;
         }
 
-        //Feeds the kit the target an option click would hit, so it can dim and explain the full-and-unarmed state.
         private static void UpdateOptionsAvailability(KitPickGrid equipped, KitPickGrid options) {
             int firstEmpty = FirstEmptySlotIndex(equipped);
             options.TargetIsReplace = equipped.SelectedIndex >= 0;
             options.TargetSlot = equipped.Slots.Count == 0 ? null
                 : equipped.SelectedIndex >= 0 ? equipped.SelectedIndex + 1
                 : firstEmpty >= 0 ? firstEmpty + 1
-                : 0; //full and unarmed: no target
+                : 0;
         }
 
-        //Core's module list compacts on removal, so the arm belongs on the first empty slot, not the hole Delete made.
         private static void RetargetArmAfterDelete(KitPickGrid grid) => grid.ArmAfterClear(FirstEmptySlotIndex(grid));
 
         private static int FirstEmptySlotIndex(KitPickGrid grid) {
@@ -280,9 +266,7 @@ namespace Foreman.Mac.Views.Inspector {
             return -1;
         }
 
-        //HasBeacon flipping is the only trigger for a code-driven IsExpanded change - a plain re-solve with
-        //the beacon unchanged must not re-collapse or re-expand a group the user set by hand (a live
-        //{Binding HasBeacon} would re-push on every RefreshComputed, undoing a manual collapse).
+        //A live {Binding HasBeacon} would re-push on every RefreshComputed and undo a manual collapse.
         private void OnRecipeViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e) {
             if (ViewModel is not null) {
                 SyncSlots(equippedGrid, ViewModel.EquippedModules, ViewModel.ModuleSlotCount);
@@ -314,13 +298,6 @@ namespace Foreman.Mac.Views.Inspector {
                 "No beacon is enabled in this preset.", includeNone: true);
         }
 
-        //Building/Fuel/Beacon (2026-09-17 building-picker ruling): a radio group of icon cells when there
-        //are 2..PickChoiceMax candidates, an icon+name value line with no control for exactly one, that
-        //same line dimmed plus a warning for zero, and a Kit.PopUp fallback above the cap. Beacon's set
-        //gets a leading "None" member the other two never do. A refresh never mutates the graph - a single
-        //candidate is presentational only; an armed selection absent from the enabled set (the assembler's
-        //preset-disabled or the recipe no longer lists it) is the A25 error state, an extra cell appended
-        //rather than a silent auto-commit.
         private void UpdateChoiceRow(FormRow row, KitPickGrid grid, StackPanel valueLine, Image valueLineIcon, TextBlock valueLineText,
                 PopUp fallback, IReadOnlyList<PickGridItem> options, PickGridItem? current, string emptyWarning, bool includeNone,
                 string? statsSuffix = null, string? oneCandidateNote = null) {
@@ -330,7 +307,6 @@ namespace Foreman.Mac.Views.Inspector {
             row.ErrorIsWarning = false;
             row.NoteIsWarning = false;
             row.NoteSuffix = null;
-            //The note carries the selected entity's name, a value rather than help copy.
             row.NoteIsValue = true;
 
             if (total == 0) {
@@ -376,8 +352,6 @@ namespace Foreman.Mac.Views.Inspector {
                     fallback.ItemIcons.Add(item.Icon);
                 }
                 fallback.SelectedItem = current?.Name ?? (includeNone ? NoBeaconName : null);
-                //The pop-up's own label already carries the name, so the note here is the stats caption
-                //alone - tertiary ink per the page, not the value ink a name would take.
                 row.NoteIsValue = false;
                 row.Note = statsSuffix;
                 return;
@@ -416,9 +390,6 @@ namespace Foreman.Mac.Views.Inspector {
             return value is double d ? d : 0.55;
         }
 
-        //Diffs by index against whatever's already in the grid instead of Slots.Clear() + rebuild - a
-        //solve that leaves every slot's content unchanged writes nothing at all, and one that changes a
-        //single slot replaces only that entry (PickGrid updates the one PickCell in place for a Replace).
         private static void SyncSlots(KitPickGrid grid, IReadOnlyList<PickGridItem> items, int slotCount) {
             int total = Math.Max(slotCount, items.Count);
             for (int i = 0; i < total; i++) {
@@ -434,8 +405,6 @@ namespace Foreman.Mac.Views.Inspector {
                 grid.Slots.RemoveAt(grid.Slots.Count - 1);
         }
 
-        //Same diff shape as SyncSlots, for a choice grid's already-built PickSlot list (the None cell, when
-        //present, is desired[0]).
         private static void SyncChoiceSlots(KitPickGrid grid, List<PickSlot> desired) {
             for (int i = 0; i < desired.Count; i++) {
                 if (i < grid.Slots.Count) {

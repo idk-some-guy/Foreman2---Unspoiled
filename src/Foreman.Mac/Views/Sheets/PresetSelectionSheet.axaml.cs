@@ -16,10 +16,6 @@ using System.Linq;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Views.Sheets {
-    //Ports Forms/PresetSelectionForm.cs(+.Designer.cs) (reference docs/io-reference.md §8): the ranked
-    //picker MainWindow.ResolveChosenPresetAsync shows when no installed preset matches the loaded save's
-    //own preset exactly. The four-column table (Preset/Mods/Items/Recipes) is a header Grid over the list's
-    //ItemTemplate rows sharing its column set; the widths are this surface's own layout and follow the UI scale.
     public partial class PresetSelectionSheet : SheetContent<bool?> {
         private const double NameMinWidth = 168;
         private const double ModsWidth = 64;
@@ -45,7 +41,6 @@ namespace Foreman.Mac.Views.Sheets {
 
         public Preset? ChosenPreset { get; private set; }
 
-        //MainWindow's read of the chosen preset; false keeps the sheet open on its failure strip.
         internal Func<Preset, Task<bool>>? ReadPresetAsync { get; set; }
 
         public PresetSelectionSheet() : this([]) {
@@ -108,7 +103,6 @@ namespace Foreman.Mac.Views.Sheets {
 
         private void OnRescaled(object? sender, EventArgs e) => ApplyScale();
 
-        //The header's cells start where the rows' cells do: past the list's border, its inset and the row's own padding.
         private void ApplyScale() {
             headerRow.Height = HeaderHeight * WindowScaler.CurrentScale;
             ApplyColumns(headerRow);
@@ -130,7 +124,6 @@ namespace Foreman.Mac.Views.Sheets {
             }
         }
 
-        //One list row: name, then the three right-aligned ratings in tabular figures; follows the UI scale while attached.
         private sealed class PresetRowGrid : Grid {
             public PresetRowGrid(PresetRow row) {
                 Classes.Add("preset-row");
@@ -175,8 +168,6 @@ namespace Foreman.Mac.Views.Sheets {
             public void OnCompleted() { }
         }
 
-        //Ports ConfirmationButton_Click/PresetSelectionListView_MouseDoubleClick (PresetSelectionForm.cs:57-76):
-        //both commit the selected row, once MainWindow has read it.
         internal async Task CommitAsync() {
             if (committing || ViewModel.Selected is not PresetRow row)
                 return;
@@ -194,9 +185,6 @@ namespace Foreman.Mac.Views.Sheets {
             }
         }
 
-        //Ports the compatibility[]/ToolTipText block (PresetSelectionForm.cs:19-53): the percentages read
-        //"98 %" (a figure space before the sign). The tooltip leads with the full name and the preset's own
-        //mods, then upstream's breakdown verbatim.
         internal static List<PresetRow> BuildRows(List<PresetErrorPackage> presetErrors) {
             var rows = new List<PresetRow>();
             foreach (PresetErrorPackage p in presetErrors) {
@@ -225,7 +213,6 @@ namespace Foreman.Mac.Views.Sheets {
             return rows;
         }
 
-        //The mods, items and recipes fractions upstream's compatibility columns show; an empty requirement is a full match.
         internal static (float Mods, float Items, float Recipes) Compatibility(PresetErrorPackage p) => (
             Fraction(p.RequiredMods.Count - p.MissingMods.Count - p.WrongVersionMods.Count - p.AddedMods.Count, p.RequiredMods.Count),
             Fraction(p.RequiredItems.Count - p.MissingItems.Count, p.RequiredItems.Count),
@@ -233,14 +220,12 @@ namespace Foreman.Mac.Views.Sheets {
 
         private static float Fraction(int matched, int required) => required == 0 ? 1f : (float)matched / required;
 
-        //The preset's own mods: the graph's mods it has, then the ones only it has; entries read "name|version".
+        //Mod entries read "name|version".
         private static IEnumerable<string> PresetMods(PresetErrorPackage p) =>
             p.RequiredMods.Except(p.MissingMods).Concat(p.AddedMods).Select(mod => mod.Split('|')[0]);
 
         private static string Percent(float fraction) => (fraction * 100).ToString("0", DisplayCulture.Format) + "\u2007%";
 
-        //Test-only seams (nothing outside Foreman.Mac.UiTests reads these) - see ShapePropertiesSheet's
-        //equivalent comment for the established convention this follows.
         internal ListBox PresetSelectionListViewControl => presetListView;
         internal Grid HeaderRowControl => headerRow;
         internal Button ConfirmationButtonControl => confirmationButton;

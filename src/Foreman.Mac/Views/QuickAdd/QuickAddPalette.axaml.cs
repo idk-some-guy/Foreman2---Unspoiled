@@ -24,7 +24,6 @@ namespace Foreman.Mac.Views.QuickAdd {
         private readonly Dictionary<IImage, IBrush> iconBrushes = [];
         private QuickAddViewModel? subscribedVm;
 
-        //Parameterless so the XAML runtime loader can find it (AVLN3001); the caller assigns DataContext separately.
         public QuickAddPalette() {
             InitializeComponent();
             panel = this.FindControl<PalettePanel>("Panel")!;
@@ -36,7 +35,7 @@ namespace Foreman.Mac.Views.QuickAdd {
             panel.CommittedAsSource += OnCommittedKeepingOpen;
             panel.CloseRequested += (_, _) => CloseRequested?.Invoke(this, EventArgs.Empty);
             panel.Search.GetObservable(TextBox.TextProperty).Subscribe(new TextSink(OnSearchTextChanged));
-            //Tunnel on an ancestor of the panel, so ⌘Return is caught before the panel's own Return commits.
+            //Tunnel catches ⌘Return before the panel's own Return commits.
             AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
             DataContextChanged += OnDataContextChanged;
         }
@@ -104,7 +103,6 @@ namespace Foreman.Mac.Views.QuickAdd {
             panel.Results.AddRange(results);
         }
 
-        //One brush per baked bitmap, so an unchanged row compares equal across queries and the panel replays nothing.
         private IBrush? IconBrush(IImage? icon) {
             if (icon is not IImageBrushSource source)
                 return null;
