@@ -123,8 +123,6 @@ namespace Foreman.Mac.Canvas.KitSkia {
                 : (0f, 0f);
         }
 
-        public static float Scaled(float baseValue) => (float)(baseValue * Current.Scale);
-
         public static int ScaledInt(int baseValue) => (int)Math.Round(baseValue * Current.Scale);
     }
 }

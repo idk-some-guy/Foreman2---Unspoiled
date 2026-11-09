@@ -36,7 +36,7 @@ namespace Foreman.Mac.UiTests.Canvas {
     //2984 nodes, PrintStyle): 47.8ms.
     //
     //The solve figure below is an OR-Tools-era baseline, captured before the default solver switched to
-    //HiGHS (docs/solver-eval.md) - keep reading it as historical, not current: one full solve
+    //HiGHS - keep reading it as historical, not current: one full solve
     //of the 1000-node graph, 143.5ms, a cold-solver figure (no prior CreateSolver call in this run primes
     //OR-Tools' native dylib load, a 94ms-11s cold-cache finding), not the warm
     //per-solve cost the app pays after ShellBootstrapper's background warmup completes.

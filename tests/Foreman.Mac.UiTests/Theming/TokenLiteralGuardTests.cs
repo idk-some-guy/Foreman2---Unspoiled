@@ -55,6 +55,23 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.Empty(offenders);
         }
 
+        [Fact]
+        public void NoMotionLiteral_InAxaml() {
+            string kitDirectory = Path.Combine(RepoRoot, "src", "Foreman.Mac.Kit");
+            string[] files = [.. SourceFiles(".axaml", includeCanvas: true), .. Directory.EnumerateFiles(kitDirectory, "*.axaml", SearchOption.AllDirectories)
+                .Where(path => !Path.GetRelativePath(kitDirectory, path).Split(Path.DirectorySeparatorChar).Any(part => part is "obj" or "bin"))];
+            Assert.Contains(files, path => path.EndsWith(Path.Combine("Controls", "Spinner.axaml"), StringComparison.Ordinal));
+            Assert.Contains(files, path => path.EndsWith("App.axaml", StringComparison.Ordinal));
+
+            var offenders = new List<string>();
+            foreach (string path in files) {
+                foreach (Match match in Regex.Matches(File.ReadAllText(path), @"\b(?:Easing|Duration)=""[^{""][^""]*"""))
+                    offenders.Add($"{path}: {match.Value}");
+            }
+
+            Assert.Empty(offenders);
+        }
+
         //A style class fails silently once its selector is gone, so no legacy class name may survive anywhere, Canvas included.
         [Fact]
         public void NoLegacyStyleClass_Anywhere() {

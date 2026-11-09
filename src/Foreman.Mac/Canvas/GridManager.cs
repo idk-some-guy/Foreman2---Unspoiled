@@ -28,7 +28,6 @@ namespace Foreman.Mac.Canvas {
         internal SKPaint MajorDotPaint => Synced(_majorDotPaint);
         internal SKPaint AxisGuidePaint => _axisGuidePaint;
         internal int MinorTileSide => _minorTile.Side;
-        internal int MajorTileSide => _majorTile.Side;
 
         private SKPaint Synced(SKPaint paint) {
             Recolor(TokenBridge.Current);

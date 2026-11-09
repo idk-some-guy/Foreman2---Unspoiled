@@ -31,7 +31,7 @@ namespace ForemanTest {
         public async Task LoadIconCacheFromStore_MiniaturePreset_DecodesOnlyOnFirstRequestPerIcon() {
             IconCache.ResetLazyDecodeCount();
             Dictionary<string, IconColorPair> loaded = await IconCache.LoadIconCacheFromStore(
-                MiniaturePresetIcons(), NullProgress.Instance, 0, 100);
+                MiniaturePresetIcons(), NullProgress.Instance, 100);
 
             Assert.AreEqual(0, IconCache.LazyDecodeCount, "loading a preset must not decode any icon eagerly.");
 
@@ -50,7 +50,7 @@ namespace ForemanTest {
             byte[] pngBytes = EncodePng(123, 45, 67);
             var entries = new List<(string Name, int Tint, byte[] PngBytes)> { ("icon-solo", Color.Black.ToArgb(), pngBytes) };
 
-            Dictionary<string, IconColorPair> loaded = await IconCache.LoadIconCacheFromStore(entries, NullProgress.Instance, 0, 100);
+            Dictionary<string, IconColorPair> loaded = await IconCache.LoadIconCacheFromStore(entries, NullProgress.Instance, 100);
             using SKBitmap onDemand = loaded["icon-solo"].Icon!;
             using SKBitmap eager = SKBitmap.Decode(pngBytes)!;
 
@@ -63,7 +63,7 @@ namespace ForemanTest {
         public async Task LoadIconCacheFromStore_ConcurrentRequestsForSameIcon_DecodeOnceAndShareTheBitmap() {
             IconCache.ResetLazyDecodeCount();
             var entries = new List<(string Name, int Tint, byte[] PngBytes)> { ("icon-shared", Color.Black.ToArgb(), EncodePng(9, 8, 7)) };
-            Dictionary<string, IconColorPair> loaded = await IconCache.LoadIconCacheFromStore(entries, NullProgress.Instance, 0, 100);
+            Dictionary<string, IconColorPair> loaded = await IconCache.LoadIconCacheFromStore(entries, NullProgress.Instance, 100);
             IconColorPair pair = loaded["icon-shared"];
 
             SKBitmap?[] results = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() => pair.Icon)));
@@ -76,7 +76,7 @@ namespace ForemanTest {
         public async Task IconColorPair_DisposeIfDecoded_OnUndecodedIcon_DoesNotTriggerDecode() {
             IconCache.ResetLazyDecodeCount();
             var entries = new List<(string Name, int Tint, byte[] PngBytes)> { ("icon-x", Color.Black.ToArgb(), EncodePng(5, 6, 7)) };
-            Dictionary<string, IconColorPair> loaded = await IconCache.LoadIconCacheFromStore(entries, NullProgress.Instance, 0, 100);
+            Dictionary<string, IconColorPair> loaded = await IconCache.LoadIconCacheFromStore(entries, NullProgress.Instance, 100);
 
             loaded["icon-x"].DisposeIfDecoded();
 
@@ -93,7 +93,7 @@ namespace ForemanTest {
             ItemPrototype item = TestDataCacheHelper.GetOrCreateItem(cache, subgroup, "widget");
 
             var entries = new List<(string Name, int Tint, byte[] PngBytes)> { ("icon-widget", Color.Red.ToArgb(), EncodePng(1, 2, 3)) };
-            Dictionary<string, IconColorPair> loaded = await IconCache.LoadIconCacheFromStore(entries, NullProgress.Instance, 0, 100);
+            Dictionary<string, IconColorPair> loaded = await IconCache.LoadIconCacheFromStore(entries, NullProgress.Instance, 100);
 
             IconCache.ResetLazyDecodeCount();
             item.SetIconAndColor(loaded["icon-widget"]);

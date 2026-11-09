@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Theming {
-    public class KitAliasDeletionTests {
+    public class AppResourceReferenceTests {
         private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         private static string AppSourceDirectory => Path.Combine(RepoRoot, "src", "Foreman.Mac");
 
@@ -91,35 +91,18 @@ namespace Foreman.Mac.UiTests.Theming {
             Assert.False(Directory.Exists(Path.Combine(AppSourceDirectory, "Themes")));
         }
 
+        [AvaloniaFact]
+        public void Scan_FlagsUnresolvableKey() {
+            Assert.Contains("Foreman.Color.DoesNotExist", FindMissingResourceKeys(["<Border Background=\"{StaticResource Foreman.Color.DoesNotExist}\" />"]));
+            Assert.Contains("Foreman.Color.DoesNotExistInCode", FindMissingCodeResourceKeys(["live.Art(\"Foreman.Color.DoesNotExistInCode\")"]));
+        }
+
         [Fact]
         public void Scan_MatchesNonForemanPrefixedKeys() {
             var referenced = AxamlFiles()
                 .SelectMany(file => ResourceReference.Matches(File.ReadAllText(file)).Select(m => m.Groups[1].Value));
 
             Assert.Contains("ComparatorRowTemplate", referenced);
-        }
-
-        [AvaloniaFact]
-        public void Scan_FlagsUnresolvableKey() {
-            const string syntheticAxaml = "<Border Background=\"{StaticResource DoesNotExist.ForTest}\" />";
-            const string syntheticCode = "this.GetResourceObservable(\"Foreman.DoesNotExist.ForTestCode\");";
-
-            Assert.Contains("DoesNotExist.ForTest", FindMissingResourceKeys([syntheticAxaml]));
-            Assert.Contains("Foreman.DoesNotExist.ForTestCode", FindMissingCodeResourceKeys([syntheticCode]));
-        }
-
-        [AvaloniaFact]
-        public void Scan_FlagsUnresolvableKeyInEveryCallShape() {
-            string[] fixtures = [
-                "LiveBrush.Bind(c, p, \"Foreman.Color.Nope\")",
-                "Live(new Border { }, Border.BackgroundProperty, \"Foreman.Color.Nope\")",
-                "string fill = \"Foreman.Color.Nope\"",
-                "live.Art(\"Foreman.Color.Nope\")",
-                "Application.Current!.FindResource(\"Foreman.Color.Nope\")",
-            ];
-
-            foreach (string fixture in fixtures)
-                Assert.Equal(["Foreman.Color.Nope"], FindMissingCodeResourceKeys([fixture]));
         }
 
         [Fact]

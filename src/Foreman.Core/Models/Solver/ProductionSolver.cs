@@ -7,7 +7,7 @@ using System.Threading;
 
 namespace Foreman.Models.Solver {
     // Expresses a factory as a system of linear constraints and hands them to an ILpSolver
-    // (HiGHS by default, see docs/solver-eval.md) to solve.
+    // (HiGHS by default) to solve.
     public class ProductionSolver {
         public double LowPriorityMultiplier { get; set; }
 

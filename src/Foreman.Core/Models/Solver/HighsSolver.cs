@@ -9,7 +9,7 @@ namespace Foreman.Models.Solver {
     // materialize it at Solve() time.
     public class HighsSolver : ILpSolver {
         // HiGHS rejects objective coefficients >= 1e20 outright (solve-time kError/kUnknown, no
-        // solution) and warns above 1e10; see docs/solver-eval.md §e. This isn't just a guard
+        // solution) and warns above 1e10. This isn't just a guard
         // against a caller bypassing an already-capped app dial: GraphOptimisation.cs caps
         // LowPriorityPower's exponent at 6 (1e6, comfortably inside range), but PullOutputNodesPower
         // goes through uncapped there - ProductionGraph's own default of 10 gives 1e10, HiGHS's

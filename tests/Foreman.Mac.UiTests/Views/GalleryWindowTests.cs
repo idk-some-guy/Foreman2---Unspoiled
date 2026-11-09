@@ -120,7 +120,7 @@ namespace Foreman.Mac.UiTests.Views {
                  "Text field", "Search field", "Stepper", "Slider", "Text field, Search field, Stepper & Slider (150%)",
                  "List rows", "Sidebar rows", "Group box", "Tab strips", "Disclosure",
                  "List rows, Sidebar rows, Group box, Tab strips & Disclosure (150%)",
-                 "Tooltip", "Spinner & progress", "Chips", "Key caps",
+                 "Tooltip", "Spinner & progress", "Chips", "Key caps", "Value text",
                  "Tooltip, Spinner & progress, Chips & Key caps (150%)",
                  "Form group (boxed, 132)", "Form rows (inspector, 108)", "Form row notes & errors",
                  "Form row — search field & chip row", "Form group & Form rows (150%)",
@@ -148,6 +148,40 @@ namespace Foreman.Mac.UiTests.Views {
                  "Palette panel — quick-add results", "Palette panel — no results", "Palette panel (150%)",
                  "Recent row — selected, hovered, inactive, unavailable & focused", "Recent row (150%)"],
                 window.Registry.Tiles.Select(t => t.Name));
+        }
+
+        [AvaloniaFact]
+        public void Registry_ShowcasesEveryPublicKitControlAndComposite() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            Type[] shown = [.. window.GetVisualDescendants().Select(v => v.GetType()).Distinct()];
+            string[] kitNamespaces = ["Foreman.Mac.Kit.Controls", "Foreman.Mac.Kit.Composites"];
+            Type[] candidates = [.. typeof(Chip).Assembly.GetExportedTypes()
+                .Where(t => typeof(Control).IsAssignableFrom(t) && !t.IsAbstract && kitNamespaces.Contains(t.Namespace))];
+            Assert.Contains(typeof(ValueText), candidates);
+
+            string[] missing = [.. candidates
+                .Where(t => !shown.Any(t.IsAssignableFrom))
+                .Select(t => t.Name)
+                .Order()];
+
+            Assert.Empty(missing);
+        }
+
+        [AvaloniaFact]
+        public void ValueTextTile_NamesTheSavePathForVoiceOver() {
+            DataCache cache = NewFixtureCache();
+            var window = new GalleryWindow(cache, new AppSettings());
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            ValueText label = Assert.Single(window.GetVisualDescendants().OfType<ValueText>());
+
+            Assert.Equal("Save to", Avalonia.Automation.AutomationProperties.GetName(label));
+            Assert.False(string.IsNullOrEmpty(label.Text));
         }
 
         [AvaloniaFact]

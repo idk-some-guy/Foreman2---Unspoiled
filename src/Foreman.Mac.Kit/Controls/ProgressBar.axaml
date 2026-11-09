@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:kit="using:Foreman.Mac.Kit.Controls">
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
 
   <ControlTheme x:Key="Kit.ProgressBar" TargetType="kit:ProgressBar">
     <Setter Property="Width" Value="{DynamicResource Foreman.Size.ProgressBarWidth}" />
@@ -25,7 +26,7 @@
 
     <Style Selector="^:indeterminate.animating:not(.reduce-motion) /template/ Border#PART_Fill">
       <Style.Animations>
-        <Animation IterationCount="Infinite" PlaybackDirection="Alternate" Easing="CubicEaseInOut" Duration="0:0:1.2">
+        <Animation IterationCount="Infinite" PlaybackDirection="Alternate" Easing="{x:Static m:Motion.IndeterminateProgressEasing}" Duration="{x:Static m:Motion.IndeterminateProgressDuration}">
           <KeyFrame Cue="0%">
             <Setter Property="TranslateTransform.X" Value="0" />
           </KeyFrame>
@@ -37,7 +38,7 @@
     </Style>
     <Style Selector="^:indeterminate.animating.reduce-motion /template/ Border#PART_Fill">
       <Style.Animations>
-        <Animation IterationCount="Infinite" PlaybackDirection="Alternate" Easing="CubicEaseInOut" Duration="0:0:1.2">
+        <Animation IterationCount="Infinite" PlaybackDirection="Alternate" Easing="{x:Static m:Motion.IndeterminateProgressEasing}" Duration="{x:Static m:Motion.IndeterminateProgressDuration}">
           <KeyFrame Cue="0%">
             <Setter Property="Opacity" Value="0.5" />
           </KeyFrame>

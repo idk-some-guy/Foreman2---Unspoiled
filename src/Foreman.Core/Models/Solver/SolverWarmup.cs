@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 namespace Foreman.Models.Solver {
     // Forces HiGHS's native dylib to load on a background thread instead of on whatever thread
     // makes the first real solve call. HiGHS's cold-load is far cheaper than OR-Tools' was, but
-    // still measures 84-140ms fresh-process (docs/solver-eval.md), above the threshold worth
+    // still measures 84-140ms fresh-process, above the threshold worth
     // warming off the UI thread. HighsSolver.Create() alone is pure managed allocation - the
     // dylib only loads once Solve() constructs a HighsLpSolver, so warmup has to actually solve.
     public static class SolverWarmup {

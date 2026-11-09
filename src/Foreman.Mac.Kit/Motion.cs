@@ -70,6 +70,8 @@ namespace Foreman.Mac.Kit {
         public static Easing EntranceEasing => new CubicEaseOut();
         public static Easing LeavingEasing => new CubicEaseIn();
         public static Easing RadialOpenEasing => new CubicEaseOut();
+        public static Easing SpinnerEasing => new LinearEasing();
+        public static Easing IndeterminateProgressEasing => new CubicEaseInOut();
 
         //A row/cell beyond StaggerCap enters with the capped (not ever-growing) delay.
         public static TimeSpan StaggerDelay(int index) => StaggerStep * Math.Min(Math.Max(index, 0), StaggerCap);

@@ -2,9 +2,9 @@ using System;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
-using Foreman.Mac.Kit.Composites;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Foreman.Mac.Kit.Composites;
 
 namespace Foreman.Mac.UiTests.support {
     //Mirrors Foreman.Mac.Kit.Tests.support.AnimationClock: Dispatcher.RunJobs never promotes

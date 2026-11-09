@@ -191,7 +191,7 @@ namespace Foreman.DataCaching {
         //SKBitmap.Decode - each entry's pixels decode (and cache) on first IconColorPair.Icon access.
         public static Task<Dictionary<string, IconColorPair>> LoadIconCacheFromStore(
                 IReadOnlyList<(string Name, int Tint, byte[] PngBytes)> presetIcons,
-                IProgress<KeyValuePair<int, string>> progress, int startingPercent, int endingPercent) {
+                IProgress<KeyValuePair<int, string>> progress, int endingPercent) {
             try {
                 var iconCache = new Dictionary<string, IconColorPair>(presetIcons.Count, StringComparer.Ordinal);
                 foreach (var (name, tint, pngBytes) in presetIcons)

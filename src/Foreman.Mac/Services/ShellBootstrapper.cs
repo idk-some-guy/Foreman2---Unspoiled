@@ -27,7 +27,7 @@ namespace Foreman.Mac.Services {
         // warmSolver is fired at boot and is never awaited: the first HiGHS
         // solve cold-loads its native dylib, and doing that on a background thread here beats
         // paying for it on the UI thread during the user's first UpdateNodeValues
-        // (perf-packaging-reference.md §1c, docs/solver-eval.md).
+        // (perf-packaging-reference.md §1c).
         internal static async Task<MainWindow?> BootAsync(
             SettingsService settingsService,
             AppSettings settings,

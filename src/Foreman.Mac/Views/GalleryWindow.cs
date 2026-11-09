@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
@@ -125,6 +126,7 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Spinner & progress", "Default", BuildSpinnerAndProgressTile));
             registry.Register(new GalleryTile("Kit", "Chips", "Default", BuildChipsTile));
             registry.Register(new GalleryTile("Kit", "Key caps", "Default", BuildKeyCapsTile));
+            registry.Register(new GalleryTile("Kit", "Value text", "Default", BuildValueTextTile));
             registry.Register(new GalleryTile("Kit", "Tooltip, Spinner & progress, Chips & Key caps (150%)", "150%", BuildFeedbackScaledTile));
             registry.Register(new GalleryTile("Kit", "Form group (boxed, 132)", "Default", BuildFormGroupBoxedTile));
             registry.Register(new GalleryTile("Kit", "Form rows (inspector, 108)", "Default", BuildFormRowsInspectorTile));
@@ -1036,6 +1038,16 @@ namespace Foreman.Mac.Views {
             return new StackPanel {
                 Spacing = 8,
                 Children = { KitText("Key caps", "caption", "tertiary"), commandK, shiftCommandP, returnKey },
+            };
+        }
+
+        private static StackPanel BuildValueTextTile() {
+            var savePath = new ValueText { Theme = KitTheme("Kit.Text"), Text = "~/Pictures/Foreman Production Flowchart.png" };
+            AutomationProperties.SetName(savePath, "Save to");
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = { KitText("Value text", "caption", "tertiary"), savePath },
             };
         }
 

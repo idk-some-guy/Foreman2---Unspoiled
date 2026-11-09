@@ -91,6 +91,12 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         [Fact]
         public void CrossFadeEasing_IsCubicEaseInOut() => Assert.IsType<CubicEaseInOut>(Motion.CrossFadeEasing);
 
+        [Fact]
+        public void SpinnerEasing_IsLinear() => Assert.IsType<LinearEasing>(Motion.SpinnerEasing);
+
+        [Fact]
+        public void IndeterminateProgressEasing_IsCubicEaseInOut() => Assert.IsType<CubicEaseInOut>(Motion.IndeterminateProgressEasing);
+
         [AvaloniaFact]
         public void Fade_ReturnsAnOpacityOnlyTransition() {
             var duration = TimeSpan.FromMilliseconds(150);

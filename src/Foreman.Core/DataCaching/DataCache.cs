@@ -100,7 +100,7 @@ namespace Foreman.DataCaching {
             if (loadIcons) {
                 var iconEntries = PresetProcessor.GetPresetIconEntries(preset, userPresetsDirectoryOverride);
                 ct.ThrowIfCancellationRequested();
-                _store.IconCache = await IconCache.LoadIconCacheFromStore(iconEntries, progress, 0, 90).ConfigureAwait(false);
+                _store.IconCache = await IconCache.LoadIconCacheFromStore(iconEntries, progress, 90).ConfigureAwait(false);
             } else {
                 _store.IconCache = [];
             }
