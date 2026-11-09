@@ -1,0 +1,16 @@
+{
+  "name": "foremanprobe",
+  "version": "2.1.0",
+  "factorio_version": "2.1",
+  "title": "foremanprobe",
+  "author": "Me",
+  "contact": "",
+  "homepage": "",
+  "description": "hand-run probe that prints what the Factorio 2.1 API reports; never shipped",
+  "dependencies":
+  [
+    "base >= 2.1.0",
+    "? quality >= 2.1.0",
+    "? space-age >= 2.1.0"
+  ]
+}
