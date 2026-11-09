@@ -52,14 +52,18 @@ namespace PresetRig {
         }
 
         string BuildModList(string? extraMod) {
+            string[] spaceAgeMods = ["elevated-rails", "quality", "recycler", "space-age"];
             var names = new List<string> { "base" };
             if (options.Set == ModSet.SpaceAge)
-                names.AddRange(["elevated-rails", "quality", "recycler", "space-age"]);
+                names.AddRange(spaceAgeMods);
             if (extraMod != null)
                 names.Add(extraMod);
             var mods = new JsonArray();
             foreach (string name in names)
                 mods.Add(new JsonObject { ["name"] = name, ["enabled"] = true });
+            if (options.Set == ModSet.Vanilla)
+                foreach (string name in spaceAgeMods)
+                    mods.Add(new JsonObject { ["name"] = name, ["enabled"] = false });
             return new JsonObject { ["mods"] = mods }.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
         }
 

@@ -64,7 +64,7 @@ if [ -d "$RESOURCES/Mods" ]; then
 else
   fail "Mods/ real directory missing from Contents/Resources"
 fi
-for mod in foremanexport_2.0.0 foremansavereader_2.0.0; do
+for mod in foremanexport_2.0.0 foremansavereader_2.0.0 foremanexport_2.1.0 foremansavereader_2.1.0; do
   [ -f "$MACOS/Mods/$mod/info.json" ] && pass "Mods/$mod/info.json resolves through the symlink" || fail "Mods/$mod/info.json does not resolve through the symlink"
 done
 

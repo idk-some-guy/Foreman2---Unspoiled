@@ -68,8 +68,23 @@ namespace ForemanTest {
         }
 
         [TestMethod]
-        public void Classify_2_1_24_IsTooNew() {
-            Assert.AreEqual(FactorioInstallProblem.TooNew, SupportedGameVersions.Classify(new FactorioGameVersion(2, 1, 24)));
+        public void Classify_2_1_24_IsSupported() {
+            Assert.AreEqual(FactorioInstallProblem.None, SupportedGameVersions.Classify(new FactorioGameVersion(2, 1, 24)));
+        }
+
+        [TestMethod]
+        public void Classify_2_1_22_IsTooOld() {
+            Assert.AreEqual(FactorioInstallProblem.TooOld, SupportedGameVersions.Classify(new FactorioGameVersion(2, 1, 22)));
+        }
+
+        [TestMethod]
+        public void Classify_2_2_0_IsTooNew() {
+            Assert.AreEqual(FactorioInstallProblem.TooNew, SupportedGameVersions.Classify(new FactorioGameVersion(2, 2, 0)));
+        }
+
+        [TestMethod]
+        public void MinimumFor_2_1_10_Is2_1_23() {
+            Assert.AreEqual(new FactorioGameVersion(2, 1, 23), SupportedGameVersions.MinimumFor(new FactorioGameVersion(2, 1, 10)));
         }
 
         [TestMethod]

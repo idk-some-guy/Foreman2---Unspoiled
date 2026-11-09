@@ -45,6 +45,7 @@ namespace Foreman {
     public static class SupportedGameVersions {
         public static IReadOnlyList<SupportedGameLine> Lines { get; } = [
             new SupportedGameLine(2, 0, 7, "foremanexport_2.0.0", "foremansavereader_2.0.0"),
+            new SupportedGameLine(2, 1, 23, "foremanexport_2.1.0", "foremansavereader_2.1.0"),
         ];
 
         public static SupportedGameLine? LineFor(FactorioGameVersion version) =>

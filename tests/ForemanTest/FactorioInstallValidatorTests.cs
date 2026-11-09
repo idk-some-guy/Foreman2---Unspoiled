@@ -89,6 +89,35 @@ namespace ForemanTest {
         }
 
         [TestMethod]
+        public void CheckExecutable_StdoutVersion2_1_24_Passes() {
+            string exePath = StubFactorioHarness.WriteVersionScript(StubFactorioHarness.CreateExecutableDirectory(), "2.1.24");
+
+            FactorioInstallCheck check = Check(exePath);
+
+            Assert.AreEqual(new FactorioInstallCheck(FactorioInstallProblem.None, "2.1.24"), check);
+            Assert.IsNull(FactorioInstallValidator.UserMessage(check));
+        }
+
+        [TestMethod]
+        public void CheckExecutable_StdoutVersion2_1_22_IsTooOld_AndNamesTheMinimum() {
+            string exePath = StubFactorioHarness.WriteVersionScript(StubFactorioHarness.CreateExecutableDirectory(), "2.1.22");
+
+            FactorioInstallCheck check = Check(exePath);
+
+            Assert.AreEqual(new FactorioInstallCheck(FactorioInstallProblem.TooOld, "2.1.22"), check);
+            Assert.Contains("2.1.23", FactorioInstallValidator.UserMessage(check)!);
+        }
+
+        [TestMethod]
+        public void CheckExecutable_StdoutVersion2_2_0_IsTooNew() {
+            string exePath = StubFactorioHarness.WriteVersionScript(StubFactorioHarness.CreateExecutableDirectory(), "2.2.0");
+
+            FactorioInstallCheck check = Check(exePath);
+
+            Assert.AreEqual(new FactorioInstallCheck(FactorioInstallProblem.TooNew, "2.2.0"), check);
+        }
+
+        [TestMethod]
         public void CheckExecutable_StdoutVersion2x_ExposesTheParsedGameVersion() {
             string exePath = StubFactorioHarness.WriteVersionScript(StubFactorioHarness.CreateExecutableDirectory(), "2.0.76");
 

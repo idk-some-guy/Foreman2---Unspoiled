@@ -155,9 +155,9 @@ namespace PresetRig {
             Console.WriteLine("Export run exit code " + instrument.ExitCode.ToString(CultureInfo.InvariantCulture));
             if (flags.ContainsKey("evidence"))
                 return 0;
-            if (instrument.ExitCode != 0)
-                return instrument.ExitCode;
-            return instrument.Output.Contains("<<<END-EXPORT-P2>>>", StringComparison.Ordinal) ? 0 : 1;
+            if (instrument.Output.Contains("<<<END-EXPORT-P1>>>", StringComparison.Ordinal) && instrument.Output.Contains("<<<END-EXPORT-P2>>>", StringComparison.Ordinal))
+                return 0;
+            return instrument.ExitCode != 0 ? instrument.ExitCode : 1;
         }
 
         static IEnumerable<string> LegacyLogLines(string text, string modName) {

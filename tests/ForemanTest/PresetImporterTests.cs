@@ -546,6 +546,22 @@ namespace ForemanTest {
         }
 
         [TestMethod]
+        public async Task ProcessPreset_TwoOneInstall_CopiesTwoOneExportMod() {
+            var (installPath, modsPath, scratchDir) = BuildFixture("", "{}", "{\"mods\":[]}");
+            string stubPath = Path.Combine(MacOsDirOf(installPath), "factorio");
+            File.WriteAllText(stubPath, File.ReadAllText(stubPath).Replace("#!/bin/sh\n", "#!/bin/sh\nls \"$2\" >> ./seen.txt\n", StringComparison.Ordinal));
+
+            PresetImporter.Result result = await PresetImporter.ProcessPreset(
+                installPath, new FactorioGameVersion(2, 1, 24), modsPath, scratchDir, "Two One Preset", NewTempDir(),
+                new Progress<KeyValuePair<int, string>>(), AlwaysContinue, CancellationToken.None);
+
+            Assert.AreEqual(PresetImportOutcome.Ok, result.Outcome, result.WarningMessage);
+            string seen = File.ReadAllText(Path.Combine(scratchDir, "seen.txt"));
+            Assert.Contains("foremanexport_2.1.0", seen);
+            Assert.DoesNotContain("foremanexport_2.0.0", seen);
+        }
+
+        [TestMethod]
         public async Task ProcessPreset_UnsupportedVersion_FailsWithoutTouchingModsFolder() {
             var (installPath, modsPath, scratchDir) = BuildFixture("", "{}", "{\"mods\":[]}");
             Directory.CreateDirectory(Path.Combine(modsPath, "foremanexport_2.1.0"));

@@ -33,7 +33,7 @@ for d in Graphics Presets Mods; do
   [ -d "$STAGE_DIR/$d" ] && pass "$d/ present in stage dir" || fail "$d/ missing from stage dir"
 done
 [ -f "$STAGE_DIR/baseCustom.json" ] && pass "baseCustom.json present in stage dir" || fail "baseCustom.json missing from stage dir"
-for mod in foremanexport_2.0.0 foremansavereader_2.0.0; do
+for mod in foremanexport_2.0.0 foremansavereader_2.0.0 foremanexport_2.1.0 foremansavereader_2.1.0; do
   [ -f "$STAGE_DIR/Mods/$mod/info.json" ] && pass "Mods/$mod/info.json present" || fail "Mods/$mod/info.json missing"
 done
 

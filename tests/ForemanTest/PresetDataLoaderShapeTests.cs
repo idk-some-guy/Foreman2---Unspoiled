@@ -95,6 +95,25 @@ namespace ForemanTest {
             Assert.AreEqual("Agricultural Towers", tower.GetEntityTypeName(true));
         }
 
+        [TestMethod]
+        public void Entity_FluidFuelTemperatures_LoadFromKeys() {
+            var (cache, store, session, _) = NewLoader();
+
+            new EntityDataLoader(cache, store, session).ProcessEntity(new JsonObject {
+                ["name"] = "shape-fluid-burner",
+                ["localised_name"] = "Shape fluid burner",
+                ["type"] = "assembling-machine",
+                ["fuel_type"] = "fluid",
+                ["burns_fluid"] = false,
+                ["minimum_fuel_temperature"] = 15.0,
+                ["maximum_fuel_temperature"] = 250.0,
+            }, []);
+
+            var range = cache.Assemblers["shape-fluid-burner"].FluidFuelTemperatureRange;
+            Assert.AreEqual(15.0, range.Min, 0);
+            Assert.AreEqual(250.0, range.Max, 0);
+        }
+
         private static void AddProductivityModule(DataCache cache, DataCacheStore store, PresetLoadSession session) {
             var loader = new PresetDataLoader(cache, store, session);
             loader.ProcessModule(new JsonObject {
