@@ -198,6 +198,8 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal("#Beacons: 8", window.BeaconCountText);
         }
 
+        //--- Power header totals -------------------------------------------------------------------------
+
         [AvaloniaFact]
         public async Task PowerConsumptionHeader_MatchesAssemblerAndBeaconElectricalConsumption_NetHiddenWithNoProduction() {
             var fx = NewFixture(await GetCacheAsync());
@@ -230,6 +232,8 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal("Net Power: " + GraphicsStuff.DoubleToEnergy(expectedProduction - expectedConsumption, "W"), window.PowerNetText);
         }
 
+        //--- Per-row beacon power -------------------------------------------------------------------------
+
         [AvaloniaFact]
         public async Task BeaconRow_PowerEqualsCountTimesEnergyConsumptionPlusDrain() {
             var fx = NewFixture(await GetCacheAsync());
@@ -248,6 +252,8 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal("4", row.CountText);
             Assert.Equal(expectedPower, row.PowerBValue, precision: 6);
         }
+
+        //--- Items/Fluids: routing rules -------------------------------------------------------------------
 
         [AvaloniaFact]
         public async Task ItemRow_StandaloneRecipe_UnlinkedInputAndOutput_BothRouteToUnlinkedAndOutputFullyOverproduces() {

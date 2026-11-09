@@ -69,6 +69,8 @@ namespace Foreman.Mac.Views {
         private readonly List<EnabledObjectsListItem> unfilteredRecipeList = [];
         private readonly List<EnabledObjectsListItem> unfilteredQualityList = [];
 
+        //Dedups baked icons by source SKBitmap reference, same intent as upstream's EnabledObjectsIconIndex
+        //(reference §5) - many recipes/items share the one prototype bitmap.
         private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
 
         private const double FixedWidth = 520, FixedHeight = 480, MaxResizableWidth = 900, MaxResizableHeight = 760;
@@ -565,7 +567,7 @@ namespace Foreman.Mac.Views {
         }
 
         //Ports the live-toggle half of ListView_MouseClick/MouseDoubleClick (reference SettingsForm.cs:349-402):
-        //writes straight onto the live DataCache object, then reacts through SettingsSession (R5). Also
+        //writes straight onto the live DataCache object, then reacts through SettingsSession. Also
         //ports both methods' selected-rows bulk toggle: a row that's part of the active multi-selection
         //carries its own new checked state onto every other selected row.
         private void SetEnabledMembership(EnabledObjectsListItem item, ListBox list) {

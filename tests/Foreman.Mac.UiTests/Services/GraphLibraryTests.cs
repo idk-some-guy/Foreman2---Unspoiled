@@ -683,10 +683,17 @@ namespace Foreman.Mac.UiTests {
             library.Worker.RunInline = false;
             Edit(library);
 
+            using var openEntered = new ManualResetEventSlim();
+            Func<GraphSnapshot?> takeSnapshot = library.Service.Snapshot!;
+            library.Service.Snapshot = () => {
+                openEntered.Set();
+                return takeSnapshot();
+            };
+
             Task helper = Task.Run(() => {
+                Assert.True(openEntered.Wait(TimeSpan.FromSeconds(5)), "Open never entered");
                 while (library.Worker.Pending == 0)
                     Thread.Yield();
-                Thread.Sleep(200);
                 library.Worker.RunAll();
             });
             library.Service.Open(other);

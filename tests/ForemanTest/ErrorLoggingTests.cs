@@ -46,6 +46,7 @@ namespace ForemanTest {
             }
         }
 
+        //Final-review C2 guard: the process-wide default (ForemanTestAssemblySetup.AssemblyInitialize) must
         //already be active by the time any test runs, so a bare, unwrapped LogFilePath read - exactly what
         //PresetExportFormatTests/IconPipelineTests do - can never resolve under the real user profile.
         [TestMethod]

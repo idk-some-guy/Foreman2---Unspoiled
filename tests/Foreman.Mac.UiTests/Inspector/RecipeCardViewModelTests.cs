@@ -25,7 +25,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         }
 
         [AvaloniaFact]
-        public async Task Build_IronPlateRecipe_CraftingTimeAndBaseRateMatchBrief() {
+        public async Task Build_IronPlateRecipe_CraftingTimeAndBaseRateText() {
             IRecipe recipe = await GetIronPlateRecipeAsync();
             RecipeCardViewModel card = RecipeCardViewModel.Build(recipe, []);
 

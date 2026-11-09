@@ -19,6 +19,7 @@ namespace Foreman.DataCaching {
 
         //File-location policy (docs/upstream-divergences.md): a preset is read from the user's writable
         //Presets directory when it exists there, falling back to the bundle-shipped one otherwise - the user
+        //copy wins on a name collision (its content, not just its name), since that's what Task 7's import
         //overwrite path just wrote. The two directory overrides are test-only seams (default to the real
         //AppPaths locations); every production call site omits them.
         internal static string GetPresetPath(string presetName, string extension,
@@ -28,6 +29,7 @@ namespace Foreman.DataCaching {
             return File.Exists(userPath) ? userPath : Path.Combine(bundleDirectory, presetName + extension);
         }
 
+        //The write/delete target for a user-owned preset - never the bundle-shipped copy.
         internal static string GetUserPresetPath(string presetName, string extension, string? userPresetsDirectoryOverride = null) =>
             Path.Combine(userPresetsDirectoryOverride ?? Path.Combine(ResolveUserDataDirectory(), "Presets"), presetName + extension);
 
@@ -115,6 +117,7 @@ namespace Foreman.DataCaching {
         }
 
         //this preset comparer loads a 'light' version of the preset - basically loading the items and entities as strings only (no data), and only the minimal info for recipes (name, ingredients + amounts, products + amounts)
+        //this speeds things up such that the comparison takes around 150ms for a large preset like seablock (10x vanilla), instead of 250ms as for a full datacache load.
         //still, this is only really helpful if you are using 10 presets (1.5 sec load inatead of 2.5 sec) or more, but hey; i will keep it.
         //any changes to preset json style have to be reflected here though (unlike for a full data cache loader above, which just incorporates any changes to data cache as long as they dont impact the outputs)
         public static async Task<PresetErrorPackage> TestPreset(Preset preset, Dictionary<string, string> modList, List<string> itemList, List<string> qualityList, List<RecipeShort> recipeShorts, List<PlantShort> plantShorts) {

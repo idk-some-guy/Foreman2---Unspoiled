@@ -336,7 +336,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
-        public void Rebuild_AfterGroupsChangeWhileShown_DoesNotThrowReparentingExistingItems() {
+        public void Rebuild_AfterGroupsChangeWhileShown_KeepsExistingItemsAndOverflowsTheNewOne() {
             using var fixture = new KitFixture();
             ToolbarRow row = NewRow(260);
             Shown(row, 320);

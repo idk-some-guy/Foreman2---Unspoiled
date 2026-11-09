@@ -18,6 +18,9 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
+    //Covers PresetSelectionWindow (io-reference.md §8, upstream PresetSelectionForm.cs+.Designer.cs) against
+    //hand-built PresetErrorPackage fixtures - no real preset files needed, since every value under test here
+    //(sort order, percent formulas, tooltip text) is pure arithmetic/formatting over the package's own counts.
     public class PresetSelectionWindowTests {
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
@@ -61,6 +64,8 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal("80\u2007%", row.ItemsText);
             Assert.Equal("60\u2007%", row.RecipesText);
         }
+
+        //---- Tooltip breakdown (PresetSelectionForm.cs:42-54, verbatim) -------------------------------
 
         [AvaloniaFact]
         public void BuildRows_TooltipCarriesTheFullNameAndModList_ThenTheUpstreamBreakdown() {

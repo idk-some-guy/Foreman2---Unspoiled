@@ -21,6 +21,11 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
+    //Covers io-reference.md §6's SciencePacksLoadForm contract (phase 6 Task 6): the 48px pack grid
+    //(MaxColumns 14 row/column balancing), the prerequisite cascade in both directions including
+    //upstream's own documented OR-as-AND imprecision (ported as-is, docs/upstream-divergences.md), and
+    //Confirm's subset rule against the shared EnabledObjectsDerivation helper (reused from
+    //SaveFileLoadWindow's ProcessSaveData, not re-implemented).
     public class SciencePacksWindowTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private static readonly SemaphoreSlim CacheGate = new(1, 1);

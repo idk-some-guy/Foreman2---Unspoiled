@@ -944,11 +944,14 @@ namespace Foreman.Mac.UiTests.Views {
         private static NativeMenuItem AppItem(string header) =>
             NativeMenu.GetMenu(Application.Current!)!.Items.OfType<NativeMenuItem>().Single(i => i.Header == header);
 
-        private static async Task PumpAsync() {
-            for (int i = 0; i < 20; i++) {
+        private static async Task PumpUntilAsync(Func<bool> done) {
+            for (int i = 0; i < 500; i++) {
                 Dispatcher.UIThread.RunJobs();
+                if (done())
+                    return;
                 await Task.Delay(10);
             }
+            Assert.True(done(), "condition not reached within 5 s");
         }
 
         [AvaloniaFact]
@@ -969,7 +972,7 @@ namespace Foreman.Mac.UiTests.Views {
                 Assert.False(ShellHost.HasLiveMainWindow);
 
                 AppItem("New Graph").Command!.Execute(null);
-                await PumpAsync();
+                await PumpUntilAsync(() => ShellHost.HasLiveMainWindow && library.Service.OpenGraphId is not null);
 
                 MainWindow created = ShellHost.Context!.Window!;
                 Assert.NotSame(main, created);

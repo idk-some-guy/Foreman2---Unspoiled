@@ -1250,7 +1250,8 @@ namespace Foreman.Mac {
         }
 
         //Ports ImportGraphButton_Click -> ImportGraph() (reference: upstream MainForm.cs:271-282, io-
-        //reference.md §2 "Import Graph"): same open-file picker shape as Open.
+        //reference.md §2 "Import Graph"): same open-file picker shape as Load, but no TestGraphSavedStatus
+        //gate - only Load/New call that, never Save/SaveAs/Import.
         private async Task ImportGraphAsync() {
             if (DataCache is null || StorageProvider is not IStorageProvider storage)
                 return;

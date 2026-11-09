@@ -56,6 +56,8 @@ namespace Foreman.Mac.Canvas {
     public sealed partial class GraphCanvasControl : Decorator {
         internal enum DragOperation { None, Item, Selection, DrawShape }
 
+        //Reference §1: "dragDiff² > minDragDiff (30, squared screen pixels)" - minDragDiff already IS the
+        //squared threshold (a ~5.5px move), not 30 squared again.
         private const int MinDragDiffSquared = 30;
 
         public Viewport Viewport { get; }

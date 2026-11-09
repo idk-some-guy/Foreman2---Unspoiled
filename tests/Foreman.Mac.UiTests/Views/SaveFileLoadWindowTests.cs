@@ -17,6 +17,13 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
+    //Covers io-reference.md §5's SaveFileLoadForm contract (phase 6 Task 5) at the window/UI level: the
+    //file-picker cancel path, wiring SaveFileReader.Result onto Outcome/SaveFileInfo/dialogs, the
+    //mod-mismatch confirm gate and the §§-pseudo-recipe/save-driven/transitive-derive enabled-object
+    //pipeline (ProcessSaveData), and the Cancel button's honest non-preemptive behavior (docs/io-
+    //reference.md §4 caution). SaveFileReader's own process-pipeline correctness (exe discovery, crash/
+    //another-instance/missing-marker detection, P0 parse) is covered separately against StubFactorioHarness
+    //under ForemanTest (Foreman.Core), where that harness lives - LoadPipelineStub stands in for it here.
     public class SaveFileLoadWindowTests {
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 

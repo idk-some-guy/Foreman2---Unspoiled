@@ -15,7 +15,7 @@ namespace Foreman.Mac.Views {
         public Bitmap? Icon { get; }
         public bool IsUnavailable => !DataObject.Available;
 
-        //Recipes-only: baked RecipePainter output (docs/panels-reference.md §5's RecipeToolTip hover),
+        //Recipes-tab-only: baked RecipePainter output (docs/panels-reference.md §5's RecipeToolTip hover),
         //set by the window after construction; null for every other category.
         public object? TooltipContent { get; set; }
 

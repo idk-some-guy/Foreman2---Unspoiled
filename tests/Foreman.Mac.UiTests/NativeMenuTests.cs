@@ -1253,11 +1253,14 @@ namespace Foreman.Mac.UiTests {
             live.Close();
         }
 
-        private static async Task PumpAsync() {
-            for (int i = 0; i < 20; i++) {
+        private static async Task PumpUntilAsync(Func<bool> done) {
+            for (int i = 0; i < 500; i++) {
                 Dispatcher.UIThread.RunJobs();
+                if (done())
+                    return;
                 await Task.Delay(10);
             }
+            Assert.True(done(), "condition not reached within 5 s");
         }
 
         private static async Task<MainWindow> ClosedShellAsync(LibraryFixture library, bool welcomeAtLaunch) {
@@ -1280,7 +1283,7 @@ namespace Foreman.Mac.UiTests {
             ShellHost.HideApplication = () => hides++;
             try {
                 ItemNamed(AppMenu(), "Hide Foreman 2").Command!.Execute(null);
-                await PumpAsync();
+                Dispatcher.UIThread.RunJobs();
             } finally {
                 ShellHost.HideApplication = previous;
             }
@@ -1299,7 +1302,7 @@ namespace Foreman.Mac.UiTests {
 
             Assert.Null(Application.Current!.TryGetFeature(typeof(IActivatableLifetime)));
             ItemNamed(AppMenu(), "Hide Foreman 2").Command!.Execute(null);
-            await PumpAsync();
+            Dispatcher.UIThread.RunJobs();
 
             Assert.False(ShellHost.HasLiveMainWindow);
             Assert.Null(WelcomeLauncher.Current);
@@ -1333,7 +1336,7 @@ namespace Foreman.Mac.UiTests {
             Assert.Same(other, window.ShellContext!.Cache);
             ShellHost.Context!.Cache = spaceAge;
             ItemNamed(AppMenu(), "New Graph").Command!.Execute(null);
-            await PumpAsync();
+            await PumpUntilAsync(() => ShellHost.HasLiveMainWindow && library.Service.OpenGraphId is not null);
             MainWindow created = ShellHost.Context!.Window!;
             Assert.Equal(SpaceAgePresetName, created.DataCache!.PresetName);
             Assert.Equal(SpaceAgePresetName, library.Service.Find(library.Service.OpenGraphId!.Value)!.PresetName);
@@ -1375,7 +1378,7 @@ namespace Foreman.Mac.UiTests {
 
             Assert.False(ItemNamed(AppMenu(), "New Graph").IsVisible);
             ItemNamed(AppMenu(), "New Graph").Command!.Execute(null);
-            await PumpAsync();
+            await PumpUntilAsync(() => ShellHost.HasLiveMainWindow && WelcomeLauncher.Current is null && library.Service.All().Count == rows + 1);
 
             Assert.Null(WelcomeLauncher.Current);
             Assert.Equal(rows + 1, library.Service.All().Count);
@@ -1388,7 +1391,7 @@ namespace Foreman.Mac.UiTests {
             Assert.False(ItemNamed(AppMenu(), "Open Recent").IsVisible);
             NativeMenuItem item = ItemNamed(AppMenu(), "Open Recent").Menu!.Items.OfType<NativeMenuItem>().Single(i => i.Header == "Older");
             item.Command!.Execute(null);
-            await PumpAsync();
+            await PumpUntilAsync(() => WelcomeLauncher.Current is null && library.Service.OpenGraphId == older.Id);
 
             Assert.Null(WelcomeLauncher.Current);
             Assert.Equal(older.Id, library.Service.OpenGraphId);

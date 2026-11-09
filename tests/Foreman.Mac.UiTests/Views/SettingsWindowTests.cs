@@ -1267,6 +1267,8 @@ namespace Foreman.Mac.UiTests.Views {
 
         //--- Enabled Objects tab: Load from save (reference io-reference.md §5) -------------------------------
 
+        //Drives SaveFileLoadWindow's own seams through LoadFromSaveDialogStub instead of a real modal
+        //ShowDialog - RunAsync is exactly what the window's Opened handler would otherwise trigger.
         //Regression (C2): the eager settings.json write in ShowLoadFromSaveAsync ran through this path
         //against the real ~/Library/.../settings.json until SettingsService gained an injectable seam -
         //pointing this at a temp home and asserting on that file (not the real one) guards against a
@@ -1326,6 +1328,8 @@ namespace Foreman.Mac.UiTests.Views {
 
         //--- Enabled Objects tab: Assign from science packs (reference io-reference.md §6) -----------------
 
+        //Drives SciencePacksWindow's own Accepted flag through AssignFromSciencePacksDialogStub instead of
+        //a real modal ShowDialog - mirrors LoadEnabledFromSaveButton's stub convention above.
         [AvaloniaFact]
         public async Task SetEnabledFromSciencePacksButton_Click_Accepted_RefreshesCheckedState() {
             var cache = await GetCacheAsync();

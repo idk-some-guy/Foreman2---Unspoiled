@@ -214,7 +214,7 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public void EnableAll_OnASiloLessPreset_DoesNotThrow() {
+        public void EnableAll_OnASiloLessPreset_LeavesTheRocketAssemblerDisabled() {
             var settings = new AppSettings();
             var window = new MainWindow();
             window.Show();

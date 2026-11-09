@@ -23,6 +23,11 @@ using Xunit;
 using Point = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.Views {
+    //Covers io-reference.md §3's PNG export dialog contract (phase 6 Task 3): scale mapping, the live
+    //Image Size label (incl. its nothing-to-export text), the view-limited vs. full-graph transform
+    //branches, transparency, and the export guards. ShapeAnnotationElement stands in for a node here - its
+    //fixed graph-space rect and settable FillColor/BorderWidth make pixel sampling exact, and none of this
+    //dialog's math touches DataCache at all, so no preset needs loading.
     public class ImageExportWindowTests {
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 

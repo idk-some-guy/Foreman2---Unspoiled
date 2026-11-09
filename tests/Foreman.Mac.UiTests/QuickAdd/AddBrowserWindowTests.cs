@@ -131,7 +131,7 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         }
 
         [AvaloniaFact]
-        public void QualitySelectListsAvailableQualities_WithTheMockLabel() {
+        public void QualityPopUp_ListsAvailableQualities_WithQualityPrefixedLabel() {
             var fx = CatalogFixture.WithQualities(["normal", "legendary"]);
             var settings = new AppSettings();
             var bakes = new List<(SkiaSharp.SKBitmap Bitmap, int Size, IImage Image)>();

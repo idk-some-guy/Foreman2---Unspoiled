@@ -20,6 +20,10 @@ using System.Threading.Tasks;
 using Xunit;
 
 namespace Foreman.Mac.UiTests.Views {
+    //Covers PresetImportWindow's own wiring (io-reference.md §4, upstream PresetImportForm): pre-flight
+    //validation, live name-color states, Cancel, and the hand-off into PresetImporter.ProcessPreset (which
+    //is exercised for real against StubFactorioHarness in ForemanTest, not here - see SaveFileLoadWindowTests
+    //for the established "this window's tests never touch a real factorio process" convention).
     [UnsupportedOSPlatform("windows")]
     public class PresetImportWindowTests {
         private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
@@ -556,13 +560,13 @@ namespace Foreman.Mac.UiTests.Views {
 
             Task<bool?> task = host.ShowAsync(sheet);
             Dispatcher.UIThread.RunJobs();
-            CanvasKeys.KeyDownOn(sheet.PresetNameTextBoxControl, Key.Enter);
+            Task run = sheet.RunImportAsync();
             await pipelineStarted.WaitAsync();
             CanvasKeys.KeyDownOn(sheet.PresetNameTextBoxControl, Key.Escape);
             Assert.Null(await task);
 
             pipelineGate.TrySetResult();
-            await Task.Delay(50);
+            await run;
 
             Assert.Equal("", sheet.NewPresetName);
             Assert.Equal(false, sheet.DialogResultValue);
