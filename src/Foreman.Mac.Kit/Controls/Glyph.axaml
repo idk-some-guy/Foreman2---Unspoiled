@@ -5,7 +5,6 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Themes/Glyphs.axaml" />
   </ResourceDictionary.MergedDictionaries>
 
-  <!-- The opt-in kit key for the Kit.GlyphIcon rules (stroke, size classes) - same theme, new name. -->
   <ControlTheme x:Key="Kit.Glyph" TargetType="Path" BasedOn="{StaticResource Kit.GlyphIcon}" />
 
 </ResourceDictionary>

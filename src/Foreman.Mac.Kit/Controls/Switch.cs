@@ -50,7 +50,6 @@ namespace Foreman.Mac.Kit.Controls {
             widthSub = knobSub = insetSub = null;
         }
 
-        //A real toggle slides; a token/scale change snaps by briefly clearing Transitions first.
         private void Reposition(bool animate) {
             if (knob is null)
                 return;

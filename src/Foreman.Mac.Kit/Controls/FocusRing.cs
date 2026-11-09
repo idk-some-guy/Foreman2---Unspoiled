@@ -119,7 +119,6 @@ namespace Foreman.Mac.Kit.Controls {
             var ring = new Rectangle {
                 Fill = null,
                 IsHitTestVisible = false,
-                //A 2pt offset plus half a 3pt stroke lands on a fractional pixel; rounding would add a stray pixel.
                 UseLayoutRounding = false,
             };
             //AdornerLayer clips an adorner to the adorned element's bounds by default; our ring extends past it via a negative margin.
@@ -129,7 +128,6 @@ namespace Foreman.Mac.Kit.Controls {
             double offset = 0.0;
 
             void ApplyRadius() {
-                //Rectangle deflates its rendered geometry by StrokeThickness/2, so the drawn half-extent is control/2 + offset.
                 double radius = Math.Min(controlRadius.TopLeft + offset,
                     Math.Min(control.Bounds.Width / 2 + offset, control.Bounds.Height / 2 + offset));
                 ring.RadiusX = radius;

@@ -70,7 +70,6 @@
       <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
     </Style>
 
-    <!-- Toolbar collapse step 1 (composites addendum §08): the label drops, the tooltip carries it instead. -->
     <Style Selector="^.icon-only">
       <Setter Property="MinWidth" Value="{DynamicResource Foreman.Size.ToolbarItemIconOnlyWidth}" />
     </Style>
@@ -78,7 +77,6 @@
       <Setter Property="Opacity" Value="0" />
     </Style>
 
-    <!-- Gallery-only: mirrors Kit.Button's fake-hover/pressed classes, for the same reason. -->
     <Style Selector="^.gallery-hover /template/ Border#PART_HoverFill">
       <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
       <Setter Property="Opacity" Value="1" />

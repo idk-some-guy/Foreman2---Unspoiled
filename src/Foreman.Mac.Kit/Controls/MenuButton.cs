@@ -73,7 +73,6 @@ namespace Foreman.Mac.Kit.Controls {
 
         public AvaloniaList<MenuButtonItem> Items { get; } = [];
 
-        //Plain one-shot actions (no check slot, no Reset row) - what a toolbar overflow moves its trailing group's commands into. Mutually exclusive with Items.
         public AvaloniaList<MenuButtonAction> ActionItems { get; } = [];
 
         public MenuPanel Menu { get; } = new();

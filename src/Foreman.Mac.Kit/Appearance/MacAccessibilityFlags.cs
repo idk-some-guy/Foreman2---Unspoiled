@@ -2,7 +2,6 @@ using System;
 using System.Runtime.InteropServices;
 
 namespace Foreman.Mac.Kit.Appearance {
-    //Reduce Motion/Transparency have no Avalonia surface; read via objc against NSWorkspace, false off macOS.
     public static class MacAccessibilityFlags {
         private const string ObjCLibrary = "/usr/lib/libobjc.dylib";
 

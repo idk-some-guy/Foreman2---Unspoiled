@@ -28,7 +28,6 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<bool> IsOpenProperty =
             AvaloniaProperty.Register<PopUp, bool>(nameof(IsOpen));
 
-        //Optional 16pt leading icon (2026-09-17 building-picker ruling): present only when the consumer supplies one.
         public static readonly StyledProperty<IImage?> IconProperty =
             AvaloniaProperty.Register<PopUp, IImage?>(nameof(Icon));
 
@@ -76,13 +75,10 @@ namespace Foreman.Mac.Kit.Controls {
 
         public AvaloniaList<string> Items { get; } = [];
 
-        //Parallel to Items, matched by index - the per-item icon (Quality's badge). Unset for an iconless pop-up.
         public AvaloniaList<IImage?> ItemIcons { get; } = [];
 
-        //Parallel to Items, matched by index - the face each menu row draws its label in (a font menu). Unset keeps the menu's own.
         public AvaloniaList<FontFamily?> ItemFontFamilies { get; } = [];
 
-        //Listed but dimmed and unchoosable, so menu positions (and any shortcuts onto them) never shift.
         public AvaloniaList<string> DisabledItems { get; } = [];
 
         public MenuPanel Menu { get; } = new();
@@ -215,7 +211,6 @@ namespace Foreman.Mac.Kit.Controls {
                 return;
             }
 
-            //Pop-up style has a value to step through when closed; pull-down has none, so its ↓ opens instead.
             switch (e.Key) {
                 case Key.Enter:
                 case Key.Space:
@@ -237,7 +232,6 @@ namespace Foreman.Mac.Kit.Controls {
             }
         }
 
-        //AppKit behaviour: closed, ↑/↓ step to the adjacent value without opening the menu.
         private void StepAdjacentValue(int step) {
             if (Items.Count == 0)
                 return;

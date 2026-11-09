@@ -2,7 +2,6 @@ using Avalonia.Controls;
 using System;
 
 namespace Foreman.Mac.Kit.Appearance {
-    //Subscribes a control to the live AppearanceHub for as long as it's in the visual tree.
     public static class ThemeAware {
         private sealed class Adapter(Action refresh) : IThemeAware {
             public void RefreshTheme() => refresh();

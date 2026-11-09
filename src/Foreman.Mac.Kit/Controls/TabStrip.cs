@@ -73,7 +73,6 @@ namespace Foreman.Mac.Kit.Controls {
 
         public TabStrip() {
             Items.CollectionChanged += (_, _) => { CoerceValue(SelectedIndexProperty); Rebuild(); };
-            //Rebuild only on a genuine toolbar-tabs/underline class change, not any pseudo-class flip.
             Classes.CollectionChanged += (_, _) => {
                 if (IsUnderline != isUnderlineMode)
                     Rebuild();

@@ -20,7 +20,6 @@ namespace Foreman.Mac.Kit.Controls {
             set => SetValue(TextProperty, value);
         }
 
-        //Spelled-out name for VoiceOver ("Command K"); Text carries the glyph ("⌘") shown on the cap itself.
         public string? AccessibleName {
             get => GetValue(AccessibleNameProperty);
             set => SetValue(AccessibleNameProperty, value);

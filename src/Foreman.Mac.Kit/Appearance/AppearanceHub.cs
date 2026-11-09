@@ -8,10 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace Foreman.Mac.Kit.Appearance {
-    //Re-pushes platform-driven token overrides into Application resources and notifies the subscriber list.
     public sealed class AppearanceHub : IDisposable {
-        //Set by the app at startup, mirroring Application.Current - lets ThemeAware.Attach reach the one
-        //live hub without every call site threading it through.
         public static AppearanceHub? Current { get; set; }
 
         private readonly Application app;
@@ -28,14 +25,11 @@ namespace Foreman.Mac.Kit.Appearance {
 
         public event EventHandler? Changed;
 
-        //Weakly held as a backstop; callers still unsubscribe explicitly on Detached/Closed.
         public void Subscribe(IThemeAware subscriber) => subscribers.Add(new WeakReference<IThemeAware>(subscriber));
 
         public void Unsubscribe(IThemeAware subscriber) =>
             subscribers.RemoveAll(w => !w.TryGetTarget(out IThemeAware? target) || ReferenceEquals(target, subscriber));
 
-        //Test-only seam: live (non-collected) subscriber count, so a test can assert the list returns to
-        //baseline after a window closes instead of poking at the weak-reference list directly.
         public int SubscriberCount => subscribers.Count(w => w.TryGetTarget(out _));
 
         public bool IncreaseContrast => appearance.ContrastPreference == ColorContrastPreference.High;
@@ -69,8 +63,6 @@ namespace Foreman.Mac.Kit.Appearance {
             }
         }
 
-        //Hue follows the platform accent when there is one; alpha stays at the token's own declared value
-        //(read with any prior override cleared first) except under Increase Contrast, which forces full opacity.
         private void ApplyFocusRing(bool highContrast) {
             var resources = app.Resources;
             resources.Remove("Foreman.Color.FocusRing");
@@ -101,7 +93,6 @@ namespace Foreman.Mac.Kit.Appearance {
                 app.Resources.Remove(key);
         }
 
-        //SplitDivider's grip is opacity-0 at rest and hover-revealed; Increase Contrast keeps it visible at rest.
         private void ApplyGripIdleOpacity(bool highContrast) {
             if (highContrast)
                 app.Resources["Foreman.Opacity.SplitGripIdle"] = 1.0;
@@ -109,8 +100,6 @@ namespace Foreman.Mac.Kit.Appearance {
                 app.Resources.Remove("Foreman.Opacity.SplitGripIdle");
         }
 
-        //Every material - popover, tooltip, palette, titlebar - re-points to its own opaque token under Reduce
-        //Transparency or Increase Contrast; there is no live blur in this port, so the swap is purely behavioral.
         private void ApplyMaterialFallback(bool reduceTransparency) {
             ApplyMaterial("Foreman.Color.PopoverMaterial", "Foreman.Color.PopoverMaterialOpaque", reduceTransparency);
             ApplyMaterial("Foreman.Color.TooltipMaterial", "Foreman.Color.TooltipMaterialOpaque", reduceTransparency);

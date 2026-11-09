@@ -115,8 +115,6 @@ namespace Foreman.Mac.Kit.Controls {
             itemsPanel.Children.Clear();
             rows.Clear();
 
-            //Icon reservation is all-or-nothing per menu (2026-09-17 ruling): once any row carries one,
-            //every row keeps the 16+8 slot so labels never shift within the menu.
             bool anyIcon = Items.Any(i => !i.IsSeparator && i.Icon is not null);
 
             foreach (MenuRow item in Items) {
@@ -129,8 +127,6 @@ namespace Foreman.Mac.Kit.Controls {
 
                 var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
 
-                //NSMenuItem's own leading-to-trailing slots: state (check), image, title (2026-09-17 ruling)
-                //- the checkmark column is never displaced by an item icon.
                 Path? check = null;
                 if (item.HasCheckSlot) {
                     check = new Path {

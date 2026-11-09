@@ -20,7 +20,6 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<bool> IsOnProperty =
             AvaloniaProperty.Register<ToolbarItem, bool>(nameof(IsOn));
 
-        //Full command name for VoiceOver, separate from the (possibly truncated) visible Label; falls back to Label.
         public static readonly StyledProperty<string?> AutomationNameProperty =
             AvaloniaProperty.Register<ToolbarItem, string?>(nameof(AutomationName));
 
@@ -28,7 +27,6 @@ namespace Foreman.Mac.Kit.Controls {
         private IDisposable? labelOpacitySub;
         private NotifyCollectionChangedEventHandler? classesChanged;
 
-        //Test-only visibility into subscription lifetime (mirrors Segmented's counter properties).
         internal int LabelVisibilityApplyCount { get; private set; }
         internal bool HasLiveLabelOpacitySubscription => labelOpacitySub is not null;
 
@@ -97,7 +95,6 @@ namespace Foreman.Mac.Kit.Controls {
             labelOpacitySub = null;
         }
 
-        //The icon-only style fades PART_Label's Opacity; IsVisible only flips to false once that fade actually reaches zero (never in the same pass as Opacity 0).
         private void ApplyLabelVisibility() {
             if (label is null)
                 return;

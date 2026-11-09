@@ -5,7 +5,6 @@ using Avalonia.Threading;
 using System;
 
 namespace Foreman.Mac.Kit.Appearance {
-    //Accent/contrast/variant come from IPlatformSettings; Reduce Motion/Transparency are polled since Avalonia raises no event for them.
     public sealed class PlatformAppearance : IPlatformAppearance, IDisposable {
         private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
 

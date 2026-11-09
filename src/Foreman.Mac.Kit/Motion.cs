@@ -9,8 +9,6 @@ using System.Threading.Tasks;
 namespace Foreman.Mac.Kit {
     public enum TransitionKind { Fade, SlideFade, Scale, CrossFade, Reflow, Size }
 
-    //Every animated duration/easing the palette, the "Add to Graph" browser and the radial menu use
-    //traces back here, so retuning one retunes all of them together.
     public static class Motion {
         public static readonly TimeSpan CrossFadeDuration = TimeSpan.FromMilliseconds(220);
         public static readonly TimeSpan EntranceDuration = TimeSpan.FromMilliseconds(200);
@@ -42,11 +40,8 @@ namespace Foreman.Mac.Kit {
         public static readonly TimeSpan StatePanelDelay = TimeSpan.FromMilliseconds(400);
         public static readonly TimeSpan PlacementFlashHold = TimeSpan.FromMilliseconds(200);
 
-        //Set by AppearanceHub from the platform's Reduce Motion flag; an already-open site only picks up a
-        //live change if it re-pushes its own Transitions on RefreshTheme (SheetHost does).
         public static bool ReduceMotion { get; set; }
 
-        //Completes once no FormRow/PalettePanel height reflow under root is still easing, cancelled and detached ones included.
         public static Task ReflowsSettled(Visual root) => Composites.CompositeMotion.ReflowsSettled(root);
 
         public static Transitions ButtonTransitions => Transition(TransitionKind.Fade, ButtonStateDuration);
@@ -59,10 +54,8 @@ namespace Foreman.Mac.Kit {
         public static Transitions FormRowCrossFadeTransitions => Transition(TransitionKind.CrossFade, TabLabelCrossFadeDuration);
         public static Transitions SplitGripTransitions => Transition(TransitionKind.Fade, HoverDuration);
 
-        //Cross-fades PART_HoverFill's opacity over a snap-set colour, like every other fill in the kit - never a BrushTransition on Background.
         public static Transitions ToolbarItemHoverTransitions => Transition(TransitionKind.CrossFade, HoverDuration);
 
-        //Row selection/hover and tab fill cross-fade via opacity over snap-set overlay colors.
         public static Transitions RowSelectionTransitions => Transition(TransitionKind.CrossFade, HoverDuration);
         public static Transitions TabFillTransitions => Transition(TransitionKind.CrossFade, SegmentedSelectionDuration);
 
@@ -73,10 +66,8 @@ namespace Foreman.Mac.Kit {
         public static Easing SpinnerEasing => new LinearEasing();
         public static Easing IndeterminateProgressEasing => new CubicEaseInOut();
 
-        //A row/cell beyond StaggerCap enters with the capped (not ever-growing) delay.
         public static TimeSpan StaggerDelay(int index) => StaggerStep * Math.Min(Math.Max(index, 0), StaggerCap);
 
-        //Under ReduceMotion every kind collapses to a plain opacity fade of the same duration - nothing snaps.
         public static Transitions Transition(TransitionKind kind, TimeSpan duration, Easing? easing = null, TimeSpan delay = default) {
             if (ReduceMotion)
                 return [

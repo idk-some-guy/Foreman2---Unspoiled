@@ -41,7 +41,6 @@ namespace Foreman.Mac.Kit.Controls {
 
         private static void OnLayoutUpdated(object? sender, EventArgs e) => Apply((TextBlock)sender!);
 
-        //The text only reports its trim once arranged; a tip never feeds back into layout.
         private static void Apply(TextBlock text) =>
             Show(text, text.Bounds.Width > 0 && text.TextLayout.TextLines.Any(l => l.HasCollapsed) && text.Text is { } full ? new Tip(full) : null);
 

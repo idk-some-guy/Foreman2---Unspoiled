@@ -7,7 +7,6 @@
   <Color x:Key="Foreman.Color.NodeConsumer">#E0B34D</Color>
   <Color x:Key="Foreman.Color.NodePassthrough">#9A9A9E</Color>
   <Color x:Key="Foreman.Color.NodeTabBorder">#80FFFFFF</Color>
-  <!-- AppearanceHub copies this over NodeTabBorder under Increase Contrast. -->
   <Color x:Key="Foreman.Color.NodeTabBorderContrast">#99FFFFFF</Color>
   <Color x:Key="Foreman.Color.WindowBackground">#29292B</Color>
   <Color x:Key="Foreman.Color.TitlebarBackground">#323234</Color>
@@ -25,11 +24,9 @@
   <Color x:Key="Foreman.Color.Accent">#0A84FF</Color>
   <Color x:Key="Foreman.Color.AccentSoft">#290A84FF</Color>
   <Color x:Key="Foreman.Color.AccentText">#6bb2ff</Color>
-  <!-- Accent/Error at the button table's +8%/-12% brightness states (kit §01). -->
   <Color x:Key="Foreman.Color.AccentHover">#0B8FFF</Color>
   <Color x:Key="Foreman.Color.AccentPressed">#0974E0</Color>
   <Color x:Key="Foreman.Color.NodeSelected">#FF9F0A</Color>
-  <!-- Opaque Accent, drawn dashed; must not reuse NodeSelected or AccentSoft. -->
   <Color x:Key="Foreman.Color.FindMatchRing">#FF0A84FF</Color>
   <Color x:Key="Foreman.Color.Error">#FF453A</Color>
   <Color x:Key="Foreman.Color.ErrorHover">#FF4B3F</Color>
@@ -47,27 +44,19 @@
   <Color x:Key="Foreman.Color.TextOnAccent">#FFFFFF</Color>
   <Color x:Key="Foreman.Color.TextOnWarning">#1A1A1A</Color>
 
-  <!-- PopoverMaterial and TitlebarMaterialOpaque have no contract hex; they reuse ControlBackground / TitlebarBackground -->
   <Color x:Key="Foreman.Color.PopoverMaterial">#3D3D40</Color>
   <Color x:Key="Foreman.Color.TitlebarMaterialOpaque">#323234</Color>
-  <!-- No real blur in this port, so a material and its opaque fallback share one hex - PopoverMaterialOpaque
-       mirrors ControlBackground the way TooltipMaterialOpaque already does (addendum §12.10). -->
   <Color x:Key="Foreman.Color.PopoverMaterialOpaque">#3D3D40</Color>
-  <!-- v2 §01: titlebar/popover/palette are the app's three materials. Palette reuses the popover's value; -->
-  <!-- titlebar's is TitlebarMaterialOpaque's, already on the books. -->
   <Color x:Key="Foreman.Color.PaletteMaterial">#3D3D40</Color>
   <Color x:Key="Foreman.Color.PaletteMaterialOpaque">#3D3D40</Color>
   <Color x:Key="Foreman.Color.TitlebarMaterial">#323234</Color>
 
   <x:Double x:Key="Foreman.Opacity.Disabled">0.38</x:Double>
-  <!-- "Choosable but not researched" (2026-09-17 building-picker ruling), lighter than Opacity.Disabled. -->
   <x:Double x:Key="Foreman.Opacity.Unavailable">0.55</x:Double>
   <x:Double x:Key="Foreman.Opacity.NodeUnavailable">0.62</x:Double>
 
-  <!-- PickCellSelected mirrors AccentSoft's value rather than referencing it, kept independent on purpose. -->
   <Color x:Key="Foreman.Color.PickCellSelected">#290A84FF</Color>
   <Color x:Key="Foreman.Color.PickCellBorder">#29FFFFFF</Color>
-  <!-- Swatch chrome sits behind content colour, so both appearances share one value. -->
   <Color x:Key="Foreman.Color.SwatchCheckerA">#FFFFFF</Color>
   <Color x:Key="Foreman.Color.SwatchCheckerB">#D1D1D6</Color>
   <Color x:Key="Foreman.Color.SwatchStroke">#24000000</Color>
@@ -86,23 +75,16 @@
   <Thickness x:Key="Foreman.Thickness.Space05">2</Thickness>
   <CornerRadius x:Key="Foreman.Radius.Control">6</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Card">9</CornerRadius>
-  <!-- Distinct from Radius.Control's 6, per the addendum's group-header spec row. -->
   <CornerRadius x:Key="Foreman.Radius.InspectorGroupHeader">4</CornerRadius>
   <Thickness x:Key="Foreman.Thickness.InspectorGroupHeaderPadding">4,0,0,0</Thickness>
 
-  <!-- The 5px gap is a per-cell margin (half of it, 2.5, on each side), not a panel Spacing. -->
   <CornerRadius x:Key="Foreman.Radius.PickCell">5</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Swatch">3</CornerRadius>
   <Thickness x:Key="Foreman.Thickness.PickCellGap">2.5</Thickness>
-  <!-- Not Radius.Control 6 - the chooser cell has been a literal 8 in three or more places (addendum §12.2). -->
   <CornerRadius x:Key="Foreman.Radius.ChooserCell">8</CornerRadius>
-  <!-- Also the radial hub's and the palette's radius - one key covers all three (addendum §12.2). -->
   <CornerRadius x:Key="Foreman.Radius.Popover">10</CornerRadius>
-  <!-- Fixed at every scale step - the tail is pointer-sized, not type-sized (addendum §11). -->
   <x:Double x:Key="Foreman.Size.PopoverTail">12</x:Double>
-  <!-- Outer border-box width (§06.1) - PalettePanel's PaletteWidth is the same precedent. -->
   <x:Double x:Key="Foreman.Size.PopoverWidth">272</x:Double>
-  <!-- Fixed at every scale step (ruling 5) - the ring is a pointer gesture, not type-driven. -->
   <x:Double x:Key="Foreman.Size.RadialOuter">100</x:Double>
   <x:Double x:Key="Foreman.Size.RadialHub">38</x:Double>
   <x:Double x:Key="Foreman.Size.RadialDiameter">220</x:Double>
@@ -127,25 +109,20 @@
   <FontWeight x:Key="Foreman.Type.Caption.FontWeight">400</FontWeight>
   <FontWeight x:Key="Foreman.Type.Caption.Emphasized.FontWeight">600</FontWeight>
   <x:Double x:Key="Foreman.Type.Caption.LineHeight">13.2</x:Double>
-  <!-- Not on ScaleContract's ramp - the radial ring is fixed at 220pt at every scale step (ruling 5). -->
   <x:Double x:Key="Foreman.Type.RadialLabel.FontSize">11</x:Double>
   <FontWeight x:Key="Foreman.Type.RadialLabel.FontWeight">600</FontWeight>
 
-  <!-- Kit.ToolbarItem's icon+label caption; hig-critique ruling keeps it legacy at 9.5, not folded into the ramp. -->
   <x:Double x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontSize">9.5</x:Double>
   <FontWeight x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontWeight">500</FontWeight>
 
   <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
   <x:Double x:Key="Foreman.Size.InspectorWidthMin">260</x:Double>
   <x:Double x:Key="Foreman.Size.InspectorWidthMax">380</x:Double>
-  <!-- Split divider hit area; excluded from ScaleContract.MultipliedKeys on purpose - fixed at every scale step. -->
   <x:Double x:Key="Foreman.Size.SplitDividerHit">5</x:Double>
-  <!-- Grip opacity at rest; AppearanceHub overrides this to 1 under Increase Contrast, same idiom as FocusRing.Width. -->
   <x:Double x:Key="Foreman.Opacity.SplitGripIdle">0</x:Double>
   <x:Double x:Key="Foreman.Size.ControlHeightRegular">22</x:Double>
   <x:Double x:Key="Foreman.Size.ControlHeightLarge">24</x:Double>
   <x:Double x:Key="Foreman.Size.PickCell">26</x:Double>
-  <!-- The module icon inside a pick cell; scales with the cell (18 -> 27 at 150%), unlike the cell's own border/radius. -->
   <x:Double x:Key="Foreman.Size.PickCellIcon">18</x:Double>
   <x:Double x:Key="Foreman.Size.ColorWellWidth">44</x:Double>
   <x:Double x:Key="Foreman.Size.ColorWellChevronColumn">14</x:Double>
@@ -156,9 +133,7 @@
   <x:Double x:Key="Foreman.Size.FormLabelColumnPopover">86</x:Double>
   <x:Double x:Key="Foreman.Size.ToolbarItemWidth">44</x:Double>
   <x:Double x:Key="Foreman.Size.ToolbarItemHeight">40</x:Double>
-  <!-- Toolbar collapse step 1 (composites addendum §08): icon-only min width once the label drops. -->
   <x:Double x:Key="Foreman.Size.ToolbarItemIconOnlyWidth">28</x:Double>
-  <!-- The unified titlebar row (composites addendum §08/§12); the readout's fixed box keeps 25%/400% from reflowing it. -->
   <x:Double x:Key="Foreman.Size.ToolbarRowHeight">52</x:Double>
   <x:Double x:Key="Foreman.Size.ZoomReadoutWidth">42</x:Double>
   <x:Double x:Key="Foreman.Size.ZoomReadoutHeight">16</x:Double>
@@ -167,7 +142,6 @@
   <Thickness x:Key="Foreman.Thickness.ButtonPadding">13,0</Thickness>
   <Thickness x:Key="Foreman.Thickness.ToolbarItemPadding">8,3</Thickness>
 
-  <!-- Checkbox/radio share one 15pt box; the radio uses Radius.Pill for a circular border. -->
   <x:Double x:Key="Foreman.Size.CheckBox">15</x:Double>
   <CornerRadius x:Key="Foreman.Radius.CheckBox">4</CornerRadius>
   <x:Double x:Key="Foreman.Size.RadioDot">7</x:Double>
@@ -181,29 +155,23 @@
   <x:Double x:Key="Foreman.Size.SwitchKnob">14</x:Double>
   <x:Double x:Key="Foreman.Size.SwitchKnobInset">2</x:Double>
 
-  <!-- Segmented (kit mock §02): track radius reuses Radius.Control, item radius is its own step. -->
   <CornerRadius x:Key="Foreman.Radius.SegmentItem">4</CornerRadius>
   <Thickness x:Key="Foreman.Thickness.SegmentTrackPadding">2</Thickness>
   <Thickness x:Key="Foreman.Thickness.SegmentItemPadding">10,3</Thickness>
-  <!-- .mini's drawn 11.5/500; the regular segment uses Type.Callout instead. -->
   <x:Double x:Key="Foreman.Type.SegmentMini.FontSize">11.5</x:Double>
   <FontWeight x:Key="Foreman.Type.SegmentMini.FontWeight">500</FontWeight>
 
-  <!-- Pop-up/pull-down/menu button (addendum §01-02): shared label-to-glyph gap. -->
   <x:Double x:Key="Foreman.Size.ControlGlyphGap">6</x:Double>
   <x:Double x:Key="Foreman.Size.PopUpIndicator">16</x:Double>
   <CornerRadius x:Key="Foreman.Radius.PopUpIndicator">3</CornerRadius>
   <Thickness x:Key="Foreman.Thickness.PopUpPadding">10,0,3,0</Thickness>
   <Thickness x:Key="Foreman.Thickness.PopUpPulldownPadding">10,0,8,0</Thickness>
-  <!-- PopUp's optional leading icon (2026-09-17 building-picker ruling §05): leading inset drops 10 -> 6 with an icon. -->
   <x:Double x:Key="Foreman.Size.PopUpLeadingIcon">16</x:Double>
   <CornerRadius x:Key="Foreman.Radius.PopUpLeadingIcon">3</CornerRadius>
   <Thickness x:Key="Foreman.Thickness.PopUpIconPadding">6,0,3,0</Thickness>
 
-  <!-- Choice-mode pick grid cap (2026-09-17 building-picker ruling §01/§05): a plain count, not a length - does not scale. -->
   <x:Double x:Key="Foreman.Metrics.PickChoiceMax">9</x:Double>
 
-  <!-- Menu panel/item (addendum §02, §08 ladder extension). -->
   <x:Double x:Key="Foreman.Size.GlyphMicro">12</x:Double>
   <x:Double x:Key="Foreman.Size.GlyphSmall">14</x:Double>
   <x:Double x:Key="Foreman.Size.MenuItemHeight">22</x:Double>
@@ -215,7 +183,6 @@
   <Thickness x:Key="Foreman.Thickness.MenuSeparatorMargin">8,5</Thickness>
   <Thickness x:Key="Foreman.Thickness.MenuButtonPadding">8,0</Thickness>
 
-  <!-- Shared 10pt chevron glyph (menu button, pop-up pull-down). -->
   <x:Double x:Key="Foreman.Size.Glyph10">10</x:Double>
 
   <x:Double x:Key="Foreman.Size.Glyph16">16</x:Double>
@@ -223,16 +190,13 @@
   <x:Double x:Key="Foreman.Size.Glyph18">18</x:Double>
   <x:Double x:Key="Foreman.Size.Glyph20">20</x:Double>
 
-  <!-- state panel glyph, the one master above the 20pt ladder -->
   <x:Double x:Key="Foreman.Size.GlyphState">32</x:Double>
 
-  <!-- state panel compact form -->
   <x:Double x:Key="Foreman.Metrics.StatePanelMaxWidth">320</x:Double>
   <x:Double x:Key="Foreman.Metrics.StatePanelSentenceMaxWidth">280</x:Double>
   <Thickness x:Key="Foreman.Thickness.StatePanelCompactSentenceMargin">8,0,0,0</Thickness>
   <Thickness x:Key="Foreman.Thickness.StatePanelCompactButtonsMargin">6,0,0,0</Thickness>
 
-  <!-- Canvas painters read these through KitSkia.TokenBridge. Radii, weight and screen-point metrics stay fixed. -->
   <x:Double x:Key="Foreman.Type.Canvas.FontSize">10</x:Double>
   <FontWeight x:Key="Foreman.Type.Canvas.Emphasized.FontWeight">600</FontWeight>
   <x:Double x:Key="Foreman.Size.NodeIcon">26</x:Double>
@@ -262,12 +226,9 @@
   <CornerRadius x:Key="Foreman.Radius.NodeBeaconBadge">4</CornerRadius>
   <x:Double x:Key="Foreman.Metrics.CanvasMinTextSize">7</x:Double>
   <x:Double x:Key="Foreman.Metrics.GridMinScreenSpacing">8</x:Double>
-  <!-- On,off dash lengths in screen points. -->
   <x:String x:Key="Foreman.Metrics.FindRingDash">5,3</x:String>
-  <!-- Find node ruling §06: viewport inset a match must sit inside before the canvas declines to pan. -->
   <x:Double x:Key="Foreman.Metrics.FindPanMargin">80</x:Double>
 
-  <!-- Overlay sidebar's soft left shadow, a BoxShadows so light/dark can each carry their own opacity. -->
   <BoxShadows x:Key="Foreman.Shadow.Sidebar">-2 0 10 0 #40000000</BoxShadows>
 
   <x:Double x:Key="Foreman.Size.PaletteWidth">272</x:Double>
@@ -283,50 +244,37 @@
   <x:Double x:Key="Foreman.Size.BrowserCellLabelHeight">24</x:Double>
   <CornerRadius x:Key="Foreman.Radius.Pill">100</CornerRadius>
 
-  <!-- Sheet overlay (#modals): scrim alpha is identical in both themes, so it isn't a per-theme color. -->
   <Color x:Key="Foreman.Color.SheetScrim">#80000000</Color>
   <BoxShadows x:Key="Foreman.Shadow.Sheet">0 34 60 -12 #A6000000</BoxShadows>
   <CornerRadius x:Key="Foreman.Radius.SheetBottom">0,0,10,10</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Node">10</CornerRadius>
 
-  <!-- Window chrome shadow; no consumer yet. Alpha confirmed against Shadow.Popover's own: same #3D/#99 pair in both themes. -->
   <BoxShadows x:Key="Foreman.Shadow.Window">0 30 60 -20 #99000000</BoxShadows>
 
-  <!-- Canvas node card shadow; cards carry no shadow in dark, so Dark's alpha is zero. -->
   <BoxShadows x:Key="Foreman.Shadow.Card">0 2 8 0 #00000000</BoxShadows>
 
-  <!-- Last consumer: GalleryWindow.Tile's caption text (every gallery tile header) - fixed dark chrome
-       that doesn't follow the app theme either. -->
   <Color x:Key="Foreman.Color.GalleryChrome">#000000</Color>
 
-  <!-- Sheet widths (composites addendum §12.9). -->
   <x:Double x:Key="Foreman.Metrics.SheetWidthAlert">300</x:Double>
   <x:Double x:Key="Foreman.Metrics.SheetWidthStandard">360</x:Double>
   <x:Double x:Key="Foreman.Metrics.SheetWidthWide">460</x:Double>
-  <!-- Kit.SheetFrame (v2 §04 Motion): the closed panel sits this far above its place and slides down on open. -->
   <x:Double x:Key="Foreman.Metrics.SheetSlide">12</x:Double>
 
-  <!-- Kit.ButtonRow (composites addendum §05): a button never shrinks below this. -->
   <x:Double x:Key="Foreman.Metrics.ButtonMinWidth">64</x:Double>
 
-  <!-- TextField (addendum context): plain 22pt well field, min-width its own token. -->
   <x:Double x:Key="Foreman.Metrics.TextFieldMinWidth">84</x:Double>
   <Thickness x:Key="Foreman.Thickness.TextFieldPadding">8,0</Thickness>
 
-  <!-- Search field (addendum §04): capsule bounds and its own glyph size off the 13pt step. -->
   <x:Double x:Key="Foreman.Metrics.SearchFieldMinWidth">120</x:Double>
   <x:Double x:Key="Foreman.Metrics.SearchFieldNaturalWidth">220</x:Double>
-  <!-- Find node ruling §06: third stop on the same collapse ramp - below this the match-count slot hides. -->
   <x:Double x:Key="Foreman.Metrics.SearchFieldCountFloor">168</x:Double>
   <x:Double x:Key="Foreman.Size.SearchFieldGlyph">13</x:Double>
   <Thickness x:Key="Foreman.Thickness.SearchFieldGlyphMargin">8,0,6,0</Thickness>
   <Thickness x:Key="Foreman.Thickness.SearchFieldClearMargin">0,0,4,0</Thickness>
 
-  <!-- Stepper (kit mock §01): 40pt field, 15pt arrow column; cell height is ControlHeightRegular / 2 at runtime, not its own token. -->
   <x:Double x:Key="Foreman.Size.StepperFieldWidth">40</x:Double>
   <x:Double x:Key="Foreman.Size.StepperArrowColumn">15</x:Double>
 
-  <!-- Slider (addendum §03): thumb grows 14 -> 15 -> 16 across normal/hover/pressed. -->
   <x:Double x:Key="Foreman.Size.SliderTrack">3</x:Double>
   <x:Double x:Key="Foreman.Size.SliderThumbNormal">14</x:Double>
   <x:Double x:Key="Foreman.Size.SliderThumbHover">15</x:Double>
@@ -338,13 +286,10 @@
   <x:Double x:Key="Foreman.Metrics.SliderNaturalWidth">124</x:Double>
   <x:Double x:Key="Foreman.Metrics.SliderValueLabelWidth">36</x:Double>
   <Color x:Key="Foreman.Color.SliderThumb">#FFFFFF</Color>
-  <!-- Hairline that separates a white thumb from a white well; light only, so dark carries zero alpha. -->
   <Color x:Key="Foreman.Color.SliderThumbBorder">#00FFFFFF</Color>
   <BoxShadows x:Key="Foreman.Shadow.SliderThumb">0 1 3 0 #66000000</BoxShadows>
 
-  <!-- List/sidebar row (addendum §07): three selection states reuse existing color tokens; only bounds are new. -->
   <x:Double x:Key="Foreman.Size.ListRowHeight">26</x:Double>
-  <!-- Recent row (addendum §09): welcome-window library entry. -->
   <x:Double x:Key="Foreman.Size.RecentRowHeight">46</x:Double>
   <x:Double x:Key="Foreman.Size.RecentRowIcon">30</x:Double>
   <x:Double x:Key="Foreman.Size.SidebarRowHeight">28</x:Double>
@@ -360,12 +305,10 @@
   <x:Double x:Key="Foreman.Size.VersionNodesColumn">70</x:Double>
   <x:Double x:Key="Foreman.Size.VersionHeaderHeight">20</x:Double>
 
-  <!-- Group box (kit mock §04 form grammar): well-backed inset form row container. -->
   <x:Double x:Key="Foreman.Metrics.GroupBoxMaxWidth">420</x:Double>
   <Thickness x:Key="Foreman.Thickness.GroupBoxPadding">12,14</Thickness>
   <Thickness x:Key="Foreman.Thickness.GroupBoxTitleMargin">0,11,0,5</Thickness>
 
-  <!-- Tab strip (addendum §05): .toolbar-tabs item bounds and its own label size step; .underline's own padding/radius. -->
   <x:Double x:Key="Foreman.Type.TabLabel.FontSize">10.5</x:Double>
   <FontWeight x:Key="Foreman.Type.TabLabel.FontWeight">500</FontWeight>
   <x:Double x:Key="Foreman.Metrics.TabItemMinWidth">64</x:Double>
@@ -378,7 +321,6 @@
   <Thickness x:Key="Foreman.Thickness.UnderlineTabPadding">2,0,2,8</Thickness>
   <CornerRadius x:Key="Foreman.Radius.UnderlineTabFocus">4</CornerRadius>
 
-  <!-- Feedback set (addendum §06): tooltip, spinner, progress bar, chip, key cap. -->
   <Color x:Key="Foreman.Color.TooltipMaterial">#4A4A4A</Color>
   <Color x:Key="Foreman.Color.TooltipMaterialOpaque">#4A4A4A</Color>
   <Color x:Key="Foreman.Color.TooltipText">#FFFFFFFF</Color>

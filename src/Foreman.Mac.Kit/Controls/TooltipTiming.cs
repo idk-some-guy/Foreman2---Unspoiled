@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 
 namespace Foreman.Mac.Kit.Controls {
-    //Opt-in wiring of ToolTip's ShowDelay/BetweenShowDelay to the kit's timing (addendum §06).
     public static class TooltipTiming {
         public static readonly AttachedProperty<bool> IsEnabledProperty =
             AvaloniaProperty.RegisterAttached<Control, bool>("IsEnabled", typeof(TooltipTiming));

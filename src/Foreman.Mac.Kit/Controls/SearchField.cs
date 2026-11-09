@@ -17,7 +17,6 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<bool> IsLoadingProperty =
             AvaloniaProperty.Register<SearchField, bool>(nameof(IsLoading));
 
-        //Find node's "N of M"/"No matches" readout; null hides the slot, same as an empty string.
         public static readonly StyledProperty<string?> MatchStatusProperty =
             AvaloniaProperty.Register<SearchField, string?>(nameof(MatchStatus));
 
@@ -28,7 +27,6 @@ namespace Foreman.Mac.Kit.Controls {
             set => SetValue(ClearCommandProperty, value);
         }
 
-        //Grace period before the leading glyph swaps for a spinner (Motion.StatePanelDelay) - a fast load never flashes it.
         public bool IsLoading {
             get => GetValue(IsLoadingProperty);
             set => SetValue(IsLoadingProperty, value);
@@ -41,7 +39,6 @@ namespace Foreman.Mac.Kit.Controls {
 
         public event EventHandler? MoveDownRequested;
         public event EventHandler? SearchCommitted;
-        //Shift+Return - the backward twin of SearchCommitted (⇧⌘G's Return equivalent).
         public event EventHandler? SearchCommittedBackward;
 
         private Button? clearButton;
@@ -51,7 +48,6 @@ namespace Foreman.Mac.Kit.Controls {
         private IDisposable? loadingRevealSub;
         private IDisposable? loadingHideSub;
         private IDisposable? countFloorSub;
-        //Foreman.Metrics.SearchFieldCountFloor's own resolved value; the ruled 168 fallback until the observable delivers.
         private double countFloor = 168;
 
         static SearchField() {
@@ -85,7 +81,6 @@ namespace Foreman.Mac.Kit.Controls {
             return result;
         }
 
-        //Only the drawn slot respects the count floor - AXHelp and the tooltip carry the status at every width (ruling §04/§05).
         private void ApplyMatchStatus() {
             PseudoClasses.Set(":match-status-none", MatchStatus == NoMatchesText);
             AutomationProperties.SetHelpText(this, MatchStatus);
@@ -114,13 +109,10 @@ namespace Foreman.Mac.Kit.Controls {
 
         private static object ToCountFloor(object? value) => value is double d ? d : 168.0;
 
-        //Delayed reveal via a held-then-animated Opacity transition (ZoomStepper.cs's idiom), never a wall-clock timer:
-        //IsLoading clearing before the grace elapses cancels the pending reveal without a flash.
         private void ApplyLoadingState() {
             if (leadingGlyphBox is null || loadingSpinner is null)
                 return;
 
-            //Fresh Transitions every call (ZoomStepper's ApplyStateVisuals idiom) cancels whatever fade was already in flight.
             loadingRevealSub?.Dispose();
             loadingRevealSub = null;
             loadingHideSub?.Dispose();
@@ -186,7 +178,6 @@ namespace Foreman.Mac.Kit.Controls {
 
         private void OnClearClicked(object? sender, RoutedEventArgs e) => PerformClear();
 
-        //Esc on a non-empty field clears it without moving focus; on an already-empty field it resigns instead.
         private void PerformClearOrResignFocus() {
             if (!string.IsNullOrEmpty(Text)) {
                 PerformClear();

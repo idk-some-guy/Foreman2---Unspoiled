@@ -42,7 +42,6 @@
       <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
     </Style>
 
-    <!-- Gallery-only: mirrors the real :checked:pressed Setter since Avalonia won't let outside code set it. -->
     <Style Selector="^.gallery-pressed /template/ Border#PART_Track">
       <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentPressed}" />
     </Style>

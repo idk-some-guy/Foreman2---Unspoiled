@@ -2,7 +2,6 @@ using Avalonia;
 using System.Collections.Generic;
 
 namespace Foreman.Mac.Kit.Appearance {
-    //A20 contract: multiplies sizing tokens by the UiScale step, re-pushed into Application.Resources.
     public static class ScaleContract {
         public static IReadOnlyList<double> Steps { get; } = [1.0, 1.1, 1.25, 1.5, 2.0];
 
@@ -151,7 +150,7 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Metrics.SheetSlide",
         ];
 
-        //Remove-then-resolve (AppearanceHub.ApplyFocusRing's idiom) keeps repeated calls from compounding.
+        //Remove-then-resolve keeps repeated calls from compounding.
         public static void Apply(double step) {
             var app = Application.Current!;
             var resources = app.Resources;

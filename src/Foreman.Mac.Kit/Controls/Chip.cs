@@ -169,7 +169,6 @@ namespace Foreman.Mac.Kit.Controls {
         }
     }
 
-    //A named Border subclass so the ✕ gets its own invokable automation peer.
     public class ChipCloseBox : Border {
         protected override Type StyleKeyOverride => typeof(Border);
 

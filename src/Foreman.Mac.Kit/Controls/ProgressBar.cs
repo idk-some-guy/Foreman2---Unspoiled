@@ -69,7 +69,6 @@ namespace Foreman.Mac.Kit.Controls {
             subs.Add(this.GetResourceObservable("Foreman.Size.ProgressBarSegment").Subscribe(new ResourceSinks.DoubleSink(v => { SegmentWidth = v; ApplyFill(); }, SegmentWidth)));
         }
 
-        //Stretched by its host (the compact state panel), the fill follows the laid-out width; a move alone leaves a running ease alone.
         protected override Size ArrangeOverride(Size finalSize) {
             Size arranged = base.ArrangeOverride(finalSize);
             if (arranged.Width != arrangedWidth) {
@@ -117,7 +116,6 @@ namespace Foreman.Mac.Kit.Controls {
             SetFillWidth(Track * Fraction, animate);
         }
 
-        //A value change eases the fill over the entrance clock; a resize, a token change or Reduce Motion steps it.
         private void SetFillWidth(double target, bool animate) {
             fillRun?.Cancel();
             fillRun = null;

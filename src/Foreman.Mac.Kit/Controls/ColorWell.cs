@@ -15,7 +15,6 @@ using System;
 using System.Collections.Generic;
 
 namespace Foreman.Mac.Kit.Controls {
-    //A swatch and chevron in one hit target that opens a Kit.ColorPopover; requires a PopoverHost ancestor to open.
     public class ColorWell : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(ColorWell);
 
@@ -25,14 +24,12 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<bool> AllowsNoneProperty =
             AvaloniaProperty.Register<ColorWell, bool>(nameof(AllowsNone));
 
-        //Draws partial alpha over the checkerboard; the alpha itself is edited elsewhere.
         public static readonly StyledProperty<bool> AllowsAlphaProperty =
             AvaloniaProperty.Register<ColorWell, bool>(nameof(AllowsAlpha));
 
         public static readonly StyledProperty<bool> IsOpenProperty =
             AvaloniaProperty.Register<ColorWell, bool>(nameof(IsOpen));
 
-        //Falls back to the automation name a Kit.FormRow gives its control.
         public static readonly StyledProperty<string?> AccessibleLabelProperty =
             AvaloniaProperty.Register<ColorWell, string?>(nameof(AccessibleLabel));
 
@@ -66,7 +63,6 @@ namespace Foreman.Mac.Kit.Controls {
 
         internal string? ResolvedLabel => AccessibleLabel ?? AutomationProperties.GetName(this);
 
-        //Palette name, else "Hex RRGGBB"; "None" at alpha 0; with alpha, the opacity in percent.
         internal string AccessibleValue {
             get {
                 if (AllowsNone && Color.A == 0)
@@ -132,7 +128,6 @@ namespace Foreman.Mac.Kit.Controls {
                 noneBox.IsVisible = none;
         }
 
-        //Opened before it is attached (a gallery tile), the well opens once it has a host.
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnAttachedToVisualTree(e);
             insetSub?.Dispose();
@@ -149,7 +144,6 @@ namespace Foreman.Mac.Kit.Controls {
                 frame.IsOpen = false;
         }
 
-        //Built once per host attach; the host defers the Surface add when a layout pass is in flight.
         private void OpenPopover() {
             if (this.FindAncestorOfType<PopoverHost>() is not { } found)
                 throw new InvalidOperationException("ColorWell requires a PopoverHost ancestor to open its popover.");
@@ -179,7 +173,6 @@ namespace Foreman.Mac.Kit.Controls {
             found.Add(frame, () => {
                 if (!IsOpen)
                     return;
-                //Templated before it opens, so the first open runs the kit transition instead of snapping.
                 frame.ApplyTemplate();
                 frame.IsOpen = true;
             });
@@ -195,7 +188,6 @@ namespace Foreman.Mac.Kit.Controls {
         private ControlTheme? FindTheme(string key) =>
             this.TryFindResource(key, null, out object? theme) ? theme as ControlTheme : null;
 
-        //The frame focuses itself once it opens; focus moves on to the selected swatch from there.
         private void OnFrameGotFocus(object? sender, FocusChangedEventArgs e) {
             if (ReferenceEquals(e.Source, Frame) && Frame is { IsOpen: true })
                 Popover?.FocusSelection();
@@ -256,7 +248,6 @@ namespace Foreman.Mac.Kit.Controls {
         }
     }
 
-    //The alternating squares behind a partially transparent swatch.
     public sealed class SwatchChecker : Control {
         private readonly List<IDisposable> subs = [];
 

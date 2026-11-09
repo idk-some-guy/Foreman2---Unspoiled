@@ -135,7 +135,6 @@
       <Setter Property="IsVisible" Value="False" />
     </Style>
 
-    <!-- Find node ruling §04: "No matches" reads one step brighter, the answer rather than an index. -->
     <Style Selector="^:match-status-none /template/ TextBlock#PART_MatchStatus">
       <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
     </Style>

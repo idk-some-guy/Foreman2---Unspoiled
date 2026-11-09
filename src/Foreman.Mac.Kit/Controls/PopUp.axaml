@@ -119,7 +119,6 @@
       <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
     </Style>
 
-    <!-- Gallery-only: mirrors the real :pointerover/:pressed Setters since Avalonia won't let outside code set them. -->
     <Style Selector="^.gallery-hover /template/ Border#PART_Frame">
       <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
     </Style>

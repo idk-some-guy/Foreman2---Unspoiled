@@ -5,7 +5,6 @@ using Avalonia.Controls;
 using System;
 
 namespace Foreman.Mac.Kit.Controls {
-    //A static label VoiceOver reads by its row's name with the shown text as the value ("Save to", "~/a").
     public class ValueText : TextBlock {
         protected override Type StyleKeyOverride => typeof(TextBlock);
 

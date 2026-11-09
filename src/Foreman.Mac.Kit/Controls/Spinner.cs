@@ -27,7 +27,6 @@ namespace Foreman.Mac.Kit.Controls {
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnAttachedToVisualTree(e);
             Subscribe();
-            //Never stops under Reduce Motion - it slows to SpinnerReducedMotionDuration.
             RotationDuration = Motion.ReduceMotion ? Motion.SpinnerReducedMotionDuration : Motion.SpinnerDuration;
             Classes.Set("reduce-motion", Motion.ReduceMotion);
             //A detached keyframe animation completes for good, so the selector has to re-match to restart it.

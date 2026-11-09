@@ -139,7 +139,6 @@ namespace Foreman.Mac.Kit.Controls {
             Unsubscribe();
         }
 
-        //ColumnDefinition.Width is a GridLength, so we convert the raw double resource ourselves rather than bind it in XAML.
         private void Subscribe() {
             Unsubscribe();
             subs.Add(this.GetResourceObservable("Foreman.Size.StepperFieldWidth").Subscribe(new ResourceSinks.DoubleSink(v => {
@@ -230,7 +229,6 @@ namespace Foreman.Mac.Kit.Controls {
             protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Spinner;
             protected override string GetLocalizedControlTypeCore() => "stepper";
 
-            //The field shares this peer, so the stepper is a leaf and has focus whenever the field does.
             protected override IReadOnlyList<AutomationPeer>? GetChildrenCore() => null;
             protected override bool HasKeyboardFocusCore() => Stepper.IsKeyboardFocusWithin;
             protected override bool IsKeyboardFocusableCore() => Stepper.valueBox?.Focusable == true;
@@ -260,7 +258,6 @@ namespace Foreman.Mac.Kit.Controls {
 
     }
 
-    //The field takes keyboard focus but answers to VoiceOver as the stepper it belongs to.
     internal sealed class StepperField : TextBox {
         protected override Type StyleKeyOverride => typeof(TextBox);
 

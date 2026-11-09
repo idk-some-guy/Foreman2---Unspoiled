@@ -83,7 +83,6 @@ namespace Foreman.Mac.Kit {
             public void OnCompleted() { }
         }
 
-        //General-purpose sink for token types with no dedicated sink above (e.g. Geometry?).
         public sealed class Sink<T>(Action<T> onNext, T seed) : IObserver<object?> {
             private T current = seed;
 

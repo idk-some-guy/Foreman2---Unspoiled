@@ -3,7 +3,6 @@ using Avalonia.Platform;
 using System;
 
 namespace Foreman.Mac.Kit.Appearance {
-    //Fakeable seam over platform accent/contrast/transparency/motion - Avalonia guards its own IPlatformSettings against test doubles.
     public interface IPlatformAppearance {
         Color? AccentColor { get; }
         ColorContrastPreference ContrastPreference { get; }

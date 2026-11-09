@@ -193,7 +193,6 @@ namespace Foreman.Mac.Kit.Controls {
             }
         }
 
-        //Star columns get a MinWidth pinned to each label's measured width, so cells stay content-sized until the host sets an explicit Width.
         private void SizeColumns() {
             if (track is null || track.ColumnDefinitions.Count != segments.Count)
                 return;
@@ -277,7 +276,6 @@ namespace Foreman.Mac.Kit.Controls {
         private string? ItemName(int index) =>
             index >= 0 && index < Items.Count ? $"{Items[index]}, {index + 1} of {Items.Count}" : null;
 
-        //AppKit's segmented control reads as a radio group; Avalonia has no such type, so a single-selection list carries it, valued with the selected segment since the group takes focus.
         private sealed class SegmentedAutomationPeer : ControlAutomationPeer, ISelectionProvider, IValueProvider {
             public SegmentedAutomationPeer(Segmented owner) : base(owner) {
                 owner.PropertyChanged += OwnerPropertyChanged;
@@ -311,7 +309,6 @@ namespace Foreman.Mac.Kit.Controls {
             void IValueProvider.SetValue(string? value) { }
         }
 
-        //One segment's hit surface: a Border to the theme, a radio button to VoiceOver.
         private sealed class SegmentedItem(Segmented owner, int index) : Border {
             protected override Type StyleKeyOverride => typeof(Border);
 

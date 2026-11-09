@@ -37,7 +37,6 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<string?> SpokenUnitProperty =
             AvaloniaProperty.Register<Slider, string?>(nameof(SpokenUnit));
 
-        //NaN pages by a quarter of the range.
         public static readonly StyledProperty<double> PageStepProperty =
             AvaloniaProperty.Register<Slider, double>(nameof(PageStep), double.NaN);
 
@@ -147,7 +146,6 @@ namespace Foreman.Mac.Kit.Controls {
                 track.LayoutUpdated += trackLayoutUpdated;
             }
 
-            //The tick row's height tracks the thumb, so ticks need their own resize trigger, not just the track's.
             if (ticks is not null) {
                 ticksLayoutUpdated = (_, _) => {
                     if (ticks.Bounds.Size == lastTicksSize)
@@ -246,7 +244,6 @@ namespace Foreman.Mac.Kit.Controls {
 
         private string RoundedValue => Math.Round(Value).ToString(CultureInfo.InvariantCulture);
 
-        //A narrow no-break space keeps the unit on the number's line, as AppKit sets "40 %".
         private string FormatValue() => string.IsNullOrEmpty(Unit) ? RoundedValue : $"{RoundedValue}\u202F{Unit}";
 
         protected override void OnPointerEntered(PointerEventArgs e) {
@@ -364,7 +361,6 @@ namespace Foreman.Mac.Kit.Controls {
 
         protected override AutomationPeer OnCreateAutomationPeer() => new SliderAutomationPeer(this);
 
-        //AXValue is the raw number; the spoken unit rides on the value string, since Avalonia has no AXValueDescription.
         private sealed class SliderAutomationPeer : ControlAutomationPeer, IRangeValueProvider, IValueProvider {
             public SliderAutomationPeer(Slider owner) : base(owner) {
                 owner.PropertyChanged += OwnerPropertyChanged;
@@ -384,7 +380,6 @@ namespace Foreman.Mac.Kit.Controls {
 
             protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Slider;
 
-            //The thumb shares this peer, so the slider is a leaf and has focus whenever the thumb does.
             protected override IReadOnlyList<AutomationPeer>? GetChildrenCore() => null;
             protected override bool HasKeyboardFocusCore() => Slider.IsKeyboardFocusWithin;
             protected override bool IsKeyboardFocusableCore() => Slider.thumb?.Focusable == true;
@@ -405,7 +400,6 @@ namespace Foreman.Mac.Kit.Controls {
 
     }
 
-    //The thumb takes keyboard focus but answers to VoiceOver as the slider it belongs to.
     internal sealed class SliderThumb : Border {
         protected override Type StyleKeyOverride => typeof(Border);
 
