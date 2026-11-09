@@ -138,7 +138,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             });
             Assert.Equal("Copper cable, output, 2 per second, overproducing", tabs[0].GetName());
             Assert.Equal("Copper plate, input, 1 per second", tabs[1].GetName());
-            Assert.Equal(2, ((NodeAutomationPeer)node).TabPeers.Count);
             Assert.Equal("Actions: Delete, Flip, Auto-connect, Show Inspector", node.GetHelpText());
 
             fx.Viewer.Graph.SelectedRateUnit = ProductionGraph.RateUnit.Per1Min;

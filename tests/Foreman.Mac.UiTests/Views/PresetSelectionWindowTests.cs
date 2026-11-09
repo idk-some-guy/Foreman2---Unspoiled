@@ -5,7 +5,6 @@ using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
@@ -103,12 +102,13 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public void SimulateDoubleClickRow_SetsChosenPresetAndClosesOk() {
+        public void SelectingARowAndConfirming_SetsChosenPreset() {
             var preset = new Preset("P", false, false);
             var errors = NewPackage(preset, 1, 0, 0, 0, 1, 0, 1, 0, 0);
             var sheet = new PresetSelectionSheet([errors]);
 
-            sheet.SimulateDoubleClickRow(preset);
+            sheet.SimulateSelectRow(preset);
+            sheet.SimulateConfirmClick();
 
             Assert.Equal(preset, sheet.ChosenPreset);
         }
@@ -142,7 +142,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Null(sheet.SheetHeight);
             Assert.Equal(["Cancel", "Load Preset"], sheet.Buttons!.Items.Cast<Button>().Select(b => b.Content));
             Assert.Same(sheet.ConfirmationButtonControl, sheet.Buttons.ResolveDefaultButton());
-            Assert.Same(sheet.CancellingButtonControl, sheet.Buttons.Items.Cast<Button>().Single(b => ButtonRow.GetRole(b) == ButtonRowRole.Cancel));
+            Assert.Equal("Cancel", sheet.Buttons.Items.Cast<Button>().Single(b => ButtonRow.GetRole(b) == ButtonRowRole.Cancel).Content);
             var texts = sheet.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
             Assert.Contains("No preset matches this graph exactly; the ratings show how much of it each preset can reproduce.", texts);
             Assert.Equal(["Preset", "Mods", "Items", "Recipes"], sheet.HeaderRowControl.Children.OfType<TextBlock>().Select(t => t.Text));

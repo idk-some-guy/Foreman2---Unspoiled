@@ -7,7 +7,6 @@ using Avalonia.VisualTree;
 using Foreman.Mac.Converters;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
-using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;

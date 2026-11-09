@@ -1,17 +1,13 @@
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Foreman;
 using Foreman.DataCaching;
-using Foreman.DataCaching.DataTypes;
 using Foreman.Mac;
 using Foreman.Mac.Kit.Controls;
-using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;

@@ -1,5 +1,4 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Styling;
@@ -11,7 +10,7 @@ using System.Text.RegularExpressions;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Tokens {
-    public class KitAliasDeletionTests {
+    public class KitTokenResolutionTests {
         private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 
         private static void MergeKitIntoApplication() {
@@ -21,7 +20,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Application.Current!.Resources.MergedDictionaries.Add(kit);
         }
 
-        private static readonly string[] AddendumKeys = [
+        private static readonly string[] KitTokenKeys = [
             "Foreman.Color.PopoverMaterial",
             "Foreman.Color.SliderThumb",
             "Foreman.Color.Text",
@@ -69,10 +68,10 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         ];
 
         [AvaloniaFact]
-        public void EveryAddendumToken_ResolvesInBothVariants() {
+        public void EveryKitTokenKey_ResolvesInBothVariants() {
             MergeKitIntoApplication();
 
-            foreach (string key in AddendumKeys) {
+            foreach (string key in KitTokenKeys) {
                 Assert.True(Application.Current!.TryGetResource(key, ThemeVariant.Light, out _), $"{key} did not resolve for Light");
                 Assert.True(Application.Current!.TryGetResource(key, ThemeVariant.Dark, out _), $"{key} did not resolve for Dark");
             }

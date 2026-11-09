@@ -1,5 +1,4 @@
 using Avalonia.Media.Imaging;
-using Foreman;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Views;
 using SkiaSharp;

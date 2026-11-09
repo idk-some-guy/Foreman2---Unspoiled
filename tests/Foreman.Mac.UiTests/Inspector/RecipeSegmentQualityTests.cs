@@ -1,14 +1,10 @@
 using Avalonia.Headless.XUnit;
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
-using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.ViewModels;
-using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
-using Foreman.Models.Nodes;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;

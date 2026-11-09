@@ -123,9 +123,8 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         [AvaloniaTheory]
         [InlineData("Tokens.Light.axaml")]
         [InlineData("Tokens.Dark.axaml")]
-        public void ShadowWindowAndShadowCard_AreDefined(string fileName) {
+        public void ShadowCard_IsDefined(string fileName) {
             var tokens = LoadThemeFile(fileName);
-            Assert.IsType<BoxShadows>(tokens["Foreman.Shadow.Window"]);
             Assert.IsType<BoxShadows>(tokens["Foreman.Shadow.Card"]);
         }
 

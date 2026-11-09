@@ -5,7 +5,6 @@ using Avalonia.Input;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
@@ -17,12 +16,10 @@ using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
-using Foreman.Models.Nodes;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Reflection;
 using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
 using KitPickGrid = Foreman.Mac.Kit.Composites.PickGrid;
@@ -55,15 +52,10 @@ namespace Foreman.Mac.UiTests.Inspector {
             public bool Resolved => Math.Abs(consumer.ActualSetValue - staleValue) < 0.0001;
         }
 
-        private static DataCacheStore Store(DataCache cache) {
-            FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            return (DataCacheStore)field.GetValue(cache)!;
-        }
-
         private static Fixture NewFixture() {
             var cache = new DataCache(filterRecipes: true);
             var normal = new QualityPrototype(cache, "normal", "Normal", "a");
-            DataCacheStore store = Store(cache);
+            DataCacheStore store = InspectorTestSupport.Store(cache);
             store.Qualities[normal.Name] = normal;
             store.DefaultQuality = normal;
 
@@ -86,14 +78,14 @@ namespace Foreman.Mac.UiTests.Inspector {
 
         private static ItemPrototype NewItem(Fixture fx, string name) {
             var item = new ItemPrototype(fx.Cache, name, name, fx.Subgroup, "a") { Available = true };
-            Store(fx.Cache).Items[name] = item;
+            InspectorTestSupport.Store(fx.Cache).Items[name] = item;
             return item;
         }
 
         private static ModulePrototype NewModule(Fixture fx, string name, double speedBonus = 0) {
             NewItem(fx, name);
             var module = new ModulePrototype(fx.Cache, name, name) { SpeedBonus = speedBonus, Category = "production" };
-            Store(fx.Cache).Modules[name] = module;
+            InspectorTestSupport.Store(fx.Cache).Modules[name] = module;
             return module;
         }
 
@@ -102,7 +94,7 @@ namespace Foreman.Mac.UiTests.Inspector {
 
         private static BeaconPrototype NewBeacon(Fixture fx, string name) {
             var beacon = new BeaconPrototype(fx.Cache, name, name, EnergySource.Electric) { Available = true, ModuleSlots = 2 };
-            Store(fx.Cache).Beacons[name] = beacon;
+            InspectorTestSupport.Store(fx.Cache).Beacons[name] = beacon;
             return beacon;
         }
 
@@ -112,7 +104,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             ingredient.ConsumptionRecipesInternal.Add(recipe);
             recipe.InternalOneWayAddProduct(product, 1, 0);
             product.ProductionRecipesInternal.Add(recipe);
-            Store(fx.Cache).Recipes[name] = recipe;
+            InspectorTestSupport.Store(fx.Cache).Recipes[name] = recipe;
             return recipe;
         }
 

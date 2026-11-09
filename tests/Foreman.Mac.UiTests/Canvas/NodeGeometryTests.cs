@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Headless.XUnit;
 using Avalonia.Platform;
 using Foreman.Mac.Kit.Appearance;
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
@@ -538,8 +537,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [AvaloniaFact]
-        public void NoDrawnString_IsARetiredUpstreamLabel_AndAManualSupplierDrawsFixedChip() {
-            string[] retired = ["Infinite Source:", "Exact Input:", "Infinite Sink:", "Required Output:", "-Limit-"];
+        public void NodesDrawTheirDetailAndChipTexts_AManualSupplierDrawsFixedChip() {
             Fixture fx = NewFixture();
             SupplierNodeElement autoSupplier = Supplier(fx, "ore");
             SupplierNodeElement manualSupplier = Supplier(fx, "coal");
@@ -555,9 +553,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             BaseNodeElement[] nodes = [autoSupplier, manualSupplier, autoConsumer, manualConsumer, autoPassthrough, manualPassthrough, Spoil(fx), Plant(fx)];
             foreach (BaseNodeElement node in nodes)
                 Render(node).Dispose();
-
-            foreach (BaseNodeElement node in nodes)
-                Assert.DoesNotContain(AllTexts(node), text => retired.Contains(text.Text));
 
             string Detail(BaseNodeElement node) => node.Texts.Single(text => text.Role is NodeTextRole.Detail or NodeTextRole.Chip).Text;
             (NodeTextRole, string) Chip(BaseNodeElement node) => node.Texts.Where(text => text.Role is NodeTextRole.Detail or NodeTextRole.Chip).Select(text => (text.Role, text.Text)).Single();

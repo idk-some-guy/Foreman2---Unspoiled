@@ -1,6 +1,5 @@
 using Avalonia.Headless;
 using Avalonia.Input;
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;

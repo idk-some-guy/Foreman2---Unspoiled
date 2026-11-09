@@ -1,7 +1,5 @@
 using Avalonia.Headless.XUnit;
-using Foreman;
 using Foreman.DataCaching.DataTypes;
-using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.KitSkia;
@@ -9,7 +7,6 @@ using Foreman.Mac.Services;
 using Foreman.Mac.Views;
 using Foreman.Mac.UiTests.support;
 using Foreman.Models;
-using Foreman.Models.Nodes;
 using Foreman.Serialization;
 using SkiaSharp;
 using System;
@@ -119,7 +116,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(0f, segments[0].To.X - segments[0].From.X, 0.01f);
             Assert.Equal(-12f * (float)step, segments[0].To.Y - segments[0].From.Y, 0.01f);
             Assert.Equal(12f * (float)step, TokenBridge.Current.LinkStub, 0.001f);
-            Assert.Null(typeof(LinkRouter).GetField("StubLength", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public));
             float stub = TokenBridge.Current.LinkStub;
             List<SKPoint> ahead = LinkRouter.OrthogonalPoints(new Point(0, -43), NodeDirection.Up, new Point(300, -243), NodeDirection.Up, [], stub, SupplierCard, new SKRect(240, -330, 360, -270));
             Assert.Equal((ahead[1].Y + ahead[^2].Y) / 2f, ahead[2].Y, 0.01f);

@@ -1,8 +1,6 @@
 using Avalonia;
 using Avalonia.Headless.XUnit;
-using Foreman;
 using Foreman.DataCaching;
-using Foreman.Mac;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;

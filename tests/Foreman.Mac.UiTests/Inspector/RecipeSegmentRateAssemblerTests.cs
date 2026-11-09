@@ -4,7 +4,6 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
@@ -17,11 +16,9 @@ using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
-using Foreman.Models.Nodes;
 using System;
 using System.Drawing;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
@@ -62,15 +59,10 @@ namespace Foreman.Mac.UiTests.Inspector {
             public bool Resolved => Math.Abs(consumer.ActualSetValue - staleValue) < 0.0001;
         }
 
-        private static DataCacheStore Store(DataCache cache) {
-            FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            return (DataCacheStore)field.GetValue(cache)!;
-        }
-
         private static Fixture NewFixture() {
             var cache = new DataCache(filterRecipes: true);
             var normal = new QualityPrototype(cache, "normal", "Normal", "a");
-            DataCacheStore store = Store(cache);
+            DataCacheStore store = InspectorTestSupport.Store(cache);
             store.Qualities[normal.Name] = normal;
             store.DefaultQuality = normal;
 
@@ -93,7 +85,7 @@ namespace Foreman.Mac.UiTests.Inspector {
 
         private static ItemPrototype NewItem(Fixture fx, string name) {
             var item = new ItemPrototype(fx.Cache, name, name, fx.Subgroup, "a") { Available = true };
-            Store(fx.Cache).Items[name] = item;
+            InspectorTestSupport.Store(fx.Cache).Items[name] = item;
             return item;
         }
 
@@ -105,7 +97,7 @@ namespace Foreman.Mac.UiTests.Inspector {
                 ProductivityBonus = productivityBonus,
                 Category = "production",
             };
-            Store(fx.Cache).Modules[name] = module;
+            InspectorTestSupport.Store(fx.Cache).Modules[name] = module;
             return module;
         }
 
@@ -118,7 +110,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             ingredient.ConsumptionRecipesInternal.Add(recipe);
             recipe.InternalOneWayAddProduct(product, 1, 0);
             product.ProductionRecipesInternal.Add(recipe);
-            Store(fx.Cache).Recipes[name] = recipe;
+            InspectorTestSupport.Store(fx.Cache).Recipes[name] = recipe;
             return recipe;
         }
 
@@ -193,7 +185,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             LinkAssembler(recipe, burner);
             LinkAssembler(recipe, disabled);
             LinkAssembler(mineCoal, electric);
-            Store(fx.Cache).Recipes[mineCoal.Name] = mineCoal;
+            InspectorTestSupport.Store(fx.Cache).Recipes[mineCoal.Name] = mineCoal;
 
             ModulePrototype module = NewModule(fx, "speed-module", speedBonus: 0.5, consumptionBonus: 0.2, productivityBonus: 0.1);
             electric.ModulesInternal.Add(module);
@@ -421,7 +413,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             mineGas.InternalOneWayAddProduct(gas, 1, 0);
             gas.ProductionRecipesInternal.Add(mineGas);
             LinkAssembler(mineGas, rf.Electric);
-            Store(rf.Fx.Cache).Recipes[mineGas.Name] = mineGas;
+            InspectorTestSupport.Store(rf.Fx.Cache).Recipes[mineGas.Name] = mineGas;
 
             IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
             RecipeNodeController controller = ControllerFor(rf.Fx, node);
@@ -943,7 +935,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             mineGas.InternalOneWayAddProduct(gas, 1, 0);
             gas.ProductionRecipesInternal.Add(mineGas);
             LinkAssembler(mineGas, rf.Electric);
-            Store(rf.Fx.Cache).Recipes[mineGas.Name] = mineGas;
+            InspectorTestSupport.Store(rf.Fx.Cache).Recipes[mineGas.Name] = mineGas;
 
             IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, rf.Recipe, rf.Fx.Normal, new Point(0, 0));
             RecipeNodeController controller = ControllerFor(rf.Fx, node);
@@ -993,12 +985,12 @@ namespace Foreman.Mac.UiTests.Inspector {
         public void GeneratorStatReadout_MatchesHandDerivedValues() {
             RecipeFixture rf = NewRecipeFixture();
             var steam = new FluidPrototype(rf.Fx.Cache, "steam", "Steam", rf.Fx.Subgroup, "a") { Available = true, IsTemperatureDependent = true, DefaultTemperature = 15 };
-            Store(rf.Fx.Cache).Items[steam.Name] = steam;
+            InspectorTestSupport.Store(rf.Fx.Cache).Items[steam.Name] = steam;
 
             var generatorRecipe = new RecipePrototype(rf.Fx.Cache, "generate-power", "Generate Power", rf.Fx.Subgroup, "a") { Available = true };
             generatorRecipe.InternalOneWayAddIngredient(steam, 1, 100, 500);
             steam.ConsumptionRecipesInternal.Add(generatorRecipe);
-            Store(rf.Fx.Cache).Recipes[generatorRecipe.Name] = generatorRecipe;
+            InspectorTestSupport.Store(rf.Fx.Cache).Recipes[generatorRecipe.Name] = generatorRecipe;
 
             AssemblerPrototype generator = NewAssembler(rf.Fx, "generator", EnergySource.Electric, EntityType.Generator);
             generator.OperationTemperature = 500;
@@ -1029,7 +1021,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             RecipeFixture rf = NewRecipeFixture();
             var missingRecipe = new RecipePrototype(rf.Fx.Cache, "missing-recipe", "Missing Recipe", rf.Fx.Subgroup, "a", isMissing: true) { Available = true };
             LinkAssembler(missingRecipe, rf.Electric);
-            Store(rf.Fx.Cache).Recipes[missingRecipe.Name] = missingRecipe;
+            InspectorTestSupport.Store(rf.Fx.Cache).Recipes[missingRecipe.Name] = missingRecipe;
             IRecipeNodeViewModel node = CreateRecipeNode(rf.Fx, missingRecipe, rf.Fx.Normal, new Point(0, 0));
 
             (_, RecipeSegmentView view) = NewSegmentView(rf, node);

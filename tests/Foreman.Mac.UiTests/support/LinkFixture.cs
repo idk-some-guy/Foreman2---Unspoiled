@@ -1,6 +1,5 @@
 using Avalonia.Headless;
 using Avalonia.Input;
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
@@ -11,7 +10,6 @@ using Foreman.Models;
 using SkiaSharp;
 using System;
 using System.Drawing;
-using System.Linq;
 using System.Reflection;
 using AvaloniaPoint = Avalonia.Point;
 using AvaloniaWindow = Avalonia.Controls.Window;

@@ -245,7 +245,6 @@
 
   <StreamGeometry x:Key="Kit.Glyph.Plus.12">M5.46,2.64 H6.54 V5.46 H9.36 V6.54 H6.54 V9.36 H5.46 V6.54 H2.64 V5.46 H5.46 Z</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Minus.12">M2.64,5.46 H9.36 V6.54 H2.64 Z</StreamGeometry>
-  <StreamGeometry x:Key="Kit.Glyph.SlotAdd.12">M5.46,2.64 H6.54 V5.46 H9.36 V6.54 H6.54 V9.36 H5.46 V6.54 H2.64 V5.46 H5.46 Z</StreamGeometry>
 
   <StreamGeometry x:Key="Kit.Glyph.Node.Over.20">M10,16 V4.5 M5.5,9 L10,4.5 L14.5,9</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Node.Over.10">M5,8 V2.25 M2.75,4.5 L5,2.25 L7.25,4.5</StreamGeometry>

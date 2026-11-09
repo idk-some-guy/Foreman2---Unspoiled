@@ -2,13 +2,13 @@ using Avalonia.Threading;
 using Foreman.DataCaching;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
-using Foreman.Mac;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Models;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -53,8 +53,13 @@ namespace Foreman.Mac.UiTests.Inspector {
             return sharedSpaceAgeCache;
         }
 
-        internal static async Task<MainWindow> OpenWindowWithGraphAsync() {
-            DataCache cache = await GetCacheAsync();
+        internal static DataCacheStore Store(DataCache cache) {
+            FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            return (DataCacheStore)field.GetValue(cache)!;
+        }
+
+        internal static async Task<MainWindow> OpenWindowWithGraphAsync(DataCache? cache = null) {
+            cache ??= await GetCacheAsync();
             var window = new MainWindow();
             window.Show();
             window.DataCache = cache;

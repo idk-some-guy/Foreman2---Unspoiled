@@ -6,7 +6,6 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Foreman.Mac.Views;
 using System;
-using Foreman.DataCaching;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;

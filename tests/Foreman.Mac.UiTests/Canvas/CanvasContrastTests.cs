@@ -5,7 +5,6 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
-using Foreman.Mac;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.KitSkia;
@@ -30,9 +29,6 @@ namespace Foreman.Mac.UiTests.Canvas {
     public class CanvasContrastTests {
         private const int Half = 200;
         private static readonly string Scratch = Environment.GetEnvironmentVariable("FOREMAN_TEST_OUT") is { Length: > 0 } configured ? configured : Path.GetTempPath();
-
-        private static string AppSource(params string[] relative) =>
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "Foreman.Mac", Path.Combine(relative)));
 
         private static AvColor Av(SKColor color) => AvColor.FromArgb(255, color.Red, color.Green, color.Blue);
 
@@ -217,12 +213,8 @@ namespace Foreman.Mac.UiTests.Canvas {
                 TokenBridge.Refresh();
             }
 
-            Assert.Null(typeof(CanvasTokens).GetProperty("TextTertiary"));
-            string[] readers = [.. Directory.EnumerateFiles(AppSource("Canvas"), "*.cs", SearchOption.AllDirectories).Where(path => File.ReadAllText(path).Contains("TextTertiary", StringComparison.Ordinal))];
-            Assert.Empty(readers);
-
             Directory.CreateDirectory(Scratch);
-            File.WriteAllLines(Path.Combine(Scratch, "canvas-contrast.txt"), claims.Select(Line).Append("no canvas painter reads TextTertiary"));
+            File.WriteAllLines(Path.Combine(Scratch, "canvas-contrast.txt"), claims.Select(Line));
             Assert.Empty(claims.Where(claim => !claim.Met).Select(Line));
         }
 

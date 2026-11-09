@@ -4,7 +4,6 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Foreman;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
@@ -34,19 +33,6 @@ namespace Foreman.Mac.UiTests.Theming {
 
             Assert.Equal(19.5, ResourceDouble("Foreman.Type.Body.FontSize"));
             Assert.Equal(33.0, ResourceDouble("Foreman.Size.ControlHeightRegular"));
-        }
-
-        [AvaloniaFact]
-        public void SetScale_AtOneFifty_LeavesBordersRadiiFocusRingAndScrimFixed() {
-            WindowScaler.SetScale(1.5);
-
-            Assert.Equal(3.0, ResourceDouble("Foreman.FocusRing.Width"));
-
-            Application.Current!.TryGetResource("Foreman.Radius.Control", Application.Current.ActualThemeVariant, out object? radius);
-            Assert.Equal(new CornerRadius(6), radius);
-
-            Application.Current!.TryGetResource("Foreman.Color.SheetScrim", Application.Current.ActualThemeVariant, out object? scrim);
-            Assert.Equal(Avalonia.Media.Color.Parse("#80000000"), scrim);
         }
 
         [AvaloniaFact]

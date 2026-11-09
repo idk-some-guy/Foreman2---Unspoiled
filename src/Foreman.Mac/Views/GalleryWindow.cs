@@ -19,7 +19,6 @@ using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Gallery;
 using Foreman.Mac.Services;
-using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using Foreman.Models.Solver;
 using System;
@@ -102,7 +101,7 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Buttons & Toolbar items (150%)", "150%", BuildButtonsAndToolbarItemsScaledTile));
             registry.Register(new GalleryTile("Kit", "Checkbox", "Default", BuildCheckboxTile));
             registry.Register(new GalleryTile("Kit", "Radio group", "Default", BuildRadioGroupTile));
-            registry.Register(new GalleryTile("Kit", "Switch — Settings only (A16)", "Default", BuildSwitchTile));
+            registry.Register(new GalleryTile("Kit", "Switch", "Default", BuildSwitchTile));
             registry.Register(new GalleryTile("Kit", "Checkbox, Radio group & Switch (150%)", "150%", BuildSelectionControlsScaledTile));
             registry.Register(new GalleryTile("Kit", "Segmented", "Default", BuildSegmentedTile));
             registry.Register(new GalleryTile("Kit", "Pop-up buttons", "Default", BuildPopUpButtonsTile));

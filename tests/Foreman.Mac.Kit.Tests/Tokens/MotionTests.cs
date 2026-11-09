@@ -3,7 +3,6 @@ using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Headless.XUnit;
 using Avalonia.Layout;
-using Foreman.Mac.Kit;
 using System;
 using System.Linq;
 using Xunit;

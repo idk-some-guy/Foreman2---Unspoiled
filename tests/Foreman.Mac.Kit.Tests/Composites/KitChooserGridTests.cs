@@ -4,7 +4,6 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
-using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -64,7 +63,8 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void AnItemMarkedIconMissing_BuildsItsCellIconMissing_AndOnlyThatCell() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.Sections[0].Items[1].IsIconMissing = true;
+            ChooserItem copper = grid.Sections[0].Items[1];
+            copper.IsIconMissing = true;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
@@ -142,102 +142,115 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void RightArrow_MovesForward_LeftArrowMovesBack() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[0].Items[0];
+            ChooserItem iron = grid.Sections[0].Items[0];
+            ChooserItem copper = grid.Sections[0].Items[1];
+            grid.SelectedItem = iron;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).KeyDown(Key.Right);
-            Assert.Equal(grid.Sections[0].Items[1], grid.SelectedItem);
+            Assert.Equal(copper, grid.SelectedItem);
 
             fixture.StateOf(grid).KeyDown(Key.Left);
-            Assert.Equal(grid.Sections[0].Items[0], grid.SelectedItem);
+            Assert.Equal(iron, grid.SelectedItem);
         }
 
         [AvaloniaFact]
         public void LeftArrow_AtTheVeryFirstCell_IsANoOp() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[0].Items[0];
+            ChooserItem iron = grid.Sections[0].Items[0];
+            grid.SelectedItem = iron;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).KeyDown(Key.Left);
 
-            Assert.Equal(grid.Sections[0].Items[0], grid.SelectedItem);
+            Assert.Equal(iron, grid.SelectedItem);
         }
 
         [AvaloniaFact]
         public void RightArrow_AtTheVeryLastCell_IsANoOp() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[1].Items[1];
+            ChooserItem moltenIron = grid.Sections[1].Items[1];
+            grid.SelectedItem = moltenIron;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).KeyDown(Key.Right);
 
-            Assert.Equal(grid.Sections[1].Items[1], grid.SelectedItem);
+            Assert.Equal(moltenIron, grid.SelectedItem);
         }
 
         [AvaloniaFact]
         public void DownArrow_FromTheLastRowOfASection_LandsInTheFirstRowOfTheNextSection() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[0].Items[2];
+            ChooserItem steel = grid.Sections[0].Items[2];
+            ChooserItem castingIron = grid.Sections[1].Items[0];
+            grid.SelectedItem = steel;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).KeyDown(Key.Down);
 
-            Assert.Equal(grid.Sections[1].Items[0], grid.SelectedItem);
+            Assert.Equal(castingIron, grid.SelectedItem);
         }
 
         [AvaloniaFact]
         public void UpArrow_FromTheFirstRowOfASection_LandsInTheLastRowOfThePreviousSection() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[1].Items[0];
+            ChooserItem steel = grid.Sections[0].Items[2];
+            ChooserItem castingIron = grid.Sections[1].Items[0];
+            grid.SelectedItem = castingIron;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).KeyDown(Key.Up);
 
-            Assert.Equal(grid.Sections[0].Items[2], grid.SelectedItem);
+            Assert.Equal(steel, grid.SelectedItem);
         }
 
         [AvaloniaFact]
         public void UpArrow_AtTheTopRow_IsANoOp() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[0].Items[0];
+            ChooserItem iron = grid.Sections[0].Items[0];
+            grid.SelectedItem = iron;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).KeyDown(Key.Up);
 
-            Assert.Equal(grid.Sections[0].Items[0], grid.SelectedItem);
+            Assert.Equal(iron, grid.SelectedItem);
         }
 
         [AvaloniaFact]
         public void HomeAndEnd_JumpToTheFirstAndLastCellInTheWholeGrid() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[0].Items[1];
+            ChooserItem iron = grid.Sections[0].Items[0];
+            ChooserItem copper = grid.Sections[0].Items[1];
+            ChooserItem moltenIron = grid.Sections[1].Items[1];
+            grid.SelectedItem = copper;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).KeyDown(Key.End);
-            Assert.Equal(grid.Sections[1].Items[1], grid.SelectedItem);
+            Assert.Equal(moltenIron, grid.SelectedItem);
 
             fixture.StateOf(grid).KeyDown(Key.Home);
-            Assert.Equal(grid.Sections[0].Items[0], grid.SelectedItem);
+            Assert.Equal(iron, grid.SelectedItem);
         }
 
         [AvaloniaFact]
         public void PageDown_MovesBySomeMultipleOfARow_PageUpReturns() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid(height: 150);
-            grid.SelectedItem = grid.Sections[0].Items[0];
+            ChooserItem iron = grid.Sections[0].Items[0];
+            grid.SelectedItem = iron;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
@@ -248,14 +261,15 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(cellByItem[grid.SelectedItem!].Bounds.Y > startY);
 
             fixture.StateOf(grid).KeyDown(Key.PageUp);
-            Assert.Equal(grid.Sections[0].Items[0], grid.SelectedItem);
+            Assert.Equal(iron, grid.SelectedItem);
         }
 
         [AvaloniaFact]
         public void Return_RaisesActivatedForTheSelectedItem() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[0].Items[1];
+            ChooserItem copper = grid.Sections[0].Items[1];
+            grid.SelectedItem = copper;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
@@ -264,33 +278,37 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
             fixture.StateOf(grid).KeyDown(Key.Return);
 
-            Assert.Equal(grid.Sections[0].Items[1], activated);
+            Assert.Equal(copper, activated);
         }
 
         [AvaloniaFact]
         public void TypeToSelect_MatchesWithinTheCurrentSectionFirst() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[0].Items[0];
+            ChooserItem iron = grid.Sections[0].Items[0];
+            ChooserItem copper = grid.Sections[0].Items[1];
+            grid.SelectedItem = iron;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).Type("c");
 
-            Assert.Equal(grid.Sections[0].Items[1], grid.SelectedItem);
+            Assert.Equal(copper, grid.SelectedItem);
         }
 
         [AvaloniaFact]
         public void TypeToSelect_FallsThroughToOtherSectionsWhenNothingMatchesLocally() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[0].Items[0];
+            ChooserItem iron = grid.Sections[0].Items[0];
+            ChooserItem moltenIron = grid.Sections[1].Items[1];
+            grid.SelectedItem = iron;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).Type("m");
 
-            Assert.Equal(grid.Sections[1].Items[1], grid.SelectedItem);
+            Assert.Equal(moltenIron, grid.SelectedItem);
         }
 
         [AvaloniaFact]
@@ -465,13 +483,14 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void ClickingACell_SelectsItAndFocusesTheGrid() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
+            ChooserItem steel = grid.Sections[0].Items[2];
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             ChooserCell target = Cells(grid)[2];
             fixture.StateOf(target).Click();
 
-            Assert.Equal(grid.Sections[0].Items[2], grid.SelectedItem);
+            Assert.Equal(steel, grid.SelectedItem);
             Assert.True(grid.IsFocused);
         }
 
@@ -551,14 +570,15 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void SelectionSurvives_ARebuildWithTheSameItems() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[0].Items[1];
+            ChooserItem copper = grid.Sections[0].Items[1];
+            grid.SelectedItem = copper;
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             grid.Query = "same items, different heading text";
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(grid.Sections[0].Items[1], grid.SelectedItem);
+            Assert.Equal(copper, grid.SelectedItem);
             Assert.True(Cells(grid)[1].IsSelected);
         }
 
@@ -583,12 +603,13 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void RightArrow_WithNothingSelected_LandsOnCellZero_NotCellOne() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
+            ChooserItem iron = grid.Sections[0].Items[0];
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).KeyDown(Key.Right);
 
-            Assert.Equal(grid.Sections[0].Items[0], grid.SelectedItem);
+            Assert.Equal(iron, grid.SelectedItem);
         }
 
         [AvaloniaFact]
@@ -596,7 +617,8 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             using var fixture = new KitFixture();
             var grid = new ChooserGrid { Theme = KitChooserGridTheme(), Width = 250 };
             var section = new ChooserSection { Subgroup = "Metals" };
-            section.Items.Add(new ChooserItem { Name = "Iron plate" });
+            var ironPlate = new ChooserItem { Name = "Iron plate" };
+            section.Items.Add(ironPlate);
             section.Items.Add(new ChooserItem { Name = "Ice pack" });
             grid.Sections.Add(section);
             fixture.Window.Content = grid;
@@ -604,7 +626,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
             fixture.StateOf(grid).Type("I");
 
-            Assert.Equal(grid.Sections[0].Items[0], grid.SelectedItem);
+            Assert.Equal(ironPlate, grid.SelectedItem);
         }
 
         [AvaloniaFact]

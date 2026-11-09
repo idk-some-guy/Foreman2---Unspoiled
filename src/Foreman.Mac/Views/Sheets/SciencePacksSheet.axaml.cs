@@ -7,7 +7,6 @@ using Avalonia.Styling;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Kit.Composites;
-using Foreman.Mac.Services;
 using SkiaSharp;
 using System.Collections.Generic;
 using System.Linq;
@@ -115,7 +114,6 @@ namespace Foreman.Mac.Views.Sheets {
         private Bitmap GetOrBakeIcon(SKBitmap icon) => IconBaker.GetOrBake(bakedIconCache, icon, IconSize);
 
         internal Button ConfirmationButtonControl => confirmationButton;
-        internal Button CancellationButtonControl => cancellationButton;
         internal IReadOnlyDictionary<ChooserCell, bool> SciencePackButtonStates => sciencePackButtons;
         internal ChooserCell? PackButtonFor(IItem sciencePack) => sciencePackButtons.Keys.FirstOrDefault(b => ReferenceEquals(b.Tag, sciencePack));
         internal void SimulateConfirmClick() => Confirm();

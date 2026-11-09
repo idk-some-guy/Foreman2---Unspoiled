@@ -1,4 +1,3 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Automation.Peers;
 using Avalonia.Headless.XUnit;
@@ -17,7 +16,6 @@ using Foreman.Mac.Views.QuickAdd;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Xunit;

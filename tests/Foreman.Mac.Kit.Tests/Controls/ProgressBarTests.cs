@@ -9,7 +9,6 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.Mac.Kit.Appearance;
-using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Kit.Tests.support;
 using System.Linq;
 using Xunit;

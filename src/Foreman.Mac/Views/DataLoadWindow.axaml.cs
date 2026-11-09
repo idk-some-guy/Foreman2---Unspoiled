@@ -1,4 +1,3 @@
-using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -75,12 +74,10 @@ namespace Foreman.Mac.Views {
         public Preset LoadedPreset => currentPreset;
         public int Progress => currentPercent;
 
-        internal TextBlock HeadlineTextControl => headlineText;
         internal TextBlock StageTextControl => stageText;
         internal KitProgressBar ProgressBarControl => progressBar;
         internal Button CancelButtonControl => cancelButton;
         internal StatePanel? FailurePanelControl => failurePanel;
-        internal TextBlock StageAnnouncerControl => stageAnnouncer;
 
         public DataLoadWindow() : this(new Preset(string.Empty, false, false)) {
         }

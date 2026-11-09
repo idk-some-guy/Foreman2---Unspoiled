@@ -17,7 +17,6 @@ using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using Foreman.Mac.Views.QuickAdd;
-using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;

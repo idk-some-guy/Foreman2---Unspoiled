@@ -5,7 +5,6 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using Foreman.DataCaching;
 using Foreman.Graph;
-using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Kit.Appearance;

@@ -4,7 +4,6 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Foreman.Mac;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Sheets;

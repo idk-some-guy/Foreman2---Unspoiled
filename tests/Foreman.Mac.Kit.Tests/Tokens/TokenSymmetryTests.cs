@@ -38,7 +38,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
 
             Assert.Empty(onlyInLight);
             Assert.Empty(onlyInDark);
-            Assert.Equal(308, lightKeys.Count);
+            Assert.Equal(307, lightKeys.Count);
         }
 
         [AvaloniaFact]

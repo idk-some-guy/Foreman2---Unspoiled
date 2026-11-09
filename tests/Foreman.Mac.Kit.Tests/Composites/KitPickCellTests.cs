@@ -11,7 +11,6 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Foreman.Mac.Kit;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;

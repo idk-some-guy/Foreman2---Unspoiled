@@ -5,7 +5,6 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas.Elements;
-using Foreman.Mac.Services;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using Foreman.Serialization;

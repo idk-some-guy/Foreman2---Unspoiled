@@ -104,18 +104,6 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.NotNull(GlyphGeometry("Plus", 12));
             Assert.NotNull(GlyphGeometry("Minus", 12));
         }
-
-        [AvaloniaFact]
-        public void SlotAdd_AndPlus_ResolveToTheSameGeometryBounds() {
-            using var fixture = new KitFixture();
-            Assert.Equal(GlyphGeometry("Plus", 12).Bounds, GlyphGeometry("SlotAdd", 12).Bounds);
-        }
-
-        [AvaloniaFact]
-        public void SlotAdd_AndMinus_AreDifferentGeometry() {
-            using var fixture = new KitFixture();
-            Assert.NotEqual(GlyphGeometry("Minus", 12).Bounds, GlyphGeometry("SlotAdd", 12).Bounds);
-        }
     }
 
     public class CanvasGlyphTests {
@@ -153,10 +141,10 @@ namespace Foreman.Mac.Kit.Tests.Controls {
 
         [AvaloniaTheory]
         [MemberData(nameof(CanvasMasters))]
-        public void CanvasGlyphs_ResolveOnTheTwentyGrid_AndBadgeGlyphsShipATenPointMaster(string name, string addendumPath, string? badgePath) {
+        public void CanvasGlyphs_ResolveOnTheTwentyGrid_AndBadgeGlyphsShipATenPointMaster(string name, string masterPath, string? badgePath) {
             using var fixture = new KitFixture();
-            Rect expected = StreamGeometry.Parse(addendumPath).Bounds;
-            Assert.Equal(addendumPath, GlyphText($"Kit.Glyph.{name}.20"));
+            Rect expected = StreamGeometry.Parse(masterPath).Bounds;
+            Assert.Equal(masterPath, GlyphText($"Kit.Glyph.{name}.20"));
             Assert.Equal(badgePath, GlyphText($"Kit.Glyph.{name}.10"));
 
             Assert.True(TryGeometry($"Kit.Glyph.{name}.20", out Geometry? master), name);

@@ -133,14 +133,14 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal("Loading Preset", window.Title);
             Assert.Equal(new Size(420, 110), window.ClientSize);
             Assert.False(window.CanResize);
-            Assert.Equal("Loading \u201CFactorio 2.0.55 — Space Age\u201D", window.HeadlineTextControl.Text);
+            Assert.Equal("Loading \u201CFactorio 2.0.55 — Space Age\u201D", window.FindControl<TextBlock>("HeadlineText")!.Text);
             KitProgressBar bar = Assert.Single(window.GetVisualDescendants().OfType<KitProgressBar>());
             Assert.Equal(6, bar.Bounds.Height);
             Assert.DoesNotContain(window.GetVisualDescendants().OfType<ProgressBar>(), b => b is not KitProgressBar);
             Assert.True(window.CancelButtonControl.IsEffectivelyVisible);
             Assert.False(window.CancelButtonControl.IsDefault);
 
-            AutomationPeer live = ControlAutomationPeer.CreatePeerForElement(window.StageAnnouncerControl);
+            AutomationPeer live = ControlAutomationPeer.CreatePeerForElement(window.FindControl<TextBlock>("StageAnnouncer")!);
             Assert.Equal(AutomationLiveSetting.Polite, live.GetLiveSetting());
             Assert.Equal("Reading icons (1 of 3).", live.GetName());
             var announced = new List<string?>();

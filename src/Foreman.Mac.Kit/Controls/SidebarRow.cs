@@ -7,7 +7,6 @@ using Avalonia.Input;
 using Avalonia.Media;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Foreman.Mac.Kit.Controls {
     public class SidebarRow : TemplatedControl {

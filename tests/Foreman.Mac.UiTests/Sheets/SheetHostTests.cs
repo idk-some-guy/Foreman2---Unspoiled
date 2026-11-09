@@ -1,5 +1,4 @@
 using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -10,7 +9,6 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Foreman.Mac;
 using Foreman.Mac.Kit;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.UiTests.support;

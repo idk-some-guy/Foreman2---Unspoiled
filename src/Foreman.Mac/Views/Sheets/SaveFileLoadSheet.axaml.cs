@@ -4,7 +4,6 @@ using Avalonia.Platform.Storage;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Kit.Composites;
-using Foreman.Mac.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;

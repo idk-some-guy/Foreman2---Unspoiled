@@ -1,5 +1,4 @@
 using Avalonia.Threading;
-using Foreman;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;

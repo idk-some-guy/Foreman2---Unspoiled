@@ -1,14 +1,11 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using Avalonia.Platform.Storage;
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
-using Foreman.Mac.Services;
 using SkiaSharp;
 using System;
 using System.Drawing;

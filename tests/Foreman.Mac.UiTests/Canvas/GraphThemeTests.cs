@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Headless.XUnit;
 using Avalonia.Platform;
 using Avalonia.Styling;
-using Foreman.Mac;
 using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;

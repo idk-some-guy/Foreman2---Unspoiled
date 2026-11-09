@@ -1,4 +1,3 @@
-using Foreman;
 using Foreman.Mac.ViewModels;
 using Xunit;
 

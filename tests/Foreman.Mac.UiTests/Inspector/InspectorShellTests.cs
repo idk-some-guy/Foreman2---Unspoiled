@@ -27,13 +27,11 @@ using SplitDivider = Foreman.Mac.Kit.Composites.SplitDivider;
 using StatePanel = Foreman.Mac.Kit.Composites.StatePanel;
 using StatePanelShape = Foreman.Mac.Kit.Composites.StatePanelShape;
 using Foreman.Models;
-using Foreman.Models.Nodes;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -241,8 +239,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             normal.SetIconAndColor(new IconColorPair(new SKBitmap(4, 4), System.Drawing.Color.White));
             var legendary = new QualityPrototype(cache, "legendary", "Legendary", "b") { Level = 1 };
             legendary.SetIconAndColor(new IconColorPair(new SKBitmap(4, 4), System.Drawing.Color.Orange));
-            FieldInfo storeField = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            var store = (DataCacheStore)storeField.GetValue(cache)!;
+            DataCacheStore store = InspectorTestSupport.Store(cache);
             store.Qualities[normal.Name] = normal;
             store.Qualities[legendary.Name] = legendary;
             store.DefaultQuality = normal;
@@ -589,8 +586,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             missingRecipe.AssemblersInternal.Add(assembler);
             assembler.RecipesInternal.Add(missingRecipe);
 
-            FieldInfo storeField = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            var store = (DataCacheStore)storeField.GetValue(cache)!;
+            DataCacheStore store = InspectorTestSupport.Store(cache);
             store.Recipes[missingRecipe.Name] = missingRecipe;
 
             var pair = new RecipeQualityPair(missingRecipe, cache.DefaultQuality!);
@@ -631,15 +627,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         [AvaloniaFact]
         public async Task Inspector_IdentitySubtitle_CarriesTheBuildingLine_AndAppendsQualityWhenNotBase() {
             DataCache cache = await InspectorTestSupport.GetSpaceAgeCacheAsync();
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = cache;
-            window.ApplyLoadedSettings();
-            window.GraphCanvas.Viewer.Context.DCache = cache;
-            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
-            var pair = new RecipeQualityPair(cache.Recipes["iron-plate"], cache.DefaultQuality!);
-            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(pair, new System.Drawing.Point(0, 0));
-            Dispatcher.UIThread.RunJobs();
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync(cache);
 
             var node = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.Session.View.Nodes.Single();
             InspectorTestSupport.Select(window, node);
@@ -665,15 +653,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         [AvaloniaFact]
         public async Task Inspector_TrimmedIdentitySubtitle_IsNotReadTwiceByVoiceOver() {
             DataCache cache = await InspectorTestSupport.GetSpaceAgeCacheAsync();
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = cache;
-            window.ApplyLoadedSettings();
-            window.GraphCanvas.Viewer.Context.DCache = cache;
-            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
-            var pair = new RecipeQualityPair(cache.Recipes["iron-plate"], cache.DefaultQuality!);
-            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(pair, new System.Drawing.Point(0, 0));
-            Dispatcher.UIThread.RunJobs();
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync(cache);
             InspectorTestSupport.Select(window, window.GraphCanvas.Viewer.Session.View.Nodes.Single());
 
             TextBlock subtitle = window.Inspector.FindControl<TextBlock>("IdentitySubtitle")!;
@@ -689,15 +669,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         [AvaloniaFact]
         public async Task IdentityRow_AutomationPeer_IsAGroupNamedAfterTheNode_WithTheSubtitleAsItsValue() {
             DataCache cache = await InspectorTestSupport.GetSpaceAgeCacheAsync();
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = cache;
-            window.ApplyLoadedSettings();
-            window.GraphCanvas.Viewer.Context.DCache = cache;
-            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
-            var pair = new RecipeQualityPair(cache.Recipes["iron-plate"], cache.DefaultQuality!);
-            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(pair, new System.Drawing.Point(0, 0));
-            Dispatcher.UIThread.RunJobs();
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync(cache);
 
             var node = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.Session.View.Nodes.Single();
             InspectorTestSupport.Select(window, node);
@@ -841,18 +813,10 @@ namespace Foreman.Mac.UiTests.Inspector {
         }
 
         [AvaloniaFact]
-        public async Task Inspector_QualityBuildingAndRateUnit_ArePopUps_ListingEveryValue() {
+        public async Task Inspector_QualityAndRateUnit_ArePopUps_ListingEveryValue() {
             //Vanilla ships no qualities, so the Quality pop-up needs the Space Age preset.
             DataCache cache = await InspectorTestSupport.GetSpaceAgeCacheAsync();
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = cache;
-            window.ApplyLoadedSettings();
-            window.GraphCanvas.Viewer.Context.DCache = cache;
-            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
-            var pair = new RecipeQualityPair(cache.Recipes["iron-plate"], cache.DefaultQuality!);
-            window.GraphCanvas.Viewer.Graph.CreateRecipeNode(pair, new System.Drawing.Point(0, 0));
-            Dispatcher.UIThread.RunJobs();
+            MainWindow window = await InspectorTestSupport.OpenWindowWithGraphAsync(cache);
 
             var node = (Foreman.Graph.IRecipeNodeViewModel)window.GraphCanvas.Viewer.Session.View.Nodes.Single();
             InspectorTestSupport.Select(window, node);

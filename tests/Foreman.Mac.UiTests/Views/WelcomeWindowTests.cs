@@ -14,7 +14,6 @@ using Foreman.Mac.Kit;
 using Foreman.Mac.Kit.Appearance;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.Storage;
 using Foreman.Mac.Kit.Composites;

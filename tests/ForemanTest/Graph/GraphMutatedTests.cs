@@ -2,7 +2,6 @@ using Foreman;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Models;
-using Foreman.Models.Nodes;
 using ForemanTest.support;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Drawing;

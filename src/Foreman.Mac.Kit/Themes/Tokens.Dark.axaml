@@ -249,8 +249,6 @@
   <CornerRadius x:Key="Foreman.Radius.SheetBottom">0,0,10,10</CornerRadius>
   <CornerRadius x:Key="Foreman.Radius.Node">10</CornerRadius>
 
-  <BoxShadows x:Key="Foreman.Shadow.Window">0 30 60 -20 #99000000</BoxShadows>
-
   <BoxShadows x:Key="Foreman.Shadow.Card">0 2 8 0 #00000000</BoxShadows>
 
   <Color x:Key="Foreman.Color.GalleryChrome">#000000</Color>

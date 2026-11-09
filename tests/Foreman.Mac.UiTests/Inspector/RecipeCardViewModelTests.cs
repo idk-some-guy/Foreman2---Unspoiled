@@ -1,9 +1,7 @@
 using Avalonia.Headless.XUnit;
-using Avalonia.Media.Imaging;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.ViewModels;
-using SkiaSharp;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;

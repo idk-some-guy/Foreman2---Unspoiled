@@ -3,31 +3,22 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
-using Foreman.Mac.Canvas;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
-using Foreman.Models.Nodes;
 using System.Drawing;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Inspector {
     public class FlowSegmentTests {
-        private static DataCacheStore Store(DataCache cache) {
-            FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            return (DataCacheStore)field.GetValue(cache)!;
-        }
-
         [AvaloniaFact]
         public async Task FixedRate_WritesDesiredSetValueThroughController() {
             MainWindow window = await InspectorTestSupport.OpenEmptyWindowAsync();
@@ -154,7 +145,7 @@ namespace Foreman.Mac.UiTests.Inspector {
         }
 
         [AvaloniaFact]
-        public async Task ClickingFlowNode_NoLongerOpensFloatingPanel() {
+        public async Task ClickingFlowNode_ShowsItInTheInspector_AndOpensNoFloatingPanel() {
             (MainWindow window, INodeViewModel node) = await InspectorTestSupport.OpenWithPassthroughAsync();
             Avalonia.Point canvasPoint = window.GraphCanvas.Viewport.GraphToScreen(new Point(0, 0));
             Avalonia.Point screen = Avalonia.VisualExtensions.TranslatePoint(window.GraphCanvas, canvasPoint, window) ?? canvasPoint;
@@ -325,7 +316,7 @@ namespace Foreman.Mac.UiTests.Inspector {
             var cache = new DataCache(filterRecipes: true);
             var subgroup = new SubgroupPrototype(cache, "§§test:subgroup", "z");
             var quality = new QualityPrototype(cache, "normal", "Normal", "a");
-            DataCacheStore store = Store(cache);
+            DataCacheStore store = InspectorTestSupport.Store(cache);
             store.Qualities[quality.Name] = quality;
             store.DefaultQuality = quality;
 

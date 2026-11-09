@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using CommunityToolkit.Mvvm.Input;
-using Foreman;
 using Foreman.Mac;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;

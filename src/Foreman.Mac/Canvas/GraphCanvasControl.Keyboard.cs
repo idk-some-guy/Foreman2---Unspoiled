@@ -1,7 +1,6 @@
 using Avalonia;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Input;
 using Foreman.Mac.Canvas.Automation;
 using Foreman.Mac.Canvas.Elements;

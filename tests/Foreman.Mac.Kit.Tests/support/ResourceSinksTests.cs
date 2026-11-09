@@ -1,7 +1,6 @@
 using Avalonia;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
-using Foreman.Mac.Kit;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.support {

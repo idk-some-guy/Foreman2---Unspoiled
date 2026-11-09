@@ -1,5 +1,4 @@
 using Avalonia.Threading;
-using Foreman;
 using Foreman.Mac;
 using System;
 using System.Collections.Generic;

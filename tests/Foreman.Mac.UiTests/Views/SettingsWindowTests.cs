@@ -202,7 +202,7 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public async Task EveryOldGraphOptionsAppSettingsField_HasABoundControlOnOneOfTheFourReplacementTabs() {
+        public async Task EveryGraphOptionsAppSetting_HasAControlOnOneOfTheFourTabs() {
             var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, true)]));
             GeneralTab general = window.GeneralTabControl;
             AdvancedTab advanced = window.AdvancedTabControl;

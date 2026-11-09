@@ -5,7 +5,6 @@ using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Media;
-using Foreman.Mac.Kit;
 using System;
 using System.Collections.Specialized;
 

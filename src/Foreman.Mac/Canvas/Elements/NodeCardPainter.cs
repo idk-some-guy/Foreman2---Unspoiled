@@ -1,6 +1,5 @@
 using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Kit;
-using Foreman.Models;
 using SkiaSharp;
 using System;
 using System.Collections.Concurrent;

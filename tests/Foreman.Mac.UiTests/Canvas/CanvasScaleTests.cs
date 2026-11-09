@@ -2,14 +2,11 @@ using Avalonia.Headless.XUnit;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas.Elements;
-using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Models;
-using SkiaSharp;
 using System;
 using System.Drawing;
-using System.Linq;
 using Xunit;
 using DrawingPoint = System.Drawing.Point;
 

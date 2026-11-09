@@ -1,15 +1,12 @@
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Views;
-using Foreman.Mac.Views.Inspector;
 using Foreman.Models;
-using Foreman.Models.Nodes;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;

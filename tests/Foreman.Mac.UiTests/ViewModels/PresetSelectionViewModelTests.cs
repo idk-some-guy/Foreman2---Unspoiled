@@ -1,4 +1,3 @@
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.Mac.ViewModels;
 using System.Collections.Generic;

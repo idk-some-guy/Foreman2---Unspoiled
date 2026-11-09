@@ -1,5 +1,4 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using Foreman;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;

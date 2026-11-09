@@ -33,7 +33,6 @@ namespace Foreman.Mac.Canvas.Automation {
         protected override string? GetAccessKeyCore() => null;
         protected override AutomationPeer? GetLabeledByCore() => null;
         protected override AutomationPeer? GetParentCore() => parent;
-        internal IReadOnlyList<AutomationPeer> TabPeers => GetOrCreateChildrenCore();
 
         protected override IReadOnlyList<AutomationPeer> GetOrCreateChildrenCore() {
             IReadOnlyList<ItemTabElement> tabs = node.ItemTabs;

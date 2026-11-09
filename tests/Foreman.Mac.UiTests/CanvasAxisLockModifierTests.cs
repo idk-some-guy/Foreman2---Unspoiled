@@ -5,7 +5,6 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Threading;
-using Foreman.Mac;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.UiTests.support;
 using Xunit;

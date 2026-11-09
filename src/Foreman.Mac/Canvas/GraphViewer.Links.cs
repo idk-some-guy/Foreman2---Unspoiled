@@ -1,4 +1,3 @@
-using Foreman.Graph;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Models;
 using System;

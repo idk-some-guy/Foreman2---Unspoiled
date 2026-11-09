@@ -7,7 +7,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Media.Immutable;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -22,13 +21,11 @@ using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Xml.Linq;
 using Xunit;
 using Slider = Foreman.Mac.Kit.Controls.Slider;
-using Spinner = Foreman.Mac.Kit.Controls.Spinner;
 
 namespace Foreman.Mac.UiTests.Views {
     public class GalleryWindowTests {
@@ -109,7 +106,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(
                 ["Type ramp", "Glyphs", "Type ramp & Glyphs (150%)", "Focus ring", "Focus ring (150%)",
                  "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)",
-                 "Checkbox", "Radio group", "Switch — Settings only (A16)", "Checkbox, Radio group & Switch (150%)",
+                 "Checkbox", "Radio group", "Switch", "Checkbox, Radio group & Switch (150%)",
                  "Segmented", "Pop-up buttons", "Menu button", "Segmented, Pop-up buttons & Menu button (150%)",
                  "Text field", "Search field", "Stepper", "Slider", "Text field, Search field, Stepper & Slider (150%)",
                  "List rows", "Sidebar rows", "Group box", "Tab strips", "Disclosure",
@@ -198,7 +195,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Contains("Buttons & Toolbar items (150%)", captions);
             Assert.Contains("Checkbox", captions);
             Assert.Contains("Radio group", captions);
-            Assert.Contains("Switch — Settings only (A16)", captions);
+            Assert.Contains("Switch", captions);
             Assert.Contains("Checkbox, Radio group & Switch (150%)", captions);
             Assert.Contains("Segmented", captions);
             Assert.Contains("Pop-up buttons", captions);
@@ -243,7 +240,7 @@ namespace Foreman.Mac.UiTests.Views {
             Dispatcher.UIThread.RunJobs();
 
             StackPanel tile = window.GetVisualDescendants().OfType<StackPanel>().Single(s => s.Name == "Glyphs");
-            foreach ((string name, string addendumPath) in CanvasMasters) {
+            foreach ((string name, string masterPath) in CanvasMasters) {
                 Application.Current!.TryGetResource($"Kit.Glyph.{name}.20", null, out object? resource);
                 StackPanel cell = tile.GetVisualDescendants().OfType<StackPanel>()
                     .Single(c => c.Children.OfType<TextBlock>().Any(t => t.Text == name));
@@ -251,7 +248,7 @@ namespace Foreman.Mac.UiTests.Views {
                 Assert.Same(Assert.IsAssignableFrom<Geometry>(resource), path.Data);
                 Assert.True(path.Bounds.Width > 0 && path.Bounds.Height > 0, name);
 
-                using SkiaSharp.SKPath expected = SkiaSharp.SKPath.ParseSvgPathData(addendumPath);
+                using SkiaSharp.SKPath expected = SkiaSharp.SKPath.ParseSvgPathData(masterPath);
                 string key = $"Kit.Glyph.{name}";
                 Assert.Equal(expected.ToSvgPathData(), GlyphPaths.Get(key).ToSvgPathData());
                 Assert.Equal(GlyphPaths.Get(key).ToSvgPathData(), SvgOfKitText($"{key}.20"));

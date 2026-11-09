@@ -3,7 +3,6 @@ using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.VisualTree;
@@ -414,7 +413,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal("Filter", window.FilterFieldControl.PlaceholderText);
             Assert.Equal("Show unavailable", window.ShowUnavailableCheckBoxControl.Content);
             Assert.True(window.HideIdenticalCheckBoxControl.IsChecked);
-            Assert.False(window.HideSimilarCheckBoxControl.IsChecked);
+            Assert.False(window.FindControl<CheckBox>("HideSimilarCheckBox")!.IsChecked);
             Assert.False(window.ShowUnavailableCheckBoxControl.IsChecked);
 
             Assert.True(window.CompareButtonControl.IsDefault);

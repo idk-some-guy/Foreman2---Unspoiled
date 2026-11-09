@@ -1,5 +1,4 @@
 using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Collections;
@@ -22,8 +21,6 @@ using System.Linq;
 namespace Foreman.Mac.Kit.Composites {
     public class ChooserGrid : TemplatedControl {
         protected override Type StyleKeyOverride => typeof(ChooserGrid);
-
-        private const double RowPitch = 96;
 
         public static readonly StyledProperty<string?> QueryProperty =
             AvaloniaProperty.Register<ChooserGrid, string?>(nameof(Query));
@@ -59,6 +56,8 @@ namespace Foreman.Mac.Kit.Composites {
         private ControlTheme? cellTheme;
         private ControlTheme? headingTheme;
         private double headingSpacing = 6;
+        private double cellSize = 88;
+        private double cellGap = 8;
         private readonly List<ChooserCell> cells = [];
         private readonly List<ChooserItem> items = [];
         private readonly List<int> sectionOfCell = [];
@@ -223,7 +222,7 @@ namespace Foreman.Mac.Kit.Composites {
                 return;
             }
             double viewport = scroll?.Viewport.Height ?? 0;
-            int rows = Math.Max(1, (int)(viewport / RowPitch));
+            int rows = Math.Max(1, (int)(viewport / (cellSize + cellGap)));
             for (int i = 0; i < rows; i++) {
                 int before = CurrentIndex();
                 MoveVertical(before, direction);
@@ -289,6 +288,8 @@ namespace Foreman.Mac.Kit.Composites {
             subs.Add(this.GetResourceObservable("Kit.ChooserCell").Subscribe(new ResourceSinks.Sink<ControlTheme?>(v => { cellTheme = v; Rebuild(); }, null)));
             subs.Add(this.GetResourceObservable("Kit.ChooserHeading").Subscribe(new ResourceSinks.Sink<ControlTheme?>(v => { headingTheme = v; Rebuild(); }, null)));
             subs.Add(this.GetResourceObservable("Foreman.Space.Space15").Subscribe(new ResourceSinks.Sink<double>(v => { headingSpacing = v; Rebuild(); }, 6)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.ChooserCell").Subscribe(new ResourceSinks.Sink<double>(v => cellSize = v, 88)));
+            subs.Add(this.GetResourceObservable("Foreman.Space.Space2").Subscribe(new ResourceSinks.Sink<double>(v => { cellGap = v; Rebuild(); }, 8)));
         }
 
         private void Unsubscribe() {
@@ -352,7 +353,7 @@ namespace Foreman.Mac.Kit.Composites {
                 IsEnabled = item.IsEnabled,
                 IsUnavailable = !item.IsAvailable,
                 IsIconMissing = item.IsIconMissing,
-                Margin = new Thickness(0, 0, 8, 8),
+                Margin = new Thickness(0, 0, cellGap, cellGap),
             };
             if (cellTheme is not null)
                 cell.Theme = cellTheme;

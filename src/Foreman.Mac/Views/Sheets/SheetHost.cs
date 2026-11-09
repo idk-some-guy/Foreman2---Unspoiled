@@ -28,7 +28,7 @@ namespace Foreman.Mac.Views.Sheets {
             public required Action<bool> SetOpen;
             public required Action Cancel;
             public ButtonRow? Buttons;
-            public Button? LegacyDefault;
+            public Button? ContentDefaultButton;
             public SheetBody? Body;
             public bool Dismissed;
             public Button? ActivityDefault;
@@ -223,7 +223,7 @@ namespace Foreman.Mac.Views.Sheets {
                         content.Cancel();
                 },
                 Buttons = content.Buttons,
-                LegacyDefault = content.Buttons is null ? content.DefaultButton : null,
+                ContentDefaultButton = content.Buttons is null ? content.DefaultButton : null,
                 Body = body,
             };
             frame.Cancelled += (_, _) => {
@@ -257,7 +257,7 @@ namespace Foreman.Mac.Views.Sheets {
                 return;
             }
 
-            Button? def = layer.Buttons?.ResolveDefaultButton() ?? layer.LegacyDefault;
+            Button? def = layer.Buttons?.ResolveDefaultButton() ?? layer.ContentDefaultButton;
             if (def is not null) {
                 layer.ActivityDefault = def;
                 layer.PriorDefaultEnabled = def.IsEnabled;
@@ -272,7 +272,7 @@ namespace Foreman.Mac.Views.Sheets {
                 panel = new StatePanel {
                     Theme = KitTheme("Kit.StatePanel"),
                     ForceCompact = true,
-                    ExternalButtons = (Control?)layer.Buttons ?? layer.LegacyDefault,
+                    ExternalButtons = (Control?)layer.Buttons ?? layer.ContentDefaultButton,
                 };
                 layer.Body.Strip = panel;
             }
@@ -349,7 +349,7 @@ namespace Foreman.Mac.Views.Sheets {
         }
 
         private void OnKeyDown(object? sender, KeyEventArgs e) {
-            if (!IsOpen || e.Key != Key.Enter || TopLayer is not { Buttons: null, LegacyDefault: { } button })
+            if (!IsOpen || e.Key != Key.Enter || TopLayer is not { Buttons: null, ContentDefaultButton: { } button })
                 return;
             if (e.Source is TextBox { AcceptsReturn: true })
                 return;

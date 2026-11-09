@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Headless.XUnit;
-using Foreman.Mac;
 using Foreman.Mac.Services;
 using System;
 using System.IO;

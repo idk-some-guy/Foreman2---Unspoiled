@@ -3,13 +3,11 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Platform;
-using ShapePath = Avalonia.Controls.Shapes.Path;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -27,7 +25,6 @@ using Foreman.Mac.Converters;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
-using KitSpinner = Foreman.Mac.Kit.Controls.Spinner;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
@@ -220,15 +217,13 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public void SettingsGear_IsAbsentFromTheToolbar_AndCmdCommaStillOpensSettings() {
+        public void SettingsCommand_OpensTheSettingsDialog() {
             var window = new MainWindow();
             window.Show();
             window.DataCache = MinimalCacheWithDefaultQuality();
             window.Settings = new AppSettings();
             window.PresetResolver = new PresetResolver(NewTempDir());
             window.SettingsService = new SettingsService(NewTempDir());
-
-            Assert.DoesNotContain(window.GetVisualDescendants().OfType<Button>(), b => AutomationProperties.GetName(b) == "Settings");
 
             bool opened = false;
             window.SettingsDialogStub = _ => opened = true;

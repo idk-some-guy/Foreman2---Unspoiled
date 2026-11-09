@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.Input;
-using Foreman;
 using Foreman.Mac;
 using Foreman.DataCaching;
 using Foreman.Graph;

@@ -10,7 +10,6 @@ using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Kit.Composites;
-using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.Views.Sheets;
 using System;
@@ -196,7 +195,7 @@ namespace Foreman.Mac.UiTests.Views {
             (SciencePacksSheet sheet, Window window) = NewShownSheet(cache, enabledObjects);
             ClickPack(sheet, window, PackNamed(cache, "automation-science-pack"));
 
-            Button cancelButton = sheet.CancellationButtonControl;
+            Button cancelButton = sheet.Buttons!.Items.Cast<Button>().Single(b => ButtonRow.GetRole(b) == ButtonRowRole.Cancel);
             Point screen = cancelButton.TranslatePoint(new Point(cancelButton.Bounds.Width / 2, cancelButton.Bounds.Height / 2), window)!.Value;
             window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
             window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);

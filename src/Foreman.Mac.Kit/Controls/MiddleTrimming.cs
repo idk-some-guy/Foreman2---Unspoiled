@@ -101,16 +101,11 @@ namespace Foreman.Mac.Kit.Controls {
                     if (buffer is not null && to - from < buffer.Text.Length) {
                         (ShapedBuffer? inside, ShapedBuffer? outside) = buffer.Split(to - from);
                         Discard(outside, origin);
-                        if (!ReferenceEquals(inside, buffer))
-                            Discard(buffer, origin);
+                        Discard(buffer, origin);
                         buffer = inside;
                     }
                     if (buffer is null)
                         continue;
-                    if (ReferenceEquals(buffer, origin)) {
-                        slices.Add(run);
-                        continue;
-                    }
                     split?.Add(run);
                     slices.Add(new ShapedTextRun(buffer, run.Properties));
                 }

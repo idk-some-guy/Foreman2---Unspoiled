@@ -1,11 +1,9 @@
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
-using Foreman.Models;
 using SkiaSharp;
 using System.Collections.Generic;
 using System.Drawing;

@@ -504,7 +504,6 @@ namespace Foreman.Mac.Views {
         internal TabStrip ComparisonTabStripControl => comparisonTabStrip;
         internal SearchField FilterFieldControl => filterField;
         internal CheckBox HideIdenticalCheckBoxControl => hideIdenticalCheckBox;
-        internal CheckBox HideSimilarCheckBoxControl => hideSimilarCheckBox;
         internal CheckBox ShowUnavailableCheckBoxControl => showUnavailableCheckBox;
         internal ListBox LeftOnlyListControl => leftOnlyList;
         internal ListBox BothListControl => bothList;

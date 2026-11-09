@@ -10,7 +10,6 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
-using Foreman.Mac;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Kit;
 using Foreman.Mac.Kit.Composites;

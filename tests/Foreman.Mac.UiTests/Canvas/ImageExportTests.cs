@@ -4,7 +4,6 @@ using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Mac.UiTests.support;
-using Foreman.Models;
 using SkiaSharp;
 using System.Drawing;
 using System.Linq;

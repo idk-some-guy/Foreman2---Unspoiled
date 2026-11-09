@@ -1,30 +1,21 @@
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
-using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
-using Foreman.Mac.Canvas;
 using Foreman.Mac.Kit.Composites;
-using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.Inspector;
-using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
-using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Inspector {
     public class InspectorFidelityTests {

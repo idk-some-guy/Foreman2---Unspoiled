@@ -9,7 +9,6 @@ using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views.QuickAdd;
-using Foreman.Models.Nodes;
 using System.Linq;
 using Xunit;
 using AvaloniaPoint = Avalonia.Point;

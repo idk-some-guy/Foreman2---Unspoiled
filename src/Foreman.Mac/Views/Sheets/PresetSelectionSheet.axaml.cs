@@ -5,7 +5,6 @@ using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
-using Foreman;
 using Foreman.DataCaching;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Services;
@@ -229,16 +228,11 @@ namespace Foreman.Mac.Views.Sheets {
         internal ListBox PresetSelectionListViewControl => presetListView;
         internal Grid HeaderRowControl => headerRow;
         internal Button ConfirmationButtonControl => confirmationButton;
-        internal Button CancellingButtonControl => cancellingButton;
 
         internal void SimulateSelectRow(Preset preset) =>
             presetListView.SelectedItem = ((List<PresetRow>)presetListView.ItemsSource!).Find(r => r.Preset == preset);
 
         internal void SimulateConfirmClick() => Async.Fire(CommitAsync(), nameof(CommitAsync));
-        internal void SimulateDoubleClickRow(Preset preset) {
-            SimulateSelectRow(preset);
-            Async.Fire(CommitAsync(), nameof(CommitAsync));
-        }
         internal void SimulateCancelClick() => Cancel();
     }
 

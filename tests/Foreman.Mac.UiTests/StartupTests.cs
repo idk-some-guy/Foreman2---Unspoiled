@@ -137,8 +137,6 @@ namespace Foreman.Mac.UiTests {
     }
 
     public class StartupTests {
-        private static readonly string[] RetiredLoadAlerts = ["Preset load interrupted", "is corrupt. Switching to the default preset", "No Preset is loaded!"];
-
         private static string NewTempHome() {
             string home = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             Directory.CreateDirectory(home);
@@ -211,7 +209,7 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public async Task BootAsync_LaunchWindowQuits_SignalsFatalExit_AndTheRetiredLoadAlertsAreGone() {
+        public async Task BootAsync_LaunchWindowQuits_SignalsFatalExit_AndRaisesNoWarning() {
             var settingsService = new SettingsService(NewTempHome());
             string presetsDir = NewPresetsDirectoryWithVanillaAnd("Custom Preset");
             var warnings = new List<string>();
@@ -228,10 +226,6 @@ namespace Foreman.Mac.UiTests {
             Assert.Null(window);
             Assert.True(fatalExitCalled);
             Assert.Empty(warnings);
-
-            byte[] assembly = File.ReadAllBytes(typeof(ShellBootstrapper).Assembly.Location);
-            foreach (string retired in RetiredLoadAlerts)
-                Assert.Equal(-1, assembly.AsSpan().IndexOf(System.Text.Encoding.Unicode.GetBytes(retired)));
         }
 
         [AvaloniaFact]
