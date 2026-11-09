@@ -8,7 +8,7 @@ namespace Foreman.DataCaching.DataTypes {
     //heat types add a special 'heat' item to the recipe node they are part of (similar to burner types) -> in fact to simplify things they are handled as a burner with a specific burn item of 'heat'
     //void are considered as electric types with 0 electricity use
     public enum EnergySource { Burner, FluidBurner, Electric, Heat, Void }
-    public enum EntityType { Miner, OffshorePump, Assembler, Beacon, Boiler, Generator, BurnerGenerator, Reactor, Rocket, ERROR }
+    public enum EntityType { Miner, OffshorePump, Assembler, Beacon, Boiler, Generator, BurnerGenerator, Reactor, Rocket, AgriculturalTower, ERROR }
 
     public interface IEntityObjectBase : IDataObjectBase {
         IReadOnlyCollection<IModule> Modules { get; }
@@ -122,6 +122,7 @@ namespace Foreman.DataCaching.DataTypes {
         public string GetEntityTypeName(bool plural) {
             return plural
                 ? EntityType switch {
+                    EntityType.AgriculturalTower => "Agricultural Towers",
                     EntityType.Assembler => "Assemblers",
                     EntityType.Beacon => "Beacons",
                     EntityType.Boiler => "Boilers",
@@ -134,6 +135,7 @@ namespace Foreman.DataCaching.DataTypes {
                     _ => "",
                 }
                 : EntityType switch {
+                    EntityType.AgriculturalTower => "Agricultural Tower",
                     EntityType.Assembler => "Assembler",
                     EntityType.Beacon => "Beacon",
                     EntityType.Boiler => "Boiler",

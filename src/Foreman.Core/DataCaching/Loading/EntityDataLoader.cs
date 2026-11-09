@@ -44,6 +44,7 @@ namespace Foreman.DataCaching.Loading {
                 "generator" => EntityType.Generator,
                 "burner-generator" => EntityType.BurnerGenerator,
                 "reactor" => EntityType.Reactor,
+                "agricultural-tower" => EntityType.AgriculturalTower,
                 _ => EntityType.ERROR,
             };
             if (etype == EntityType.ERROR)
@@ -78,7 +79,7 @@ namespace Foreman.DataCaching.Loading {
             entity.ModuleSlots = PresetJson.GetInt32(objJsonNode, "module_inventory_size") ?? 0;
 
             //_store.Modules
-            if (entity.EntityType == EntityType.Assembler || entity.EntityType == EntityType.Miner || entity.EntityType == EntityType.Rocket || entity.EntityType == EntityType.Beacon) {
+            if (entity.EntityType == EntityType.Assembler || entity.EntityType == EntityType.Miner || entity.EntityType == EntityType.Rocket || entity.EntityType == EntityType.Beacon || entity.EntityType == EntityType.AgriculturalTower) {
                 if (entity is AssemblerPrototype prototype) {
                     prototype.BaseConsumptionBonus = PresetJson.GetDouble(objJsonNode, "base_module_effects", "consumption") ?? default;
                     prototype.BaseSpeedBonus = PresetJson.GetDouble(objJsonNode, "base_module_effects", "speed") ?? default;
@@ -170,6 +171,9 @@ namespace Foreman.DataCaching.Loading {
                         break;
                     case EntityType.Reactor:
                         success = ReactorAdditionalProcessing(objJsonNode, aEntity);
+                        break;
+                    case EntityType.AgriculturalTower:
+                        success = true;
                         break;
                 }
                 if (success)

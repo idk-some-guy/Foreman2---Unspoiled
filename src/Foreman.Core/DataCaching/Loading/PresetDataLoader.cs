@@ -239,16 +239,21 @@ namespace Foreman.DataCaching.Loading {
             item.Weight = weight;
             item.IngredientToWeightCoefficient = ingredientToWeightCoeff;
 
-            if (PresetJson.GetString(objJsonNode, "fuel_category") is string fuelCategory &&
+            string[] fuelCategories = [.. PresetJson.EnumerateStrings(objJsonNode, "fuel_categories")];
+            if (fuelCategories.Length == 0 && PresetJson.GetString(objJsonNode, "fuel_category") is string legacyFuelCategory)
+                fuelCategories = [legacyFuelCategory];
+            if (fuelCategories.Length > 0 &&
                 PresetJson.GetDouble(objJsonNode, "fuel_value") is double fuelValue &&
                 fuelValue > 0) //factorio eliminates any 0fuel value fuel from the list (checked)
             {
                 item.FuelValue = fuelValue;
                 item.PollutionMultiplier = PresetJson.GetDouble(objJsonNode, "fuel_emissions_multiplier") ?? 1;
 
-                if (!_session.FuelCategories.ContainsKey(fuelCategory))
-                    _session.FuelCategories.Add(fuelCategory, []);
-                _session.FuelCategories[fuelCategory].Add(item);
+                foreach (string fuelCategory in fuelCategories) {
+                    if (!_session.FuelCategories.ContainsKey(fuelCategory))
+                        _session.FuelCategories.Add(fuelCategory, []);
+                    _session.FuelCategories[fuelCategory].Add(item);
+                }
             }
             if (PresetJson.GetString(objJsonNode, "burnt_result") is string burntResult)
                 _session.BurnResults.Add(item, burntResult);
@@ -336,7 +341,7 @@ namespace Foreman.DataCaching.Loading {
             if (PresetJson.GetString(objJsonNode, "name") is not string name ||
                 PresetJson.GetString(objJsonNode, "localised_name") is not string localisedName ||
                 PresetJson.GetString(objJsonNode, "order") is not string order ||
-                PresetJson.GetString(objJsonNode, "category") is not string category ||
+                PresetCraftingCompatibility.ResolvePrimaryCategory(objJsonNode) is not string category ||
                 ResolvePresetSubgroup(objJsonNode) is not SubgroupPrototype sgProto)
                 return;
             RecipePrototype recipe = new(_owner, name, localisedName, sgProto, order) {
