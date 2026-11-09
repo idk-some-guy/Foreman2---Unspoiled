@@ -11,8 +11,6 @@ using System.Text.RegularExpressions;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Tokens {
-    //The app-side half of this scan lives in Foreman.Mac.UiTests: this project has no reference to
-    //Foreman.Mac, so its avares:// resources cannot load here.
     public class KitAliasDeletionTests {
         private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 
@@ -24,7 +22,6 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         }
 
         private static readonly string[] AddendumKeys = [
-            // primitives addendum §10 Token changes
             "Foreman.Color.PopoverMaterial",
             "Foreman.Color.SliderThumb",
             "Foreman.Color.Text",
@@ -48,7 +45,6 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             "Foreman.Type.SectionHeader.LetterSpacing",
             "Foreman.Type.TabLabel.FontSize",
             "Foreman.Type.TabLabel.FontWeight",
-            // composites addendum §12 Token changes
             "Foreman.Color.AccentSoft",
             "Foreman.Color.PopoverMaterialOpaque",
             "Foreman.Color.SidebarBackground",
@@ -92,7 +88,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             new(@"x:Key\s*=\s*[""']([^""']+)[""']", RegexOptions.Compiled);
 
         private static readonly HashSet<string> PlatformKeyAllowlist =
-            new(StringComparer.Ordinal); // no kit axaml references a key Avalonia itself supplies
+            new(StringComparer.Ordinal);
 
         private static IEnumerable<string> AxamlFilesUnder(string root) =>
             Directory.EnumerateFiles(Path.Combine(RepoRoot, root), "*.axaml", SearchOption.AllDirectories)

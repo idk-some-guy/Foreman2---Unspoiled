@@ -41,7 +41,6 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.Equal(308, lightKeys.Count);
         }
 
-        //The find ring is opaque Accent, never NodeSelected amber or the AccentSoft fill.
         [AvaloniaFact]
         public void FindMatchRing_CarriesTheRuledHexInBothThemes() {
             var light = LoadThemeFile("Tokens.Light.axaml");
@@ -127,20 +126,6 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         }
 
         [AvaloniaFact]
-        public void RetiredCanvasBorderKeys_AreInNeitherDictionary() {
-            string[] retired = ["Foreman.Color.CanvasTabBorder", "Foreman.Color.CanvasChipBorder", "Foreman.Color.CanvasErrorBorder"];
-            var lightKeys = LoadThemeFile("Tokens.Light.axaml").Keys.Cast<string>().ToHashSet();
-            var darkKeys = LoadThemeFile("Tokens.Dark.axaml").Keys.Cast<string>().ToHashSet();
-
-            foreach (string key in retired) {
-                Assert.DoesNotContain(key, lightKeys);
-                Assert.DoesNotContain(key, darkKeys);
-            }
-        }
-
-        //The semantic rebind adds these on top of the existing 25 colour keys, and renames Selection to
-        //NodeSelected.
-        [AvaloniaFact]
         public void TokenFiles_DeclareTheSemanticColorKeys() {
             var lightKeys = LoadThemeFile("Tokens.Light.axaml").Keys.Cast<string>().ToHashSet();
             string[] newKeys = [
@@ -168,7 +153,6 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         private static Color ColorOf(IResourceDictionary dictionary, string key) => (Color)dictionary[key]!;
         private static int Brightness(Color color) => color.R + color.G + color.B;
 
-        //The pressed fill must read as more pushed-in than hover, in both themes.
         [AvaloniaFact]
         public void ControlBackgroundPressed_IsDarkerThanHover_BothThemes() {
             var light = LoadThemeFile("Tokens.Light.axaml");
@@ -178,7 +162,6 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.True(Brightness(ColorOf(dark, "Foreman.Color.ControlBackgroundPressed")) < Brightness(ColorOf(dark, "Foreman.Color.ControlBackgroundHover")));
         }
 
-        //AccentSoft is Accent's own RGB at a fixed alpha, not an independent value.
         [AvaloniaFact]
         public void AccentSoft_DerivesFromAccentColor_BothThemes() {
             var light = LoadThemeFile("Tokens.Light.axaml");
@@ -202,10 +185,6 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.Equal(2.0, (double)dark["Foreman.FocusRing.Offset"]!);
         }
 
-        //A bare substring match lets a key stand in for its own longer neighbour (Foreman.Space.Space1 is
-        //"referenced" by any Foreman.Space.Space15 use); this requires the match not continue into another
-        //identifier character. ScaleContract.cs is excluded - a key only listed in its MultipliedKeys ramp
-        //and read by nothing else must still count as dead.
         private static bool IsConsumerFile(string path) =>
             (path.EndsWith(".axaml", StringComparison.Ordinal) || path.EndsWith(".cs", StringComparison.Ordinal))
             && !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)

@@ -78,8 +78,6 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             hub.Dispose();
         }
 
-        //v2 §01 ties full ring opacity to Increase Contrast specifically - an accent-driven default keeps
-        //the FocusRing token's own declared alpha rather than always forcing it to full.
         [AvaloniaFact]
         public void AccentPresent_DefaultContrast_FocusRingKeepsTokensDeclaredOpacity() {
             MergeKitIntoApplication();
@@ -101,9 +99,6 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             hub.Dispose();
         }
 
-        //An explicit Light/Dark flip (ThemeService.Apply) never fires IPlatformAppearance.Changed, so
-        //variant-resolved overrides must re-derive off the hub's own ActualThemeVariantChanged
-        //subscription instead of relying on caller discipline.
         [AvaloniaFact]
         public void ThemeFlip_WithContrastHigh_ReResolvesBorderToTheNewVariantsBorderStrong() {
             MergeKitIntoApplication();

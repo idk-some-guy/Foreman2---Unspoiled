@@ -11,7 +11,6 @@ using Foreman.Mac.Kit.Appearance;
 using System;
 
 namespace Foreman.Mac.Kit.Tests.support {
-    //Shared across every Controls/<Family>Tests.cs: a merged Kit dictionary, a shown window, and the scale/state/brush helpers the fidelity tests repeat.
     public sealed class KitFixture : IDisposable {
         private readonly ScaleGuard scale = new();
 
@@ -23,7 +22,6 @@ namespace Foreman.Mac.Kit.Tests.support {
 
             Appearance = new FakePlatformAppearance();
             Window = new Window { Width = 400, Height = 300 };
-            //Scoped to this window, not Application.Styles, so stock controls get a real template without theming the rest of the suite.
             Window.Styles.Add(new FluentTheme());
             Window.Show();
         }
@@ -51,13 +49,11 @@ namespace Foreman.Mac.Kit.Tests.support {
         }
     }
 
-    //Resets the multiplied kit tokens to 1.0 on both construction and disposal, so no fixture inherits a leftover scale.
     public sealed class ScaleGuard : IDisposable {
         public ScaleGuard() => ScaleContract.Apply(1.0);
         public void Dispose() => ScaleContract.Apply(1.0);
     }
 
-    //Fakeable IPlatformAppearance a test can toggle directly, mirroring the FakeAppearance in Appearance/*Tests.cs.
     public sealed class FakePlatformAppearance : IPlatformAppearance {
         private EventHandler? changed;
 
@@ -72,7 +68,6 @@ namespace Foreman.Mac.Kit.Tests.support {
         public void RaiseChanged() => changed?.Invoke(this, EventArgs.Empty);
     }
 
-    //Raises real pointer/keyboard events at a control, mirroring RealClick.cs/CanvasKeys.cs in tests/Foreman.Mac.UiTests/support.
     public sealed class ControlState {
         private readonly Control control;
         private readonly Window window;
@@ -108,7 +103,6 @@ namespace Foreman.Mac.Kit.Tests.support {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //Real TextInput through the headless window, mirroring how a keyboard actually fills a field (vs. setting Text directly).
         public void Type(string text) {
             Focus();
             window.KeyTextInput(text);
@@ -125,7 +119,6 @@ namespace Foreman.Mac.Kit.Tests.support {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //Press-move-release through the control's own local points, mirroring how a real mouse drag selects text.
         public void Drag(Point from, Point to) {
             window.MouseDown(Translate(from), MouseButton.Left, RawInputModifiers.None);
             Dispatcher.UIThread.RunJobs();

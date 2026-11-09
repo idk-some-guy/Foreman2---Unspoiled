@@ -52,9 +52,6 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             hub.Dispose();
         }
 
-        //A subscriber dropped by its owner (no other references) must not keep the hub's own weak-reference
-        //list alive - proven by forcing a collection and confirming the next Refresh doesn't throw and no
-        //longer reaches a subscriber built and discarded in the helper below.
         [AvaloniaFact]
         public void Subscribe_SubscriberCollected_PrunedWithoutError() {
             var hub = new AppearanceHub((Application)Application.Current!, new FakeAppearance());

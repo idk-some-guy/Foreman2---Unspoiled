@@ -13,7 +13,7 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
         public void Dispose() => Motion.ReduceMotion = false;
 
         [Theory]
-        [InlineData(120)] // PopoverDuration
+        [InlineData(120)]
         public void PopoverDuration_IsOneHundredTwentyMilliseconds(int expectedMs) =>
             Assert.Equal(expectedMs, Motion.PopoverDuration.TotalMilliseconds);
 
@@ -67,7 +67,6 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.Equal(540, (Motion.HoverDuration + Motion.PlacementFlashHold + Motion.CrossFadeDuration).TotalMilliseconds);
         }
 
-        //The 10 pre-existing duration/scale constants keep their names and values untouched.
         [Fact]
         public void ThePreExistingTenConstants_KeepTheirValues() {
             Assert.Equal(220, Motion.CrossFadeDuration.TotalMilliseconds);

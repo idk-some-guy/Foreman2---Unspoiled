@@ -66,7 +66,6 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.IsType<Color>(tokens["Foreman.Color.Success"]);
         }
 
-        //the kit mock's 'pressed darker than hover' rule wins over the contract table's #525256
         [AvaloniaFact]
         public void DarkTheme_ControlBackgroundPressed_IsDarkerThanHoverPer12PercentRule() {
             var tokens = LoadThemeFile("Tokens.Dark.axaml");

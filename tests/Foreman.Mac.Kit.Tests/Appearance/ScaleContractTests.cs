@@ -9,9 +9,6 @@ using System;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.Appearance {
-    //ScaleContract.Apply(step) recomputes the kit's sizing tokens into Application.Resources, the same
-    //re-push shape AppearanceHub already uses for colour. Borders, radii, the focus ring and the scrim
-    //never move.
     [Collection(KitScaleGroup.Name)]
     public class ScaleContractTests : IDisposable {
         public ScaleContractTests() {
@@ -165,7 +162,6 @@ namespace Foreman.Mac.Kit.Tests.Appearance {
             Assert.Equal(30.0, ResourceDouble("Foreman.Size.Glyph20"));
         }
 
-        //The count floor is the third stop on the search field's own width ramp and the pan inset is in the same screen points, so both ride the scale with it.
         [AvaloniaFact]
         public void Apply_AtOneFifty_MultipliesTheFindNodeMetrics() {
             ScaleContract.Apply(1.5);

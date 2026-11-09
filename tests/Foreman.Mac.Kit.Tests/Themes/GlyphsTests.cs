@@ -53,7 +53,6 @@ namespace Foreman.Mac.Kit.Tests.Themes {
                     yield return [name, size];
         }
 
-        //the live-area margin scales with the drawn size; the tolerance stays a flat 0.5 pt
         [AvaloniaTheory]
         [MemberData(nameof(AllKeys))]
         public void EveryGeometry_FitsTheLiveArea_ForItsDrawnSize(string name, int size) {
@@ -81,7 +80,6 @@ namespace Foreman.Mac.Kit.Tests.Themes {
             var window = new Window { Content = path };
             window.Show();
 
-            //A scaled render wraps this fixed-size Path in a Viewbox; the Path itself must never stretch.
             Assert.Equal(Stretch.None, path.Stretch);
             Assert.Equal(path.Data!.Bounds, path.RenderedGeometry!.Bounds);
         }
@@ -108,7 +106,6 @@ namespace Foreman.Mac.Kit.Tests.Themes {
                 ScaleContract.Apply(1.5);
                 window.UpdateLayout();
 
-                //The class Setter is a fixed master box; a wrapping Viewbox tracks ScaleContract instead.
                 Assert.Equal(masterSize, path.Width);
                 Assert.Equal(masterSize, path.Height);
             } finally {

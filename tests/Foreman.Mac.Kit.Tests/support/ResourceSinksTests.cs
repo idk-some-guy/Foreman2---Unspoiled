@@ -5,7 +5,6 @@ using Foreman.Mac.Kit;
 using Xunit;
 
 namespace Foreman.Mac.Kit.Tests.support {
-    //Every ResourceSinks.*Sink shares one contract: OnNext(same value) is a no-op, OnNext(changed value) forwards it.
     public class ResourceSinksTests {
         [Fact]
         public void DoubleSink_SuppressesSameValue_ForwardsChangedValue() {

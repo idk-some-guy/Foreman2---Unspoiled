@@ -106,7 +106,6 @@ namespace Foreman.Mac.Kit.Tests.Tokens {
             Assert.Equal(88d, tokens["Foreman.Size.ChooserCell"]);
         }
 
-        //Swatch tokens sit behind content colour, so both appearances share one value.
         [AvaloniaTheory]
         [InlineData("Tokens.Light.axaml")]
         [InlineData("Tokens.Dark.axaml")]

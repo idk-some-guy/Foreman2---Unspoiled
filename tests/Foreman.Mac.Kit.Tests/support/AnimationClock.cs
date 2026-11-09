@@ -11,7 +11,6 @@ namespace Foreman.Mac.Kit.Tests.support {
             Dispatcher.UIThread.RunJobs();
         }
 
-        //Pumps the render clock until root's kit height reflows finish; the timer only fails a hang, it never ends a pass.
         public static void UntilReflowsSettled(Avalonia.Visual root) {
             Dispatcher.UIThread.RunJobs();
             System.Threading.Tasks.Task settled = Foreman.Mac.Kit.Motion.ReflowsSettled(root);
