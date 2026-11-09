@@ -121,7 +121,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(expectedY, labelBaselineY, 2);
         }
 
-        //The label's baseline shift stays inside a 22 pt control, so the row stays 22 (a colour well, a stepper).
         [AvaloniaFact]
         public void RowHeight_StaysTheControlsHeight_WhenTheShiftedLabelStillFitsInside() {
             using var fixture = new KitFixture();
@@ -193,15 +192,11 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(valueBaselineY, labelBaselineY, 2);
         }
 
-        //A control whose visual tree happens to carry a hidden text part earlier than its real, visible one (Kit.Slider's
-        //own PART_ValueLabel when ShowValue is off) must not win the baseline search over that visible text.
         [AvaloniaFact]
         public void Label_SkipsAnInvisibleTextDescendant_AligningToTheVisibleOneInstead() {
             using var fixture = new KitFixture();
             Assert.True(Application.Current!.TryGetResource("Kit.Slider", null, out object? sliderTheme));
             var slider = new Foreman.Mac.Kit.Controls.Slider { Theme = Assert.IsType<ControlTheme>(sliderTheme), Width = 124 };
-            //PART_ValueLabel resolves Foreman.Type.Callout.FontSize (12): a visible sibling at a different
-            //size proves the search actually skips the hidden part rather than landing on it by coincidence.
             var valueText = new TextBlock { Text = "72 %", FontSize = 20 };
             var opacityRow = new StackPanel {
                 Orientation = Orientation.Horizontal, Spacing = 8,
@@ -399,8 +394,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(fixture.Brush("Foreman.Color.Error").ToImmutable(), controlBorder.BorderBrush?.ToImmutable());
         }
 
-        //PART_ControlBorder sits on a -1 margin to outline the control from just outside its bounds; a row that
-        //self-clips to its own bounds cuts the ring's top edge, since row 0 starts flush at the row's own top.
         [AvaloniaFact]
         public void ErrorBorder_AllFourEdgesRenderInsideTheRow_NoneClippedByTheRowItself() {
             using var fixture = new KitFixture();
@@ -610,8 +603,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(layouts <= 40, $"FormRow laid out {layouts} times settling one note reflow.");
         }
 
-        //Direct unit coverage of the shared helper (FormRow.cs and PalettePanel.cs both call it), independent
-        //of either composite's own measure logic.
         [AvaloniaFact]
         public void ReflowHeight_SharedHelper_ClearsTheExplicitHeightOnCompletion() {
             using var fixture = new KitFixture();
@@ -634,10 +625,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(host.Bounds.Height >= before);
         }
 
-        //The page names Motion.EntranceEasing for the grid<->pop-up reflow. Sampling the running animation
-        //off the render clock cannot tell one curve from another under headless jitter, so the curve itself
-        //is sampled: a cubic ease-out stands at 0.578125 a quarter in and 0.984375 three quarters in, where
-        //a linear tween stands at 0.25 and 0.75.
         [AvaloniaFact]
         public void ReflowAnimation_RunsTheEntranceCurve_NotALinearTween() {
             using var fixture = new KitFixture();
@@ -651,8 +638,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(Motion.EntranceEasing.Ease(0.75), reflow.Easing.Ease(0.75), 6);
         }
 
-        //FormRow and PalettePanel both inlined this exact block in their detach handlers; the reflow
-        //continuation must go through the same helper, not just the detach path.
         [AvaloniaFact]
         public void ClearExplicitHeight_SharedHelper_RestoresAutoHeight_AndDropsTheCancellation() {
             using var fixture = new KitFixture();

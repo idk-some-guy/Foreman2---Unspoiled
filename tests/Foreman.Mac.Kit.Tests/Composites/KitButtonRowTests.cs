@@ -55,7 +55,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Button save = Btn("Save", ButtonRowRole.Default);
             Button cancel = Btn("Cancel", ButtonRowRole.Cancel);
             Button dontSave = Btn("Don't Save", ButtonRowRole.Other);
-            //Added out of visual order - the row, not insertion order, decides layout.
             Layout(400, save, cancel, dontSave);
             Dispatcher.UIThread.RunJobs();
 
@@ -109,7 +108,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Contains("primary", cancel.Classes);
             Assert.True(discard.Bounds.X < cancel.Bounds.X);
 
-            //The single most important assertion in this suite: Return fires Cancel, not the destructive button.
             int cancelHits = 0, discardHits = 0;
             cancel.Click += (_, _) => cancelHits++;
             discard.Click += (_, _) => discardHits++;
@@ -184,18 +182,15 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         [AvaloniaFact]
         public void NarrowerThanTheCluster_WrapsToASecondTrailingLine_RatherThanShrinking() {
             using var fixture = new KitFixture();
-            //One-character labels so every button clamps to the 64pt min width exactly.
             Button other = Btn("A", ButtonRowRole.Other);
             Button cancel = Btn("B", ButtonRowRole.Cancel);
             Button save = Btn("C", ButtonRowRole.Default);
-            //3 buttons at min width 64 plus 2 gaps of 8 need 208 - 150 forces a wrap.
             Layout(150, other, cancel, save);
             Dispatcher.UIThread.RunJobs();
 
             Button[] all = [other, cancel, save];
             double[] rows = [.. all.Select(b => b.Bounds.Y).Distinct()];
             Assert.Equal(2, rows.Length);
-            //The trailing-most (default) button stays on the bottom-most line.
             Assert.True(other.Bounds.Y < save.Bounds.Y, "the leading button should wrap up, not the trailing one");
             Assert.Equal(cancel.Bounds.Y, save.Bounds.Y);
 
@@ -234,11 +229,9 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             using var fixture = new KitFixture();
             Button other = Btn("Open Presets…", ButtonRowRole.Other);
             Button def = Btn("Pick Another Recipe…", ButtonRowRole.Default);
-            //280pt: the cluster overflows and forces the wrap, but each button's own desired width fits alone on its line.
             ButtonRow row = LayoutCentered(280, other, def);
 
             Assert.NotEqual(other.Bounds.Y, def.Bounds.Y);
-            //§05: the default button keeps the last (bottom-most) line when the cluster wraps.
             Assert.True(other.Bounds.Y < def.Bounds.Y);
 
             foreach (Button b in new[] { other, def }) {
@@ -288,7 +281,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             window.Show();
             Dispatcher.UIThread.RunJobs();
 
-            //Centered ignores the trailing/leading split entirely - a lone button sits in the middle.
             double expectedX = (row.Bounds.Width - ok.Bounds.Width) / 2;
             Assert.True(System.Math.Abs(ok.Bounds.X - expectedX) < 1, $"expected ~{expectedX}, got {ok.Bounds.X}");
         }

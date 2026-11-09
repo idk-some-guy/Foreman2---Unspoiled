@@ -104,7 +104,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(Assert.IsType<double>(gap), Stack(group).VerticalSpacing);
         }
 
-        //A group with no title (a sheet body) starts with its first row, not a blank title line and its gap.
         [AvaloniaFact]
         public void NoTitle_TakesNoSpace_TheFirstRowStartsAtTheTop() {
             using var fixture = new KitFixture();

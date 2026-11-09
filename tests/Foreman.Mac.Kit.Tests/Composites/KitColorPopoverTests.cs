@@ -145,7 +145,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal("Red", swatches[8].Name);
         }
 
-        //Content colours, not chrome: the cells draw the same hex in both appearances.
         [AvaloniaFact]
         public void Palette_IsIdenticalInDarkAppearance() {
             using var fixture = new KitFixture();

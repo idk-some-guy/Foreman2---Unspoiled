@@ -27,8 +27,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             return Assert.IsType<ControlTheme>(theme);
         }
 
-        //Section A wraps (3 items over 2 columns), Section B does not (2 items) - lets the wrap/leading-align
-        //and the cross-section Up/Down land land on real geometry rather than assumed columns.
         private static ChooserGrid TwoSectionGrid(double width = 250, double height = 400) {
             var grid = new ChooserGrid { Theme = KitChooserGridTheme(), Width = width, Height = height };
             var sectionA = new ChooserSection { Group = "Production", Subgroup = "Smelting" };
@@ -81,11 +79,9 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Dispatcher.UIThread.RunJobs();
 
             ChooserCell[] cells = Cells(grid);
-            //Section A: Iron plate, Copper plate share row 0; Steel plate alone on row 1.
             Assert.Equal(cells[0].Bounds.Y, cells[1].Bounds.Y);
             Assert.True(cells[2].Bounds.Y > cells[0].Bounds.Y);
             Assert.True(cells[0].Bounds.X < cells[1].Bounds.X);
-            //Last row of the section does not stretch or centre - the lone cell sits at the leading column.
             Assert.Equal(cells[0].Bounds.X, cells[2].Bounds.X);
         }
 
@@ -187,26 +183,26 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void DownArrow_FromTheLastRowOfASection_LandsInTheFirstRowOfTheNextSection() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[0].Items[2]; //Steel plate, alone on row 1 of section A
+            grid.SelectedItem = grid.Sections[0].Items[2];
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).KeyDown(Key.Down);
 
-            Assert.Equal(grid.Sections[1].Items[0], grid.SelectedItem); //Casting iron plate, row 0 of section B
+            Assert.Equal(grid.Sections[1].Items[0], grid.SelectedItem);
         }
 
         [AvaloniaFact]
         public void UpArrow_FromTheFirstRowOfASection_LandsInTheLastRowOfThePreviousSection() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[1].Items[0]; //Casting iron plate, row 0 of section B
+            grid.SelectedItem = grid.Sections[1].Items[0];
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).KeyDown(Key.Up);
 
-            Assert.Equal(grid.Sections[0].Items[2], grid.SelectedItem); //Steel plate, row 1 of section A
+            Assert.Equal(grid.Sections[0].Items[2], grid.SelectedItem);
         }
 
         [AvaloniaFact]
@@ -275,26 +271,26 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         public void TypeToSelect_MatchesWithinTheCurrentSectionFirst() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[0].Items[0]; //Iron plate
+            grid.SelectedItem = grid.Sections[0].Items[0];
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).Type("c");
 
-            Assert.Equal(grid.Sections[0].Items[1], grid.SelectedItem); //Copper plate, same section
+            Assert.Equal(grid.Sections[0].Items[1], grid.SelectedItem);
         }
 
         [AvaloniaFact]
         public void TypeToSelect_FallsThroughToOtherSectionsWhenNothingMatchesLocally() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
-            grid.SelectedItem = grid.Sections[0].Items[0]; //Iron plate; no section-A item starts with "m"
+            grid.SelectedItem = grid.Sections[0].Items[0];
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
             fixture.StateOf(grid).Type("m");
 
-            Assert.Equal(grid.Sections[1].Items[1], grid.SelectedItem); //Molten iron from lava
+            Assert.Equal(grid.Sections[1].Items[1], grid.SelectedItem);
         }
 
         [AvaloniaFact]
@@ -386,13 +382,10 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             fixture.Window.Content = grid;
             Dispatcher.UIThread.RunJobs();
 
-            //Past the first heading's natural position and into the second heading pushing it back up - the branch that exercises pushLimit.
             ScrollViewer scroll = Scroll(grid);
             scroll.Offset = new Vector(0, 40);
             AnimationClock.Settle();
 
-            //UpdateStickyHeadings always reassigns RenderTransform when it runs, so counting that change is
-            //a direct proxy for how many times the scroll-driven Dispatcher.Post loop actually re-fires.
             int updates = 0;
             int layouts = 0;
             foreach (StackPanel heading in Headings(grid))
@@ -611,7 +604,7 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
             fixture.StateOf(grid).Type("I");
 
-            Assert.Equal(grid.Sections[0].Items[0], grid.SelectedItem); //Iron plate, not Ice pack
+            Assert.Equal(grid.Sections[0].Items[0], grid.SelectedItem);
         }
 
         [AvaloniaFact]

@@ -63,8 +63,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             return new SearchField { Theme = Assert.IsType<ControlTheme>(theme) };
         }
 
-        //=== Kit.PaletteRow ===
-
         [AvaloniaFact]
         public void KitPaletteRow_IsAControlThemeTargetingPaletteRow() {
             using var fixture = new KitFixture();
@@ -226,8 +224,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(1, selectionFill.Opacity);
             Assert.Equal(0, fill.Opacity);
         }
-
-        //=== Kit.PalettePanel (the panel example) ===
 
         [AvaloniaFact]
         public void KitPalettePanel_IsAControlThemeTargetingPalettePanel() {
@@ -482,8 +478,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
 
             Assert.All(Rows(panel), r => Assert.True(r.IsKey));
         }
-
-        //=== Kit.SearchField flush variant (palette header) ===
 
         [AvaloniaFact]
         public void FlushSearch_WidthSpansThePanelInsideItsHairline() {

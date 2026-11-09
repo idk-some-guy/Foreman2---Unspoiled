@@ -112,7 +112,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Image icon = alert.GetVisualDescendants().OfType<Image>().Single(i => i.Name == "PART_Icon");
             Assert.Equal(32, icon.Width);
             Assert.Equal(32, icon.Height);
-            //Proves the TemplateBinding actually carries the assigned Icon through, not just its type.
             Assert.Same(alert.Icon, icon.Source);
         }
 
@@ -134,8 +133,6 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.Equal(16.8, informative.LineHeight);
         }
 
-        //At 100% the token's own value (32) equals AlertFrame.axaml's XAML fallback literal, so this
-        //assertion would hold either way; 150% is where the token and the stale literal actually diverge.
         [AvaloniaFact]
         public void IconColumn_ResolvesAlertIconToken_NotAXamlFallbackLiteral() {
             using var fixture = new KitFixture();
