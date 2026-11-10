@@ -4,6 +4,16 @@ A native macOS and Linux port of [DanielKote/Foreman2](https://github.com/Daniel
 
 Foreman2 itself is derived from [Nick Powell's original Foreman](https://github.com/Rybadour/Foreman). This project carries that lineage forward on platforms upstream doesn't target.
 
+## Screenshots
+
+![A production chain drawn as a graph: each node is a recipe or item, and the lines show where items flow](docs/screenshots/hero.png)
+
+*Plan a whole production chain as a graph. Each node is a recipe or an item; the lines show where items flow and how much.*
+
+![The inspector sidebar open on a Plastic bar node, with its recipe, rate, machine, modules and beacon](docs/screenshots/inspector.png)
+
+*Select a node to change its recipe, machine, modules, beacons and rate in the sidebar.*
+
 ## Platform support
 
 **macOS (Apple Silicon) and Linux. No Windows, ever** — Windows is already covered by upstream Foreman2, a native WinForms application. See [CONTRIBUTING.md](CONTRIBUTING.md) for where Windows-related requests belong.
