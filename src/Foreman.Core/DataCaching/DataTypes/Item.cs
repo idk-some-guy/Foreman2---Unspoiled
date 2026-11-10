@@ -21,6 +21,9 @@ namespace Foreman.DataCaching.DataTypes {
         IItem? BurnResult { get; }
         IPlantProcess? PlantResult { get; }
         IItem? SpoilResult { get; }
+        int SpoilQualityChange { get; }
+        IQuality? SpoilQualityMin { get; }
+        IQuality? SpoilQualityMax { get; }
 
         IItem? FuelOrigin { get; }
         IReadOnlyCollection<IItem> PlantOrigins { get; }
@@ -54,6 +57,9 @@ namespace Foreman.DataCaching.DataTypes {
         public IItem? BurnResult { get; internal set; }
         public IPlantProcess? PlantResult { get; internal set; }
         public IItem? SpoilResult { get; internal set; }
+        public int SpoilQualityChange { get; internal set; }
+        public IQuality? SpoilQualityMin { get; internal set; }
+        public IQuality? SpoilQualityMax { get; internal set; }
 
         public IItem? FuelOrigin { get; internal set; }
         public IReadOnlyCollection<IItem> PlantOrigins { get { return _plantOrigins; } }

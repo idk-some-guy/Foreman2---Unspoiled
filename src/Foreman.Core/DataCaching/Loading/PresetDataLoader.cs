@@ -259,6 +259,11 @@ namespace Foreman.DataCaching.Loading {
             }
             if (PresetJson.GetString(objJsonNode, "burnt_result") is string burntResult)
                 _session.BurnResults.Add(item, burntResult);
+            item.SpoilQualityChange = PresetJson.GetInt32(objJsonNode, "spoil_quality_change") ?? 0;
+            if (PresetJson.GetString(objJsonNode, "spoil_quality_min") is string spoilQualityMin && _store.Qualities.TryGetValue(spoilQualityMin, out IQuality? minQuality))
+                item.SpoilQualityMin = minQuality;
+            if (PresetJson.GetString(objJsonNode, "spoil_quality_max") is string spoilQualityMax && _store.Qualities.TryGetValue(spoilQualityMax, out IQuality? maxQuality))
+                item.SpoilQualityMax = maxQuality;
             if (PresetJson.GetString(objJsonNode, "spoil_result") is string spoilResult && objJsonNode["q_spoil_time"] is JsonNode qSpoilTime) {
                 _session.SpoilResults.Add(item, spoilResult);
                 foreach (JsonNode spoilToken in PresetJson.EnumerateArray(qSpoilTime))

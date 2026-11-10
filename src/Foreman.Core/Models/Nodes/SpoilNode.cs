@@ -38,10 +38,10 @@ namespace Foreman.Models.Nodes {
         public SpoilNode(ProductionGraph graph, int nodeID, ItemQualityPair item) : this(graph, nodeID, item, item.Item?.SpoilResult) { }
         public SpoilNode(ProductionGraph graph, int nodeID, ItemQualityPair item, IItem? outputItem) : base(graph, nodeID) {
             ArgumentNullException.ThrowIfNull(outputItem);
-            if (item.Quality is not IQuality quality)
+            if (item.Item is not IItem inputItem || item.Quality is not IQuality quality)
                 throw new ArgumentException("Quality must be populated.", nameof(item));
             InputItem = item;
-            OutputItem = new ItemQualityPair(outputItem, quality);
+            OutputItem = new ItemQualityPair(outputItem, SpoilQuality.Resolve(inputItem, quality));
             controller = new SpoilNodeController(this);
         }
 
@@ -104,9 +104,9 @@ namespace Foreman.Models.Nodes {
         internal SpoilNodeController(SpoilNode myNode) : base(myNode) { MyNode = myNode; }
 
         public void UpdateSpoilResult() {
-            if (MyNode.InputItem.Item?.SpoilResult is not IItem spoilResult || MyNode.InputItem.Quality is not IQuality quality)
+            if (MyNode.InputItem.Item is not IItem inputItem || inputItem.SpoilResult is not IItem spoilResult || MyNode.InputItem.Quality is not IQuality quality)
                 return;
-            var correctSpoilResult = new ItemQualityPair(spoilResult, quality);
+            var correctSpoilResult = new ItemQualityPair(spoilResult, SpoilQuality.Resolve(inputItem, quality));
             if (MyNode.OutputItem != correctSpoilResult) {
                 foreach (NodeLink link in MyNode.OutputLinks)
                     link.Controller.Delete();

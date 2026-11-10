@@ -1309,7 +1309,7 @@ namespace Foreman.Mac.Canvas {
         private Services.AppSettings? fallbackChooserSettings;
         private Services.AppSettings ChooserSettings => AnnotationSettings ?? (fallbackChooserSettings ??= new Services.AppSettings());
 
-        private readonly record struct NewNodeContext(ItemQualityPair BaseItem, DrawingPoint NewLocation, NewNodeType OuterNodeType, BaseNodeElement? OriginElement, NodeDirection NewNodeDirection, bool OffsetLocationToItemTabLevel);
+        private readonly record struct NewNodeContext(ItemQualityPair BaseItem, DrawingPoint NewLocation, NewNodeType OuterNodeType, BaseNodeElement? OriginElement, NodeDirection NewNodeDirection, bool OffsetLocationToItemTabLevel, bool LinkToOrigin = true);
 
         private NodeId ProcessNodeRequest(NewNodeContext ctx, NodeType nodeType, RecipeQualityPair recipe, NodeDirection direction, IItem? explicitOrigin = null) {
             if (Viewer.Context.DCache is not DataCache cache)
@@ -1333,7 +1333,10 @@ namespace Foreman.Mac.Canvas {
                     newNodeId = Viewer.Session.Editor.CreateSpoilNode(ctx.BaseItem, spoilOutput, ctx.NewLocation);
                     break;
                 case NodeType.Spoil when direction == NodeDirection.Down && itemNN is not null && qualityNN is not null && ResolveOrigin(explicitOrigin, itemNN.SpoilOrigins) is IItem spoilOrigin:
-                    newNodeId = Viewer.Session.Editor.CreateSpoilNode(new ItemQualityPair(spoilOrigin, qualityNN), itemNN, ctx.NewLocation);
+                    IQuality? originQuality = SpoilQuality.InputFor(spoilOrigin, qualityNN);
+                    newNodeId = Viewer.Session.Editor.CreateSpoilNode(new ItemQualityPair(spoilOrigin, originQuality ?? qualityNN), itemNN, ctx.NewLocation);
+                    if (originQuality is null)
+                        ctx = ctx with { LinkToOrigin = false };
                     break;
                 case NodeType.Plant when direction == NodeDirection.Up && itemNN?.PlantResult is IPlantProcess plantUp && qualityNN is not null:
                     newNodeId = Viewer.Session.Editor.CreatePlantNode(plantUp, qualityNN, ctx.NewLocation);
@@ -1427,9 +1430,9 @@ namespace Foreman.Mac.Canvas {
                     ClearOfOrigin(newNodeId, ctx.OriginElement!);
             }
 
-            if (ctx.OuterNodeType == NewNodeType.Consumer && originStillExists)
+            if (ctx.OuterNodeType == NewNodeType.Consumer && originStillExists && ctx.LinkToOrigin)
                 Viewer.Session.Editor.CreateLink(ctx.OriginElement!.ViewModel.Id, newNodeId, ctx.BaseItem);
-            else if (ctx.OuterNodeType == NewNodeType.Supplier && originStillExists)
+            else if (ctx.OuterNodeType == NewNodeType.Supplier && originStillExists && ctx.LinkToOrigin)
                 Viewer.Session.Editor.CreateLink(newNodeId, ctx.OriginElement!.ViewModel.Id, ctx.BaseItem);
 
             Viewer.Graph.UpdateNodeValues();
