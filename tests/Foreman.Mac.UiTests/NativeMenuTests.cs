@@ -770,7 +770,7 @@ namespace Foreman.Mac.UiTests {
 
             var headers = RealItems(SubMenu(TopMenu(window), "Window")).Select(i => i.Header).ToList();
 
-            Assert.Equal(["Minimize", "Zoom", "Welcome to Foreman", "Preset Comparator", "Bring All to Front"], headers);
+            Assert.Equal(["Minimize", "Zoom", "Welcome to Foreman", "Preset Comparator", "Research", "Bring All to Front"], headers);
         }
 
         [AvaloniaFact]
@@ -1500,10 +1500,12 @@ namespace Foreman.Mac.UiTests {
             Assert.True(ItemNamed(view, "Show Toolbar").IsEnabled);
             Assert.True(ItemNamed(windowMenu, "Welcome to Foreman").IsEnabled);
             Assert.Equal(comparatorBefore, ItemNamed(windowMenu, "Preset Comparator").IsEnabled);
-            Assert.All(RealItems(windowMenu).Where(i => i.Header is not "Preset Comparator"), i => Assert.True(i.IsEnabled, i.Header));
+            Assert.False(ItemNamed(windowMenu, "Research").IsEnabled);
+            Assert.All(RealItems(windowMenu).Where(i => i.Header is not ("Preset Comparator" or "Research")), i => Assert.True(i.IsEnabled, i.Header));
 
             window.IsDocumentOpen = true;
 
+            Assert.True(ItemNamed(windowMenu, "Research").IsEnabled);
             Assert.True(ItemNamed(file, "Save").IsEnabled);
             Assert.True(ItemNamed(edit, "Select All").IsEnabled);
             Assert.False(ItemNamed(edit, "Undo").IsEnabled);

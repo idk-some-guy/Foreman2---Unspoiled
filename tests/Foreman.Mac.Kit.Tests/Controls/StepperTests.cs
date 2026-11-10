@@ -436,6 +436,24 @@ namespace Foreman.Mac.Kit.Tests.Controls {
         }
 
         [AvaloniaFact]
+        public void Stepper_IsWide_RaisesTheFieldMinimumTo72() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+            Grid columns = stepper.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Columns");
+            Assert.Equal(40, columns.ColumnDefinitions[0].MinWidth);
+
+            stepper.IsWide = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(72, columns.ColumnDefinitions[0].MinWidth);
+
+            stepper.IsWide = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(40, columns.ColumnDefinitions[0].MinWidth);
+        }
+
+        [AvaloniaFact]
         public void Stepper_EmptyThenStep_BecomesNonEmpty() {
             using var fixture = new KitFixture();
             Stepper stepper = Themed();

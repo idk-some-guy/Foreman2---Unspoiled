@@ -25,7 +25,7 @@ namespace Foreman.DataCaching.Storage {
         private static readonly object BootstrapLock = new();
 
         //EnsureCreated never alters an existing file's schema, so each bump needs its own step in MigrateToCurrent.
-        private const int CurrentSchemaVersion = 5;
+        private const int CurrentSchemaVersion = 6;
 
         public static ForemanDbContext Open(string dbPath) {
             string? directory = Path.GetDirectoryName(dbPath);
@@ -62,6 +62,9 @@ namespace Foreman.DataCaching.Storage {
             }
             if (versionRow.Version < 5) {
                 MigrateToV5(context);
+            }
+            if (versionRow.Version < 6) {
+                MigrateToV6(context);
             }
 
             context.SchemaVersions.Remove(versionRow);
@@ -107,6 +110,21 @@ namespace Foreman.DataCaching.Storage {
             ("GraphSummaryHeight", "REAL NULL"),
             ("GraphSummarySegment", "INTEGER NOT NULL DEFAULT 0"),
         ];
+
+        private static readonly (string Column, string Definition)[] V6AddedColumns = [
+            ("ResearchLeft", "REAL NULL"),
+            ("ResearchTop", "REAL NULL"),
+            ("ResearchWidth", "REAL NULL"),
+            ("ResearchHeight", "REAL NULL"),
+            ("ResearchSegment", "INTEGER NOT NULL DEFAULT 0"),
+        ];
+
+        private static void MigrateToV6(ForemanDbContext context) {
+            foreach ((string column, string definition) in V6AddedColumns) {
+                if (!ColumnExists(context, "Settings", column))
+                    Execute(context, "ALTER TABLE Settings ADD COLUMN " + column + " " + definition);
+            }
+        }
 
         private static void MigrateToV5(ForemanDbContext context) {
             Execute(context, """

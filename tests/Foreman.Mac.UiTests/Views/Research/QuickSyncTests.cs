@@ -73,7 +73,7 @@ namespace Foreman.Mac.UiTests.Views.Research {
             Assert.Equal(["Document", "Add", "Arrange", "Research", "Share"], names);
 
             ToolbarGroup research = groups.Single(g => g.Role == ToolbarGroupRole.Research);
-            Assert.Equal(["Sync Research"], research.Items.Select(i => i.AutomationName));
+            Assert.Equal(["Sync Research", "Research"], research.Items.Select(i => i.AutomationName));
             Assert.Equal("Sync", research.Items[0].Label);
             Assert.Equal("Sync Research", research.Items[0].OverflowLabel);
             Application.Current!.TryGetResource("Kit.Glyph.Sync.17", null, out object? glyph);
@@ -271,6 +271,13 @@ namespace Foreman.Mac.UiTests.Views.Research {
 
             Assert.Equal("Sync research from “Megabase” (⌘R)", ToolTip.GetTip(rig.SyncItem));
             Assert.Equal("Syncs research from “Megabase”.", AutomationProperties.GetHelpText(rig.SyncItem));
+            Assert.Equal("⌘R", AutomationProperties.GetAcceleratorKey(rig.SyncItem));
+
+            string longName = new('m', 60);
+            rig.StoreSave(longName, exists: true);
+
+            Assert.Equal($"Sync research from “{Foreman.Mac.Dialogs.MiddleTruncate(longName)}” (⌘R)", ToolTip.GetTip(rig.SyncItem));
+            Assert.Equal($"Syncs research from “{longName}”.", AutomationProperties.GetHelpText(rig.SyncItem));
         }
     }
 }

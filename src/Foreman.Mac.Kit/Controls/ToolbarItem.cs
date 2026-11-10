@@ -19,6 +19,9 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<bool> IsOnProperty =
             AvaloniaProperty.Register<ToolbarItem, bool>(nameof(IsOn));
 
+        public static readonly StyledProperty<bool> IsToggleProperty =
+            AvaloniaProperty.Register<ToolbarItem, bool>(nameof(IsToggle));
+
         public static readonly StyledProperty<string?> AutomationNameProperty =
             AvaloniaProperty.Register<ToolbarItem, string?>(nameof(AutomationName));
 
@@ -67,6 +70,11 @@ namespace Foreman.Mac.Kit.Controls {
         public bool IsOn {
             get => GetValue(IsOnProperty);
             set => SetValue(IsOnProperty, value);
+        }
+
+        public bool IsToggle {
+            get => GetValue(IsToggleProperty);
+            set => SetValue(IsToggleProperty, value);
         }
 
         public string? AutomationName {

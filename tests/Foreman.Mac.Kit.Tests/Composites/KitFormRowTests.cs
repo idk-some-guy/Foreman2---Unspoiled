@@ -44,6 +44,19 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             row.GetVisualDescendants().OfType<Panel>().Single(p => p.Name == "PART_ControlHost");
 
         [AvaloniaFact]
+        public void KitFormRow_IsEmphasized_SetsTheLabelWeightTo600() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Mining productivity");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(FontWeight.Normal, LabelText(row).FontWeight);
+
+            row.IsEmphasized = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(FontWeight.SemiBold, LabelText(row).FontWeight);
+        }
+
+        [AvaloniaFact]
         public void KitFormRow_IsAControlThemeTargetingFormRow() {
             using var fixture = new KitFixture();
             Assert.Equal(typeof(FormRow), KitFormRowTheme().TargetType);

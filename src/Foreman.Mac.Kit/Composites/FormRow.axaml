@@ -112,6 +112,9 @@
       <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
     </Style>
 
+    <Style Selector="^:emphasized /template/ TextBlock#PART_Label">
+      <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.EmphasizedBody.FontWeight}" />
+    </Style>
     <Style Selector="^:note-warning /template/ TextBlock#PART_Note">
       <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Warning}" />
     </Style>

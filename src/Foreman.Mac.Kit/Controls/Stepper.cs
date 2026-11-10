@@ -44,6 +44,9 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<bool> ShowsPlusSignProperty =
             AvaloniaProperty.Register<Stepper, bool>(nameof(ShowsPlusSign));
 
+        public static readonly StyledProperty<bool> IsWideProperty =
+            AvaloniaProperty.Register<Stepper, bool>(nameof(IsWide));
+
         public double Value {
             get => GetValue(ValueProperty);
             set => SetValue(ValueProperty, value);
@@ -94,12 +97,18 @@ namespace Foreman.Mac.Kit.Controls {
             set => SetValue(ShowsPlusSignProperty, value);
         }
 
+        public bool IsWide {
+            get => GetValue(IsWideProperty);
+            set => SetValue(IsWideProperty, value);
+        }
+
         private TextBox? valueBox;
         private Button? upButton;
         private Button? downButton;
         private TextBlock? unitText;
         private Grid? columns;
         private double fieldWidth = 40;
+        private double wideFieldWidth = 72;
         private double arrowColumn = 15;
         private double glyphGap = 6;
         private readonly List<IDisposable> subs = [];
@@ -113,6 +122,7 @@ namespace Foreman.Mac.Kit.Controls {
 IsEmptyProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
             PlaceholderProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
             ShowsPlusSignProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
+            IsWideProperty.Changed.AddClassHandler<Stepper>((s, _) => s.ApplyFieldWidth());
         }
 
         private static double CoerceValue(AvaloniaObject sender, double value) =>
@@ -148,9 +158,9 @@ IsEmptyProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay
 
             if (columns is not null) {
                 columns.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
-                columns.ColumnDefinitions[0].MinWidth = fieldWidth;
                 columns.ColumnDefinitions[2].Width = new GridLength(arrowColumn);
             }
+            ApplyFieldWidth();
 
             RefreshValueDisplay();
             RefreshUnitDisplay();
@@ -170,9 +180,12 @@ IsEmptyProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay
             Unsubscribe();
             subs.Add(this.GetResourceObservable("Foreman.Size.StepperFieldWidth").Subscribe(new ResourceSinks.DoubleSink(v => {
                 fieldWidth = v;
-                if (columns is not null)
-                    columns.ColumnDefinitions[0].MinWidth = v;
+                ApplyFieldWidth();
             }, fieldWidth)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.StepperFieldWidthWide").Subscribe(new ResourceSinks.DoubleSink(v => {
+                wideFieldWidth = v;
+                ApplyFieldWidth();
+            }, wideFieldWidth)));
             subs.Add(this.GetResourceObservable("Foreman.Size.StepperArrowColumn").Subscribe(new ResourceSinks.DoubleSink(v => {
                 arrowColumn = v;
                 if (columns is not null)
@@ -188,6 +201,11 @@ IsEmptyProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay
             foreach (IDisposable sub in subs)
                 sub.Dispose();
             subs.Clear();
+        }
+
+        private void ApplyFieldWidth() {
+            if (columns is not null)
+                columns.ColumnDefinitions[0].MinWidth = IsWide ? wideFieldWidth : fieldWidth;
         }
 
         private void OnUpClicked(object? sender, RoutedEventArgs e) => Step(Increment);
@@ -251,8 +269,8 @@ IsEmptyProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay
             get {
                 if (IsEmpty)
                     return Placeholder ?? "";
-                string text = FormattedValue;
-                return text.StartsWith('+') ? "plus " + text[1..] : text;
+                string text = Value.ToString(Decimals > 0 ? "0." + new string('#', Decimals) : "0", CultureInfo.InvariantCulture);
+                return ShowsPlusSign && Value > 0 ? "plus " + text : text;
             }
         }
 

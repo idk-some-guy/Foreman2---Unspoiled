@@ -178,6 +178,8 @@ namespace Foreman.Mac.Kit.Composites {
                     OverflowButton.ActionItems.Add(new MenuButtonAction {
                         Text = captured.OverflowLabel ?? captured.Label ?? "",
                         IsEnabled = captured.IsEnabled,
+                        HasCheckSlot = true,
+                        CheckState = captured.IsToggle ? () => captured.IsOn : null,
                         Activate = () => {
                             if (captured.Command?.CanExecute(captured.CommandParameter) == true)
                                 captured.Command.Execute(captured.CommandParameter);

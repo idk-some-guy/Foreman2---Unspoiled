@@ -190,6 +190,11 @@ namespace Foreman.Mac.Services {
             GraphSummaryWidth = settings.GraphSummaryWidth,
             GraphSummaryHeight = settings.GraphSummaryHeight,
             GraphSummarySegment = settings.GraphSummarySegment,
+            ResearchLeft = settings.ResearchLeft,
+            ResearchTop = settings.ResearchTop,
+            ResearchWidth = settings.ResearchWidth,
+            ResearchHeight = settings.ResearchHeight,
+            ResearchSegment = settings.ResearchSegment,
         };
 
         private static AppSettings ToAppSettings(SettingsRow row) => new() {
@@ -258,6 +263,11 @@ namespace Foreman.Mac.Services {
             GraphSummaryWidth = row.GraphSummaryWidth,
             GraphSummaryHeight = row.GraphSummaryHeight,
             GraphSummarySegment = row.GraphSummarySegment,
+            ResearchLeft = row.ResearchLeft,
+            ResearchTop = row.ResearchTop,
+            ResearchWidth = row.ResearchWidth,
+            ResearchHeight = row.ResearchHeight,
+            ResearchSegment = row.ResearchSegment,
         };
     }
 }

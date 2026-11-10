@@ -83,6 +83,8 @@ namespace Foreman.Mac {
         private NativeMenuItem selectPreviousNodeItem = null!;
         private readonly PopoverHost contentPopoverHost;
         private ToolbarItem viewOptionsItem = null!;
+        private ToolbarItem researchItem = null!;
+        private NativeMenuItem researchMenuItem = null!;
         private ToolbarItem saveItem = null!;
         private ToolbarItem syncResearchItem = null!;
         private NativeMenuItem syncResearchMenuItem = null!;
@@ -119,6 +121,9 @@ namespace Foreman.Mac {
 
         private GraphSummaryWindow? graphSummaryWindow;
         internal GraphSummaryWindow? CurrentGraphSummaryWindow => graphSummaryWindow;
+
+        private ResearchWindow? researchWindow;
+        internal ResearchWindow? CurrentResearchWindow => researchWindow;
 
         //Test-only seam: lets a test observe/short-circuit the Image Export dialog without a real modal
         //ShowDialog.
@@ -189,7 +194,13 @@ namespace Foreman.Mac {
             ZoomInCommand = new RelayCommand(MenuZoomIn);
             ZoomOutCommand = new RelayCommand(MenuZoomOut);
             ActualSizeCommand = new RelayCommand(MenuActualSize);
-            ResearchSync = new ResearchSyncFlow(() => GraphCanvas.Viewer.Graph, () => DataCache!, () => Settings) { Announce = Announce };
+            ResearchSync = new ResearchSyncFlow(() => GraphCanvas.Viewer.Graph, () => DataCache!, () => Settings) {
+                Announce = Announce,
+                ShowResearch = () => {
+                    ShowResearch();
+                    researchWindow?.SelectSegment(0);
+                },
+            };
             ResearchSync.RunningChanged += (_, _) => UpdateSyncResearchState();
             Commands = new ShellViewModel(
                 onNew: () => Async.Fire(NewGraphAsync(), nameof(NewGraphAsync)),
@@ -205,8 +216,10 @@ namespace Foreman.Mac {
                 onGraphSummary: ShowGraphSummary,
                 onSyncResearch: () => SyncResearch(chooseAnother: false),
                 onSyncResearchFromAnotherSave: () => SyncResearch(chooseAnother: true),
+                onResearchWindow: ToggleResearch,
                 canExecuteAlignSelection: () => GraphCanvas.Viewer.SelectedNodes.Count > 0,
-                canExecuteSyncResearch: () => isDocumentOpen && !ResearchSync.IsRunning);
+                canExecuteSyncResearch: () => isDocumentOpen && !ResearchSync.IsRunning,
+                canExecuteResearchWindow: () => isDocumentOpen);
             Inspector.AddRecipeCommand = Commands.AddRecipeCommand;
             Inspector.OpenPresetsRequested += (_, _) => ShowSettings(selectPresetsPane: true);
             Inspector.PickAnotherRecipeRequested += (_, node) =>
@@ -301,10 +314,12 @@ namespace Foreman.Mac {
                     ToolbarButton("AlignSelectionButton", "Align", "Align", Commands.AlignSelectionCommand, automationName: "Align Selected"),
                 ],
             });
-            syncResearchItem = ToolbarButton("SyncResearchButton", "Sync", "Sync", Commands.SyncResearchCommand, automationName: "Sync Research", overflowLabel: "Sync Research");
+            syncResearchItem = ToolbarButton("SyncResearchButton", "Sync", "Sync", Commands.SyncResearchCommand, automationName: "Sync Research", acceleratorKey: "⌘R", overflowLabel: "Sync Research");
+            researchItem = ToolbarButton("ResearchButton", "Research", "Research", Commands.ResearchWindowCommand, automationName: "Research", overflowLabel: "Research");
+            researchItem.IsToggle = true;
             toolbar.Groups.Add(new ToolbarGroup {
                 Role = ToolbarGroupRole.Research,
-                Items = [syncResearchItem],
+                Items = [syncResearchItem, researchItem],
             });
             viewOptionsItem = ToolbarButton("ViewOptionsButton", "View", "View Options", ViewModel.ToggleViewOptionsCommand, overflowLabel: "View Options");
             toolbar.Groups.Add(new ToolbarGroup {
@@ -1346,10 +1361,12 @@ namespace Foreman.Mac {
                 syncResearchItem.Tooltip = "Sync research from a save (⌘R)";
                 AutomationProperties.SetHelpText(syncResearchItem, "Asks for a save, then syncs research from it.");
             } else {
-                string name = Dialogs.MiddleTruncate(source.SaveName);
-                syncResearchItem.Tooltip = $"Sync research from “{name}” (⌘R)";
-                AutomationProperties.SetHelpText(syncResearchItem, $"Syncs research from “{name}”.");
+                syncResearchItem.Tooltip = $"Sync research from “{Dialogs.MiddleTruncate(source.SaveName)}” (⌘R)";
+                AutomationProperties.SetHelpText(syncResearchItem, $"Syncs research from “{source.SaveName}”.");
             }
+            researchMenuItem.IsEnabled = isDocumentOpen;
+            Commands.ResearchWindowCommand.NotifyCanExecuteChanged();
+            researchWindow?.Refresh();
             Commands.SyncResearchCommand.NotifyCanExecuteChanged();
             Commands.SyncResearchFromAnotherSaveCommand.NotifyCanExecuteChanged();
         }
@@ -1671,6 +1688,46 @@ namespace Foreman.Mac {
 
             SettingsService?.Save(settings);
             ShowSettings(failedPreset: failedPreset);
+        }
+
+        private void ToggleResearch() {
+            if (researchWindow is { } open)
+                open.Close();
+            else
+                ShowResearch();
+        }
+
+        internal void ShowResearch() {
+            GraphCanvas.ClosePanels();
+
+            if (researchWindow is { } existing) {
+                if (!existing.IsVisible)
+                    existing.Show(this);
+                existing.Activate();
+                return;
+            }
+
+            var host = new ResearchWindowHost { Sync = () => ResearchSync, Settings = Settings };
+            ResearchWindow window = ResearchWindow.Create(GraphCanvas.Viewer.Session, host);
+            window.SetTitle(ViewModel.DocumentTitle);
+            void OnViewModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+                if (e.PropertyName == nameof(MainWindowViewModel.DocumentTitle))
+                    window.SetTitle(ViewModel.DocumentTitle);
+            }
+            ViewModel.PropertyChanged += OnViewModelChanged;
+            window.Closed += (_, _) => {
+                ViewModel.PropertyChanged -= OnViewModelChanged;
+                if (ReferenceEquals(researchWindow, window))
+                    researchWindow = null;
+                researchItem.IsOn = false;
+                if (!IsClosed && !GraphCanvas.IsPanelOpen)
+                    GraphCanvas.Focus();
+            };
+            researchWindow = window;
+            if (!ResearchPlacement.HasSavedPosition(Settings))
+                window.Position = ResearchPlacement.Resolve(OwnerFrame(), PixelSize.FromSize(new Size(window.Width, window.Height), RenderScaling), Screens.ScreenFromWindow(this)?.WorkingArea, RenderScaling);
+            researchItem.IsOn = true;
+            window.Show(this);
         }
 
         internal void ShowGraphSummary() {
@@ -2262,6 +2319,7 @@ namespace Foreman.Mac {
             viewMenu.Items.Add(DisabledItem("Customize Toolbar…"));
             viewMenu.Items.Add(ActionItem("Enter Full Screen", MenuToggleFullScreen, EnterFullScreenGesture()));
 
+            researchMenuItem = MenuItem("Research", Commands.ResearchWindowCommand, new KeyGesture(Key.R, PlatformModifiers.Primary | KeyModifiers.Alt));
             var windowMenu = new NativeMenu {
                 Items = {
                     ActionItem("Minimize", MenuMinimize, new KeyGesture(Key.M, PlatformModifiers.Primary)),
@@ -2269,6 +2327,7 @@ namespace Foreman.Mac {
                     new NativeMenuItemSeparator(),
                     ActionItem("Welcome to Foreman", ShowWelcome, new KeyGesture(Key.D1, PlatformModifiers.Primary | KeyModifiers.Shift)),
                     new NativeMenuItem("Preset Comparator") { Command = new DeferredMenuCommand(presetComparatorCommand) },
+                    researchMenuItem,
                     new NativeMenuItemSeparator(),
                     ActionItem("Bring All to Front", MenuBringAllToFront),
                 },

@@ -1,0 +1,21 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+        x:Class="Foreman.Mac.Views.Research.ResearchWindow"
+        Title="Research"
+        Width="620" Height="600" MinWidth="520" MinHeight="460"
+        CanResize="True" WindowStartupLocation="Manual"
+        Background="{DynamicResource Foreman.Color.WindowBackground}">
+  <Grid RowDefinitions="Auto,Auto,*">
+    <Border Name="ToolbarRow" Grid.Row="0" Height="38"
+            Background="{DynamicResource Foreman.Color.TitlebarMaterial}"
+            BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,0,0,1">
+      <ctrl:Segmented Name="SegmentControl" Theme="{StaticResource Kit.Segmented}"
+                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Border>
+    <Panel Name="SourceBarHost" Grid.Row="1" />
+    <ScrollViewer Name="Body" Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <Border Name="BodyHost" Padding="16,0,16,12" />
+    </ScrollViewer>
+  </Grid>
+</Window>

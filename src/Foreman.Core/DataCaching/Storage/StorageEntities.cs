@@ -75,6 +75,11 @@ namespace Foreman.DataCaching.Storage {
         public double? GraphSummaryWidth { get; set; }
         public double? GraphSummaryHeight { get; set; }
         public int GraphSummarySegment { get; set; }
+        public double? ResearchLeft { get; set; }
+        public double? ResearchTop { get; set; }
+        public double? ResearchWidth { get; set; }
+        public double? ResearchHeight { get; set; }
+        public int ResearchSegment { get; set; }
     }
 
     public sealed class PresetDataRow {

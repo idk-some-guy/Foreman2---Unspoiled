@@ -43,6 +43,9 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<bool> NoteIsWarningProperty =
             AvaloniaProperty.Register<FormRow, bool>(nameof(NoteIsWarning));
 
+        public static readonly StyledProperty<bool> IsEmphasizedProperty =
+            AvaloniaProperty.Register<FormRow, bool>(nameof(IsEmphasized));
+
         public static readonly StyledProperty<FormRowLabelColumn> LabelColumnProperty =
             AvaloniaProperty.Register<FormRow, FormRowLabelColumn>(nameof(LabelColumn));
 
@@ -86,6 +89,11 @@ namespace Foreman.Mac.Kit.Composites {
             set => SetValue(ErrorIsWarningProperty, value);
         }
 
+        public bool IsEmphasized {
+            get => GetValue(IsEmphasizedProperty);
+            set => SetValue(IsEmphasizedProperty, value);
+        }
+
         public bool NoteIsWarning {
             get => GetValue(NoteIsWarningProperty);
             set => SetValue(NoteIsWarningProperty, value);
@@ -117,6 +125,7 @@ namespace Foreman.Mac.Kit.Composites {
             NoteIsValueProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
             ErrorIsWarningProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
             NoteIsWarningProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
+            IsEmphasizedProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
             NoteSuffixProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyNoteSuffixText(); });
         }
 
@@ -360,6 +369,7 @@ namespace Foreman.Mac.Kit.Composites {
             PseudoClasses.Set(":value", NoteIsValue);
             PseudoClasses.Set(":warning", ErrorIsWarning);
             PseudoClasses.Set(":note-warning", NoteIsWarning);
+            PseudoClasses.Set(":emphasized", IsEmphasized);
         }
 
         private void ApplyNoteSuffixText() {

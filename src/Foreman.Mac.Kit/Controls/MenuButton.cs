@@ -152,9 +152,12 @@ namespace Foreman.Mac.Kit.Controls {
                         continue;
                     }
                     MenuButtonAction captured = action;
+                    bool? check = action.CheckState?.Invoke();
                     Menu.Items.Add(new MenuRow {
                         Text = action.Text,
-                        HasCheckSlot = false,
+                        HasCheckSlot = action.HasCheckSlot,
+                        IsChecked = check == true,
+                        AnnouncesCheckedState = check is not null,
                         IsEnabled = action.IsEnabled,
                         KeepOpenOnActivate = false,
                         Activate = () => captured.Activate?.Invoke(),

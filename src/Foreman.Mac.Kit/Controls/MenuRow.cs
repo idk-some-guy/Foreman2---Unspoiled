@@ -6,6 +6,7 @@ namespace Foreman.Mac.Kit.Controls {
         public required string Text { get; init; }
         public bool IsChecked { get; set; }
         public bool HasCheckSlot { get; init; } = true;
+        public bool AnnouncesCheckedState { get; init; }
         public bool IsSeparator { get; init; }
         public bool IsEnabled { get; init; } = true;
         public bool KeepOpenOnActivate { get; init; }
