@@ -1,0 +1,74 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.Chip" TargetType="kit:Chip">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ChipHeight}" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="kit:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.Pill}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{DynamicResource Foreman.Color.AccentSoft}"
+                CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                Padding="{DynamicResource Foreman.Thickness.ChipPadding}">
+          <DockPanel LastChildFill="True"
+                     HorizontalSpacing="{DynamicResource Foreman.Size.ChipGap}"
+                     VerticalAlignment="Center">
+            <kit:ChipCloseBox x:Name="PART_CloseBox"
+                              DockPanel.Dock="Right"
+                              ToolTip.ServiceEnabled="False"
+                              Width="{DynamicResource Foreman.Size.ChipCloseBox}"
+                              Height="{DynamicResource Foreman.Size.ChipCloseBox}"
+                              CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                              Background="Transparent">
+              <Panel>
+                <Border x:Name="PART_CloseHoverFill"
+                        CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                        Background="{DynamicResource Foreman.Color.ChipCloseHover}"
+                        Opacity="0"
+                        IsHitTestVisible="False"
+                        Transitions="{x:Static m:Motion.RowSelectionTransitions}" />
+                <Viewbox Width="{DynamicResource Foreman.Size.GlyphMicro}"
+                         Height="{DynamicResource Foreman.Size.GlyphMicro}"
+                         Stretch="Uniform"
+                         StretchDirection="Both"
+                         IsHitTestVisible="False"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center">
+                  <Path x:Name="PART_CloseGlyph"
+                        Data="{StaticResource Kit.Glyph.ChipClose.12}"
+                        Width="12" Height="12"
+                        Stretch="None"
+                        Stroke="{DynamicResource Foreman.Color.AccentText}"
+                        StrokeThickness="2.2"
+                        StrokeLineCap="Round"
+                        Opacity="{DynamicResource Foreman.Opacity.ChipCloseIdle}"
+                        IsHitTestVisible="False"
+                        Transitions="{x:Static m:Motion.ButtonTransitions}" />
+                </Viewbox>
+              </Panel>
+            </kit:ChipCloseBox>
+            <TextBlock x:Name="PART_Label"
+                       Text="{TemplateBinding Label}"
+                       TextTrimming="CharacterEllipsis"
+                       TextWrapping="NoWrap"
+                       MaxLines="1"
+                       Foreground="{DynamicResource Foreman.Color.AccentText}"
+                       FontSize="{DynamicResource Foreman.Type.Caption.FontSize}"
+                       FontWeight="{DynamicResource Foreman.Type.Callout.Emphasized.FontWeight}"
+                       VerticalAlignment="Center" />
+          </DockPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

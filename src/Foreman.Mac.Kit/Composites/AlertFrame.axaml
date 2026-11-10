@@ -1,0 +1,31 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites">
+
+  <ControlTheme x:Key="Kit.AlertFrame" TargetType="kit:AlertFrame">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <kit:SheetFrame x:Name="PART_Sheet"
+                         Theme="{StaticResource Kit.SheetFrame}"
+                         WidthClass="{TemplateBinding WidthClass}"
+                         TopInset="{TemplateBinding TopInset}"
+                         IsOpen="{TemplateBinding IsOpen}"
+                         Buttons="{TemplateBinding Buttons}">
+          <Grid x:Name="PART_Body" ColumnDefinitions="32,12,*">
+            <Image x:Name="PART_Icon" Grid.Column="0" Width="{DynamicResource Foreman.Size.AlertIcon}" Height="{DynamicResource Foreman.Size.AlertIcon}" Source="{TemplateBinding Icon}"
+                   VerticalAlignment="Top" AutomationProperties.AccessibilityView="Raw" />
+            <StackPanel Grid.Column="2" Spacing="4">
+              <TextBlock x:Name="PART_Headline" Theme="{StaticResource Kit.Text}" Classes="headline"
+                         Text="{TemplateBinding Headline}" TextWrapping="Wrap" />
+              <TextBlock x:Name="PART_Informative" Theme="{StaticResource Kit.Text}" Classes="callout secondary"
+                         Text="{TemplateBinding InformativeText}" TextWrapping="Wrap" LineHeight="{DynamicResource Foreman.Type.Callout.LineHeight}" />
+            </StackPanel>
+          </Grid>
+        </kit:SheetFrame>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

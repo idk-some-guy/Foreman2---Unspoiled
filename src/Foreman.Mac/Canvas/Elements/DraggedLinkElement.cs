@@ -41,6 +41,8 @@ namespace Foreman.Mac.Canvas.Elements {
 
         public override void UpdateVisibility(Rectangle graphZone, int xborder = 0, int yborder = 0) => Visible = true;
 
+        protected override float StrokeOpacity => 0.6f;
+
         public override void PrePaint() {
             UpdateSlaveLinks();
             foreach (DraggedLinkElement slaveLink in SubElements.OfType<DraggedLinkElement>())
@@ -195,6 +197,15 @@ namespace Foreman.Mac.Canvas.Elements {
                     ConsumerElement = null;
             }
             UpdateEndpoint();
+            canvas.Viewer.Context.ArmedTab = StartConnectionType == LinkType.Input
+                ? SupplierElement?.GetOutputLineItemTab(Item)
+                : ConsumerElement?.GetInputLineItemTab(Item);
+        }
+
+        public override void Dispose() {
+            if (Parent is null)
+                canvas.Viewer.Context.ArmedTab = null;
+            base.Dispose();
         }
 
         //Ports UpdateSlaveLinks' Ctrl+multi-passthrough fan-out (reference §3), upstream Cmd-mapped per this

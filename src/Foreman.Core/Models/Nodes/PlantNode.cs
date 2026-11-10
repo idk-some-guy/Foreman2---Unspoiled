@@ -91,15 +91,15 @@ namespace Foreman.Models.Nodes {
                 return errors;
 
             if ((ErrorSet & Errors.InputItemMissing) != 0)
-                errors.Add(string.Format(DisplayCulture.Format, "> Item \"{0}\" doesnt exist in preset!", Seed.Item.FriendlyName));
+                errors.Add(string.Create(DisplayCulture.Format, $"> Item \"{Seed.Item.FriendlyName}\" doesnt exist in preset!"));
             if ((ErrorSet & Errors.PlantProcessMissing) != 0)
-                errors.Add(string.Format(DisplayCulture.Format, "> Growth process for item \"{0}\" doesnt exist in preset!", Seed.Item.FriendlyName));
+                errors.Add(string.Create(DisplayCulture.Format, $"> Growth process for item \"{Seed.Item.FriendlyName}\" doesnt exist in preset!"));
             if ((ErrorSet & Errors.ItemDoesntGrow) != 0)
-                errors.Add(string.Format(DisplayCulture.Format, "> Item \"{0}\" cant be planted!", Seed.Item.FriendlyName));
+                errors.Add(string.Create(DisplayCulture.Format, $"> Item \"{Seed.Item.FriendlyName}\" cant be planted!"));
             if ((ErrorSet & Errors.InvalidGrowResult) != 0)
-                errors.Add(string.Format(DisplayCulture.Format, "> Growth result for item \"{0}\" doesnt match preset!", Seed.Item.FriendlyName));
+                errors.Add(string.Create(DisplayCulture.Format, $"> Growth result for item \"{Seed.Item.FriendlyName}\" doesnt match preset!"));
             if ((ErrorSet & Errors.QualityMissing) != 0)
-                errors.Add(string.Format(DisplayCulture.Format, "> Quality \"{0}\" doesnt exist in preset!", Seed.Quality.FriendlyName));
+                errors.Add(string.Create(DisplayCulture.Format, $"> Quality \"{Seed.Quality.FriendlyName}\" doesnt exist in preset!"));
             if ((ErrorSet & Errors.InvalidLinks) != 0)
                 errors.Add("> Some links are invalid!");
             return errors;
@@ -124,6 +124,7 @@ namespace Foreman.Models.Nodes {
                 foreach (NodeLink link in MyNode.OutputLinks.Where(l => l.Item.Item is IItem linkItem && !MyNode.BasePlantProcess.ProductList.Contains(linkItem)))
                     link.Controller.Delete();
                 MyNode.UpdateState();
+                Mutated();
             }
         }
 

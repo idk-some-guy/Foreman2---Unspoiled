@@ -1,734 +1,712 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
+using Avalonia.Controls.Primitives;
+using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Foreman;
-using Foreman.DataCaching;
-using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
+using Foreman.Mac.Services;
+using Foreman.Mac.ViewModels;
 using Foreman.Models;
-using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Views {
-    //Ports Forms/GraphSummaryForm.cs(+.Designer.cs) (reference §6): a read-only report over the whole
-    //current graph (both constructor overloads collapse to the node-list one below, matching upstream -
-    //MainForm always passes the whole session, never a subset).
-    public partial class GraphSummaryWindow : Window {
-        internal sealed class BuildingRow(object tag, string rowKey, Bitmap? icon, IBrush background, string countText, string name, string powerText, double powerValue, string powerBText, double powerBValue) {
-            public object Tag { get; } = tag;
-            public string RowKey { get; } = rowKey;
-            public Bitmap? Icon { get; } = icon;
-            public IBrush Background { get; } = background;
-            public IBrush Foreground { get; } = RowForegroundBrush;
-            public string CountText { get; } = countText;
-            public string Name { get; } = name;
-            public string PowerText { get; } = powerText;
-            public double PowerValue { get; } = powerValue;
-            public string PowerBText { get; } = powerBText;
-            public double PowerBValue { get; } = powerBValue;
+    internal sealed class GraphSummaryHost {
+        public Func<SolveStatusTracker?> Tracker { get; init; } = () => null;
+        public Func<ProductionGraph.RateUnit> Unit { get; init; } = () => ProductionGraph.RateUnit.Per1Sec;
+        public Action<IReadOnlyList<INodeViewModel>>? Reveal { get; init; }
+        public Action? AddRecipe { get; init; }
+        public AppSettings? Settings { get; init; }
+    }
+
+    public sealed partial class GraphSummaryWindow : Window, IThemeAware {
+        private static readonly string[] TopLabels = ["Buildings", "Items and fluids", "Key nodes"];
+        private static readonly string[] BuildingLabels = ["Assemblers", "Miners", "Power", "Beacons"];
+        private static readonly string[] ItemLabels = ["Items", "Fluids"];
+        private const double EdgeInset = 20;
+        private const double DefaultWidth = 780;
+        private const double DefaultHeight = 560;
+
+        private sealed class SummaryListBox : ListBox {
+            protected override Type StyleKeyOverride => typeof(ListBox);
+            protected override AutomationPeer OnCreateAutomationPeer() => new SummaryTablePeer(this);
         }
 
-        internal sealed class BeaconRow(object tag, string rowKey, Bitmap? icon, IBrush background, string countText, string name, string powerBText, double powerBValue) {
-            public object Tag { get; } = tag;
-            public string RowKey { get; } = rowKey;
-            public Bitmap? Icon { get; } = icon;
-            public IBrush Background { get; } = background;
-            public IBrush Foreground { get; } = RowForegroundBrush;
-            public string CountText { get; } = countText;
-            public string Name { get; } = name;
-            public string PowerBText { get; } = powerBText;
-            public double PowerBValue { get; } = powerBValue;
+        private sealed class SummaryTablePeer(SummaryListBox owner) : ListBoxAutomationPeer(owner) {
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Table;
         }
 
-        internal sealed class ItemRow(object tag, string rowKey, Bitmap? icon, IBrush background, string name,
-                string inText, double inValue, string inULText, double inULValue, string outText, double outValue,
-                string outULText, double outULValue, string overprodText, double overprodValue, string producedText, double producedValue, string consumedText, double consumedValue) {
-            public object Tag { get; } = tag;
-            public string RowKey { get; } = rowKey;
-            public Bitmap? Icon { get; } = icon;
-            public IBrush Background { get; } = background;
-            public IBrush Foreground { get; } = RowForegroundBrush;
-            public string Name { get; } = name;
-            public string InText { get; } = inText;
-            public double InValue { get; } = inValue;
-            public string InULText { get; } = inULText;
-            public double InULValue { get; } = inULValue;
-            public string OutText { get; } = outText;
-            public double OutValue { get; } = outValue;
-            public string OutULText { get; } = outULText;
-            public double OutULValue { get; } = outULValue;
-            public string OverprodText { get; } = overprodText;
-            public double OverprodValue { get; } = overprodValue;
-            public string ProducedText { get; } = producedText;
-            public double ProducedValue { get; } = producedValue;
-            public string ConsumedText { get; } = consumedText;
-            public double ConsumedValue { get; } = consumedValue;
-        }
+        private readonly Segmented topSegment;
+        private readonly Segmented subSegment;
+        private readonly MenuButton showButton;
+        private readonly SearchField filterBox;
+        private readonly Button exportButton;
+        private readonly Grid headerRow;
+        private readonly Grid tableHost;
+        private readonly Grid controlRow;
+        private readonly Grid tableArea;
+        private readonly SummaryListBox table;
+        private readonly WindowMinSizeScale minSizeScale;
+        private readonly GraphSummaryViewModel viewModel = new();
+        private readonly Dictionary<SummaryTableId, List<SummaryRow>> rows = [];
+        private readonly Dictionary<SummaryTableId, SummarySort> sorts = [];
+        private readonly Dictionary<SummaryTableId, string?> selectedKeys = [];
+        private readonly bool[] itemKinds = [.. Enumerable.Repeat(true, SummaryTables.ItemKinds.Length)];
+        private readonly bool[] keyNodeKinds = [.. Enumerable.Repeat(true, SummaryTables.KeyNodeKinds.Length)];
+        private readonly int[] subIndex = [0, 0];
+        private readonly StatePanel emptyPanel;
+        private readonly StatePanel noMatchPanel;
+        private readonly StatePanel hiddenPanel;
 
-        internal sealed class KeyNodeRow(object tag, string rowKey, Bitmap? icon, string typeText, string detailsText, string titleText, string throughputText, double throughputValue, string factoriesText, double factoriesValue) {
-            public object Tag { get; } = tag;
-            public string RowKey { get; } = rowKey;
-            public Bitmap? Icon { get; } = icon;
-            public string TypeText { get; } = typeText;
-            public string DetailsText { get; } = detailsText;
-            public string TitleText { get; } = titleText;
-            public string ThroughputText { get; } = throughputText;
-            public double ThroughputValue { get; } = throughputValue;
-            public string FactoriesText { get; } = factoriesText;
-            public double FactoriesValue { get; } = factoriesValue;
-        }
+        private IProductionGraphSession? session;
+        private GraphSummaryHost host = new();
+        private SolveStatusTracker? subscribedTracker;
+        private int segment;
+        private bool rendering;
+        private bool syncingKinds;
+        private Border footerBar = null!;
+        private TextBlock footerLabel = null!;
+        private SummaryTableId? renderedTable;
+        private GridLength[] widths = [];
+        private double[] minWidths = [];
+        private bool lastFailed;
 
-        private sealed class ItemCounter(double i, double iu, double o, double ou, double oo, double p, double c) {
-            public double Input { get; set; } = i;
-            public double InputUnlinked { get; set; } = iu;
-            public double Output { get; set; } = o;
-            public double OutputUnlinked { get; set; } = ou;
-            public double OutputOverflow { get; set; } = oo;
-            public double Production { get; set; } = p;
-            public double Consumption { get; set; } = c;
-        }
-
-        private static readonly IBrush AvailableRowBrush = new SolidColorBrush(Color.FromRgb(255, 255, 255));
-        private static readonly IBrush UnavailableRowBrush = new SolidColorBrush(Color.FromRgb(255, 192, 203));
-
-        //Both row backgrounds above are light regardless of app theme, so the row text needs an explicit
-        //dark Foreground too - the live Fluent dark theme's default TextBlock foreground is white, which is
-        //invisible on either background otherwise.
-        private static readonly IBrush RowForegroundBrush = new SolidColorBrush(Color.FromRgb(0, 0, 0));
-        private static readonly Regex ComparerRegex = new(@"\d+", RegexOptions.Compiled);
-
-        private readonly List<BuildingRow> unfilteredAssemblerList = [];
-        private readonly List<BuildingRow> unfilteredMinerList = [];
-        private readonly List<BuildingRow> unfilteredPowerList = [];
-        private readonly List<BeaconRow> unfilteredBeaconList = [];
-        private readonly List<ItemRow> unfilteredItemsList = [];
-        private readonly List<ItemRow> unfilteredFluidsList = [];
-        private readonly List<KeyNodeRow> unfilteredKeyNodesList = [];
-
-        private readonly Dictionary<ListBox, int> lastSortOrder = [];
-        private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
-
-        private readonly string rateString;
-
-        private readonly TabControl mainTabControl;
-        private readonly TabItem itemsFluidsTabItem;
-
-        private readonly TextBox buildingsFilterTextBox;
-        private readonly TextBlock buildingCountLabel;
-        private readonly TextBlock beaconCountLabel;
-        private readonly TextBlock powerConsumptionLabel;
-        private readonly TextBlock powerProductionLabel;
-        private readonly TextBlock powerNetLabel;
-        private readonly ListBox assemblerListView;
-        private readonly ListBox minerListView;
-        private readonly ListBox powerListView;
-        private readonly ListBox beaconListView;
-        private readonly Button buildingsExportButton;
-
-        private readonly TextBox itemsFilterTextBox;
-        private readonly CheckBox inputFilterCheckBox;
-        private readonly CheckBox inputUnlinkedFilterCheckBox;
-        private readonly CheckBox outputFilterCheckBox;
-        private readonly CheckBox outputUnlinkedFilterCheckBox;
-        private readonly CheckBox outputOverproducedFilterCheckBox;
-        private readonly CheckBox productionFilterCheckBox;
-        private readonly CheckBox consumptionFilterCheckBox;
-        private readonly ListBox itemsListView;
-        private readonly ListBox fluidsListView;
-        private readonly Button itemsExportButton;
-
-        private readonly TextBox keyNodesFilterTextBox;
-        private readonly CheckBox supplierNodeFilterCheckBox;
-        private readonly CheckBox consumerNodeFilterCheckBox;
-        private readonly CheckBox passthroughNodeFilterCheckBox;
-        private readonly CheckBox recipeNodeFilterCheckBox;
-        private readonly ListBox keyNodesListView;
-        private readonly Button keyNodesExportButton;
-
-        //Test-only seam: lets a test supply the export target path (or null for "cancelled") without a real
-        //modal SaveFileDialog (same convention as SettingsWindow's DeleteConfirmationStub).
-        internal Func<Task<string?>>? SaveFilePathStub { get; set; }
-        internal string? LastCsvWritten { get; private set; }
-
-        public GraphSummaryWindow() : this([], "second") {
-        }
-
-        public GraphSummaryWindow(IProductionGraphSession session, string rateString) : this(session.View.Nodes, rateString) {
-        }
-
-        public GraphSummaryWindow(IEnumerable<INodeViewModel> nodes, string rateString) {
+        public GraphSummaryWindow() {
             InitializeComponent();
-            this.rateString = rateString;
+            topSegment = this.FindControl<Segmented>("TopSegment")!;
+            subSegment = this.FindControl<Segmented>("SubSegment")!;
+            showButton = this.FindControl<MenuButton>("ShowButton")!;
+            footerBar = this.FindControl<Border>("FooterBar")!;
+            footerLabel = this.FindControl<TextBlock>("FooterLabel")!;
+            footerLabel.FontFeatures = FontFeatureCollection.Parse("tnum");
+            filterBox = this.FindControl<SearchField>("FilterBox")!;
+            exportButton = this.FindControl<Button>("ExportButton")!;
+            headerRow = this.FindControl<Grid>("HeaderRow")!;
+            tableHost = this.FindControl<Grid>("TableHost")!;
+            controlRow = this.FindControl<Grid>("ControlRow")!;
+            tableArea = this.FindControl<Grid>("TableArea")!;
 
-            mainTabControl = this.FindControl<TabControl>("MainTabControl")!;
-            itemsFluidsTabItem = this.FindControl<TabItem>("ItemsFluidsTabItem")!;
+            table = new SummaryListBox { Name = "SummaryTable", Theme = KitTheme("Kit.List"), SelectionMode = SelectionMode.Single, IsTextSearchEnabled = true };
+            TextSearch.SetTextBinding(table, new Binding(nameof(SummaryRow.SearchText)));
+            AutomationProperties.SetName(table, "Graph Summary table");
+            table.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SummaryRow>((row, _) => row is null ? null : BuildRowContent(row), supportsRecycling: false);
+            table.ContainerPrepared += OnContainerPrepared;
+            table.SelectionChanged += OnTableSelectionChanged;
+            table.DoubleTapped += (_, _) => RevealSelected();
+            table.KeyDown += OnTableKeyDown;
+            tableHost.Children.Add(table);
 
-            buildingsFilterTextBox = this.FindControl<TextBox>("BuildingsFilterTextBox")!;
-            buildingCountLabel = this.FindControl<TextBlock>("BuildingCountLabel")!;
-            beaconCountLabel = this.FindControl<TextBlock>("BeaconCountLabel")!;
-            powerConsumptionLabel = this.FindControl<TextBlock>("PowerConsumptionLabel")!;
-            powerProductionLabel = this.FindControl<TextBlock>("PowerProductionLabel")!;
-            powerNetLabel = this.FindControl<TextBlock>("PowerNetLabel")!;
-            assemblerListView = this.FindControl<ListBox>("AssemblerListView")!;
-            minerListView = this.FindControl<ListBox>("MinerListView")!;
-            powerListView = this.FindControl<ListBox>("PowerListView")!;
-            beaconListView = this.FindControl<ListBox>("BeaconListView")!;
-            buildingsExportButton = this.FindControl<Button>("BuildingsExportButton")!;
-
-            itemsFilterTextBox = this.FindControl<TextBox>("ItemsFilterTextBox")!;
-            inputFilterCheckBox = this.FindControl<CheckBox>("InputFilterCheckBox")!;
-            inputUnlinkedFilterCheckBox = this.FindControl<CheckBox>("InputUnlinkedFilterCheckBox")!;
-            outputFilterCheckBox = this.FindControl<CheckBox>("OutputFilterCheckBox")!;
-            outputUnlinkedFilterCheckBox = this.FindControl<CheckBox>("OutputUnlinkedFilterCheckBox")!;
-            outputOverproducedFilterCheckBox = this.FindControl<CheckBox>("OutputOverproducedFilterCheckBox")!;
-            productionFilterCheckBox = this.FindControl<CheckBox>("ProductionFilterCheckBox")!;
-            consumptionFilterCheckBox = this.FindControl<CheckBox>("ConsumptionFilterCheckBox")!;
-            itemsListView = this.FindControl<ListBox>("ItemsListView")!;
-            fluidsListView = this.FindControl<ListBox>("FluidsListView")!;
-            itemsExportButton = this.FindControl<Button>("ItemsExportButton")!;
-
-            keyNodesFilterTextBox = this.FindControl<TextBox>("KeyNodesFilterTextBox")!;
-            supplierNodeFilterCheckBox = this.FindControl<CheckBox>("SupplierNodeFilterCheckBox")!;
-            consumerNodeFilterCheckBox = this.FindControl<CheckBox>("ConsumerNodeFilterCheckBox")!;
-            passthroughNodeFilterCheckBox = this.FindControl<CheckBox>("PassthroughNodeFilterCheckBox")!;
-            recipeNodeFilterCheckBox = this.FindControl<CheckBox>("RecipeNodeFilterCheckBox")!;
-            keyNodesListView = this.FindControl<ListBox>("KeyNodesListView")!;
-            keyNodesExportButton = this.FindControl<Button>("KeyNodesExportButton")!;
-
-            lastSortOrder[assemblerListView] = 2;
-            lastSortOrder[minerListView] = 2;
-            lastSortOrder[powerListView] = 2;
-            lastSortOrder[beaconListView] = 2;
-            lastSortOrder[itemsListView] = 1;
-            lastSortOrder[fluidsListView] = 1;
-            lastSortOrder[keyNodesListView] = 1;
-
-            itemsFluidsTabItem.Header = "Items/Fluids" + " ( per " + rateString + ")";
-
-            IEnumerable<IRecipeNodeViewModel> recipeNodes = [.. nodes.OfType<IRecipeNodeViewModel>()];
-            List<INodeViewModel> nodeList = [.. nodes];
-
-            LoadUnfilteredSelectedAssemblerList(recipeNodes.Where(r => r.SelectedAssembler.Assembler.EntityType == EntityType.Assembler), unfilteredAssemblerList);
-            LoadUnfilteredSelectedAssemblerList(recipeNodes.Where(r => r.SelectedAssembler.Assembler.EntityType is EntityType.Miner or EntityType.OffshorePump), unfilteredMinerList);
-            LoadUnfilteredSelectedAssemblerList(recipeNodes.Where(r => r.SelectedAssembler.Assembler.EntityType is EntityType.Boiler or EntityType.BurnerGenerator or EntityType.Generator or EntityType.Reactor), unfilteredPowerList);
-
-            LoadUnfilteredBeaconList(recipeNodes.Where(r => r.SelectedBeacon));
-
-            LoadUnfilteredItemLists(nodeList, fluids: false, unfilteredItemsList);
-            LoadUnfilteredItemLists(nodeList, fluids: true, unfilteredFluidsList);
-
-            LoadUnfilteredKeyNodesList(nodeList.Where(n => n.KeyNode));
-
-            double buildingTotal = recipeNodes.Sum(n => Math.Ceiling(n.ActualSetValue));
-            double beaconTotal = recipeNodes.Sum(n => n.GetTotalBeacons());
-            buildingCountLabel.Text = "#Buildings: " + GraphicsStuff.DoubleToString(buildingTotal);
-            beaconCountLabel.Text = "#Beacons: " + GraphicsStuff.DoubleToString(beaconTotal);
-
-            double powerConsumption = recipeNodes.Sum(n => n.GetTotalAssemblerElectricalConsumption() + n.GetTotalBeaconElectricalConsumption());
-            double powerProduction = recipeNodes.Sum(n => n.GetTotalGeneratorElectricalProduction());
-            powerConsumptionLabel.Text = "Power Consumption: " + GraphicsStuff.DoubleToEnergy(powerConsumption, "W");
-            powerProductionLabel.Text = "Power Production: " + GraphicsStuff.DoubleToEnergy(powerProduction, "W");
-            if (powerConsumption > 0 && powerProduction > 0) {
-                powerNetLabel.IsVisible = true;
-                powerNetLabel.Text = "Net Power: " + GraphicsStuff.DoubleToEnergy(powerProduction - powerConsumption, "W");
-            } else {
-                powerNetLabel.IsVisible = false;
+            emptyPanel = NewPanel(StatePanelShape.Empty, "Nothing to summarize", "Add nodes to the graph and their totals appear here.", "Add Recipe…", () => host.AddRecipe?.Invoke());
+            noMatchPanel = NewPanel(StatePanelShape.NoResults, "", "Clear the filter or choose another category.", "Clear Filter", ClearFilter);
+            hiddenPanel = NewPanel(StatePanelShape.NoResults, "Nothing to show", "Every row is hidden by the Show menu.", "Show All", ShowAllKinds);
+            foreach (StatePanel panel in new[] { emptyPanel, noMatchPanel, hiddenPanel }) {
+                panel.IsVisible = false;
+                tableHost.Children.Add(panel);
             }
 
-            UpdateFilteredBuildingLists();
-            UpdateFilteredItemsLists();
-            UpdateFilteredKeyNodesList();
+            topSegment.Items.AddRange(TopLabels);
+            AutomationProperties.SetName(topSegment, "Summary");
+            AutomationProperties.SetName(subSegment, "Category");
+            subSegment.Items.AddRange(BuildingLabels);
+            topSegment.PropertyChanged += (_, e) => {
+                if (e.Property == Segmented.SelectedIndexProperty && !rendering)
+                    SelectSegment(topSegment.SelectedIndex);
+            };
+            subSegment.PropertyChanged += (_, e) => {
+                if (e.Property == Segmented.SelectedIndexProperty && !rendering && segment < 2 && subSegment.SelectedIndex >= 0) {
+                    subIndex[segment] = subSegment.SelectedIndex;
+                    Render();
+                }
+            };
+            filterBox.PropertyChanged += (_, e) => {
+                if (e.Property == TextBox.TextProperty && !rendering)
+                    Render();
+            };
+            showButton.ItemToggled += (_, _) => OnKindsToggled();
+            exportButton.Click += (_, _) => Async.Fire(ExportCsvAsync(), nameof(ExportCsvAsync));
 
-            buildingsFilterTextBox.TextChanging += (_, _) => UpdateFilteredBuildingLists();
-            itemsFilterTextBox.TextChanging += (_, _) => UpdateFilteredItemsLists();
-            foreach (CheckBox checkBox in ItemFilterCheckBoxes)
-                checkBox.IsCheckedChanged += (_, _) => UpdateFilteredItemsLists();
-            keyNodesFilterTextBox.TextChanging += (_, _) => UpdateFilteredKeyNodesList();
-            foreach (CheckBox checkBox in KeyNodeFilterCheckBoxes)
-                checkBox.IsCheckedChanged += (_, _) => UpdateFilteredKeyNodesList();
-
-            buildingsExportButton.Click += (_, _) => Async.Fire(ExportBuildingsCsvAsync(), nameof(ExportBuildingsCsvAsync));
-            itemsExportButton.Click += (_, _) => Async.Fire(ExportItemsCsvAsync(), nameof(ExportItemsCsvAsync));
-            keyNodesExportButton.Click += (_, _) => Async.Fire(ExportKeyNodesCsvAsync(), nameof(ExportKeyNodesCsvAsync));
-
-            WireColumnHeaders();
+            AddHandler(KeyDownEvent, OnWindowKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            minSizeScale = new WindowMinSizeScale(this);
+            Opened += (_, _) => AppearanceHub.Current?.Subscribe(this);
+            Closing += (_, _) => RememberGeometry();
+            Closed += (_, _) => {
+                AppearanceHub.Current?.Unsubscribe(this);
+                Detach();
+            };
         }
 
-        //One clickable header Button per upstream ColumnHeader (reference §6): each wires straight to the
-        //matching sort method below rather than a generic column-click event, since Avalonia's ListBox has
-        //no built-in column-header concept to hook into.
-        private void WireColumnHeaders() {
-            for (int column = 0; column < 4; column++) {
-                int c = column;
-                WireHeader("AssemblerHeader" + c, () => SortBuildingColumn(unfilteredAssemblerList, assemblerListView, c));
-                WireHeader("MinerHeader" + c, () => SortBuildingColumn(unfilteredMinerList, minerListView, c));
-                WireHeader("PowerHeader" + c, () => SortBuildingColumn(unfilteredPowerList, powerListView, c));
-            }
-            for (int column = 0; column < 3; column++) {
-                int c = column;
-                WireHeader("BeaconHeader" + c, () => SortBeaconColumn(c));
-            }
-            for (int column = 0; column < 8; column++) {
-                int c = column;
-                WireHeader("ItemsHeader" + c, () => SortItemColumn(unfilteredItemsList, itemsListView, c));
-                WireHeader("FluidsHeader" + c, () => SortItemColumn(unfilteredFluidsList, fluidsListView, c));
-            }
-            for (int column = 0; column < 5; column++) {
-                int c = column;
-                WireHeader("KeyNodesHeader" + c, () => SortKeyNodesColumn(c));
-            }
+        internal static GraphSummaryWindow Create(IProductionGraphSession session, GraphSummaryHost? host = null) {
+            var window = new GraphSummaryWindow();
+            window.Attach(session, host ?? new GraphSummaryHost());
+            return window;
         }
-
-        private void WireHeader(string name, Action sort) => this.FindControl<Button>(name)!.Click += (_, _) => sort();
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        private IEnumerable<CheckBox> ItemFilterCheckBoxes {
-            get {
-                yield return inputFilterCheckBox;
-                yield return inputUnlinkedFilterCheckBox;
-                yield return outputFilterCheckBox;
-                yield return outputUnlinkedFilterCheckBox;
-                yield return outputOverproducedFilterCheckBox;
-                yield return productionFilterCheckBox;
-                yield return consumptionFilterCheckBox;
+        private static ControlTheme KitTheme(string key) {
+            Application.Current!.TryGetResource(key, null, out object? theme);
+            return theme as ControlTheme ?? throw new InvalidOperationException($"GraphSummaryWindow: kit theme '{key}' not found.");
+        }
+
+        private static StatePanel NewPanel(StatePanelShape shape, string headline, string sentence, string label, Action action) {
+            var button = new Button { Theme = KitTheme("Kit.Button"), Content = label };
+            ButtonRow.SetRole(button, ButtonRowRole.Default);
+            button.Click += (_, _) => action();
+            var row = new ButtonRow { Theme = KitTheme("Kit.ButtonRow") };
+            row.Items.Add(button);
+            return new StatePanel { Theme = KitTheme("Kit.StatePanel"), Shape = shape, Headline = headline, Sentence = sentence, Buttons = row, MovesFocusOnAppear = false };
+        }
+
+        private void Attach(IProductionGraphSession session, GraphSummaryHost host) {
+            this.session = session;
+            this.host = host;
+            segment = Math.Clamp(host.Settings?.GraphSummarySegment ?? 0, 0, 2);
+            session.NodeValuesUpdated += OnNodeValuesUpdated;
+            SubscribeTracker();
+            topSegment.SelectedIndex = segment;
+            ApplySegmentChrome();
+            ApplySavedGeometry();
+            ApplyMargins();
+            Rebuild();
+        }
+
+        private void Detach() {
+            if (session is not null)
+                session.NodeValuesUpdated -= OnNodeValuesUpdated;
+            session = null;
+            if (subscribedTracker is not null)
+                subscribedTracker.Changed -= OnTrackerChanged;
+            subscribedTracker = null;
+        }
+
+        private void SubscribeTracker() {
+            SolveStatusTracker? tracker = host.Tracker();
+            if (ReferenceEquals(tracker, subscribedTracker))
+                return;
+            if (subscribedTracker is not null)
+                subscribedTracker.Changed -= OnTrackerChanged;
+            subscribedTracker = tracker;
+            if (tracker is not null)
+                tracker.Changed += OnTrackerChanged;
+        }
+
+        private void OnTrackerChanged(object? sender, EventArgs e) {
+            if (Dispatcher.UIThread.CheckAccess())
+                Render();
+            else
+                Dispatcher.UIThread.Post(Render);
+        }
+
+        private void OnNodeValuesUpdated(object? sender, EventArgs e) {
+            if (Dispatcher.UIThread.CheckAccess())
+                Rebuild();
+            else
+                Dispatcher.UIThread.Post(Rebuild);
+        }
+
+        internal GraphSummaryViewModel ViewModel => viewModel;
+
+        internal bool IsSolveFailed => host.Tracker() is { State: SolveStatusState.Failed };
+
+        private void ApplySavedGeometry() {
+            Width = DefaultWidth * WindowScaler.CurrentScale;
+            Height = DefaultHeight * WindowScaler.CurrentScale;
+            if (host.Settings is not AppSettings settings)
+                return;
+            if (settings.GraphSummaryWidth is double width && settings.GraphSummaryHeight is double height) {
+                Width = Math.Max(width * WindowScaler.CurrentScale, MinWidth);
+                Height = Math.Max(height * WindowScaler.CurrentScale, MinHeight);
+            }
+            if (settings.GraphSummaryLeft is double left && settings.GraphSummaryTop is double top) {
+                var saved = new PixelPoint((int)left, (int)top);
+                if (Screens.All.Count == 0 || Screens.All.Any(s => s.WorkingArea.Contains(saved)))
+                    Position = saved;
             }
         }
 
-        private IEnumerable<CheckBox> KeyNodeFilterCheckBoxes {
-            get {
-                yield return supplierNodeFilterCheckBox;
-                yield return consumerNodeFilterCheckBox;
-                yield return passthroughNodeFilterCheckBox;
-                yield return recipeNodeFilterCheckBox;
+        internal bool HasSavedPosition => host.Settings is { GraphSummaryLeft: not null, GraphSummaryTop: not null };
+
+        private void RememberGeometry() {
+            if (host.Settings is not AppSettings settings)
+                return;
+            if (ClientSize.Width > 0 && ClientSize.Height > 0) {
+                settings.GraphSummaryWidth = ClientSize.Width / WindowScaler.CurrentScale;
+                settings.GraphSummaryHeight = ClientSize.Height / WindowScaler.CurrentScale;
             }
+            settings.GraphSummaryLeft = Position.X;
+            settings.GraphSummaryTop = Position.Y;
+            settings.GraphSummarySegment = segment;
         }
 
-        //-------------------------------------------------------------------------------------------------------Initial list initialization
+        internal void SetTitle(string graphName) => Title = $"Graph Summary — {graphName}";
 
-        //Ports LoadUnfilteredSelectedAssemblerList (reference §6, GraphSummaryForm.cs:134-165).
-        private void LoadUnfilteredSelectedAssemblerList(IEnumerable<IRecipeNodeViewModel> origin, List<BuildingRow> destination) {
-            var buildingCounters = new Dictionary<AssemblerQualityPair, int>();
-            var buildingElectricalPower = new Dictionary<AssemblerQualityPair, (double Assembler, double Beacon)>();
+        private void ApplyMargins() {
+            controlRow.Margin = new Thickness(EdgeInset, Token("Foreman.Space.Space4", 16), EdgeInset, 0);
+            tableArea.Margin = new Thickness(EdgeInset, Token("Foreman.Space.Space3", 12), EdgeInset, segment == 0 ? 0 : EdgeInset);
+            footerBar.Padding = new Thickness(EdgeInset, 0);
+        }
 
-            foreach (IRecipeNodeViewModel rnode in origin) {
-                if (!buildingCounters.ContainsKey(rnode.SelectedAssembler)) {
-                    buildingCounters[rnode.SelectedAssembler] = 0;
-                    buildingElectricalPower[rnode.SelectedAssembler] = (0, 0);
-                }
-                buildingCounters[rnode.SelectedAssembler] += (int)Math.Ceiling(rnode.ActualSetValue);
-                (double assemblerPower, double beaconPower) = buildingElectricalPower[rnode.SelectedAssembler];
-                buildingElectricalPower[rnode.SelectedAssembler] = (
-                    assemblerPower + rnode.GetTotalGeneratorElectricalProduction() + rnode.GetTotalAssemblerElectricalConsumption(),
-                    beaconPower + rnode.GetTotalBeaconElectricalConsumption());
+        public void RefreshTheme() {
+            minSizeScale.Apply();
+            ApplyMargins();
+            if (session is not null)
+                Render();
+        }
+
+        internal int SegmentIndex => segment;
+        internal Segmented TopSegmentControl => topSegment;
+        internal Segmented SubSegmentControl => subSegment;
+        internal MenuButton ShowButtonControl => showButton;
+        internal SearchField FilterBoxControl => filterBox;
+        internal Button ExportButtonControl => exportButton;
+        internal ListBox TableControl => table;
+        internal Grid HeaderRowControl => headerRow;
+        internal Border FooterBar => footerBar;
+        internal TextBlock FooterLabel => footerLabel;
+        internal StatePanel EmptyPanel => emptyPanel;
+        internal StatePanel NoMatchPanel => noMatchPanel;
+        internal StatePanel HiddenPanel => hiddenPanel;
+
+        internal void SelectSegment(int index) {
+            index = Math.Clamp(index, 0, 2);
+            segment = index;
+            if (host.Settings is AppSettings settings)
+                settings.GraphSummarySegment = index;
+            if (topSegment.SelectedIndex != index) {
+                rendering = true;
+                topSegment.SelectedIndex = index;
+                rendering = false;
             }
+            ApplySegmentChrome();
+            Render();
+        }
 
-            foreach (AssemblerQualityPair assembler in buildingCounters.Keys.OrderByDescending(a => a.Assembler.Available).ThenBy(a => a.Assembler.FriendlyName, StringComparer.Ordinal).ThenBy(a => a.Quality.Level).ThenBy(a => a.Quality.FriendlyName, StringComparer.Ordinal)) {
-                (double assemblerPower, double beaconPower) = buildingElectricalPower[assembler];
-                int count = buildingCounters[assembler];
-                destination.Add(new BuildingRow(
-                    assembler,
-                    assembler.Assembler.Name + ":" + assembler.Quality.Name,
-                    GetOrBakeIcon(assembler.Icon),
-                    assembler.Assembler.Available ? AvailableRowBrush : UnavailableRowBrush,
-                    count >= 10000000 ? count.ToString("0.##e0", DisplayCulture.Format) : count.ToString("N0", DisplayCulture.Format),
-                    assembler.FriendlyName ?? "",
-                    assemblerPower == 0 ? "-" : GraphicsStuff.DoubleToEnergy(assemblerPower, "W"), assemblerPower,
-                    beaconPower == 0 ? "-" : GraphicsStuff.DoubleToEnergy(beaconPower, "W"), beaconPower));
+        internal void SelectSubSegment(int index) {
+            if (segment > 1 || index < 0 || index >= subSegment.Items.Count)
+                return;
+            subSegment.SelectedIndex = index;
+        }
+
+        private void ApplySegmentChrome() {
+            rendering = true;
+            subSegment.IsVisible = segment < 2;
+            if (segment < 2) {
+                subSegment.Items.Clear();
+                subSegment.Items.AddRange(segment == 0 ? BuildingLabels : ItemLabels);
+                subSegment.SelectedIndex = subIndex[segment];
             }
-        }
-
-        //Ports LoadUnfilteredBeaconList (reference §6, GraphSummaryForm.cs:167-214).
-        private void LoadUnfilteredBeaconList(IEnumerable<IRecipeNodeViewModel> origin) {
-            var beaconCounters = new Dictionary<BeaconQualityPair, int>();
-
-            foreach (IRecipeNodeViewModel rnode in origin) {
-                if (!rnode.SelectedBeacon)
-                    continue;
-                beaconCounters.TryAdd(rnode.SelectedBeacon, 0);
-                beaconCounters[rnode.SelectedBeacon] += rnode.GetTotalBeacons();
+            showButton.IsVisible = segment > 0;
+            if (segment > 0) {
+                string[] labels = segment == 1 ? SummaryTables.ItemKinds : SummaryTables.KeyNodeKinds;
+                bool[] kinds = segment == 1 ? itemKinds : keyNodeKinds;
+                syncingKinds = true;
+                showButton.Items.Clear();
+                showButton.Items.AddRange(labels.Select((label, i) => new MenuButtonItem { Text = label, IsDefault = true, IsChecked = kinds[i] }));
+                syncingKinds = false;
             }
-
-            IEnumerable<BeaconQualityPair> sortedBeacons = beaconCounters.Keys
-                .OrderByDescending(b => b.Beacon!.Available)
-                .ThenBy(b => b.Beacon!.FriendlyName, StringComparer.Ordinal)
-                .ThenBy(b => b.Quality!.Level)
-                .ThenBy(b => b.Quality!.FriendlyName, StringComparer.Ordinal);
-
-            foreach (BeaconQualityPair beacon in sortedBeacons) {
-                int count = beaconCounters[beacon];
-                double beaconPowerConsumption = count * (beacon.Beacon!.GetEnergyConsumption(beacon.Quality!) + beacon.Beacon!.GetEnergyDrain());
-                unfilteredBeaconList.Add(new BeaconRow(
-                    beacon,
-                    beacon.Beacon!.Name + ":" + beacon.Quality!.Name,
-                    GetOrBakeIcon(beacon.Icon),
-                    beacon.Beacon!.Available ? AvailableRowBrush : UnavailableRowBrush,
-                    count.ToString(DisplayCulture.Format),
-                    beacon.FriendlyName ?? "",
-                    count == 0 ? "-" : GraphicsStuff.DoubleToEnergy(beaconPowerConsumption, "W"), beaconPowerConsumption));
-            }
+            rendering = false;
         }
 
-        //Ports LoadUnfilteredItemLists (reference §6, GraphSummaryForm.cs:216-299): unlinked recipe inputs
-        //go to In(x link), linked ones to Consumed; recipe outputs always add to Produced, unlinked ones
-        //also to Out(x link), overproduced ones add the overflow to Overprod. - these three checks are
-        //independent (a linked output can still overproduce). Suppliers add to In, consumers add to Out.
-        private void LoadUnfilteredItemLists(IEnumerable<INodeViewModel> nodes, bool fluids, List<ItemRow> destination) {
-            var itemCounters = new Dictionary<ItemQualityPair, ItemCounter>();
-
-            ItemCounter CounterFor(ItemQualityPair pair) {
-                if (!itemCounters.TryGetValue(pair, out ItemCounter? counter)) {
-                    counter = new ItemCounter(0, 0, 0, 0, 0, 0, 0);
-                    itemCounters[pair] = counter;
-                }
-                return counter;
-            }
-
-            foreach (INodeViewModel node in nodes) {
-                if (node is IRecipeNodeViewModel recipeNode) {
-                    foreach (ItemQualityPair input in recipeNode.Inputs.Where(i => fluids.Equals(i.Item is IFluid))) {
-                        double consumeRate = recipeNode.GetConsumeRate(input);
-                        if (consumeRate > 0) {
-                            ItemCounter counter = CounterFor(input);
-                            if (!recipeNode.InputLinks.Any(l => l.Item == input))
-                                counter.InputUnlinked += consumeRate;
-                            else
-                                counter.Consumption += consumeRate;
-                        }
-                    }
-
-                    foreach (ItemQualityPair output in recipeNode.Outputs.Where(i => fluids.Equals(i.Item is IFluid))) {
-                        double supplyRate = recipeNode.GetSupplyRate(output);
-                        if (supplyRate <= 0)
-                            continue;
-
-                        bool isOverProduced = recipeNode.IsOverproducing(output);
-                        double supplyUsedRate = isOverProduced ? recipeNode.GetSupplyUsedRate(output) : supplyRate;
-
-                        ItemCounter counter = CounterFor(output);
-                        if (!recipeNode.OutputLinks.Any(l => l.Item == output))
-                            counter.OutputUnlinked += supplyRate;
-                        counter.Production += supplyRate;
-                        if (isOverProduced)
-                            counter.OutputOverflow += supplyRate - supplyUsedRate;
-                    }
-                } else if (node is ISupplierNodeViewModel sNode && fluids.Equals(sNode.SuppliedItem.Item is IFluid)) {
-                    CounterFor(sNode.SuppliedItem).Input += sNode.ActualRate;
-                } else if (node is IConsumerNodeViewModel cNode && fluids.Equals(cNode.ConsumedItem.Item is IFluid)) {
-                    CounterFor(cNode.ConsumedItem).Output += cNode.ActualRate;
-                }
-            }
-
-            IEnumerable<ItemQualityPair> sortedItems = itemCounters.Keys
-                .OrderBy(p => p.Item!.FriendlyName, StringComparer.Ordinal)
-                .ThenBy(p => p.Quality!.Level)
-                .ThenBy(p => p.Quality!.FriendlyName, StringComparer.Ordinal);
-
-            foreach (ItemQualityPair item in sortedItems) {
-                ItemCounter counter = itemCounters[item];
-                destination.Add(new ItemRow(
-                    item,
-                    item.Item!.Name + ":" + item.Quality!.Name,
-                    GetOrBakeIcon(item.Icon),
-                    item.Item!.Available ? AvailableRowBrush : UnavailableRowBrush,
-                    item.FriendlyName ?? "",
-                    counter.Input == 0 ? "-" : GraphicsStuff.DoubleToString(counter.Input), counter.Input,
-                    counter.InputUnlinked == 0 ? "-" : GraphicsStuff.DoubleToString(counter.InputUnlinked), counter.InputUnlinked,
-                    counter.Output == 0 ? "-" : GraphicsStuff.DoubleToString(counter.Output), counter.Output,
-                    counter.OutputUnlinked == 0 ? "-" : GraphicsStuff.DoubleToString(counter.OutputUnlinked), counter.OutputUnlinked,
-                    counter.OutputOverflow == 0 ? "-" : GraphicsStuff.DoubleToString(counter.OutputOverflow), counter.OutputOverflow,
-                    counter.Production == 0 ? "-" : GraphicsStuff.DoubleToString(counter.Production), counter.Production,
-                    counter.Consumption == 0 ? "-" : GraphicsStuff.DoubleToString(counter.Consumption), counter.Consumption));
-            }
+        private void OnKindsToggled() {
+            if (syncingKinds || segment == 0)
+                return;
+            bool[] kinds = segment == 1 ? itemKinds : keyNodeKinds;
+            for (int i = 0; i < kinds.Length && i < showButton.Items.Count; i++)
+                kinds[i] = showButton.Items[i].IsChecked;
+            Render();
         }
 
-        //Ports LoadUnfilteredKeyNodesList (reference §6, GraphSummaryForm.cs:301-358): recipe-node rows show
-        //Throughput="-"/Factories=ActualSetValue, every other node type shows the reverse.
-        private void LoadUnfilteredKeyNodesList(IEnumerable<INodeViewModel> origin) {
-            foreach (INodeViewModel node in origin) {
-                SKBitmap? icon;
-                string? nodeText;
-                string nodeType;
-                if (node is IConsumerNodeViewModel cNode) {
-                    icon = cNode.ConsumedItem.Icon;
-                    nodeText = cNode.ConsumedItem.FriendlyName;
-                    nodeType = "Consumer";
-                } else if (node is ISupplierNodeViewModel sNode) {
-                    icon = sNode.SuppliedItem.Icon;
-                    nodeText = sNode.SuppliedItem.FriendlyName;
-                    nodeType = "Supplier";
-                } else if (node is IPassthroughNodeViewModel pNode) {
-                    icon = pNode.PassthroughItem.Icon;
-                    nodeText = pNode.PassthroughItem.FriendlyName;
-                    nodeType = "Passthrough";
-                } else if (node is IRecipeNodeViewModel rNode) {
-                    icon = rNode.BaseRecipe.Icon;
-                    nodeText = rNode.BaseRecipe.FriendlyName;
-                    nodeType = "Recipe";
-                } else if (node is ISpoilNodeViewModel spNode) {
-                    icon = spNode.InputItem.Icon;
-                    nodeText = spNode.InputItem.FriendlyName + " spoiling";
-                    nodeType = "Spoil";
-                } else if (node is IPlantNodeViewModel plNode) {
-                    icon = plNode.Seed.Icon;
-                    nodeText = plNode.Seed.FriendlyName + " planting";
-                    nodeType = "Plant";
-                } else
-                    continue;
-
-                (string throughputText, double throughputValue, string factoriesText, double factoriesValue) = node is IRecipeNodeViewModel rrNode
-                    ? ("-", 0.0, GraphicsStuff.DoubleToString(rrNode.ActualSetValue), rrNode.ActualSetValue)
-                    : (GraphicsStuff.DoubleToString(node.ActualRate), node.ActualRate, "-", 0.0);
-
-                unfilteredKeyNodesList.Add(new KeyNodeRow(node, nodeText ?? "", GetOrBakeIcon(icon), nodeType, nodeText ?? "", node.KeyNodeTitle, throughputText, throughputValue, factoriesText, factoriesValue));
-            }
+        private void ShowAllKinds() {
+            bool[] kinds = segment == 1 ? itemKinds : keyNodeKinds;
+            Array.Fill(kinds, true);
+            ApplySegmentChrome();
+            Render();
         }
 
-        //-------------------------------------------------------------------------------------------------------Filter functions
-
-        //Ports ListViewItemRowContainsFilter (reference §6, GraphSummaryForm.cs:362-376): summary rows carry
-        //value-type tags, not IDataObjectBase, so the filter matches visible cell text instead.
-        private static bool RowContainsFilter(IEnumerable<string> cells, string filterLower) =>
-            string.IsNullOrEmpty(filterLower) || cells.Any(c => c.Contains(filterLower, StringComparison.OrdinalIgnoreCase));
-
-        private void UpdateFilteredBuildingLists() {
-            string filter = buildingsFilterTextBox.Text ?? "";
-            assemblerListView.ItemsSource = FilterBuildingRows(unfilteredAssemblerList, filter);
-            minerListView.ItemsSource = FilterBuildingRows(unfilteredMinerList, filter);
-            powerListView.ItemsSource = FilterBuildingRows(unfilteredPowerList, filter);
-            beaconListView.ItemsSource = FilterBeaconRows(unfilteredBeaconList, filter);
+        internal void SetKind(int index, bool on) {
+            if (segment == 0)
+                return;
+            showButton.Items[index].IsChecked = on;
+            OnKindsToggled();
         }
 
-        private static List<BuildingRow> FilterBuildingRows(List<BuildingRow> unfiltered, string filter) =>
-            [.. unfiltered.Where(r => RowContainsFilter([r.CountText, r.Name, r.PowerText, r.PowerBText], filter))];
-
-        private static List<BeaconRow> FilterBeaconRows(List<BeaconRow> unfiltered, string filter) =>
-            [.. unfiltered.Where(r => RowContainsFilter([r.CountText, r.Name, r.PowerBText], filter))];
-
-        //Ports UpdateFilteredItemsList (reference §6, GraphSummaryForm.cs:398-432).
-        private void UpdateFilteredItemsLists() {
-            itemsListView.ItemsSource = FilterItemRows(unfilteredItemsList);
-            fluidsListView.ItemsSource = FilterItemRows(unfilteredFluidsList);
+        private void ClearFilter() {
+            filterBox.Text = "";
+            filterBox.Focus();
         }
 
-        private List<ItemRow> FilterItemRows(List<ItemRow> unfiltered) {
-            string filter = itemsFilterTextBox.Text ?? "";
-            bool includeInputs = inputFilterCheckBox.IsChecked == true;
-            bool includeInputUnlinked = inputUnlinkedFilterCheckBox.IsChecked == true;
-            bool includeOutputs = outputFilterCheckBox.IsChecked == true;
-            bool includeOutputsUnlinked = outputUnlinkedFilterCheckBox.IsChecked == true;
-            bool includeOutputsOverflow = outputOverproducedFilterCheckBox.IsChecked == true;
-            bool includeProduced = productionFilterCheckBox.IsChecked == true;
-            bool includeConsumed = consumptionFilterCheckBox.IsChecked == true;
-
-            return [.. unfiltered.Where(r =>
-                RowContainsFilter([r.Name, r.InText, r.InULText, r.OutText, r.OutULText, r.OverprodText, r.ProducedText, r.ConsumedText], filter) &&
-                ((includeInputs && r.InText != "-") ||
-                 (includeInputUnlinked && r.InULText != "-") ||
-                 (includeOutputs && r.OutText != "-") ||
-                 (includeOutputsUnlinked && r.OutULText != "-") ||
-                 (includeOutputsOverflow && r.OverprodText != "-") ||
-                 (includeProduced && r.ProducedText != "-") ||
-                 (includeConsumed && r.ConsumedText != "-")))];
-        }
-
-        //Ports UpdateFilteredKeyNodesList (reference §6, GraphSummaryForm.cs:434-456).
-        private void UpdateFilteredKeyNodesList() {
-            string filter = keyNodesFilterTextBox.Text ?? "";
-            bool includeSuppliers = supplierNodeFilterCheckBox.IsChecked == true;
-            bool includeConsumers = consumerNodeFilterCheckBox.IsChecked == true;
-            bool includePassthrough = passthroughNodeFilterCheckBox.IsChecked == true;
-            bool includeRecipe = recipeNodeFilterCheckBox.IsChecked == true;
-
-            keyNodesListView.ItemsSource = unfilteredKeyNodesList.Where(r =>
-                (string.IsNullOrEmpty(filter) || r.TypeText.Contains(filter, StringComparison.OrdinalIgnoreCase) || r.DetailsText.Contains(filter, StringComparison.OrdinalIgnoreCase) || r.TitleText.Contains(filter, StringComparison.OrdinalIgnoreCase)) &&
-                ((includeSuppliers && r.Tag is ISupplierNodeViewModel) ||
-                 (includeConsumers && r.Tag is IConsumerNodeViewModel) ||
-                 (includePassthrough && r.Tag is IPassthroughNodeViewModel) ||
-                 (includeRecipe && r.Tag is IRecipeNodeViewModel))).ToList();
-        }
-
-        //-------------------------------------------------------------------------------------------------------Column sort functions
-
-        //Ports BuildingListView_ColumnSort (reference §6, GraphSummaryForm.cs:485-511): column 0 (#) parses
-        //its own text as the sort key, column 1 (Name) is a string compare, columns 2+ use the numeric tag.
-        internal void SortBuildingColumn(List<BuildingRow> unfiltered, ListBox owner, int column) {
-            int reverse = lastSortOrder[owner] == column + 1 ? -1 : 1;
-            lastSortOrder[owner] = reverse * (column + 1);
-
-            unfiltered.Sort((a, b) => {
-                int result = column switch {
-                    0 => -double.Parse(a.CountText, DisplayCulture.Format).CompareTo(double.Parse(b.CountText, DisplayCulture.Format)),
-                    1 => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase),
-                    2 => -a.PowerValue.CompareTo(b.PowerValue),
-                    _ => -a.PowerBValue.CompareTo(b.PowerBValue),
-                };
-                if (result == 0)
-                    result = string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
-                if (result == 0)
-                    result = string.Compare(a.RowKey, b.RowKey, StringComparison.Ordinal);
-                return result * reverse;
-            });
-            UpdateFilteredBuildingLists();
-        }
-
-        internal void SortBeaconColumn(int column) {
-            int reverse = lastSortOrder[beaconListView] == column + 1 ? -1 : 1;
-            lastSortOrder[beaconListView] = reverse * (column + 1);
-
-            unfilteredBeaconList.Sort((a, b) => {
-                int result = column switch {
-                    0 => -double.Parse(a.CountText, DisplayCulture.Format).CompareTo(double.Parse(b.CountText, DisplayCulture.Format)),
-                    1 => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase),
-                    _ => -a.PowerBValue.CompareTo(b.PowerBValue),
-                };
-                if (result == 0)
-                    result = string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
-                if (result == 0)
-                    result = string.Compare(a.RowKey, b.RowKey, StringComparison.Ordinal);
-                return result * reverse;
-            });
-            UpdateFilteredBuildingLists();
-        }
-
-        //Ports ItemListView_ColumnSort (reference §6, GraphSummaryForm.cs:516-536).
-        internal void SortItemColumn(List<ItemRow> unfiltered, ListBox owner, int column) {
-            int reverse = lastSortOrder[owner] == column + 1 ? -1 : 1;
-            lastSortOrder[owner] = reverse * (column + 1);
-
-            unfiltered.Sort((a, b) => {
-                int result = column == 0
-                    ? string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase)
-                    : -ItemColumnValue(a, column).CompareTo(ItemColumnValue(b, column));
-                if (result == 0)
-                    result = string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
-                if (result == 0)
-                    result = string.Compare(a.RowKey, b.RowKey, StringComparison.Ordinal);
-                return result * reverse;
-            });
-            UpdateFilteredItemsLists();
-        }
-
-        private static double ItemColumnValue(ItemRow row, int column) => column switch {
-            1 => row.InValue,
-            2 => row.InULValue,
-            3 => row.OutValue,
-            4 => row.OutULValue,
-            5 => row.OverprodValue,
-            6 => row.ProducedValue,
-            _ => row.ConsumedValue,
+        internal SummaryTableId CurrentTable => segment switch {
+            0 => (SummaryTableId)subIndex[0],
+            1 => subIndex[1] == 0 ? SummaryTableId.Items : SummaryTableId.Fluids,
+            _ => SummaryTableId.KeyNodes,
         };
 
-        //Ports KeyNodesListView_ColumnClick (reference §6, GraphSummaryForm.cs:538-578): column 2 (Node
-        //Title) natural-sorts digit runs so "Node 2" sorts before "Node 10".
-        internal void SortKeyNodesColumn(int column) {
-            const int maxDigits = 20;
-            var naturalSortCache = new Dictionary<string, string>();
-            string NaturalKey(string s) {
-                if (!naturalSortCache.TryGetValue(s, out string? key)) {
-                    key = ComparerRegex.Replace(s.ToLowerInvariant(), m => m.Value.PadLeft(maxDigits, '0'));
-                    naturalSortCache[s] = key;
-                }
-                return key;
+        internal string BuildingCountText { get; private set; } = "";
+        internal string BeaconCountText { get; private set; } = "";
+        internal string PowerConsumptionText { get; private set; } = "";
+        internal string PowerProductionText { get; private set; } = "";
+        internal string? PowerNetText { get; private set; }
+        internal int RebuildCount { get; private set; }
+
+        internal IReadOnlyList<SummaryRow> Rows(SummaryTableId id) => rows.TryGetValue(id, out List<SummaryRow>? list) ? list : [];
+
+        internal IReadOnlyList<SummaryRow> Shown => table.ItemsSource as IReadOnlyList<SummaryRow> ?? [];
+
+        private void Rebuild() {
+            if (session is null)
+                return;
+            RebuildCount++;
+            SubscribeTracker();
+            viewModel.Refresh(session.View.Nodes, host.Unit());
+            foreach (SummaryTableId id in Enum.GetValues<SummaryTableId>()) {
+                List<SummaryRow> list = SummaryTables.Build(id, viewModel);
+                if (!sorts.TryGetValue(id, out SummarySort? sort))
+                    sorts[id] = sort = SummaryTables.DefaultSort(id);
+                SummaryTables.Sort(list, id, sort);
+                rows[id] = list;
             }
-            int NaturalCompare(string a, string b) => string.Compare(NaturalKey(a), NaturalKey(b), StringComparison.Ordinal);
 
-            int reverse = lastSortOrder[keyNodesListView] == column + 1 ? -1 : 1;
-            lastSortOrder[keyNodesListView] = reverse * (column + 1);
-
-            unfilteredKeyNodesList.Sort((a, b) => {
-                int result = column switch {
-                    2 => NaturalCompare(a.TitleText, b.TitleText),
-                    0 => string.Compare(a.TypeText, b.TypeText, StringComparison.OrdinalIgnoreCase),
-                    1 => string.Compare(a.DetailsText, b.DetailsText, StringComparison.OrdinalIgnoreCase),
-                    3 => -a.ThroughputValue.CompareTo(b.ThroughputValue),
-                    _ => -a.FactoriesValue.CompareTo(b.FactoriesValue),
-                };
-                if (result == 0 && column != 2)
-                    result = NaturalCompare(a.TitleText, b.TitleText);
-                if (result == 0 && column != 0)
-                    result = string.Compare(a.TypeText, b.TypeText, StringComparison.OrdinalIgnoreCase);
-                if (result == 0 && column != 1)
-                    result = string.Compare(a.DetailsText, b.DetailsText, StringComparison.OrdinalIgnoreCase);
-                if (result == 0 && a.Tag is INodeViewModel nodeA && b.Tag is INodeViewModel nodeB)
-                    result = nodeA.Id.Value.CompareTo(nodeB.Id.Value);
-                return result * reverse;
-            });
-            UpdateFilteredKeyNodesList();
+            BuildingCountText = "#Buildings: " + GraphicsStuff.DoubleToString(viewModel.BuildingTotal);
+            BeaconCountText = "#Beacons: " + GraphicsStuff.DoubleToString(viewModel.BeaconTotal);
+            PowerConsumptionText = "Power Consumption: " + GraphicsStuff.DoubleToEnergy(viewModel.PowerConsumption, "W");
+            PowerProductionText = "Power Production: " + GraphicsStuff.DoubleToEnergy(viewModel.PowerProduction, "W");
+            PowerNetText = viewModel.PowerConsumption > 0 && viewModel.PowerProduction > 0
+                ? "Net Power: " + GraphicsStuff.DoubleToEnergy(viewModel.PowerProduction - viewModel.PowerConsumption, "W")
+                : null;
+            Render();
         }
 
-        //-------------------------------------------------------------------------------------------------------Export CSV
+        private bool[] CurrentKinds => segment == 1 ? itemKinds : keyNodeKinds;
 
-        private static readonly string[] BuildingsExportAssemblerHeader = ["#", "Assembler", "Electrical power consumed by assemblers (in W)", "Electrical power consumed by beacons (in W)"];
-        private static readonly string[] BuildingsExportMinerHeader = ["#", "Miner", "Electrical power consumed by assemblers (in W)", "Electrical power consumed by beacons (in W)"];
-        private static readonly string[] BuildingsExportPowerHeader = ["#", "Power Building", "Electrical power generated (in W)", "Electrical power consumed (in W)"];
-        private static readonly string[] BuildingsExportBeaconHeader = ["#", "Beacon", "Electrical power consumed by beacons (in W)"];
+        private List<SummaryRow> Filtered(SummaryTableId id) {
+            string query = filterBox.Text ?? "";
+            bool useKinds = id is SummaryTableId.Items or SummaryTableId.Fluids or SummaryTableId.KeyNodes;
+            bool[] kinds = id == SummaryTableId.KeyNodes ? keyNodeKinds : itemKinds;
+            return [.. Rows(id).Where(r => SummaryTables.MatchesQuery(id, r, query) && (!useKinds || SummaryTables.PassesKinds(id, r, kinds)))];
+        }
 
-        //Ports ExportCSV (reference §6, GraphSummaryForm.cs:615-648): dumps the currently FILTERED rows of
-        //each sub-list, not the unfiltered set - the filtered lists reassigned onto ItemsSource above are
-        //exactly what's on screen, so we read straight off there.
-        internal Task ExportBuildingsCsvAsync() => ExportCsvAsync(
-            [BuildingRowsAsCells(assemblerListView), BuildingRowsAsCells(minerListView), BuildingRowsAsCells(powerListView), BeaconRowsAsCells()],
-            [BuildingsExportAssemblerHeader, BuildingsExportMinerHeader, BuildingsExportPowerHeader, BuildingsExportBeaconHeader]);
+        private void Render() {
+            if (session is null)
+                return;
+            SummaryTableId id = CurrentTable;
+            bool failed = IsSolveFailed;
+            bool sameTable = renderedTable == id;
+            double offset = sameTable ? ScrollOffset() : 0;
+            List<SummaryRow> shown = Filtered(id);
+            bool graphEmpty = !session.View.Nodes.Any();
+            string query = filterBox.Text ?? "";
+            bool allKinds = id is SummaryTableId.Items or SummaryTableId.Fluids or SummaryTableId.KeyNodes && (id == SummaryTableId.KeyNodes ? keyNodeKinds : itemKinds).All(k => k);
+            bool noneVisible = shown.Count == 0 && Rows(id).Count > 0 && string.IsNullOrEmpty(query);
+            bool hiddenByKinds = noneVisible && !allKinds;
 
-        internal Task ExportItemsCsvAsync() => ExportCsvAsync(
-            [ItemRowsAsCells(itemsListView), ItemRowsAsCells(fluidsListView)],
-            [
-                ["Item", "Input (per " + rateString + ")", "Input through un-linked recipe ingredients (per " + rateString + ")", "Output (per " + rateString + ")", "Output through un-linked recipe products (per " + rateString + ")", "Output through overproduction (per " + rateString + ")", "Produced by recipe nodes (per " + rateString + ")", "Consumed by recipe nodes (per " + rateString + ")"],
-                ["Fluid", "Input (per " + rateString + ")", "Input through un-linked recipe ingredients (per " + rateString + ")", "Output (per " + rateString + ")", "Output through un-linked recipe products (per " + rateString + ")", "Output through overproduction (per " + rateString + ")", "Produced by recipe nodes (per " + rateString + ")", "Consumed by recipe nodes (per " + rateString + ")"],
-            ]);
+            rendering = true;
+            lastFailed = failed;
+            ComputeLayout(id, shown);
+            BuildHeader(id);
+            table.ItemsSource = shown;
+            selectedKeys.TryGetValue(id, out string? key);
+            table.SelectedItem = key is null ? null : shown.FirstOrDefault(r => r.Key == key);
+            rendering = false;
+            renderedTable = id;
 
-        internal Task ExportKeyNodesCsvAsync() => ExportCsvAsync(
-            [KeyNodeRowsAsCells()],
-            [["Node Type", "Node Details (item / recipe name)", "Node Title", "Throughput (for non-recipe nodes) (per " + rateString + ")", "Building Count (for recipe nodes)"]]);
+            bool showTable = !graphEmpty && !(shown.Count == 0 && Rows(id).Count > 0);
+            headerRow.IsVisible = showTable;
+            table.IsVisible = showTable;
+            emptyPanel.IsVisible = graphEmpty || noneVisible && allKinds;
+            noMatchPanel.IsVisible = !graphEmpty && shown.Count == 0 && Rows(id).Count > 0 && !noneVisible;
+            hiddenPanel.IsVisible = !graphEmpty && hiddenByKinds;
+            noMatchPanel.Headline = $"No matches for “{query}”";
+            exportButton.IsEnabled = !graphEmpty;
+            footerBar.IsVisible = segment == 0;
+            footerLabel.Text = SummaryTables.Footer(id, Rows(id));
+            ApplyMargins();
 
-        private static List<string[]> BuildingRowsAsCells(ListBox owner) =>
-            [.. (owner.ItemsSource as IEnumerable<BuildingRow> ?? []).Select(r => new[] { r.CountText, r.Name, r.PowerText, r.PowerBText })];
+            int total = CurrentKinds.Length;
+            int enabled = CurrentKinds.Count(k => k);
+            AutomationProperties.SetName(showButton, $"Show, {enabled} of {total} kinds");
 
-        private List<string[]> BeaconRowsAsCells() =>
-            [.. (beaconListView.ItemsSource as IEnumerable<BeaconRow> ?? []).Select(r => new[] { r.CountText, r.Name, r.PowerBText })];
+            if (showTable && offset > 0) {
+                table.UpdateLayout();
+                if (TableScroller is { } viewer)
+                    viewer.Offset = new Vector(viewer.Offset.X, offset);
+            }
+        }
 
-        private static List<string[]> ItemRowsAsCells(ListBox owner) =>
-            [.. (owner.ItemsSource as IEnumerable<ItemRow> ?? []).Select(r => new[] { r.Name, r.InText, r.InULText, r.OutText, r.OutULText, r.OverprodText, r.ProducedText, r.ConsumedText })];
+        private ScrollViewer? TableScroller => table.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
 
-        private List<string[]> KeyNodeRowsAsCells() =>
-            [.. (keyNodesListView.ItemsSource as IEnumerable<KeyNodeRow> ?? []).Select(r => new[] { r.TypeText, r.DetailsText, r.TitleText, r.ThroughputText, r.FactoriesText })];
+        private double ScrollOffset() => TableScroller?.Offset.Y ?? 0;
 
-        private async Task ExportCsvAsync(List<string[]>[] rowLists, string[][] columnNames) {
-            string? path = await (SaveFilePathStub?.Invoke() ?? RealPickSaveFilePathAsync()).ConfigureAwait(true);
+        internal double TableScrollOffset => ScrollOffset();
+
+
+        internal void ScrollTableTo(double offset) {
+            UpdateLayout();
+            if (TableScroller is { } viewer)
+                viewer.Offset = new Vector(viewer.Offset.X, offset);
+        }
+
+        private void OnTableSelectionChanged(object? sender, SelectionChangedEventArgs e) {
+            if (rendering)
+                return;
+            selectedKeys[CurrentTable] = (table.SelectedItem as SummaryRow)?.Key;
+        }
+
+        internal void SelectRow(string key) => table.SelectedItem = Shown.FirstOrDefault(r => r.Key == key);
+
+        internal string? SelectedKey => (table.SelectedItem as SummaryRow)?.Key;
+
+        internal void SortBy(int column) {
+            SummaryTableId id = CurrentTable;
+            sorts[id] = SummaryTables.Toggle(id, sorts.GetValueOrDefault(id), column);
+            SummaryTables.Sort(rows[id], id, sorts[id]);
+            Render();
+        }
+
+        internal SummarySort SortOf(SummaryTableId id) => sorts.GetValueOrDefault(id) ?? SummaryTables.DefaultSort(id);
+
+        private static TextBlock Text(string text, bool caption, bool bold) {
+            var block = new TextBlock { Theme = KitTheme("Kit.Text"), Text = text };
+            block.Classes.Add(caption ? "caption" : "body");
+            if (bold)
+                block.Bind(TextBlock.FontWeightProperty, block.GetResourceObservable("Foreman.Type.Caption.Emphasized.FontWeight"));
+            return block;
+        }
+
+        private double Measure(string text, bool caption, bool bold) {
+            double size = Token(caption ? "Foreman.Type.Caption.FontSize" : "Foreman.Type.Body.FontSize", caption ? 11 : 13);
+            FontWeight weight = bold && this.TryFindResource("Foreman.Type.Caption.Emphasized.FontWeight", ActualThemeVariant, out object? value) && value is FontWeight w ? w : FontWeight.Normal;
+            var typeface = new Typeface(FontFamily.Default, FontStyle.Normal, weight);
+            return new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, size, null).Width;
+        }
+
+        private double Token(string key, double fallback) =>
+            this.TryFindResource(key, ActualThemeVariant, out object? value) && value is double d ? d : fallback;
+
+        private void ComputeLayout(SummaryTableId id, List<SummaryRow> shown) {
+            IReadOnlyList<SummaryColumn> columns = SummaryTables.Columns(id);
+            int name = SummaryTables.NameColumn(id);
+            double sortRoom = Token("Foreman.Size.GlyphMicro", 12) + Token("Foreman.Space.Space1", 4);
+            widths = new GridLength[columns.Count];
+            minWidths = new double[columns.Count];
+            for (int i = 0; i < columns.Count; i++) {
+                bool isName = i == name || id == SummaryTableId.KeyNodes && i == 2;
+                if (isName) {
+                    widths[i] = new GridLength(1, GridUnitType.Star);
+                    minWidths[i] = 160;
+                    continue;
+                }
+                double content = Measure(columns[i].Header, caption: true, bold: true) + sortRoom;
+                string? longest = shown.Select(r => r.Cells[i]).OrderByDescending(c => c.Length).FirstOrDefault();
+                if (longest is not null)
+                    content = Math.Max(content, Measure(longest, caption: false, bold: false));
+                if (id == SummaryTableId.KeyNodes && i == 0)
+                    content = Math.Max(content, Measure("Passthrough", caption: false, bold: false));
+                widths[i] = new GridLength(Math.Ceiling(content), GridUnitType.Pixel);
+            }
+        }
+
+        private Thickness RowInset() {
+            Thickness frame = this.TryFindResource("Foreman.Thickness.ListFramePadding", ActualThemeVariant, out object? f) && f is Thickness ft ? ft : default;
+            Thickness item = this.TryFindResource("Foreman.Thickness.ListRowPadding", ActualThemeVariant, out object? r) && r is Thickness rt ? rt : default;
+            return new Thickness(1 + frame.Left + item.Left, 0, 1 + frame.Right + item.Right, 0);
+        }
+
+        private Grid NewColumnGrid() {
+            var grid = new Grid();
+            grid.Bind(Grid.ColumnSpacingProperty, grid.GetResourceObservable("Foreman.Space.Space2"));
+            for (int i = 0; i < widths.Length; i++)
+                grid.ColumnDefinitions.Add(new ColumnDefinition(widths[i]) { MinWidth = minWidths[i] });
+            return grid;
+        }
+
+        private void BuildHeader(SummaryTableId id) {
+            IReadOnlyList<SummaryColumn> columns = SummaryTables.Columns(id);
+            SummarySort sort = SortOf(id);
+            headerRow.Children.Clear();
+            headerRow.ColumnDefinitions.Clear();
+            headerRow.Margin = RowInset();
+            headerRow.Bind(Grid.ColumnSpacingProperty, headerRow.GetResourceObservable("Foreman.Space.Space2"));
+            for (int i = 0; i < columns.Count; i++)
+                headerRow.ColumnDefinitions.Add(new ColumnDefinition(widths[i]) { MinWidth = minWidths[i] });
+
+            for (int i = 0; i < columns.Count; i++) {
+                int column = i;
+                bool sorted = sort.Column == i;
+                string arrow = sorted ? (sort.Ascending ? " ▴" : " ▾") : "";
+                TextBlock label = Text(columns[i].Header + arrow, caption: true, bold: true);
+                if (!sorted)
+                    label.Classes.Add("secondary");
+                label.HorizontalAlignment = columns[i].Numeric ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+                label.VerticalAlignment = VerticalAlignment.Center;
+                label.TextTrimming = TextTrimming.CharacterEllipsis;
+                var cell = new Border { Background = Brushes.Transparent, Child = label, Focusable = false, Name = "SummaryHeader" + i };
+                AutomationProperties.SetName(cell, sorted ? $"{columns[i].Header}, sorted {(sort.Ascending ? "ascending" : "descending")}" : columns[i].Header);
+                cell.PointerPressed += (_, e) => {
+                    if (e.GetCurrentPoint(cell).Properties.IsLeftButtonPressed) {
+                        SortBy(column);
+                        e.Handled = true;
+                    }
+                };
+                Grid.SetColumn(cell, i);
+                headerRow.Children.Add(cell);
+            }
+        }
+
+        private Grid BuildRowContent(SummaryRow row) {
+            SummaryTableId id = renderedTable ?? CurrentTable;
+            IReadOnlyList<SummaryColumn> columns = SummaryTables.Columns(id);
+            int name = SummaryTables.NameColumn(id);
+            bool stale = row.IsStale || lastFailed;
+            Grid grid = NewColumnGrid();
+            grid.Background = Brushes.Transparent;
+            for (int i = 0; i < columns.Count; i++) {
+                bool zero = row.Cells[i] == SummaryTables.Zero;
+                TextBlock text = Text(row.Cells[i], caption: false, bold: false);
+                text.TextTrimming = TextTrimming.CharacterEllipsis;
+                text.VerticalAlignment = VerticalAlignment.Center;
+                if (columns[i].Numeric) {
+                    text.HorizontalAlignment = HorizontalAlignment.Right;
+                    text.TextAlignment = TextAlignment.Right;
+                    text.FontFeatures = FontFeatureCollection.Parse("tnum");
+                    if (zero || stale)
+                        text.Classes.Add("secondary");
+                    if (stale && !zero)
+                        text.FontStyle = FontStyle.Italic;
+                }
+
+                Control cell = text;
+                if (i == name) {
+                    var panel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                    panel.Bind(StackPanel.SpacingProperty, panel.GetResourceObservable("Foreman.Space.Space15"));
+                    var icon = new Avalonia.Controls.Image { Source = row.Icon, Stretch = Stretch.Uniform };
+                    icon.Bind(WidthProperty, icon.GetResourceObservable("Foreman.Size.Glyph20"));
+                    icon.Bind(HeightProperty, icon.GetResourceObservable("Foreman.Size.Glyph20"));
+                    panel.Children.Add(icon);
+                    panel.Children.Add(text);
+                    cell = panel;
+                }
+                Grid.SetColumn(cell, i);
+                grid.Children.Add(cell);
+            }
+            return grid;
+        }
+
+        private void OnContainerPrepared(object? sender, ContainerPreparedEventArgs e) {
+            if (e.Container is not ListBoxItem item || table.ItemsSource is not IList<SummaryRow> source || e.Index >= source.Count)
+                return;
+            SummaryRow row = source[e.Index];
+            item.Classes.Set("status-error", row.Status == RowStatus.Error);
+            item.Classes.Set("status-warning", row.Status == RowStatus.Warning);
+            SummaryTableId id = renderedTable ?? CurrentTable;
+            AutomationProperties.SetName(item, SummaryTables.AutomationName(id, row, host.Unit()));
+        }
+
+        internal IReadOnlyList<INodeViewModel> NodesFor(SummaryTableId id, SummaryRow row) {
+            if (session is null)
+                return [];
+            IEnumerable<INodeViewModel> all = session.View.Nodes;
+            return id switch {
+                SummaryTableId.KeyNodes => row.Tag is INodeViewModel node ? [node] : [],
+                SummaryTableId.Beacons => [.. all.OfType<IRecipeNodeViewModel>().Where(n => n.SelectedBeacon.Equals(row.Tag))],
+                SummaryTableId.Assemblers or SummaryTableId.Miners or SummaryTableId.Power => [.. all.OfType<IRecipeNodeViewModel>().Where(n => n.SelectedAssembler.Equals(row.Tag))],
+                _ => [.. all.Where(n => UsesItem(n, (ItemQualityPair)row.Tag))],
+            };
+        }
+
+        private static bool UsesItem(INodeViewModel node, ItemQualityPair item) => node switch {
+            IRecipeNodeViewModel r => r.Inputs.Contains(item) || r.Outputs.Contains(item),
+            ISupplierNodeViewModel s => s.SuppliedItem.Equals(item),
+            IConsumerNodeViewModel c => c.ConsumedItem.Equals(item),
+            IPassthroughNodeViewModel p => p.PassthroughItem.Equals(item),
+            _ => false,
+        };
+
+        internal void RevealSelected() {
+            if (table.SelectedItem is not SummaryRow row)
+                return;
+            IReadOnlyList<INodeViewModel> nodes = NodesFor(CurrentTable, row);
+            if (nodes.Count > 0)
+                host.Reveal?.Invoke(nodes);
+        }
+
+        private void OnTableKeyDown(object? sender, KeyEventArgs e) {
+            if (e.Key != Key.Enter)
+                return;
+            RevealSelected();
+            e.Handled = true;
+        }
+
+        private void OnWindowKeyDown(object? sender, KeyEventArgs e) {
+            bool meta = e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+            bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+            if (meta && e.Key == Key.W) {
+                Close();
+                e.Handled = true;
+            } else if (meta && e.Key == Key.F) {
+                filterBox.Focus(NavigationMethod.Tab);
+                e.Handled = true;
+            } else if (meta && !alt && e.Key is >= Key.D1 and <= Key.D3) {
+                SelectSegment(e.Key - Key.D1);
+                e.Handled = true;
+            } else if (meta && alt && e.Key is >= Key.D1 and <= Key.D4) {
+                SelectSubSegment(e.Key - Key.D1);
+                e.Handled = true;
+            } else if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None) {
+                if (!string.IsNullOrEmpty(filterBox.Text))
+                    filterBox.Text = "";
+                else
+                    Close();
+                e.Handled = true;
+            }
+        }
+
+        internal Func<Task<string?>>? SaveFilePathStub { get; set; }
+        internal string? LastCsvWritten { get; private set; }
+
+        internal Task ExportCsvAsync() => WriteCsvAsync(SummaryTables.Tables((SummarySegment)segment));
+
+        private async Task WriteCsvAsync(IReadOnlyList<SummaryTableId> ids) {
+            string? path = await (SaveFilePathStub?.Invoke() ?? PickSaveFilePathAsync()).ConfigureAwait(true);
             if (path is null)
                 return;
 
-            var csvLines = new List<string[]>();
-            for (int i = 0; i < rowLists.Length; i++) {
-                csvLines.Add(columnNames[i]);
-                foreach (string[] row in rowLists[i])
-                    csvLines.Add([.. row.Select(cell => cell.Replace(",", "").Replace("\n", "; ").Replace("\t", ""))]);
-                csvLines.Add([""]);
+            string rate = ProductionGraph.RateUnitNames[(int)host.Unit()];
+            var lines = new List<string[]>();
+            foreach (SummaryTableId id in ids) {
+                lines.Add(SummaryTables.CsvHeader(id, rate));
+                foreach (SummaryRow row in Filtered(id))
+                    lines.Add([.. SummaryTables.CsvCells(id, row).Select(c => c.Replace(",", "").Replace("\n", "; ").Replace("\t", ""))]);
+                lines.Add([""]);
             }
-            if (csvLines.Count > 0)
-                csvLines.RemoveAt(csvLines.Count - 1);
+            if (lines.Count > 0)
+                lines.RemoveAt(lines.Count - 1);
 
-            var csvBuilder = new StringBuilder();
-            foreach (string[] line in csvLines)
-                csvBuilder.AppendLine(string.Join(",", line));
+            var csv = new StringBuilder();
+            foreach (string[] line in lines)
+                csv.AppendLine(string.Join(",", line));
 
-            Utf8File.WriteAllText(path, csvBuilder.ToString());
-            LastCsvWritten = csvBuilder.ToString();
+            Utf8File.WriteAllText(path, csv.ToString());
+            LastCsvWritten = csv.ToString();
         }
 
-        private async Task<string?> RealPickSaveFilePathAsync() {
+        private async Task<string?> PickSaveFilePathAsync() {
             if (StorageProvider is not IStorageProvider storage)
                 return null;
 
@@ -740,75 +718,5 @@ namespace Foreman.Mac.Views {
             }).ConfigureAwait(true);
             return file?.Path.LocalPath;
         }
-
-        //-------------------------------------------------------------------------------------------------------Icon baking
-
-        //Dedups baked icons by source SKBitmap reference (same intent as SettingsWindow.GetOrBakeIcon).
-        private Bitmap? GetOrBakeIcon(SKBitmap? icon) {
-            if (icon is null)
-                return null;
-            if (!bakedIconCache.TryGetValue(icon, out Bitmap? baked)) {
-                baked = BakeIcon(icon);
-                bakedIconCache[icon] = baked;
-            }
-            return baked;
-        }
-
-        private static Bitmap BakeIcon(SKBitmap icon) {
-            const int size = 24;
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(size, size, SKColorType.Bgra8888, SKAlphaType.Premul));
-            using var paint = new SKPaint { IsAntialias = true };
-            surface.Canvas.DrawBitmap(icon, new SKRect(0, 0, size, size), paint);
-            using SKPixmap pixmap = surface.PeekPixels();
-            return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, pixmap.GetPixels(),
-                new PixelSize(pixmap.Info.Width, pixmap.Info.Height), new Vector(96, 96), pixmap.RowBytes);
-        }
-
-        //-------------------------------------------------------------------------------------------------------Test-only seams
-
-        internal TabControl MainTabControlControl => mainTabControl;
-        internal TabItem ItemsFluidsTabItemControl => itemsFluidsTabItem;
-
-        internal TextBox BuildingsFilterTextBoxControl => buildingsFilterTextBox;
-        internal TextBlock BuildingCountLabelControl => buildingCountLabel;
-        internal TextBlock BeaconCountLabelControl => beaconCountLabel;
-        internal TextBlock PowerConsumptionLabelControl => powerConsumptionLabel;
-        internal TextBlock PowerProductionLabelControl => powerProductionLabel;
-        internal TextBlock PowerNetLabelControl => powerNetLabel;
-        internal ListBox AssemblerListViewControl => assemblerListView;
-        internal ListBox MinerListViewControl => minerListView;
-        internal ListBox PowerListViewControl => powerListView;
-        internal ListBox BeaconListViewControl => beaconListView;
-
-        internal TextBox ItemsFilterTextBoxControl => itemsFilterTextBox;
-        internal CheckBox InputFilterCheckBoxControl => inputFilterCheckBox;
-        internal CheckBox InputUnlinkedFilterCheckBoxControl => inputUnlinkedFilterCheckBox;
-        internal CheckBox OutputFilterCheckBoxControl => outputFilterCheckBox;
-        internal CheckBox OutputUnlinkedFilterCheckBoxControl => outputUnlinkedFilterCheckBox;
-        internal CheckBox OutputOverproducedFilterCheckBoxControl => outputOverproducedFilterCheckBox;
-        internal CheckBox ProductionFilterCheckBoxControl => productionFilterCheckBox;
-        internal CheckBox ConsumptionFilterCheckBoxControl => consumptionFilterCheckBox;
-        internal ListBox ItemsListViewControl => itemsListView;
-        internal ListBox FluidsListViewControl => fluidsListView;
-
-        internal TextBox KeyNodesFilterTextBoxControl => keyNodesFilterTextBox;
-        internal CheckBox SupplierNodeFilterCheckBoxControl => supplierNodeFilterCheckBox;
-        internal CheckBox ConsumerNodeFilterCheckBoxControl => consumerNodeFilterCheckBox;
-        internal CheckBox PassthroughNodeFilterCheckBoxControl => passthroughNodeFilterCheckBox;
-        internal CheckBox RecipeNodeFilterCheckBoxControl => recipeNodeFilterCheckBox;
-        internal ListBox KeyNodesListViewControl => keyNodesListView;
-
-        internal List<BuildingRow> UnfilteredAssemblerList => unfilteredAssemblerList;
-        internal List<BuildingRow> UnfilteredMinerList => unfilteredMinerList;
-        internal List<BuildingRow> UnfilteredPowerList => unfilteredPowerList;
-        internal List<BeaconRow> UnfilteredBeaconList => unfilteredBeaconList;
-        internal List<ItemRow> UnfilteredItemsList => unfilteredItemsList;
-        internal List<ItemRow> UnfilteredFluidsList => unfilteredFluidsList;
-        internal List<KeyNodeRow> UnfilteredKeyNodesList => unfilteredKeyNodesList;
-
-        internal void SimulateHeaderClick(string name) => this.FindControl<Button>(name)!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-        internal void SimulateExportBuildingsClick() => Async.Fire(ExportBuildingsCsvAsync(), nameof(ExportBuildingsCsvAsync));
-        internal void SimulateExportItemsClick() => Async.Fire(ExportItemsCsvAsync(), nameof(ExportItemsCsvAsync));
-        internal void SimulateExportKeyNodesClick() => Async.Fire(ExportKeyNodesCsvAsync(), nameof(ExportKeyNodesCsvAsync));
     }
 }

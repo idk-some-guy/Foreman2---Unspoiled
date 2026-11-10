@@ -155,6 +155,7 @@ namespace ForemanTest {
             Assert.IsNotNull(result.SaveFileInfo);
             Assert.IsTrue(result.SaveFileInfo!.Recipes["iron-plate"]);
             Assert.IsNull(result.WarningMessage);
+            Assert.AreEqual(FactorioRunFailure.None, result.Failure);
         }
 
         [TestMethod]
@@ -170,6 +171,8 @@ namespace ForemanTest {
                 "Factorio crashed while reading the save file.\n\n" +
                 "This is usually caused by a mod bug. See factorio-current.log in your Factorio user data folder.",
                 result.WarningMessage);
+            Assert.AreEqual(FactorioRunFailure.Crashed, result.Failure);
+            Assert.AreEqual(FactorioCrashPhase.ReadingSave, result.CrashPhase);
         }
 
         [TestMethod]
@@ -184,6 +187,7 @@ namespace ForemanTest {
             Assert.AreEqual(
                 "File read could not be completed because this instance of Factorio is currently running. Please stop expanding the factory for just a brief moment...",
                 result.WarningMessage);
+            Assert.AreEqual(FactorioRunFailure.AnotherInstanceRunning, result.Failure);
         }
 
         [TestMethod]
@@ -196,6 +200,7 @@ namespace ForemanTest {
 
             Assert.AreEqual(SaveFileLoadOutcome.Abort, result.Outcome);
             Assert.IsNull(result.WarningMessage);
+            Assert.AreEqual(FactorioRunFailure.Unmapped, result.Failure);
         }
 
         [TestMethod]
@@ -208,6 +213,23 @@ namespace ForemanTest {
 
             Assert.AreEqual(SaveFileLoadOutcome.Cancel, result.Outcome);
             Assert.IsTrue(result.WarningMessage?.Contains("Factorio Version below 2.0", StringComparison.Ordinal));
+            Assert.AreEqual(FactorioRunFailure.InvalidInstall, result.Failure);
+            Assert.AreEqual(FactorioInstallProblem.TooOld, result.InstallCheck?.Problem);
+            Assert.AreEqual("1.1.0", result.InstallCheck?.VersionText);
+        }
+
+        [TestMethod]
+        public void Load_AFileSquatsTheSaveReaderModsFolderName_IsHelperModCopyFailed() {
+            string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
+            string exePath = WriteFactorioStub(macOsDir, "2.0.28", "exit 0");
+            string savePath = BuildSaveFixture(exePath);
+            string modsPath = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(savePath)!)!, "mods");
+            File.WriteAllText(Path.Combine(modsPath, "foremansavereader_2.0.0"), "not a folder");
+
+            SaveFileReader.Result result = SaveFileReader.Load(savePath, CancellationToken.None);
+
+            Assert.AreEqual(SaveFileLoadOutcome.Abort, result.Outcome);
+            Assert.AreEqual(FactorioRunFailure.HelperModCopyFailed, result.Failure);
         }
 
         [TestMethod]
@@ -219,6 +241,7 @@ namespace ForemanTest {
             SaveFileReader.Result result = SaveFileReader.Load(savePath, CancellationToken.None);
 
             Assert.AreEqual(SaveFileLoadOutcome.Abort, result.Outcome);
+            Assert.AreEqual(FactorioRunFailure.Unmapped, result.Failure);
         }
     }
 }

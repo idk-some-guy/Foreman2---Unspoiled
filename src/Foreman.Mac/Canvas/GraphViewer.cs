@@ -1,8 +1,12 @@
+using Avalonia.Styling;
+using Avalonia.Threading;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Models;
+using Foreman.Models.Nodes;
 using Foreman.Serialization;
 using SkiaSharp;
 using System;
@@ -29,8 +33,6 @@ namespace Foreman.Mac.Canvas {
     //hover-tooltip overlay (already built in Task 6); this class owns everything upstream's viewer keeps in
     //graph/session/element-collection state.
     public sealed partial class GraphViewer : IDisposable {
-        private const float MinLinkWidth = 3f;
-        private const float MaxLinkWidth = 35f;
         //stands in for upstream's Control.DeviceDpi (reference: AnnotationLoader's header comment); internal
         //so GraphViewerSaveAssembler (same assembly, Canvas/ folder) can read it back out on save.
         internal const int AnnotationDeviceDpi = 96;
@@ -48,7 +50,7 @@ namespace Foreman.Mac.Canvas {
         public Dictionary<LinkId, LinkElement> LinkElementDictionary { get; } = [];
         public List<AnnotationElement> Annotations { get; } = [];
 
-        public bool IconsOnly { get; set; }
+        public bool IconsOnly { get => Context.IconsOnly; set => Context.IconsOnly = value; }
         public int NodeCountForSimpleView { get; set; } = 200;
         public bool TooltipsEnabled { get; set; } = true;
 
@@ -65,33 +67,52 @@ namespace Foreman.Mac.Canvas {
         //this exists now, empty until Task 6 starts populating it.
         public HashSet<AnnotationElement> SelectedAnnotations { get; } = [];
 
+        public HashSet<LinkElement> SelectedLinks { get; } = [];
+
+        public LinkRouting DefaultLinkRouting {
+            get => Session.Editor.DefaultLinkRouting;
+            set => Session.Editor.DefaultLinkRouting = value;
+        }
+
         //Ports SelectionZone (reference §1): null whenever no lasso is being dragged, so Paint's draw guard
         //collapses to a single null check instead of also tracking DragOperation itself.
         public Rectangle? SelectionZone { get; set; }
 
-        //Ports MainForm's dark bg (23,23,23)/fg (124,124,124) constants (upstream MainForm.cs:37) - the
-        //canvas half of ChangeTheme's control-tree walk, since this control has no WinForms BackColor of its
-        //own to inherit the recursive BackColor/ForeColor assignment from.
-        private static readonly SKColor DarkBackground = new(23, 23, 23);
-        private static readonly SKColor DarkForeground = new(124, 124, 124);
-        private static readonly SKColor LightBackground = SKColors.White;
-        private static readonly SKColor LightForeground = new(200, 200, 200);
+        private SKColor? backgroundOverride;
 
-        public SKColor BackgroundColor { get; private set; } = LightBackground;
+        public SKColor BackgroundColor => backgroundOverride ?? KitSkia.TokenBridge.Current.CanvasBackground;
 
-        //Fixed color/width, safe as a shared static across every viewer.
-        private static readonly SKPaint PausedBorderPaint = new() { Color = new SKColor(255, 80, 80), Style = SKPaintStyle.Stroke, StrokeWidth = 5 };
+        internal SKPaint PausedFramePaint { get; } = new() { Style = SKPaintStyle.Stroke, StrokeWidth = 2 };
 
-        //Per-viewer mutate-reset paint: StrokeWidth tracks this viewer's own ViewScale per frame.
-        private readonly SKPaint _selectionZonePaint = new() { Color = new SKColor(100, 100, 200), Style = SKPaintStyle.Stroke, IsAntialias = true };
+        internal SKPaint LassoStrokePaint { get; } = new() { Style = SKPaintStyle.Stroke, IsAntialias = true };
+
+        internal SKPaint LassoFillPaint { get; } = new() { Style = SKPaintStyle.Fill, IsAntialias = true };
+
+        public bool IsPaused {
+            get => Graph.PauseUpdates;
+            set {
+                if (Graph.PauseUpdates == value)
+                    return;
+                Graph.PauseUpdates = value;
+                PausedChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public event EventHandler? PausedChanged;
+
+        public string PausedValueSuffix => IsPaused ? ", calculations paused" : "";
+
+        internal static Action<ProductionGraph> AttachSolveContext { get; set; } = graph => graph.SolveContext = new AvaloniaSynchronizationContext(Dispatcher.UIThread, DispatcherPriority.Default);
 
         public GraphViewer(Viewport viewport, GridManager grid) {
             Viewport = viewport;
             Grid = grid;
             Graph = new ProductionGraph();
+            AttachSolveContext(Graph);
             Session = new ProductionGraphSession(Graph);
             Context = new NodeElementContext(Session.View, viewport) {
                 LinkWidthLookup = GetLinkWidth,
+                RateUnitLookup = () => Graph.SelectedRateUnit,
                 Editor = Session.Editor,
                 GetNodeElement = id => NodeElementDictionary.TryGetValue(id, out BaseNodeElement? element) ? element : null,
                 SelectedNodes = SelectedNodes,
@@ -111,6 +132,13 @@ namespace Foreman.Mac.Canvas {
             Session.NodeValuesUpdated += (_, _) => UpdateNodeVisuals();
             Session.GraphCleared += OnGraphCleared;
             Session.Attach();
+
+            KitSkia.TokenBridge.Changed += OnTokenBridgeChanged;
+        }
+
+        private void OnTokenBridgeChanged(object? sender, EventArgs e) {
+            foreach (BaseNodeElement node in NodeElementDictionary.Values)
+                node.RequestStateUpdate();
         }
 
         private float GetLinkWidth(LinkId id) =>
@@ -162,7 +190,7 @@ namespace Foreman.Mac.Canvas {
             foreach (AnnotationElement annotation in AnnotationLoader.LoadFromSave(document.Annotations, document.AnnotationDpi, AnnotationDeviceDpi))
                 AddAnnotationElement(annotation);
 
-            ProductionGraph.NewNodeBatch batch = GraphSaveLoader.LoadProductionGraph(Graph, cache, document.ProductionGraph, applySolverSettings: true);
+            ProductionGraph.NewNodeBatch batch = GraphSaveLoader.LoadProductionGraph(Graph, cache, document.ProductionGraph, applySolverSettings: true, DefaultLinkRouting);
             if (batch.NewNodes.Count == 0 && document.ProductionGraph.Nodes.Count > 0)
                 return GraphLoadResult.Failure("The production graph in this save could not be loaded (nodes failed to import).");
 
@@ -204,7 +232,7 @@ namespace Foreman.Mac.Canvas {
         //real merge.
         public int ImportNodesFromDocument(DataCache cache, ProductionGraphSaveDocument document, Point origin, bool applySolverSettings) {
             HashSet<NodeId> existingIds = [.. NodeElementDictionary.Keys];
-            ProductionGraph.NewNodeBatch batch = Graph.InsertNodesFromDocument(cache, document, applySolverSettings);
+            ProductionGraph.NewNodeBatch batch = Graph.InsertNodesFromDocument(cache, document, applySolverSettings, DefaultLinkRouting);
             if (batch.NewNodes.Count == 0)
                 return 0;
 
@@ -223,6 +251,8 @@ namespace Foreman.Mac.Canvas {
 
             foreach (BaseNodeElement element in importedElements)
                 element.SetLocation(Point.Add(element.ViewModel.Location, (Size)offset));
+            foreach (NodeLink link in batch.NewLinks.Where(link => link.Waypoints.Count > 0))
+                link.Controller.SetWaypoints([.. link.Waypoints.Select(waypoint => Point.Add(waypoint, (Size)offset))]);
 
             SetSelection(importedElements);
             Viewport.UpdateGraphBounds(Graph.Bounds);
@@ -245,17 +275,29 @@ namespace Foreman.Mac.Canvas {
 
         //----------------------------------------------Selection functions (reference §1)
 
-        //Ports SetSelection: replaces the full selection outright, syncing every node's Highlighted flag
-        //with membership.
+        public event EventHandler? SelectionChanged;
+
+        internal void RaiseSelectionChanged() => SelectionChanged?.Invoke(this, EventArgs.Empty);
+
         public void SetSelection(IEnumerable<BaseNodeElement> newSelection) {
+            bool hadLinks = SelectedLinks.Count > 0;
+            ClearLinkSelection();
+            HashSet<BaseNodeElement> updated = newSelection as HashSet<BaseNodeElement> ?? [.. newSelection];
+            if (SelectedNodes.SetEquals(updated)) {
+                if (hadLinks)
+                    RaiseSelectionChanged();
+                return;
+            }
+
             foreach (BaseNodeElement element in SelectedNodes)
                 element.Highlighted = false;
 
             SelectedNodes.Clear();
-            SelectedNodes.UnionWith(newSelection);
+            SelectedNodes.UnionWith(updated);
 
             foreach (BaseNodeElement element in SelectedNodes)
                 element.Highlighted = true;
+            RaiseSelectionChanged();
         }
 
         //Ports UpdateSelection: recomputes every node's Highlighted flag as a lasso preview for the given
@@ -296,6 +338,7 @@ namespace Foreman.Mac.Canvas {
                 SelectedNodes.UnionWith(CurrentSelectionNodes);
             }
             CurrentSelectionNodes.Clear();
+            RaiseSelectionChanged();
         }
 
         //Extended to also clear annotation selection (reference §1/§4a's MouseDown clear-on-empty-click and
@@ -306,6 +349,8 @@ namespace Foreman.Mac.Canvas {
             SelectedNodes.Clear();
             CurrentSelectionNodes.Clear();
             ClearAnnotationSelection();
+            ClearLinkSelection();
+            RaiseSelectionChanged();
         }
 
         //Ports TryDeleteSelectedNodes' >10 confirm (reference §4b): upstream blocks synchronously on a
@@ -321,6 +366,7 @@ namespace Foreman.Mac.Canvas {
                 Session.Editor.DeleteNode(node.ViewModel.Id);
             SelectedNodes.Clear();
             Graph.UpdateNodeValues();
+            RaiseSelectionChanged();
         }
 
         public void FlipSelectedNodes() {
@@ -330,11 +376,20 @@ namespace Foreman.Mac.Canvas {
             }
         }
 
-        //Ports AlignSelected (reference §8/§11 step 11's Align Selected wiring): grid-snaps every selected
-        //node in place, no-op for anything not on the grid already.
-        public void AlignSelected() {
-            foreach (BaseNodeElement node in SelectedNodes)
-                node.SetLocation(Grid.AlignToGrid(node.Location));
+        public readonly record struct AlignMove(BaseNodeElement Node, Point From, Point To);
+
+        public IReadOnlyList<AlignMove> PlanAlignSelection() =>
+            [.. SelectedNodes.Select(node => new AlignMove(node, node.Location, Grid.AlignToGrid(node.Location))).Where(move => move.From != move.To)];
+
+        public void ApplyAlign(IReadOnlyList<AlignMove> moves, double progress, bool notify) {
+            CarryWaypoints([.. moves.Select(move => move.Node)], () => {
+                foreach (AlignMove move in moves)
+                    move.Node.SetLocation(new Point(
+                        move.From.X + (int)Math.Round((move.To.X - move.From.X) * progress),
+                        move.From.Y + (int)Math.Round((move.To.Y - move.From.Y) * progress)));
+            });
+            if (notify && moves.Count > 0)
+                Session.NotifyMutated();
         }
 
         //Ports AutoconnectDisconnectedInputs (reference §8): the whole-graph pass behind the Autoconnect
@@ -371,23 +426,8 @@ namespace Foreman.Mac.Canvas {
                 yield return element;
         }
 
-        //Ports Paint(Graphics, FullGraph) (reference §3 steps 2-8): visibility pass, grid, DynamicLinkWidth
-        //pre-pass, PrePaint pass, then the style-selected main draw loop. Doesn't include steps 9-12 (the
-        //ResetTransform-and-beyond screen-space overlays); those are PaintOverlays/PaintPausedBorder below,
-        //called separately so GraphCanvasControl can interleave its own hover-tooltip draw between them in
-        //upstream's exact z-order (arrows, tooltip, paused border last/topmost).
-        //Ports MainForm.SetDarkMode/SetLightMode (upstream MainForm.cs:36-46): recolors the canvas clear
-        //color and hands the same bg/fg pair to GridManager.SetGridColors, matching ChangeTheme's own call
-        //into ProductionGraphViewer's grid when it walks the control tree. Unlike upstream's dark-restores-
-        //to-DefaultBackColor/DefaultForeColor split (WinForms SystemColors with no Avalonia/macOS
-        //equivalent), the light path here returns to this port's own cold-start light constants - see
-        //docs/upstream-divergences.md.
-        public void ApplyTheme(bool dark) {
-            SKColor bg = dark ? DarkBackground : LightBackground;
-            SKColor fg = dark ? DarkForeground : LightForeground;
-            BackgroundColor = bg;
-            Grid.SetGridColors(bg, fg);
-        }
+        public void ApplyTheme(bool dark) =>
+            backgroundOverride = KitSkia.TokenBridge.ColorIn("Foreman.Color.CanvasBackground", dark ? ThemeVariant.Dark : ThemeVariant.Light);
 
         //Ports ImageExportForm.ExportBitmap's two transform variants (reference §3): upstream sets its own
         //Graphics.Transform before calling graphViewer.Paint(fullGraph: true), since ProductionGraphViewer.
@@ -396,6 +436,17 @@ namespace Foreman.Mac.Canvas {
         //rather than mutating the live Viewport (which has clamping side effects via UpdateGraphBounds).
         public readonly record struct ExportTransform(double Width, double Height, float ViewScale, Point ViewOffset);
 
+        internal NodeDrawingStyle StyleFor(int visibleNodes, float viewScale, bool fullGraph) =>
+            fullGraph ? NodeDrawingStyle.PrintStyle
+            : IconsOnly ? NodeDrawingStyle.IconsOnly
+            : (visibleNodes > NodeCountForSimpleView || viewScale < 0.2f) ? NodeDrawingStyle.Simple
+            : NodeDrawingStyle.Regular;
+
+        //Ports Paint(Graphics, FullGraph) (reference §3 steps 2-8): visibility pass, grid, DynamicLinkWidth
+        //pre-pass, PrePaint pass, then the style-selected main draw loop. Doesn't include steps 9-12 (the
+        //ResetTransform-and-beyond screen-space overlays); those are PaintOverlays/PaintPausedBorder below,
+        //called separately so GraphCanvasControl can interleave its own hover-tooltip draw between them in
+        //upstream's exact z-order (arrows, tooltip, paused border last/topmost).
         public void Paint(SKCanvas canvas, bool fullGraph = false, bool draggedNodeActive = false, GraphElement? draggedLink = null, bool clearBackground = true, ExportTransform? exportTransform = null) {
             if (clearBackground)
                 canvas.Clear(BackgroundColor);
@@ -404,41 +455,46 @@ namespace Foreman.Mac.Canvas {
             double height = exportTransform?.Height ?? Viewport.Height;
             float viewScale = exportTransform?.ViewScale ?? Viewport.ViewScale;
             Point viewOffset = exportTransform?.ViewOffset ?? Viewport.ViewOffset;
-            canvas.Translate((float)(width / 2), (float)(height / 2));
-            canvas.Scale(viewScale);
-            canvas.Translate(viewOffset.X, viewOffset.Y);
+            Context.ExportViewScale = exportTransform?.ViewScale;
+            try {
+                canvas.Translate((float)(width / 2), (float)(height / 2));
+                canvas.Scale(viewScale);
+                canvas.Translate(viewOffset.X, viewOffset.Y);
 
-            Rectangle visibilityBounds = fullGraph ? Graph.Bounds : Viewport.VisibleGraphBounds;
-            foreach (GraphElement element in GetPaintingOrder(draggedLink))
-                element.UpdateVisibility(visibilityBounds);
-            if (fullGraph)
-                foreach (AnnotationElement annotation in Annotations)
-                    annotation.ForceVisible();
+                Rectangle visibilityBounds = fullGraph ? Graph.Bounds : Viewport.VisibleGraphBounds;
+                foreach (GraphElement element in GetPaintingOrder(draggedLink))
+                    element.UpdateVisibility(visibilityBounds);
+                if (fullGraph)
+                    foreach (AnnotationElement annotation in Annotations)
+                        annotation.ForceVisible();
 
-            if (!fullGraph)
-                Grid.Paint(canvas, Viewport.ViewScale, Viewport.VisibleGraphBounds, draggedNodeActive);
+                if (!fullGraph) {
+                    Grid.ShowOriginAxes = NodeElements.Count == 0;
+                    Grid.Paint(canvas, Viewport.ViewScale, Viewport.VisibleGraphBounds, draggedNodeActive);
+                }
 
-            UpdateLinkWidths();
+                UpdateLinkWidths();
 
-            foreach (GraphElement element in GetPaintingOrder(draggedLink))
-                element.PrePaint();
+                foreach (GraphElement element in GetPaintingOrder(draggedLink))
+                    element.PrePaint();
 
-            int visibleElements = GetPaintingOrder(draggedLink).Count(e => e.Visible && e is BaseNodeElement);
-            NodeDrawingStyle style = fullGraph ? NodeDrawingStyle.PrintStyle
-                : IconsOnly ? NodeDrawingStyle.IconsOnly
-                : (visibleElements > NodeCountForSimpleView || Viewport.ViewScale < 0.2f) ? NodeDrawingStyle.Simple
-                : NodeDrawingStyle.Regular;
-            foreach (GraphElement element in GetPaintingOrder(draggedLink))
-                element.Paint(canvas, style);
+                int visibleElements = GetPaintingOrder(draggedLink).Count(e => e.Visible && e is BaseNodeElement);
+                NodeDrawingStyle style = StyleFor(visibleElements, Viewport.ViewScale, fullGraph);
+                foreach (GraphElement element in GetPaintingOrder(draggedLink))
+                    element.Paint(canvas, style);
 
-            //selection zone (reference §1 Paint: selectionPen, RGB(100,100,200), 2 screen-px wide regardless
-            //of zoom - hence the ViewScale-compensated stroke width, drawn in the same graph-space transform
-            //as everything above so it tracks pan/zoom like the elements it's lassoing).
-            if (!fullGraph && SelectionZone is Rectangle zone && zone.Width > 0 && zone.Height > 0) {
-                _selectionZonePaint.StrokeWidth = 2f / Viewport.ViewScale;
-                canvas.DrawRect(SKRect.Create(zone.X, zone.Y, zone.Width, zone.Height), _selectionZonePaint);
+                if (!fullGraph && SelectionZone is Rectangle zone && zone.Width > 0 && zone.Height > 0) {
+                    KitSkia.CanvasTokens tokens = KitSkia.TokenBridge.Current;
+                    SKRect zoneRect = SKRect.Create(zone.X, zone.Y, zone.Width, zone.Height);
+                    LassoFillPaint.Color = tokens.AccentSoft;
+                    LassoStrokePaint.Color = tokens.Accent;
+                    LassoStrokePaint.StrokeWidth = 1f / Viewport.ViewScale;
+                    canvas.DrawRect(zoneRect, LassoFillPaint);
+                    canvas.DrawRect(zoneRect, LassoStrokePaint);
+                }
+            } finally {
+                Context.ExportViewScale = null;
             }
-
             canvas.Restore();
 
             if (!fullGraph)
@@ -457,8 +513,9 @@ namespace Foreman.Mac.Canvas {
             }
         }
 
-        public void PaintPausedBorder(SKCanvas canvas) {
-            canvas.DrawRect(0, 0, (float)Viewport.Width - 3, (float)Viewport.Height - 3, PausedBorderPaint);
+        public void PaintPausedFrame(SKCanvas canvas) {
+            PausedFramePaint.Color = KitSkia.TokenBridge.Current.Warning;
+            canvas.DrawRect(1, 1, (float)Viewport.Width - 2, (float)Viewport.Height - 2, PausedFramePaint);
         }
 
         //Final-review I2: GraphCanvasControl.OnDetachedFromVisualTree is this class's only caller now (it
@@ -471,14 +528,19 @@ namespace Foreman.Mac.Canvas {
             if (IsDisposed)
                 return;
             IsDisposed = true;
-            _selectionZonePaint.Dispose();
+            KitSkia.TokenBridge.Changed -= OnTokenBridgeChanged;
+            PausedFramePaint.Dispose();
+            LassoStrokePaint.Dispose();
+            LassoFillPaint.Dispose();
             Grid.Dispose();
         }
 
         private void UpdateLinkWidths() {
+            KitSkia.CanvasTokens tokens = KitSkia.TokenBridge.Current;
+            float minWidth = tokens.LinkWidth, maxWidth = tokens.LinkWidthMax;
             if (!Context.DynamicLinkWidth) {
                 foreach (LinkElement element in LinkElements)
-                    element.LinkWidth = MinLinkWidth;
+                    element.LinkWidth = minWidth;
                 return;
             }
 
@@ -497,9 +559,11 @@ namespace Foreman.Mac.Canvas {
 
             foreach (LinkElement element in LinkElements)
                 element.LinkWidth = element.Item.Item is IFluid
-                    ? (float)Math.Min(MinLinkWidth + ((MaxLinkWidth - MinLinkWidth) * (element.ViewModel.Throughput / fluidMax)), MaxLinkWidth)
-                    : (float)Math.Min(MinLinkWidth + ((MaxLinkWidth - MinLinkWidth) * (element.ViewModel.Throughput / itemMax)), MaxLinkWidth);
+                    ? (float)Math.Min(minWidth + ((maxWidth - minWidth) * (element.ViewModel.Throughput / fluidMax)), maxWidth)
+                    : (float)Math.Min(minWidth + ((maxWidth - minWidth) * (element.ViewModel.Throughput / itemMax)), maxWidth);
         }
+
+        public event EventHandler? ElementsChanged;
 
         private void OnNodeViewModelAdded(object? sender, NodeViewModelEventArgs e) {
             BaseNodeElement? element = CreateNodeElement(e.ViewModel);
@@ -507,6 +571,7 @@ namespace Foreman.Mac.Canvas {
                 return;
             NodeElementDictionary.Add(e.ViewModel.Id, element);
             NodeElements.Add(element);
+            ElementsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnNodeViewModelRemoved(object? sender, NodeViewModelEventArgs e) {
@@ -514,8 +579,11 @@ namespace Foreman.Mac.Canvas {
                 return;
             NodeElementDictionary.Remove(e.ViewModel.Id);
             NodeElements.Remove(element);
-            SelectedNodes.Remove(element);
+            bool wasSelected = SelectedNodes.Remove(element);
             element.Dispose();
+            if (wasSelected)
+                RaiseSelectionChanged();
+            ElementsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnLinkViewModelAdded(object? sender, LinkViewModelEventArgs e) {
@@ -530,6 +598,7 @@ namespace Foreman.Mac.Canvas {
 
             supplier.RequestStateUpdate();
             consumer.RequestStateUpdate();
+            ElementsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnLinkViewModelRemoved(object? sender, LinkViewModelEventArgs e) {
@@ -538,12 +607,15 @@ namespace Foreman.Mac.Canvas {
 
             LinkElementDictionary.Remove(e.ViewModel.Id);
             LinkElements.Remove(element);
+            if (SelectedLinks.Remove(element))
+                RaiseSelectionChanged();
             element.Dispose();
 
             if (NodeElementDictionary.TryGetValue(e.ViewModel.SupplierId, out BaseNodeElement? supplier))
                 supplier.RequestStateUpdate();
             if (NodeElementDictionary.TryGetValue(e.ViewModel.ConsumerId, out BaseNodeElement? consumer))
                 consumer.RequestStateUpdate();
+            ElementsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnGraphCleared(object? sender, EventArgs e) {
@@ -555,7 +627,9 @@ namespace Foreman.Mac.Canvas {
             NodeElements.Clear();
             LinkElementDictionary.Clear();
             LinkElements.Clear();
+            SelectedLinks.Clear();
             ClearAnnotations();
+            ElementsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void ClearAnnotations() {

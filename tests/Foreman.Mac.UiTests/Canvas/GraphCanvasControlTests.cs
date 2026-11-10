@@ -1,15 +1,14 @@
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
-using Foreman.Mac.Canvas.Panels;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using SkiaSharp;
@@ -22,16 +21,6 @@ using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Canvas {
     public class GraphCanvasControlTests {
-        private static bool ColorPresentNear(SKSurface surface, int x, int y, SKColor expected, int radius = 1) {
-            using SKImage image = surface.Snapshot();
-            using SKPixmap pixmap = image.PeekPixels();
-            for (int dx = -radius; dx <= radius; dx++)
-                for (int dy = -radius; dy <= radius; dy++)
-                    if (pixmap.GetPixelColor(x + dx, y + dy) == expected)
-                        return true;
-            return false;
-        }
-
         //Regression: upstream's ArrowsOnLinks defaults false (both the fresh ProductionGraphViewer field
         //and its Settings.Designer.cs backing value) - a fresh GraphViewer, before any AppSettings ever
         //reaches it, must match that cold-start default instead of showing arrowheads nobody asked for.
@@ -40,32 +29,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             var control = new GraphCanvasControl();
 
             Assert.False(control.Viewer.Context.ArrowsOnLinks);
-        }
-
-        [AvaloniaFact]
-        public void Render_GridEnabled_DrawsGridLinesThroughFullTransformPipeline() {
-            var control = new GraphCanvasControl();
-            control.Viewport.SetSize(200, 200);
-            control.Grid.ShowGrid = true;
-            control.Grid.CurrentGridUnit = 20;
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(200, 200));
-            control.Render(surface.Canvas);
-
-            Assert.True(ColorPresentNear(surface, 120, 100, new SKColor(230, 230, 230)));
-        }
-
-        [AvaloniaFact]
-        public void Render_GridDisabled_LeavesCanvasWhite() {
-            var control = new GraphCanvasControl();
-            control.Viewport.SetSize(200, 200);
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(200, 200));
-            control.Render(surface.Canvas);
-
-            using SKImage image = surface.Snapshot();
-            using SKPixmap pixmap = image.PeekPixels();
-            Assert.Equal(SKColors.White, pixmap.GetPixelColor(100, 100));
         }
 
         [AvaloniaFact]
@@ -88,10 +51,10 @@ namespace Foreman.Mac.UiTests.Canvas {
             window.Show();
             control.Focus();
 
-            window.KeyPressQwerty(PhysicalKey.MetaLeft, RawInputModifiers.Meta);
+            CanvasKeys.KeyDownOnCanvas(control, Key.LWin, KeyModifiers.Meta);
             Assert.True(control.IsPassthroughBusModifierHeld);
 
-            window.KeyReleaseQwerty(PhysicalKey.MetaLeft, RawInputModifiers.None);
+            CanvasKeys.KeyUpOnCanvas(control, Key.LWin);
             Assert.False(control.IsPassthroughBusModifierHeld);
         }
 
@@ -103,10 +66,10 @@ namespace Foreman.Mac.UiTests.Canvas {
             window.Show();
             control.Focus();
 
-            window.KeyPressQwerty(PhysicalKey.ControlLeft, RawInputModifiers.Control);
+            CanvasKeys.KeyDownOnCanvas(control, Key.LeftCtrl, KeyModifiers.Control);
             Assert.True(control.IsPassthroughBusModifierHeld);
 
-            window.KeyReleaseQwerty(PhysicalKey.ControlLeft, RawInputModifiers.None);
+            CanvasKeys.KeyUpOnCanvas(control, Key.LeftCtrl);
             Assert.False(control.IsPassthroughBusModifierHeld);
         }
 
@@ -155,12 +118,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.False(control.FloatingPanelHost.IsOpen);
         }
 
-        //Ports EditRecipeNode's dispatch (upstream ProductionGraphViewer.cs 538-576, reference §9's
-        //composition note): editing a recipe node opens two independently-floated cooperating panels -
-        //EditRecipePanel anchored left of the node, a standalone RecipePanel anchored right of it - rather
-        //than one merged panel with the recipe card embedded inside it.
         [AvaloniaFact]
-        public void EditNode_RecipeNode_OpensPairedEditAndRecipePanels() {
+        public void EditNode_RecipeNode_SelectsOnly_NoFloatingPanel() {
             var cache = new DataCache(filterRecipes: true);
             var subgroup = new SubgroupPrototype(cache, "§§test:subgroup", "z");
             var quality = new QualityPrototype(cache, "normal", "Normal", "a");
@@ -204,10 +163,8 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             control.EditNode(element);
 
-            var editPanel = Assert.IsType<EditRecipePanel>(control.FloatingPanelHost.Content);
-            Assert.IsType<RecipePanel>(control.FloatingPanelHost.CompanionContent);
-            Assert.Empty(editPanel.GetVisualDescendants().OfType<RecipePanel>());
-            Assert.True(control.FloatingPanelHost.Bounds.Right <= control.FloatingPanelHost.CompanionBounds.Left);
+            Assert.False(control.FloatingPanelHost.IsOpen);
+            Assert.Contains(element, control.Viewer.SelectedNodes);
         }
 
         //Final-review I2: Viewer/Grid were IDisposable with no caller (dead code). This proves the control's

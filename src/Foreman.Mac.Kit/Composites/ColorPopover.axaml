@@ -1,0 +1,39 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites">
+
+  <ControlTheme x:Key="Kit.ColorPopover" TargetType="kit:ColorPopover">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <StackPanel Spacing="{DynamicResource Foreman.Space.Space3}">
+          <kit:PickGrid x:Name="PART_Grid"
+                        Theme="{StaticResource Kit.PickGrid}"
+                        IsChoiceMode="True"
+                        NamesSlots="False"
+                        Columns="8" />
+          <kit:FormRow x:Name="PART_HexRow"
+                       Theme="{StaticResource Kit.FormRow}"
+                       Label="Hex"
+                       LabelColumn="Popover">
+            <TextBox x:Name="PART_Hex"
+                     Theme="{StaticResource Kit.TextField}"
+                     Width="{DynamicResource Foreman.Metrics.TextFieldMinWidth}"
+                     HorizontalAlignment="Left"
+                     FontSize="{DynamicResource Foreman.Type.Body.FontSize}"
+                     FontWeight="{DynamicResource Foreman.Type.Body.FontWeight}"
+                     FontFeatures="tnum"
+                     MaxLength="7">
+              <TextBox.InnerLeftContent>
+                <TextBlock Text="#"
+                           FontSize="{DynamicResource Foreman.Type.Body.FontSize}"
+                           Foreground="{DynamicResource Foreman.Color.TextTertiary}"
+                           VerticalAlignment="Center" />
+              </TextBox.InnerLeftContent>
+            </TextBox>
+          </kit:FormRow>
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

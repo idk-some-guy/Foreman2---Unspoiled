@@ -1,0 +1,20 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Foreman.Mac.Views.Sheets.VersionBrowserSheet">
+  <StackPanel Spacing="{DynamicResource Foreman.Space.Space3}">
+    <TextBlock Theme="{StaticResource Kit.Text}" Classes="callout secondary" TextWrapping="Wrap"
+               Text="Restoring a version keeps the current graph as a version too, so you can come back to it." />
+    <StackPanel>
+      <Grid Name="HeaderRow">
+        <TextBlock Grid.Column="0" Theme="{StaticResource Kit.Text}" Classes="caption secondary" FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}"
+                   Text="Saved" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="2" Theme="{StaticResource Kit.Text}" Classes="caption secondary" FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}"
+                   Text="Kind" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="4" Theme="{StaticResource Kit.Text}" Classes="caption secondary" FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}"
+                   Text="Nodes" VerticalAlignment="Center" HorizontalAlignment="Right" />
+      </Grid>
+      <ListBox Name="VersionList" Theme="{StaticResource Kit.List}" SelectionMode="Single"
+               CornerRadius="{DynamicResource Foreman.Radius.Control}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

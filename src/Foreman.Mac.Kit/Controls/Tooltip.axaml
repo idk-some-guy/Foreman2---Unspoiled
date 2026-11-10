@@ -1,0 +1,33 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <ControlTheme x:Key="Kit.Tooltip" TargetType="ToolTip">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.TooltipMaterial}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TooltipText}" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Caption.FontSize}" />
+    <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.Caption.FontWeight}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.TooltipPadding}" />
+    <Setter Property="MaxWidth" Value="{DynamicResource Foreman.Metrics.TooltipMaxWidth}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}"
+                BoxShadow="{DynamicResource Foreman.Shadow.Tooltip}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            TextWrapping="Wrap"
+                            MaxLines="3"
+                            TextTrimming="CharacterEllipsis" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <StaticResource x:Key="{x:Type ToolTip}" ResourceKey="Kit.Tooltip" />
+
+</ResourceDictionary>

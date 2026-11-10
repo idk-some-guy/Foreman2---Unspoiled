@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="using:Foreman.Mac.Views"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+             x:Class="Foreman.Mac.Views.Settings.EnabledObjectsTab"
+             x:DataType="vm:SettingsViewModel">
+  <UserControl.Styles>
+    <Style Selector="Grid.unavailable > Image, Grid.unavailable > TextBlock">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Unavailable}" />
+    </Style>
+  </UserControl.Styles>
+  <Grid Margin="20,18,20,20" RowDefinitions="Auto,Auto,*,Auto,Auto">
+    <Grid Name="FilterLine" Grid.Row="0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" MinWidth="8" />
+        <ColumnDefinition Width="1000*" MinWidth="160" MaxWidth="280" />
+      </Grid.ColumnDefinitions>
+      <ctrl:PopUp Name="CategoryPopUp" Grid.Column="0" Theme="{StaticResource Kit.PopUp}" Width="170"
+                  AutomationProperties.Name="Category"
+                  AutomationProperties.HelpText="Chooses which kind of object the list below shows."
+                  ToolTip.Tip="Chooses which kind of object the list below shows." />
+      <ctrl:SearchField Name="FilterField" Grid.Column="2" Theme="{StaticResource Kit.SearchField}" HorizontalAlignment="Stretch"
+                        PlaceholderText="Filter" Text="{Binding FilterText, Mode=TwoWay}"
+                        AutomationProperties.Name="Filter"
+                        AutomationProperties.HelpText="Narrows the list to objects whose name contains this text."
+                        ToolTip.Tip="Narrows the list to objects whose name contains this text." />
+    </Grid>
+    <StackPanel Name="ShowLine" Grid.Row="1" Orientation="Horizontal" Spacing="{DynamicResource Foreman.Space.Space2}" Margin="0,8,0,0">
+      <ctrl:Segmented Name="ShowSegmented" Theme="{StaticResource Kit.Segmented}"
+                      SelectedIndex="{Binding EnabledObjectsShowIndex, Mode=TwoWay}"
+                      AutomationProperties.Name="Show"
+                      AutomationProperties.HelpText="Limits the list to objects that are enabled or disabled."
+                      ToolTip.Tip="Limits the list to objects that are enabled or disabled." />
+      <CheckBox Name="ShowUnavailablesFilterCheckBox" Theme="{StaticResource Kit.CheckBox}" Content="Show unavailable"
+                VerticalAlignment="Center" IsChecked="{Binding ShowUnavailablesFilterChecked, Mode=TwoWay}"
+                AutomationProperties.Name="Show unavailable"
+                AutomationProperties.HelpText="Also lists objects the preset marks as unavailable."
+                ToolTip.Tip="Also lists objects the preset marks as unavailable." />
+    </StackPanel>
+    <Panel Grid.Row="2" Margin="0,8,0,0">
+      <ListBox Name="ObjectList" Theme="{StaticResource Kit.List}" SelectionMode="Multiple"
+               AutomationProperties.Name="Objects" ItemsSource="{Binding VisibleObjects}"
+               AutomationProperties.HelpText="Unticking an object hides it from the browser, the palette and every calculation.">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="v:EnabledObjectsListItem">
+            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="{DynamicResource Foreman.Space.Space2}"
+                  Background="Transparent" ToolTip.Tip="{Binding TooltipContent}"
+                  Classes.unavailable="{Binding IsUnavailable}">
+              <CheckBox Grid.Column="0" Theme="{StaticResource Kit.CheckBox}" VerticalAlignment="Center"
+                        IsChecked="{Binding IsChecked, Mode=TwoWay}" AutomationProperties.Name="{Binding Name}" />
+              <Image Grid.Column="1" Source="{Binding Icon}" VerticalAlignment="Center"
+                     Width="{DynamicResource Foreman.Size.Glyph18}" Height="{DynamicResource Foreman.Size.Glyph18}" />
+              <TextBlock Grid.Column="2" Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <kit:StatePanel Name="NoResultsPanel" Theme="{StaticResource Kit.StatePanel}" Shape="NoResults"
+                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                      Sentence="Check the spelling, or clear the search and the filter to see every object."
+                      MovesFocusOnAppear="True" IsVisible="False">
+        <kit:StatePanel.Buttons>
+          <kit:ButtonRow Theme="{StaticResource Kit.ButtonRow}">
+            <Button Name="ShowAllObjectsButton" Theme="{StaticResource Kit.Button}" Content="Show All Objects"
+                    kit:ButtonRow.Role="Default" />
+          </kit:ButtonRow>
+        </kit:StatePanel.Buttons>
+      </kit:StatePanel>
+    </Panel>
+    <TextBlock Name="ListNote" Grid.Row="3" Theme="{StaticResource Kit.Text}" Classes="caption"
+               Foreground="{DynamicResource Foreman.Color.TextTertiary}" TextWrapping="Wrap" Margin="0,3,0,0"
+               Text="Unticking an object hides it from the browser, the palette and every calculation." />
+    <kit:ButtonRow Grid.Row="4" Theme="{StaticResource Kit.ButtonRow}" HorizontalAlignment="Left" Margin="0,12,0,0"
+                   AutomationProperties.HelpText="Enables objects in bulk — from a save file, from a set of science packs, or all at once.">
+      <Button Name="LoadEnabledFromSaveButton" Theme="{StaticResource Kit.Button}" Content="Load From Save…" />
+      <Button Name="SetEnabledFromSciencePacksButton" Theme="{StaticResource Kit.Button}" Content="Set From Science Packs…" />
+      <Button Name="EnableAllButton" Theme="{StaticResource Kit.Button}" Content="Enable All" />
+    </kit:ButtonRow>
+  </Grid>
+</UserControl>

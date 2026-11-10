@@ -24,16 +24,32 @@ namespace Foreman.Mac.Canvas.Elements {
         public bool DynamicLinkWidth { get; set; }
         public bool ArrowsOnLinks { get; set; }
         public int IconsDrawSize { get; set; } = 32;
+        public bool IconsOnly { get; set; }
         public LevelOfDetail LevelOfDetail { get; set; } = LevelOfDetail.Medium;
         public bool RoundAssemblerCount { get; set; }
         public bool EnableExtraProductivityForNonMiners { get; set; }
-        public bool ShowRecipeToolTip { get; set; } = true;
         public bool AbbreviateSciPacks { get; set; } = true;
 
         public float StaticLinkWidth { get; set; } = 3f;
         public Func<LinkId, float>? LinkWidthLookup { get; set; }
 
+        public float? ExportViewScale { get; set; }
+
+        public bool IsExporting => ExportViewScale is not null;
+
+        public bool IsTextLegible(float fontSize) => CanvasText.IsLegible(fontSize, ExportViewScale ?? Viewport.ViewScale);
+
         public float GetLinkWidth(LinkId id) => LinkWidthLookup?.Invoke(id) ?? StaticLinkWidth;
+
+        public ItemTabElement? HoveredTab { get; set; }
+        public ItemTabElement? ArmedTab { get; set; }
+
+        public Func<ProductionGraph.RateUnit>? RateUnitLookup { get; set; }
+        public ProductionGraph.RateUnit RateUnit => RateUnitLookup?.Invoke() ?? ProductionGraph.RateUnit.Per1Sec;
+
+        public Action? LabelValuesChanged { get; set; }
+        public int LabelFadeGeneration { get; set; }
+        public double LabelFadeProgress { get; set; } = 1;
 
         //P4 seam for BaseNodeElement.SetLocation (upstream reaches these off `graphViewer` directly - this
         //port's node elements only ever see NodeElementContext, so the editor and the id->element lookup

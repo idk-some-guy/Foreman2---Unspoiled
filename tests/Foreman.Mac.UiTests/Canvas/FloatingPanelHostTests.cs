@@ -8,6 +8,7 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using System.Drawing;
 using System.Linq;
@@ -215,7 +216,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Fixture fx = NewFixture();
             fx.Control.FloatingPanelHost.Show(TrivialPanel(), new Point(0, 0));
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Escape);
 
             Assert.False(fx.Control.FloatingPanelHost.IsOpen);
         }
@@ -242,8 +243,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             int x = node.X;
             fx.Control.FloatingPanelHost.Show(TrivialPanel(), new Point(0, 0));
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
-            fx.Window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Escape);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Right);
 
             Assert.NotEqual(x, node.X);
         }
@@ -294,7 +295,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             int y = node.Y;
             fx.Control.FloatingPanelHost.Show(TrivialPanel(), new Point(0, 0));
 
-            fx.Window.KeyPressQwerty(PhysicalKey.ArrowRight, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Right);
 
             Assert.Equal(x, node.X);
             Assert.Equal(y, node.Y);
@@ -307,113 +308,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Viewer.SetSelection([node]);
             fx.Control.FloatingPanelHost.Show(TrivialPanel(), new Point(0, 0));
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Delete);
 
             Assert.Contains(node, fx.Control.Viewer.SelectedNodes);
             Assert.Contains(node, fx.Control.NodeElements);
         }
 
-        //---- paired panels (upstream EditRecipeNode's editPanel+recipePanel, ProductionGraphViewer.cs 538-576) ----
-
-        //Companion carries a fixed intrinsic size (its own Width/Height, set once by its own constructor,
-        //never remeasured) instead of the reflowable EditPanelViewportLayout.Apply path the primary uses -
-        //TrivialPanel's MinWidth/MinHeight doesn't give it that, so these tests set Width/Height directly.
-        private static Border FixedSizePanel(double width = 90, double height = 40) =>
-            new() { Width = width, Height = height, Focusable = true };
-
-        [AvaloniaFact]
-        public void ShowPaired_BothPanelsOpen() {
-            Fixture fx = NewFixture();
-            Border primary = TrivialPanel();
-            Border companion = FixedSizePanel();
-
-            fx.Control.FloatingPanelHost.ShowPaired(primary, new Point(0, 0), Direction.Right, companion, new Point(0, 0), Direction.Left);
-
-            Assert.True(fx.Control.FloatingPanelHost.IsOpen);
-            Assert.Same(primary, fx.Control.FloatingPanelHost.Content);
-            Assert.Same(companion, fx.Control.FloatingPanelHost.CompanionContent);
-        }
-
-        //Anchors straddle the viewport centre wide enough apart that neither panel's desired rect pokes past
-        //a margin, so the union-shift is a no-op and each panel lands exactly at its own anchored rect -
-        //editPanel (Direction.Right: body left of its anchor) left of recipePanel (Direction.Left: body right
-        //of its anchor), matching upstream's leftAnchor/rightAnchor split around the edited node.
-        [AvaloniaFact]
-        public void ShowPaired_AnchorsStraddleNode_PrimaryLandsLeftOfCompanion() {
-            Fixture fx = NewFixture();
-            Border primary = TrivialPanel(width: 60, height: 40);
-            Border companion = FixedSizePanel(width: 60, height: 40);
-
-            fx.Control.FloatingPanelHost.ShowPaired(primary, new Point(-20, 0), Direction.Right, companion, new Point(20, 0), Direction.Left);
-
-            Assert.True(fx.Control.FloatingPanelHost.Bounds.Right <= fx.Control.FloatingPanelHost.CompanionBounds.Left);
-        }
-
-        //Imp#1 (final fix wave, reference §7/upstream ProductionGraphViewer.cs 538-576): the paired
-        //RecipePanel card must swallow pointer input the same way the primary panel does - only Bounds
-        //was checked, so a press/release landing on the companion (outside the primary's own rect) fell
-        //straight through to the canvas underneath.
-        [AvaloniaFact]
-        public void MouseUpInsideCompanion_ChangesNoSelectionAndOpensNoMenuUnderneath() {
-            Fixture fx = NewFixture();
-            SupplierNodeElement node = AddSupplier(fx, "iron-ore", new Point(-150, -100));
-            fx.Control.Viewer.SetSelection([node]);
-            Border primary = TrivialPanel(width: 60, height: 40);
-            Border companion = FixedSizePanel(width: 60, height: 40);
-            fx.Control.FloatingPanelHost.ShowPaired(primary, new Point(-20, 0), Direction.Right, companion, new Point(20, 0), Direction.Left);
-            //Companion lands at screen (230,130)-(290,170) (same anchor geometry as
-            //ShowPaired_AnchorsStraddleNode_PrimaryLandsLeftOfCompanion above); (260,150) sits well inside
-            //it and outside the primary's (110,130)-(170,170).
-            var companionPoint = new AvaloniaPoint(260, 150);
-
-            fx.Window.MouseDown(companionPoint, MouseButton.Left, RawInputModifiers.None);
-            fx.Window.MouseUp(companionPoint, MouseButton.Left, RawInputModifiers.None);
-            fx.Window.MouseDown(companionPoint, MouseButton.Right, RawInputModifiers.None);
-            fx.Window.MouseUp(companionPoint, MouseButton.Right, RawInputModifiers.None);
-
-            Assert.True(fx.Control.FloatingPanelHost.IsOpen);
-            Assert.Contains(node, fx.Control.Viewer.SelectedNodes);
-            Assert.Null(fx.Control.LastContextMenuEntries);
-        }
-
-        [AvaloniaFact]
-        public void Close_AfterShowPaired_ClosesBothPanels() {
-            Fixture fx = NewFixture();
-            fx.Control.FloatingPanelHost.ShowPaired(TrivialPanel(), new Point(0, 0), Direction.Right, FixedSizePanel(), new Point(0, 0), Direction.Left);
-
-            fx.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
-
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
-            Assert.Null(fx.Control.FloatingPanelHost.CompanionContent);
-        }
-
-        //A later solo Show() (e.g. re-opening an EditFlowPanel) must not leave a stale companion behind.
-        [AvaloniaFact]
-        public void Show_AfterShowPaired_ClosesTheStaleCompanion() {
-            Fixture fx = NewFixture();
-            fx.Control.FloatingPanelHost.ShowPaired(TrivialPanel(), new Point(0, 0), Direction.Right, FixedSizePanel(), new Point(0, 0), Direction.Left);
-
-            fx.Control.FloatingPanelHost.Show(TrivialPanel(), new Point(50, 50));
-
-            Assert.Null(fx.Control.FloatingPanelHost.CompanionContent);
-        }
-
-        //Both anchors clamp near the same corner far enough that the union pokes past two margins at once -
-        //ShiftControlsToFit moves both panels by the same delta (upstream's Rectangle.Union + PlaceFloatingPanels),
-        //so the gap the anchors set up survives instead of each panel clamping independently and overlapping.
-        [AvaloniaFact]
-        public void ShowPaired_UnionPokesPastEdge_ShiftsBothByTheSameDelta() {
-            Fixture fx = NewFixture();
-            Border primary = TrivialPanel(width: 60, height: 40);
-            Border companion = FixedSizePanel(width: 60, height: 40);
-            fx.Control.FloatingPanelHost.ShowPaired(primary, new Point(-20, 300), Direction.Right, companion, new Point(20, 300), Direction.Left);
-            int gapBefore = fx.Control.FloatingPanelHost.CompanionBounds.Left - fx.Control.FloatingPanelHost.Bounds.Left;
-
-            Rectangle primaryBounds = fx.Control.FloatingPanelHost.Bounds;
-            Rectangle companionBounds = fx.Control.FloatingPanelHost.CompanionBounds;
-            Assert.True(primaryBounds.Bottom <= ViewerH - Margin);
-            Assert.True(companionBounds.Bottom <= ViewerH - Margin);
-            Assert.Equal(gapBefore, companionBounds.Left - primaryBounds.Left);
-        }
     }
 }

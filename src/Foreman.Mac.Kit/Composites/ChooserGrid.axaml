@@ -1,0 +1,25 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites">
+
+  <ControlTheme x:Key="Kit.ChooserHeading" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.SectionHeader.FontSize}" />
+    <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.SectionHeader.FontWeight}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    <Setter Property="Focusable" Value="False" />
+  </ControlTheme>
+
+  <ControlTheme x:Key="Kit.ChooserGrid" TargetType="kit:ChooserGrid">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid>
+          <ScrollViewer x:Name="PART_Scroll">
+            <StackPanel x:Name="PART_Track" Margin="16,12,16,12" />
+          </ScrollViewer>
+          <ContentPresenter x:Name="PART_State" IsVisible="False" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

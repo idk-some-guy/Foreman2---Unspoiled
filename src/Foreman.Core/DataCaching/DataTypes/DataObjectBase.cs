@@ -33,14 +33,15 @@ namespace Foreman.DataCaching.DataTypes {
 
         private readonly string[] OrderCompareArray = [.. order.Split(orderSeparators).Where(s => !string.IsNullOrEmpty(s))];
 
-        public void SetIconAndColor(IconColorPair icp) {
-            this.Icon = icp.Icon ?? DataCache.UnknownIcon;
+        private IconColorPair? iconColorPair;
 
+        public void SetIconAndColor(IconColorPair icp) {
+            this.iconColorPair = icp;
             this.AverageColor = icp.Color;
         }
 
         public Color AverageColor { get; private set; } = Color.Black;
-        public SKBitmap Icon { get; private set; } = DataCache.UnknownIcon;
+        public SKBitmap Icon => iconColorPair?.Icon ?? DataCache.UnknownIcon;
 
         public override bool Equals(object? obj) {
             return (obj as DataObjectBasePrototype) == this;

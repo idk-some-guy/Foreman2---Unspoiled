@@ -145,8 +145,6 @@ namespace Foreman.Serialization {
             wire.EnabledAssemblers = [.. ui.EnabledAssemblers];
             wire.EnabledModules = [.. ui.EnabledModules];
             wire.EnabledBeacons = [.. ui.EnabledBeacons];
-            if (ui.OldImport)
-                wire.OldImport = true;
         }
 
         private static GraphViewerUiSaveData ToViewerUi(GraphViewerWire wire) => new() {
@@ -160,8 +158,7 @@ namespace Foreman.Serialization {
             EnabledRecipes = wire.EnabledRecipes ?? [],
             EnabledAssemblers = wire.EnabledAssemblers ?? [],
             EnabledModules = wire.EnabledModules ?? [],
-            EnabledBeacons = wire.EnabledBeacons ?? [],
-            OldImport = wire.OldImport
+            EnabledBeacons = wire.EnabledBeacons ?? []
         };
 
         private static ProductionGraphSolverSaveData ToSolver(ProductionGraphWire wire) => new() {
@@ -332,14 +329,19 @@ namespace Foreman.Serialization {
             SupplierID = link.SupplierId,
             ConsumerID = link.ConsumerId,
             Item = link.ItemName,
-            Quality = link.QualityName
+            Quality = link.QualityName,
+            Routing = link.Routing?.ToString(),
+            Waypoints = [.. link.Waypoints.Select(p => new[] { p.X, p.Y })]
         };
 
         private static GraphLinkSaveData ToLink(GraphLinkWire wire) => new(
             wire.SupplierID,
             wire.ConsumerID,
             wire.Item ?? "ItemNameError",
-            wire.Quality ?? "QualityError");
+            wire.Quality ?? "QualityError") {
+            Routing = Enum.TryParse(wire.Routing, out LinkRouting routing) && Enum.IsDefined(routing) ? routing : null,
+            Waypoints = [.. (wire.Waypoints ?? []).Where(p => p.Length == 2).Select(p => new Point(p[0], p[1]))]
+        };
 
         private static ModuleQualityWire FromModule(ModuleQualitySaveData module) => new() {
             Name = module.ModuleName,

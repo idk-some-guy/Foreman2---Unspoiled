@@ -10,9 +10,10 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
-using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using SkiaSharp;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -28,15 +29,6 @@ namespace Foreman.Mac.UiTests.Canvas {
     //fan-out (upstream Ctrl, mapped to Cmd per this task's plan).
     public class LinkDragTests {
         private const int Half = 300;
-
-        //IRChooserPanel.startingGroup is process-wide static (docs/panels-reference.md §2, same reset
-        //ItemRecipeChooserFlowTests carries) - the multi-origin sub-picker test below is this file's first use
-        //of a real group-backed chooser grid, and a stale group reference left over from another test class's
-        //DataCache would otherwise select nothing.
-        public LinkDragTests() {
-            System.Reflection.FieldInfo field = typeof(IRChooserPanel).GetField("startingGroup", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
-            field.SetValue(null, null);
-        }
 
         private sealed class Fixture {
             public required DataCache Cache { get; init; }
@@ -300,7 +292,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.NotNull(fx.Control.DraggedLink);
 
             fx.Control.Focus();
-            fx.Window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Escape);
 
             Assert.Null(fx.Control.DraggedLink);
             Assert.Null(fx.Control.MouseDownElement);
@@ -386,24 +378,13 @@ namespace Foreman.Mac.UiTests.Canvas {
             using SKImage image = surface.Snapshot();
             using SKPixmap pixmap = image.PeekPixels();
             SKColor pixel = pixmap.GetPixelColor((int)farPoint.X, (int)farPoint.Y);
-            Assert.Equal(new SKColor(210, 90, 30), pixel); //the bezier's free endpoint is always exactly on-path
+            SKColor ground = fx.Control.Viewer.BackgroundColor;
+            byte Blend(byte stroke, byte back) => (byte)Math.Round((stroke * 0.6) + (back * 0.4));
+            Assert.Equal(new SKColor(Blend(210, ground.Red), Blend(90, ground.Green), Blend(30, ground.Blue)), pixel);
         }
 
-        //---- live bug 2: footer buttons dead after a link-drag opens the chooser ----
-
-        //Ports the real click path (fx.Window.MouseDown/MouseUp at the button's actual on-screen position,
-        //through Avalonia's genuine hit-test + press/release pipeline) rather than ItemRecipeChooserFlowTests'
-        //Click() helper, which raises a release-only PointerReleasedEventArgs directly on the target control.
-        //A synthetic release with no preceding press never sets Avalonia's own Button.IsPressed, so its
-        //internal click-conversion logic - which marks a REAL press+release pair Handled once it runs - stays
-        //quiet and the bypass tests never surface the bug: RecipeChooserPanel's footer buttons were wired with
-        //a plain `+=`, which Avalonia skips once a same-instance class handler (Button's own) has already set
-        //Handled, so a genuine mouse click never reached them.
-        private static AvaloniaPoint WindowCenterOf(Avalonia.Visual control, AvaloniaWindow window) =>
-            Avalonia.VisualExtensions.TranslatePoint(control, new AvaloniaPoint(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
-
         [AvaloniaFact]
-        public void FooterButton_AfterLinkDragOpensChooser_RespondsToARealClick_AndLinksTheNewNode() {
+        public void ReleaseOverEmptySpace_OpensTheRadialInsteadOfTheChooser() {
             Fixture fx = NewFixture();
             fx.Control.Viewer.Context.DCache = fx.Cache;
             fx.Control.Viewer.Graph.DefaultAssemblerQuality = fx.Quality;
@@ -414,28 +395,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Window.MouseMove(emptySpace, RawInputModifiers.LeftMouseButton);
             fx.Window.MouseUp(emptySpace, MouseButton.Left, RawInputModifiers.None);
 
-            Avalonia.Threading.Dispatcher.UIThread.RunJobs(); //forces the panel's real layout pass so its buttons have real Bounds to click on
-            var panel = Assert.IsType<RecipeChooserPanel>(fx.Control.FloatingPanelHost.Content);
-            Button outputButton = panel.GetVisualDescendants().OfType<Button>().First(b => b.Content is string s && s == "Output");
-            AvaloniaPoint buttonScreen = WindowCenterOf(outputButton, fx.Window);
-
-            fx.Window.MouseDown(buttonScreen, MouseButton.Left, RawInputModifiers.None);
-            fx.Window.MouseUp(buttonScreen, MouseButton.Left, RawInputModifiers.None);
-
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
-            BaseNodeElement newNode = Assert.Single(fx.Control.Viewer.NodeElementDictionary.Values, n => n != supplier);
-            Assert.IsAssignableFrom<IConsumerNodeViewModel>(newNode.ViewModel);
-            INodeLinkViewModel link = Assert.Single(fx.Control.Viewer.Session.View.Links);
-            Assert.Equal(supplier.ViewModel.Id, link.SupplierId);
-            Assert.Equal(newNode.ViewModel.Id, link.ConsumerId);
+            Assert.NotNull(fx.Control.OpenRadial);
         }
 
-        //Same class of bug (a plain += on a footer Button), same fix (AddHandler with handledEventsToo)
-        //covers AddUnspoilButton too - the addendum's flagged sibling to the Output button above. Visibility
-        //first (upstream IRChooserPanel.cs:636's asProduct && keyItem.SpoilOrigins.Count > 0 gate, already
-        //ported at RecipeChooserPanel.cs:69), then a real click proving the wiring and the resulting node.
         [AvaloniaFact]
-        public void UnspoilButton_VisibleOnlyWhenKeyItemIsAProductWithSpoilOrigins() {
+        public void ReleaseFromEitherEndpoint_OpensTheRadialRegardlessOfSpoilOrigins() {
             Fixture fx = NewFixture();
             fx.Control.Viewer.Context.DCache = fx.Cache;
             fx.Control.Viewer.Graph.DefaultAssemblerQuality = fx.Quality;
@@ -446,26 +410,22 @@ namespace Foreman.Mac.UiTests.Canvas {
             BaseNodeElement rottenConsumer = fx.AddConsumer("rotten-food", new Point(0, 0));
             BaseNodeElement freshConsumer = fx.AddConsumer("fresh-food", new Point(0, -300));
 
-            //Dragging from an input tab and dropping unresolved yields NewNodeType.Supplier (asProduct) -
-            //rotten-food has spoil origins, so Unspoil should show; fresh-food has none, so it should not.
             StartDragFromTab(fx, rottenConsumer, LinkType.Input);
             AvaloniaPoint emptyForRotten = new(Half + 200, Half + 200);
             fx.Window.MouseMove(emptyForRotten, RawInputModifiers.LeftMouseButton);
             fx.Window.MouseUp(emptyForRotten, MouseButton.Left, RawInputModifiers.None);
-            var rottenPanel = Assert.IsType<RecipeChooserPanel>(fx.Control.FloatingPanelHost.Content);
-            Assert.Contains(rottenPanel.GetVisualDescendants().OfType<Button>(), b => b.Content is string s && s == "UnSpoil" && b.IsVisible);
-            fx.Control.FloatingPanelHost.Close();
+            Assert.NotNull(fx.Control.OpenRadial);
+            fx.Control.ClosePanels();
 
             StartDragFromTab(fx, freshConsumer, LinkType.Input);
             AvaloniaPoint emptyForFresh = new(Half - 200, Half + 200);
             fx.Window.MouseMove(emptyForFresh, RawInputModifiers.LeftMouseButton);
             fx.Window.MouseUp(emptyForFresh, MouseButton.Left, RawInputModifiers.None);
-            var freshPanel = Assert.IsType<RecipeChooserPanel>(fx.Control.FloatingPanelHost.Content);
-            Assert.DoesNotContain(freshPanel.GetVisualDescendants().OfType<Button>(), b => b.Content is string s && s == "UnSpoil" && b.IsVisible);
+            Assert.NotNull(fx.Control.OpenRadial);
         }
 
         [AvaloniaFact]
-        public void UnspoilButton_SingleOrigin_RespondsToARealClick_AndCreatesLinkedSpoilNode() {
+        public void ReleaseOverEmptySpace_FromAnInputTab_OpensTheRadial() {
             Fixture fx = NewFixture();
             fx.Control.Viewer.Context.DCache = fx.Cache;
             fx.Control.Viewer.Graph.DefaultAssemblerQuality = fx.Quality;
@@ -480,36 +440,14 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Window.MouseMove(emptySpace, RawInputModifiers.LeftMouseButton);
             fx.Window.MouseUp(emptySpace, MouseButton.Left, RawInputModifiers.None);
 
-            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-            var panel = Assert.IsType<RecipeChooserPanel>(fx.Control.FloatingPanelHost.Content);
-            Button unspoilButton = panel.GetVisualDescendants().OfType<Button>().First(b => b.Content is string s && s == "UnSpoil");
-            AvaloniaPoint buttonScreen = WindowCenterOf(unspoilButton, fx.Window);
-
-            fx.Window.MouseDown(buttonScreen, MouseButton.Left, RawInputModifiers.None);
-            fx.Window.MouseUp(buttonScreen, MouseButton.Left, RawInputModifiers.None);
-
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
-            BaseNodeElement newNode = Assert.Single(fx.Control.Viewer.NodeElementDictionary.Values, n => n != rottenConsumer);
-            Assert.IsAssignableFrom<ISpoilNodeViewModel>(newNode.ViewModel);
-            INodeLinkViewModel link = Assert.Single(fx.Control.Viewer.Session.View.Links);
-            Assert.Equal(newNode.ViewModel.Id, link.SupplierId);
-            Assert.Equal(rottenConsumer.ViewModel.Id, link.ConsumerId);
+            Assert.NotNull(fx.Control.OpenRadial);
         }
 
-        //Multi-origin path (upstream's own item sub-picker hand-off, reference §2/§3): AddUnspoilButtonReleased
-        //sets PanelCloseReason to RequiresItemSelection instead of closing outright when SpoilOrigins.Count > 1,
-        //and GraphCanvasControl.OpenSpoilOriginPicker swaps in a real ItemChooserPanel over exactly those
-        //origins. That sub-picker's cells are IconButtons (the "Released" custom event, not a stock Avalonia
-        //Button's routed PointerReleased), so they were never subject to this bug - included here to prove the
-        //whole multi-origin hand-off still works end to end once the footer button itself responds.
         [AvaloniaFact]
-        public void UnspoilButton_MultipleOrigins_RealClick_OpensSubPicker_AndSelectingOriginCreatesSpoilNode() {
+        public void ReleaseOverEmptySpace_WithMultipleSpoilOrigins_StillOpensTheRadial() {
             Fixture fx = NewFixture();
             fx.Control.Viewer.Context.DCache = fx.Cache;
             fx.Control.Viewer.Graph.DefaultAssemblerQuality = fx.Quality;
-            //Named "logistics" - IRChooserPanel's own starting-group default only auto-selects a group by
-            //that exact name (SetSelectedGroup's own logistics lookup), same as ItemRecipeChooserFlowTests'
-            //fixture group.
             var group = new GroupPrototype(fx.Cache, "logistics", "Logistics", "a");
             Store(fx.Cache).Groups[group.Name] = group;
             group.SubgroupsInternal.Add(fx.Subgroup);
@@ -523,8 +461,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             spoiled.SpoilOriginsInternal.Add(freshA);
             spoiled.SpoilOriginsInternal.Add(freshB);
 
-            //ItemChooserPanel's sub-picker only lists items with a live consumption/production recipe
-            //(GetSubgroupList's own `visible` gate) - a trivial recipe per origin satisfies that.
             var assembler = new AssemblerPrototype(fx.Cache, "asm", "Assembler", EntityType.Assembler, EnergySource.Electric) { Available = true };
             foreach (ItemPrototype origin in new[] { freshA, freshB }) {
                 var recipe = new RecipePrototype(fx.Cache, "produce-" + origin.Name, origin.Name, fx.Subgroup, "a") { Available = true };
@@ -542,23 +478,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Window.MouseMove(emptySpace, RawInputModifiers.LeftMouseButton);
             fx.Window.MouseUp(emptySpace, MouseButton.Left, RawInputModifiers.None);
 
-            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-            var panel = Assert.IsType<RecipeChooserPanel>(fx.Control.FloatingPanelHost.Content);
-            Button unspoilButton = panel.GetVisualDescendants().OfType<Button>().First(b => b.Content is string s && s == "UnSpoil");
-            AvaloniaPoint buttonScreen = WindowCenterOf(unspoilButton, fx.Window);
-
-            fx.Window.MouseDown(buttonScreen, MouseButton.Left, RawInputModifiers.None);
-            fx.Window.MouseUp(buttonScreen, MouseButton.Left, RawInputModifiers.None);
-
-            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-            var subPicker = Assert.IsType<ItemChooserPanel>(fx.Control.FloatingPanelHost.Content);
-            IconButton originCell = subPicker.GetVisualDescendants().OfType<IconButton>().First(b => Equals(b.DataObject, freshA));
-            originCell.RaiseEvent(new PointerReleasedEventArgs(originCell, new InputPointer(InputPointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true),
-                originCell, default, 0, new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased), KeyModifiers.None, MouseButton.Left));
-
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
-            BaseNodeElement newNode = Assert.Single(fx.Control.Viewer.NodeElementDictionary.Values, n => n != rottenConsumer);
-            Assert.IsAssignableFrom<ISpoilNodeViewModel>(newNode.ViewModel);
+            Assert.NotNull(fx.Control.OpenRadial);
         }
     }
 }

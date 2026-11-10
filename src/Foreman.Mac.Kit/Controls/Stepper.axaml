@@ -1,0 +1,118 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls">
+
+  <ControlTheme x:Key="Kit.StepperArrowButton" TargetType="Button">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Cell" Background="{TemplateBinding Background}">
+          <Viewbox Width="{DynamicResource Foreman.Size.Glyph10}"
+                   Height="{DynamicResource Foreman.Size.Glyph10}"
+                   Stretch="Uniform"
+                   StretchDirection="Both"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center">
+            <Path x:Name="PART_Glyph"
+                  Data="{StaticResource Kit.Glyph.Chevron.10}"
+                  Fill="{DynamicResource Foreman.Color.TextTertiary}"
+                  Stretch="None"
+                  Width="10" Height="10" />
+          </Viewbox>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^.up /template/ Path#PART_Glyph">
+      <Setter Property="RenderTransform">
+        <RotateTransform Angle="180" />
+      </Setter>
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#PART_Cell">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+    <Style Selector="^:pointerover /template/ Path#PART_Glyph">
+      <Setter Property="Fill" Value="{DynamicResource Foreman.Color.Text}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_Cell">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Path#PART_Glyph">
+      <Setter Property="Fill" Value="{DynamicResource Foreman.Color.Text}" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="Kit.StepperValueField" TargetType="TextBox" BasedOn="{StaticResource Kit.TextField}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Height" Value="NaN" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="False" />
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+  </ControlTheme>
+
+  <ControlTheme x:Key="Kit.Stepper" TargetType="kit:Stepper">
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ControlHeightRegular}" />
+    <Setter Property="Cursor" Value="Arrow" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="kit:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Frame"
+                Background="{DynamicResource Foreman.Color.ControlBackground}"
+                BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
+                BorderThickness="1"
+                CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                ClipToBounds="True">
+          <Grid x:Name="PART_Columns">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <kit:StepperField x:Name="PART_ValueBox"
+                              Grid.Column="0"
+                              Theme="{StaticResource Kit.StepperValueField}"
+                              TextAlignment="Center"
+                              VerticalContentAlignment="Center"
+                              FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
+                              FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
+                              Foreground="{DynamicResource Foreman.Color.Text}"
+                              CaretBrush="{DynamicResource Foreman.Color.Accent}" />
+            <TextBlock x:Name="PART_Unit"
+                       Grid.Column="1"
+                       Margin="0,0,6,0"
+                       VerticalAlignment="Center"
+                       FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
+                       Foreground="{DynamicResource Foreman.Color.TextSecondary}" />
+            <Border Grid.Column="2"
+                    Width="1"
+                    HorizontalAlignment="Left"
+                    Background="{DynamicResource Foreman.Color.Border}" />
+            <Grid Grid.Column="2" RowDefinitions="*,*">
+              <Button x:Name="PART_Up" Grid.Row="0" Classes="up" Theme="{StaticResource Kit.StepperArrowButton}" Focusable="False" />
+              <Border Grid.Row="0"
+                      Height="1"
+                      VerticalAlignment="Bottom"
+                      Background="{DynamicResource Foreman.Color.Border}" />
+              <Button x:Name="PART_Down" Grid.Row="1" Theme="{StaticResource Kit.StepperArrowButton}" Focusable="False" />
+            </Grid>
+          </Grid>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

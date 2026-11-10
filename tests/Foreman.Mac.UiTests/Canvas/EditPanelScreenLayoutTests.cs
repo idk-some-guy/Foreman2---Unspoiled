@@ -1,9 +1,6 @@
-using Avalonia.Controls;
-using Avalonia.Headless.XUnit;
 using Foreman.Mac.Canvas.Panels;
 using System.Drawing;
 using Xunit;
-using AvaloniaCanvas = Avalonia.Controls.Canvas;
 
 namespace Foreman.Mac.UiTests.Canvas {
     //Ports upstream/ForemanTest/EditPanelScreenLayoutTests.cs verbatim (docs/panels-reference.md §7): the
@@ -41,18 +38,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [Fact]
-        public void GetShiftToFit_UnionOfTwoPanels_UsesSingleDeltaForBoth() {
-            var left = new Rectangle(50, 750, 472, 689);
-            var right = new Rectangle(left.Right + 5, 750, 300, 400);
-            Rectangle union = Rectangle.Union(left, right);
-            Point shift = EditPanelScreenLayout.GetShiftToFit(union, ViewerW, ViewerH, Margin);
-
-            var shiftedUnion = new Rectangle(union.X + shift.X, union.Y + shift.Y, union.Width, union.Height);
-            Assert.True(EditPanelScreenLayout.FitsViewer(shiftedUnion, ViewerW, ViewerH, Margin));
-            Assert.True(shift.Y < 0, "Tall union below the viewer should shift upward.");
-        }
-
-        [Fact]
         public void FitsViewer_ReturnsTrueForBoundsAlreadyInside() {
             var inside = new Rectangle(Margin, Margin, 200, 100);
             Assert.True(EditPanelScreenLayout.FitsViewer(inside, ViewerW, ViewerH, Margin));
@@ -78,28 +63,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             //anchor(10,10) - (24,16) = (-14,-6), both below margin, so both clamp to Margin.
             Assert.Equal(Margin, topLeft.X);
             Assert.Equal(Margin, topLeft.Y);
-        }
-
-        //Not part of upstream's own test file (ShiftControlsToFit had no direct upstream coverage), but
-        //this port's mutation target changed from Control.Location to Canvas.Left/Top, so it earns its
-        //own case alongside the ported ones above.
-        [AvaloniaFact]
-        public void ShiftControlsToFit_MovesEveryPanelByTheSameDelta() {
-            var left = new Control();
-            var right = new Control();
-            AvaloniaCanvas.SetLeft(left, 50);
-            AvaloniaCanvas.SetTop(left, 750);
-            AvaloniaCanvas.SetLeft(right, 527);
-            AvaloniaCanvas.SetTop(right, 750);
-
-            var union = new Rectangle(50, 750, 300 + (527 - 50), 400);
-            EditPanelScreenLayout.ShiftControlsToFit(union, ViewerW, ViewerH, Margin, left, right);
-
-            Point shift = EditPanelScreenLayout.GetShiftToFit(union, ViewerW, ViewerH, Margin);
-            Assert.Equal(50 + shift.X, AvaloniaCanvas.GetLeft(left));
-            Assert.Equal(750 + shift.Y, AvaloniaCanvas.GetTop(left));
-            Assert.Equal(527 + shift.X, AvaloniaCanvas.GetLeft(right));
-            Assert.Equal(750 + shift.Y, AvaloniaCanvas.GetTop(right));
         }
     }
 }

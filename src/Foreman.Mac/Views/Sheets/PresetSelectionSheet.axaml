@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Foreman.Mac.Views.Sheets.PresetSelectionSheet">
+  <UserControl.Styles>
+    <Style Selector="ListBoxItem:selected TextBlock.preset-name">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </UserControl.Styles>
+  <StackPanel Spacing="{DynamicResource Foreman.Space.Space3}">
+    <TextBlock Name="LedeText" Theme="{StaticResource Kit.Text}" Classes="callout secondary" TextWrapping="Wrap"
+               Text="No preset matches this graph exactly; the ratings show how much of it each preset can reproduce." />
+    <StackPanel>
+      <Grid Name="HeaderRow">
+        <TextBlock Grid.Column="0" Theme="{StaticResource Kit.Text}" Classes="caption secondary" FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}"
+                   Text="Preset" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="2" Theme="{StaticResource Kit.Text}" Classes="caption secondary" FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}"
+                   Text="Mods" VerticalAlignment="Center" HorizontalAlignment="Right" />
+        <TextBlock Grid.Column="4" Theme="{StaticResource Kit.Text}" Classes="caption secondary" FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}"
+                   Text="Items" VerticalAlignment="Center" HorizontalAlignment="Right" />
+        <TextBlock Grid.Column="6" Theme="{StaticResource Kit.Text}" Classes="caption secondary" FontWeight="{DynamicResource Foreman.Type.Caption.Emphasized.FontWeight}"
+                   Text="Recipes" VerticalAlignment="Center" HorizontalAlignment="Right" />
+      </Grid>
+      <ListBox Name="PresetSelectionListView" Theme="{StaticResource Kit.List}" SelectionMode="Single"
+               CornerRadius="{DynamicResource Foreman.Radius.Control}" IsTextSearchEnabled="True" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

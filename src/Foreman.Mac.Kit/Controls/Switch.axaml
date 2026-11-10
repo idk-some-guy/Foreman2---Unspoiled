@@ -1,0 +1,50 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.Switch" TargetType="kit:Switch">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="kit:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.Pill}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Track"
+                Width="{DynamicResource Foreman.Size.SwitchWidth}"
+                Height="{DynamicResource Foreman.Size.SwitchHeight}"
+                CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                Background="{DynamicResource Foreman.Color.BorderStrong}">
+          <Panel x:Name="PART_MovingKnobs">
+            <Border x:Name="PART_Knob"
+                    Width="{DynamicResource Foreman.Size.SwitchKnob}"
+                    Height="{DynamicResource Foreman.Size.SwitchKnob}"
+                    CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                    Background="{DynamicResource Foreman.Color.TextOnAccent}"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    Transitions="{x:Static m:Motion.SwitchTransitions}" />
+          </Panel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:checked /template/ Border#PART_Track">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.Accent}" />
+    </Style>
+
+    <Style Selector="^:checked:pressed /template/ Border#PART_Track">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentPressed}" />
+    </Style>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+
+    <Style Selector="^.gallery-pressed /template/ Border#PART_Track">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentPressed}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

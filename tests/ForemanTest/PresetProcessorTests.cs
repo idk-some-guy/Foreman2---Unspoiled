@@ -39,5 +39,14 @@ namespace ForemanTest {
             Assert.AreEqual(Path.Combine(bundleDir, "Bundle Only.pjson"), resolvedPath);
             Assert.AreEqual("{\"source\":\"bundle\"}", File.ReadAllText(resolvedPath));
         }
+
+        [TestMethod]
+        public void GetUserPresetPath_NoOverride_ResolvesUnderResolveUserDataDirectory() {
+            string expected = Path.Combine(PresetProcessor.ResolveUserDataDirectory(), "Presets", "Some Preset.pjson");
+
+            string resolvedPath = PresetProcessor.GetUserPresetPath("Some Preset", ".pjson");
+
+            Assert.AreEqual(expected, resolvedPath);
+        }
     }
 }

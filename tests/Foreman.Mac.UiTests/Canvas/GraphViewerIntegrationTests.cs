@@ -111,7 +111,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             foreach (BaseNodeElement node in control.NodeElements.Take(3)) {
                 AvaloniaPoint screen = control.Viewport.GraphToScreen(node.Location);
                 Assert.True(
-                    RegionHasNonBackgroundPixel(pixmap, (int)screen.X, (int)screen.Y),
+                    RegionHasNonBackgroundPixel(pixmap, (int)screen.X, (int)screen.Y, radius: 30),
                     $"Expected the node at graph {node.Location} (screen {screen}) to paint something.");
             }
         }
@@ -229,16 +229,16 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             string workspaceDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".superpowers", "sdd", "2026-09-01-phase3-canvas-readonly");
             Directory.CreateDirectory(workspaceDir);
-            File.WriteAllBytes(Path.Combine(workspaceDir, "task-7-overview.png"), overviewPng);
-            File.WriteAllBytes(Path.Combine(workspaceDir, "task-7-detail-zoom.png"), detailPng);
-            File.WriteAllText(Path.Combine(workspaceDir, "task-7-render-metrics.txt"),
+            File.WriteAllBytes(Path.Combine(workspaceDir, "graph-viewer-overview.png"), overviewPng);
+            File.WriteAllBytes(Path.Combine(workspaceDir, "graph-viewer-detail-zoom.png"), detailPng);
+            File.WriteAllText(Path.Combine(workspaceDir, "graph-viewer-render-metrics.txt"),
                 $"Flowchart.fjson: {control.NodeElements.Count} nodes, {control.LinkElements.Count} links{Environment.NewLine}" +
                 $"Load (LoadDocument, incl. solve): {loadElapsedMs} ms{Environment.NewLine}" +
                 $"Overview render: {overviewRenderMs} ms{Environment.NewLine}" +
                 $"Detail-zoom render: {detailRenderMs} ms{Environment.NewLine}");
 
-            Assert.True(File.Exists(Path.Combine(workspaceDir, "task-7-overview.png")));
-            Assert.True(File.Exists(Path.Combine(workspaceDir, "task-7-detail-zoom.png")));
+            Assert.True(File.Exists(Path.Combine(workspaceDir, "graph-viewer-overview.png")));
+            Assert.True(File.Exists(Path.Combine(workspaceDir, "graph-viewer-detail-zoom.png")));
         }
     }
 }

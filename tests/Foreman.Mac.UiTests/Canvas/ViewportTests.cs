@@ -1,8 +1,13 @@
+using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Kit;
+using Foreman.Mac.UiTests.support;
 using System;
 using System.Drawing;
 using Xunit;
 using AvaloniaPoint = Avalonia.Point;
+using AvaloniaWindow = Avalonia.Controls.Window;
 
 namespace Foreman.Mac.UiTests.Canvas {
     public class ViewportTests {
@@ -97,6 +102,170 @@ namespace Foreman.Mac.UiTests.Canvas {
             viewport.ViewScale = scale;
             viewport.ViewOffset = offset;
             viewport.UpdateGraphBounds();
+        }
+
+        [Fact]
+        public void SetAbsoluteZoom_SetsExactViewScale() {
+            var viewport = new Viewport(800, 600);
+            viewport.ZoomAt(new AvaloniaPoint(400, 300), zoomIn: true);
+
+            viewport.SetAbsoluteZoom(new AvaloniaPoint(400, 300), 1f);
+
+            Assert.Equal(1f, viewport.ViewScale);
+        }
+
+        [Fact]
+        public void SetAbsoluteZoom_KeepsAnchorGraphPointFixed() {
+            var viewport = new Viewport(800, 600);
+            SetScaleAndOffset(viewport, 0.5f, new Point(50, -30));
+            var anchor = new AvaloniaPoint(300, 200);
+
+            Point graphUnderAnchorBefore = viewport.ScreenToGraph(anchor);
+            viewport.SetAbsoluteZoom(anchor, 2f);
+            Point graphUnderAnchorAfter = viewport.ScreenToGraph(anchor);
+
+            Assert.InRange(graphUnderAnchorAfter.X - graphUnderAnchorBefore.X, -1, 1);
+            Assert.InRange(graphUnderAnchorAfter.Y - graphUnderAnchorBefore.Y, -1, 1);
+        }
+
+        [Fact]
+        public void SetAbsoluteZoom_ClampsToMinAndMaxViewScale() {
+            var viewport = new Viewport(800, 600);
+
+            viewport.SetAbsoluteZoom(new AvaloniaPoint(400, 300), 999f);
+            Assert.Equal(Viewport.MaxViewScale, viewport.ViewScale);
+
+            viewport.SetAbsoluteZoom(new AvaloniaPoint(400, 300), 0f);
+            Assert.Equal(Viewport.MinViewScale, viewport.ViewScale);
+        }
+
+        [Fact]
+        public void FitToBounds_ScalesSoBoundsFitInsideViewport() {
+            var viewport = new Viewport(800, 600);
+
+            viewport.FitToBounds(new Rectangle(-100, -100, 400, 200));
+
+            Assert.True(Math.Abs(viewport.ViewScale - 2f) < 0.0001f);
+        }
+
+        [Fact]
+        public void FitToBounds_CentersBoundsInViewport() {
+            var viewport = new Viewport(800, 600);
+
+            viewport.FitToBounds(new Rectangle(-100, -100, 400, 200));
+            AvaloniaPoint boundsCenterOnScreen = viewport.GraphToScreen(new Point(100, 0));
+
+            Assert.InRange(boundsCenterOnScreen.X - 400, -1, 1);
+            Assert.InRange(boundsCenterOnScreen.Y - 300, -1, 1);
+        }
+
+        [Fact]
+        public void FitToBounds_EmptyBounds_LeavesViewportUnchanged() {
+            var viewport = new Viewport(800, 600);
+            SetScaleAndOffset(viewport, 1.5f, new Point(10, 20));
+
+            viewport.FitToBounds(Rectangle.Empty);
+
+            Assert.Equal(1.5f, viewport.ViewScale);
+            Assert.Equal(new Point(10, 20), viewport.ViewOffset);
+        }
+
+        [Fact]
+        public void FitToBounds_ClampsToMaxViewScale() {
+            var viewport = new Viewport(800, 600);
+
+            viewport.FitToBounds(new Rectangle(0, 0, 1, 1));
+
+            Assert.Equal(Viewport.MaxViewScale, viewport.ViewScale);
+        }
+
+        [Fact]
+        public void PanIntoView_MatchWithinTheMarginOfAnEdge_PansTheShortestDistance() {
+            var viewport = new Viewport(800, 600);
+            var nodeBounds = new Rectangle(300, -50, 40, 40);
+
+            viewport.PanIntoView(nodeBounds, margin: 80);
+
+            Assert.Equal(new Point(-20, 0), viewport.ViewOffset);
+            Rectangle inset = Rectangle.Inflate(viewport.VisibleGraphBounds, -80, -80);
+            Assert.True(inset.Contains(nodeBounds));
+        }
+
+        [Fact]
+        public void PanIntoView_MatchFullyInsideTheMarginInset_DoesNotPan() {
+            var viewport = new Viewport(800, 600);
+            Point offsetBefore = viewport.ViewOffset;
+
+            viewport.PanIntoView(new Rectangle(-100, -100, 50, 50), margin: 80);
+
+            Assert.Equal(offsetBefore, viewport.ViewOffset);
+        }
+
+        [AvaloniaFact]
+        public void PanIntoView_OnTheCanvas_AnimatesTheOffset_AndSettlesOnTheRuledTarget() {
+            bool wasReduced = Motion.ReduceMotion;
+            Motion.ReduceMotion = false;
+            try {
+                GraphCanvasControl control = ShownCanvas();
+                var nodeBounds = new Rectangle(control.Viewport.VisibleGraphBounds.Right - 60, -20, 40, 40);
+                Point start = control.Viewport.ViewOffset;
+                Point target = Assert.IsType<Point>(control.Viewport.PanIntoViewTarget(nodeBounds, 80));
+                Assert.NotEqual(start, target);
+
+                control.PanIntoView(nodeBounds, 80);
+
+                Assert.Equal(start, control.Viewport.ViewOffset);
+                AnimationClock.Settle(400);
+                Assert.Equal(target, control.Viewport.ViewOffset);
+            } finally {
+                Motion.ReduceMotion = wasReduced;
+            }
+        }
+
+        [AvaloniaFact]
+        public void PanIntoView_UnderReduceMotion_JumpsInOneStep_AndTweensAgainWhenTheFlagClears() {
+            bool wasReduced = Motion.ReduceMotion;
+            try {
+                GraphCanvasControl control = ShownCanvas();
+                Motion.ReduceMotion = true;
+                var rightEdge = new Rectangle(control.Viewport.VisibleGraphBounds.Right - 60, -20, 40, 40);
+                Point jumpTarget = Assert.IsType<Point>(control.Viewport.PanIntoViewTarget(rightEdge, 80));
+
+                control.PanIntoView(rightEdge, 80);
+
+                Assert.Equal(jumpTarget, control.Viewport.ViewOffset);
+
+                Motion.ReduceMotion = false;
+                var leftEdge = new Rectangle(control.Viewport.VisibleGraphBounds.Left + 20, -20, 40, 40);
+                Point start = control.Viewport.ViewOffset;
+                Point tweenTarget = Assert.IsType<Point>(control.Viewport.PanIntoViewTarget(leftEdge, 80));
+
+                control.PanIntoView(leftEdge, 80);
+
+                Assert.Equal(start, control.Viewport.ViewOffset);
+                AnimationClock.Settle(400);
+                Assert.Equal(tweenTarget, control.Viewport.ViewOffset);
+            } finally {
+                Motion.ReduceMotion = wasReduced;
+            }
+        }
+
+        private static GraphCanvasControl ShownCanvas() {
+            var control = new GraphCanvasControl();
+            var window = new AvaloniaWindow { Width = 800, Height = 600, Content = control };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            return control;
+        }
+
+        [Fact]
+        public void PanIntoView_MarginScalesWithViewScale() {
+            var viewport = new Viewport(800, 600);
+            SetScaleAndOffset(viewport, 2f, new Point(0, 0));
+
+            viewport.PanIntoView(new Rectangle(150, -20, 20, 20), margin: 80);
+
+            Assert.Equal(new Point(-10, 0), viewport.ViewOffset);
         }
     }
 }

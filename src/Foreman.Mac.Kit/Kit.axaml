@@ -1,0 +1,63 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceInclude x:Key="Light" Source="avares://Foreman.Mac.Kit/Themes/Tokens.Light.axaml" />
+    <ResourceInclude x:Key="Dark" Source="avares://Foreman.Mac.Kit/Themes/Tokens.Dark.axaml" />
+  </ResourceDictionary.ThemeDictionaries>
+
+  <ResourceDictionary.MergedDictionaries>
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Themes/Glyphs.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Text.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Glyph.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Button.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/ToolbarItem.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/CheckBox.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/RadioButton.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/RadioGroup.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Switch.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Segmented.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/MenuPanel.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/PopUp.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/ColorWell.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/MenuButton.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/TextField.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/SearchField.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Stepper.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Slider.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Disclosure.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/ListRow.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/SidebarRow.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/List.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/GroupBox.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/TabStrip.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Tooltip.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Spinner.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/ProgressBar.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Chip.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/KeyCap.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/FormRow.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/FormGroup.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/InspectorGroup.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/SplitDivider.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/PickCell.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/PickGrid.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ChooserCell.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ChooserGrid.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/Scrim.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ButtonRow.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/SheetFrame.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/AlertFrame.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/PopoverFrame.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ColorPopover.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/RadialRing.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/StatePanel.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/SolveStatus.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ZoomStepper.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/ToolbarRow.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/PaletteRow.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/PalettePanel.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Composites/RecentRow.axaml" />
+  </ResourceDictionary.MergedDictionaries>
+
+</ResourceDictionary>

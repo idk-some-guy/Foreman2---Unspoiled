@@ -202,7 +202,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         //---- MainWindow wiring: no dirty-check, merges rather than replaces (reference §2) ----------------
 
         [AvaloniaFact]
-        public async Task ImportGraphJsonAsync_DoesNotPromptForUnsavedChanges_AndMergesIntoExistingGraph() {
+        public async Task ImportGraphJsonAsync_MergesIntoExistingGraph() {
             DataCache cache = await GetCacheAsync();
             var window = new MainWindow();
             window.Show();
@@ -210,8 +210,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             window.ApplyLoadedSettings();
             var existingPair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
             window.GraphCanvas.Viewer.Graph.CreateSupplierNode(existingPair, new Point(500, 500));
-            window.DiscardUnsavedGraphConfirmStub = () => throw new InvalidOperationException("Import must not run the dirty-check prompt");
-            window.SaveBeforeContinuingChoiceStub = () => throw new InvalidOperationException("Import must not run the dirty-check prompt");
 
             var sourceGraph = new ProductionGraph { DefaultAssemblerQuality = cache.DefaultQuality };
             IRecipe recipe = cache.Recipes.Values.First(r => r.Enabled);

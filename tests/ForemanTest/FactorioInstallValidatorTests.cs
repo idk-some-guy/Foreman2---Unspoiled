@@ -24,109 +24,95 @@ namespace ForemanTest {
             return contents;
         }
 
+        private static FactorioInstallCheck Check(string exePath) => FactorioInstallValidator.CheckExecutable(exePath);
+
         [TestMethod]
-        public void TryValidateExecutable_MacBundleWith2xVersion_Validates() {
+        public void CheckExecutable_MacBundleWith2xVersion_Passes() {
             string contents = WriteBundle("2.0.28");
 
-            bool valid = FactorioInstallValidator.TryValidateExecutable(
-                FactorioPathsProcessor.GetExecutablePath(contents), out string? userMessage);
+            FactorioInstallCheck check = Check(FactorioPathsProcessor.GetExecutablePath(contents));
 
-            Assert.IsTrue(valid);
-            Assert.IsNull(userMessage);
+            Assert.AreEqual(new FactorioInstallCheck(FactorioInstallProblem.None, "2.0.28"), check);
+            Assert.IsNull(FactorioInstallValidator.UserMessage(check));
         }
 
         [TestMethod]
-        public void TryValidateExecutable_MacBundleWith1xVersion_Rejects() {
+        public void CheckExecutable_MacBundleWith1xVersion_IsTooOld() {
             string contents = WriteBundle("1.1.110");
 
-            bool valid = FactorioInstallValidator.TryValidateExecutable(
-                FactorioPathsProcessor.GetExecutablePath(contents), out string? userMessage);
+            FactorioInstallCheck check = Check(FactorioPathsProcessor.GetExecutablePath(contents));
 
-            Assert.IsFalse(valid);
-            Assert.IsNotNull(userMessage);
-            Assert.Contains("2.0", userMessage);
+            Assert.AreEqual(new FactorioInstallCheck(FactorioInstallProblem.TooOld, "1.1.110"), check);
+            Assert.Contains("2.0", FactorioInstallValidator.UserMessage(check)!);
         }
 
         [TestMethod]
-        public void TryValidateExecutable_StdoutVersion2x_Validates() {
-            string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
-            string exePath = StubFactorioHarness.WriteVersionScript(macOsDir, "2.0.28");
+        public void CheckExecutable_StdoutVersion2x_Passes() {
+            string exePath = StubFactorioHarness.WriteVersionScript(StubFactorioHarness.CreateExecutableDirectory(), "2.0.28");
 
-            bool valid = FactorioInstallValidator.TryValidateExecutable(exePath, out string? userMessage);
+            FactorioInstallCheck check = Check(exePath);
 
-            Assert.IsTrue(valid);
-            Assert.IsNull(userMessage);
+            Assert.AreEqual(new FactorioInstallCheck(FactorioInstallProblem.None, "2.0.28"), check);
+            Assert.IsNull(FactorioInstallValidator.UserMessage(check));
         }
 
         [TestMethod]
-        public void TryValidateExecutable_StdoutVersion1x_RejectsBelow2Point0() {
-            string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
-            string exePath = StubFactorioHarness.WriteVersionScript(macOsDir, "1.1.110");
+        public void CheckExecutable_StdoutVersion1x_IsTooOld_AndTheLogSaysBelow2Point0() {
+            string exePath = StubFactorioHarness.WriteVersionScript(StubFactorioHarness.CreateExecutableDirectory(), "1.1.110");
 
-            bool valid = FactorioInstallValidator.TryValidateExecutable(exePath, out string? userMessage);
+            FactorioInstallCheck check = Check(exePath);
 
-            Assert.IsFalse(valid);
-            Assert.IsNotNull(userMessage);
-            Assert.Contains("below 2.0", userMessage);
+            Assert.AreEqual(new FactorioInstallCheck(FactorioInstallProblem.TooOld, "1.1.110"), check);
+            Assert.Contains("below 2.0", FactorioInstallValidator.UserMessage(check)!);
         }
 
         [TestMethod]
-        public void TryValidateExecutable_StdoutVersion3x_RejectsAsUnsupported() {
-            string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
-            string exePath = StubFactorioHarness.WriteVersionScript(macOsDir, "3.0.0");
+        public void CheckExecutable_StdoutVersion3x_IsTooNew() {
+            string exePath = StubFactorioHarness.WriteVersionScript(StubFactorioHarness.CreateExecutableDirectory(), "3.0.0");
 
-            bool valid = FactorioInstallValidator.TryValidateExecutable(exePath, out string? userMessage);
+            FactorioInstallCheck check = Check(exePath);
 
-            Assert.IsFalse(valid);
-            Assert.IsNotNull(userMessage);
-            Assert.Contains("3.x+", userMessage);
+            Assert.AreEqual(new FactorioInstallCheck(FactorioInstallProblem.TooNew, "3.0.0"), check);
+            Assert.Contains("3.x+", FactorioInstallValidator.UserMessage(check)!);
         }
 
         [TestMethod]
-        public void TryValidateExecutable_StdoutVersionBelow2Point0Point7_RejectsAsTooOld() {
-            string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
-            string exePath = StubFactorioHarness.WriteVersionScript(macOsDir, "2.0.6");
+        public void CheckExecutable_StdoutVersionBelow2Point0Point7_IsTooOld() {
+            string exePath = StubFactorioHarness.WriteVersionScript(StubFactorioHarness.CreateExecutableDirectory(), "2.0.6");
 
-            bool valid = FactorioInstallValidator.TryValidateExecutable(exePath, out string? userMessage);
+            FactorioInstallCheck check = Check(exePath);
 
-            Assert.IsFalse(valid);
-            Assert.IsNotNull(userMessage);
-            Assert.Contains("2.0.6", userMessage);
-            Assert.Contains("2.0.7", userMessage);
+            Assert.AreEqual(new FactorioInstallCheck(FactorioInstallProblem.TooOld, "2.0.6"), check);
+            string message = FactorioInstallValidator.UserMessage(check)!;
+            Assert.Contains("2.0.6", message);
+            Assert.Contains("2.0.7", message);
         }
 
         [TestMethod]
-        public void TryValidateExecutable_MissingExecutable_RejectsWithNotFoundMessage() {
-            string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
-            string exePath = Path.Combine(macOsDir, "factorio");
+        public void CheckExecutable_MissingExecutable_IsExecutableMissing() {
+            string exePath = Path.Combine(StubFactorioHarness.CreateExecutableDirectory(), "factorio");
 
-            bool valid = FactorioInstallValidator.TryValidateExecutable(exePath, out string? userMessage);
+            FactorioInstallCheck check = Check(exePath);
 
-            Assert.IsFalse(valid);
-            Assert.AreEqual("Could not find factorio.exe. Please select a valid Factorio install location.", userMessage);
+            Assert.AreEqual(new FactorioInstallCheck(FactorioInstallProblem.ExecutableMissing, ""), check);
+            Assert.AreEqual("Could not find factorio.exe. Please select a valid Factorio install location.", FactorioInstallValidator.UserMessage(check));
         }
 
         [TestMethod]
-        public void TryValidateExecutable_StdoutVersion_TakesPriorityOverInfoPlist() {
+        public void CheckExecutable_StdoutVersion_TakesPriorityOverInfoPlist() {
             string contents = WriteBundle("1.0.0"); // plist alone would reject this bundle
             StubFactorioHarness.WriteScript(Path.Combine(contents, "MacOS"), "printf 'Version: 2.0.28 (build 1, mac64, headless)\\n'\nexit 0\n");
 
-            bool valid = FactorioInstallValidator.TryValidateExecutable(
-                FactorioPathsProcessor.GetExecutablePath(contents), out string? userMessage);
-
-            Assert.IsTrue(valid, userMessage);
+            Assert.AreEqual(new FactorioInstallCheck(FactorioInstallProblem.None, "2.0.28"), Check(FactorioPathsProcessor.GetExecutablePath(contents)));
         }
 
         [TestMethod]
-        public void TryValidateExecutable_StdoutHasDecoyVersionLineBeforeRealBanner_UsesFirstLineStartingWithVersion() {
+        public void CheckExecutable_StdoutHasDecoyVersionLineBeforeRealBanner_UsesFirstLineStartingWithVersion() {
             string macOsDir = StubFactorioHarness.CreateExecutableDirectory();
             StubFactorioHarness.WriteScript(macOsDir,
                 "printf 'noise version: 9.9.9 not a real banner line\\nVersion: 2.0.28 (build 1, mac64, headless)\\n'\nexit 0\n");
-            string exePath = Path.Combine(macOsDir, "factorio");
 
-            bool valid = FactorioInstallValidator.TryValidateExecutable(exePath, out string? userMessage);
-
-            Assert.IsTrue(valid, userMessage);
+            Assert.AreEqual(new FactorioInstallCheck(FactorioInstallProblem.None, "2.0.28"), Check(Path.Combine(macOsDir, "factorio")));
         }
     }
 }

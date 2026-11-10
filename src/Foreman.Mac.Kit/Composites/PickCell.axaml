@@ -1,0 +1,117 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites"
+                    xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.PickCell" TargetType="kit:PickCell">
+    <Setter Property="Width" Value="{DynamicResource Foreman.Size.PickCell}" />
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.PickCell}" />
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.PickCellBorder}" />
+    <Setter Property="ctrl:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.PickCell}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border x:Name="PART_Frame"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="{DynamicResource Foreman.Radius.PickCell}" />
+          <Border x:Name="PART_Ring"
+                  BorderBrush="{TemplateBinding RingBrush}"
+                  BorderThickness="1"
+                  CornerRadius="{DynamicResource Foreman.Radius.PickCell}"
+                  IsHitTestVisible="False" />
+          <Border x:Name="PART_IconFrame"
+                  CornerRadius="3"
+                  ClipToBounds="True"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  IsHitTestVisible="False">
+            <Image x:Name="PART_Icon"
+                   Width="{DynamicResource Foreman.Size.PickCellIcon}"
+                   Height="{DynamicResource Foreman.Size.PickCellIcon}"
+                   Stretch="Uniform"
+                   Source="{TemplateBinding Icon}"
+                   Transitions="{x:Static m:Motion.FormRowCrossFadeTransitions}" />
+          </Border>
+          <Border x:Name="PART_Swatch"
+                  Width="{DynamicResource Foreman.Size.PickCellIcon}"
+                  Height="{DynamicResource Foreman.Size.PickCellIcon}"
+                  CornerRadius="{DynamicResource Foreman.Radius.Swatch}"
+                  BorderBrush="{DynamicResource Foreman.Color.SwatchStroke}"
+                  BorderThickness="1"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  IsHitTestVisible="False"
+                  IsVisible="False" />
+          <Viewbox x:Name="PART_PlusBox"
+                   Width="{DynamicResource Foreman.Size.GlyphMicro}"
+                   Height="{DynamicResource Foreman.Size.GlyphMicro}"
+                   Stretch="Uniform" StretchDirection="Both"
+                   IsHitTestVisible="False"
+                   IsVisible="False">
+            <Path Theme="{StaticResource Kit.Glyph}"
+                  Classes="fill"
+                  Data="{StaticResource Kit.Glyph.Plus.12}"
+                  Width="12" Height="12"
+                  Stretch="None" />
+          </Viewbox>
+          <Viewbox x:Name="PART_AlertBox"
+                   Width="{DynamicResource Foreman.Size.GlyphMicro}"
+                   Height="{DynamicResource Foreman.Size.GlyphMicro}"
+                   Stretch="Uniform" StretchDirection="Both"
+                   IsHitTestVisible="False"
+                   IsVisible="False">
+            <Path Theme="{StaticResource Kit.Glyph}"
+                  Data="{StaticResource Kit.Glyph.Alert.12}"
+                  Stroke="{DynamicResource Foreman.Color.Warning}"
+                  Width="12" Height="12"
+                  Stretch="None" />
+          </Viewbox>
+          <Viewbox x:Name="PART_NoneBox"
+                   Width="{DynamicResource Foreman.Size.GlyphMicro}"
+                   Height="{DynamicResource Foreman.Size.GlyphMicro}"
+                   Stretch="Uniform" StretchDirection="Both"
+                   IsHitTestVisible="False"
+                   IsVisible="False">
+            <Path Theme="{StaticResource Kit.Glyph}"
+                  Data="{StaticResource Kit.Glyph.NoneSlash.12}"
+                  Stroke="{DynamicResource Foreman.Color.TextTertiary}"
+                  Width="12" Height="12"
+                  Stretch="None" />
+          </Viewbox>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover:not(:selected), ^.gallery-hover:not(:selected)">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+    <Style Selector="^:selected">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.PickCellSelected}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="RingBrush" Value="{DynamicResource Foreman.Color.Accent}" />
+    </Style>
+    <Style Selector="^[(ctrl|ListHost.IsKey)=False]:selected">
+      <Setter Property="RingBrush" Value="{DynamicResource Foreman.Color.SelectionInactive}" />
+    </Style>
+    <Style Selector="^:empty /template/ Viewbox#PART_PlusBox">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:missing /template/ Viewbox#PART_AlertBox">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:none /template/ Viewbox#PART_NoneBox">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+    <Style Selector="^:unavailable">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Unavailable}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

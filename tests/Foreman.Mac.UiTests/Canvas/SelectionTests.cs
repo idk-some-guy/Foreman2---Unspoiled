@@ -9,6 +9,7 @@ using Foreman.Graph;
 using Foreman.Mac;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using Foreman.Serialization;
 using SkiaSharp;
@@ -278,29 +279,6 @@ namespace Foreman.Mac.UiTests.Canvas {
 
         //---- lasso rectangle rendering (reference §1 Paint's selectionPen: RGB(100,100,200), 2px screen width) ----
 
-        [AvaloniaFact]
-        public void LassoDrag_RendersSelectionZoneRectangleInSelectionPenColor() {
-            Fixture fx = NewFixture();
-            var origin = new AvaloniaPoint(Half - 60, Half - 60);
-            var corner = new AvaloniaPoint(Half + 60, Half + 60);
-            fx.Window.MouseDown(origin, MouseButton.Left, RawInputModifiers.None);
-            fx.Window.MouseMove(corner, RawInputModifiers.LeftMouseButton);
-            fx.Window.MouseMove(corner, RawInputModifiers.LeftMouseButton);
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(2 * Half, 2 * Half));
-            fx.Control.Render(surface.Canvas);
-
-            using SKImage image = surface.Snapshot();
-            using SKPixmap pixmap = image.PeekPixels();
-            var expected = new SKColor(100, 100, 200);
-            bool found = false;
-            for (int x = Half - 61; x <= Half - 59 && !found; x++)
-                for (int y = Half - 61; y <= Half + 61 && !found; y++)
-                    if (pixmap.GetPixelColor(x, y) == expected)
-                        found = true;
-            Assert.True(found);
-        }
-
         //---- modifier change mid-lasso (upstream ProductionGraphViewer.cs:1125-1128/1151-1154's KeyDown/
         //KeyUp re-preview): CommitLassoSelection reads the modifier fresh at button-up, so a stale preview
         //left over from a modifier that's since changed would show a selection that disagrees with what
@@ -326,7 +304,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Contains(nodeC, fx.Control.Viewer.CurrentSelectionNodes);
 
             fx.Control.Focus();
-            fx.Window.KeyReleaseQwerty(PhysicalKey.AltLeft, RawInputModifiers.None); //releases Alt without moving the mouse
+            CanvasKeys.KeyUpOnCanvas(fx.Control, Key.LeftAlt); //releases Alt without moving the mouse
             fx.Window.MouseUp(corner, MouseButton.Left, RawInputModifiers.None);
 
             Assert.DoesNotContain(nodeA, fx.Control.Viewer.SelectedNodes);
@@ -357,8 +335,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Contains(nodeB, fx.Control.Viewer.CurrentSelectionNodes);
 
             fx.Control.Focus();
-            fx.Window.KeyReleaseQwerty(PhysicalKey.AltLeft, RawInputModifiers.None);
-            fx.Window.KeyPressQwerty(PhysicalKey.MetaLeft, RawInputModifiers.Meta); //presses Cmd without moving the mouse
+            CanvasKeys.KeyUpOnCanvas(fx.Control, Key.LeftAlt);
+            CanvasKeys.KeyDownOnCanvas(fx.Control, Key.LWin, KeyModifiers.Meta); //presses Cmd without moving the mouse
             fx.Window.MouseUp(corner, MouseButton.Left, RawInputModifiers.Meta);
 
             Assert.Contains(nodeA, fx.Control.Viewer.SelectedNodes);

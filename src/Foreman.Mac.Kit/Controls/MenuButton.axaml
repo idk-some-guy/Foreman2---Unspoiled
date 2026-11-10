@@ -1,0 +1,148 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:conv="using:Avalonia.Data.Converters">
+
+  <ControlTheme x:Key="Kit.MenuButton" TargetType="kit:MenuButton">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ControlHeightRegular}" />
+    <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.MenuButtonPadding}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="kit:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border x:Name="PART_Frame"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Size.ControlGlyphGap}">
+              <Viewbox x:Name="PART_GlyphBox"
+                       Width="{DynamicResource Foreman.Size.GlyphSmall}"
+                       Height="{DynamicResource Foreman.Size.GlyphSmall}"
+                       Stretch="Uniform"
+                       StretchDirection="Both"
+                       IsVisible="{TemplateBinding Glyph, Converter={x:Static conv:ObjectConverters.IsNotNull}}">
+                <Path x:Name="PART_Glyph"
+                      Data="{TemplateBinding Glyph}"
+                      Fill="{DynamicResource Foreman.Color.TextSecondary}"
+                      Stretch="None"
+                      Width="14" Height="14" />
+              </Viewbox>
+              <TextBlock x:Name="PART_Label"
+                         Text="{TemplateBinding DisplayLabel}"
+                         FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
+                         FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
+                         Foreground="{DynamicResource Foreman.Color.Text}"
+                         VerticalAlignment="Center" />
+              <Viewbox x:Name="PART_ChevronBox"
+                       Width="{DynamicResource Foreman.Size.Glyph10}"
+                       Height="{DynamicResource Foreman.Size.Glyph10}"
+                       Stretch="Uniform"
+                       StretchDirection="Both">
+                <Path x:Name="PART_Chevron"
+                      Data="{StaticResource Kit.Glyph.Chevron.10}"
+                      Fill="{DynamicResource Foreman.Color.TextTertiary}"
+                      Stretch="None"
+                      Width="10" Height="10" />
+              </Viewbox>
+              <Viewbox x:Name="PART_OverflowGlyphBox"
+                       Width="{DynamicResource Foreman.Size.Glyph16}"
+                       Height="{DynamicResource Foreman.Size.Glyph16}"
+                       Stretch="Uniform"
+                       StretchDirection="Both"
+                       IsVisible="False">
+                <Path x:Name="PART_OverflowGlyph"
+                      Data="{StaticResource Kit.Glyph.Overflow.16}"
+                      Stroke="{DynamicResource Foreman.Color.TextSecondary}"
+                      StrokeThickness="1.5"
+                      StrokeLineCap="Round"
+                      StrokeJoin="Round"
+                      Stretch="None"
+                      Width="16" Height="16" />
+              </Viewbox>
+            </StackPanel>
+          </Border>
+          <Popup x:Name="PART_Popup"
+                 Placement="BottomEdgeAlignedLeft"
+                 IsLightDismissEnabled="True">
+            <ContentPresenter Content="{TemplateBinding Menu}" />
+          </Popup>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^.overflow /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="^:filled /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Accent}" />
+    </Style>
+    <Style Selector="^:filled /template/ Path#PART_Glyph">
+      <Setter Property="Fill" Value="{DynamicResource Foreman.Color.AccentText}" />
+    </Style>
+    <Style Selector="^:filled /template/ TextBlock#PART_Label">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.AccentText}" />
+    </Style>
+    <Style Selector="^:filled /template/ Path#PART_Chevron">
+      <Setter Property="Fill" Value="{DynamicResource Foreman.Color.AccentText}" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+    </Style>
+    <Style Selector="^:open /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+
+    <Style Selector="^.overflow">
+      <Setter Property="Width" Value="28" />
+      <Setter Property="Height" Value="40" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="^.overflow /template/ StackPanel">
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="^.overflow /template/ Viewbox#PART_GlyphBox">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^.overflow /template/ TextBlock#PART_Label">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^.overflow /template/ Viewbox#PART_ChevronBox">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^.overflow /template/ Viewbox#PART_OverflowGlyphBox">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^.overflow:pointerover /template/ Path#PART_OverflowGlyph">
+      <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.Text}" />
+    </Style>
+
+    <Style Selector="^.gallery-hover /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+    <Style Selector="^.gallery-pressed /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+    </Style>
+    <Style Selector="^.overflow.gallery-hover /template/ Path#PART_OverflowGlyph">
+      <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.Text}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

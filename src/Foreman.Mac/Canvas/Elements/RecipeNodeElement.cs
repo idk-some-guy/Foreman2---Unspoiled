@@ -3,7 +3,9 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Serialization;
+using Foreman.Models.Nodes;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -15,18 +17,6 @@ namespace Foreman.Mac.Canvas.Elements {
     //tooltips (P3), plus the ~280-line paste-options right-click menu, AddRClickMenuOptions (P4, reference
     //§4c) - the only node subclass whose AddRClickMenuOptions isn't the base no-op.
     public sealed class RecipeNodeElement : BaseNodeElement {
-        protected override SKPaint CleanBgPaint => RecipeBgPaint;
-        private static readonly SKPaint RecipeBgPaint = Fill(new SKColor(190, 217, 212));
-
-        private static readonly SKPaint ProductivityPaint = StrokePaint(new SKColor(139, 0, 0), 6);
-        private static readonly SKPaint ProductivityPlusPaint = StrokePaint(new SKColor(139, 0, 0), 2);
-        private static readonly SKPaint ExtraProductivityPaint = StrokePaint(new SKColor(220, 20, 60), 6);
-
-        private static SKPaint StrokePaint(SKColor color, float width) => new() { Color = color, Style = SKPaintStyle.Stroke, StrokeWidth = width, IsAntialias = true };
-
-        //Exposed (rather than upstream's private fields) purely so tests can inspect the module density-tier
-        //boundary (ModuleDisplayTier) directly instead of only through pixels; nothing outside
-        //Foreman.Mac.UiTests reads these.
         internal AssemblerElement AssemblerElement { get; }
         internal BeaconElement BeaconElement { get; }
 
@@ -72,52 +62,107 @@ namespace Foreman.Mac.Canvas.Elements {
                 if (!OutputTabs.Any(tab => tab.Item == item))
                     OutputTabs.Add(new ItemTabElement(item, LinkType.Output, Context, this));
 
-            int yOffset = (RecipeViewModel.NodeDirection == NodeDirection.Up && InputTabs.Count == 0 && OutputTabs.Count != 0) || (RecipeViewModel.NodeDirection == NodeDirection.Down && OutputTabs.Count == 0 && InputTabs.Count != 0) ? 10 :
-                          (RecipeViewModel.NodeDirection == NodeDirection.Down && InputTabs.Count == 0 && OutputTabs.Count != 0) || (RecipeViewModel.NodeDirection == NodeDirection.Up && OutputTabs.Count == 0 && InputTabs.Count != 0) ? -10 : 0;
-            yOffset += RecipeViewModel.NodeDirection == NodeDirection.Up ? 4 : 0;
-
-            AssemblerElement.Location = new Point(-26, -14 + yOffset);
-            BeaconElement.Location = new Point(-30, 27 + yOffset);
-
-            AssemblerElement.SetVisibility(Context.LevelOfDetail != LevelOfDetail.Low);
-            BeaconElement.SetVisibility(Context.LevelOfDetail != LevelOfDetail.Low);
-
-            Width = Math.Max(MinWidth, Math.Max(GetIconWidths(InputTabs), GetIconWidths(OutputTabs)) + 10);
-            if (Width % WidthD != 0) {
-                Width += WidthD;
-                Width -= Width % WidthD;
-            }
             Height = Context.LevelOfDetail == LevelOfDetail.Low ? BaseSimpleHeight : BaseRecipeHeight;
-
             base.UpdateState();
         }
 
+        protected override int ComputeWidth() => WidthForTabs(Math.Max(TabSpan(InputTabs), TabSpan(OutputTabs)));
+
+        protected override string DisplayName => RecipeName;
+
+        private protected override string? AutomationBuilding() {
+            string building = RecipeViewModel.SelectedAssembler.FriendlyName ?? "";
+            return RecipeViewModel.SelectedAssembler.Assembler.IsMissing ? building : $"{building} ×{NodeCardPainter.Count(RecipeViewModel.ActualSetValue, Context.RoundAssemblerCount)}";
+        }
+        protected override SKBitmap? TitleIcon => RecipeViewModel.BaseRecipe.Icon;
+        protected override SKColor StripColor(CanvasTokens tokens) => tokens.NodeRecipe;
+        protected override bool Unavailable => IsUnavailable(RecipeViewModel.BaseRecipe.Recipe);
         protected override SKBitmap? NodeIcon() => RecipeViewModel.BaseRecipe.Icon;
 
-        protected override void DetailsDraw(SKCanvas canvas, Point trans) {
-            if (Context.LevelOfDetail == LevelOfDetail.Low) {
-                bool overproducing = RecipeViewModel.IsOverproducing();
-                var textSlot = new Rectangle(trans.X - (Width / 2) + 40, trans.Y - (Height / 2) + (overproducing ? 32 : 27), Width - 10 - 40, Height - (overproducing ? 64 : 54));
-                int textLength = GraphicsStuff.DrawText(canvas, TextColor, RegularTypeface, BaseFontSize, textSlot, RecipeName, TextHorizontalAlign.Center, TextVerticalAlign.Center);
+        private readonly LabelFade count = new();
+        private SKRect buildingIconRect;
+        private IReadOnlyList<StatusItem> statusRow = [];
 
-                SKBitmap assemblerIcon = RecipeViewModel.SelectedAssembler ? (RecipeViewModel.SelectedAssembler.Icon ?? IconCache.UnknownIcon) : IconCache.UnknownIcon;
-                canvas.DrawBitmap(assemblerIcon, SKRect.Create(trans.X - Math.Min((Width / 2) - 10, (textLength / 2) + 32), trans.Y - 16, 32, 32));
+        internal IReadOnlyList<StatusItem> StatusRow => statusRow;
+        internal LabelState CountLabel => count.State(Context);
 
-                int pModules = RecipeViewModel.AssemblerModules.Count(m => m.Module.GetProductivityBonus() > 0);
-                pModules += (int)(RecipeViewModel.BeaconModules.Count(m => m.Module.GetProductivityBonus() > 0) * RecipeViewModel.BeaconCount);
+        internal int ProductivityPips =>
+            RecipeViewModel.AssemblerModules.Count(m => m.Module.GetProductivityBonus() > 0)
+            + (int)(RecipeViewModel.BeaconModules.Count(m => m.Module.GetProductivityBonus() > 0) * RecipeViewModel.BeaconCount);
 
-                bool extraProductivity = RecipeViewModel.ExtraProductivity > 0 && (RecipeViewModel.SelectedAssembler.Assembler.EntityType == EntityType.Miner || Context.EnableExtraProductivityForNonMiners);
-                pModules += extraProductivity ? 1 : 0;
+        private bool ShowsExtraProductivity =>
+            RecipeViewModel.ExtraProductivity > 0 && (RecipeViewModel.SelectedAssembler.Assembler.EntityType == EntityType.Miner || Context.EnableExtraProductivityForNonMiners);
 
-                for (int i = 0; i < pModules && i < 6; i++)
-                    canvas.DrawOval(SKRect.Create(trans.X - (Width / 2) - 1, trans.Y - (Height / 2) + 10 + i * 12, 6, 6), (extraProductivity && i == 0) ? ExtraProductivityPaint : ProductivityPaint);
-                if (pModules > 6) {
-                    canvas.DrawLine(trans.X - (Width / 2) - 4, trans.Y - (Height / 2) + 84, trans.X - (Width / 2) + 8, trans.Y - (Height / 2) + 84, ProductivityPlusPaint);
-                    canvas.DrawLine(trans.X - (Width / 2) + 2, trans.Y - (Height / 2) + 84 - 6, trans.X - (Width / 2) + 2, trans.Y - (Height / 2) + 84 + 6, ProductivityPlusPaint);
-                }
-            } else if (RecipeViewModel.ExtraProductivity > 0 && (RecipeViewModel.SelectedAssembler.Assembler.EntityType == EntityType.Miner || Context.EnableExtraProductivityForNonMiners)) {
-                canvas.DrawOval(SKRect.Create(trans.X - (Width / 2) - 1, trans.Y - (Height / 2) + 10, 6, 6), ExtraProductivityPaint);
+        private protected override void LayoutDetail(CanvasTokens tokens, List<NodeText> detail) {
+            float rowTop = Top + NodeCardPainter.DetailRowTop(tokens);
+            float rowHeight = NodeCardPainter.BuildingRowHeight * (float)tokens.Scale;
+            float gap = tokens.Space15;
+            bool statusRowShown = Context.LevelOfDetail != LevelOfDetail.Low;
+            float right = statusRowShown ? Right - tokens.NodeInsetSide : PlaceBadgeTrailing(tokens, rowTop, rowHeight);
+            buildingIconRect = SKRect.Create(Left + tokens.NodeInsetSide, rowTop + ((rowHeight - tokens.NodeBuildingIcon) / 2), tokens.NodeBuildingIcon, tokens.NodeBuildingIcon);
+            float x = buildingIconRect.Right + gap;
+
+            if (RecipeViewModel.RateType == RateType.Manual) {
+                x = LayoutChip(tokens, detail, "Fixed ×" + NodeCardPainter.Number(RecipeViewModel.DesiredSetValue), x, rowTop, rowHeight) + gap;
+            } else {
+                count.Set(SolveState == NodeSolveState.NeverSolved ? "—"
+                    : "×" + (RecipeViewModel.SelectedAssembler.Assembler.IsMissing ? "---" : NodeCardPainter.Count(RecipeViewModel.ActualSetValue, Context.RoundAssemblerCount)), Context);
+                int weight = tokens.CanvasEmphasizedWeight;
+                float countWidth = NodeCardPainter.Measure(count.Text, tokens.EmphasizedBodyFontSize, weight);
+                detail.Add(ValueText(NodeTextRole.Count, count.Text, SKRect.Create(x, rowTop, countWidth, rowHeight), tokens.EmphasizedBodyFontSize, weight, tokens.Text));
+                x += countWidth + gap;
             }
+            string building = NodeCardPainter.Fit(RecipeViewModel.SelectedAssembler.FriendlyName ?? "", right - x, tokens.CanvasFontSize, 400, out _);
+            detail.Add(new NodeText(NodeTextRole.Detail, building, new SKRect(x, rowTop, right, rowTop + rowHeight), tokens.CanvasFontSize, 400, tokens.TextSecondary));
+
+            statusRow = statusRowShown ? LayoutStatusRow(tokens, detail) : [];
+            BeaconElement.Place(statusRow.Where(item => item.Kind == StatusItemKind.Beacon));
+            AssemblerElement.Place(statusRow.Where(item => item.Kind != StatusItemKind.Beacon));
+            BeaconElement.SetVisibility(Context.LevelOfDetail != LevelOfDetail.Low);
+            AssemblerElement.SetVisibility(Context.LevelOfDetail != LevelOfDetail.Low);
+        }
+
+        private List<StatusItem> LayoutStatusRow(CanvasTokens tokens, List<NodeText> detail) {
+            float rowTop = Top + NodeCardPainter.StatusRowTop(tokens);
+            float badge = tokens.NodeBadgeHeight;
+            float gap = tokens.Space15;
+            float x = Left + tokens.NodeInsetSide;
+            float afterBadge = PlaceBadge(tokens, x, rowTop, badge);
+            if (afterBadge > x)
+                x = afterBadge + gap;
+            var items = new List<StatusItem>();
+
+            if (RecipeViewModel.SelectedBeacon) {
+                items.Add(new StatusItem(StatusItemKind.Beacon, SKRect.Create(x, rowTop, badge, badge)));
+                x += badge + gap;
+            }
+            int pips = Math.Min(6, ProductivityPips);
+            for (int i = 0; i < pips; i++) {
+                items.Add(new StatusItem(StatusItemKind.Pip, SKRect.Create(x, rowTop + ((badge - tokens.NodePip) / 2), tokens.NodePip, tokens.NodePip)));
+                x += tokens.NodePip + (i == pips - 1 ? gap : tokens.NodeGapTight);
+            }
+            if (ShowsExtraProductivity) {
+                string text = RecipeViewModel.ExtraProductivity.ToString("+0%", DisplayCulture.Format);
+                int weight = tokens.CanvasEmphasizedWeight;
+                SKRect rect = SKRect.Create(x, rowTop, NodeCardPainter.Measure(text, tokens.CanvasFontSize, weight), badge);
+                items.Add(new StatusItem(StatusItemKind.ExtraProductivity, rect));
+                detail.Add(new NodeText(NodeTextRole.ExtraProductivity, text, rect, tokens.CanvasFontSize, weight, tokens.TextSecondary));
+            }
+            return items;
+        }
+
+        protected override void DetailsDraw(SKCanvas canvas, Point trans) {
+            base.DetailsDraw(canvas, trans);
+            SKRect icon = buildingIconRect;
+            icon.Offset(trans.X, trans.Y);
+            NodeCardPainter.DrawIcon(canvas, RecipeViewModel.SelectedAssembler.Icon, icon);
+        }
+
+        private protected override void DrawNodeText(SKCanvas canvas, NodeText text, Point trans) {
+            if (text.Role == NodeTextRole.Count)
+                NodeCardPainter.DrawLabel(canvas, text, trans.X, trans.Y, count.State(Context));
+            else
+                base.DrawNodeText(canvas, text, trans);
         }
 
         //Ports AddRClickMenuOptions (reference §4c). `nodeInSelection` means "the target set is the current
@@ -255,17 +300,6 @@ namespace Foreman.Mac.Canvas.Elements {
 
         protected override List<TooltipInfo> GetMyToolTips(Point graphPoint, bool exclusive) {
             var tooltips = new List<TooltipInfo>();
-
-            if (Context.ShowRecipeToolTip && RecipeViewModel.BaseRecipe.Recipe is IRecipe recipe) {
-                IRecipe[] recipes = [recipe];
-                Size size = RecipePainter.GetSize(recipes, Context.AbbreviateSciPacks);
-                tooltips.Add(new TooltipInfo(
-                    Context.Viewport.GraphToScreen(LocalToGraph(new Point(Width / 2, 0))),
-                    Direction.Left,
-                    null,
-                    new Avalonia.Size(size.Width, size.Height),
-                    (canvas, offset) => RecipePainter.Paint(recipes, canvas, offset, Context.AbbreviateSciPacks)));
-            }
 
             string entityName = RecipeViewModel.SelectedAssembler.Assembler is IAssembler helpAssembler
                 ? helpAssembler.GetEntityTypeName(false).ToLowerInvariant()

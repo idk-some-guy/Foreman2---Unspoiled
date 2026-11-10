@@ -1,0 +1,97 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:conv="using:Avalonia.Data.Converters">
+
+  <ControlTheme x:Key="Kit.CheckBox" TargetType="CheckBox">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Body.FontSize}" />
+    <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.Body.FontWeight}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="kit:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.CheckBox}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}">
+          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Size.SelectionLabelGap}">
+            <Border x:Name="PART_Box"
+                    Width="{DynamicResource Foreman.Size.CheckBox}"
+                    Height="{DynamicResource Foreman.Size.CheckBox}"
+                    CornerRadius="{DynamicResource Foreman.Radius.CheckBox}"
+                    Background="{DynamicResource Foreman.Color.WellBackground}"
+                    BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
+                    BorderThickness="1">
+              <Grid>
+                <Viewbox Width="{DynamicResource Foreman.Size.CheckGlyph}"
+                         Height="{DynamicResource Foreman.Size.CheckGlyph}"
+                         Stretch="Uniform"
+                         StretchDirection="Both"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center">
+                  <Path x:Name="PART_Check"
+                        Theme="{StaticResource Kit.Glyph}"
+                        Data="{StaticResource Kit.Glyph.Check.10}"
+                        Stroke="{DynamicResource Foreman.Color.TextOnAccent}"
+                        StrokeThickness="1.6"
+                        Width="10" Height="10"
+                        Stretch="None"
+                        IsVisible="False" />
+                </Viewbox>
+                <Rectangle x:Name="PART_Dash"
+                           Fill="{DynamicResource Foreman.Color.TextOnAccent}"
+                           Width="{DynamicResource Foreman.Size.CheckDashWidth}"
+                           Height="{DynamicResource Foreman.Size.CheckDashHeight}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           IsVisible="False" />
+              </Grid>
+            </Border>
+            <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center"
+                               IsVisible="{TemplateBinding Content, Converter={x:Static conv:ObjectConverters.IsNotNull}}" />
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:checked /template/ Border#PART_Box">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.Accent}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Accent}" />
+    </Style>
+    <Style Selector="^:checked /template/ Path#PART_Check">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <Style Selector="^:indeterminate /template/ Border#PART_Box">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.Accent}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Accent}" />
+    </Style>
+    <Style Selector="^:indeterminate /template/ Rectangle#PART_Dash">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#PART_Box">
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Accent}" />
+    </Style>
+
+    <Style Selector="^:checked:pressed /template/ Border#PART_Box">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentPressed}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.AccentPressed}" />
+    </Style>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+
+    <Style Selector="^.gallery-hover /template/ Border#PART_Box">
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Accent}" />
+    </Style>
+    <Style Selector="^.gallery-pressed /template/ Border#PART_Box">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentPressed}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.AccentPressed}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

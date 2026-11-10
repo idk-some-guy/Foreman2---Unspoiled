@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+             x:Class="Foreman.Mac.Views.Sheets.TextPropertiesSheet">
+  <StackPanel Spacing="{DynamicResource Foreman.Space.Space4}">
+    <TextBox Name="TextInput" Theme="{StaticResource Kit.TextField}"
+             AcceptsReturn="True" TextWrapping="Wrap"
+             Height="66" HorizontalAlignment="Stretch" VerticalContentAlignment="Top"
+             FontSize="{DynamicResource Foreman.Type.Body.FontSize}"
+             FontWeight="{DynamicResource Foreman.Type.Body.FontWeight}"
+             AutomationProperties.Name="Text" />
+    <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" TrailingGap="0">
+      <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Font" LabelColumn="Window">
+        <ctrl:PopUp Name="FontPopUp" Theme="{StaticResource Kit.PopUp}" HorizontalAlignment="Stretch" />
+      </kit:FormRow>
+      <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Size" LabelColumn="Window">
+        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Space.Space1}">
+          <ctrl:Stepper Name="FontSizeStepper" Theme="{StaticResource Kit.Stepper}"
+                        Minimum="6" Maximum="288" Increment="1" Decimals="0" SpokenUnit="points"
+                        AutomationProperties.Name="Size" />
+          <TextBlock Theme="{StaticResource Kit.Text}" Classes="callout secondary" Text="pt" VerticalAlignment="Center" />
+        </StackPanel>
+      </kit:FormRow>
+      <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Style" LabelColumn="Window">
+        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource Foreman.Space.Space4}">
+          <CheckBox Name="BoldCheckBox" Theme="{StaticResource Kit.CheckBox}" Content="Bold" />
+          <CheckBox Name="ItalicCheckBox" Theme="{StaticResource Kit.CheckBox}" Content="Italic" />
+        </StackPanel>
+      </kit:FormRow>
+      <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Alignment" LabelColumn="Window">
+        <ctrl:Segmented Name="AlignmentSegments" Theme="{StaticResource Kit.Segmented}" />
+      </kit:FormRow>
+      <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Color" LabelColumn="Window">
+        <ctrl:ColorWell Name="TextColorWell" Theme="{StaticResource Kit.ColorWell}" />
+      </kit:FormRow>
+      <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Background" LabelColumn="Window">
+        <ctrl:ColorWell Name="BackColorWell" Theme="{StaticResource Kit.ColorWell}" AllowsNone="True" />
+      </kit:FormRow>
+    </kit:FormGroup>
+  </StackPanel>
+</UserControl>

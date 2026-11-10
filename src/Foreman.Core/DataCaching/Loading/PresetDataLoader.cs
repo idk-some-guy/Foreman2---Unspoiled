@@ -588,7 +588,7 @@ namespace Foreman.DataCaching.Loading {
             var recipe = new RecipePrototype(
                 _owner,
                 string.Format(CultureInfo.InvariantCulture, "§§r:rl:launch-{0}", launchItem.Name),
-                string.Format(DisplayCulture.Format, "Rocket Launch: {0}", launchItem.FriendlyName),
+                string.Create(DisplayCulture.Format, $"Rocket Launch: {launchItem.FriendlyName}"),
                 _store.RocketLaunchSubgroup,
                 launchItem.Name) {
                 Time = 1 //placeholder really...

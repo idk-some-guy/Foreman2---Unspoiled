@@ -2,10 +2,8 @@ using System;
 using System.Threading.Tasks;
 
 namespace Foreman.Models.Solver {
-    // Forces the OR-Tools native dylib tree to load on a background thread instead of on whatever
-    // thread makes the first real solve call.
     public static class SolverWarmup {
-        public static Task RunAsync() => RunAsync(() => GoogleSolver.Create());
+        public static Task RunAsync() => RunAsync(() => WarmupSolve());
 
         internal static Task RunAsync(Action warmup) =>
             Task.Run(() => {
@@ -15,5 +13,14 @@ namespace Foreman.Models.Solver {
                     // A failed warmup must stay invisible - the real solve still works cold.
                 }
             });
+
+        internal static LpSolveStatus WarmupSolve() {
+            var solver = HighsSolver.Create();
+            ILpVariable variable = solver.MakeNumVar(0.0, 1.0);
+            ILpConstraint constraint = solver.MakeConstraint(1.0, 1.0);
+            constraint.SetCoefficient(variable, 1.0);
+            solver.SetMinimization();
+            return solver.Solve();
+        }
     }
 }

@@ -14,6 +14,9 @@ namespace ForemanTest.support {
         public static void AssemblyInitialize(TestContext _) {
             string directory = Path.Combine(Path.GetTempPath(), "foreman-tests-errorlog-" + Guid.NewGuid().ToString("N"));
             ErrorLogging.SetDefaultLogDirectory(directory);
+
+            string dbDirectory = Path.Combine(Path.GetTempPath(), "foreman-tests-db-" + Guid.NewGuid().ToString("N"));
+            PresetProcessor.SetDefaultUserDataDirectoryOverride(dbDirectory);
         }
 
         [AssemblyCleanup]

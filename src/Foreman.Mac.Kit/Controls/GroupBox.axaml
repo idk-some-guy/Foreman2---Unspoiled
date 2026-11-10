@@ -1,0 +1,34 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls">
+
+  <ControlTheme x:Key="Kit.GroupBox" TargetType="kit:GroupBox">
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.WellBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Card}" />
+    <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.GroupBoxPadding}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Frame"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}"
+                MaxWidth="{TemplateBinding MaxWidth}">
+          <StackPanel>
+            <TextBlock x:Name="PART_Title"
+                       Text="{TemplateBinding Header}"
+                       Margin="{DynamicResource Foreman.Thickness.GroupBoxTitleMargin}"
+                       FontSize="{DynamicResource Foreman.Type.SectionHeader.FontSize}"
+                       FontWeight="{DynamicResource Foreman.Type.SectionHeader.FontWeight}"
+                       Foreground="{DynamicResource Foreman.Color.TextSecondary}" />
+            <ContentPresenter Content="{TemplateBinding Content}" />
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

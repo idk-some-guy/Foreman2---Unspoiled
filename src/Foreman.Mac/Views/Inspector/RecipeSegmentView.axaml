@@ -1,0 +1,168 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             xmlns:insp="using:Foreman.Mac.Views.Inspector"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+             x:Class="Foreman.Mac.Views.Inspector.RecipeSegmentView"
+             x:DataType="vm:RecipeSegmentViewModel">
+  <StackPanel Spacing="0">
+    <kit:InspectorGroup Header="Recipe" Theme="{StaticResource Kit.InspectorGroup}">
+      <Grid>
+        <ContentControl IsVisible="{Binding HasCard}">
+          <insp:RecipeCardView Name="RecipeCard" DataContext="{Binding Card}" />
+        </ContentControl>
+        <kit:StatePanel Name="RecipeErrorPanel" Theme="{StaticResource Kit.StatePanel}" Shape="Error"
+                         Headline="Recipe missing from this preset"
+                         Sentence="The current preset has no recipe by this name, so this node cannot be solved."
+                         IsVisible="{Binding HasRecipeError}" />
+      </Grid>
+    </kit:InspectorGroup>
+
+    <Border Classes="inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
+
+    <kit:InspectorGroup Header="Rate" Theme="{StaticResource Kit.InspectorGroup}">
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Rate unit" LabelColumn="Inspector">
+          <ctrl:PopUp Name="RateUnitPopUp" Theme="{StaticResource Kit.PopUp}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Mode" LabelColumn="Inspector">
+          <ctrl:Segmented Name="RateMode" Theme="{StaticResource Kit.Segmented}" Classes="mini" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Buildings" LabelColumn="Inspector">
+          <ctrl:Stepper Name="AssemblerCountValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Decimals="2"
+                        IsEnabled="{Binding IsFixedRate}" Value="{Binding AssemblerCount, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Options" LabelColumn="Inspector">
+          <StackPanel Spacing="2">
+            <CheckBox Name="LowPriority" Theme="{StaticResource Kit.CheckBox}" Content="Low-priority recipe"
+                      IsChecked="{Binding LowPriority, Mode=TwoWay}" />
+            <CheckBox Name="KeyNode" Theme="{StaticResource Kit.CheckBox}" Content="Key node"
+                      IsChecked="{Binding IsKeyNode, Mode=TwoWay}" />
+          </StackPanel>
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Inspector" IsVisible="{Binding IsKeyNode}">
+          <TextBox Name="KeyNodeTitle" MaxLength="200" Text="{Binding KeyNodeTitle, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
+    </kit:InspectorGroup>
+
+    <Border Classes="inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
+
+    <kit:InspectorGroup Header="Assembler" Theme="{StaticResource Kit.InspectorGroup}">
+      <StackPanel Spacing="0">
+        <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+          <kit:FormRow Name="AssemblerRow" Theme="{StaticResource Kit.FormRow}" Label="Building" LabelColumn="Inspector">
+            <Panel>
+              <kit:PickGrid Name="AssemblerChoiceGrid" Theme="{StaticResource Kit.PickGrid}" IsChoiceMode="True"
+                            NamesSlots="False" GroupLabel="Building" />
+              <StackPanel Name="AssemblerValueLine" Orientation="Horizontal" Spacing="7" IsVisible="False">
+                <Image Name="AssemblerValueLineIcon" Width="18" Height="18" Stretch="Uniform" />
+                <TextBlock Name="AssemblerValueLineText"
+                           FontSize="{DynamicResource Foreman.Type.Body.FontSize}"
+                           FontWeight="{DynamicResource Foreman.Type.Body.FontWeight}"
+                           Foreground="{DynamicResource Foreman.Color.Text}" />
+              </StackPanel>
+              <ctrl:PopUp Name="AssemblerFallbackPopUp" Theme="{StaticResource Kit.PopUp}" IsVisible="False" />
+            </Panel>
+          </kit:FormRow>
+          <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Neighbours" LabelColumn="Inspector"
+                       IsVisible="{Binding ShowsNeighbours}">
+            <ctrl:Stepper Name="AvgNeighboursValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="100" Increment="0.05" Decimals="2"
+                          IsVisible="{Binding ShowsNeighbours}" Value="{Binding AvgNeighbours, Mode=TwoWay}" />
+          </kit:FormRow>
+          <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Extra prod." LabelColumn="Inspector"
+                       IsVisible="{Binding ShowsExtraProductivity}">
+            <ctrl:Stepper Name="ExtraProductivityValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="100000" Increment="10" Decimals="2"
+                          Unit="%" IsVisible="{Binding ShowsExtraProductivity}" Value="{Binding ExtraProductivityPercent, Mode=TwoWay}" />
+          </kit:FormRow>
+        </kit:FormGroup>
+      </StackPanel>
+    </kit:InspectorGroup>
+
+    <Border Classes="inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
+
+    <kit:InspectorGroup Header="Fuel" IsVisible="{Binding ShowsFuel}" Theme="{StaticResource Kit.InspectorGroup}">
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+        <kit:FormRow Name="FuelRow" Theme="{StaticResource Kit.FormRow}" Label="Fuel" LabelColumn="Inspector">
+          <Panel>
+            <kit:PickGrid Name="FuelChoiceGrid" Theme="{StaticResource Kit.PickGrid}" IsChoiceMode="True"
+                          NamesSlots="False" GroupLabel="Fuel" />
+            <StackPanel Name="FuelValueLine" Orientation="Horizontal" Spacing="7" IsVisible="False">
+              <Image Name="FuelValueLineIcon" Width="18" Height="18" Stretch="Uniform" />
+              <TextBlock Name="FuelValueLineText"
+                         FontSize="{DynamicResource Foreman.Type.Body.FontSize}"
+                         FontWeight="{DynamicResource Foreman.Type.Body.FontWeight}"
+                         Foreground="{DynamicResource Foreman.Color.Text}" />
+            </StackPanel>
+            <ctrl:PopUp Name="FuelFallbackPopUp" Theme="{StaticResource Kit.PopUp}" IsVisible="False" />
+          </Panel>
+        </kit:FormRow>
+      </kit:FormGroup>
+    </kit:InspectorGroup>
+    <Border Classes="inspector-group-rule" Height="1" IsVisible="{Binding ShowsFuel}"
+            Background="{DynamicResource Foreman.Color.Border}" />
+
+    <kit:InspectorGroup Name="ModulesGroup" Header="{Binding ModulesTitle}" IsVisible="{Binding HasModuleSlots}" Theme="{StaticResource Kit.InspectorGroup}">
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+        <kit:FormRow Name="ModulesEquippedRow" Theme="{StaticResource Kit.FormRow}" Label="Equipped" LabelColumn="Inspector"
+                     Note="{Binding #EquippedGrid.ArmingNote}">
+          <kit:PickGrid Name="EquippedGrid" Theme="{StaticResource Kit.PickGrid}" GroupLabel="Module slots" EmptyItemNoun="module" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Add" LabelColumn="Inspector"
+                     IsVisible="{Binding HasModuleOptions}">
+          <kit:PickGrid Name="ModuleOptionsGrid" Theme="{StaticResource Kit.PickGrid}" GroupLabel="Available modules" NamesSlots="False" EmptyItemNoun="module" />
+        </kit:FormRow>
+      </kit:FormGroup>
+    </kit:InspectorGroup>
+
+    <Border Classes="inspector-group-rule" Height="1" IsVisible="{Binding HasModuleSlots}"
+            Background="{DynamicResource Foreman.Color.Border}" />
+
+    <kit:InspectorGroup Name="BeaconGroup" Header="Beacon" Theme="{StaticResource Kit.InspectorGroup}">
+      <StackPanel Spacing="0">
+        <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+          <kit:FormRow Name="BeaconRow" Theme="{StaticResource Kit.FormRow}" Label="Beacon" LabelColumn="Inspector">
+            <Panel>
+              <kit:PickGrid Name="BeaconChoiceGrid" Theme="{StaticResource Kit.PickGrid}" IsChoiceMode="True"
+                            NamesSlots="False" GroupLabel="Beacon" />
+              <StackPanel Name="BeaconValueLine" Orientation="Horizontal" Spacing="7" IsVisible="False">
+                <Image Name="BeaconValueLineIcon" Width="18" Height="18" Stretch="Uniform" />
+                <TextBlock Name="BeaconValueLineText"
+                           FontSize="{DynamicResource Foreman.Type.Body.FontSize}"
+                           FontWeight="{DynamicResource Foreman.Type.Body.FontWeight}"
+                           Foreground="{DynamicResource Foreman.Color.Text}" />
+              </StackPanel>
+              <ctrl:PopUp Name="BeaconFallbackPopUp" Theme="{StaticResource Kit.PopUp}" IsVisible="False" />
+            </Panel>
+          </kit:FormRow>
+        </kit:FormGroup>
+
+        <StackPanel Name="BeaconDetail" Spacing="{StaticResource Foreman.Space.Space2}" IsVisible="{Binding HasBeacon}">
+          <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+            <kit:FormRow Name="BeaconModulesEquippedRow" Theme="{StaticResource Kit.FormRow}" Label="Equipped" LabelColumn="Inspector"
+                         Note="{Binding #EquippedBeaconGrid.ArmingNote}">
+              <kit:PickGrid Name="EquippedBeaconGrid" Theme="{StaticResource Kit.PickGrid}" GroupLabel="Beacon module slots" EmptyItemNoun="module" />
+            </kit:FormRow>
+            <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Add" LabelColumn="Inspector"
+                         IsVisible="{Binding HasBeaconModuleOptions}">
+              <kit:PickGrid Name="BeaconModuleOptionsGrid" Theme="{StaticResource Kit.PickGrid}" GroupLabel="Available beacon modules" NamesSlots="False" EmptyItemNoun="module" />
+            </kit:FormRow>
+            <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="# Beacons" LabelColumn="Inspector">
+              <ctrl:Stepper Name="BeaconCountValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="1000" Decimals="2"
+                            Value="{Binding BeaconCount, Mode=TwoWay}" />
+            </kit:FormRow>
+            <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="/ Assembler" LabelColumn="Inspector">
+              <ctrl:Stepper Name="BeaconsPerAssemblerValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="1000" Decimals="2"
+                            Value="{Binding BeaconsPerAssembler, Mode=TwoWay}" />
+            </kit:FormRow>
+            <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Additional" LabelColumn="Inspector">
+              <ctrl:Stepper Name="BeaconsTotalValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="1000" Decimals="2"
+                            Value="{Binding BeaconsTotal, Mode=TwoWay}" />
+            </kit:FormRow>
+          </kit:FormGroup>
+        </StackPanel>
+      </StackPanel>
+    </kit:InspectorGroup>
+  </StackPanel>
+</UserControl>

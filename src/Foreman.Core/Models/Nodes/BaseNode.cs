@@ -14,6 +14,7 @@ namespace Foreman {
         public abstract BaseNodeController Controller { get; }
         public ProductionGraph MyGraph { get; }
         public int NodeID { get; }
+        public NodeSolveState SolveState { get; internal set; } = NodeSolveState.NeverSolved;
         public bool IsClean { get; protected set; } //if true then this node hasnt changed (internal values or links) since last solver solution
 
         private bool keyNode;
@@ -61,7 +62,7 @@ namespace Foreman {
         public virtual double ActualSetValue { get { return ActualRate; } }
         public virtual double DesiredSetValue { get { return DesiredRate; } set { DesiredRate = value; } }
         public virtual double MaxDesiredSetValue { get { return ProductionGraph.MaxSetFlow; } }
-        public virtual string SetValueDescription { get { return string.Format(DisplayCulture.Format, "Item Flowrate (per {0})", MyGraph.GetRateName()); } }
+        public virtual string SetValueDescription { get { return string.Create(DisplayCulture.Format, $"Item Flowrate (per {MyGraph.GetRateName()})"); } }
 
         public abstract IEnumerable<ItemQualityPair> Inputs { get; }
         public abstract IEnumerable<ItemQualityPair> Outputs { get; }
@@ -110,6 +111,13 @@ namespace Foreman {
         protected virtual void OnNodeStateChanged() { NodeStateChanged?.Invoke(this, EventArgs.Empty); }
         protected virtual void OnNodeValuesChanged() { NodeValuesChanged?.Invoke(this, EventArgs.Empty); }
 
+        internal void MarkSolveStale() {
+            if (SolveState != NodeSolveState.Current)
+                return;
+            SolveState = NodeSolveState.Stale;
+            OnNodeValuesChanged();
+        }
+
         public abstract double GetConsumeRate(ItemQualityPair item); //calculated rate a given item is consumed by this node (may not match desired amount)
         public abstract double GetSupplyRate(ItemQualityPair item); //calculated rate a given item is supplied by this note (may not match desired amount)
 
@@ -146,17 +154,34 @@ namespace Foreman {
 
     public abstract class BaseNodeController(BaseNode myNode) {
         private readonly BaseNode MyNode = myNode;
+        private bool suppressMutated;
 
-        public void SetKeyNode(bool keyNode) { MyNode.KeyNode = keyNode; MyNode.KeyNodeTitle = keyNode ? MyNode.NodeID.ToString(DisplayCulture.Format) : ""; }
-        public void SetKeyNodeTitle(string title) { if (MyNode.KeyNode) MyNode.KeyNodeTitle = title; }
+        protected void Mutated() {
+            if (suppressMutated || !MyNode.MyGraph.Nodes.Contains(MyNode))
+                return;
+            MyNode.MyGraph.NotifyNodeMutated();
+        }
+
+        protected void RunWithoutMutationNotify(Action action) {
+            bool wasSuppressed = suppressMutated;
+            suppressMutated = true;
+            try {
+                action();
+            } finally {
+                suppressMutated = wasSuppressed;
+            }
+        }
+
+        public void SetKeyNode(bool keyNode) { MyNode.KeyNode = keyNode; MyNode.KeyNodeTitle = keyNode ? MyNode.NodeID.ToString(DisplayCulture.Format) : ""; Mutated(); }
+        public void SetKeyNodeTitle(string title) { if (MyNode.KeyNode) { MyNode.KeyNodeTitle = title; Mutated(); } }
 
         public void SetLocation(Point location) { if (MyNode.Location != location) MyNode.Location = location; }
 
-        public void SetRateType(RateType type) { if (MyNode.RateType != type) MyNode.RateType = type; }
+        public void SetRateType(RateType type) { if (MyNode.RateType != type) { MyNode.RateType = type; Mutated(); } }
 
-        public void SetDesiredSetValue(double value) { if (MyNode.DesiredSetValue != value) MyNode.DesiredSetValue = value; MyNode.UpdateState(); }
+        public void SetDesiredSetValue(double value) { if (MyNode.DesiredSetValue != value) { MyNode.DesiredSetValue = value; Mutated(); } MyNode.UpdateState(); }
 
-        public void SetDirection(NodeDirection direction) { if (MyNode.NodeDirection != direction) MyNode.NodeDirection = direction; }
+        public void SetDirection(NodeDirection direction) { if (MyNode.NodeDirection != direction) { MyNode.NodeDirection = direction; Mutated(); } }
 
         public abstract Dictionary<string, Action> GetErrorResolutions();
         public virtual Dictionary<string, Action> GetWarningResolutions() => [];
@@ -193,4 +218,8 @@ namespace Foreman {
         public void Delete() => MyNode.MyGraph.DeleteNode(MyNode);
         public override string ToString() => "C: " + MyNode.ToString();
     }
+}
+
+namespace Foreman.Models.Nodes {
+    public enum NodeSolveState { NeverSolved, Current, Stale }
 }

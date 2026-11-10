@@ -1,0 +1,24 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:Foreman.Mac.Views"
+        x:Class="Foreman.Mac.Views.AboutWindow"
+        x:DataType="views:AboutWindow"
+        Title="About Foreman 2"
+        Width="280"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Foreman.Color.WindowBackground}">
+  <StackPanel Margin="24">
+    <Image Name="AppIconImage" Width="64" Height="64" Stretch="Uniform" HorizontalAlignment="Center"
+           Source="avares://Foreman.Mac/Assets/unspoiled-icon-512.png" AutomationProperties.AccessibilityView="Raw" />
+    <TextBlock Name="AppNameTextBlock" Theme="{StaticResource Kit.Text}" Classes="headline"
+               Text="Foreman 2" HorizontalAlignment="Center" Margin="0,12,0,0" />
+    <SelectableTextBlock Name="VersionTextBlock" Theme="{StaticResource Kit.Text}" Classes="caption secondary"
+                         Text="{Binding VersionLabel}" HorizontalAlignment="Center" Margin="0,2,0,0" FontFeatures="tnum"
+                         SelectionBrush="{DynamicResource Foreman.Color.AccentSoft}" />
+    <TextBlock Name="TaglineTextBlock" Theme="{StaticResource Kit.Text}" Classes="callout secondary"
+               Text="A Factorio production-chain planner" HorizontalAlignment="Center"
+               TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0" />
+  </StackPanel>
+</Window>

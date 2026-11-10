@@ -2,6 +2,7 @@
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 
 namespace Foreman.Graph {
@@ -29,13 +30,15 @@ namespace Foreman.Graph {
         public NodeId CreatePlantNode(IPlantProcess plantProcess, IQuality quality, Point location) =>
             RegisterCreatedNode(_graph.CreatePlantNode(plantProcess, quality, location));
 
-        public LinkId CreateLink(NodeId supplierId, NodeId consumerId, ItemQualityPair item) {
+        public LinkRouting DefaultLinkRouting { get; set; } = LinkRouting.Rounded;
+
+        public LinkId CreateLink(NodeId supplierId, NodeId consumerId, ItemQualityPair item, LinkRouting? routing = null) {
             if (!_registry.TryGetNode(supplierId, out BaseNode? supplier) || supplier is null)
                 throw new InvalidOperationException("Supplier node is not registered.");
             if (!_registry.TryGetNode(consumerId, out BaseNode? consumer) || consumer is null)
                 throw new InvalidOperationException("Consumer node is not registered.");
 
-            NodeLink link = _graph.CreateLink(supplier, consumer, item);
+            NodeLink link = _graph.CreateLink(supplier, consumer, item, routing ?? DefaultLinkRouting);
             if (!_registry.TryGetLinkId(link, out LinkId id))
                 id = _registry.RegisterLink(link);
             return id;
@@ -49,6 +52,16 @@ namespace Foreman.Graph {
         public void DeleteLink(LinkId id) {
             if (_registry.TryGetLink(id, out NodeLink? link) && link is not null)
                 _graph.DeleteLink(link);
+        }
+
+        public void SetLinkRouting(LinkId id, LinkRouting routing) {
+            if (_registry.TryGetLink(id, out NodeLink? link) && link is not null)
+                link.Controller.SetRouting(routing);
+        }
+
+        public void SetLinkWaypoints(LinkId id, IReadOnlyList<Point> waypoints) {
+            if (_registry.TryGetLink(id, out NodeLink? link) && link is not null)
+                link.Controller.SetWaypoints(waypoints);
         }
 
         public void SetLocation(NodeId id, Point location) =>

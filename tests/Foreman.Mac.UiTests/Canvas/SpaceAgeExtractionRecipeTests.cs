@@ -2,17 +2,20 @@ using Avalonia.Headless.XUnit;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.Graph;
 using Foreman.Mac.Canvas;
-using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Services;
+using Foreman.Mac.ViewModels;
 using Foreman.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+using AvaloniaWindow = Avalonia.Controls.Window;
+using DrawingPoint = System.Drawing.Point;
 
 namespace Foreman.Mac.UiTests.Canvas {
     //Investigates the human-reported "no extraction recipe in the chooser" gate finding against the real
@@ -53,11 +56,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             return cache;
         }
 
-        private static void ResetStartingGroup() {
-            FieldInfo field = typeof(IRChooserPanel).GetField("startingGroup", BindingFlags.Static | BindingFlags.NonPublic)!;
-            field.SetValue(null, null);
-        }
-
         private static readonly string[] RawResourceItemNames =
             ["iron-ore", "copper-ore", "coal", "stone", "uranium-ore", "scrap", "crude-oil", "lava", "water"];
 
@@ -86,17 +84,15 @@ namespace Foreman.Mac.UiTests.Canvas {
         //"Resource Extraction" group, since that's the only group with a matching Product recipe for a raw
         //ore with no prior recycling/crushing byproduct chain competing for group real estate.
         [AvaloniaFact]
-        public async Task LinkDragFromConsumerInput_FreshChooser_OpensDirectlyOnExtractionRecipe() {
-            ResetStartingGroup();
+        public async Task LinkFromConsumerInput_ExtractionRecipeIsCompatible() {
             DataCache cache = await GetCacheAsync();
             IItem ironOre = cache.Items["iron-ore"];
-            var keyItem = new ItemQualityPair(ironOre, cache.DefaultQuality!);
+            AddLinkContext link = SupplierLinkFor(cache, ironOre);
 
-            var panel = new RecipeChooserPanel(cache, new AppSettings(), keyItem, new FRange(0, 0, true), NewNodeType.Supplier);
-            panel.Initialize();
+            var catalog = new AddCatalog(cache, new AppSettings());
+            var rows = catalog.Search("", AddScope.All, link);
 
-            IconButton? populatedCell = FindPopulatedCell(panel, "§§r:e:iron-ore");
-            Assert.NotNull(populatedCell);
+            Assert.Contains(rows, r => r.Recipe?.Name == "§§r:e:iron-ore");
         }
 
         //Ports the human's second-reported repro (the Add Item flow -> RecipeChooserPanel with
@@ -105,37 +101,31 @@ namespace Foreman.Mac.UiTests.Canvas {
         //Product filter), the "Resource Extraction" group icon stays present, enabled, and reachable -
         //selecting it surfaces the real extraction recipe.
         [AvaloniaFact]
-        public async Task AddItemFlow_ResourceExtractionGroup_StaysReachableAndEnabled() {
-            ResetStartingGroup();
+        public async Task ResourceExtractionGroup_IsListedAndPopulated() {
             DataCache cache = await GetCacheAsync();
-            IItem ironOre = cache.Items["iron-ore"];
-            var keyItem = new ItemQualityPair(ironOre, cache.DefaultQuality!);
+            var vm = new AddBrowserViewModel(new AddCatalog(cache, new AppSettings()), cache, new AppSettings(), (_, _) => null) {
+                Segment = BrowserSegment.Recipes,
+            };
 
-            var panel = new RecipeChooserPanel(cache, new AppSettings(), keyItem, new FRange(0, 0, true), NewNodeType.Disconnected);
-            panel.Initialize();
+            var extractionGroup = Assert.Single(vm.Groups, g => g.Group.Name == "§§g:extra_group").Group;
+            vm.SelectGroup(extractionGroup);
 
-            var groupsPanelProp = typeof(IRChooserPanel).GetProperty("GroupsPanel", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            var groupsPanel = (Avalonia.Controls.WrapPanel)groupsPanelProp.GetValue(panel)!;
-            var setSelectedGroupMethod = typeof(IRChooserPanel).GetMethod("SetSelectedGroup", BindingFlags.Instance | BindingFlags.NonPublic)!;
-
-            IconButton extractionGroupButton = groupsPanel.Children.OfType<IconButton>()
-                .Single(b => b.DataObject is IGroup g && g.Name == "§§g:extra_group");
-            Assert.True(extractionGroupButton.IsEnabled, "Resource Extraction group icon should be enabled (has a matching recipe for iron ore).");
-
-            setSelectedGroupMethod.Invoke(panel, [(IGroup)extractionGroupButton.DataObject!, true]);
-
-            IconButton? populatedCell = FindPopulatedCell(panel, "§§r:e:iron-ore");
-            Assert.NotNull(populatedCell);
+            Assert.Contains(vm.Sections.SelectMany(s => s.Cells), c => c.Candidate.Recipe?.Name == "§§r:e:iron-ore");
         }
 
-        private static IconButton? FindPopulatedCell(RecipeChooserPanel panel, string recipeName) {
-            var iconGridProp = typeof(IRChooserPanel).GetProperty("IconGrid", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            var iconGrid = (ChooserIconGrid)iconGridProp.GetValue(panel)!;
-            foreach (IReadOnlyList<IconButton> column in iconGrid.Buttons)
-                foreach (IconButton button in column)
-                    if (button.DataObject is IRecipe r && r.Name == recipeName)
-                        return button;
-            return null;
+        private static AddLinkContext SupplierLinkFor(DataCache cache, IItem item) {
+            var pair = new ItemQualityPair(item, cache.DefaultQuality!);
+            var control = new GraphCanvasControl();
+            control.Viewport.SetSize(600, 600);
+            var window = new AvaloniaWindow { Content = control, Width = 600, Height = 600 };
+            window.Show();
+
+            NodeId nodeId = control.Viewer.Session.Editor.CreateConsumerNode(pair, new DrawingPoint(0, 0));
+            BaseNodeElement originElement = control.Viewer.NodeElementDictionary[nodeId];
+            originElement.RequestStateUpdate();
+            originElement.PrePaint();
+
+            return new AddLinkContext(pair, NewNodeType.Supplier, new FRange(0, 0, true), originElement, NodeDirection.Up);
         }
     }
 }

@@ -1,99 +1,68 @@
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.Mac.Canvas;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
+using Foreman.Serialization;
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
+using DrawingPoint = System.Drawing.Point;
 using Xunit;
 
 namespace Foreman.Mac.UiTests {
-    //Covers the final-review C2 finding: MainWindow.Closing only ever saved settings (ShellBootstrapper's
-    //own subscription) - an unsaved graph was discarded silently on window close, unlike New/Load, which
-    //both already gate through TestGraphSavedStatusAsync. Wires the same cancel-then-reclose pattern
-    //DataLoadWindow.OnClosing already uses (io-reference.md's own precedent): the first Close cancels and
-    //awaits the gate; a confirmed second Close goes through.
     public class MainWindowClosingTests {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
 
-        private static string TempSavePath() => Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".fjson");
-
-        private static async Task<(MainWindow window, string path)> NewWindowWithModifiedTitledGraphAsync() {
+        [AvaloniaFact]
+        public async Task Close_WithChangesSinceSave_ShowsNoAlert_RowDataEqualsTheClosedGraph() {
             var cache = new DataCache(filterRecipes: true);
             await cache.LoadAllData(new Preset(VanillaPresetName, true, true), new Progress<KeyValuePair<int, string>>());
+            using var library = new LibraryFixture();
             var window = new MainWindow();
             window.Show();
             window.DataCache = cache;
+            window.Library = library.Service;
             window.ApplyLoadedSettings();
-            string path = TempSavePath();
-            window.SaveFilePathStub = () => Task.FromResult<string?>(path);
-            await window.SaveGraphAsAsync();
+            window.SaveVersion();
+            Guid id = library.Service.OpenGraphId!.Value;
 
             var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
             window.GraphCanvas.Viewer.Graph.CreateSupplierNode(pair, System.Drawing.Point.Empty);
-            return (window, path);
+            Assert.True(window.ViewModel.IsDirty);
+            string expected = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(window.GraphCanvas.Viewer, cache), writeIndented: true);
+
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(window.IsVisible);
+            Assert.Empty(SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>());
+            Assert.Equal(expected, library.Store.Get(id)!.Data);
+            Assert.Equal(1, library.Store.Get(id)!.NodeCount);
         }
 
         [AvaloniaFact]
-        public async Task Close_ModifiedTitledGraph_PromptsForSaveBeforeContinuing() {
-            (MainWindow window, string path) = await NewWindowWithModifiedTitledGraphAsync();
-            try {
-                bool promptShown = false;
-                window.SaveBeforeContinuingChoiceStub = () => { promptShown = true; return Task.FromResult(ConfirmChoice.Cancel); };
+        public void Close_WithAPlacementFlashASheetAndThePausedCapsuleInFlight_DetachesWithoutThrowing() {
+            using var library = new LibraryFixture();
+            ShellFixture shell = ShellFixture.Open();
+            MainWindow window = shell.Window;
+            window.Library = library.Service;
+            window.OpenBrowser(new AddRequest(new DrawingPoint(100, 100), AddScope.Items, SeedText: "iron plate"));
+            shell.BrowserVm.SelectCell(shell.BrowserVm.Sections[0].Cells[0]);
+            shell.BrowserVm.Place(NodeType.Supplier);
+            Assert.NotNull(window.GraphCanvas.PlacementFlashNode);
+            _ = Dialogs.ShowWarningAsync(window, "Headline", "Message");
+            window.GraphCanvas.Viewer.IsPaused = true;
+            Dispatcher.UIThread.RunJobs();
 
-                window.Close();
-
-                Assert.True(promptShown);
-            } finally {
-                File.Delete(path);
-            }
-        }
-
-        [AvaloniaFact]
-        public async Task Close_ModifiedTitledGraph_CancelChoice_KeepsWindowOpen() {
-            (MainWindow window, string path) = await NewWindowWithModifiedTitledGraphAsync();
-            try {
-                window.SaveBeforeContinuingChoiceStub = () => Task.FromResult(ConfirmChoice.Cancel);
-
-                window.Close();
-
-                Assert.True(window.IsVisible);
-            } finally {
-                File.Delete(path);
-            }
-        }
-
-        [AvaloniaFact]
-        public async Task Close_ModifiedTitledGraph_NoChoice_ClosesWithoutSaving() {
-            (MainWindow window, string path) = await NewWindowWithModifiedTitledGraphAsync();
-            try {
-                string baselineBeforeClose = window.SaveFileBaselineJson!;
-                window.SaveBeforeContinuingChoiceStub = () => Task.FromResult(ConfirmChoice.No);
-
-                window.Close();
-
-                Assert.False(window.IsVisible);
-                Assert.Equal(baselineBeforeClose, File.ReadAllText(path)); //"No" must not have re-saved over the path
-            } finally {
-                File.Delete(path);
-            }
-        }
-
-        [AvaloniaFact]
-        public async Task Close_ModifiedTitledGraph_YesChoice_SavesThenCloses() {
-            (MainWindow window, string path) = await NewWindowWithModifiedTitledGraphAsync();
-            try {
-                string baselineBeforeClose = window.SaveFileBaselineJson!;
-                window.SaveBeforeContinuingChoiceStub = () => Task.FromResult(ConfirmChoice.Yes);
-
-                window.Close();
-
-                Assert.False(window.IsVisible);
-                Assert.NotEqual(baselineBeforeClose, File.ReadAllText(path)); //"Yes" re-saved the node added above
-            } finally {
-                File.Delete(path);
-            }
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle();
         }
     }
 }

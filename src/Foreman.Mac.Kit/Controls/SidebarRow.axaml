@@ -1,0 +1,69 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.SidebarRow" TargetType="kit:SidebarRow">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.SidebarRowHeight}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Frame"
+                Height="{DynamicResource Foreman.Size.SidebarRowHeight}"
+                Margin="{DynamicResource Foreman.Thickness.SidebarRowInset}"
+                CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                Background="Transparent"
+                kit:FocusRing.CornerRadius="{DynamicResource Foreman.Radius.Control}">
+          <Panel>
+            <Border x:Name="PART_Fill"
+                    CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                    Opacity="0"
+                    IsHitTestVisible="False"
+                    Transitions="{x:Static m:Motion.RowSelectionTransitions}" />
+            <Border x:Name="PART_SelectionFill"
+                    CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                    Opacity="0"
+                    IsHitTestVisible="False"
+                    Transitions="{x:Static m:Motion.RowSelectionTransitions}" />
+            <DockPanel x:Name="PART_IconRow"
+                       LastChildFill="True"
+                       VerticalAlignment="Center"
+                       Margin="{DynamicResource Foreman.Thickness.SidebarRowPadding}">
+              <Path x:Name="PART_Glyph"
+                    DockPanel.Dock="Left"
+                    Data="{TemplateBinding Glyph}"
+                    Width="{DynamicResource Foreman.Size.Glyph17}"
+                    Height="{DynamicResource Foreman.Size.Glyph17}"
+                    Stretch="None"
+                    StrokeThickness="1.5"
+                    StrokeLineCap="Round"
+                    StrokeJoin="Round" />
+              <Border x:Name="PART_IconWell"
+                      DockPanel.Dock="Left"
+                      IsVisible="False"
+                      Width="{DynamicResource Foreman.Size.Glyph18}"
+                      Height="{DynamicResource Foreman.Size.Glyph18}"
+                      CornerRadius="{DynamicResource Foreman.Radius.ListRowIcon}"
+                      BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
+                      BorderThickness="1"
+                      ClipToBounds="True">
+                <Image Source="{TemplateBinding Icon}" Stretch="Uniform" />
+              </Border>
+              <TextBlock x:Name="PART_Label"
+                         Text="{TemplateBinding Label}"
+                         FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
+                         TextTrimming="CharacterEllipsis"
+                         TextWrapping="NoWrap"
+                         MaxLines="1"
+                         VerticalAlignment="Center" />
+            </DockPanel>
+          </Panel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

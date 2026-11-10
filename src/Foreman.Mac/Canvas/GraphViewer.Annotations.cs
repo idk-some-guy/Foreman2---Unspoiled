@@ -25,6 +25,7 @@ namespace Foreman.Mac.Canvas {
         public void AddAnnotationElement(AnnotationElement element) {
             element.Context = new AnnotationElementContext {
                 ViewScale = () => Viewport.ViewScale,
+                IsExporting = () => Context.IsExporting,
                 SelectedAnnotations = SelectedAnnotations,
                 SelectedNodeCount = () => SelectedNodes.Count,
                 ShowPropertiesDialog = ann => ShowAnnotationPropertiesDialog?.Invoke(ann),
@@ -32,12 +33,14 @@ namespace Foreman.Mac.Canvas {
                 RemoveAnnotationElement = RemoveAnnotationElement,
             };
             Annotations.Add(element);
+            Session.NotifyMutated();
         }
 
         public void RemoveAnnotationElement(AnnotationElement element) {
             Annotations.Remove(element);
             SelectedAnnotations.Remove(element);
             element.Dispose();
+            Session.NotifyMutated();
         }
 
         public void ClearAnnotationSelection() {
@@ -90,8 +93,10 @@ namespace Foreman.Mac.Canvas {
                 ann.X += dx;
                 ann.Y += dy;
             }
-            foreach (BaseNodeElement node in SelectedNodes)
-                node.SetLocation(new Point(node.X + dx, node.Y + dy));
+            CarryWaypoints([.. SelectedNodes], () => {
+                foreach (BaseNodeElement node in SelectedNodes)
+                    node.SetLocation(new Point(node.X + dx, node.Y + dy));
+            });
         }
 
         public HashSet<AnnotationElement> GetAnnotationsIntersectingLasso(Rectangle lasso) =>
@@ -152,6 +157,7 @@ namespace Foreman.Mac.Canvas {
             foreach (BaseNodeElement node in SelectedNodes.ToList())
                 Session.Editor.DeleteNode(node.ViewModel.Id);
             SelectedNodes.Clear();
+            RaiseSelectionChanged();
 
             foreach (AnnotationElement ann in SelectedAnnotations.ToList())
                 RemoveAnnotationElement(ann);

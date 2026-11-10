@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+             x:Class="Foreman.Mac.Views.Settings.AppearanceTab"
+             x:DataType="vm:SettingsViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" AllowAutoHide="True">
+    <StackPanel Margin="20,18,20,20">
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Appearance">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Theme"
+                     Note="Follows the system appearance, or stays light or dark.">
+          <ctrl:Segmented Name="ThemeSegmented" Theme="{StaticResource Kit.Segmented}"
+                          SelectedIndex="{Binding ThemeIndex, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Interface scale"
+                     Note="Scales every window; the change takes effect immediately.">
+          <ctrl:PopUp Name="UiScalePopUp" Theme="{StaticResource Kit.PopUp}"
+                      SelectedItem="{Binding UiScaleLabel, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
+
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Links">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Default routing"
+                     Note="New links use this shape, and so do links in graphs saved before routing was a choice.">
+          <ctrl:Segmented Name="LinkRoutingSegmented" Theme="{StaticResource Kit.Segmented}"
+                          SelectedIndex="{Binding LinkRoutingIndex, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Width by throughput"
+                     Note="Draw a busier link thicker, between 3 and 35 pt.">
+          <ctrl:Switch Name="DynamicLineWidthSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding DynamicLWChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Link arrows"
+                     Note="Draws an arrowhead along each link to show which way items move.">
+          <ctrl:Switch Name="ArrowsOnLinksSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding ArrowsOnLinksChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
+
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Nodes" TrailingGap="0">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Level of detail"
+                     Note="Draws node artwork in more or less detail.">
+          <ctrl:Segmented Name="LevelOfDetailSegmented" Theme="{StaticResource Kit.Segmented}"
+                          SelectedIndex="{Binding LevelOfDetailIndex, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Simplify above"
+                     Note="Switches to simple nodes once the graph holds more objects than this.">
+          <ctrl:Stepper Name="NodeCountForSimpleViewStepper" Theme="{StaticResource Kit.Stepper}"
+                        Minimum="0" Maximum="2000" Increment="25" Decimals="0"
+                        Value="{Binding NodeCountForSimpleViewValue, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Icon size"
+                     Note="Sets how large icons are drawn in icon view.">
+          <ctrl:Stepper Name="IconsSizeStepper" Theme="{StaticResource Kit.Stepper}"
+                        Minimum="8" Maximum="256" Increment="1" Decimals="0"
+                        Value="{Binding IconsSizeValue, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Science packs"
+                     Note="Shortens science pack names to their initials on nodes.">
+          <ctrl:Switch Name="AbbreviateSciPacksSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding AbbreviateSciPackChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

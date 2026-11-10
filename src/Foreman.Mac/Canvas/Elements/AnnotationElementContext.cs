@@ -9,6 +9,7 @@ namespace Foreman.Mac.Canvas.Elements {
     //BaseNodeElement's constructor instead.
     public sealed class AnnotationElementContext {
         public required Func<float> ViewScale { get; init; }
+        public Func<bool>? IsExporting { get; init; }
         public required HashSet<AnnotationElement> SelectedAnnotations { get; init; }
         public required Func<int> SelectedNodeCount { get; init; }
         public Action<AnnotationElement>? ShowPropertiesDialog { get; init; }

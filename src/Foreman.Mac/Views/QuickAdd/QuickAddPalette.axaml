@@ -1,0 +1,7 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:composites="using:Foreman.Mac.Kit.Composites"
+             x:Class="Foreman.Mac.Views.QuickAdd.QuickAddPalette"
+             HorizontalAlignment="Left" VerticalAlignment="Top">
+  <composites:PalettePanel Name="Panel" Theme="{StaticResource Kit.PalettePanel}" />
+</UserControl>

@@ -1,0 +1,352 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Color x:Key="Foreman.Color.CanvasBackground">#1E1E20</Color>
+  <Color x:Key="Foreman.Color.NodeRecipe">#45C4B0</Color>
+  <Color x:Key="Foreman.Color.NodeSupplier">#CF7FD0</Color>
+  <Color x:Key="Foreman.Color.NodeConsumer">#E0B34D</Color>
+  <Color x:Key="Foreman.Color.NodePassthrough">#9A9A9E</Color>
+  <Color x:Key="Foreman.Color.NodeTabBorder">#80FFFFFF</Color>
+  <Color x:Key="Foreman.Color.NodeTabBorderContrast">#99FFFFFF</Color>
+  <Color x:Key="Foreman.Color.WindowBackground">#29292B</Color>
+  <Color x:Key="Foreman.Color.TitlebarBackground">#323234</Color>
+  <Color x:Key="Foreman.Color.SidebarBackground">#2C2C2E</Color>
+  <Color x:Key="Foreman.Color.InspectorBackground">#2C2C2E</Color>
+  <Color x:Key="Foreman.Color.ControlBackground">#3D3D40</Color>
+  <Color x:Key="Foreman.Color.ControlBackgroundHover">#48484C</Color>
+  <Color x:Key="Foreman.Color.WellBackground">#232325</Color>
+  <Color x:Key="Foreman.Color.Border">#17FFFFFF</Color>
+  <Color x:Key="Foreman.Color.BorderStrong">#29FFFFFF</Color>
+  <Color x:Key="Foreman.Color.Text">#EBFFFFFF</Color>
+  <Color x:Key="Foreman.Color.TextSecondary">#8CFFFFFF</Color>
+  <Color x:Key="Foreman.Color.TextSecondaryOnSoft">#A0FFFFFF</Color>
+  <Color x:Key="Foreman.Color.TextTertiary">#52FFFFFF</Color>
+  <Color x:Key="Foreman.Color.Accent">#0A84FF</Color>
+  <Color x:Key="Foreman.Color.AccentSoft">#290A84FF</Color>
+  <Color x:Key="Foreman.Color.AccentText">#6bb2ff</Color>
+  <Color x:Key="Foreman.Color.AccentHover">#0B8FFF</Color>
+  <Color x:Key="Foreman.Color.AccentPressed">#0974E0</Color>
+  <Color x:Key="Foreman.Color.NodeSelected">#FF9F0A</Color>
+  <Color x:Key="Foreman.Color.FindMatchRing">#FF0A84FF</Color>
+  <Color x:Key="Foreman.Color.Error">#FF453A</Color>
+  <Color x:Key="Foreman.Color.ErrorHover">#FF4B3F</Color>
+  <Color x:Key="Foreman.Color.ErrorPressed">#E03D33</Color>
+  <Color x:Key="Foreman.Color.Warning">#FF9F0A</Color>
+  <Color x:Key="Foreman.Color.Success">#30D158</Color>
+  <Color x:Key="Foreman.Color.ErrorSoft">#3DFF453A</Color>
+  <Color x:Key="Foreman.Color.WarningSoft">#38FF9F0A</Color>
+  <Color x:Key="Foreman.Color.SuccessSoft">#7330D158</Color>
+  <Color x:Key="Foreman.Color.FocusRing">#0A84FF</Color>
+  <x:Double x:Key="Foreman.FocusRing.Width">3</x:Double>
+  <x:Double x:Key="Foreman.FocusRing.Offset">2</x:Double>
+  <Color x:Key="Foreman.Color.SelectionInactive">#21FFFFFF</Color>
+  <Color x:Key="Foreman.Color.ControlBackgroundPressed">#3F3F43</Color>
+  <Color x:Key="Foreman.Color.TextOnAccent">#FFFFFF</Color>
+  <Color x:Key="Foreman.Color.TextOnWarning">#1A1A1A</Color>
+
+  <Color x:Key="Foreman.Color.PopoverMaterial">#3D3D40</Color>
+  <Color x:Key="Foreman.Color.TitlebarMaterialOpaque">#323234</Color>
+  <Color x:Key="Foreman.Color.PopoverMaterialOpaque">#3D3D40</Color>
+  <Color x:Key="Foreman.Color.PaletteMaterial">#3D3D40</Color>
+  <Color x:Key="Foreman.Color.PaletteMaterialOpaque">#3D3D40</Color>
+  <Color x:Key="Foreman.Color.TitlebarMaterial">#323234</Color>
+
+  <x:Double x:Key="Foreman.Opacity.Disabled">0.38</x:Double>
+  <x:Double x:Key="Foreman.Opacity.Unavailable">0.55</x:Double>
+  <x:Double x:Key="Foreman.Opacity.NodeUnavailable">0.62</x:Double>
+
+  <Color x:Key="Foreman.Color.PickCellSelected">#290A84FF</Color>
+  <Color x:Key="Foreman.Color.PickCellBorder">#29FFFFFF</Color>
+  <Color x:Key="Foreman.Color.SwatchCheckerA">#FFFFFF</Color>
+  <Color x:Key="Foreman.Color.SwatchCheckerB">#D1D1D6</Color>
+  <Color x:Key="Foreman.Color.SwatchStroke">#24000000</Color>
+
+  <x:Double x:Key="Foreman.Space.Space05">2</x:Double>
+  <x:Double x:Key="Foreman.Space.Space1">4</x:Double>
+  <x:Double x:Key="Foreman.Space.Space2">8</x:Double>
+  <x:Double x:Key="Foreman.Space.Space15">6</x:Double>
+  <x:Double x:Key="Foreman.Space.Space3">12</x:Double>
+  <x:Double x:Key="Foreman.Space.Space4">16</x:Double>
+  <x:Double x:Key="Foreman.Space.Space5">24</x:Double>
+  <x:Double x:Key="Foreman.Space.CapsuleLeading">8</x:Double>
+  <x:Double x:Key="Foreman.Space.CapsuleTrailing">10</x:Double>
+
+  <!-- Thickness twins of Space.Space05,3: CornerRadius and Thickness (Margin/Padding) reject a boxed x:Double resource at style-application time. -->
+  <Thickness x:Key="Foreman.Thickness.Space05">2</Thickness>
+  <CornerRadius x:Key="Foreman.Radius.Control">6</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.Card">9</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.InspectorGroupHeader">4</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.InspectorGroupHeaderPadding">4,0,0,0</Thickness>
+
+  <CornerRadius x:Key="Foreman.Radius.PickCell">5</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.Swatch">3</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.PickCellGap">2.5</Thickness>
+  <CornerRadius x:Key="Foreman.Radius.ChooserCell">8</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.Popover">10</CornerRadius>
+  <x:Double x:Key="Foreman.Size.PopoverTail">12</x:Double>
+  <x:Double x:Key="Foreman.Size.PopoverWidth">272</x:Double>
+  <x:Double x:Key="Foreman.Size.RadialOuter">100</x:Double>
+  <x:Double x:Key="Foreman.Size.RadialHub">38</x:Double>
+  <x:Double x:Key="Foreman.Size.RadialDiameter">220</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.PaletteRowIcon">5</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.RecentRowIcon">7</CornerRadius>
+  <x:Double x:Key="Foreman.Size.AlertIcon">32</x:Double>
+
+  <x:Double x:Key="Foreman.Type.LargeTitle.FontSize">20</x:Double>
+  <FontWeight x:Key="Foreman.Type.LargeTitle.FontWeight">700</FontWeight>
+  <x:Double x:Key="Foreman.Type.SectionHeader.FontSize">11</x:Double>
+  <FontWeight x:Key="Foreman.Type.SectionHeader.FontWeight">600</FontWeight>
+  <x:Double x:Key="Foreman.Type.SectionHeader.LetterSpacing">0.33</x:Double>
+  <x:Double x:Key="Foreman.Type.Body.FontSize">13</x:Double>
+  <FontWeight x:Key="Foreman.Type.Body.FontWeight">400</FontWeight>
+  <x:Double x:Key="Foreman.Type.EmphasizedBody.FontSize">13</x:Double>
+  <FontWeight x:Key="Foreman.Type.EmphasizedBody.FontWeight">600</FontWeight>
+  <x:Double x:Key="Foreman.Type.Callout.FontSize">12</x:Double>
+  <FontWeight x:Key="Foreman.Type.Callout.FontWeight">400</FontWeight>
+  <FontWeight x:Key="Foreman.Type.Callout.Emphasized.FontWeight">500</FontWeight>
+  <x:Double x:Key="Foreman.Type.Callout.LineHeight">16.8</x:Double>
+  <x:Double x:Key="Foreman.Type.Caption.FontSize">11</x:Double>
+  <FontWeight x:Key="Foreman.Type.Caption.FontWeight">400</FontWeight>
+  <FontWeight x:Key="Foreman.Type.Caption.Emphasized.FontWeight">600</FontWeight>
+  <x:Double x:Key="Foreman.Type.Caption.LineHeight">13.2</x:Double>
+  <x:Double x:Key="Foreman.Type.RadialLabel.FontSize">11</x:Double>
+  <FontWeight x:Key="Foreman.Type.RadialLabel.FontWeight">600</FontWeight>
+
+  <x:Double x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontSize">9.5</x:Double>
+  <FontWeight x:Key="Foreman.Type.Legacy.ToolbarItem.Label.FontWeight">500</FontWeight>
+
+  <x:Double x:Key="Foreman.Size.InspectorWidth">300</x:Double>
+  <x:Double x:Key="Foreman.Size.InspectorWidthMin">260</x:Double>
+  <x:Double x:Key="Foreman.Size.InspectorWidthMax">380</x:Double>
+  <x:Double x:Key="Foreman.Size.SplitDividerHit">5</x:Double>
+  <x:Double x:Key="Foreman.Opacity.SplitGripIdle">0</x:Double>
+  <x:Double x:Key="Foreman.Size.ControlHeightRegular">22</x:Double>
+  <x:Double x:Key="Foreman.Size.ControlHeightLarge">24</x:Double>
+  <x:Double x:Key="Foreman.Size.PickCell">26</x:Double>
+  <x:Double x:Key="Foreman.Size.PickCellIcon">18</x:Double>
+  <x:Double x:Key="Foreman.Size.ColorWellWidth">44</x:Double>
+  <x:Double x:Key="Foreman.Size.ColorWellChevronColumn">14</x:Double>
+  <x:Double x:Key="Foreman.Size.ColorWellSwatchInset">2</x:Double>
+  <x:Double x:Key="Foreman.Size.SwatchChecker">4</x:Double>
+  <x:Double x:Key="Foreman.Size.FormLabelColumn">132</x:Double>
+  <x:Double x:Key="Foreman.Size.FormLabelColumnInspector">108</x:Double>
+  <x:Double x:Key="Foreman.Size.FormLabelColumnPopover">86</x:Double>
+  <x:Double x:Key="Foreman.Size.ToolbarItemWidth">44</x:Double>
+  <x:Double x:Key="Foreman.Size.ToolbarItemHeight">40</x:Double>
+  <x:Double x:Key="Foreman.Size.ToolbarItemIconOnlyWidth">28</x:Double>
+  <x:Double x:Key="Foreman.Size.ToolbarRowHeight">52</x:Double>
+  <x:Double x:Key="Foreman.Size.ZoomReadoutWidth">42</x:Double>
+  <x:Double x:Key="Foreman.Size.ZoomReadoutHeight">16</x:Double>
+  <x:Double x:Key="Foreman.Size.ZoomStepperMicroButtonWidth">20</x:Double>
+  <x:Double x:Key="Foreman.Size.ZoomStepperMicroButtonHeight">16</x:Double>
+  <Thickness x:Key="Foreman.Thickness.ButtonPadding">13,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.ToolbarItemPadding">8,3</Thickness>
+
+  <x:Double x:Key="Foreman.Size.CheckBox">15</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.CheckBox">4</CornerRadius>
+  <x:Double x:Key="Foreman.Size.RadioDot">7</x:Double>
+  <x:Double x:Key="Foreman.Size.CheckGlyph">10</x:Double>
+  <x:Double x:Key="Foreman.Size.CheckDashWidth">8</x:Double>
+  <x:Double x:Key="Foreman.Size.CheckDashHeight">1.5</x:Double>
+  <x:Double x:Key="Foreman.Size.SelectionLabelGap">7</x:Double>
+  <x:Double x:Key="Foreman.Size.RadioGroupRowGap">6</x:Double>
+  <x:Double x:Key="Foreman.Size.SwitchWidth">30</x:Double>
+  <x:Double x:Key="Foreman.Size.SwitchHeight">18</x:Double>
+  <x:Double x:Key="Foreman.Size.SwitchKnob">14</x:Double>
+  <x:Double x:Key="Foreman.Size.SwitchKnobInset">2</x:Double>
+
+  <CornerRadius x:Key="Foreman.Radius.SegmentItem">4</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.SegmentTrackPadding">2</Thickness>
+  <Thickness x:Key="Foreman.Thickness.SegmentItemPadding">10,3</Thickness>
+  <x:Double x:Key="Foreman.Type.SegmentMini.FontSize">11.5</x:Double>
+  <FontWeight x:Key="Foreman.Type.SegmentMini.FontWeight">500</FontWeight>
+
+  <x:Double x:Key="Foreman.Size.ControlGlyphGap">6</x:Double>
+  <x:Double x:Key="Foreman.Size.PopUpIndicator">16</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.PopUpIndicator">3</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.PopUpPadding">10,0,3,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.PopUpPulldownPadding">10,0,8,0</Thickness>
+  <x:Double x:Key="Foreman.Size.PopUpLeadingIcon">16</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.PopUpLeadingIcon">3</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.PopUpIconPadding">6,0,3,0</Thickness>
+
+  <x:Double x:Key="Foreman.Metrics.PickChoiceMax">9</x:Double>
+
+  <x:Double x:Key="Foreman.Size.GlyphMicro">12</x:Double>
+  <x:Double x:Key="Foreman.Size.GlyphSmall">14</x:Double>
+  <x:Double x:Key="Foreman.Size.MenuItemHeight">22</x:Double>
+  <x:Double x:Key="Foreman.Size.MenuPanelMinWidth">208</x:Double>
+  <x:Double x:Key="Foreman.Size.MenuCheckColumn">16</x:Double>
+  <Thickness x:Key="Foreman.Thickness.MenuPanelPadding">0,4</Thickness>
+  <Thickness x:Key="Foreman.Thickness.MenuItemMargin">4,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.MenuItemPadding">6,0,12,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.MenuSeparatorMargin">8,5</Thickness>
+  <Thickness x:Key="Foreman.Thickness.MenuButtonPadding">8,0</Thickness>
+
+  <x:Double x:Key="Foreman.Size.Glyph10">10</x:Double>
+
+  <x:Double x:Key="Foreman.Size.Glyph16">16</x:Double>
+  <x:Double x:Key="Foreman.Size.Glyph17">17</x:Double>
+  <x:Double x:Key="Foreman.Size.Glyph18">18</x:Double>
+  <x:Double x:Key="Foreman.Size.Glyph20">20</x:Double>
+
+  <x:Double x:Key="Foreman.Size.GlyphState">32</x:Double>
+
+  <x:Double x:Key="Foreman.Metrics.StatePanelMaxWidth">320</x:Double>
+  <x:Double x:Key="Foreman.Metrics.StatePanelSentenceMaxWidth">280</x:Double>
+  <Thickness x:Key="Foreman.Thickness.StatePanelCompactSentenceMargin">8,0,0,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.StatePanelCompactButtonsMargin">6,0,0,0</Thickness>
+
+  <x:Double x:Key="Foreman.Type.Canvas.FontSize">10</x:Double>
+  <FontWeight x:Key="Foreman.Type.Canvas.Emphasized.FontWeight">600</FontWeight>
+  <x:Double x:Key="Foreman.Size.NodeIcon">26</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeBuildingIcon">20</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeTabIcon">16</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeInsetTop">18</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeInsetSide">12</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeInsetBottom">22</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeTypeStrip">3</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeTypeStripInset">12</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeTabHeight">22</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeTabMinWidth">44</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeTabOverhang">13</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeBadgeHeight">16</x:Double>
+  <x:Double x:Key="Foreman.Size.NodePip">6</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeGapTight">3</x:Double>
+  <x:Double x:Key="Foreman.Size.NodeBadgeStroke">1.4</x:Double>
+  <x:Double x:Key="Foreman.Size.LinkWidth">3</x:Double>
+  <x:Double x:Key="Foreman.Size.LinkWidthMax">35</x:Double>
+  <x:Double x:Key="Foreman.Size.LinkHitWidth">12</x:Double>
+  <x:Double x:Key="Foreman.Size.LinkStub">12</x:Double>
+  <x:Double x:Key="Foreman.Size.WaypointDiameter">10</x:Double>
+  <x:Double x:Key="Foreman.Size.WaypointHitTarget">20</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.NodeTab">6</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.LinkCorner">4</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.NodeTypeStrip">3</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.NodeBeaconBadge">4</CornerRadius>
+  <x:Double x:Key="Foreman.Metrics.CanvasMinTextSize">7</x:Double>
+  <x:Double x:Key="Foreman.Metrics.GridMinScreenSpacing">8</x:Double>
+  <x:String x:Key="Foreman.Metrics.FindRingDash">5,3</x:String>
+  <x:Double x:Key="Foreman.Metrics.FindPanMargin">80</x:Double>
+
+  <BoxShadows x:Key="Foreman.Shadow.Sidebar">-2 0 10 0 #40000000</BoxShadows>
+
+  <x:Double x:Key="Foreman.Size.PaletteWidth">272</x:Double>
+  <x:Double x:Key="Foreman.Size.PaletteRowIcon">22</x:Double>
+  <BoxShadows x:Key="Foreman.Shadow.Popover">0 26 50 -14 #99000000</BoxShadows>
+
+  <x:Double x:Key="Foreman.Size.BrowserSidebar">168</x:Double>
+  <x:Double x:Key="Foreman.Size.BrowserSidebarMax">320</x:Double>
+  <x:Double x:Key="Foreman.Size.WelcomeSidebar">244</x:Double>
+  <x:Double x:Key="Foreman.Size.WelcomePresetRow">24</x:Double>
+  <x:Double x:Key="Foreman.Size.BrowserCell">40</x:Double>
+  <x:Double x:Key="Foreman.Size.ChooserCell">88</x:Double>
+  <x:Double x:Key="Foreman.Size.BrowserCellLabelHeight">24</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.Pill">100</CornerRadius>
+
+  <Color x:Key="Foreman.Color.SheetScrim">#80000000</Color>
+  <BoxShadows x:Key="Foreman.Shadow.Sheet">0 34 60 -12 #A6000000</BoxShadows>
+  <CornerRadius x:Key="Foreman.Radius.SheetBottom">0,0,10,10</CornerRadius>
+  <CornerRadius x:Key="Foreman.Radius.Node">10</CornerRadius>
+
+  <BoxShadows x:Key="Foreman.Shadow.Card">0 2 8 0 #00000000</BoxShadows>
+
+  <Color x:Key="Foreman.Color.GalleryChrome">#000000</Color>
+
+  <x:Double x:Key="Foreman.Metrics.SheetWidthAlert">300</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SheetWidthStandard">360</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SheetWidthWide">460</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SheetSlide">12</x:Double>
+
+  <x:Double x:Key="Foreman.Metrics.ButtonMinWidth">64</x:Double>
+
+  <x:Double x:Key="Foreman.Metrics.TextFieldMinWidth">84</x:Double>
+  <Thickness x:Key="Foreman.Thickness.TextFieldPadding">8,0</Thickness>
+
+  <x:Double x:Key="Foreman.Metrics.SearchFieldMinWidth">120</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SearchFieldNaturalWidth">220</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SearchFieldCountFloor">168</x:Double>
+  <x:Double x:Key="Foreman.Size.SearchFieldGlyph">13</x:Double>
+  <Thickness x:Key="Foreman.Thickness.SearchFieldGlyphMargin">8,0,6,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.SearchFieldClearMargin">0,0,4,0</Thickness>
+
+  <x:Double x:Key="Foreman.Size.StepperFieldWidth">40</x:Double>
+  <x:Double x:Key="Foreman.Size.StepperArrowColumn">15</x:Double>
+
+  <x:Double x:Key="Foreman.Size.SliderTrack">3</x:Double>
+  <x:Double x:Key="Foreman.Size.SliderThumbNormal">14</x:Double>
+  <x:Double x:Key="Foreman.Size.SliderThumbHover">15</x:Double>
+  <x:Double x:Key="Foreman.Size.SliderThumbPressed">16</x:Double>
+  <x:Double x:Key="Foreman.Size.SliderTickHeight">4</x:Double>
+  <x:Double x:Key="Foreman.Size.SliderTickGap">5</x:Double>
+  <x:Double x:Key="Foreman.Size.SliderHeight">26</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SliderMinWidth">80</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SliderNaturalWidth">124</x:Double>
+  <x:Double x:Key="Foreman.Metrics.SliderValueLabelWidth">36</x:Double>
+  <Color x:Key="Foreman.Color.SliderThumb">#FFFFFF</Color>
+  <Color x:Key="Foreman.Color.SliderThumbBorder">#00FFFFFF</Color>
+  <BoxShadows x:Key="Foreman.Shadow.SliderThumb">0 1 3 0 #66000000</BoxShadows>
+
+  <x:Double x:Key="Foreman.Size.ListRowHeight">26</x:Double>
+  <x:Double x:Key="Foreman.Size.RecentRowHeight">46</x:Double>
+  <x:Double x:Key="Foreman.Size.RecentRowIcon">30</x:Double>
+  <x:Double x:Key="Foreman.Size.SidebarRowHeight">28</x:Double>
+  <x:Double x:Key="Foreman.Size.ListRowIconGap">9</x:Double>
+  <x:Double x:Key="Foreman.Size.SidebarRowIconGap">8</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.ListRowIcon">4</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.ListRowPadding">10,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.ListRowInset">6,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.SidebarRowPadding">8,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.SidebarRowInset">8,0</Thickness>
+  <Thickness x:Key="Foreman.Thickness.ListFramePadding">6</Thickness>
+  <x:Double x:Key="Foreman.Size.VersionKindColumn">90</x:Double>
+  <x:Double x:Key="Foreman.Size.VersionNodesColumn">70</x:Double>
+  <x:Double x:Key="Foreman.Size.VersionHeaderHeight">20</x:Double>
+
+  <x:Double x:Key="Foreman.Metrics.GroupBoxMaxWidth">420</x:Double>
+  <Thickness x:Key="Foreman.Thickness.GroupBoxPadding">12,14</Thickness>
+  <Thickness x:Key="Foreman.Thickness.GroupBoxTitleMargin">0,11,0,5</Thickness>
+
+  <x:Double x:Key="Foreman.Type.TabLabel.FontSize">10.5</x:Double>
+  <FontWeight x:Key="Foreman.Type.TabLabel.FontWeight">500</FontWeight>
+  <x:Double x:Key="Foreman.Metrics.TabItemMinWidth">64</x:Double>
+  <x:Double x:Key="Foreman.Size.TabItemHeight">46</x:Double>
+  <x:Double x:Key="Foreman.Size.TabItemGlyphGap">3</x:Double>
+  <x:Double x:Key="Foreman.Size.TabItemGap">2</x:Double>
+  <x:Double x:Key="Foreman.Size.UnderlineTabGap">18</x:Double>
+  <Thickness x:Key="Foreman.Thickness.TabItemPadding">12,6</Thickness>
+  <Thickness x:Key="Foreman.Thickness.TabStripPadding">6</Thickness>
+  <Thickness x:Key="Foreman.Thickness.UnderlineTabPadding">2,0,2,8</Thickness>
+  <CornerRadius x:Key="Foreman.Radius.UnderlineTabFocus">4</CornerRadius>
+
+  <Color x:Key="Foreman.Color.TooltipMaterial">#4A4A4A</Color>
+  <Color x:Key="Foreman.Color.TooltipMaterialOpaque">#4A4A4A</Color>
+  <Color x:Key="Foreman.Color.TooltipText">#FFFFFFFF</Color>
+  <BoxShadows x:Key="Foreman.Shadow.Tooltip">0 4 12 -2 #4D000000</BoxShadows>
+  <Thickness x:Key="Foreman.Thickness.TooltipPadding">8,4</Thickness>
+  <x:Double x:Key="Foreman.Metrics.TooltipMaxWidth">260</x:Double>
+
+  <x:Double x:Key="Foreman.Size.Spinner">18</x:Double>
+  <x:Double x:Key="Foreman.Size.SpinnerLarge">24</x:Double>
+  <x:Double x:Key="Foreman.Size.SpinnerStroke">2</x:Double>
+  <x:Double x:Key="Foreman.Size.SpinnerStrokeLarge">2.5</x:Double>
+  <x:Double x:Key="Foreman.Size.SpinnerSmall">14</x:Double>
+  <x:Double x:Key="Foreman.Size.SpinnerStrokeSmall">1.5</x:Double>
+
+  <x:Double x:Key="Foreman.Size.ProgressBarWidth">140</x:Double>
+  <x:Double x:Key="Foreman.Size.ProgressBarHeight">6</x:Double>
+  <x:Double x:Key="Foreman.Size.ProgressBarSegment">40</x:Double>
+
+  <x:Double x:Key="Foreman.Size.ChipHeight">20</x:Double>
+  <x:Double x:Key="Foreman.Size.ChipCloseBox">16</x:Double>
+  <x:Double x:Key="Foreman.Size.ChipGap">4</x:Double>
+  <Thickness x:Key="Foreman.Thickness.ChipPadding">10,0,4,0</Thickness>
+  <Color x:Key="Foreman.Color.ChipCloseHover">#387F7F7F</Color>
+  <x:Double x:Key="Foreman.Opacity.ChipCloseIdle">0.75</x:Double>
+
+  <x:Double x:Key="Foreman.Size.KeyCapMinSquare">18</x:Double>
+  <CornerRadius x:Key="Foreman.Radius.KeyCap">4</CornerRadius>
+  <Thickness x:Key="Foreman.Thickness.KeyCapPadding">5,0</Thickness>
+  <BoxShadows x:Key="Foreman.Shadow.KeyCapEdge">0 1 0 0 #29FFFFFF</BoxShadows>
+
+</ResourceDictionary>

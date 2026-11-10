@@ -33,6 +33,7 @@ namespace Foreman.Graph {
         public string KeyNodeTitle => Node.KeyNodeTitle;
         public RateType RateType => Node.RateType;
         public NodeState State => Node.State;
+        public NodeSolveState SolveState => Node.SolveState;
         public IEnumerable<ItemQualityPair> Inputs => Node.Inputs;
         public IEnumerable<ItemQualityPair> Outputs => Node.Outputs;
         public IReadOnlyList<INodeLinkViewModel> InputLinks => _inputLinks;
@@ -71,6 +72,7 @@ namespace Foreman.Graph {
             RaisePropertyChanged(nameof(ActualSetValue));
             RaisePropertyChanged(nameof(DesiredSetValue));
             RaisePropertyChanged(nameof(State));
+            RaisePropertyChanged(nameof(SolveState));
             NodeValuesChanged?.Invoke(this, EventArgs.Empty);
         }
 

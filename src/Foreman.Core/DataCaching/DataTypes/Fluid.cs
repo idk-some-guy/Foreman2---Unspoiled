@@ -26,13 +26,13 @@
             bool includeMax = tempRange.Max <= double.MaxValue;
 
             if (tempRange.Min == tempRange.Max)
-                name += string.Format(DisplayCulture.Format, " ({0}°c)", tempRange.Min.ToString("0", DisplayCulture.Format));
+                name += string.Create(DisplayCulture.Format, $" ({tempRange.Min.ToString("0", DisplayCulture.Format)}°c)");
             else if (includeMin && includeMax)
-                name += string.Format(DisplayCulture.Format, " ({0}-{1}°c)", tempRange.Min.ToString("0", DisplayCulture.Format), tempRange.Max.ToString("0", DisplayCulture.Format));
+                name += string.Create(DisplayCulture.Format, $" ({tempRange.Min.ToString("0", DisplayCulture.Format)}-{tempRange.Max.ToString("0", DisplayCulture.Format)}°c)");
             else if (includeMin)
-                name += string.Format(DisplayCulture.Format, " (min {0}°c)", tempRange.Min.ToString("0", DisplayCulture.Format));
+                name += string.Create(DisplayCulture.Format, $" (min {tempRange.Min.ToString("0", DisplayCulture.Format)}°c)");
             else if (includeMax)
-                name += string.Format(DisplayCulture.Format, " (max {0}°c)", tempRange.Max.ToString("0", DisplayCulture.Format));
+                name += string.Create(DisplayCulture.Format, $" (max {tempRange.Max.ToString("0", DisplayCulture.Format)}°c)");
             else
                 name += "(any°)";
 
@@ -40,7 +40,7 @@
         }
 
         public string GetTemperatureFriendlyName(double temperature) {
-            return string.Format(DisplayCulture.Format, "{0} ({1}°c)", FriendlyName, temperature.ToString("0", DisplayCulture.Format));
+            return string.Create(DisplayCulture.Format, $"{FriendlyName} ({temperature.ToString("0", DisplayCulture.Format)}°c)");
         }
 
 

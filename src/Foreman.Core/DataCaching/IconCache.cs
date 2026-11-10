@@ -7,28 +7,83 @@ using System.Threading;
 using System.Threading.Tasks;
 
 namespace Foreman.DataCaching {
-    public record struct IconColorPair(SKBitmap? Icon, Color Color);
+    public readonly struct IconColorPair {
+        private readonly SKBitmap? eagerIcon;
+        private readonly Lazy<SKBitmap?>? lazyIcon;
+
+        public IconColorPair(SKBitmap? icon, Color color) {
+            eagerIcon = icon;
+            lazyIcon = null;
+            Color = color;
+        }
+
+        internal IconColorPair(byte[] pngBytes, Color color, string name) {
+            eagerIcon = null;
+            lazyIcon = pngBytes.Length == 0
+                ? null
+                : new Lazy<SKBitmap?>(() => IconCache.DecodeLazyIcon(pngBytes, name), LazyThreadSafetyMode.ExecutionAndPublication);
+            Color = color;
+        }
+
+        public SKBitmap? Icon => lazyIcon is not null ? lazyIcon.Value : eagerIcon;
+        public Color Color { get; }
+
+        internal void DisposeIfDecoded() {
+            if (lazyIcon is not null) {
+                if (lazyIcon.IsValueCreated)
+                    lazyIcon.Value?.Dispose();
+            } else {
+                eagerIcon?.Dispose();
+            }
+        }
+    }
 
     public static class IconCache {
+        internal static int LazyDecodeCount => Volatile.Read(ref lazyDecodeCount);
+        private static int lazyDecodeCount;
+        internal static void ResetLazyDecodeCount() => Volatile.Write(ref lazyDecodeCount, 0);
+
+        internal static SKBitmap? DecodeLazyIcon(byte[] pngBytes, string name) {
+            Interlocked.Increment(ref lazyDecodeCount);
+            try {
+                using var pngStream = new MemoryStream(pngBytes, writable: false);
+                return SKBitmap.Decode(pngStream) ?? throw new InvalidDataException($"Icon \"{name}\" contains an undecodable PNG.");
+            } catch (Exception ex) {
+                ErrorLogging.LogException(ex, string.Format(CultureInfo.InvariantCulture, "IconCache.DecodeLazyIcon failed for \"{0}\"", name));
+                return null;
+            }
+        }
+
         private static readonly SKSamplingOptions BilinearSampling = new(SKFilterMode.Linear, SKMipmapMode.None);
 
-        public static SKBitmap UnknownIcon {
-            get {
-                field ??= GetIcon(Path.Combine("Graphics", "UnknownIcon.png"), 32);
-                return field;
-            }
+        internal static int CachedIconLoadCount => Volatile.Read(ref cachedIconLoadCount);
+        private static int cachedIconLoadCount;
+        internal static void ResetCachedIconsForTests() {
+            Volatile.Write(ref cachedIconLoadCount, 0);
+            unknownIcon = new Lazy<SKBitmap>(LoadUnknownIcon, LazyThreadSafetyMode.ExecutionAndPublication);
+            spoilageIcon = new Lazy<SKBitmap?>(LoadSpoilageIcon, LazyThreadSafetyMode.ExecutionAndPublication);
+            plantingIcon = new Lazy<SKBitmap?>(LoadPlantingIcon, LazyThreadSafetyMode.ExecutionAndPublication);
         }
-        public static SKBitmap? SpoilageIcon {
-            get {
-                field ??= GetIcon(Path.Combine("Graphics", "SpoilAssembler.png"), 96);
-                return field;
-            }
+
+        private static Lazy<SKBitmap> unknownIcon = new(LoadUnknownIcon, LazyThreadSafetyMode.ExecutionAndPublication);
+        private static Lazy<SKBitmap?> spoilageIcon = new(LoadSpoilageIcon, LazyThreadSafetyMode.ExecutionAndPublication);
+        private static Lazy<SKBitmap?> plantingIcon = new(LoadPlantingIcon, LazyThreadSafetyMode.ExecutionAndPublication);
+
+        public static SKBitmap UnknownIcon => unknownIcon.Value;
+        public static SKBitmap? SpoilageIcon => spoilageIcon.Value;
+        public static SKBitmap? PlantingIcon => plantingIcon.Value;
+
+        private static SKBitmap LoadUnknownIcon() {
+            Interlocked.Increment(ref cachedIconLoadCount);
+            return GetIcon(Path.Combine("Graphics", "UnknownIcon.png"), 32);
         }
-        public static SKBitmap? PlantingIcon {
-            get {
-                field ??= GetIcon(Path.Combine("Graphics", "PlantAssembler.png"), 96);
-                return field;
-            }
+        private static SKBitmap? LoadSpoilageIcon() {
+            Interlocked.Increment(ref cachedIconLoadCount);
+            return GetIcon(Path.Combine("Graphics", "SpoilAssembler.png"), 96);
+        }
+        private static SKBitmap? LoadPlantingIcon() {
+            Interlocked.Increment(ref cachedIconLoadCount);
+            return GetIcon(Path.Combine("Graphics", "PlantAssembler.png"), 96);
         }
 
         //A relative `path` (every Foreman-bundled Graphics/*.png caller in this file and DataCacheBootstrap.cs)
@@ -115,6 +170,23 @@ namespace Foreman.DataCaching {
                 ErrorLogging.LogException(ex, $"Failed to load icon cache from {path}");
                 ErrorLogging.LogLine($"Icon cache unreadable: the icon cache \"{Path.GetFileName(path)}\" could not be read. Re-import the preset to rebuild the cache.");
                 return [];
+            }
+        }
+
+        public static Task<Dictionary<string, IconColorPair>> LoadIconCacheFromStore(
+                IReadOnlyList<(string Name, int Tint, byte[] PngBytes)> presetIcons,
+                IProgress<KeyValuePair<int, string>> progress, int endingPercent) {
+            try {
+                var iconCache = new Dictionary<string, IconColorPair>(presetIcons.Count, StringComparer.Ordinal);
+                foreach (var (name, tint, pngBytes) in presetIcons)
+                    iconCache[name] = new IconColorPair(pngBytes, Color.FromArgb(tint), name);
+
+                progress.Report(new(endingPercent, "Loading Icons..."));
+                return Task.FromResult(iconCache);
+            } catch (Exception ex) {
+                ErrorLogging.LogException(ex, "Failed to decode preset icons from storage");
+                ErrorLogging.LogLine("Icon cache unreadable: the stored preset icons could not be decoded. Re-import the preset to rebuild the cache.");
+                return Task.FromResult(new Dictionary<string, IconColorPair>());
             }
         }
     }

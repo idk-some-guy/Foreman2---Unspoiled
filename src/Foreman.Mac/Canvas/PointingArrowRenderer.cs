@@ -1,4 +1,5 @@
 using Foreman;
+using Foreman.Mac.Canvas.KitSkia;
 using SkiaSharp;
 using System;
 using System.Drawing;
@@ -23,26 +24,22 @@ namespace Foreman.Mac.Canvas {
         private const float ArrowCapWidthMultiplier = 3f;
         private const float ArrowCapHeightMultiplier = 3f;
 
-        private static readonly SKColor ErrorColor = new(0x8B, 0x00, 0x00); //DarkRed
-        private static readonly SKColor WarningColor = new(0xFF, 0x8C, 0x00); //DarkOrange
-        private static readonly SKColor DisconnectedColor = new(0xDA, 0xA5, 0x20); //Goldenrod
-        private static readonly SKColor OUNodeColor = new(0xDA, 0xA5, 0x20); //Goldenrod
-
         private readonly Viewport viewport = viewport;
 
         public void Paint(SKCanvas canvas, ProductionGraph graph) {
+            CanvasTokens tokens = TokenBridge.Current;
             if (ShowErrorArrows)
                 foreach (BaseNode node in graph.Nodes.Where(n => n.State == NodeState.Error))
-                    DrawArrow(canvas, ToScreenPoint(node.Location), ErrorColor);
+                    DrawArrow(canvas, ToScreenPoint(node.Location), tokens.Error);
             if (ShowWarningArrows)
                 foreach (BaseNode node in graph.Nodes.Where(n => n.State == NodeState.Warning))
-                    DrawArrow(canvas, ToScreenPoint(node.Location), WarningColor);
+                    DrawArrow(canvas, ToScreenPoint(node.Location), tokens.Warning);
             if (ShowDisconnectedArrows)
                 foreach (BaseNode node in graph.Nodes.Where(n => n.State == NodeState.MissingLink))
-                    DrawArrow(canvas, ToScreenPoint(node.Location), DisconnectedColor);
+                    DrawArrow(canvas, ToScreenPoint(node.Location), tokens.Warning);
             if (ShowOUNodeArrows)
                 foreach (BaseNode node in graph.Nodes.Where(n => n.IsOverproducing() || n.ManualRateNotMet()))
-                    DrawArrow(canvas, ToScreenPoint(node.Location), OUNodeColor);
+                    DrawArrow(canvas, ToScreenPoint(node.Location), tokens.Warning);
         }
 
         private Point ToScreenPoint(Point graphPoint) {

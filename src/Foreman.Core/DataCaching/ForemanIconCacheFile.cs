@@ -107,18 +107,34 @@ namespace Foreman.DataCaching {
             }
         }
 
-        private static async Task<Dictionary<string, IconColorPair>> ParsePayloadAsync(
+        internal readonly record struct FoicEntry(string Name, int ColorArgb, byte[] PngBytes);
+
+        internal static Task<List<FoicEntry>> ReadEntriesAsync(string path, CancellationToken cancellationToken = default) =>
+            Task.Run(async () => {
+                using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 64 * 1024, useAsync: true);
+                ReadHeader(input, out uint entryCount, out uint uncompressedSize, out uint compressedSize);
+
+                long expectedEndPosition = HeaderSize + compressedSize;
+                if (input.Length != expectedEndPosition)
+                    throw new InvalidDataException("FOIC file length does not match header.");
+
+                using var decompressionStream = new DecompressionStream(input);
+                List<FoicEntry> entries = await ParseEntriesAsync(decompressionStream, entryCount, uncompressedSize, cancellationToken).ConfigureAwait(false);
+
+                return input.Position != expectedEndPosition ? throw new InvalidDataException("FOIC compressed payload size mismatch.") : entries;
+            }, cancellationToken);
+
+        private static async Task<List<FoicEntry>> ParseEntriesAsync(
             Stream payload,
             uint expectedEntryCount,
             uint expectedUncompressedSize,
-            IProgress<(int Decoded, int Total)>? progress,
             CancellationToken cancellationToken) {
             long payloadBytesRead = sizeof(int);
             int payloadEntryCount = await ReadInt32Async(payload, cancellationToken).ConfigureAwait(false);
             if (payloadEntryCount < 0 || (uint)payloadEntryCount != expectedEntryCount)
                 throw new InvalidDataException("FOIC entry count mismatch.");
 
-            var iconCache = new Dictionary<string, IconColorPair>(payloadEntryCount, StringComparer.Ordinal);
+            var entries = new List<FoicEntry>(payloadEntryCount);
             for (int i = 0; i < payloadEntryCount; i++) {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -138,27 +154,56 @@ namespace Foreman.DataCaching {
                 if (pngByteLength < 0 || pngByteLength > MaxPngByteLength)
                     throw new InvalidDataException("FOIC PNG length out of range.");
 
-                SKBitmap? icon = null;
-                try {
-                    if (pngByteLength > 0) {
-                        byte[] pngBytes = await ReadBytesAsync(payload, pngByteLength, cancellationToken).ConfigureAwait(false);
-                        payloadBytesRead += pngByteLength;
-                        using var pngStream = new MemoryStream(pngBytes, writable: false);
-                        icon = SKBitmap.Decode(pngStream) ?? throw new InvalidDataException($"FOIC icon \"{name}\" contains an undecodable PNG.");
-                    }
-
-                    iconCache.Add(name, new IconColorPair(icon, Color.FromArgb(colorArgb)));
-                    icon = null;
-                } finally {
-                    icon?.Dispose();
+                byte[] pngBytes = [];
+                if (pngByteLength > 0) {
+                    pngBytes = await ReadBytesAsync(payload, pngByteLength, cancellationToken).ConfigureAwait(false);
+                    payloadBytesRead += pngByteLength;
                 }
-                progress?.Report((i + 1, payloadEntryCount));
-                await Task.Yield();
+
+                entries.Add(new FoicEntry(name, colorArgb, pngBytes));
             }
 
             return payloadBytesRead != expectedUncompressedSize
                 ? throw new InvalidDataException("FOIC uncompressed payload size mismatch.")
-                : iconCache;
+                : entries;
+        }
+
+        private static async Task<Dictionary<string, IconColorPair>> ParsePayloadAsync(
+            Stream payload,
+            uint expectedEntryCount,
+            uint expectedUncompressedSize,
+            IProgress<(int Decoded, int Total)>? progress,
+            CancellationToken cancellationToken) {
+            List<FoicEntry> entries = await ParseEntriesAsync(payload, expectedEntryCount, expectedUncompressedSize, cancellationToken).ConfigureAwait(false);
+            return await DecodeEntriesAsync(entries, progress, cancellationToken).ConfigureAwait(false);
+        }
+
+        internal static async Task<Dictionary<string, IconColorPair>> DecodeEntriesAsync(
+            IReadOnlyList<FoicEntry> entries,
+            IProgress<(int Decoded, int Total)>? progress,
+            CancellationToken cancellationToken) {
+            var iconCache = new Dictionary<string, IconColorPair>(entries.Count, StringComparer.Ordinal);
+            for (int i = 0; i < entries.Count; i++) {
+                cancellationToken.ThrowIfCancellationRequested();
+                FoicEntry entry = entries[i];
+
+                SKBitmap? icon = null;
+                try {
+                    if (entry.PngBytes.Length > 0) {
+                        using var pngStream = new MemoryStream(entry.PngBytes, writable: false);
+                        icon = SKBitmap.Decode(pngStream) ?? throw new InvalidDataException($"FOIC icon \"{entry.Name}\" contains an undecodable PNG.");
+                    }
+
+                    iconCache.Add(entry.Name, new IconColorPair(icon, Color.FromArgb(entry.ColorArgb)));
+                    icon = null;
+                } finally {
+                    icon?.Dispose();
+                }
+                progress?.Report((i + 1, entries.Count));
+                await Task.Yield();
+            }
+
+            return iconCache;
         }
 
         private static async Task WriteHeaderAsync(Stream output, uint entryCount, uint uncompressedSize, uint compressedSize, CancellationToken cancellationToken) {

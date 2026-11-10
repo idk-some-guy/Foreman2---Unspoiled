@@ -2,7 +2,6 @@ using Foreman.DataCaching;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -10,40 +9,52 @@ using System.Xml;
 using System.Xml.Linq;
 
 namespace Foreman {
+    public enum FactorioInstallProblem { None, ExecutableMissing, VersionUnreadable, TooOld, TooNew }
+
+    public sealed record FactorioInstallCheck(FactorioInstallProblem Problem, string VersionText);
+
     public static class FactorioInstallValidator {
-        public static bool TryValidateExecutable(string factorioExePath, [NotNullWhen(false)] out string? userMessage) {
-            userMessage = null;
-            if (!File.Exists(factorioExePath)) {
-                userMessage = "Could not find factorio.exe. Please select a valid Factorio install location.";
-                return false;
-            }
+        public static FactorioInstallCheck CheckExecutable(string factorioExePath) {
+            if (!File.Exists(factorioExePath))
+                return Rejected(new FactorioInstallCheck(FactorioInstallProblem.ExecutableMissing, ""));
 
             if (!TryGetVersion(factorioExePath, out int major, out int minor, out int build, out string versionText)) {
-                userMessage = "Could not determine the Factorio version. Please select a valid Factorio install location.";
                 ErrorLogging.LogLine("FactorioInstallValidator: could not determine version for " + factorioExePath);
-                return false;
+                return Rejected(new FactorioInstallCheck(FactorioInstallProblem.VersionUnreadable, ""));
             }
 
             if (major < 2) {
-                userMessage = "Factorio Version below 2.0 can not be used with this version of Foreman. Please use Factorio 2.0 or newer. Alternatively download dev.13 or under of foreman 2.0 for pre factorio 2.0.";
                 ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "Factorio version 0.x or 1.x instead of 2.x - use Foreman dev.13 or below for these factorio installs. ({0})", versionText));
-                return false;
+                return Rejected(new FactorioInstallCheck(FactorioInstallProblem.TooOld, versionText));
             }
 
             if (major > 2) {
-                userMessage = "Factorio Version 3.x+ can not be used with this version of Foreman. Sit tight and wait for update...\nYou can also try to msg me on discord (u\\DanielKotes) if for some reason I am not already aware of this.";
                 ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "Factorio version 3.x+ isnt supported. ({0})", versionText));
-                return false;
+                return Rejected(new FactorioInstallCheck(FactorioInstallProblem.TooNew, versionText));
             }
 
             if (minor < 0 || (minor == 0 && build < 7)) {
-                userMessage = "Factorio version (" + versionText + ") can not be used with Foreman. Please use Factorio 2.0.7 or newer.";
                 ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "Factorio version was too old. {0} instead of 2.0.7+", versionText));
-                return false;
+                return Rejected(new FactorioInstallCheck(FactorioInstallProblem.TooOld, versionText));
             }
 
-            return true;
+            return new FactorioInstallCheck(FactorioInstallProblem.None, versionText);
         }
+
+        private static FactorioInstallCheck Rejected(FactorioInstallCheck check) {
+            ErrorLogging.LogLine("FactorioInstallValidator: " + UserMessage(check));
+            return check;
+        }
+
+        internal static string? UserMessage(FactorioInstallCheck check) => check.Problem switch {
+            FactorioInstallProblem.None => null,
+            FactorioInstallProblem.ExecutableMissing => "Could not find factorio.exe. Please select a valid Factorio install location.",
+            FactorioInstallProblem.VersionUnreadable => "Could not determine the Factorio version. Please select a valid Factorio install location.",
+            FactorioInstallProblem.TooNew => "Factorio Version 3.x+ can not be used with this version of Foreman. Sit tight and wait for update...\nYou can also try to msg me on discord (u\\DanielKotes) if for some reason I am not already aware of this.",
+            _ when TryParseVersionParts(check.VersionText, out int major, out _, out _) && major < 2 =>
+                "Factorio Version below 2.0 can not be used with this version of Foreman. Please use Factorio 2.0 or newer. Alternatively download dev.13 or under of foreman 2.0 for pre factorio 2.0.",
+            _ => "Factorio version (" + check.VersionText + ") can not be used with Foreman. Please use Factorio 2.0.7 or newer.",
+        };
 
         private static bool TryGetVersion(string factorioExePath, out int major, out int minor, out int build, out string versionText) {
             if (TryReadStdoutVersion(factorioExePath, out versionText) && TryParseVersionParts(versionText, out major, out minor, out build))

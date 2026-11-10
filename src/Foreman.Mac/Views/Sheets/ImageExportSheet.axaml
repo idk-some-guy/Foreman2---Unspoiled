@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+             x:Class="Foreman.Mac.Views.Sheets.ImageExportSheet">
+  <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+    <kit:FormRow Name="SaveToRow" Theme="{StaticResource Kit.FormRow}" Label="Save to" LabelColumn="Window">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Foreman.Space.Space2}">
+        <ctrl:ValueText Name="SavePathLabel" Grid.Column="0" Theme="{StaticResource Kit.Text}" Classes="body"
+                   TextTrimming="LeadingCharacterEllipsis" TextWrapping="NoWrap" MinWidth="0"
+                   VerticalAlignment="Center" Focusable="False"
+                   AutomationProperties.Name="Save to" />
+        <Button Name="BrowseButton" Grid.Column="1" Theme="{StaticResource Kit.Button}" Content="Browse…"
+                AutomationProperties.HelpText="Choose where to save the image." />
+      </Grid>
+    </kit:FormRow>
+    <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Scale" LabelColumn="Window">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource Foreman.Space.Space2}">
+        <ctrl:PopUp Name="ScaleSelectionBox" Grid.Column="0" Theme="{StaticResource Kit.PopUp}" />
+        <ctrl:ValueText Name="ImageSizeLabel" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="callout secondary"
+                   TextTrimming="CharacterEllipsis" MinWidth="0" VerticalAlignment="Center"
+                   AutomationProperties.Name="Image size" />
+      </Grid>
+    </kit:FormRow>
+    <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Options" LabelColumn="Window">
+      <StackPanel Spacing="{DynamicResource Foreman.Space.Space05}">
+        <CheckBox Name="TransparencyCheckBox" Theme="{StaticResource Kit.CheckBox}" Content="Transparent background" />
+        <CheckBox Name="ViewLimitCheckBox" Theme="{StaticResource Kit.CheckBox}" Content="Limit to the visible area" />
+      </StackPanel>
+    </kit:FormRow>
+  </kit:FormGroup>
+</UserControl>

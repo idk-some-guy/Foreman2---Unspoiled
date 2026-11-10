@@ -1,6 +1,8 @@
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
@@ -9,6 +11,11 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.Kit.Controls;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.ViewModels;
+using Foreman.Mac.Views.Inspector;
+using Foreman.Mac.Views.QuickAdd;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using Foreman.Serialization;
@@ -23,7 +30,6 @@ using System.Threading.Tasks;
 using Xunit;
 using AvaloniaPoint = Avalonia.Point;
 using AvaloniaWindow = Avalonia.Controls.Window;
-using InputPointer = Avalonia.Input.Pointer;
 
 namespace Foreman.Mac.UiTests.Canvas {
     //Task 7's phase gate: builds a small factory purely through synthesized interactions - the chooser path,
@@ -62,33 +68,17 @@ namespace Foreman.Mac.UiTests.Canvas {
             return control;
         }
 
-        //Drives the real RecipeChooserPanel (task 3, docs/panels-reference.md §2/§8) rather than the deleted
-        //placeholder's stub: Add Recipe opens the panel directly with an empty KeyItem, so a plain click on
-        //the named recipe's icon is the whole flow (no footer buttons, no item-choosing stage first). Unlike
-        //the placeholder's flat list, the real panel only shows the currently selected group's recipes -
-        //switches to the target recipe's own group first when it isn't already showing.
         private static Task<RecipeNodeElement> AddRecipeViaChooser(GraphCanvasControl control, DataCache cache, string recipeName, Point location) {
             IRecipe recipe = cache.Recipes[recipeName];
             int before = control.NodeElements.Count;
             control.AddRecipeAsync(location);
-            var panel = Assert.IsType<RecipeChooserPanel>(control.FloatingPanelHost.Content);
-
-            IconButton? cell = panel.GetVisualDescendants().OfType<IconButton>().FirstOrDefault(b => Equals(b.DataObject, recipe));
-            if (cell is null && recipe.MySubgroup.MyGroup is IGroup targetGroup) {
-                IconButton groupButton = panel.GetVisualDescendants().OfType<IconButton>().First(b => Equals(b.DataObject, targetGroup));
-                Click(groupButton);
-                cell = panel.GetVisualDescendants().OfType<IconButton>().First(b => Equals(b.DataObject, recipe));
-            }
-            Click(cell!);
+            QuickAddPalette palette = Assert.IsType<QuickAddPalette>(control.OpenPalette);
+            ((QuickAddViewModel)palette.DataContext!).Query = recipe.FriendlyName;
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
+            control.ClosePanels();
             Assert.Equal(before + 1, control.NodeElements.Count);
             return Task.FromResult((RecipeNodeElement)control.NodeElements[^1]);
-        }
-
-        private static void Click(Avalonia.Controls.Control control) {
-            var pointer = new InputPointer(InputPointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
-            var properties = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased);
-            var args = new PointerReleasedEventArgs(control, pointer, control, default, 0, properties, KeyModifiers.None, MouseButton.Left);
-            control.RaiseEvent(args);
         }
 
         private static void DragLinkBetween(GraphCanvasControl control, RecipeNodeElement producer, RecipeNodeElement consumer, ItemQualityPair item) {
@@ -120,35 +110,54 @@ namespace Foreman.Mac.UiTests.Canvas {
             ClickCanvasPoint(control, new Point((int)screen.X, (int)screen.Y));
         }
 
-        //Task 6's phase gate: the real left-click-to-edit dispatch (docs/panels-reference.md §8), opening a
-        //real EditRecipePanel through the same click routing BuildSmallFactory's chooser-only flow above never
-        //exercises, then closing it via a plain canvas click elsewhere (Task 1's click-outside-closes,
-        //reference §7) before proving the edit itself survives a save/reload round-trip.
+        private static void ClickNodeBodyOnMainWindow(MainWindow window, BaseNodeElement node) {
+            AvaloniaPoint canvasPoint = window.GraphCanvas.Viewport.GraphToScreen(node.Location);
+            AvaloniaPoint screen = Avalonia.VisualExtensions.TranslatePoint(window.GraphCanvas, canvasPoint, window) ?? canvasPoint;
+            window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
+        }
+
+        private static void ClickThroughWindow(AvaloniaWindow window, Avalonia.Controls.Control control) {
+            var center = new AvaloniaPoint(control.Bounds.Width / 2, control.Bounds.Height / 2);
+            AvaloniaPoint screen = Avalonia.VisualExtensions.TranslatePoint(control, center, window) ?? center;
+            window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
+            window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
+            Dispatcher.UIThread.RunJobs();
+        }
+
         [AvaloniaFact]
         public async Task ClickToEdit_RecipeNode_ChangeAssembler_PersistsThroughSaveAndReload() {
             DataCache cache = await GetCacheAsync();
-            GraphCanvasControl control = NewControl(cache);
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.GraphCanvas.Viewport.SetSize(2 * Half, 2 * Half);
+            window.GraphCanvas.Viewer.Context.DCache = cache;
+            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
 
-            RecipeNodeElement smelter = await AddRecipeViaChooser(control, cache, "iron-plate", new Point(0, 0));
+            RecipeNodeElement smelter = await AddRecipeViaChooser(window.GraphCanvas, cache, "iron-plate", new Point(0, 0));
             var recipeViewModel = (IRecipeNodeViewModel)smelter.ViewModel;
             IAssembler originalAssembler = recipeViewModel.SelectedAssembler.Assembler;
+            Dispatcher.UIThread.RunJobs();
 
-            ClickNodeBody(control, smelter);
-            var panel = Assert.IsType<EditRecipePanel>(control.FloatingPanelHost.Content);
+            ClickNodeBodyOnMainWindow(window, smelter);
+            Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
+            Assert.Contains(smelter, window.GraphCanvas.Viewer.SelectedNodes);
 
-            IconButton alternateAssemblerButton = panel.AssemblerOptions.First(b => !Equals(b.DataObject, originalAssembler));
-            var alternateAssembler = (IAssembler)alternateAssemblerButton.DataObject!;
-            Click(alternateAssemblerButton);
+            var view = window.Inspector.FindControl<RecipeSegmentView>("RecipeSegment")!;
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            var assemblerGrid = view.FindControl<Foreman.Mac.Kit.Composites.PickGrid>("AssemblerChoiceGrid")!;
+            PickGridItem alternateOption = view.ViewModel!.AssemblerOptions.First(i => !Equals(i.Key, originalAssembler));
+            Foreman.Mac.Kit.Composites.PickCell alternateAssemblerCell = assemblerGrid.GetVisualDescendants()
+                .OfType<Foreman.Mac.Kit.Composites.PickCell>().Single(c => c.AccessibleName == alternateOption.Name);
+            var alternateAssembler = (IAssembler)alternateOption.Key!;
+            ClickThroughWindow(window, alternateAssemblerCell);
             Assert.Equal(alternateAssembler, recipeViewModel.SelectedAssembler.Assembler);
-
-            //Same click that closes the panel still lands on the canvas underneath it (Task 1 semantics) -
-            //here it's just empty space, so nothing else happens beyond the close itself.
-            ClickCanvasPoint(control, new Point(2 * Half - 20, 2 * Half - 20));
-            Assert.False(control.FloatingPanelHost.IsOpen);
 
             var document = new GraphViewerSaveDocument {
                 Version = GraphSaveFormat.SaveFormatVersion,
-                ProductionGraph = GraphSaveCodec.BuildProductionGraph(control.Viewer.Graph),
+                ProductionGraph = GraphSaveCodec.BuildProductionGraph(window.GraphCanvas.Viewer.Graph),
             };
             string json = GraphSaveCodec.WriteViewerDocumentToString(document);
 
@@ -160,35 +169,39 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(alternateAssembler, reloadedRecipe.SelectedAssembler.Assembler);
         }
 
-        //Same phase gate for the other dispatch branch (RecipeNodeElement -> EditRecipePanel above,
-        //everything else -> EditFlowPanel here) - a supplier node's fixed rate, set through the real click
-        //path rather than direct panel construction (EditFlowPanelTests' own job).
         [AvaloniaFact]
         public async Task ClickToEdit_SupplierNode_SetFixedRate_PersistsThroughSaveAndReload() {
             DataCache cache = await GetCacheAsync();
-            GraphCanvasControl control = NewControl(cache);
+            var window = new MainWindow();
+            window.Show();
+            window.DataCache = cache;
+            window.GraphCanvas.Viewport.SetSize(2 * Half, 2 * Half);
+            window.GraphCanvas.Viewer.Context.DCache = cache;
+            window.GraphCanvas.Viewer.Graph.DefaultAssemblerQuality = cache.DefaultQuality;
 
             IItem ironPlate = cache.Items["iron-plate"];
             IQuality quality = cache.DefaultQuality!;
-            NodeId supplierId = control.Viewer.Session.Editor.CreateSupplierNode(new ItemQualityPair(ironPlate, quality), new Point(0, 0));
-            BaseNodeElement supplier = control.NodeElements.Single(n => n.ViewModel.Id == supplierId);
+            NodeId supplierId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(new ItemQualityPair(ironPlate, quality), new Point(0, 0));
+            BaseNodeElement supplier = window.GraphCanvas.NodeElements.Single(n => n.ViewModel.Id == supplierId);
             supplier.RequestStateUpdate();
             supplier.PrePaint(); //stands in for the first real paint pass that would otherwise position its item tab (see ClickToEditTests)
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
-            ClickNodeBody(control, supplier);
-            var panel = Assert.IsType<EditFlowPanel>(control.FloatingPanelHost.Content);
+            ClickNodeBodyOnMainWindow(window, supplier);
+            Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
+            Assert.Contains(supplier, window.GraphCanvas.Viewer.SelectedNodes);
 
-            panel.FixedOption.IsChecked = true;
-            panel.FixedFlowInput.Value = 12.5m;
+            var view = window.Inspector.FindControl<FlowSegmentView>("FlowSegment")!;
+            view.FindControl<Segmented>("RateMode")!.SelectedIndex = 1;
+            view.FindControl<Stepper>("RateValue")!.Value = 12.5;
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
             Assert.Equal(RateType.Manual, supplier.ViewModel.RateType);
             Assert.Equal(12.5, supplier.ViewModel.DesiredSetValue, 3);
 
-            ClickCanvasPoint(control, new Point(2 * Half - 20, 2 * Half - 20));
-            Assert.False(control.FloatingPanelHost.IsOpen);
-
             var document = new GraphViewerSaveDocument {
                 Version = GraphSaveFormat.SaveFormatVersion,
-                ProductionGraph = GraphSaveCodec.BuildProductionGraph(control.Viewer.Graph),
+                ProductionGraph = GraphSaveCodec.BuildProductionGraph(window.GraphCanvas.Viewer.Graph),
             };
             string json = GraphSaveCodec.WriteViewerDocumentToString(document);
 
@@ -235,9 +248,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             BaseNodeElement toDelete = control.Viewer.SelectedNodes.First(); //one of the just-pasted pair
             control.Viewer.SetSelection([toDelete]);
             control.Focus();
-            AvaloniaWindow window = (AvaloniaWindow)Avalonia.Controls.TopLevel.GetTopLevel(control)!;
-            window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
-            window.KeyReleaseQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(control, Key.Delete);
             Assert.Equal(3, control.NodeElements.Count);
 
             //---- save to string, reload ----
@@ -291,46 +302,11 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             string workspaceDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".superpowers", "sdd", "2026-09-01-phase4-editing");
             Directory.CreateDirectory(workspaceDir);
-            File.WriteAllBytes(Path.Combine(workspaceDir, "task-7-overview.png"), data.ToArray());
-            File.WriteAllText(Path.Combine(workspaceDir, "task-7-render-metrics.txt"),
+            File.WriteAllBytes(Path.Combine(workspaceDir, "editing-overview.png"), data.ToArray());
+            File.WriteAllText(Path.Combine(workspaceDir, "editing-render-metrics.txt"),
                 $"Synthesized factory: {control.NodeElements.Count} nodes, {control.LinkElements.Count} links, {control.Viewer.Annotations.Count} annotations{Environment.NewLine}");
 
-            Assert.True(File.Exists(Path.Combine(workspaceDir, "task-7-overview.png")));
-        }
-
-        //---- Task 6 deliverable: a node with its edit panel open, opened through the real click dispatch
-        //rather than direct panel construction (EditRecipePanelTests' own render already covers the panel in
-        //isolation) ----
-
-        [AvaloniaFact]
-        public async Task VisualGate_ClickToEdit_RecipeNodeWithEditPanelOpen_RendersToSddWorkspace() {
-            DataCache cache = await GetCacheAsync();
-            GraphCanvasControl control = NewControl(cache);
-
-            RecipeNodeElement smelter = await AddRecipeViaChooser(control, cache, "iron-plate", new Point(0, 0));
-            control.Viewer.Graph.UpdateNodeValues();
-
-            ClickNodeBody(control, smelter);
-            var panel = Assert.IsType<EditRecipePanel>(control.FloatingPanelHost.Content);
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(2 * Half, 2 * Half));
-            control.Render(surface.Canvas);
-
-            Rectangle panelBounds = control.FloatingPanelHost.Bounds;
-            surface.Canvas.Save();
-            surface.Canvas.Translate(panelBounds.X, panelBounds.Y);
-            panel.RenderOffscreen(surface.Canvas, panelBounds.Width, panelBounds.Height);
-            surface.Canvas.Restore();
-
-            using SKImage image = surface.Snapshot();
-            using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
-
-            string workspaceDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".superpowers", "sdd", "2026-09-02-phase5a-floating-panels");
-            Directory.CreateDirectory(workspaceDir);
-            string outPath = Path.Combine(workspaceDir, "task-6-click-to-edit-render.png");
-            File.WriteAllBytes(outPath, data.ToArray());
-
-            Assert.True(new FileInfo(outPath).Length > 0);
+            Assert.True(File.Exists(Path.Combine(workspaceDir, "editing-overview.png")));
         }
     }
 }

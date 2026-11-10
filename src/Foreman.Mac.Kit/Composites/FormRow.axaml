@@ -1,0 +1,134 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites"
+                    xmlns:m="using:Foreman.Mac.Kit"
+                    xmlns:conv="using:Avalonia.Data.Converters">
+
+  <ControlTheme x:Key="Kit.FormRow" TargetType="kit:FormRow">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="ClipToBounds" Value="False" />
+    <Setter Property="Transitions" Value="{x:Static m:Motion.FormRowReflowTransitions}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid x:Name="PART_Grid" ColumnDefinitions="132,12,*" RowDefinitions="Auto,Auto">
+          <TextBlock x:Name="PART_Label"
+                     Grid.Row="0" Grid.Column="0"
+                     Theme="{StaticResource Kit.Text}"
+                     Classes="callout"
+                     Text="{TemplateBinding Label}"
+                     Background="Transparent"
+                     HorizontalAlignment="Right"
+                     TextAlignment="Right"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     VerticalAlignment="Top" />
+
+          <kit:FormRowControlPanel x:Name="PART_ControlColumn"
+                                   Grid.Row="0" Grid.Column="2"
+                                   VerticalAlignment="Top">
+            <Panel x:Name="PART_ControlHost"
+                   VerticalAlignment="Top">
+              <ContentPresenter x:Name="PART_ContentPresenter"
+                                 Content="{TemplateBinding Content}"
+                                 HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Top" />
+              <Border x:Name="PART_ControlBorder"
+                      Margin="-1"
+                      BorderThickness="1"
+                      BorderBrush="Transparent"
+                      CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                      IsHitTestVisible="False" />
+            </Panel>
+            <TextBlock x:Name="PART_Unit"
+                       Theme="{StaticResource Kit.Text}"
+                       Classes="callout"
+                       Text="{TemplateBinding Unit}"
+                       Foreground="{DynamicResource Foreman.Color.TextSecondary}"
+                       VerticalAlignment="Center"
+                       IsVisible="{TemplateBinding Unit, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+          </kit:FormRowControlPanel>
+
+          <WrapPanel x:Name="PART_NoteRow"
+                     Grid.Row="1" Grid.Column="2"
+                     Orientation="Horizontal"
+                     Margin="0,3,0,0"
+                      Transitions="{x:Static m:Motion.FormRowCrossFadeTransitions}"
+                      IsVisible="False">
+            <TextBlock x:Name="PART_Note"
+                       Theme="{StaticResource Kit.Text}"
+                       Classes="caption"
+                       Foreground="{DynamicResource Foreman.Color.TextTertiary}"
+                       Text="{TemplateBinding Note}"
+                       TextWrapping="Wrap" />
+            <TextBlock x:Name="PART_NoteSuffix"
+                       Theme="{StaticResource Kit.Text}"
+                       Classes="caption"
+                       Foreground="{DynamicResource Foreman.Color.TextTertiary}"
+                       TextWrapping="Wrap"
+                       IsVisible="False" />
+          </WrapPanel>
+
+          <Grid x:Name="PART_ErrorRow"
+                Grid.Row="1" Grid.Column="2"
+                ColumnDefinitions="Auto,*"
+                ColumnSpacing="4"
+                Margin="0,3,0,0"
+                Transitions="{x:Static m:Motion.FormRowCrossFadeTransitions}"
+                IsVisible="False">
+            <Viewbox Width="12" Height="12" Stretch="Uniform" StretchDirection="Both" VerticalAlignment="Center">
+              <Path x:Name="PART_ErrorGlyph"
+                    Theme="{StaticResource Kit.Glyph}"
+                    Data="{StaticResource Kit.Glyph.Alert.12}"
+                    Stroke="{DynamicResource Foreman.Color.Error}"
+                    Width="12" Height="12"
+                    Stretch="None" />
+            </Viewbox>
+            <TextBlock x:Name="PART_ErrorText"
+                       Grid.Column="1"
+                       Theme="{StaticResource Kit.Text}"
+                       Classes="caption"
+                       Foreground="{DynamicResource Foreman.Color.Error}"
+                       Text="{TemplateBinding Error}"
+                       TextWrapping="Wrap" />
+          </Grid>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:note /template/ WrapPanel#PART_NoteRow">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <Style Selector="^:error /template/ Grid#PART_ErrorRow">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <Style Selector="^:error /template/ Border#PART_ControlBorder">
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Error}" />
+    </Style>
+
+    <Style Selector="^:value /template/ TextBlock#PART_Note">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    </Style>
+
+    <Style Selector="^:note-warning /template/ TextBlock#PART_Note">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Warning}" />
+    </Style>
+
+    <Style Selector="^:error:warning /template/ Path#PART_ErrorGlyph">
+      <Setter Property="Stroke" Value="{DynamicResource Foreman.Color.Warning}" />
+    </Style>
+    <Style Selector="^:error:warning /template/ TextBlock#PART_ErrorText">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Warning}" />
+    </Style>
+    <Style Selector="^:error:warning /template/ Border#PART_ControlBorder">
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Warning}" />
+    </Style>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

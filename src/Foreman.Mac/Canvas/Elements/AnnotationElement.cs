@@ -1,4 +1,5 @@
 using Foreman.Mac.Canvas;
+using Foreman.Mac.Canvas.KitSkia;
 using Foreman.Serialization;
 using SkiaSharp;
 using System;
@@ -21,15 +22,12 @@ namespace Foreman.Mac.Canvas.Elements {
         private const float HandleHitScreenPx = 10f;
         private const int MinAnnotationSize = 30;
 
-        private static readonly SKColor SelectionHighlightColor = new(80, 160, 255, 220);
         private const float SelectionHighlightScreenPx = 2.5f;
 
-        //Fixed color, safe as a shared static across every viewer.
-        private static readonly SKPaint HandleFillPaint = new() { Color = SKColors.White, Style = SKPaintStyle.Fill, IsAntialias = true };
-
         //Per-instance mutate-reset paints: StrokeWidth tracks ViewScale per frame, so not shareable statics.
-        private readonly SKPaint _selectionHighlightPaint = new() { Color = SelectionHighlightColor, Style = SKPaintStyle.Stroke, IsAntialias = true };
-        private readonly SKPaint _handleBorderPaint = new() { Color = new SKColor(60, 100, 200, 255), Style = SKPaintStyle.Stroke, IsAntialias = true };
+        private readonly SKPaint _handleFillPaint = new() { Style = SKPaintStyle.Fill, IsAntialias = true };
+        private readonly SKPaint _selectionHighlightPaint = new() { Style = SKPaintStyle.Stroke, IsAntialias = true };
+        private readonly SKPaint _handleBorderPaint = new() { Style = SKPaintStyle.Stroke, IsAntialias = true };
 
         protected enum HandleType {
             None,
@@ -98,6 +96,7 @@ namespace Foreman.Mac.Canvas.Elements {
         public void ForceVisible() => Visible = true;
 
         public override void Dispose() {
+            _handleFillPaint.Dispose();
             _selectionHighlightPaint.Dispose();
             _handleBorderPaint.Dispose();
             base.Dispose();
@@ -258,10 +257,11 @@ namespace Foreman.Mac.Canvas.Elements {
         //Real now (was no-op'd for the P3 read-only path): a translucent blue rectangle around graphRect,
         //stroke width compensated for zoom so it stays a constant screen thickness.
         protected void DrawSelectionHighlight(SKCanvas canvas, Rectangle graphRect) {
-            if (!IsSelected)
+            if (!IsSelected || Context?.IsExporting?.Invoke() == true)
                 return;
 
             float pw = SelectionHighlightScreenPx / ViewScale;
+            _selectionHighlightPaint.Color = TokenBridge.Current.NodeSelected.WithAlpha(255);
             _selectionHighlightPaint.StrokeWidth = pw;
             canvas.DrawRect(SKRect.Create(graphRect.X - pw, graphRect.Y - pw, graphRect.Width + (pw * 2), graphRect.Height + (pw * 2)), _selectionHighlightPaint);
         }
@@ -269,19 +269,19 @@ namespace Foreman.Mac.Canvas.Elements {
         //Ports DrawResizeHandles (reference §6): 8 white squares with a blue border, call at the end of each
         //subclass Draw() so they sit on top of the shape/text.
         protected void DrawResizeHandles(SKCanvas canvas) {
-            if (!IsSelected)
+            if (!IsSelected || Context?.IsExporting?.Invoke() == true)
                 return;
 
-            //Ports Color.FromArgb(60,100,200) verbatim (reference §6's DrawResizeHandles) - that upstream call
-            //is the 3-arg RGB overload (R=60,G=100,B=200, blue), not alpha-first; _handleBorderPaint carries
-            //that fixed color already, only StrokeWidth needs refreshing here.
+            CanvasTokens tokens = TokenBridge.Current;
+            _handleFillPaint.Color = tokens.WindowBackground.WithAlpha(255);
+            _handleBorderPaint.Color = tokens.Accent.WithAlpha(255);
             _handleBorderPaint.StrokeWidth = Math.Max(0.5f, 1f / ViewScale);
 
             int drawHalf = GetHandleDrawHalfSize();
             foreach (HandleType handle in AllHandles) {
                 Rectangle r = GetHandleRect(handle, drawHalf);
                 var skRect = SKRect.Create(r.X, r.Y, r.Width, r.Height);
-                canvas.DrawRect(skRect, HandleFillPaint);
+                canvas.DrawRect(skRect, _handleFillPaint);
                 canvas.DrawRect(skRect, _handleBorderPaint);
             }
         }

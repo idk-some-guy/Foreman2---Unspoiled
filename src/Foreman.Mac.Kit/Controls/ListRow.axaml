@@ -1,0 +1,60 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.ListRow" TargetType="kit:ListRow">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ListRowHeight}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Frame"
+                Height="{DynamicResource Foreman.Size.ListRowHeight}"
+                Margin="{DynamicResource Foreman.Thickness.ListRowInset}"
+                CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                Background="Transparent"
+                kit:FocusRing.CornerRadius="{DynamicResource Foreman.Radius.Control}">
+          <Panel>
+            <Border x:Name="PART_Fill"
+                    CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                    Opacity="0"
+                    IsHitTestVisible="False"
+                    Transitions="{x:Static m:Motion.RowSelectionTransitions}" />
+            <Border x:Name="PART_SelectionFill"
+                    CornerRadius="{DynamicResource Foreman.Radius.Control}"
+                    Opacity="0"
+                    IsHitTestVisible="False"
+                    Transitions="{x:Static m:Motion.RowSelectionTransitions}" />
+            <Grid ColumnDefinitions="*,Auto" Margin="{DynamicResource Foreman.Thickness.ListRowPadding}">
+              <StackPanel x:Name="PART_IconRow"
+                          Grid.Column="0"
+                          Orientation="Horizontal"
+                          VerticalAlignment="Center">
+                <Border Width="{DynamicResource Foreman.Size.Glyph18}"
+                        Height="{DynamicResource Foreman.Size.Glyph18}"
+                        CornerRadius="{DynamicResource Foreman.Radius.ListRowIcon}"
+                        Background="{TemplateBinding Icon}"
+                        BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
+                        BorderThickness="1" />
+                <TextBlock x:Name="PART_Label"
+                           Text="{TemplateBinding Label}"
+                           FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
+                           VerticalAlignment="Center" />
+              </StackPanel>
+              <TextBlock x:Name="PART_Trailing"
+                         Grid.Column="1"
+                         Text="{TemplateBinding Trailing}"
+                         FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
+                         FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </Panel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

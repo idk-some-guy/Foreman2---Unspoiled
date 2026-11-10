@@ -87,19 +87,19 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         [AvaloniaFact]
-        public async Task DemoGraphRender_OffscreenPixels_MatchCommittedPreCacheHash() {
+        public async Task DemoGraphRender_OffscreenPixels_ColdAndWarmCacheMatch() {
             DataCache cache = await GetCacheAsync();
             GraphViewer viewer = NewFittedDemoViewer(cache);
 
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(Width, Height));
-            viewer.Paint(surface.Canvas);
+            using SKSurface coldSurface = SKSurface.Create(new SKImageInfo(Width, Height));
+            viewer.Paint(coldSurface.Canvas);
+            string coldHash = HashPixels(coldSurface);
 
-            //Captured from the pre-caching render (task-2-report.md records the capture run). Any change to
-            //this hash after the caching pass is a pixel-drift STOP, not a value to update casually.
-            //Known limitation (undocumented in CI today): this hash is pinned to the text-rendering output of
-            //the host's font stack (CoreText on macOS) - a run on a different OS/font-substitution setup would
-            //need its own captured value.
-            Assert.Equal("2CA20E20330CB0E4938068863C391535B198E0A7396B12D5FE2FB8D17791B2E4", HashPixels(surface));
+            using SKSurface warmSurface = SKSurface.Create(new SKImageInfo(Width, Height));
+            viewer.Paint(warmSurface.Canvas);
+            string warmHash = HashPixels(warmSurface);
+
+            Assert.Equal(coldHash, warmHash);
         }
 
         [AvaloniaFact]

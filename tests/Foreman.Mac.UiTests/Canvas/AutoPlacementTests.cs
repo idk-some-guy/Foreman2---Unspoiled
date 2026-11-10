@@ -10,7 +10,10 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
-using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.Kit;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.ViewModels;
+using Foreman.Mac.Views.QuickAdd;
 using Foreman.Models;
 using SkiaSharp;
 using System.Collections.Generic;
@@ -87,14 +90,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         private static DataCacheStore Store(DataCache cache) {
             FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
             return (DataCacheStore)field.GetValue(cache)!;
-        }
-
-        //IRChooserPanel.startingGroup is process-wide static (docs/panels-reference.md §2) - reset per test so
-        //the real ItemChooserPanel/RecipeChooserPanel this fixture now drives (task 3) doesn't inherit a
-        //leftover selection from another test class.
-        public AutoPlacementTests() {
-            FieldInfo field = typeof(IRChooserPanel).GetField("startingGroup", BindingFlags.Static | BindingFlags.NonPublic)!;
-            field.SetValue(null, null);
         }
 
         private static Fixture NewFixture() {
@@ -197,11 +192,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         //---- disconnected creation (background menu / toolbar, reference §4a/§10): no origin -> the node
         //creation default (Graph.DefaultNodeDirection) applies with no explicit direction call needed ----
 
-        //Ports the two-stage AddItem->node-type flow (docs/panels-reference.md §2/§8/§10, task 3): picking
-        //"iron-plate" from the real ItemChooserPanel opens a RecipeChooserPanel with that item as KeyItem;
-        //clicking its "Source" footer button (Task 3's real ItemChooserPanel/RecipeChooserPanel subclasses)
-        //is what actually creates the disconnected Supplier node - the direction/selection assertions this
-        //test cares about are unchanged by that swap.
         [AvaloniaFact]
         public void AddItemAsync_ChoosesItemThenSource_CreatesSupplierNodeSelectedAtGraphPoint() {
             Fixture fx = NewFixture();
@@ -211,26 +201,16 @@ namespace Foreman.Mac.UiTests.Canvas {
             var graphPoint = new Point(120, -40);
 
             fx.Control.AddItemAsync(graphPoint);
-            var itemPanel = Assert.IsType<ItemChooserPanel>(fx.Control.FloatingPanelHost.Content);
-            IconButton itemCell = itemPanel.GetVisualDescendants().OfType<IconButton>().First(b => Equals(b.DataObject, ironPlate.Item));
-            Click(itemCell);
-            var recipePanel = Assert.IsType<RecipeChooserPanel>(fx.Control.FloatingPanelHost.Content);
-            Button sourceButton = recipePanel.GetVisualDescendants().OfType<Button>().First(b => b.Content is string s && s == "Source");
-            Click(sourceButton);
+            QuickAddPalette palette = Assert.IsType<QuickAddPalette>(fx.Control.OpenPalette);
+            ((QuickAddViewModel)palette.DataContext!).Query = ironPlate.Item!.FriendlyName;
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
 
             BaseNodeElement created = Assert.Single(fx.Control.Viewer.NodeElements);
             Assert.IsType<SupplierNodeElement>(created);
             Assert.Equal(graphPoint, created.ViewModel.Location);
             Assert.Equal(NodeDirection.Down, created.ViewModel.NodeDirection);
             Assert.Same(created, Assert.Single(fx.Control.Viewer.SelectedNodes));
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
-        }
-
-        private static void Click(Control control) {
-            var pointer = new InputPointer(InputPointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
-            var properties = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased);
-            var args = new PointerReleasedEventArgs(control, pointer, control, default, 0, properties, KeyModifiers.None, MouseButton.Left);
-            control.RaiseEvent(args);
         }
 
         [AvaloniaFact]
@@ -241,7 +221,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.AddItemAsync(new Point(0, 0));
 
             Assert.Empty(fx.Control.Viewer.NodeElements);
-            Assert.False(fx.Control.FloatingPanelHost.IsOpen);
+            Assert.False(fx.Control.IsPanelOpen);
         }
 
         [AvaloniaFact]
@@ -250,8 +230,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Pair("iron-plate");
 
             fx.Control.AddItemAsync(new Point(0, 0));
-            Assert.True(fx.Control.FloatingPanelHost.IsOpen);
-            fx.Control.FloatingPanelHost.Close();
+            Assert.True(fx.Control.IsPanelOpen);
+            fx.Control.ClosePanels();
 
             Assert.Empty(fx.Control.Viewer.NodeElements);
         }
@@ -266,7 +246,12 @@ namespace Foreman.Mac.UiTests.Canvas {
             BaseNodeElement offGridUnselected = fx.AddConsumer("iron-ore", new Point(7, 9));
             fx.Control.Viewer.SetSelection([offGridSelected]);
 
-            fx.Control.Viewer.AlignSelected();
+            Motion.ReduceMotion = true;
+            try {
+                fx.Control.AlignSelection();
+            } finally {
+                Motion.ReduceMotion = false;
+            }
 
             Assert.Equal(fx.Control.Grid.AlignToGrid(new Point(5, 41)), offGridSelected.ViewModel.Location);
             Assert.Equal(new Point(7, 9), offGridUnselected.ViewModel.Location);
@@ -374,8 +359,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Viewer.SetSelection([supplier]);
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
-            fx.Window.KeyReleaseQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Delete);
 
             Assert.Empty(fx.Control.Viewer.NodeElements);
         }
@@ -390,8 +374,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             annotation.IsSelected = true;
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
-            fx.Window.KeyReleaseQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Delete);
 
             Assert.Empty(fx.Control.Viewer.Annotations);
             Assert.Single(fx.Control.Viewer.NodeElements);
@@ -412,8 +395,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             annotation.IsSelected = true;
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.Delete, RawInputModifiers.None);
-            fx.Window.KeyReleaseQwerty(PhysicalKey.Delete, RawInputModifiers.None);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.Delete);
 
             Assert.Empty(fx.Control.Viewer.NodeElements);
             Assert.Empty(fx.Control.Viewer.Annotations);

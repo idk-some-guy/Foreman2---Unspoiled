@@ -21,7 +21,8 @@ namespace Foreman.Serialization {
             ProductionGraph graph,
             DataCache cache,
             ProductionGraphSaveDocument document,
-            bool applySolverSettings) {
+            bool applySolverSettings,
+            LinkRouting defaultLinkRouting = LinkRouting.Rounded) {
             var newNodeCollection = new ProductionGraph.NewNodeBatch();
             var oldNodeIndices = new Dictionary<int, BaseNode>();
 
@@ -49,8 +50,11 @@ namespace Foreman.Serialization {
                         ? new ItemQualityPair(cache.Items[link.ItemName], quality)
                         : new ItemQualityPair(cache.MissingItems[link.ItemName], quality);
 
-                    if (LinkChecker.IsPossibleConnection(item, supplier, consumer))
-                        newNodeCollection.NewLinks.Add(graph.CreateLink(supplier, consumer, item));
+                    if (LinkChecker.IsPossibleConnection(item, supplier, consumer)) {
+                        NodeLink created = graph.CreateLink(supplier, consumer, item, link.Routing ?? defaultLinkRouting);
+                        created.Waypoints = [.. link.Waypoints];
+                        newNodeCollection.NewLinks.Add(created);
+                    }
                 }
             } catch (Exception e) {
                 ErrorLogging.LogException(e, "Error loading nodes into production graph");

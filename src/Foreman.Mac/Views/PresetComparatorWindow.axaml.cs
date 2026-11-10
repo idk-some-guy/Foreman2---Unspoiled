@@ -1,31 +1,32 @@
-using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
-using SkiaSharp;
+using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
+using Foreman.Mac.Services;
+using Foreman.Mac.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Views {
-    //Ports Forms/PresetComparatorForm.cs(+.Designer.cs) (reference docs/panels-reference.md §6): a modal
-    //side-by-side diff of two presets' data caches, opened from SettingsWindow's Compare Presets button.
-    //Structural note carried over from upstream: ComparisonTabControl's 8 TabItems are headers only (no
-    //content) - the 4 list views + filter row live once, below the tab control, and TabTable's dataset
-    //swaps per selected tab (unfilteredSelectedTabObjects/Rows). Preserving that (rather than duplicating
-    //4 lists per tab) matches the "preserve upstream's side-by-side layout structure" phase-5a lesson.
+    //Ports Forms/PresetComparatorForm.cs (reference docs/panels-reference.md §6): a side-by-side diff of two
+    //presets' data caches, opened from Settings' Compare Presets…. The eight categories are headers only; the
+    //three groups below swap their dataset per selected tab (unfilteredSelectedTabObjects).
     //
     //Divergence (docs/upstream-divergences.md): the preset list comes from the caller's already-resolved
-    //List<Preset> (the same list SettingsWindow's own Presets tab uses) instead of upstream's own
-    //Presets-directory rescan in LoadPresetOptions - behaviorally equivalent, avoids a redundant disk
-    //scan the caller already did. Hover tooltips (ListView_StartHover/EndHover, RecipeToolTip/TextToolTip)
-    //aren't ported - not in this task's interface list; deferred alongside the rest of the tooltip surface.
-    public partial class PresetComparatorWindow : Window {
+    //List<Preset> instead of upstream's own Presets-directory rescan in LoadPresetOptions. Hover tooltips
+    //beyond the row's name aren't ported.
+    public partial class PresetComparatorWindow : Window, IThemeAware {
         internal const int LeftOnly = 0;
         internal const int Left = 1;
         internal const int Right = 2;
@@ -33,40 +34,47 @@ namespace Foreman.Mac.Views {
 
         internal enum RowSimilarity { Equal, CloseEnough, Different }
 
-        internal sealed class ComparatorRow(object tag, string name, string filterKey, Bitmap? icon, IBrush foreground, FontStyle fontStyle) {
-            public object Tag { get; } = tag;
-            public string Name { get; } = name;
-            public string FilterKey { get; } = filterKey;
-            public Bitmap? Icon { get; } = icon;
-            public IBrush Foreground { get; } = foreground;
-            public FontStyle FontStyle { get; } = fontStyle;
-            public IBrush Background { get; set; } = EqualBackground;
-            public RowSimilarity Similarity { get; set; } = RowSimilarity.Equal;
-        }
+        private static readonly (string One, string Many)[] CountNouns = [
+            ("mod", "mods"), ("item", "items"), ("recipe", "recipes"), ("assembler", "assemblers"),
+            ("miner", "miners"), ("power building", "power buildings"), ("beacon", "beacons"), ("module", "modules"),
+        ];
 
-        private static readonly IBrush EqualBackground = new SolidColorBrush(Color.FromRgb(255, 255, 255));
-        private static readonly IBrush CloseEnoughBackground = new SolidColorBrush(Color.FromRgb(240, 230, 140));
-        private static readonly IBrush DifferentBackground = new SolidColorBrush(Color.FromRgb(255, 192, 203));
-        private static readonly IBrush AvailableForeground = new SolidColorBrush(Color.FromRgb(0, 0, 0));
-        private static readonly IBrush UnavailableForeground = new SolidColorBrush(Color.FromRgb(139, 0, 0));
+        private static readonly string[] TabNames = ["Mods", "Items", "Recipes", "Assemblers", "Miners", "Power", "Beacons", "Modules"];
+        private static readonly string[] TabGlyphKeys = [
+            "Kit.Glyph.Category.Mods.18", "Kit.Glyph.Category.Items.18", "Kit.Glyph.Category.Recipes.18", "Kit.Glyph.Category.Assemblers.18",
+            "Kit.Glyph.Category.Miners.18", "Kit.Glyph.Category.Power.18", "Kit.Glyph.Beacon.18", "Kit.Glyph.Category.Modules.18",
+        ];
+        private const int BeaconsTab = 6;
+        private const string EmptySentence = "Pick a preset on each side, then click Compare. Each preset takes a few seconds to load.";
+        private const string SamePresetSentence = "Both sides name the same preset. Choose a different one on either side.";
 
-        private readonly ComboBox leftPresetSelectionBox;
-        private readonly ComboBox rightPresetSelectionBox;
-        private readonly Border presetSelectionGroup;
-        private readonly Button processPresetsButton;
-        private readonly Button closeButton;
-        private readonly TabControl comparisonTabControl;
-        private readonly TextBox filterTextBox;
-        private readonly CheckBox hideEqualObjectsCheckBox;
-        private readonly CheckBox hideSimilarObjectsCheckBox;
+        internal PresetComparatorViewModel ViewModel { get; } = new PresetComparatorViewModel();
+
+        private readonly IReadOnlyList<Preset> presets;
+        private readonly PopUp leftPresetPopUp;
+        private readonly PopUp rightPresetPopUp;
+        private readonly Button compareButton;
+        private readonly TabStrip comparisonTabStrip;
+        private readonly SearchField filterField;
         private readonly CheckBox showUnavailableCheckBox;
-        private readonly ListBox leftOnlyListView;
-        private readonly ListBox leftListView;
-        private readonly ListBox rightListView;
-        private readonly ListBox rightOnlyListView;
-        private readonly SyncedListPair syncedPair;
-
-        private readonly Dictionary<SKBitmap, Bitmap> bakedIconCache = [];
+        private readonly CheckBox hideIdenticalCheckBox;
+        private readonly CheckBox hideSimilarCheckBox;
+        private readonly ListBox leftOnlyList;
+        private readonly ListBox bothList;
+        private readonly ListBox rightOnlyList;
+        private readonly TextBlock leftOnlyHeading;
+        private readonly TextBlock rightOnlyHeading;
+        private readonly TextBlock leftOnlyCount;
+        private readonly TextBlock bothCount;
+        private readonly TextBlock rightOnlyCount;
+        private readonly TextBlock leftOnlyNoResults;
+        private readonly TextBlock bothNoResults;
+        private readonly TextBlock rightOnlyNoResults;
+        private readonly Grid groupsGrid;
+        private readonly DockPanel leftOnlyGroup;
+        private readonly DockPanel bothGroup;
+        private readonly DockPanel rightOnlyGroup;
+        private readonly StatePanel emptyPanel;
 
         private readonly List<object>[] unfilteredModTabObjects = [[], [], [], []];
         private readonly List<object>[] unfilteredItemTabObjects = [[], [], [], []];
@@ -79,47 +87,68 @@ namespace Foreman.Mac.Views {
         private readonly List<object>[][] tabSet;
         private List<object>[] unfilteredSelectedTabObjects;
 
-        private readonly List<ComparatorRow>[] unfilteredSelectedTabRows = [[], [], [], []];
-        private readonly List<ComparatorRow>[] filteredSelectedTabRows = [[], [], [], []];
-
-        private bool comparing;
+        private bool compared;
+        private bool loading;
+        private readonly WindowMinSizeScale minSizeScale;
 
         internal DataCache? LeftCache { get; private set; }
         internal DataCache? RightCache { get; private set; }
 
-        //Test-only seam: lets a test supply preloaded caches without a real modal DataLoadWindow (see
-        //SettingsWindow's DeleteConfirmationStub/WarningDialogStub for the established convention).
-        internal Func<Preset, Task<DataCache?>>? LoadCacheStub { get; set; }
+        internal Func<Preset, Task<DataLoadResult>>? LoadCacheStub { get; set; }
+
+        internal static bool CanCompare(IReadOnlyCollection<Preset>? presets) => presets is { Count: >= 2 };
 
         public PresetComparatorWindow() : this([]) {
         }
 
         public PresetComparatorWindow(IReadOnlyList<Preset> presets) {
             InitializeComponent();
+            this.presets = presets;
 
-            leftPresetSelectionBox = this.FindControl<ComboBox>("LeftPresetSelectionBox")!;
-            rightPresetSelectionBox = this.FindControl<ComboBox>("RightPresetSelectionBox")!;
-            presetSelectionGroup = this.FindControl<Border>("PresetSelectionGroup")!;
-            processPresetsButton = this.FindControl<Button>("ProcessPresetsButton")!;
-            closeButton = this.FindControl<Button>("CloseButton")!;
-            comparisonTabControl = this.FindControl<TabControl>("ComparisonTabControl")!;
-            filterTextBox = this.FindControl<TextBox>("FilterTextBox")!;
-            hideEqualObjectsCheckBox = this.FindControl<CheckBox>("HideEqualObjectsCheckBox")!;
-            hideSimilarObjectsCheckBox = this.FindControl<CheckBox>("HideSimilarObjectsCheckBox")!;
+            leftPresetPopUp = this.FindControl<PopUp>("LeftPresetPopUp")!;
+            rightPresetPopUp = this.FindControl<PopUp>("RightPresetPopUp")!;
+            compareButton = this.FindControl<Button>("CompareButton")!;
+            comparisonTabStrip = this.FindControl<TabStrip>("ComparisonTabStrip")!;
+            filterField = this.FindControl<SearchField>("FilterField")!;
             showUnavailableCheckBox = this.FindControl<CheckBox>("ShowUnavailableCheckBox")!;
-            leftOnlyListView = this.FindControl<ListBox>("LeftOnlyListView")!;
-            leftListView = this.FindControl<ListBox>("LeftListView")!;
-            rightListView = this.FindControl<ListBox>("RightListView")!;
-            rightOnlyListView = this.FindControl<ListBox>("RightOnlyListView")!;
+            hideIdenticalCheckBox = this.FindControl<CheckBox>("HideIdenticalCheckBox")!;
+            hideSimilarCheckBox = this.FindControl<CheckBox>("HideSimilarCheckBox")!;
+            leftOnlyList = this.FindControl<ListBox>("LeftOnlyList")!;
+            bothList = this.FindControl<ListBox>("BothList")!;
+            rightOnlyList = this.FindControl<ListBox>("RightOnlyList")!;
+            leftOnlyHeading = this.FindControl<TextBlock>("LeftOnlyHeading")!;
+            rightOnlyHeading = this.FindControl<TextBlock>("RightOnlyHeading")!;
+            leftOnlyCount = this.FindControl<TextBlock>("LeftOnlyCount")!;
+            bothCount = this.FindControl<TextBlock>("BothCount")!;
+            rightOnlyCount = this.FindControl<TextBlock>("RightOnlyCount")!;
+            leftOnlyNoResults = this.FindControl<TextBlock>("LeftOnlyNoResults")!;
+            bothNoResults = this.FindControl<TextBlock>("BothNoResults")!;
+            rightOnlyNoResults = this.FindControl<TextBlock>("RightOnlyNoResults")!;
+            groupsGrid = this.FindControl<Grid>("GroupsGrid")!;
+            leftOnlyGroup = this.FindControl<DockPanel>("LeftOnlyGroup")!;
+            bothGroup = this.FindControl<DockPanel>("BothGroup")!;
+            rightOnlyGroup = this.FindControl<DockPanel>("RightOnlyGroup")!;
+            emptyPanel = this.FindControl<StatePanel>("EmptyPanel")!;
 
-            syncedPair = new SyncedListPair(leftListView, rightListView);
+            for (int i = 0; i < TabNames.Length; i++)
+                comparisonTabStrip.Items.Add(new TabStripItem {
+                    Text = TabNames[i],
+                    Glyph = (Geometry)this.FindResource(TabGlyphKeys[i])!,
+                    GlyphFill = i == BeaconsTab ? (Geometry)this.FindResource("Kit.Glyph.Beacon.Fill.18")! : null,
+                    ToolTip = $"{TabNames[i]} \u2014 \u2318{i + 1}",
+                });
+            comparisonTabStrip.SelectedIndex = 1;
 
-            leftPresetSelectionBox.ItemsSource = presets;
-            rightPresetSelectionBox.ItemsSource = presets;
-            if (presets.Count >= 2) {
-                leftPresetSelectionBox.SelectedIndex = 0;
-                rightPresetSelectionBox.SelectedIndex = 1;
+            foreach (Preset preset in presets) {
+                leftPresetPopUp.Items.Add(preset.Name);
+                rightPresetPopUp.Items.Add(preset.Name);
             }
+            if (presets.Count >= 2) {
+                leftPresetPopUp.SelectedItem = presets[0].Name;
+                rightPresetPopUp.SelectedItem = presets[1].Name;
+            }
+            ToolTip.SetTip(leftPresetPopUp, leftPresetPopUp.SelectedItem);
+            ToolTip.SetTip(rightPresetPopUp, rightPresetPopUp.SelectedItem);
 
             tabSet = [
                 unfilteredModTabObjects,
@@ -131,26 +160,37 @@ namespace Foreman.Mac.Views {
                 unfilteredBeaconTabObjects,
                 unfilteredModuleTabObjects,
             ];
-            unfilteredSelectedTabObjects = tabSet[0];
+            unfilteredSelectedTabObjects = tabSet[comparisonTabStrip.SelectedIndex];
 
-            processPresetsButton.Click += (_, _) => Async.Fire(ProcessPresetsClickedAsync(), nameof(ProcessPresetsClickedAsync));
-            leftPresetSelectionBox.SelectionChanged += (_, _) => UpdateProcessButtonCaption();
-            rightPresetSelectionBox.SelectionChanged += (_, _) => UpdateProcessButtonCaption();
-            closeButton.Click += (_, _) => Close();
-            comparisonTabControl.SelectionChanged += (_, _) => {
-                unfilteredSelectedTabObjects = tabSet[comparisonTabControl.SelectedIndex];
+            compareButton.Click += (_, _) => Async.Fire(CompareAsync(), nameof(CompareAsync));
+            leftPresetPopUp.PropertyChanged += (_, e) => { if (e.Property == PopUp.SelectedItemProperty) OnPresetChoiceChanged(leftPresetPopUp); };
+            rightPresetPopUp.PropertyChanged += (_, e) => { if (e.Property == PopUp.SelectedItemProperty) OnPresetChoiceChanged(rightPresetPopUp); };
+            AddHandler(KeyDownEvent, OnPresetComparatorKeyDown, RoutingStrategies.Tunnel);
+            comparisonTabStrip.SelectionChanged += (_, _) => {
+                unfilteredSelectedTabObjects = tabSet[comparisonTabStrip.SelectedIndex];
                 UpdateUnfilteredRows();
                 UpdateFilteredLists();
             };
-            filterTextBox.TextChanging += (_, _) => UpdateFilteredLists();
-            hideEqualObjectsCheckBox.IsCheckedChanged += (_, _) => UpdateFilteredLists();
-            hideSimilarObjectsCheckBox.IsCheckedChanged += (_, _) => UpdateFilteredLists();
+            filterField.TextChanged += (_, _) => UpdateFilteredLists();
+            hideIdenticalCheckBox.IsCheckedChanged += (_, _) => UpdateFilteredLists();
+            hideSimilarCheckBox.IsCheckedChanged += (_, _) => UpdateFilteredLists();
             showUnavailableCheckBox.IsCheckedChanged += (_, _) => UpdateFilteredLists();
+            bothList.ContainerPrepared += (_, e) => ApplyMatchClass(e.Container);
+            bothList.ContainerIndexChanged += (_, e) => ApplyMatchClass(e.Container);
+            leftOnlyList.ContainerPrepared += (_, e) => NameRow(e.Container);
+            rightOnlyList.ContainerPrepared += (_, e) => NameRow(e.Container);
+            leftOnlyList.ContainerIndexChanged += (_, e) => NameRow(e.Container);
+            rightOnlyList.ContainerIndexChanged += (_, e) => NameRow(e.Container);
+
+            foreach (DockPanel group in new[] { leftOnlyGroup, bothGroup, rightOnlyGroup }) {
+                AutomationProperties.SetControlTypeOverride(group, AutomationControlType.Group);
+                AutomationProperties.SetIsControlElementOverride(group, true);
+            }
 
             Closed += (_, _) => {
-                if (!comparing)
+                if (!compared)
                     return;
-                comparing = false;
+                compared = false;
                 ClearAllLists();
                 LeftCache?.Clear();
                 LeftCache = null;
@@ -159,73 +199,113 @@ namespace Foreman.Mac.Views {
                 GC.Collect();
             };
 
-            UpdateProcessButtonCaption();
+            UpdateCompareState();
+            minSizeScale = new WindowMinSizeScale(this);
+
+            AppearanceHub.Current?.Subscribe(this);
+            Closed += (_, _) => AppearanceHub.Current?.Unsubscribe(this);
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
-        //Ports PresetSelectionBox_SelectedValueChanged (reference SettingsForm... PresetComparatorForm.cs:404-408).
-        private void UpdateProcessButtonCaption() {
-            bool enabled = leftPresetSelectionBox.SelectedIndex != rightPresetSelectionBox.SelectedIndex;
-            processPresetsButton.IsEnabled = enabled;
-            processPresetsButton.Content = enabled ? "Read Presets And Compare" : "Cant Compare Preset To Itself";
+        public void RefreshTheme() => minSizeScale.Apply();
+
+        private static void ApplyMatchClass(Control container) {
+            var pair = container.DataContext as ComparatorPairRow;
+            container.Classes.Set("similar", pair?.Similarity == RowSimilarity.CloseEnough);
+            container.Classes.Set("different", pair?.Similarity == RowSimilarity.Different);
+            AutomationProperties.SetName(container, pair?.SpokenName);
         }
 
-        //Ports ProcessPresetsButton_Click (reference PresetComparatorForm.cs:387-402): the caption/enabled
-        //flips only happen after ComparePresets (or the clear-out) completes, matching upstream's ordering.
-        private async Task ProcessPresetsClickedAsync() {
-            comparing = !comparing;
-            if (comparing) {
-                await ComparePresetsAsync().ConfigureAwait(true);
-            } else {
-                ClearAllLists();
-                LeftCache?.Clear();
-                LeftCache = null;
-                RightCache?.Clear();
-                RightCache = null;
-                GC.Collect();
-            }
-            presetSelectionGroup.IsEnabled = !comparing;
-            processPresetsButton.Content = comparing ? "Select Other Presets" : "Read Presets And Compare";
+        private static void NameRow(Control container) =>
+            AutomationProperties.SetName(container, (container.DataContext as ComparatorRow)?.SpokenName);
+
+        private Preset? PresetNamed(string? name) => presets.FirstOrDefault(p => p.Name == name);
+
+        private void OnPresetChoiceChanged(PopUp popUp) {
+            ToolTip.SetTip(popUp, popUp.SelectedItem);
+            UpdateCompareState();
         }
 
-        //Ports ComparePresets (reference PresetComparatorForm.cs:133-211): loads both caches, buckets every
-        //category into Left Only / matched-pair / Right Only, then rebuilds the currently selected tab.
-        private async Task ComparePresetsAsync() {
-            if (leftPresetSelectionBox.SelectedItem is not Preset leftPreset || rightPresetSelectionBox.SelectedItem is not Preset rightPreset)
+        private void UpdateCompareState() {
+            bool distinct = leftPresetPopUp.SelectedItem is not null && leftPresetPopUp.SelectedItem != rightPresetPopUp.SelectedItem;
+            compareButton.IsEnabled = distinct && !loading;
+            ToolTip.SetTip(compareButton, distinct ? null : "Choose a different preset on either side.");
+            emptyPanel.Sentence = distinct ? EmptySentence : SamePresetSentence;
+            emptyPanel.IsVisible = !compared;
+            groupsGrid.IsVisible = compared;
+        }
+
+        private async Task CompareAsync() {
+            if (PresetNamed(leftPresetPopUp.SelectedItem) is not Preset leftPreset || PresetNamed(rightPresetPopUp.SelectedItem) is not Preset rightPreset)
                 return;
 
-            LeftCache = await LoadCacheAsync(leftPreset).ConfigureAwait(true);
-            RightCache = await LoadCacheAsync(rightPreset).ConfigureAwait(true);
+            loading = true;
+            UpdateCompareState();
+            try {
+                DataLoadResult left = await LoadCacheAsync(leftPreset).ConfigureAwait(true);
+                if (left.Cache is not DataCache leftCache) {
+                    OnLoadStopped(left.Outcome, leftPresetPopUp);
+                    return;
+                }
+                DataLoadResult right = await LoadCacheAsync(rightPreset).ConfigureAwait(true);
+                if (right.Cache is not DataCache rightCache) {
+                    OnLoadStopped(right.Outcome, rightPresetPopUp);
+                    return;
+                }
 
-            ProcessMods(LeftCache?.IncludedMods, RightCache?.IncludedMods, unfilteredModTabObjects);
-            ProcessObjects(LeftCache?.Items, RightCache?.Items, unfilteredItemTabObjects);
-            ProcessObjects(LeftCache?.Recipes, RightCache?.Recipes, unfilteredRecipeTabObjects);
-            ProcessObjects(FilterAssemblers(LeftCache, EntityType.Assembler), FilterAssemblers(RightCache, EntityType.Assembler), unfilteredAssemblerTabObjects);
-            ProcessObjects(FilterAssemblers(LeftCache, EntityType.Miner, EntityType.OffshorePump), FilterAssemblers(RightCache, EntityType.Miner, EntityType.OffshorePump), unfilteredMinerTabObjects);
-            ProcessObjects(FilterAssemblers(LeftCache, EntityType.Boiler, EntityType.BurnerGenerator, EntityType.Generator, EntityType.Reactor), FilterAssemblers(RightCache, EntityType.Boiler, EntityType.BurnerGenerator, EntityType.Generator, EntityType.Reactor), unfilteredPowerTabObjects);
-            ProcessObjects(LeftCache?.Beacons.Values.ToDictionary(b => b.Name), RightCache?.Beacons.Values.ToDictionary(b => b.Name), unfilteredBeaconTabObjects);
-            ProcessObjects(LeftCache?.Modules, RightCache?.Modules, unfilteredModuleTabObjects);
+                ClearAllLists();
+                if (LeftCache is not null && !ReferenceEquals(LeftCache, leftCache) && !ReferenceEquals(LeftCache, rightCache))
+                    LeftCache.Clear();
+                if (RightCache is not null && !ReferenceEquals(RightCache, leftCache) && !ReferenceEquals(RightCache, rightCache))
+                    RightCache.Clear();
+                LeftCache = leftCache;
+                RightCache = rightCache;
+                compared = true;
+                ApplyGroupNames(leftPreset.Name, rightPreset.Name);
 
-            UpdateUnfilteredRows();
-            UpdateFilteredLists();
+                ProcessMods(leftCache.IncludedMods, rightCache.IncludedMods, unfilteredModTabObjects);
+                ProcessObjects(leftCache.Items, rightCache.Items, unfilteredItemTabObjects);
+                ProcessObjects(leftCache.Recipes, rightCache.Recipes, unfilteredRecipeTabObjects);
+                ProcessObjects(FilterAssemblers(leftCache, EntityType.Assembler), FilterAssemblers(rightCache, EntityType.Assembler), unfilteredAssemblerTabObjects);
+                ProcessObjects(FilterAssemblers(leftCache, EntityType.Miner, EntityType.OffshorePump), FilterAssemblers(rightCache, EntityType.Miner, EntityType.OffshorePump), unfilteredMinerTabObjects);
+                ProcessObjects(FilterAssemblers(leftCache, EntityType.Boiler, EntityType.BurnerGenerator, EntityType.Generator, EntityType.Reactor), FilterAssemblers(rightCache, EntityType.Boiler, EntityType.BurnerGenerator, EntityType.Generator, EntityType.Reactor), unfilteredPowerTabObjects);
+                ProcessObjects(leftCache.Beacons.Values.ToDictionary(b => b.Name), rightCache.Beacons.Values.ToDictionary(b => b.Name), unfilteredBeaconTabObjects);
+                ProcessObjects(leftCache.Modules, rightCache.Modules, unfilteredModuleTabObjects);
+
+                UpdateUnfilteredRows();
+                UpdateFilteredLists();
+            } finally {
+                loading = false;
+                UpdateCompareState();
+            }
+        }
+
+        private static void OnLoadStopped(DataLoadOutcome outcome, PopUp failedSide) {
+            if (outcome != DataLoadOutcome.ChooseAnother)
+                return;
+            failedSide.Focus(NavigationMethod.Tab);
+            failedSide.IsOpen = true;
+        }
+
+        private void ApplyGroupNames(string left, string right) {
+            leftOnlyHeading.Text = "Only in " + left;
+            rightOnlyHeading.Text = "Only in " + right;
+            ((ComparatorTableList)bothList).SetColumnNames(left, right);
+            ToolTip.SetTip(leftOnlyHeading, leftOnlyHeading.Text);
+            ToolTip.SetTip(rightOnlyHeading, rightOnlyHeading.Text);
         }
 
         private static Dictionary<string, IAssembler>? FilterAssemblers(DataCache? cache, params EntityType[] types) =>
             cache?.Assemblers.Values.Where(a => types.Contains(a.EntityType)).ToDictionary(a => a.Name);
 
-        private Task<DataCache?> LoadCacheAsync(Preset preset) =>
+        private Task<DataLoadResult> LoadCacheAsync(Preset preset) =>
             LoadCacheStub?.Invoke(preset) ?? RealLoadCacheAsync(preset);
 
-        //Ports the DataLoadForm half of ComparePresets (this.Left+150, this.Top+100, ShowDialog) via our
-        //existing DataLoadWindow preset-loading path (docs/panels-reference.md §6, DataLoadForm reference).
-        private async Task<DataCache?> RealLoadCacheAsync(Preset preset) {
-            var window = new DataLoadWindow(preset) {
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Position = Position + new PixelPoint(150, 100),
-            };
+        private async Task<DataLoadResult> RealLoadCacheAsync(Preset preset) {
+            var window = new DataLoadWindow(preset);
             await window.ShowDialog(this).ConfigureAwait(true);
-            return window.Result;
+            return new DataLoadResult(window.Result, window.Outcome);
         }
 
         //Ports ComparePresets' mod-diff block (reference PresetComparatorForm.cs:184-197) verbatim,
@@ -343,149 +423,193 @@ namespace Foreman.Mac.Views {
             return (similarInternals, similarNames);
         }
 
-        //Ports UpdateUnfilteredLVIs (reference PresetComparatorForm.cs:213-336): rebuilds all 4 row lists
-        //for the currently selected tab, then colors the matched Left/Right pair.
-        private void UpdateUnfilteredRows() {
-            int tabIndex = comparisonTabControl.SelectedIndex;
-            for (int i = 0; i < 4; i++) {
-                unfilteredSelectedTabRows[i].Clear();
-                foreach (object obj in unfilteredSelectedTabObjects[i])
-                    unfilteredSelectedTabRows[i].Add(tabIndex == 0 ? NewModRow((string)obj) : NewObjectRow((IDataObjectBase)obj));
-            }
+        private void UpdateUnfilteredRows() => ViewModel.RebuildTab(comparisonTabStrip.SelectedIndex, unfilteredSelectedTabObjects);
 
-            for (int i = 0; i < unfilteredSelectedTabRows[Left].Count; i++) {
-                ComparatorRow l = unfilteredSelectedTabRows[Left][i];
-                ComparatorRow r = unfilteredSelectedTabRows[Right][i];
-                (bool similarInternals, bool similarNames) = EvaluateSimilarity(tabIndex, l.Name, l.Tag, r.Name, r.Tag);
+        private static bool Matches(ComparatorRow row, string filter) =>
+            row.FilterKey.Contains(filter, StringComparison.Ordinal) || row.Name.Contains(filter, StringComparison.OrdinalIgnoreCase);
 
-                RowSimilarity similarity = similarInternals ? (similarNames ? RowSimilarity.Equal : RowSimilarity.CloseEnough) : RowSimilarity.Different;
-                IBrush background = similarity switch {
-                    RowSimilarity.Equal => EqualBackground,
-                    RowSimilarity.CloseEnough => CloseEnoughBackground,
-                    _ => DifferentBackground,
-                };
-                l.Similarity = similarity;
-                l.Background = background;
-                r.Similarity = similarity;
-                r.Background = background;
-            }
-        }
-
-        //Mod rows have no Available concept - unconditionally regular/black, matching upstream's mod
-        //branch. FilterKey intentionally keeps the raw (unlowered) text here too, mirroring upstream's
-        //lvItem.Name = lvItem.Text for mods (as opposed to doBase.Name.ToLowerInvariant() below).
-        private static ComparatorRow NewModRow(string text) =>
-            new(text, text, text, null, AvailableForeground, FontStyle.Normal);
-
-        private ComparatorRow NewObjectRow(IDataObjectBase dataObject) =>
-            new(dataObject, dataObject.FriendlyName, dataObject.Name.ToLowerInvariant(), GetOrBakeIcon(dataObject.Icon),
-                dataObject.Available ? AvailableForeground : UnavailableForeground,
-                dataObject.Available ? FontStyle.Normal : FontStyle.Italic);
-
-        //Ports UpdateFilteredLists (reference PresetComparatorForm.cs:338-385). Rebuilds fresh List
-        //instances per call rather than clearing the shared arrays in place: the 4 ListBoxes stay bound to
-        //the same shared array slots across every tab (per this file's own top-of-file structural note),
-        //but Avalonia's ItemsSource setter no-ops on a reference-equal value, so reassigning the SAME
-        //mutated List back onto ItemsSource left every list showing its previously realized rows - most
-        //visibly the Mods tab's content bleeding into every other tab after a real click switched it.
+        //Fresh lists every call: ItemsSource no-ops on a reference-equal value, which would leave stale rows realized.
         private void UpdateFilteredLists() {
-            string filter = (filterTextBox.Text ?? "").ToLowerInvariant();
-            bool hideEqual = hideEqualObjectsCheckBox.IsChecked == true;
-            bool hideSimilar = hideSimilarObjectsCheckBox.IsChecked == true;
+            string filter = (filterField.Text ?? "").ToLowerInvariant();
+            bool hideIdentical = hideIdenticalCheckBox.IsChecked == true;
+            bool hideSimilar = hideSimilarCheckBox.IsChecked == true;
             bool showUnavailable = showUnavailableCheckBox.IsChecked == true;
 
-            for (int i = 0; i <= RightOnly; i += 3) {
-                var filtered = new List<ComparatorRow>();
-                foreach (ComparatorRow row in unfilteredSelectedTabRows[i])
-                    if ((showUnavailable || row.Tag is not IDataObjectBase dObj || dObj.Available) &&
-                        (row.FilterKey.Contains(filter, StringComparison.Ordinal) || row.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)))
-                        filtered.Add(row);
-                filteredSelectedTabRows[i] = filtered;
-            }
+            bool Shown(ComparatorRow row) => showUnavailable || !row.IsUnavailable;
 
-            var filteredLeft = new List<ComparatorRow>();
-            var filteredRight = new List<ComparatorRow>();
-            for (int j = 0; j < unfilteredSelectedTabRows[Left].Count; j++) {
-                ComparatorRow left = unfilteredSelectedTabRows[Left][j];
-                ComparatorRow right = unfilteredSelectedTabRows[Right][j];
+            List<ComparatorRow> leftOnly = [.. ViewModel.LeftOnlyRows.Where(r => Shown(r) && Matches(r, filter))];
+            List<ComparatorRow> rightOnly = [.. ViewModel.RightOnlyRows.Where(r => Shown(r) && Matches(r, filter))];
+            List<ComparatorPairRow> visiblePairs = [.. ViewModel.BothRows.Where(p => p.Left.Tag is not IDataObjectBase || Shown(p.Left) || Shown(p.Right))];
+            List<ComparatorPairRow> unhidden = [.. visiblePairs.Where(p =>
+                !(hideIdentical && p.Similarity == RowSimilarity.Equal) && !(hideSimilar && p.Similarity == RowSimilarity.CloseEnough))];
+            List<ComparatorPairRow> both = [.. unhidden.Where(p => Matches(p.Left, filter) || p.Right.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))];
+            foreach (ComparatorPairRow pair in both)
+                pair.ShowIdentical = !hideIdentical;
 
-                bool leftIsData = left.Tag is IDataObjectBase ld && ld.Available;
-                bool rightIsData = right.Tag is IDataObjectBase rd && rd.Available;
-                bool bothTyped = left.Tag is IDataObjectBase && right.Tag is IDataObjectBase;
+            leftOnlyList.ItemsSource = leftOnly;
+            bothList.ItemsSource = both;
+            rightOnlyList.ItemsSource = rightOnly;
+            leftOnlyCount.Text = leftOnly.Count.ToString("N0", DisplayCulture.Format);
+            bothCount.Text = both.Count.ToString("N0", DisplayCulture.Format);
+            rightOnlyCount.Text = rightOnly.Count.ToString("N0", DisplayCulture.Format);
+            AutomationProperties.SetName(leftOnlyGroup, leftOnlyHeading.Text + ", " + Counted(leftOnly.Count));
+            AutomationProperties.SetName(bothGroup, "In both, " + Counted(both.Count));
+            AutomationProperties.SetName(rightOnlyGroup, rightOnlyHeading.Text + ", " + Counted(rightOnly.Count));
 
-                if (showUnavailable || !bothTyped || leftIsData || rightIsData) {
-                    if (!(hideEqual && left.Similarity == RowSimilarity.Equal) &&
-                        !(hideSimilar && left.Similarity == RowSimilarity.CloseEnough) &&
-                        (left.FilterKey.Contains(filter, StringComparison.Ordinal) ||
-                         left.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-                         right.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))) {
-                        filteredLeft.Add(left);
-                        filteredRight.Add(right);
-                    }
-                }
-            }
-            filteredSelectedTabRows[Left] = filteredLeft;
-            filteredSelectedTabRows[Right] = filteredRight;
-
-            leftOnlyListView.ItemsSource = filteredSelectedTabRows[LeftOnly];
-            leftListView.ItemsSource = filteredSelectedTabRows[Left];
-            rightListView.ItemsSource = filteredSelectedTabRows[Right];
-            rightOnlyListView.ItemsSource = filteredSelectedTabRows[RightOnly];
+            bool filtering = filter.Length > 0;
+            SetNoResults(leftOnlyNoResults, leftOnly.Count, filtering ? "No matches" : "None");
+            SetNoResults(rightOnlyNoResults, rightOnly.Count, filtering ? "No matches" : "None");
+            SetNoResults(bothNoResults, both.Count, filtering && unhidden.Count > 0 ? "No matches" : visiblePairs.Count > 0 ? "Nothing differs" : "None");
         }
 
-        //Ports ClearAllLists (reference PresetComparatorForm.cs:112-131).
+        private string Counted(int count) {
+            (string one, string many) = CountNouns[comparisonTabStrip.SelectedIndex];
+            return count.ToString("N0", DisplayCulture.Format) + " " + (count == 1 ? one : many);
+        }
+
+        private static void SetNoResults(TextBlock text, int count, string message) {
+            text.Text = message;
+            text.IsVisible = count == 0;
+        }
+
         private void ClearAllLists() {
             foreach (List<object>[] set in tabSet)
                 foreach (List<object> list in set)
                     list.Clear();
-            for (int i = 0; i < 4; i++) {
-                unfilteredSelectedTabRows[i].Clear();
-                filteredSelectedTabRows[i].Clear();
-            }
-            leftOnlyListView.ItemsSource = null;
-            leftListView.ItemsSource = null;
-            rightListView.ItemsSource = null;
-            rightOnlyListView.ItemsSource = null;
+            ViewModel.Clear();
+            leftOnlyList.ItemsSource = null;
+            bothList.ItemsSource = null;
+            rightOnlyList.ItemsSource = null;
         }
 
-        private Bitmap GetOrBakeIcon(SKBitmap icon) {
-            if (!bakedIconCache.TryGetValue(icon, out Bitmap? baked)) {
-                baked = BakeIcon(icon);
-                bakedIconCache[icon] = baked;
+        private void OnPresetComparatorKeyDown(object? sender, KeyEventArgs e) {
+            bool primary = e.KeyModifiers == KeyModifiers.Meta;
+            if (primary && e.Key is >= Key.D1 and <= Key.D8) {
+                e.Handled = true;
+                comparisonTabStrip.SelectedIndex = e.Key - Key.D1;
+            } else if (primary && e.Key == Key.F) {
+                e.Handled = true;
+                filterField.Focus(NavigationMethod.Tab);
+            } else if ((primary && e.Key == Key.W) || (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && string.IsNullOrEmpty(filterField.Text)
+                    && leftPresetPopUp.IsOpen == false && rightPresetPopUp.IsOpen == false)) {
+                e.Handled = true;
+                Close();
             }
-            return baked;
-        }
-
-        //Matches upstream's comparator-specific IconList.ImageSize of 32x32 (its other lists elsewhere
-        //in the app use 24x24 - this form is the one exception, ported as-is).
-        private static Bitmap BakeIcon(SKBitmap icon) {
-            const int size = 32;
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(size, size, SKColorType.Bgra8888, SKAlphaType.Premul));
-            using var paint = new SKPaint { IsAntialias = true };
-            surface.Canvas.DrawBitmap(icon, new SKRect(0, 0, size, size), paint);
-            using SKPixmap pixmap = surface.PeekPixels();
-            return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, pixmap.GetPixels(),
-                new PixelSize(pixmap.Info.Width, pixmap.Info.Height), new Vector(96, 96), pixmap.RowBytes);
         }
 
         //Test-only seams (nothing outside Foreman.Mac.UiTests reads these).
-        internal ComboBox LeftPresetSelectionBoxControl => leftPresetSelectionBox;
-        internal ComboBox RightPresetSelectionBoxControl => rightPresetSelectionBox;
-        internal Border PresetSelectionGroupControl => presetSelectionGroup;
-        internal Button ProcessPresetsButtonControl => processPresetsButton;
-        internal Button CloseButtonControl => closeButton;
-        internal TabControl ComparisonTabControlControl => comparisonTabControl;
-        internal TextBox FilterTextBoxControl => filterTextBox;
-        internal CheckBox HideEqualObjectsCheckBoxControl => hideEqualObjectsCheckBox;
-        internal CheckBox HideSimilarObjectsCheckBoxControl => hideSimilarObjectsCheckBox;
+        internal PopUp LeftPresetPopUpControl => leftPresetPopUp;
+        internal PopUp RightPresetPopUpControl => rightPresetPopUp;
+        internal Button CompareButtonControl => compareButton;
+        internal TabStrip ComparisonTabStripControl => comparisonTabStrip;
+        internal SearchField FilterFieldControl => filterField;
+        internal CheckBox HideIdenticalCheckBoxControl => hideIdenticalCheckBox;
         internal CheckBox ShowUnavailableCheckBoxControl => showUnavailableCheckBox;
-        internal ListBox LeftOnlyListViewControl => leftOnlyListView;
-        internal ListBox LeftListViewControl => leftListView;
-        internal ListBox RightListViewControl => rightListView;
-        internal ListBox RightOnlyListViewControl => rightOnlyListView;
-        internal SyncedListPair SyncedPair => syncedPair;
-        internal bool Comparing => comparing;
+        internal ListBox LeftOnlyListControl => leftOnlyList;
+        internal ListBox BothListControl => bothList;
+        internal ListBox RightOnlyListControl => rightOnlyList;
+        internal TextBlock LeftOnlyNoResultsControl => leftOnlyNoResults;
+        internal StatePanel EmptyPanelControl => emptyPanel;
+        internal Grid GroupsGridControl => groupsGrid;
+        internal bool Compared => compared;
 
-        internal Task SimulateProcessPresetsClickAsync() => ProcessPresetsClickedAsync();
+        internal Task SimulateCompareClickAsync() => CompareAsync();
+    }
+
+    internal sealed class ComparatorRow(object tag, string name, string filterKey, Bitmap? icon, bool isUnavailable, string tooltip) {
+        public object Tag { get; } = tag;
+        public string Name { get; } = name;
+        public string FilterKey { get; } = filterKey;
+        public Bitmap? Icon { get; } = icon;
+        public bool IsUnavailable { get; } = isUnavailable;
+        public string Tooltip { get; } = tooltip;
+        public string SpokenName => IsUnavailable ? Name + ", unavailable" : Name;
+    }
+
+    internal sealed class ComparatorPairRow(ComparatorRow left, ComparatorRow right, PresetComparatorWindow.RowSimilarity similarity)
+            : CommunityToolkit.Mvvm.ComponentModel.ObservableObject {
+        private bool showIdentical;
+
+        public ComparatorRow Left { get; } = left;
+        public ComparatorRow Right { get; } = right;
+        public PresetComparatorWindow.RowSimilarity Similarity { get; } = similarity;
+        public bool IsIdentical => Similarity == PresetComparatorWindow.RowSimilarity.Equal;
+
+        public bool ShowIdentical {
+            get => showIdentical;
+            set {
+                if (SetProperty(ref showIdentical, value))
+                    OnPropertyChanged(nameof(MatchText));
+            }
+        }
+
+        public string MatchText => Similarity switch {
+            PresetComparatorWindow.RowSimilarity.CloseEnough => "Similar",
+            PresetComparatorWindow.RowSimilarity.Different => "Different",
+            _ => ShowIdentical ? "Identical" : "",
+        };
+
+        public string SpokenName => string.Join(", ", new[] { Left.SpokenName, Right.SpokenName, MatchText.ToLowerInvariant() }.Where(part => part.Length > 0));
+    }
+
+    internal sealed class ComparatorTableList : ListBox {
+        private Control? rowScroller;
+        private TextBlock? leftHeaderCell;
+        private TextBlock? rightHeaderCell;
+        private string? leftHeader;
+        private string? rightHeader;
+
+        protected override Type StyleKeyOverride => typeof(ListBox);
+
+        internal Control? ColumnHeader { get; private set; }
+
+        internal void SetColumnNames(string left, string right) {
+            leftHeader = left;
+            rightHeader = right;
+            ApplyColumnNames();
+        }
+
+        protected override void OnApplyTemplate(Avalonia.Controls.Primitives.TemplateAppliedEventArgs e) {
+            base.OnApplyTemplate(e);
+            ColumnHeader = e.NameScope.Find<Control>("PART_ColumnHeader");
+            rowScroller = e.NameScope.Find<Control>("PART_ScrollViewer");
+            leftHeaderCell = e.NameScope.Find<TextBlock>("PART_LeftHeader");
+            rightHeaderCell = e.NameScope.Find<TextBlock>("PART_RightHeader");
+            ApplyColumnNames();
+        }
+
+        private void ApplyColumnNames() {
+            foreach ((TextBlock? cell, string? text) in new[] { (leftHeaderCell, leftHeader), (rightHeaderCell, rightHeader) }) {
+                if (cell is null)
+                    continue;
+                cell.Text = text;
+                ToolTip.SetTip(cell, text);
+            }
+        }
+
+        protected override AutomationPeer OnCreateAutomationPeer() => new TablePeer(this);
+
+        private sealed class TablePeer(ComparatorTableList owner) : ListBoxAutomationPeer(owner) {
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Table;
+
+            protected override IReadOnlyList<AutomationPeer>? GetChildrenCore() {
+                if (owner.ColumnHeader is not Control header || owner.rowScroller is not Control rows)
+                    return base.GetChildrenCore();
+                return [CreatePeerForElement(header), CreatePeerForElement(rows)];
+            }
+        }
+    }
+
+    internal sealed class ComparatorColumnHeader : Grid {
+        protected override AutomationPeer OnCreateAutomationPeer() => new HeaderPeer(this);
+
+        private sealed class HeaderPeer(ComparatorColumnHeader owner) : ControlAutomationPeer(owner) {
+            protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Header;
+
+            protected override bool IsControlElementCore() => true;
+
+            protected override AutomationPeer? GetParentCore() =>
+                owner.TemplatedParent is ComparatorTableList table ? CreatePeerForElement(table) : base.GetParentCore();
+        }
     }
 }

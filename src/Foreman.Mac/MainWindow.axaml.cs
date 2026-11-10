@@ -1,102 +1,693 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
+using Foreman.DataCaching.Storage;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
+using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.Inspector;
+using Foreman.Mac.Views.Sheets;
+using Foreman.Models;
 using Foreman.Serialization;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace Foreman.Mac {
-    public partial class MainWindow : Window {
-        public ShellCommands Commands { get; }
+    public partial class MainWindow : Window, IThemeAware {
+        public ShellViewModel Commands { get; }
+        public MainWindowViewModel ViewModel { get; }
+
+        public IRelayCommand ZoomInCommand { get; }
+        public IRelayCommand ZoomOutCommand { get; }
+        public IRelayCommand ActualSizeCommand { get; }
         public ContentControl GraphViewerHost { get; }
         public GraphCanvasControl GraphCanvas { get; }
+        public InspectorView Inspector { get; }
         public Foreman.DataCaching.DataCache? DataCache { get; set; }
-        public AppSettings? Settings { get; set; }
+        public AppSettings? Settings {
+            get => settings;
+            set {
+                settings = value;
+                if (value is not null)
+                    SetShowToolbar(value.ShowToolbar);
+            }
+        }
         public PresetResolver? PresetResolver { get; set; }
         public SettingsService? SettingsService { get; set; }
 
-        //Test-only seam: lets a test supply the Settings dialog's outcome without a real modal ShowDialog
-        //(mirrors GraphCanvasControl's TextPropertiesDialogStub/ShapePropertiesDialogStub).
-        internal Func<SettingsWindow.SettingsWindowOptions, Task<bool?>>? SettingsDialogStub { get; set; }
+        private readonly WindowMinSizeScale minSizeScale;
+        private readonly ToolbarRow toolbar;
+        private readonly TextBlock titleBarTitle;
+        private AppSettings? settings;
+        private bool showToolbar = true;
+        private bool searchRevealsToolbar;
+        private NativeMenuItem? showToolbarMenuItem;
+        private NativeMenuItem? roundedRoutingMenuItem;
+        private NativeMenuItem? orthogonalRoutingMenuItem;
+        private NativeMenuItem? clearWaypointsMenuItem;
+        private RelayCommand presetComparatorCommand = null!;
+        private RelayCommand selectNextNodeCommand = null!;
+        private RelayCommand selectPreviousNodeCommand = null!;
+        private NativeMenuItem selectNextNodeItem = null!;
+        private NativeMenuItem selectPreviousNodeItem = null!;
+        private readonly PopoverHost contentPopoverHost;
+        private ToolbarItem viewOptionsItem = null!;
+        private ToolbarItem saveItem = null!;
+        private PopoverFrame viewOptionsPopover = null!;
+        private PopUp minorGridlinesPopUp = null!;
+        private PopUp majorGridlinesPopUp = null!;
+        private CheckBox gridlinesCheckBox = null!;
+        private PopUp rateOptionsPopUp = null!;
+        private CheckBox iconViewCheckBox = null!;
+        private CheckBox pauseUpdatesCheckBox = null!;
+        private bool documentEdited;
+        private int searchMatchIndex = -1;
+        private List<BaseNodeElement> searchMatches = [];
+        private readonly SearchAnnouncer searchAnnouncer = new() { Name = "SearchAnnouncer", Opacity = 0, Width = 0, Height = 0, IsHitTestVisible = false };
 
-        //Test-only seam: lets a test observe/short-circuit the Graph Summary dialog without a real modal
-        //ShowDialog.
-        internal Action<IProductionGraphSession>? GraphSummaryDialogStub { get; set; }
+        internal ToolbarRow Toolbar => toolbar;
+        internal bool DocumentEdited => documentEdited;
+
+        private AddBrowserWindow? browser;
+        internal AddBrowserWindow? BrowserWindow => browser;
+        internal AddRequest? BrowserRequest { get; private set; }
+        private readonly Dictionary<(SKBitmap, int), Bitmap> browserIconCache = [];
+
+        internal Action<SettingsWindow>? SettingsDialogStub { get; set; }
+
+        private SettingsWindow? settingsWindow;
+        private SettingsSession? settingsSession;
+
+        internal SettingsWindow? CurrentSettingsWindow => settingsWindow;
+        internal SettingsSession? CurrentSettingsSession => settingsSession;
+
+        private GraphSummaryWindow? graphSummaryWindow;
+        internal GraphSummaryWindow? CurrentGraphSummaryWindow => graphSummaryWindow;
 
         //Test-only seam: lets a test observe/short-circuit the Image Export dialog without a real modal
         //ShowDialog.
         internal Action<GraphViewer>? ImageExportDialogStub { get; set; }
 
-        //Test-only seam: lets a test supply Save As's file-save-picker result without a real modal picker
-        //(mirrors GraphSummaryWindow's own SaveFilePathStub).
-        internal Func<Task<string?>>? SaveFilePathStub { get; set; }
+        internal Func<string, Task<string?>>? ExportFilePathStub { get; set; }
 
-        //Test-only seams for TestGraphSavedStatus's two prompts (OK/Cancel discard, Yes/No/Cancel save-and-
-        //continue) - same stub-or-real pattern as SettingsDialogStub above.
-        internal Func<Task<bool>>? DiscardUnsavedGraphConfirmStub { get; set; }
-        internal Func<Task<ConfirmChoice>>? SaveBeforeContinuingChoiceStub { get; set; }
+        internal Func<Task<(string Json, string Path)?>>? OpenFileStub { get; set; }
 
         //Test-only seam: lets a test supply the cross-preset PresetSelectionWindow's outcome (io-reference.md
         //§8 slow path) without a real modal ShowDialog.
         internal Func<List<PresetErrorPackage>, Task<Preset?>>? PresetSelectionDialogStub { get; set; }
+        internal Func<List<PresetErrorPackage>, Preset, Task<Preset?>>? ChooseAnotherPresetDialogStub { get; set; }
+        internal Func<Preset, AppSettings, Task<DataLoadResult>>? DataLoadStub { get; set; }
 
         //Test-only seam: lets a test observe/short-circuit the silent-switch info message (io-reference.md
         //§8) without a real modal ShowDialog.
         internal Func<string, Task>? PresetSwitchInfoStub { get; set; }
 
-        //Ports MainForm's savefilePath/savefileBaselineJson fields (reference: upstream MainForm.cs, io-
-        //reference.md §2). savefileBaselineJson is the dirty-check baseline: a captured JSON string, not a
-        //re-read from disk, refreshed by SaveGraph/ApplyLoadedGraphUiState and cleared by New.
-        private string? savefilePath;
-        private string? savefileBaselineJson;
-        private readonly string defaultAppName;
+        internal Action? AboutDialogStub { get; set; }
 
-        internal string? SaveFilePath => savefilePath;
-        internal string? SaveFileBaselineJson => savefileBaselineJson;
+        internal Action<IReadOnlyList<Preset>>? PresetComparatorDialogStub { get; set; }
+
+        internal ILauncher? LauncherOverride { get; set; }
+
+        private GraphLibraryService? library;
+        private bool loadingGraph;
+        private RelayCommand revertToLastSavedCommand = null!;
+        private NativeMenuItem openRecentItem = null!;
+
+        internal GraphLibraryService? Library {
+            get => library;
+            set {
+                if (library is not null) {
+                    library.WriteFailed -= OnLibraryWriteFailed;
+                    library.Saved -= OnLibrarySaved;
+                    library.Snapshot = null;
+                }
+                library = value;
+                if (library is not null) {
+                    library.Snapshot = CaptureSnapshot;
+                    library.Post = action => Dispatcher.UIThread.Post(action);
+                    library.WriteFailed += OnLibraryWriteFailed;
+                    library.Saved += OnLibrarySaved;
+                }
+            }
+        }
+
+        internal static MainWindow? MostRecentlyOpened { get; private set; }
+
+        internal static MainWindow? ActiveWindow =>
+            (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow as MainWindow
+            ?? MostRecentlyOpened;
 
         public MainWindow() {
             InitializeComponent();
             WindowState = WindowState.Maximized;
-            defaultAppName = Title ?? "Foreman 2";
             GraphViewerHost = this.FindControl<ContentControl>("GraphViewerHost")!;
             GraphCanvas = new GraphCanvasControl();
             GraphViewerHost.Content = GraphCanvas;
-            Commands = new ShellCommands(
+            Inspector = this.FindControl<InspectorView>("Inspector")!;
+            Inspector.Viewer = GraphCanvas.Viewer;
+            Inspector.RequestRedraw = () => GraphCanvas.InvalidateVisual();
+            toolbar = this.FindControl<ToolbarRow>("Toolbar")!;
+            titleBarTitle = this.FindControl<TextBlock>("TitleBarTitle")!;
+            contentPopoverHost = this.FindControl<PopoverHost>("ContentPopoverHost")!;
+            AddHandler(KeyDownEvent, OnCancelInFlightKeyDown, RoutingStrategies.Tunnel);
+            ZoomInCommand = new RelayCommand(MenuZoomIn);
+            ZoomOutCommand = new RelayCommand(MenuZoomOut);
+            ActualSizeCommand = new RelayCommand(MenuActualSize);
+            Commands = new ShellViewModel(
                 onNew: () => Async.Fire(NewGraphAsync(), nameof(NewGraphAsync)),
-                onLoad: () => Async.Fire(LoadGraphAsync(), nameof(LoadGraphAsync)),
-                onSave: () => Async.Fire(SaveGraphOrPromptAsync(), nameof(SaveGraphOrPromptAsync)),
-                onSaveAs: () => Async.Fire(SaveGraphAsAsync(), nameof(SaveGraphAsAsync)),
+                onLoad: () => Async.Fire(OpenGraphFileAsync(), nameof(OpenGraphFileAsync)),
+                onSave: SaveVersion,
                 onImport: () => Async.Fire(ImportGraphAsync(), nameof(ImportGraphAsync)),
                 onExportImage: () => Async.Fire(OpenImageExportAsync(), nameof(OpenImageExportAsync)),
-                onAddItem: () => GraphCanvas.AddItemAsync(GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2))),
-                onAddRecipe: () => GraphCanvas.AddRecipeAsync(GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2))),
-                onAutoconnect: () => { GraphCanvas.FloatingPanelHost.Close(); GraphCanvas.Viewer.AutoconnectDisconnectedInputs(); GraphCanvas.RequestRedraw(); },
-                onAlignSelection: () => { GraphCanvas.FloatingPanelHost.Close(); GraphCanvas.Viewer.AlignSelected(); GraphCanvas.RequestRedraw(); },
-                onSettings: () => Async.Fire(OpenSettingsAsync(), nameof(OpenSettingsAsync)),
-                onGraphSummary: () => Async.Fire(OpenGraphSummaryAsync(), nameof(OpenGraphSummaryAsync)));
+                onAddItem: () => GraphCanvas.AddItemAsync(ViewportCentre(), PaletteAnchorUnder("AddItemButton")),
+                onAddRecipe: () => GraphCanvas.AddRecipeAsync(ViewportCentre(), PaletteAnchorUnder("AddRecipeButton")),
+                onAutoconnect: () => { GraphCanvas.ClosePanels(); GraphCanvas.Viewer.AutoconnectDisconnectedInputs(); GraphCanvas.RequestRedraw(); },
+                onAlignSelection: () => { GraphCanvas.ClosePanels(); GraphCanvas.AlignSelection(); GraphCanvas.RequestRedraw(); },
+                onSettings: () => ShowSettings(),
+                onGraphSummary: ShowGraphSummary,
+                canExecuteAlignSelection: () => GraphCanvas.Viewer.SelectedNodes.Count > 0);
+            Inspector.AddRecipeCommand = Commands.AddRecipeCommand;
+            Inspector.OpenPresetsRequested += (_, _) => ShowSettings(selectPresetsPane: true);
+            Inspector.PickAnotherRecipeRequested += (_, node) =>
+                OpenBrowser(new AddRequest(node.Location, AddScope.Recipes, SeedText: node.BaseRecipe.FriendlyName ?? ""));
+            Inspector.RateUnitChanged += (_, unit) => SetRateUnit(unit);
+            GraphCanvas.Viewer.SelectionChanged += (_, _) => Commands.AlignSelectionCommand.NotifyCanExecuteChanged();
 
-            BindToolbarButtons();
+            GraphCanvas.BrowseRequested += (_, request) => OpenBrowser(request);
+
+            ViewModel = new MainWindowViewModel();
+            DataContext = ViewModel;
+
+            GraphCanvas.Viewer.SelectionChanged += (_, _) =>
+                ViewModel.Inspector.SetSelection([.. GraphCanvas.Viewer.SelectedNodes.Select(n => n.ViewModel)]);
+            Inspector.IsVisible = ViewModel.IsInspectorVisible;
+            Inspector.WidthCommitted += (_, value) => {
+                if (Settings is AppSettings inspectorSettings) {
+                    inspectorSettings.InspectorWidth = Math.Clamp(value / WindowScaler.CurrentScale, 260, 380);
+                    SettingsService?.Save(inspectorSettings);
+                }
+            };
+            ViewModel.PropertyChanged += (_, e) => {
+                if (e.PropertyName == nameof(MainWindowViewModel.IsInspectorVisible))
+                    Inspector.IsVisible = ViewModel.IsInspectorVisible;
+                else if (e.PropertyName == nameof(MainWindowViewModel.DocumentTitle))
+                    toolbar.Title = ViewModel.DocumentTitle;
+                else if (e.PropertyName == nameof(MainWindowViewModel.IsDirty)) {
+                    saveItem.IsOn = ViewModel.IsDirty;
+                    ApplyDocumentEditedState(ViewModel.IsDirty);
+                } else if (e.PropertyName == nameof(MainWindowViewModel.IsViewOptionsOpen))
+                    viewOptionsPopover.IsOpen = ViewModel.IsViewOptionsOpen;
+            };
+
+            GraphCanvas.Viewer.Session.GraphMutated += (_, _) => OnGraphMutated();
+
+            BuildToolbarRow();
+            InitializeSolveStatus();
+            BuildViewOptionsPopover();
+            this.FindControl<Grid>("TitleBarRow")!.Children.Add(searchAnnouncer);
+            toolbar.Title = ViewModel.DocumentTitle;
             GraphCanvas.KeyDown += OnGraphCanvasKeyDown;
-            this.FindControl<TextBlock>("VersionLabel")!.Text = AppVersion.VersionedDisplay;
+            toolbar.SearchField.PropertyChanged += (_, e) => {
+                if (e.Property == IsKeyboardFocusWithinProperty && !toolbar.SearchField.IsKeyboardFocusWithin && searchRevealsToolbar) {
+                    searchRevealsToolbar = false;
+                    ApplyToolbarShown();
+                }
+            };
+            GraphCanvas.ViewScaleChanged += (_, _) => ResyncZoomLabel();
             NativeMenu.SetMenu(this, BuildNativeMenu());
+            Opened += (_, _) => MostRecentlyOpened = this;
+            if (Application.Current?.TryGetFeature<IActivatableLifetime>() is { } activatable) {
+                EventHandler<ActivatedEventArgs> flushOnResign = (_, _) => OnAppDeactivated();
+                activatable.Deactivated += flushOnResign;
+                Closed += (_, _) => activatable.Deactivated -= flushOnResign;
+            }
+            Views.Sheets.SheetHost.For(this, this.FindControl<Grid>("TitleBarRow"));
+            minSizeScale = new WindowMinSizeScale(this, (1150, 720));
+
+            AppearanceHub.Current?.Subscribe(this);
+            Closed += (_, _) => {
+                AppearanceHub.Current?.Unsubscribe(this);
+                foreach (Bitmap bitmap in browserIconCache.Values)
+                    bitmap.Dispose();
+                browserIconCache.Clear();
+            };
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+        private void BuildToolbarRow() {
+            saveItem = ToolbarButton("SaveButton", "Save", "Save", Commands.SaveCommand, acceleratorKey: "⌘S");
+            toolbar.Groups.Add(new ToolbarGroup {
+                Role = ToolbarGroupRole.Document,
+                Items = [
+                    ToolbarButton("NewGraphButton", "New", "New", Commands.NewCommand, automationName: "New Graph", acceleratorKey: "⌘N"),
+                    ToolbarButton("LoadGraphButton", "Open", "Load", Commands.LoadCommand, acceleratorKey: "⌘O"),
+                    saveItem,
+                ],
+            });
+            toolbar.Groups.Add(new ToolbarGroup {
+                Role = ToolbarGroupRole.Add,
+                Items = [
+                    ToolbarButton("AddItemButton", "Item", "Item", Commands.AddItemCommand, automationName: "Add Item"),
+                    ToolbarButton("AddRecipeButton", "Recipe", "Recipe", Commands.AddRecipeCommand, automationName: "Add Recipe"),
+                ],
+            });
+            toolbar.Groups.Add(new ToolbarGroup {
+                Role = ToolbarGroupRole.Arrange,
+                Items = [
+                    ToolbarButton("AutoconnectButton", "Connect", "Autoconnect", Commands.AutoconnectCommand),
+                    ToolbarButton("AlignSelectionButton", "Align", "Align", Commands.AlignSelectionCommand, automationName: "Align Selected"),
+                ],
+            });
+            viewOptionsItem = ToolbarButton("ViewOptionsButton", "View", "View Options", ViewModel.ToggleViewOptionsCommand);
+            toolbar.Groups.Add(new ToolbarGroup {
+                Role = ToolbarGroupRole.ShareView,
+                Items = [
+                    ToolbarButton("ExportImageButton", "Export", "Export", Commands.ExportImageCommand, automationName: "Export Image", acceleratorKey: "⇧⌘E"),
+                    ToolbarButton("GraphSummaryButton", "Summary", "Summary", Commands.GraphSummaryCommand, automationName: "Graph Summary"),
+                    viewOptionsItem,
+                ],
+            });
+
+            toolbar.SearchField.PlaceholderText = "Find node";
+            AutomationProperties.SetName(toolbar.SearchField, "Find node");
+            toolbar.SearchField.TextChanged += (_, _) => ResetSearchMatches();
+            GraphCanvas.Viewer.Session.GraphMutated += (_, _) => RecomputeSearchMatchesOnGraphChange();
+            GraphCanvas.Announced += (_, text) => Announce(text);
+            GraphCanvas.InspectorRequested += (_, _) => FocusInspector();
+            GraphCanvas.PropertyChanged += (_, e) => {
+                if (e.Property == InputElement.IsFocusedProperty)
+                    UpdateSelectNodeMenuItems();
+            };
+            GraphCanvas.Viewer.ElementsChanged += (_, _) => UpdateSelectNodeMenuItems();
+            toolbar.SearchField.SearchCommitted += (_, _) => StepSearchMatch(forward: true);
+            toolbar.SearchField.SearchCommittedBackward += (_, _) => StepSearchMatch(forward: false);
+            toolbar.ZoomStepper.ActualSizeCommand = ActualSizeCommand;
+            toolbar.ZoomStepper.ZoomInCommand = ZoomInCommand;
+            toolbar.ZoomStepper.ZoomOutCommand = ZoomOutCommand;
+        }
+
+        private static ControlTheme KitTheme(string key) {
+            Application.Current!.TryGetResource(key, null, out object? theme);
+            return theme as ControlTheme ?? throw new InvalidOperationException($"MainWindow: kit theme '{key}' not found.");
+        }
+
+        private System.Drawing.Point ViewportCentre() =>
+            GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2));
+
+        private Avalonia.Point? PaletteAnchorUnder(string itemName) {
+            if (this.GetVisualDescendants().OfType<ToolbarItem>().FirstOrDefault(i => i.Name == itemName && i.IsEffectivelyVisible) is not ToolbarItem item
+                || item.TranslatePoint(new Avalonia.Point(0, item.Bounds.Height), GraphCanvas) is not Avalonia.Point under)
+                return null;
+            return new Avalonia.Point(under.X, Math.Max(0, under.Y));
+        }
+
+        private void BuildViewOptionsPopover() {
+            minorGridlinesPopUp = new PopUp { Name = "MinorGridlinesDropDown", Theme = KitTheme("Kit.PopUp") };
+            majorGridlinesPopUp = new PopUp { Name = "MajorGridlinesDropDown", Theme = KitTheme("Kit.PopUp") };
+            foreach (string item in GridlineLabels) {
+                minorGridlinesPopUp.Items.Add(item);
+                majorGridlinesPopUp.Items.Add(item);
+            }
+            minorGridlinesPopUp.SelectedItem = GridlineLabels[0];
+            majorGridlinesPopUp.SelectedItem = GridlineLabels[0];
+            minorGridlinesPopUp.Command = new RelayCommand<string>(item => OnGridlineCommitted(isMinor: true, item));
+            majorGridlinesPopUp.Command = new RelayCommand<string>(item => OnGridlineCommitted(isMinor: false, item));
+
+            gridlinesCheckBox = new CheckBox { Name = "GridlinesCheckbox", Theme = KitTheme("Kit.CheckBox"), Content = "Show gridlines" };
+
+            rateOptionsPopUp = new PopUp { Name = "RateOptionsDropDown", Theme = KitTheme("Kit.PopUp") };
+            foreach (string item in RateUnitOptions)
+                rateOptionsPopUp.Items.Add(item);
+            rateOptionsPopUp.SelectedItem = RateUnitOptions[0];
+            rateOptionsPopUp.Command = new RelayCommand<string>(OnRateOptionsCommitted);
+
+            iconViewCheckBox = new CheckBox { Name = "IconViewCheckBox", Theme = KitTheme("Kit.CheckBox"), Content = "Icon view" };
+            pauseUpdatesCheckBox = new CheckBox { Name = "PauseUpdatesCheckbox", Theme = KitTheme("Kit.CheckBox"), Content = "Pause all calculations" };
+
+            var gridlinesGroup = new FormGroup { Theme = KitTheme("Kit.FormGroup"), Title = "Gridlines" };
+            gridlinesGroup.Items.Add(new FormRow { Theme = KitTheme("Kit.FormRow"), Label = "Show", LabelColumn = FormRowLabelColumn.Popover, Content = gridlinesCheckBox });
+            gridlinesGroup.Items.Add(new FormRow { Theme = KitTheme("Kit.FormRow"), Label = "Minor", LabelColumn = FormRowLabelColumn.Popover, Content = minorGridlinesPopUp });
+            gridlinesGroup.Items.Add(new FormRow { Theme = KitTheme("Kit.FormRow"), Label = "Major", LabelColumn = FormRowLabelColumn.Popover, Content = majorGridlinesPopUp });
+
+            var display = new StackPanel { Spacing = 6, Children = { iconViewCheckBox, pauseUpdatesCheckBox } };
+            var graphGroup = new FormGroup { Theme = KitTheme("Kit.FormGroup"), Title = "Graph", TrailingGap = 0 };
+            graphGroup.Items.Add(new FormRow { Theme = KitTheme("Kit.FormRow"), Label = "Rate unit", LabelColumn = FormRowLabelColumn.Popover, Content = rateOptionsPopUp });
+            graphGroup.Items.Add(new FormRow { Theme = KitTheme("Kit.FormRow"), Label = "Display", LabelColumn = FormRowLabelColumn.Popover, Content = display });
+
+            var content = new StackPanel { Spacing = 0, Children = { gridlinesGroup, graphGroup } };
+            AutomationProperties.SetName(content, "View Options");
+            viewOptionsPopover = new PopoverFrame {
+                Name = "ViewOptionsPopover", Theme = KitTheme("Kit.PopoverFrame"), Content = content, Anchor = viewOptionsItem,
+            };
+            viewOptionsPopover.Bind(PopoverFrame.PanelWidthProperty, new DynamicResourceExtension("Foreman.Size.PopoverWidth"));
+            viewOptionsPopover.Closed += (_, _) => ViewModel.IsViewOptionsOpen = false;
+
+            contentPopoverHost.Surface.Children.Add(viewOptionsPopover);
+        }
+
+        private static ToolbarItem ToolbarButton(string name, string glyphName, string label, IRelayCommand command, string? automationName = null, string? acceleratorKey = null) {
+            var item = new ToolbarItem { Name = name, Glyph = ToolbarGlyph(glyphName), Label = label, AutomationName = automationName, Command = command, IsEnabled = command.CanExecute(null) };
+            if (acceleratorKey is not null)
+                AutomationProperties.SetAcceleratorKey(item, acceleratorKey);
+            command.CanExecuteChanged += (_, _) => item.IsEnabled = command.CanExecute(null);
+            return item;
+        }
+
+        private static Geometry? ToolbarGlyph(string name) =>
+            Application.Current?.TryGetResource($"Kit.Glyph.{name}.17", null, out object? geometry) == true ? geometry as Geometry : null;
+
+        private void ApplyDocumentEditedState(bool isDirty) {
+            documentEdited = isDirty;
+            if (OperatingSystem.IsMacOS() && TryGetPlatformHandle() is { HandleDescriptor: "NSWindow" } handle)
+                NativeWindowChrome.SetDocumentEdited(handle.Handle, isDirty);
+        }
+
+        private static class NativeWindowChrome {
+            [DllImport("/usr/lib/libobjc.dylib")]
+            private static extern IntPtr sel_registerName(IntPtr name);
+
+            [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+            private static extern void SendBool(IntPtr receiver, IntPtr selector, bool value);
+
+            internal static void SetDocumentEdited(IntPtr nsWindow, bool edited) {
+                IntPtr selector = Marshal.StringToHGlobalAnsi("setDocumentEdited:");
+                try {
+                    SendBool(nsWindow, sel_registerName(selector), edited);
+                } finally {
+                    Marshal.FreeHGlobal(selector);
+                }
+            }
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e) {
+            if (e.Key == Key.F && e.KeyModifiers == PlatformModifiers.Primary) {
+                FocusSearchField();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.G && e.KeyModifiers == PlatformModifiers.Primary) {
+                StepSearchMatch(forward: true);
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.G && e.KeyModifiers == (PlatformModifiers.Primary | KeyModifiers.Shift)) {
+                StepSearchMatch(forward: false);
+                e.Handled = true;
+                return;
+            }
+            if (!e.Handled && Inspector.IsKeyboardFocusWithin && ((e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None) ||
+                (e.Key == Key.Tab && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift)))) {
+                GraphCanvas.RestoreKeyboardFocus();
+                e.Handled = true;
+                return;
+            }
+            base.OnKeyDown(e);
+        }
+
+        private bool CanSelectNode() => isDocumentOpen && GraphCanvas.IsFocused && GraphCanvas.NodeElements.Count > 0;
+
+        //Tab is a menu key equivalent only while the canvas is focused, or a text field would lose it.
+        private void UpdateSelectNodeMenuItems() {
+            bool focused = GraphCanvas.IsFocused;
+            bool enabled = CanSelectNode();
+            selectNextNodeItem.Gesture = focused ? new KeyGesture(Key.Tab) : null;
+            selectPreviousNodeItem.Gesture = focused ? new KeyGesture(Key.Tab, KeyModifiers.Shift) : null;
+            selectNextNodeItem.IsEnabled = enabled;
+            selectPreviousNodeItem.IsEnabled = enabled;
+            selectNextNodeCommand.NotifyCanExecuteChanged();
+            selectPreviousNodeCommand.NotifyCanExecuteChanged();
+        }
+
+        private void FocusInspector() {
+            Inspector.UpdateLayout();
+            Inspector.FocusFirstControl();
+        }
+
+        private void FocusSearchField() {
+            if (!showToolbar && !searchRevealsToolbar) {
+                searchRevealsToolbar = true;
+                ApplyToolbarShown();
+            }
+            toolbar.SearchField.Focus();
+            toolbar.SearchField.SelectAll();
+        }
+
+        private bool replayingCancelKey;
+
+        private void OnCancelInFlightKeyDown(object? sender, KeyEventArgs e) {
+            if (replayingCancelKey || e.Key != Key.OemPeriod || e.KeyModifiers != PlatformModifiers.Primary)
+                return;
+            if (solveTracker.State == SolveStatusState.Solving) {
+                GraphCanvas.Viewer.Graph.Solver.Cancel();
+                e.Handled = true;
+            } else if (contentPopoverHost.Surface.Children.OfType<PopoverFrame>().LastOrDefault(f => f.IsOpen) is { } popover) {
+                e.Handled = ReplayCancelKey(popover);
+            } else if (GraphCanvas.IsPanelOpen) {
+                GraphCanvas.ClosePanels();
+                e.Handled = true;
+            } else if (SheetHost.For(this).FrontmostCancelTarget is { } sheet) {
+                e.Handled = ReplayCancelKey(sheet);
+            }
+        }
+
+        //The kit frames own their ⌘. behaviour (a sheet closes its own open popover first) and only recognise Meta, so Linux's Ctrl+period reaches them as ⌘.
+        private bool ReplayCancelKey(InputElement target) {
+            var replay = new KeyEventArgs { RoutedEvent = KeyDownEvent, Key = Key.OemPeriod, KeyModifiers = KeyModifiers.Meta };
+            replayingCancelKey = true;
+            try {
+                target.RaiseEvent(replay);
+            } finally {
+                replayingCancelKey = false;
+            }
+            return replay.Handled;
+        }
+
+        internal static string? DrawnName(BaseNodeElement node) => node.ViewModel switch {
+            IRecipeNodeViewModel r => r.BaseRecipe.FriendlyName,
+            ISupplierNodeViewModel s => s.SuppliedItem.FriendlyName,
+            IConsumerNodeViewModel c => c.ConsumedItem.FriendlyName,
+            IPassthroughNodeViewModel p => p.PassthroughItem.FriendlyName,
+            ISpoilNodeViewModel sp => sp.InputItem.FriendlyName is string n ? n + " Spoilage" : null,
+            IPlantNodeViewModel pl => pl.Seed.FriendlyName is string n ? n + " Planting" : null,
+            _ => null,
+        };
+
+        internal static bool MatchesSearchQuery(BaseNodeElement node, string query) {
+            string trimmed = query.Trim();
+            if (trimmed.Length == 0)
+                return false;
+            return (DrawnName(node) is string name && name.Contains(trimmed, StringComparison.CurrentCultureIgnoreCase)) ||
+                (node.ViewModel.KeyNode && node.ViewModel.KeyNodeTitle.Contains(trimmed, StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        private List<BaseNodeElement> OrderedSearchMatches(string query) =>
+            CanvasTraversal.ReadingOrder(GraphCanvas.Viewer.NodeElements.Where(n => MatchesSearchQuery(n, query)));
+
+        private int FirstSearchMatchIndexAtOrAfter(System.Drawing.Point point) {
+            for (int i = 0; i < searchMatches.Count; i++) {
+                System.Drawing.Point at = searchMatches[i].Location;
+                if (at.Y > point.Y || (at.Y == point.Y && at.X >= point.X))
+                    return i;
+            }
+            return -1;
+        }
+
+        private int AnchorSearchMatchIndex() {
+            if (searchMatches.Count == 0)
+                return -1;
+            if (GraphCanvas.Viewer.SelectedNodes.Count == 1) {
+                int atSelection = FirstSearchMatchIndexAtOrAfter(GraphCanvas.Viewer.SelectedNodes.First().Location);
+                if (atSelection >= 0)
+                    return atSelection;
+            }
+            System.Drawing.Point centre = GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2));
+            int atCentre = FirstSearchMatchIndexAtOrAfter(centre);
+            return atCentre >= 0 ? atCentre : 0;
+        }
+
+        private void MarkSearchMatches() {
+            HashSet<BaseNodeElement> matches = [.. searchMatches];
+            foreach (BaseNodeElement node in GraphCanvas.Viewer.NodeElements)
+                node.IsFindMatch = matches.Contains(node);
+            GraphCanvas.RequestRedraw();
+        }
+
+        private void SelectCurrentSearchMatch() {
+            BaseNodeElement match = searchMatches[searchMatchIndex];
+            GraphCanvas.Viewer.SetSelection([match]);
+            GraphCanvas.PanIntoView(CanvasTraversal.WorldBounds(match), GraphCanvasControl.FindPanMargin);
+            GraphCanvas.RequestRedraw();
+        }
+
+        private void ResetSearchMatches() {
+            string query = toolbar.SearchField.Text ?? "";
+            BaseNodeElement? wasCurrent = searchMatchIndex >= 0 && searchMatchIndex < searchMatches.Count ? searchMatches[searchMatchIndex] : null;
+
+            searchMatches = string.IsNullOrWhiteSpace(query) ? [] : OrderedSearchMatches(query);
+            MarkSearchMatches();
+            int stillCurrent = wasCurrent is null ? -1 : searchMatches.IndexOf(wasCurrent);
+            searchMatchIndex = searchMatches.Count == 0 ? -1 : stillCurrent >= 0 ? stillCurrent : AnchorSearchMatchIndex();
+
+            if (searchMatchIndex >= 0)
+                SelectCurrentSearchMatch();
+            UpdateSearchMatchStatus();
+            ScheduleSearchResultAnnouncement(query);
+        }
+
+        private void RecomputeSearchMatchesOnGraphChange() {
+            string query = toolbar.SearchField.Text ?? "";
+            if (string.IsNullOrWhiteSpace(query))
+                return;
+
+            BaseNodeElement? wasCurrent = searchMatchIndex >= 0 && searchMatchIndex < searchMatches.Count ? searchMatches[searchMatchIndex] : null;
+            int wasIndex = searchMatchIndex;
+            searchMatches = OrderedSearchMatches(query);
+            MarkSearchMatches();
+            int stillCurrent = wasCurrent is null ? -1 : searchMatches.IndexOf(wasCurrent);
+            searchMatchIndex = searchMatches.Count == 0 ? -1
+                : stillCurrent >= 0 ? stillCurrent
+                : wasIndex < 0 || wasIndex >= searchMatches.Count ? 0
+                : wasIndex;
+
+            if (searchMatchIndex >= 0 && stillCurrent < 0)
+                SelectCurrentSearchMatch();
+            UpdateSearchMatchStatus();
+        }
+
+        private void StepSearchMatch(bool forward) {
+            if (searchMatches.Count == 0)
+                return;
+
+            searchAnnounceTimer?.Stop();
+            int next = searchMatchIndex + (forward ? 1 : -1);
+            bool wrapped = next < 0 || next >= searchMatches.Count;
+            searchMatchIndex = ((next % searchMatches.Count) + searchMatches.Count) % searchMatches.Count;
+
+            SelectCurrentSearchMatch();
+            UpdateSearchMatchStatus();
+            AnnounceSearchStep(searchMatches[searchMatchIndex], wrapped, forward);
+        }
+
+        private void UpdateSearchMatchStatus() {
+            string query = toolbar.SearchField.Text ?? "";
+            toolbar.SearchField.MatchStatus = string.IsNullOrWhiteSpace(query) ? null
+                : searchMatches.Count == 0 ? "No matches"
+                : string.Create(DisplayCulture.Format, $"{searchMatchIndex + 1} of {searchMatches.Count}");
+        }
+
+        private static string MatchCountLabel(int count) => count == 1 ? "1 match" : string.Create(DisplayCulture.Format, $"{count} matches");
+
+        //DispatcherTimer, not Task.Delay: a delay outliving its window fires on another test's UI thread
+        private static readonly TimeSpan SearchAnnounceDebounce = TimeSpan.FromMilliseconds(300);
+        private DispatcherTimer? searchAnnounceTimer;
+
+        private void ScheduleSearchResultAnnouncement(string query) {
+            searchAnnounceTimer?.Stop();
+            if (string.IsNullOrWhiteSpace(query))
+                return;
+            searchAnnounceTimer = RestartTimer(searchAnnounceTimer, (_, _) => Announce(searchMatches.Count == 0 ? "No matches" : MatchCountLabel(searchMatches.Count)));
+        }
+
+        private static DispatcherTimer RestartTimer(DispatcherTimer? timer, EventHandler onElapsed) {
+            if (timer is null) {
+                timer = new DispatcherTimer { Interval = SearchAnnounceDebounce };
+                timer.Tick += onElapsed;
+            }
+            timer.Stop();
+            timer.Start();
+            return timer;
+        }
+
+        private void AnnounceSearchStep(BaseNodeElement match, bool wrapped, bool forward) {
+            string name = DrawnName(match) ?? match.ViewModel.KeyNodeTitle;
+            string text = string.Create(DisplayCulture.Format, $"{searchMatchIndex + 1} of {searchMatches.Count}, {name}");
+            Announce(wrapped ? (forward ? "Wrapped to first match. " : "Wrapped to last match. ") + text : text);
+        }
+
+        private void Announce(string text) {
+            AutomationProperties.SetName(searchAnnouncer, string.Empty);
+            AutomationProperties.SetName(searchAnnouncer, text);
+        }
+
+        private sealed class SearchAnnouncer : TextBlock {
+            protected override AutomationPeer OnCreateAutomationPeer() => new AnnouncerAutomationPeer(this);
+
+            private sealed class AnnouncerAutomationPeer(SearchAnnouncer owner) : ControlAutomationPeer(owner) {
+                protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Text;
+                protected override AutomationLiveSetting GetLiveSettingCore() => AutomationLiveSetting.Polite;
+            }
+        }
+
+        public void RefreshTheme() {
+            minSizeScale.Apply();
+            ApplyCanvasTheme();
+            RefreshBrowserIcons();
+        }
+
+        //Stale baked icons fall out of scope instead of being disposed: a still-attached Image can be measuring one
+        private void RefreshBrowserIcons() {
+            browserIconCache.Clear();
+            if (browser?.DataContext is AddBrowserViewModel vm)
+                vm.Refresh(forceRebuild: true);
+        }
+
+        internal void OpenBrowser(AddRequest request) {
+            if (DataCache is not Foreman.DataCaching.DataCache cache || Settings is not AppSettings settings)
+                return;
+
+            if (browser is null) {
+                var vm = new AddBrowserViewModel(new AddCatalog(cache, settings), cache, settings,
+                    (bmp, size) => IconBaker.GetOrBake(browserIconCache, bmp, size),
+                    GraphCanvas.Viewer.Graph.DefaultAssemblerQuality,
+                    resolve => Dispatcher.UIThread.Post(resolve, DispatcherPriority.Background));
+                vm.ImportPresetRequested += (_, _) => ShowSettings(selectPresetsPane: true);
+                browser = new AddBrowserWindow { DataContext = vm };
+                vm.PlaceRequested += (_, pick) => {
+                    if (BrowserRequest is not AddRequest activeRequest)
+                        return;
+                    AddRequest requestForPlacement = activeRequest with { Link = vm.Link };
+                    BrowserRequest = GraphCanvas.PlaceCandidate(pick.Candidate, requestForPlacement, pick.Role, pick.Quality, pick.SpoilPlantDirection, pick.ExplicitOrigin);
+                };
+            }
+            var browserVm = (AddBrowserViewModel)browser.DataContext!;
+            browserVm.Seed(request);
+            if (request.OriginsRole is NodeType role)
+                browserVm.SeedOrigins(role);
+            BrowserRequest = request;
+            if (!browser.IsVisible)
+                browser.Show(this);
+            browser.Activate();
+        }
 
         //Ports MainForm_Load's settings-application block (reference: upstream MainForm.cs:70-135) - preset/
         //fuel-priority defaults stay untouched since neither has a settings-dialog widget yet; the knobs
@@ -131,13 +722,12 @@ namespace Foreman.Mac {
             GraphCanvas.Viewer.Context.EnableExtraProductivityForNonMiners = settings.EnableExtraProductivityForNonMiners;
             GraphCanvas.Viewer.IconsOnly = settings.IconsOnlyView;
 
-            //Ports MainForm.SetDarkMode/SetLightMode's cold-start read (upstream MainForm.cs:36-46): App.
-            //ApplyTheme only swaps the window chrome's ThemeVariant, so the canvas needs its own seed here -
-            //same seam boot, preset reload, and every Settings Confirm already replay through.
-            bool isDark = settings.FlagDarkMode == ThemeMode.Dark ||
-                (settings.FlagDarkMode == ThemeMode.System && Application.Current?.ActualThemeVariant == ThemeVariant.Dark);
-            GraphCanvas.Viewer.ApplyTheme(isDark);
-            GraphCanvas.RequestRedraw();
+            WindowScaler.SetScale(settings.UiScale);
+
+            ApplyCanvasTheme();
+
+            ViewModel.Inspector.IsPinned = settings.InspectorPinned;
+            ViewModel.Inspector.Width = Math.Clamp(settings.InspectorWidth, 260, 380) * WindowScaler.CurrentScale;
 
             //Ports the SmartNodeDirection/DefaultNodeDirection cold-start read (reference §8): wired here
             //rather than at construction since GraphCanvasControl has no settings reference of its own.
@@ -163,10 +753,10 @@ namespace Foreman.Mac {
             settings.LevelOfDetail = (int)context.LevelOfDetail;
             context.ArrowsOnLinks = settings.ArrowsOnLinks;
             context.DynamicLinkWidth = settings.DynamicLineWidth;
+            GraphCanvas.Viewer.DefaultLinkRouting = settings.DefaultLinkRouting;
             context.FlagOUSuppliedNodes = settings.FlagOUSuppliedNodes;
             context.RoundAssemblerCount = settings.RoundAssemblerCount;
             context.AbbreviateSciPacks = settings.AbbreviateSciPacks;
-            context.ShowRecipeToolTip = settings.ShowRecipeToolTip;
 
             settings.IconsSize = Math.Clamp(settings.IconsSize, 8, 256);
             context.IconsDrawSize = settings.IconsSize;
@@ -182,173 +772,295 @@ namespace Foreman.Mac {
             BindViewOptionControls(settings);
         }
 
-        //Called from boot, ReloadForPresetAsync, and every OpenSettingsAsync Confirm (twice on a preset-
-        //switching Confirm - once from ReloadForPresetAsync's own ApplyLoadedSettings call, once more from
-        //OpenSettingsAsync's own call after it). The value/enable resync below is idempotent and safe to
-        //replay on every call; the six event subscriptions are not, so they're guarded to run exactly once
-        //(same fix shape as ResyncRateOptionsDropDown's unsubscribe-before-subscribe, applied at the source
-        //instead - a construction-time subscribe would need these controls looked up a second time). The
-        //handlers themselves read the live Settings property rather than closing over this call's settings
-        //parameter, since Settings can be swapped to a different AppSettings instance between calls.
+        //Ports MainForm.SetDarkMode/SetLightMode's cold-start read (upstream MainForm.cs:36-46): App.
+        //ApplyTheme only swaps the window chrome's ThemeVariant, so the canvas needs its own seed here -
+        //same seam boot, preset reload, and every Settings Confirm already replay through.
+        private void ApplyCanvasTheme() {
+            if (Settings is not AppSettings settings)
+                return;
+
+            bool isDark = settings.FlagDarkMode == ThemeMode.Dark ||
+                (settings.FlagDarkMode == ThemeMode.System && Application.Current?.ActualThemeVariant == ThemeVariant.Dark);
+            GraphCanvas.Viewer.ApplyTheme(isDark);
+            GraphCanvas.RequestRedraw();
+        }
+
+        //Runs on every settings load: the checkbox subscriptions must wire exactly once
         private bool viewOptionControlsBound;
 
         private void BindViewOptionControls(AppSettings settings) {
-            var minorGridlines = this.FindControl<ComboBox>("MinorGridlinesDropDown")!;
-            var majorGridlines = this.FindControl<ComboBox>("MajorGridlinesDropDown")!;
-            var gridlinesCheckbox = this.FindControl<CheckBox>("GridlinesCheckbox")!;
-            var rateOptions = this.FindControl<ComboBox>("RateOptionsDropDown")!;
-            var iconView = this.FindControl<CheckBox>("IconViewCheckBox")!;
-            var pauseUpdates = this.FindControl<CheckBox>("PauseUpdatesCheckbox")!;
-
-            minorGridlines.SelectedIndex = settings.MinorGridlines;
-            majorGridlines.SelectedIndex = settings.MajorGridlines;
-            gridlinesCheckbox.IsChecked = settings.AltGridlines;
-            //Minor#4 (final fix wave): routes through the same unsubscribe-before-write idiom
-            //ResyncRateOptionsDropDown uses below, rather than writing SelectedIndex directly - a repeat
-            //call (preset-switching Confirm) with the handler already subscribed would otherwise fire
-            //OnRateOptionsSelectionChanged and re-solve on top of this call's own apply-tail solve.
+            minorGridlinesPopUp.SelectedItem = GridlineLabels[Math.Clamp(settings.MinorGridlines, 0, GridlineLabels.Length - 1)];
+            majorGridlinesPopUp.SelectedItem = GridlineLabels[Math.Clamp(settings.MajorGridlines, 0, GridlineLabels.Length - 1)];
+            gridlinesCheckBox.IsChecked = settings.AltGridlines;
             ResyncRateOptionsDropDown();
-            iconView.IsChecked = GraphCanvas.Viewer.IconsOnly;
-            pauseUpdates.IsChecked = GraphCanvas.Viewer.Graph.PauseUpdates;
+            iconViewCheckBox.IsChecked = GraphCanvas.Viewer.IconsOnly;
+            pauseUpdatesCheckBox.IsChecked = GraphCanvas.Viewer.Graph.PauseUpdates;
 
-            GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(minorGridlines.SelectedIndex);
-            GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(majorGridlines.SelectedIndex);
-            GraphCanvas.Grid.ShowGrid = gridlinesCheckbox.IsChecked == true;
+            GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(Array.IndexOf(GridlineLabels, minorGridlinesPopUp.SelectedItem));
+            GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(Array.IndexOf(GridlineLabels, majorGridlinesPopUp.SelectedItem));
+            GraphCanvas.Grid.ShowGrid = gridlinesCheckBox.IsChecked == true;
+            ResyncNativeMenuCheckedStates();
 
-            minorGridlines.IsEnabled = true;
-            majorGridlines.IsEnabled = true;
-            gridlinesCheckbox.IsEnabled = true;
-            rateOptions.IsEnabled = true;
-            iconView.IsEnabled = true;
-            pauseUpdates.IsEnabled = true;
+            minorGridlinesPopUp.IsEnabled = true;
+            majorGridlinesPopUp.IsEnabled = true;
+            gridlinesCheckBox.IsEnabled = true;
+            rateOptionsPopUp.IsEnabled = true;
+            iconViewCheckBox.IsEnabled = true;
+            pauseUpdatesCheckBox.IsEnabled = true;
 
             if (viewOptionControlsBound)
                 return;
             viewOptionControlsBound = true;
 
-            minorGridlines.SelectionChanged += (_, _) => {
-                GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(minorGridlines.SelectedIndex);
+            gridlinesCheckBox.IsCheckedChanged += (_, _) => {
+                GraphCanvas.Grid.ShowGrid = gridlinesCheckBox.IsChecked == true;
                 if (Settings is AppSettings current)
-                    current.MinorGridlines = minorGridlines.SelectedIndex;
+                    current.AltGridlines = gridlinesCheckBox.IsChecked == true;
+                ResyncNativeMenuCheckedStates();
                 GraphCanvas.InvalidateVisual();
             };
-            majorGridlines.SelectionChanged += (_, _) => {
-                GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(majorGridlines.SelectedIndex);
+            iconViewCheckBox.IsCheckedChanged += (_, _) => {
+                GraphCanvas.Viewer.IconsOnly = iconViewCheckBox.IsChecked == true;
                 if (Settings is AppSettings current)
-                    current.MajorGridlines = majorGridlines.SelectedIndex;
+                    current.IconsOnlyView = iconViewCheckBox.IsChecked == true;
+                ResyncNativeMenuCheckedStates();
                 GraphCanvas.InvalidateVisual();
             };
-            gridlinesCheckbox.IsCheckedChanged += (_, _) => {
-                GraphCanvas.Grid.ShowGrid = gridlinesCheckbox.IsChecked == true;
-                if (Settings is AppSettings current)
-                    current.AltGridlines = gridlinesCheckbox.IsChecked == true;
+            pauseUpdatesCheckBox.IsCheckedChanged += (_, _) => {
+                SetCalculationsPaused(pauseUpdatesCheckBox.IsChecked == true);
+                ResyncNativeMenuCheckedStates();
                 GraphCanvas.InvalidateVisual();
             };
-            //No rateOptions.SelectionChanged += here: ResyncRateOptionsDropDown's own unsubscribe-before-
-            //subscribe write above already owns that handler's lifecycle, on every call.
-            iconView.IsCheckedChanged += (_, _) => {
-                GraphCanvas.Viewer.IconsOnly = iconView.IsChecked == true;
-                if (Settings is AppSettings current)
-                    current.IconsOnlyView = iconView.IsChecked == true;
-                GraphCanvas.InvalidateVisual();
-            };
-            pauseUpdates.IsCheckedChanged += (_, _) => {
-                GraphCanvas.Viewer.Graph.PauseUpdates = pauseUpdates.IsChecked == true;
-                if (!GraphCanvas.Viewer.Graph.PauseUpdates)
-                    GraphCanvas.Viewer.Graph.UpdateNodeValues();
-                GraphCanvas.InvalidateVisual();
-            };
+            GraphCanvas.CalculationsResumed += (_, _) => pauseUpdatesCheckBox.IsChecked = false;
         }
 
-        private void OnRateOptionsSelectionChanged(object? sender, SelectionChangedEventArgs e) {
-            var rateOptions = (ComboBox)sender!;
-            var unit = (ProductionGraph.RateUnit)rateOptions.SelectedIndex;
-            GraphCanvas.Viewer.Graph.SelectedRateUnit = unit;
-            if (Settings is AppSettings settings)
-                settings.DefaultRateUnit = unit;
-            GraphCanvas.Viewer.Graph.UpdateNodeValues();
+        //Kit.PopUp.Command fires only on a real user commit, never on a SelectedItem write.
+        private void OnGridlineCommitted(bool isMinor, string? item) {
+            if (item is null)
+                return;
+            int index = Array.IndexOf(GridlineLabels, item);
+            if (isMinor)
+                GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(index);
+            else
+                GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(index);
+            if (Settings is AppSettings current) {
+                if (isMinor)
+                    current.MinorGridlines = index;
+                else
+                    current.MajorGridlines = index;
+            }
+            ResyncNativeMenuCheckedStates();
             GraphCanvas.InvalidateVisual();
+        }
+
+        private void OnRateOptionsCommitted(string? item) {
+            if (item is null)
+                return;
+            SetRateUnit((ProductionGraph.RateUnit)Array.IndexOf(RateUnitOptions, item));
+        }
+
+        private void SetRateUnit(ProductionGraph.RateUnit unit) {
+            GraphCanvas.Viewer.Graph.SelectedRateUnit = unit;
+            GraphCanvas.Viewer.Graph.UpdateNodeValues();
+            ResyncRateOptionsDropDown();
+            Inspector.RefreshSegment();
+            GraphCanvas.InvalidateVisual();
+            if (Settings is AppSettings settings)
+                SettingsService?.Save(settings);
         }
 
         //Ports ApplyLoadedGraphUiState's dropdown resync (upstream MainForm.cs:227-231, first thing it does
         //after a load): LoadDocument already applies the save's rate unit to Graph.SelectedRateUnit, but
-        //nothing kept RateOptionsDropDown or Settings in step with it. Unsubscribing around the index write
-        //avoids re-running OnRateOptionsSelectionChanged's own GraphCanvas.Viewer.Graph.UpdateNodeValues()
-        //call, since LoadDocument already solved the freshly loaded graph once.
+        //nothing kept RateOptionsDropDown or Settings in step with it. A plain SelectedItem write never
+        //invokes Command (only a real user commit does), so this needs no unsubscribe-before-write guard.
         internal void ResyncRateOptionsDropDown() {
-            var rateOptions = this.FindControl<ComboBox>("RateOptionsDropDown")!;
-            rateOptions.SelectionChanged -= OnRateOptionsSelectionChanged;
-            rateOptions.SelectedIndex = (int)GraphCanvas.Viewer.Graph.SelectedRateUnit;
-            rateOptions.SelectionChanged += OnRateOptionsSelectionChanged;
+            ProductionGraph.RateUnit unit = GraphCanvas.Viewer.Graph.SelectedRateUnit;
+            rateOptionsPopUp.SelectedItem = RateUnitOptions[(int)unit];
 
             if (Settings is AppSettings settings)
-                settings.DefaultRateUnit = GraphCanvas.Viewer.Graph.SelectedRateUnit;
+                settings.DefaultRateUnit = unit;
+
+            ResyncNativeMenuCheckedStates();
         }
 
         private static int GridUnitFromIndex(int index) => index > 0 ? 6 * (int)Math.Pow(2, index - 1) : 0;
 
-        //Ports LoadGraphButton_Click -> LoadGraph() -> LoadGraph(path) (reference: upstream MainForm.cs:198-
-        //225, io-reference.md §2 "Load"): the open-file picker and TestGraphSavedStatus gate; the parse,
-        //preset resolution, and post-load bookkeeping are LoadGraphJsonAsync's job.
-        private async Task LoadGraphAsync() {
-            if (DataCache is null || StorageProvider is not IStorageProvider storage)
+        internal async Task OpenGraphFileAsync() {
+            if (DataCache is null)
                 return;
-            if (!await TestGraphSavedStatusAsync().ConfigureAwait(true))
+            using IDisposable busy = ShellHost.HoldBusy();
+            (string Json, string Path)? picked = await (OpenFileStub?.Invoke() ?? PickGraphFileAsync()).ConfigureAwait(true);
+            if (picked is not (string json, string path))
                 return;
+
+            await OpenFjsonAsync(json, path).ConfigureAwait(true);
+        }
+
+        internal Window? AlertOwner { get; set; }
+
+        internal bool ShowDeferred { get; set; }
+
+        private Window AlertHost() {
+            if (AlertOwner is { } owner)
+                return owner;
+            RevealDeferred();
+            return this;
+        }
+
+        internal void RevealDeferred() {
+            if (!ShowDeferred)
+                return;
+            ShowDeferred = false;
+            Show();
+        }
+
+        internal async Task OpenFjsonPathAsync(string path) {
+            if (DataCache is null)
+                return;
+            if (await ReadGraphFileAsync(AlertHost(), path).ConfigureAwait(true) is string json)
+                await OpenFjsonAsync(json, path).ConfigureAwait(true);
+        }
+
+        internal static async Task<string?> ReadGraphFileAsync(Window owner, string path) {
+            string name = Dialogs.MiddleTruncate(Path.GetFileNameWithoutExtension(path));
+            try {
+                string json = await File.ReadAllTextAsync(path).ConfigureAwait(true);
+                if (GraphSaveCodec.ReadViewer(json) is not null)
+                    return json;
+            } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
+                ErrorLogging.LogException(ex, $"Couldn't read dropped file '{path}'");
+            }
+            await Dialogs.ShowWarningAsync(owner, $"Couldn’t open “{name}”.", UnreadableGraphSentence).ConfigureAwait(true);
+            return null;
+        }
+
+        private async Task<(string Json, string Path)?> PickGraphFileAsync() {
+            if (AlertHost().StorageProvider is not IStorageProvider storage)
+                return null;
 
             Directory.CreateDirectory(AppPaths.SavedGraphsDirectory);
             IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions {
                 Title = "Open Graph",
                 AllowMultiple = false,
                 SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(new Uri(AppPaths.SavedGraphsDirectory)).ConfigureAwait(true),
-                FileTypeFilter = [new FilePickerFileType("Foreman files") { Patterns = ["*.fjson", "*.json"] }],
+                FileTypeFilter = [new FilePickerFileType("Foreman files") { Patterns = ["*.fjson"] }],
             }).ConfigureAwait(true);
             if (files.Count == 0)
-                return;
+                return null;
 
-            string path = files[0].Path.LocalPath;
-            string json;
-            await using (Stream stream = await files[0].OpenReadAsync().ConfigureAwait(true))
-            using (var reader = new StreamReader(stream))
-                json = await reader.ReadToEndAsync().ConfigureAwait(true);
-
-            await LoadGraphJsonAsync(json, path).ConfigureAwait(true);
+            await using Stream stream = await files[0].OpenReadAsync().ConfigureAwait(true);
+            using var reader = new StreamReader(stream);
+            return (await reader.ReadToEndAsync().ConfigureAwait(true), files[0].Path.LocalPath);
         }
 
-        //Ports LoadFromJson/LoadFromSaveDocument's non-dialog half (reference upstream ProductionGraphViewer.
-        //cs:1414-1432, io-reference.md §8): parses the save once, resolves which preset to load it against
-        //via ResolveChosenPresetAsync (fast/silent-switch/slow-path dialog, or null on cancel), swaps in that
-        //preset's DataCache only when it differs from the one already active, then loads. Internal so tests
-        //can drive it without a real file picker, the same seam ImportGraphJsonAsync already established.
-        internal async Task LoadGraphJsonAsync(string json, string path) {
-            if (DataCache is not Foreman.DataCaching.DataCache cache || Settings is not AppSettings settings)
+        internal async Task OpenFjsonAsync(string json, string path) {
+            string name = Path.GetFileNameWithoutExtension(path);
+            GraphViewerSaveDocument? document = GraphSaveCodec.ReadViewer(json);
+            if (document is null || Library is null) {
+                await LoadReplacingAsync(json, name, null).ConfigureAwait(true);
                 return;
+            }
+
+            string data = GraphSaveCodec.WriteViewerDocumentToString(document, writeIndented: true);
+            if (Library.FindImport(path, data) is GraphRow existing) {
+                await OpenLibraryGraphAsync(existing.Id).ConfigureAwait(true);
+                return;
+            }
+            if (!await LoadReplacingAsync(data, name, null).ConfigureAwait(true) || Library is null)
+                return;
+
+            GraphRow row = Library.Create(name, CurrentPresetName, data, GraphCanvas.Viewer.Graph.Nodes.Count(), path);
+            ShowOpenedGraph(row);
+        }
+
+        internal async Task<bool> OpenLibraryGraphAsync(Guid id, Preset? presetOverride = null) {
+            if (Library is null || Library.OpenGraphId == id)
+                return false;
+            Library.FlushAndWait();
+            if (Library.Find(id) is not GraphRow stored)
+                return false;
+            if (!await LoadReplacingAsync(stored.Data, stored.Name, presetOverride, announcePresetSwitch: false).ConfigureAwait(true))
+                return false;
+            if (Library is null)
+                return false;
+
+            ShowOpenedGraph(Library.Open(id) ?? stored);
+            return true;
+        }
+
+        private async Task<bool> LoadReplacingAsync(string json, string name, Preset? presetOverride, bool announcePresetSwitch = true) {
+            using IDisposable busy = ShellHost.HoldBusy();
+            Library?.FlushAndWait();
+            GraphRow? previous = Library?.OpenGraphId is Guid previousId ? Library.Find(previousId) : null;
+            if (await LoadGraphJsonAsync(json, name, presetOverride, announcePresetSwitch).ConfigureAwait(true))
+                return true;
+            if (previous is null || Library is null)
+                return false;
+            if (Library.OpenGraphId != previous.Id && await LoadGraphJsonAsync(previous.Data, previous.Name, announcePresetSwitch: false).ConfigureAwait(true))
+                Library.Resume(previous);
+            if (Library.OpenGraphId == previous.Id)
+                ViewModel.IsDirty = GraphLibraryService.IsEditedSinceSave(previous);
+            return false;
+        }
+
+        internal void OnAppDeactivated() => Library?.FlushAndWait();
+
+        private void ShowOpenedGraph(GraphRow row) {
+            if (Library is not null && row.PresetName != CurrentPresetName)
+                Library.SetPreset(CurrentPresetName);
+            ViewModel.DocumentName = row.Name;
+            ViewModel.IsDirty = GraphLibraryService.IsEditedSinceSave(row);
+        }
+
+        //Detaches the library graph before the swap so the load's own mutation events never autosave into the previous row.
+        internal async Task<bool> LoadGraphJsonAsync(string json, string name, Preset? presetOverride = null, bool announcePresetSwitch = true) {
+            if (DataCache is not Foreman.DataCaching.DataCache cache || Settings is not AppSettings settings)
+                return false;
 
             GraphViewerSaveDocument? document = GraphSaveCodec.ReadViewer(json);
             if (document is null) {
-                await Dialogs.ShowWarningAsync(this, "Cannot load save",
-                    "This save file is too old or corrupt. Try opening it in the previous Foreman release and saving it again, then open the new file here.").ConfigureAwait(true);
-                return;
+                await Dialogs.ShowWarningAsync(AlertHost(), $"Couldn’t open “{Dialogs.MiddleTruncate(name)}”.", UnreadableGraphSentence).ConfigureAwait(true);
+                return false;
             }
 
-            Preset? chosenPreset = await ResolveChosenPresetAsync(document).ConfigureAwait(true);
-            if (chosenPreset is null)
-                return;
-
-            if (chosenPreset.Name != cache.PresetName) {
-                Foreman.DataCaching.DataCache? newCache = await LoadDataCacheForPresetAsync(chosenPreset, settings).ConfigureAwait(true);
-                if (newCache is null)
-                    return;
-                cache = newCache;
+            Library?.FlushAndWait();
+            string previousPresetName = settings.CurrentPresetName;
+            Preset? chosenPreset = presetOverride ?? await ResolveChosenPresetAsync(document, announcePresetSwitch).ConfigureAwait(true);
+            while (chosenPreset is not null && chosenPreset.Name != cache.PresetName) {
+                DataLoadResult loaded = await LoadDataCacheForPresetAsync(chosenPreset, settings).ConfigureAwait(true);
+                if (loaded.Cache is Foreman.DataCaching.DataCache newCache) {
+                    cache = newCache;
+                    break;
+                }
+                chosenPreset = loaded.Outcome == DataLoadOutcome.ChooseAnother
+                    ? await ChooseAnotherPresetAsync(document, chosenPreset).ConfigureAwait(true)
+                    : null;
+            }
+            if (chosenPreset is null) {
+                if (settings.CurrentPresetName != previousPresetName) {
+                    settings.CurrentPresetName = previousPresetName;
+                    SettingsService?.Save(settings);
+                }
+                return false;
             }
 
-            GraphLoadResult result = GraphCanvas.LoadDocument(cache, document);
+            //LoadDocument is about to dispose every current node view model.
+            ViewModel.Inspector.SetSelection([]);
+            Library?.Detach();
+            loadingGraph = true;
+            GraphLoadResult result;
+            try {
+                result = GraphCanvas.LoadDocument(cache, document);
+            } finally {
+                loadingGraph = false;
+            }
             if (!result.Success)
-                await Dialogs.ShowWarningAsync(this, "Cannot load save", result.ErrorMessage ?? "This save file is too old or corrupt.").ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(AlertHost(), $"Couldn’t open “{Dialogs.MiddleTruncate(name)}”.", result.ErrorMessage ?? UnreadableGraphSentence).ConfigureAwait(true);
             else
-                ApplyLoadedGraphUiState(path);
+                ApplyLoadedGraphUiState(name);
 
             GraphCanvas.InvalidateVisual();
+            return result.Success;
         }
 
         //Ports ResolveChosenPresetAsync (reference upstream ProductionGraphViewer.cs:1434-1507, io-reference.
@@ -359,7 +1071,7 @@ namespace Foreman.Mac {
         //clean name match (or the name match itself had errors, which still carries its already-computed
         //errors into the list below rather than re-testing it) - every other installed preset gets tested
         //and the ranked picker decides. Returns null on cancel (dialog cancel or no installed presets).
-        internal async Task<Preset?> ResolveChosenPresetAsync(GraphViewerSaveDocument saveDocument) {
+        internal async Task<Preset?> ResolveChosenPresetAsync(GraphViewerSaveDocument saveDocument, bool announceSwitch = true) {
             if (Settings is not AppSettings settings || PresetResolver is not Services.PresetResolver presetResolver || SettingsService is not Services.SettingsService settingsService)
                 return null;
 
@@ -404,8 +1116,9 @@ namespace Foreman.Mac {
             } else if (chosenPreset.Name != settings.CurrentPresetName) {
                 string previousPresetName = settings.CurrentPresetName;
                 string newPresetName = chosenPreset.Name;
-                await ShowPresetSwitchInfoAsync(string.Format(DisplayCulture.Format,
-                    "Loaded graph uses a different Preset.\nPreset switched from \"{0}\" to \"{1}\"", previousPresetName, newPresetName)).ConfigureAwait(true);
+                if (announceSwitch)
+                    await ShowPresetSwitchInfoAsync(string.Create(DisplayCulture.Format,
+                        $"Loaded graph uses a different Preset.\nPreset switched from \"{previousPresetName}\" to \"{newPresetName}\"")).ConfigureAwait(true);
                 settings.CurrentPresetName = newPresetName;
                 settingsService.Save(settings);
             }
@@ -413,48 +1126,93 @@ namespace Foreman.Mac {
             return chosenPreset;
         }
 
-        private Task<Preset?> ShowPresetSelectionDialogAsync(List<PresetErrorPackage> presetErrors) =>
-            PresetSelectionDialogStub?.Invoke(presetErrors) ?? RealShowPresetSelectionDialogAsync(presetErrors);
-
-        //Ports the ResolveChosenPresetAsync slow path's dialog launch (upstream ProductionGraphViewer.cs:
-        //1477-1488): owner+50/+50, same Manual placement as Settings/Graph Summary/Image Export.
-        private async Task<Preset?> RealShowPresetSelectionDialogAsync(List<PresetErrorPackage> presetErrors) {
-            var window = new PresetSelectionWindow(presetErrors) {
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Position = Position + new PixelPoint(50, 50),
-            };
-            bool? result = await window.ShowDialog<bool?>(this).ConfigureAwait(true);
-            if (!GraphCanvas.FloatingPanelHost.IsOpen)
-                GraphCanvas.Focus();
-            return result == true ? window.ChosenPreset : null;
+        private Task<Preset?> ShowPresetSelectionDialogAsync(List<PresetErrorPackage> presetErrors) {
+            RevealDeferred();
+            return PresetSelectionDialogStub?.Invoke(presetErrors) ?? RealShowPresetSelectionDialogAsync(presetErrors);
         }
 
-        private Task ShowPresetSwitchInfoAsync(string message) =>
-            PresetSwitchInfoStub?.Invoke(message) ?? Dialogs.ShowInfoAsync(this, message);
+        //Ports the ResolveChosenPresetAsync slow path's dialog launch (upstream ProductionGraphViewer.cs:
+        //1477-1488). The chosen preset is read while the sheet is still open, so a failed read shows on its strip.
+        private async Task<Preset?> RealShowPresetSelectionDialogAsync(List<PresetErrorPackage> presetErrors, Preset? failed = null) {
+            PresetSelectionSheet sheet = NewPresetSelectionSheet(presetErrors, failed);
+            bool? result = await SheetHost.For(this).ShowAsync(sheet).ConfigureAwait(true);
+            if (!GraphCanvas.IsPanelOpen)
+                GraphCanvas.Focus();
+            return result == true ? sheet.ChosenPreset : null;
+        }
+
+        internal static PresetSelectionSheet NewPresetSelectionSheet(List<PresetErrorPackage> presetErrors, Preset? failed = null) =>
+            new(presetErrors, failed) { ReadPresetAsync = CanReadPresetAsync };
+
+        private static Task<bool> CanReadPresetAsync(Preset preset) => Task.Run(() => {
+            try {
+                Foreman.DataCaching.PresetProcessor.PrepPreset(preset);
+                return true;
+            } catch (Exception ex) {
+                ErrorLogging.LogException(ex, "Preset selection: couldn't read " + preset.Name);
+                return false;
+            }
+        });
+
+        private Task ShowPresetSwitchInfoAsync(string message) {
+            RevealDeferred();
+            return PresetSwitchInfoStub?.Invoke(message) ?? Dialogs.ShowInfoAsync(this, message);
+        }
 
         //Ports the ResolveChosenPresetAsync/ReloadGraphForCurrentPreset shared DataLoadForm spin-up (upstream
         //ProductionGraphViewer.cs:1365-1386's non-corrupt path): swaps in the chosen preset's DataCache,
         //shared by both the Load-a-file path (LoadGraphJsonAsync) and the Settings preset-switch path
-        //(ReloadForPresetAsync). Returns null (leaving the live DataCache untouched) if the load fails.
-        private async Task<Foreman.DataCaching.DataCache?> LoadDataCacheForPresetAsync(Preset preset, AppSettings settings) {
-            var dataLoadWindow = new DataLoadWindow(preset, settings.UseRecipeBWfilters);
-            dataLoadWindow.Show();
-            await dataLoadWindow.LoadTask.ConfigureAwait(true);
-            if (dataLoadWindow.Result is not Foreman.DataCaching.DataCache newCache)
-                return null;
-
-            DataCache = newCache;
-            settings.CurrentPresetName = preset.Name;
-            return newCache;
+        //(ReloadForPresetAsync). Only a Loaded outcome swaps the live DataCache and the current preset.
+        private async Task<DataLoadResult> LoadDataCacheForPresetAsync(Preset preset, AppSettings settings) {
+            RevealDeferred();
+            DataLoadResult loaded = await (DataLoadStub?.Invoke(preset, settings) ?? RealLoadDataCacheAsync(preset, settings)).ConfigureAwait(true);
+            if (loaded is { Outcome: DataLoadOutcome.Loaded, Cache: Foreman.DataCaching.DataCache newCache }) {
+                DataCache = newCache;
+                settings.CurrentPresetName = preset.Name;
+            }
+            return loaded;
         }
 
-        //Ports ApplyLoadedGraphUiState (reference: upstream MainForm.cs:227-241): records the save path,
-        //captures the dirty-check baseline, resyncs the 5 Default* settings a load can change (rate unit via
-        //ResyncRateOptionsDropDown, the other 4 here), and rewrites the title bar. Internal so tests can call
-        //it directly after a LoadDocument call, the same seam ResyncRateOptionsDropDown already uses.
-        internal void ApplyLoadedGraphUiState(string path) {
-            savefilePath = path;
-            CaptureSaveBaseline();
+        private async Task<DataLoadResult> RealLoadDataCacheAsync(Preset preset, AppSettings settings) {
+            var dataLoadWindow = new DataLoadWindow(preset, settings.UseRecipeBWfilters);
+            dataLoadWindow.Show(this);
+            await dataLoadWindow.LoadTask.ConfigureAwait(true);
+            return new DataLoadResult(dataLoadWindow.Result, dataLoadWindow.Outcome);
+        }
+
+        private async Task<Preset?> ChooseAnotherPresetAsync(GraphViewerSaveDocument saveDocument, Preset failed) {
+            if (Settings is not AppSettings settings || PresetResolver is not Services.PresetResolver presetResolver)
+                return null;
+            RevealDeferred();
+
+            List<PresetErrorPackage> presetErrors = await RatePresetsAsync(presetResolver, settings.CurrentPresetName, saveDocument).ConfigureAwait(true);
+
+            Preset? choice = await (ChooseAnotherPresetDialogStub?.Invoke(presetErrors, failed) ?? RealShowPresetSelectionDialogAsync(presetErrors, failed)).ConfigureAwait(true);
+            if (choice is not null) {
+                settings.CurrentPresetName = choice.Name;
+                SettingsService?.Save(settings);
+            }
+            return choice;
+        }
+
+        internal static async Task<List<PresetErrorPackage>> RatePresetsAsync(Services.PresetResolver presetResolver, string currentPresetName, GraphViewerSaveDocument saveDocument) {
+            ProductionGraphSaveDocument productionGraph = saveDocument.ProductionGraph;
+            var modSet = new Dictionary<string, string>(saveDocument.IncludedMods);
+            var itemNames = productionGraph.IncludedItems.ToList();
+            var qualityNames = productionGraph.IncludedQualities.Select(q => q.Key).ToList();
+            var recipeShorts = productionGraph.IncludedRecipes.ToList();
+            var plantShorts = productionGraph.IncludedPlantProcesses.ToList();
+
+            var presetErrors = new List<PresetErrorPackage>();
+            foreach (Preset preset in presetResolver.BuildPresetList(currentPresetName))
+                presetErrors.Add(await PresetProcessor.TestPreset(preset, modSet, itemNames, qualityNames, recipeShorts, plantShorts).ConfigureAwait(true));
+            return presetErrors;
+        }
+
+        internal void ApplyLoadedGraphUiState(string name) {
+            ViewModel.DocumentName = name;
+            ViewModel.IsDirty = false;
+            ResyncZoomLabel();
             ResyncRateOptionsDropDown();
 
             if (Settings is AppSettings settings) {
@@ -463,22 +1221,33 @@ namespace Foreman.Mac {
                 settings.DefaultModuleOption = GraphCanvas.Viewer.Graph.ModuleSelector.DefaultSelectionStyle;
                 settings.DefaultNodeDirection = GraphCanvas.Viewer.Graph.DefaultNodeDirection;
             }
-
-            UpdateTitleBar();
         }
 
-        //Ports NewGraph's dirty-gate and path-reset (reference: upstream MainForm.cs:243-264); the preset
-        //switch upstream's NewGraph also performs has no equivalent here yet (out of this task's scope, see
-        //the New command's own pre-existing behavior).
-        internal async Task NewGraphAsync() {
-            if (!await TestGraphSavedStatusAsync().ConfigureAwait(true))
-                return;
+        internal Foreman.DataCaching.DataCache? PendingCache { get; set; }
 
-            GraphCanvas.FloatingPanelHost.Close();
-            GraphCanvas.Viewer.Graph.ClearGraph();
-            savefilePath = null;
-            savefileBaselineJson = null;
-            UpdateTitleBar();
+        internal bool IsClosed { get; private set; }
+
+        internal async Task NewGraphAsync() {
+            Library?.Detach();
+            GraphCanvas.ClosePanels();
+            ViewModel.Inspector.SetSelection([]);
+            loadingGraph = true;
+            try {
+                GraphCanvas.Viewer.Graph.ClearGraph();
+            } finally {
+                loadingGraph = false;
+            }
+            ViewModel.IsDirty = false;
+            ViewModel.DocumentName = null;
+            if (PendingCache is { } pending) {
+                PendingCache = null;
+                if (Settings?.CurrentPresetName == pending.PresetName)
+                    await AdoptCacheAsync(pending).ConfigureAwait(true);
+            }
+            if (Library is not null && CaptureSnapshot() is GraphSnapshot snapshot) {
+                GraphRow row = Library.CreateBlank(Library.NextUntitledName(), CurrentPresetName, snapshot.Data);
+                ViewModel.DocumentName = row.Name;
+            }
             GraphCanvas.RequestRedraw();
         }
 
@@ -494,7 +1263,7 @@ namespace Foreman.Mac {
                 Title = "Import Graph",
                 AllowMultiple = false,
                 SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(new Uri(AppPaths.SavedGraphsDirectory)).ConfigureAwait(true),
-                FileTypeFilter = [new FilePickerFileType("Foreman files") { Patterns = ["*.fjson", "*.json"] }],
+                FileTypeFilter = [new FilePickerFileType("Foreman files") { Patterns = ["*.fjson"] }],
             }).ConfigureAwait(true);
             if (files.Count == 0)
                 return;
@@ -510,7 +1279,7 @@ namespace Foreman.Mac {
         //Ports ImportGraph(path) (reference: upstream MainForm.cs:284-296): ReadGraphPayload's dual-accept
         //(bare fragment or full viewer save) feeds GraphViewer.ImportNodesFromDocument's centroid/offset/
         //selection merge. Internal so tests can drive it without a real file picker, the same seam
-        //SaveGraphAsync(path) already established.
+        //ExportGraphAsync(path) already established.
         internal async Task ImportGraphJsonAsync(string json, string path) {
             if (DataCache is not Foreman.DataCaching.DataCache cache)
                 return;
@@ -519,40 +1288,140 @@ namespace Foreman.Mac {
                 ProductionGraphSaveDocument document = GraphSaveCodec.ReadGraphPayload(json) ?? throw new InvalidOperationException(
                     "This save file is too old or corrupt. Try opening it in the previous Foreman release and saving it again, then open the new file here.");
                 System.Drawing.Point origin = GraphCanvas.Viewport.ScreenToGraph(new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2));
+                ViewModel.Inspector.SetSelection([]);
                 GraphCanvas.Viewer.ImportNodesFromDocument(cache, document, origin, applySolverSettings: true);
                 GraphCanvas.RequestRedraw();
             } catch (Exception exception) {
-                await Dialogs.ShowWarningAsync(this, "", "Could not import this file. See log for more details.").ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(this, $"Couldn’t import “{Dialogs.DocumentName(path)}”.",
+                    "Foreman couldn’t read it as a graph. The details are in Foreman’s log.").ConfigureAwait(true);
                 Foreman.DataCaching.ErrorLogging.LogException(exception, $"Error importing from file '{path}'");
             }
         }
 
-        //Ports SaveButton_Click (reference: upstream MainForm.cs:140-143): falls back to Save As whenever
-        //there's no path yet or the write failed.
-        internal async Task SaveGraphOrPromptAsync() {
-            if (savefilePath is null || !await SaveGraphAsync(savefilePath).ConfigureAwait(true))
-                await SaveGraphAsAsync().ConfigureAwait(true);
+        private string CurrentPresetName => DataCache?.PresetName ?? Settings?.CurrentPresetName ?? "";
+
+        private GraphSnapshot? CaptureSnapshot() {
+            if (DataCache is not Foreman.DataCaching.DataCache cache)
+                return null;
+
+            GraphCanvas.Viewer.Graph.SerializeNodeIdSet = null;
+            string json = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, cache), writeIndented: true);
+            return new GraphSnapshot(json, GraphCanvas.Viewer.Graph.Nodes.Count(), GraphThumbnail.Capture(GraphCanvas.Viewer));
         }
 
-        //Ports SaveGraphAs (reference: upstream MainForm.cs:165-179, io-reference.md §2 "Save / SaveAs"):
-        //.fjson filter/extension, Saved Graphs initial directory (created if missing), overwrite prompt, and
-        //the "Flowchart.fjson" default file name.
-        internal async Task SaveGraphAsAsync() {
-            string? path = await (SaveFilePathStub?.Invoke() ?? RealPickSaveGraphPathAsync()).ConfigureAwait(true);
-            if (path is null)
+        private void OnGraphMutated() {
+            if (loadingGraph)
                 return;
-
-            await SaveGraphAsync(path).ConfigureAwait(true);
+            ViewModel.IsDirty = true;
+            if (Library is null)
+                return;
+            EnsureLibraryGraph();
+            Library.NotifyChanged();
         }
 
-        private async Task<string?> RealPickSaveGraphPathAsync() {
-            if (StorageProvider is not IStorageProvider storage)
+        private void EnsureLibraryGraph() {
+            if (Library is null || Library.OpenGraphId is not null || CaptureSnapshot() is not GraphSnapshot snapshot)
+                return;
+            snapshot.Thumbnail?.Dispose();
+            GraphRow row = Library.Create(Library.NextUntitledName(), CurrentPresetName, snapshot.Data, snapshot.NodeCount, null);
+            ViewModel.DocumentName = row.Name;
+        }
+
+        private void OnLibrarySaved(object? sender, bool clean) {
+            if (clean)
+                ViewModel.IsDirty = false;
+            RefreshLibraryMenus();
+        }
+
+        private void OnLibraryWriteFailed(object? sender, string name) =>
+            Async.Fire(Dialogs.ShowWarningAsync(this, $"Couldn’t save “{Dialogs.MiddleTruncate(name)}”.",
+                "Foreman keeps trying. Check that your disk has free space."), nameof(OnLibraryWriteFailed));
+
+        internal void SaveVersion() {
+            if (Library is null)
+                return;
+            EnsureLibraryGraph();
+            Library.Save();
+            RefreshLibraryMenus();
+        }
+
+        internal void DuplicateGraph() {
+            if (Library is null)
+                return;
+            EnsureLibraryGraph();
+            if (Library.OpenGraphId is null)
+                return;
+            Library.FlushAndWait();
+            GraphRow copy = Library.Duplicate(ViewModel.DocumentTitle + " copy");
+            ShowOpenedGraph(copy);
+            RefreshLibraryMenus();
+        }
+
+        internal async Task RenameGraphAsync() {
+            if (Library is null)
+                return;
+            EnsureLibraryGraph();
+            if (Library.OpenGraphId is null)
+                return;
+            string? name = await SheetHost.For(this).ShowAsync(new RenameGraphSheet(ViewModel.DocumentTitle)).ConfigureAwait(true);
+            if (name is null)
+                return;
+            Library.Rename(name);
+            ViewModel.DocumentName = name;
+        }
+
+        internal async Task BrowseVersionsAsync() {
+            if (Library is null)
+                return;
+            EnsureLibraryGraph();
+            if (Library.OpenGraphId is null)
+                return;
+            Library.FlushAndWait();
+            var sheet = new VersionBrowserSheet(ViewModel.DocumentTitle, Library.Versions()) {
+                ConfirmDeleteAsync = () => Dialogs.ShowDestructiveConfirmAsync(this, "Delete this version?", "You can’t undo this action.", "Delete"),
+                DeleteVersion = versionId => Library.DeleteVersion(versionId),
+            };
+            Guid? versionId = await SheetHost.For(this).ShowAsync(sheet).ConfigureAwait(true);
+            if (versionId is Guid id)
+                await RestoreVersionAsync(id).ConfigureAwait(true);
+        }
+
+        private void RevertToLastSaved() {
+            if (Library?.Versions().FirstOrDefault(v => v.Kind == GraphVersionKind.Saved) is GraphVersionRow saved)
+                Async.Fire(RestoreVersionAsync(saved.Id), nameof(RestoreVersionAsync));
+        }
+
+        internal async Task RestoreVersionAsync(Guid versionId) {
+            if (Library is null || Library.OpenGraphId is not Guid graphId)
+                return;
+            Library.FlushAndWait();
+            if (Library.Versions().FirstOrDefault(v => v.Id == versionId) is not GraphVersionRow version || Library.Find(graphId) is not GraphRow current)
+                return;
+            if (!await LoadReplacingAsync(version.Data, current.Name, null).ConfigureAwait(true))
+                return;
+            Library.Resume(current);
+            if (Library.Restore(versionId) is GraphRow restored) {
+                Library.Resume(restored);
+                ShowOpenedGraph(restored);
+            }
+            RefreshLibraryMenus();
+        }
+
+        private async Task ExportGraphFileAsync() {
+            string suggested = ViewModel.DocumentTitle.Replace('/', '-').Replace(':', '-') + ".fjson";
+            string? path = await (ExportFilePathStub?.Invoke(suggested) ?? PickExportPathAsync(this, suggested)).ConfigureAwait(true);
+            if (path is not null)
+                await ExportGraphAsync(path).ConfigureAwait(true);
+        }
+
+        internal static async Task<string?> PickExportPathAsync(Window owner, string suggestedName) {
+            if (owner.StorageProvider is not IStorageProvider storage)
                 return null;
 
             Directory.CreateDirectory(AppPaths.SavedGraphsDirectory);
             IStorageFile? file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions {
-                Title = "Save Graph",
-                SuggestedFileName = "Flowchart.fjson",
+                Title = "Export Graph",
+                SuggestedFileName = suggestedName,
                 DefaultExtension = ".fjson",
                 ShowOverwritePrompt = true,
                 SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(new Uri(AppPaths.SavedGraphsDirectory)).ConfigureAwait(true),
@@ -564,10 +1433,7 @@ namespace Foreman.Mac {
             return file?.Path.LocalPath;
         }
 
-        //Ports SaveGraph(path) (reference: upstream MainForm.cs:181-196): serializes the whole graph (never
-        //a selection subset), writes it, and captures both the save path and the dirty-check baseline before
-        //rewriting the title bar. Catches everything, matching upstream's own catch-all.
-        internal async Task<bool> SaveGraphAsync(string path) {
+        internal async Task<bool> ExportGraphAsync(string path) {
             if (DataCache is not Foreman.DataCaching.DataCache cache)
                 return false;
 
@@ -575,101 +1441,90 @@ namespace Foreman.Mac {
                 GraphCanvas.Viewer.Graph.SerializeNodeIdSet = null;
                 string json = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, cache), writeIndented: true);
                 Utf8File.WriteAllText(path, json);
-                savefilePath = path;
-                savefileBaselineJson = json;
-                UpdateTitleBar();
                 return true;
             } catch (Exception exception) {
-                await Dialogs.ShowWarningAsync(this, "", "Could not save this file. See log for more details").ConfigureAwait(true);
+                await Dialogs.ShowWarningAsync(this, $"Couldn’t save “{Dialogs.DocumentName(path)}”.",
+                    "Your graph is still open and unchanged. The details are in Foreman’s log.").ConfigureAwait(true);
                 Foreman.DataCaching.ErrorLogging.LogException(exception, $"Error saving file '{path}'");
                 return false;
             }
         }
 
-        private void CaptureSaveBaseline() {
-            if (DataCache is not Foreman.DataCaching.DataCache cache)
-                return;
+        private const string UnreadableGraphSentence =
+            "The file is too old or damaged to read. Open it in the previous Foreman release, save it again, then open the new copy here.";
 
-            GraphCanvas.Viewer.Graph.SerializeNodeIdSet = null;
-            savefileBaselineJson = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, cache), writeIndented: true);
+        private bool closedByUser;
+        private bool abandoned;
+
+        internal void CloseAbandoned() {
+            abandoned = true;
+            Close();
         }
 
-        //Ports TestGraphSavedStatus (reference: upstream MainForm.cs:298-321, io-reference.md §2 "Dirty
-        //tracking"): an untitled empty graph never prompts; an untitled non-empty graph gets the OK/Cancel
-        //discard prompt; a titled graph re-serializes and diffs against the save baseline, prompting Yes/No/
-        //Cancel only when they differ. Called from New/Load, never from Save/SaveAs/Import.
-        internal async Task<bool> TestGraphSavedStatusAsync() {
-            const string exitMsg = "The current graph hasn't been saved!\nIf you continue, you will lose it forever!";
-            const string exitTitle = "Are you sure?";
-
-            if (DataCache is not Foreman.DataCaching.DataCache cache)
-                return true;
-
-            if (savefilePath is null)
-                return !GraphCanvas.Viewer.Graph.Nodes.Any() || await ShowDiscardUnsavedGraphConfirmAsync(exitTitle, exitMsg).ConfigureAwait(true);
-
-            if (!File.Exists(savefilePath))
-                return await ShowDiscardUnsavedGraphConfirmAsync(exitTitle, exitMsg).ConfigureAwait(true);
-
-            GraphCanvas.Viewer.Graph.SerializeNodeIdSet = null;
-            string currentSaveJson = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, cache), writeIndented: true);
-            string savedJson = savefileBaselineJson ?? Utf8File.ReadAllText(savefilePath);
-
-            if (savedJson != currentSaveJson) {
-                ConfirmChoice choice = await ShowSaveBeforeContinuingChoiceAsync(exitTitle, "The current graph has been modified!\nDo you wish to save before continuing?").ConfigureAwait(true);
-                if (choice == ConfirmChoice.Cancel)
-                    return false;
-                if (choice == ConfirmChoice.Yes)
-                    await SaveGraphAsync(savefilePath).ConfigureAwait(true);
-            }
-            return true;
-        }
-
-        private Task<bool> ShowDiscardUnsavedGraphConfirmAsync(string title, string message) =>
-            DiscardUnsavedGraphConfirmStub?.Invoke() ?? Dialogs.ShowConfirmAsync(this, title, message);
-
-        private Task<ConfirmChoice> ShowSaveBeforeContinuingChoiceAsync(string title, string message) =>
-            SaveBeforeContinuingChoiceStub?.Invoke() ?? Dialogs.ShowYesNoCancelAsync(this, title, message);
-
-        private bool closeConfirmed;
-
-        //Ports MainForm's implicit close gate (upstream never overrides OnFormClosing at all - WinForms
-        //just lets the process exit mid-save). This port needs an explicit cancel-then-reclose (Avalonia's
-        //Closing can't block synchronously), same pattern as DataLoadWindow.OnClosing: cancel the first
-        //Close, await TestGraphSavedStatusAsync, then Close again for real once it says so. ShellBootstrapper's
-        //own Closing subscription (settings save) still runs on that second pass, via base.OnClosing.
         protected override void OnClosing(WindowClosingEventArgs e) {
-            if (!closeConfirmed) {
-                e.Cancel = true;
-                Async.Fire(ConfirmCloseAsync(), nameof(ConfirmCloseAsync));
-                return;
-            }
+            Library?.PruneUntouched();
             base.OnClosing(e);
+            closedByUser = !e.Cancel && e.CloseReason == WindowCloseReason.WindowClosing;
         }
 
-        private async Task ConfirmCloseAsync() {
-            if (await TestGraphSavedStatusAsync().ConfigureAwait(true)) {
-                closeConfirmed = true;
-                Close();
+        protected override void OnClosed(EventArgs e) {
+            base.OnClosed(e);
+            ShellContext? context = ShellContext;
+            IsClosed = true;
+            if (!closedByUser || SettingsService is null || context is null)
+                return;
+            Library?.Detach();
+            Library = null;
+            ShellHost.Context = context;
+            ShellHost.Sync();
+            if (!abandoned && Settings is { ShowWelcomeAtLaunch: true })
+                WelcomeLauncher.Show(context);
+        }
+
+        private ShellContext? shellContext;
+
+        internal ShellContext? ShellContext {
+            get {
+                if (shellContext is null) {
+                    if (Library is null || Settings is null || DataCache is null)
+                        return null;
+                    shellContext = new ShellContext(Library, Settings, DataCache, SettingsService, PresetResolver) { Window = this };
+                }
+                if (!IsClosed)
+                    shellContext.Cache = PendingCache ?? DataCache ?? shellContext.Cache;
+                return shellContext;
             }
+            set => shellContext = value;
         }
 
-        //Ports the title-bar format string used identically after Save/Load/New/preset-reload (reference:
-        //upstream MainForm.cs:188,240,263,444).
-        private void UpdateTitleBar() =>
-            Title = string.Format(DisplayCulture.Format, defaultAppName + " ({0}) - {1}", Settings?.CurrentPresetName ?? "", savefilePath ?? "Untitled");
+        internal void ShowWelcome() {
+            if (ShellContext is { } context)
+                WelcomeLauncher.Show(context);
+        }
 
         //Ports SettingsButton_Click's post-close cascade (reference upstream MainForm.cs:355-440): builds
         //Options from live state, shows the dialog, then on OK applies a preset switch/reload before always
         //persisting settings.json - matching upstream's presetReloaded branch and its unconditional
-        //Properties.Settings.Default.Save() at the end of ApplySettingsDialogChanges. Tasks 2/3 extend the
-        //non-preset-reload branch as their tabs' widgets gain something to apply.
-        internal async Task OpenSettingsAsync() {
+        //Properties.Settings.Default.Save() at the end of ApplySettingsDialogChanges. The non-preset-reload
+        //branch extends as its tabs' widgets gain something to apply.
+        internal void ShowSettings(bool selectPresetsPane = false, string? failedPreset = null) {
             //Toolbar/native-menu clicks never reach GraphCanvasControl.OnPointerPressed's own click-outside-
             //closes-panel guard (they're not canvas pointer events at all), so a panel left open under this
-            //modal stayed stale once it closed. Closes first, matching NewGraphAsync/LoadDocument's own
+            //window stayed stale once it closed. Closes first, matching NewGraphAsync/LoadDocument's own
             //unconditional-close-on-major-UI-change precedent.
-            GraphCanvas.FloatingPanelHost.Close();
+            GraphCanvas.ClosePanels();
+            ViewModel.Inspector.SetSelection([]);
+
+            if (settingsWindow is { } existing) {
+                if (selectPresetsPane)
+                    existing.SelectPresetsPane();
+                if (failedPreset is not null)
+                    existing.ShowPresetLoadFailure(failedPreset);
+                if (SettingsDialogStub is null)
+                    existing.Show(this);
+                existing.Activate();
+                return;
+            }
 
             if (DataCache is not Foreman.DataCaching.DataCache cache
                 || Settings is not AppSettings settings
@@ -682,186 +1537,148 @@ namespace Foreman.Mac {
             };
             options.SelectedPreset = options.Presets.Count > 0 ? options.Presets[0] : null;
 
-            //Ports MainForm.cs:402-406: seeds EnabledObjects from the live cache's current membership before
-            //the dialog opens, so the else branch below has a faithful baseline to diff a plain Confirm against.
+            //Ports MainForm.cs:402-406: seeds the Enabled Objects tab's baseline from the live cache's
+            //current membership, since ShowLoadFromSaveAsync/ShowAssignFromSciencePacksAsync hand this set
+            //to their sheets as "currently enabled" (the tab's own checkboxes read dataObject.Enabled
+            //directly and don't need this, but those two sheets still diff against a starting set).
             options.EnabledObjects.UnionWith(cache.Recipes.Values.Where(r => r.Enabled));
             options.EnabledObjects.UnionWith(cache.Assemblers.Values.Where(r => r.Enabled));
             options.EnabledObjects.UnionWith(cache.Beacons.Values.Where(r => r.Enabled));
             options.EnabledObjects.UnionWith(cache.Modules.Values.Where(r => r.Enabled));
             options.EnabledObjects.UnionWith(cache.Qualities.Values.Where(r => r.Enabled));
 
-            //Ports MainForm.cs:366-400's Graph Options tab population from live GraphViewer/Graph state,
-            //falling back to the persisted AppSettings value for the couple of fields with no live control
-            //yet (LockedRecipeEditPanelPosition, ShowUnavailable/UseRecipeBWfilters - all DEV/session-only).
-            var viewer = GraphCanvas.Viewer;
-            options.QualitySteps = viewer.Graph.MaxQualitySteps;
-            options.LevelOfDetail = viewer.Context.LevelOfDetail;
-            options.NodeCountForSimpleView = viewer.NodeCountForSimpleView;
-            options.IconsOnlyIconSize = viewer.Context.IconsDrawSize;
-            options.ArrowsOnLinks = viewer.Context.ArrowsOnLinks;
-            options.SimplePassthroughNodes = viewer.Graph.DefaultToSimplePassthroughNodes;
-            options.DynamicLinkWidth = viewer.Context.DynamicLinkWidth;
-            options.ShowRecipeToolTip = viewer.Context.ShowRecipeToolTip;
-            options.LockedRecipeEditPanelPosition = settings.LockedRecipeEditorPosition;
-            options.FlagOUSuppliedNodes = viewer.Context.FlagOUSuppliedNodes;
-            options.FlagDarkMode = settings.FlagDarkMode;
-            options.DefaultAssemblerStyle = viewer.Graph.AssemblerSelector.DefaultSelectionStyle;
-            options.DefaultModuleStyle = viewer.Graph.ModuleSelector.DefaultSelectionStyle;
-            options.DefaultNodeDirection = viewer.Graph.DefaultNodeDirection;
-            options.SmartNodeDirection = GraphCanvas.SmartNodeDirection;
-            options.ShowErrorArrows = viewer.ArrowRenderer.ShowErrorArrows;
-            options.ShowWarningArrows = viewer.ArrowRenderer.ShowWarningArrows;
-            options.ShowDisconnectedArrows = viewer.ArrowRenderer.ShowDisconnectedArrows;
-            options.ShowOUSuppliedArrows = viewer.ArrowRenderer.ShowOUNodeArrows;
-            options.RoundAssemblerCount = viewer.Context.RoundAssemblerCount;
-            options.AbbreviateSciPacks = viewer.Context.AbbreviateSciPacks;
-            options.EnableExtraProductivityForNonMiners = viewer.Graph.EnableExtraProductivityForNonMiners;
-            options.DevShowUnavailableItems = settings.ShowUnavailable;
-            options.DevUseRecipeBWFilters = settings.UseRecipeBWfilters;
-            options.SolverLowPriorityPower = (decimal)viewer.Graph.LowPriorityPower;
-            options.SolverPullConsumerNodes = viewer.Graph.PullOutputNodes;
-            options.SolverPullConsumerNodesPower = (decimal)viewer.Graph.PullOutputNodesPower;
-
-            bool? result = await ShowSettingsDialogAsync(options).ConfigureAwait(true);
-            if (result != true)
-                return;
-
-            bool presetReloaded = options.RequireReload
-                || options.SelectedPreset != (options.Presets.Count > 0 ? options.Presets[0] : null)
-                || options.DevUseRecipeBWFilters != settings.UseRecipeBWfilters;
-            if (presetReloaded) {
-                settings.UseRecipeBWfilters = options.DevUseRecipeBWFilters;
-                if (options.SelectedPreset is Preset selectedPreset)
-                    await ReloadForPresetAsync(selectedPreset, settings).ConfigureAwait(true);
-            } else {
-                //Ports MainForm.cs:422-435's not-loading-a-new-preset branch: writes EnabledObjects membership
-                //straight onto the live cache instead of reloading it.
-                foreach (IRecipe recipe in cache.Recipes.Values)
-                    recipe.Enabled = options.EnabledObjects.Contains(recipe);
-                foreach (IAssembler assembler in cache.Assemblers.Values)
-                    assembler.Enabled = options.EnabledObjects.Contains(assembler);
-                foreach (IBeacon beacon in cache.Beacons.Values)
-                    beacon.Enabled = options.EnabledObjects.Contains(beacon);
-                foreach (IModule module in cache.Modules.Values)
-                    module.Enabled = options.EnabledObjects.Contains(module);
-                foreach (IQuality quality in cache.Qualities.Values)
-                    quality.Enabled = options.EnabledObjects.Contains(quality);
-                cache.DefaultQuality?.Enabled = true;
-                cache.RocketAssembler?.Enabled = cache.Assemblers.TryGetValue("rocket-silo", out IAssembler? silo) && silo?.Enabled == true;
-            }
-
-            //Ports ApplySettingsDialogChanges' Graph Options half (reference §5, upstream MainForm.cs
-            //441-497): rather than duplicating a push-to-GraphViewer/push-to-Properties.Settings.Default
-            //pair per field like upstream, we write the committed values onto AppSettings once and replay
-            //them through the same ApplyLoadedSettings seam cold start and preset reloads already use -
-            //a single settings-to-live-graph path instead of two. LockedRecipeEditorPosition is persisted
-            //without a live effect yet (GraphCanvasControl.EditNode's locked-origin branch is future scope,
-            //see its own comment).
-            settings.QualitySteps = (int)options.QualitySteps;
-            settings.LevelOfDetail = (int)options.LevelOfDetail;
-            settings.NodeCountForSimpleView = options.NodeCountForSimpleView;
-            settings.IconsSize = options.IconsOnlyIconSize;
-            settings.ArrowsOnLinks = options.ArrowsOnLinks;
-            settings.SimplePassthroughNodes = options.SimplePassthroughNodes;
-            settings.DynamicLineWidth = options.DynamicLinkWidth;
-            settings.ShowRecipeToolTip = options.ShowRecipeToolTip;
-            settings.LockedRecipeEditorPosition = options.LockedRecipeEditPanelPosition;
-            settings.FlagOUSuppliedNodes = options.FlagOUSuppliedNodes;
-            settings.FlagDarkMode = options.FlagDarkMode;
-            settings.DefaultAssemblerOption = options.DefaultAssemblerStyle;
-            settings.DefaultModuleOption = options.DefaultModuleStyle;
-            settings.DefaultNodeDirection = options.DefaultNodeDirection;
-            settings.SmartNodeDirection = options.SmartNodeDirection;
-            settings.ShowErrorArrows = options.ShowErrorArrows;
-            settings.ShowWarningArrows = options.ShowWarningArrows;
-            settings.ShowDisconnectedArrows = options.ShowDisconnectedArrows;
-            settings.ShowOUSuppliedArrows = options.ShowOUSuppliedArrows;
-            settings.RoundAssemblerCount = options.RoundAssemblerCount;
-            settings.AbbreviateSciPacks = options.AbbreviateSciPacks;
-            settings.EnableExtraProductivityForNonMiners = options.EnableExtraProductivityForNonMiners;
-            settings.ShowUnavailable = options.DevShowUnavailableItems;
-            settings.LowPriorityPower = options.SolverLowPriorityPower;
-            settings.PullConsumerNodes = options.SolverPullConsumerNodes;
-            settings.PullConsumerNodesPower = options.SolverPullConsumerNodesPower;
-            if (options.LastSaveFileLocation is string lastSaveFileLocation)
-                settings.LastSaveFileLocation = lastSaveFileLocation;
-
-            ApplyLoadedSettings();
-            (Application.Current as App)?.ApplyTheme(settings.FlagDarkMode);
-
-            //Ports MainForm.cs:501-503's apply-tail: a Confirm must actually re-solve against the settings
-            //just committed, not just write them onto AppSettings/the live graph properties.
-            GraphCanvas.Viewer.Graph.UpdateNodeMaxQualities();
-            GraphCanvas.Viewer.Graph.UpdateNodeStates(true);
-            GraphCanvas.Viewer.Graph.UpdateNodeValues();
-            GraphCanvas.InvalidateVisual();
-
-            settingsService.Save(settings);
-
-            //Ports MainForm.cs:505-506's reopen tail: a preset import that overwrote the currently active
-            //preset (RequireReload) reloads it above, then Settings reopens itself so the user sees a fresh
-            //dialog reflecting whatever that reload changed - retires the placeholder-import divergence note
-            //(docs/upstream-divergences.md).
-            if (options.RequireReload)
-                await OpenSettingsAsync().ConfigureAwait(true);
-        }
-
-        private Task<bool?> ShowSettingsDialogAsync(SettingsWindow.SettingsWindowOptions options) =>
-            SettingsDialogStub?.Invoke(options) ?? RealShowSettingsDialogAsync(options);
-
-        //Ports SettingsButton_Click's modal launch (reference upstream MainForm.cs:410-412): owner+50/+50,
-        //matching the summary and comparator windows' own Manual placement.
-        private async Task<bool?> RealShowSettingsDialogAsync(SettingsWindow.SettingsWindowOptions options) {
             var window = new SettingsWindow(options) {
                 WindowStartupLocation = WindowStartupLocation.Manual,
                 Position = Position + new PixelPoint(50, 50),
             };
-            bool? result = await window.ShowDialog<bool?>(this).ConfigureAwait(true);
-            //Extends FloatingPanelHost.Close's own focus-restore contract (reference §7) to a genuine modal
-            //window: Avalonia doesn't hand focus back to GraphCanvas on its own once the dialog closes,
-            //leaving canvas keyboard shortcuts (Space, Delete, ...) dead until the next click. FloatingPanelHost.
-            //IsOpen is always false here now - OpenSettingsAsync's own toolbar-staleness fix (phase 7) closes
-            //any open panel before this dialog ever opens - so the guard below always focuses the canvas; kept
-            //as a defensive belt-and-braces in case a future call site reaches this with a panel still open:
-            //pulling focus onto the canvas would then leave the panel's own content with none, and
-            //GraphCanvasControl.OnKeyDown itself early-returns while a panel is open, so its keyboard would
-            //go dead too until the next click.
-            if (!GraphCanvas.FloatingPanelHost.IsOpen)
-                GraphCanvas.Focus();
-            return result;
-        }
+            window.SettingsService = settingsService;
+            window.Settings = settings;
+            window.ViewModel.LoadFrom(settings);
 
-        //Ports GraphSummaryButton_Click (reference upstream MainForm.cs:564-569): a true modal blocking
-        //dialog positioned at owner+50/+50, not the Designer's CenterParent default - always the whole
-        //session, matching MainForm's own call (the node-subset constructor overload has no live caller
-        //upstream either).
-        internal Task OpenGraphSummaryAsync() {
-            //See OpenSettingsAsync's own close-first comment: same toolbar-bypasses-canvas-pointer-events gap.
-            GraphCanvas.FloatingPanelHost.Close();
+            var session = new SettingsSession(settings, settingsService, (Application.Current as App)!,
+                resolve: ReSolveAfterSettingsChangeAsync,
+                applyTheme: mode => {
+                    (Application.Current as App)?.ApplyTheme(mode);
+                    return Task.CompletedTask;
+                },
+                applyScale: WindowScaler.SetScale);
+            window.Session = session;
 
-            if (GraphSummaryDialogStub is Action<IProductionGraphSession> stub) {
-                stub(GraphCanvas.Viewer.Session);
-                return Task.CompletedTask;
-            }
-            return RealShowGraphSummaryAsync();
-        }
-
-        private async Task RealShowGraphSummaryAsync() {
-            var window = new GraphSummaryWindow(GraphCanvas.Viewer.Session, GraphCanvas.Viewer.Graph.GetRateName()) {
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Position = Position + new PixelPoint(50, 50),
+            window.ViewModel.SettingChanged += name => OnSettingsChanged(window, settings, name);
+            window.ReloadRequested += () => Async.Fire(HandlePresetReloadAsync(window, options), nameof(HandlePresetReloadAsync));
+            window.Closed += (_, _) => {
+                if (ReferenceEquals(settingsWindow, window)) {
+                    settingsWindow = null;
+                    settingsSession = null;
+                }
+                if (!GraphCanvas.IsPanelOpen)
+                    GraphCanvas.Focus();
             };
-            await window.ShowDialog(this).ConfigureAwait(true);
-            //See RealShowSettingsDialogAsync's own focus-restore comment, including the open-panel guard.
-            if (!GraphCanvas.FloatingPanelHost.IsOpen)
-                GraphCanvas.Focus();
+
+            settingsWindow = window;
+            settingsSession = session;
+
+            if (failedPreset is not null)
+                window.ShowPresetLoadFailure(failedPreset);
+            if (SettingsDialogStub is { } stub)
+                stub(window);
+            else
+                window.Show(this);
+        }
+
+        //Session.Apply runs before ApplyLoadedSettings: it applies the theme that ApplyLoadedSettings reads
+        private void OnSettingsChanged(SettingsWindow window, AppSettings settings, string propertyName) {
+            window.ViewModel.ApplyTo(settings);
+
+            if (propertyName == nameof(ViewModels.SettingsViewModel.LoadBarrelingChecked)) {
+                window.RequestReload();
+                return;
+            }
+
+            settingsSession?.Apply(propertyName);
+            ApplyLoadedSettings();
+        }
+
+        //Ports MainForm.cs:501-503's apply-tail: a re-solve must actually run against the settings just
+        //committed, not just write them onto AppSettings/the live graph properties.
+        private Task ReSolveAfterSettingsChangeAsync() {
+            GraphCanvas.Viewer.Graph.UpdateNodeMaxQualities();
+            GraphCanvas.Viewer.Graph.UpdateNodeStates(true);
+            GraphCanvas.Viewer.Graph.UpdateNodeValues();
+            GraphCanvas.InvalidateVisual();
+            return Task.CompletedTask;
+        }
+
+        //Ports MainForm.cs:505-506's reopen tail: closes the one-off Settings instance a preset switch (or
+        //a barreling/crating filter change) needs, reloads, then reopens a fresh instance so the person sees
+        //a dialog reflecting whatever that reload changed.
+        private async Task HandlePresetReloadAsync(SettingsWindow window, SettingsWindow.SettingsWindowOptions options) {
+            window.Close();
+
+            if (Settings is not AppSettings settings)
+                return;
+
+            string? failedPreset = null;
+            if (options.SelectedPreset is Preset selectedPreset
+                && await ReloadForPresetAsync(selectedPreset, settings).ConfigureAwait(true) == DataLoadOutcome.ChooseAnother)
+                failedPreset = selectedPreset.Name;
+
+            SettingsService?.Save(settings);
+            ShowSettings(failedPreset: failedPreset);
+        }
+
+        internal void ShowGraphSummary() {
+            GraphCanvas.ClosePanels();
+
+            if (graphSummaryWindow is { } existing) {
+                if (!existing.IsVisible)
+                    existing.Show(this);
+                existing.Activate();
+                return;
+            }
+
+            var host = new GraphSummaryHost {
+                Tracker = () => solveTracker,
+                Unit = () => GraphCanvas.Viewer.Graph.SelectedRateUnit,
+                Reveal = RevealNodes,
+                AddRecipe = () => {
+                    Activate();
+                    GraphCanvas.AddRecipeAsync(ViewportCentre(), PaletteAnchorUnder("AddRecipeButton"));
+                },
+                Settings = Settings,
+            };
+            GraphSummaryWindow window = GraphSummaryWindow.Create(GraphCanvas.Viewer.Session, host);
+            window.SetTitle(ViewModel.DocumentTitle);
+            void OnViewModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {
+                if (e.PropertyName == nameof(MainWindowViewModel.DocumentTitle))
+                    window.SetTitle(ViewModel.DocumentTitle);
+            }
+            ViewModel.PropertyChanged += OnViewModelChanged;
+            window.Closed += (_, _) => {
+                ViewModel.PropertyChanged -= OnViewModelChanged;
+                if (ReferenceEquals(graphSummaryWindow, window))
+                    graphSummaryWindow = null;
+                if (!GraphCanvas.IsPanelOpen)
+                    GraphCanvas.Focus();
+            };
+            graphSummaryWindow = window;
+            if (!window.HasSavedPosition)
+                window.Position = GraphSummaryPlacement.Resolve(OwnerFrame(), PixelSize.FromSize(new Size(window.Width, window.Height), RenderScaling), Screens.ScreenFromWindow(this)?.WorkingArea, RenderScaling);
+            window.Show(this);
+        }
+
+        private PixelRect OwnerFrame() => new(Position, PixelSize.FromSize(FrameSize ?? ClientSize, RenderScaling));
+
+        private void RevealNodes(IReadOnlyList<INodeViewModel> nodes) {
+            RevealNodeIds([.. nodes.Select(n => n.Id.Value)]);
+            Activate();
         }
 
         //Ports ExportImageButton_Click (reference upstream MainForm.cs:508-514): owner+50/+50, same Manual
         //placement as Settings/Graph Summary.
         internal Task OpenImageExportAsync() {
             //See OpenSettingsAsync's own close-first comment: same toolbar-bypasses-canvas-pointer-events gap.
-            GraphCanvas.FloatingPanelHost.Close();
+            GraphCanvas.ClosePanels();
 
             if (ImageExportDialogStub is Action<GraphViewer> stub) {
                 stub(GraphCanvas.Viewer);
@@ -871,12 +1688,25 @@ namespace Foreman.Mac {
         }
 
         private async Task RealShowImageExportAsync() {
-            var window = new ImageExportWindow(GraphCanvas.Viewer) {
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Position = Position + new PixelPoint(50, 50),
-            };
-            await window.ShowDialog(this).ConfigureAwait(true);
-            if (!GraphCanvas.FloatingPanelHost.IsOpen)
+            await SheetHost.For(this).ShowAsync(new ImageExportSheet(GraphCanvas.Viewer)).ConfigureAwait(true);
+            if (!GraphCanvas.IsPanelOpen)
+                GraphCanvas.Focus();
+        }
+
+        private void ShowAbout() => Async.Fire(ShowAboutAsync(), nameof(ShowAboutAsync));
+
+        internal Task ShowAboutAsync() {
+            if (AboutDialogStub is Action stub) {
+                stub();
+                return Task.CompletedTask;
+            }
+            return RealShowAboutAsync();
+        }
+
+        private async Task RealShowAboutAsync() {
+            var dialog = new AboutWindow(ViewModel.VersionLabel);
+            await dialog.ShowDialog(this).ConfigureAwait(true);
+            if (!GraphCanvas.IsPanelOpen)
                 GraphCanvas.Focus();
         }
 
@@ -889,39 +1719,37 @@ namespace Foreman.Mac {
         //call) matters here specifically: the serialized document's EnabledRecipes/etc. still name the OLD
         //cache's enabled set, which would otherwise zero out everything in the new cache that doesn't share a
         //name with it - the freshly booted cache's own default-enabled state is what should survive instead.
-        private async Task ReloadForPresetAsync(Preset preset, AppSettings settings) {
+        private async Task<DataLoadOutcome> ReloadForPresetAsync(Preset preset, AppSettings settings) {
             if (DataCache is not Foreman.DataCaching.DataCache oldCache)
-                return;
+                return DataLoadOutcome.Cancelled;
 
             string graphJson = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, oldCache));
 
-            Foreman.DataCaching.DataCache? newCache = await LoadDataCacheForPresetAsync(preset, settings).ConfigureAwait(true);
-            if (newCache is null)
-                return;
+            DataLoadResult loaded = await LoadDataCacheForPresetAsync(preset, settings).ConfigureAwait(true);
+            if (loaded.Cache is not Foreman.DataCaching.DataCache newCache)
+                return loaded.Outcome;
 
-            GraphLoadResult result = GraphCanvas.LoadDocument(newCache, graphJson, setEnablesFromJson: false);
-            if (!result.Success)
-                await Dialogs.ShowWarningAsync(this, "Cannot load save", result.ErrorMessage ?? "This save file is too old or corrupt.").ConfigureAwait(true);
-
-            ApplyLoadedSettings();
-            UpdateTitleBar();
-            GraphCanvas.RequestRedraw();
+            await RemapOntoCacheAsync(newCache, graphJson).ConfigureAwait(true);
+            return DataLoadOutcome.Loaded;
         }
 
-        private void BindToolbarButtons() {
-            Bind("NewGraphButton", Commands.New);
-            Bind("LoadGraphButton", Commands.Load);
-            Bind("SaveButton", Commands.Save);
-            Bind("SaveAsGraphButton", Commands.SaveAs);
-            Bind("ImportGraphButton", Commands.Import);
-            Bind("ExportImageButton", Commands.ExportImage);
-            Bind("AddItemButton", Commands.AddItem);
-            Bind("AddRecipeButton", Commands.AddRecipe);
-            Bind("AutoconnectButton", Commands.Autoconnect);
-            Bind("SettingsButton", Commands.Settings);
-            Bind("HelpButton", Commands.Help);
-            Bind("GraphSummaryButton", Commands.GraphSummary);
-            Bind("AlignSelectionButton", Commands.AlignSelection);
+        internal async Task AdoptCacheAsync(Foreman.DataCaching.DataCache newCache) {
+            if (DataCache is not Foreman.DataCaching.DataCache oldCache || ReferenceEquals(oldCache, newCache) || oldCache.PresetName == newCache.PresetName)
+                return;
+
+            string graphJson = GraphSaveCodec.WriteViewerDocumentToString(GraphViewerSaveAssembler.BuildSaveDocument(GraphCanvas.Viewer, oldCache));
+            DataCache = newCache;
+            await RemapOntoCacheAsync(newCache, graphJson).ConfigureAwait(true);
+        }
+
+        private async Task RemapOntoCacheAsync(Foreman.DataCaching.DataCache newCache, string graphJson) {
+            GraphLoadResult result = GraphCanvas.LoadDocument(newCache, graphJson, setEnablesFromJson: false);
+            if (!result.Success)
+                await Dialogs.ShowWarningAsync(this, $"Couldn’t open “{Dialogs.MiddleTruncate(ViewModel.DocumentTitle)}”.", result.ErrorMessage ?? UnreadableGraphSentence).ConfigureAwait(true);
+
+            ApplyLoadedSettings();
+            Library?.SetPreset(newCache.PresetName ?? CurrentPresetName);
+            GraphCanvas.RequestRedraw();
         }
 
         //Ports GraphViewer_KeyDown's Space handler (reference §7): a separate subscription on the canvas
@@ -929,82 +1757,657 @@ namespace Foreman.Mac {
         //mirrors upstream attaching this as MainForm's own delegate rather than folding it into
         //ProductionGraphViewer_KeyDown itself, since it needs to reach the toolbar's gridlines checkbox.
         private void OnGraphCanvasKeyDown(object? sender, KeyEventArgs e) {
+            //OnKeyDown does not mark panel-bound keys Handled: Space typed in the search box reaches this subscription, so the guard stays
+            if (GraphCanvas.IsPanelOpen)
+                return;
             if (e.Key != Key.Space)
                 return;
 
             GraphCanvas.Grid.ShowGrid = !GraphCanvas.Grid.ShowGrid;
-            this.FindControl<CheckBox>("GridlinesCheckbox")!.IsChecked = GraphCanvas.Grid.ShowGrid;
+            gridlinesCheckBox.IsChecked = GraphCanvas.Grid.ShowGrid;
             GraphCanvas.InvalidateVisual();
             e.Handled = true;
         }
 
-        private void Bind(string buttonName, ShellCommand command) {
-            var button = this.FindControl<Button>(buttonName)!;
-            button.Command = command;
-            button.IsEnabled = command.IsImplemented;
+        internal int TitleBarDragRequestCount { get; private set; }
+
+        private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e) {
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+                return;
+
+            if (e.ClickCount == 2) {
+                WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+                return;
+            }
+
+            TitleBarDragRequestCount++;
+            BeginMoveDrag(e);
+        }
+
+        private NativeMenuItem showGridlinesMenuItem = null!;
+        private NativeMenuItem iconViewMenuItem = null!;
+        private NativeMenuItem pauseCalculationsMenuItem = null!;
+        private NativeMenuItem showInspectorMenuItem = null!;
+        private NativeMenuItem pinInspectorMenuItem = null!;
+        private NativeMenuItem[] minorGridlinesMenuItems = [];
+        private NativeMenuItem[] majorGridlinesMenuItems = [];
+        private NativeMenuItem[] rateUnitMenuItems = [];
+
+        private void ResyncNativeMenuCheckedStates() {
+            showGridlinesMenuItem.IsChecked = gridlinesCheckBox.IsChecked == true;
+            iconViewMenuItem.IsChecked = iconViewCheckBox.IsChecked == true;
+            pauseCalculationsMenuItem.IsChecked = pauseUpdatesCheckBox.IsChecked == true;
+            showInspectorMenuItem.IsChecked = ViewModel.Inspector.ShowOverride;
+            pinInspectorMenuItem.IsChecked = ViewModel.Inspector.IsPinned;
+            ResyncRadioChecks(minorGridlinesMenuItems, Array.IndexOf(GridlineLabels, minorGridlinesPopUp.SelectedItem));
+            ResyncRadioChecks(majorGridlinesMenuItems, Array.IndexOf(GridlineLabels, majorGridlinesPopUp.SelectedItem));
+            ResyncRadioChecks(rateUnitMenuItems, Array.IndexOf(RateUnitOptions, rateOptionsPopUp.SelectedItem));
+        }
+
+        private static void ResyncRadioChecks(NativeMenuItem[] items, int selectedIndex) {
+            for (int i = 0; i < items.Length; i++)
+                items[i].IsChecked = i == selectedIndex;
+        }
+
+        private void MenuCut() { GraphCanvas.CutSelection(); GraphCanvas.RequestRedraw(); }
+
+        private void MenuCopy() => GraphCanvas.CopySelection();
+
+        private void MenuPaste() { GraphCanvas.PasteFromClipboard(); GraphCanvas.RequestRedraw(); }
+
+        private void MenuDelete() { GraphCanvas.DeleteSelection(); GraphCanvas.RequestRedraw(); }
+
+        //A menu key equivalent fires even while a text field has focus, so the field keeps ⌘A as its own select-all.
+        private void MenuSelectAll() {
+            if (FocusManager?.GetFocusedElement() is TextBox field) {
+                field.SelectAll();
+                return;
+            }
+            GraphCanvas.Viewer.SetSelection(GraphCanvas.Viewer.NodeElements);
+            GraphCanvas.RequestRedraw();
+        }
+
+        private void MenuDeselectAll() { GraphCanvas.Viewer.ClearSelection(); GraphCanvas.RequestRedraw(); }
+
+        private void MenuZoomIn() {
+            var center = new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2);
+            GraphCanvas.Viewport.ZoomAt(center, zoomIn: true, GraphCanvas.Viewer.Graph.Bounds);
+            ResyncZoomLabel();
+            GraphCanvas.RequestRedraw();
+        }
+
+        private void MenuZoomOut() {
+            var center = new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2);
+            GraphCanvas.Viewport.ZoomAt(center, zoomIn: false, GraphCanvas.Viewer.Graph.Bounds);
+            ResyncZoomLabel();
+            GraphCanvas.RequestRedraw();
+        }
+
+        private void MenuActualSize() {
+            var center = new Avalonia.Point(GraphCanvas.Viewport.Width / 2, GraphCanvas.Viewport.Height / 2);
+            GraphCanvas.Viewport.SetAbsoluteZoom(center, 1f, GraphCanvas.Viewer.Graph.Bounds);
+            ResyncZoomLabel();
+            GraphCanvas.RequestRedraw();
+        }
+
+        private void MenuFitToGraph() {
+            GraphCanvas.Viewport.FitToBounds(GraphCanvas.Viewer.Graph.Bounds, GraphCanvas.Viewer.Graph.Bounds);
+            ResyncZoomLabel();
+            GraphCanvas.RequestRedraw();
+        }
+
+        //Viewport.ViewScale isn't bindable, so every zoom entry point resyncs the stepper's readout by calling this.
+        private void ResyncZoomLabel() =>
+            toolbar.ZoomStepper.Value = Math.Round(GraphCanvas.Viewport.ViewScale * 100);
+
+        private void MenuToggleShowGridlines() {
+            GraphCanvas.Grid.ShowGrid = !GraphCanvas.Grid.ShowGrid;
+            gridlinesCheckBox.IsChecked = GraphCanvas.Grid.ShowGrid;
+            if (Settings is AppSettings settings)
+                settings.AltGridlines = GraphCanvas.Grid.ShowGrid;
+            ResyncNativeMenuCheckedStates();
+            GraphCanvas.InvalidateVisual();
+        }
+
+        private void MenuToggleIconView() {
+            GraphCanvas.Viewer.IconsOnly = !GraphCanvas.Viewer.IconsOnly;
+            iconViewCheckBox.IsChecked = GraphCanvas.Viewer.IconsOnly;
+            if (Settings is AppSettings settings)
+                settings.IconsOnlyView = GraphCanvas.Viewer.IconsOnly;
+            ResyncNativeMenuCheckedStates();
+            GraphCanvas.InvalidateVisual();
+        }
+
+        private void MenuTogglePauseCalculations() {
+            SetCalculationsPaused(!GraphCanvas.Viewer.IsPaused);
+            pauseUpdatesCheckBox.IsChecked = GraphCanvas.Viewer.IsPaused;
+            ResyncNativeMenuCheckedStates();
+            GraphCanvas.InvalidateVisual();
+        }
+
+        private void MenuToggleShowInspector() {
+            ViewModel.Inspector.ShowOverride = !ViewModel.Inspector.ShowOverride;
+            ResyncNativeMenuCheckedStates();
+        }
+
+        private void MenuTogglePinInspector() {
+            ViewModel.Inspector.IsPinned = !ViewModel.Inspector.IsPinned;
+            if (Settings is AppSettings settings) {
+                settings.InspectorPinned = ViewModel.Inspector.IsPinned;
+                if (SettingsService is Services.SettingsService settingsService)
+                    settingsService.Save(settings);
+            }
+            ResyncNativeMenuCheckedStates();
+        }
+
+        private void MenuSetMinorGridlines(int index) {
+            minorGridlinesPopUp.SelectedItem = GridlineLabels[index];
+            GraphCanvas.Grid.CurrentGridUnit = GridUnitFromIndex(index);
+            if (Settings is AppSettings settings)
+                settings.MinorGridlines = index;
+            ResyncNativeMenuCheckedStates();
+            GraphCanvas.InvalidateVisual();
+        }
+
+        private void MenuSetMajorGridlines(int index) {
+            majorGridlinesPopUp.SelectedItem = GridlineLabels[index];
+            GraphCanvas.Grid.CurrentMajorGridUnit = GridUnitFromIndex(index);
+            if (Settings is AppSettings settings)
+                settings.MajorGridlines = index;
+            ResyncNativeMenuCheckedStates();
+            GraphCanvas.InvalidateVisual();
+        }
+
+        private void MenuSetRateUnit(int index) => SetRateUnit((ProductionGraph.RateUnit)index);
+
+        private void MenuMinimize() => WindowState = WindowState.Minimized;
+
+        private void MenuZoomWindow() => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+        private void MenuBringAllToFront() => Activate();
+
+        private const string RepositoryUrl = "https://github.com/idk-some-guy/Foreman2---Unspoiled";
+
+        internal static string ReportIssueUrl() {
+            string body = $"Foreman 2 {AppVersion.ShortSemVer} · macOS {Environment.OSVersion.Version} · {RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant()}\n\n";
+            return $"{RepositoryUrl}/issues/new?body={Uri.EscapeDataString(body)}";
+        }
+
+        private void OpenInBrowser(string url) => Async.Fire(OpenInBrowserAsync(url), nameof(OpenInBrowserAsync));
+
+        private async Task OpenInBrowserAsync(string url) {
+            if (await (LauncherOverride ?? Launcher).LaunchUriAsync(new Uri(url)).ConfigureAwait(true))
+                return;
+            var alert = new AlertSheet("Couldn’t open your web browser.", url, AlertButtons.YesNo, verb: "Copy Link", secondaryLabel: "OK");
+            if (await SheetHost.For(this).ShowAsync(alert).ConfigureAwait(true) == ConfirmChoice.Yes && Clipboard is { } clipboard)
+                await clipboard.SetTextAsync(url).ConfigureAwait(true);
+        }
+
+        private void MenuToggleShowToolbar() {
+            searchRevealsToolbar = false;
+            SetShowToolbar(!showToolbar);
+            if (Settings is AppSettings current)
+                SettingsService?.Save(current);
+        }
+
+        private void SetShowToolbar(bool value) {
+            showToolbar = value;
+            if (Settings is AppSettings current)
+                current.ShowToolbar = value;
+            if (showToolbarMenuItem is not null)
+                showToolbarMenuItem.IsChecked = value;
+            ApplyToolbarShown();
+        }
+
+        private const double ToolbarTitleBarHeight = 52;
+        private const double PlainTitleBarHeight = 28;
+
+        private void ApplyToolbarShown() {
+            bool shown = showToolbar || searchRevealsToolbar;
+            double height = shown ? ToolbarTitleBarHeight : PlainTitleBarHeight;
+            double growth = ExtendClientAreaTitleBarHeightHint - height;
+            if (growth != 0 && GraphCanvas.Bounds.Height > 0) {
+                Viewport viewport = GraphCanvas.Viewport;
+                viewport.ViewOffset = new System.Drawing.Point(viewport.ViewOffset.X, viewport.ViewOffset.Y + (int)Math.Round(growth / 2 / viewport.ViewScale));
+                GraphCanvas.RequestRedraw();
+            }
+            ExtendClientAreaTitleBarHeightHint = height;
+            toolbar.IsVisible = shown;
+            titleBarTitle.IsVisible = !shown;
+            if (titleBarSolveStatus is not null) {
+                titleBarSolveStatus.IsVisible = !shown;
+                (shown ? titleBarSolveStatus : toolbar.ZoomStepper.SolveStatus).IsErrorPopoverOpen = false;
+            }
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change) {
+            base.OnPropertyChanged(change);
+            if (change.Property == IsActiveProperty)
+                titleBarTitle?.Classes.Set("secondary", !IsActive);
+        }
+
+        private WindowState stateBeforeFullScreen = WindowState.Maximized;
+
+        private void MenuToggleFullScreen() {
+            if (WindowState == WindowState.FullScreen) {
+                WindowState = stateBeforeFullScreen;
+                return;
+            }
+            stateBeforeFullScreen = WindowState;
+            WindowState = WindowState.FullScreen;
+        }
+
+        private PresetComparatorWindow? presetComparatorWindow;
+
+        private List<Preset>? ComparablePresets() =>
+            Settings is AppSettings current && PresetResolver is Services.PresetResolver presetResolver
+                && presetResolver.BuildPresetList(current.CurrentPresetName) is { } presets && PresetComparatorWindow.CanCompare(presets)
+                ? presets : null;
+
+        private void ShowPresetComparator() {
+            if (ComparablePresets() is not { } presets)
+                return;
+            if (PresetComparatorDialogStub is { } stub) {
+                stub(presets);
+                return;
+            }
+            if (presetComparatorWindow is { } existing) {
+                existing.Show(this);
+                existing.Activate();
+                return;
+            }
+            var window = new PresetComparatorWindow(presets) {
+                WindowStartupLocation = WindowStartupLocation.Manual,
+                Position = Position + new PixelPoint(50, 50),
+            };
+            window.Closed += (_, _) => {
+                if (ReferenceEquals(presetComparatorWindow, window))
+                    presetComparatorWindow = null;
+            };
+            presetComparatorWindow = window;
+            window.Show(this);
+        }
+
+        internal static readonly string[] GridlineLabels = ["None", "1", "2", "4", "8", "16", "32", "64", "128", "256", "512", "1024"];
+        private static readonly string[] RateUnitLabels = ["1 sec", "1 min", "5 min", "10 min", "30 min", "1 hour"];
+        internal static readonly string[] RateUnitOptions = ["per second", "per minute", "per 5 minutes", "per 10 minutes", "per 30 minutes", "per hour"];
+
+        internal static NativeMenu BuildAppMenu() {
+            var menu = new NativeMenu();
+            menu.Items.Add(WindowActionItem("About Foreman 2", w => w.ShowAbout()));
+            menu.Items.Add(new NativeMenuItemSeparator());
+            menu.Items.Add(WindowActionItem("Settings…", w => w.Commands.SettingsCommand.Execute(null), new KeyGesture(Key.OemComma, PlatformModifiers.Primary)));
+            menu.Items.Add(new NativeMenuItemSeparator());
+            foreach (NativeMenuItemBase item in ShellHost.BuildNoWindowItems())
+                menu.Items.Add(item);
+            menu.Items.Add(new NativeMenuItem("Hide Foreman 2") { Command = new DeferredMenuCommand(new RelayCommand(ShellHost.HideForeman)), Gesture = new KeyGesture(Key.H, PlatformModifiers.Primary) });
+            menu.Items.Add(DisabledItem("Hide Others", new KeyGesture(Key.H, PlatformModifiers.Primary | KeyModifiers.Alt)));
+            menu.Items.Add(DisabledItem("Show All"));
+            menu.Items.Add(new NativeMenuItemSeparator());
+            menu.Items.Add(QuitMenuItem());
+            menu.Opening += (_, _) => ShellHost.Sync();
+            return menu;
+        }
+
+        private static NativeMenuItem WindowActionItem(string header, Action<MainWindow> action, KeyGesture? gesture = null) =>
+            new(header) { Command = new DeferredMenuCommand(new RelayCommand(() => Async.Fire(RunOnLiveWindowAsync(action), header))), Gesture = gesture };
+
+        private static async Task RunOnLiveWindowAsync(Action<MainWindow> action) {
+            if (await ShellHost.LiveWindowAsync().ConfigureAwait(true) is { } window)
+                action(window);
         }
 
         private NativeMenu BuildNativeMenu() {
-            var appMenu = new NativeMenu {
+            presetComparatorCommand = new RelayCommand(ShowPresetComparator, () => ComparablePresets() is not null);
+            revertToLastSavedCommand = new RelayCommand(RevertToLastSaved, () => Library?.OpenGraphSavedAt is not null);
+            NativeMenuItem save = MenuItem("Save", Commands.SaveCommand, new KeyGesture(Key.S, PlatformModifiers.Primary));
+            NativeMenuItem duplicate = ActionItem("Duplicate", DuplicateGraph, new KeyGesture(Key.S, PlatformModifiers.Primary | KeyModifiers.Shift));
+            NativeMenuItem rename = ActionItem("Rename…", () => Async.Fire(RenameGraphAsync(), nameof(RenameGraphAsync)));
+            var revertMenu = new NativeMenu {
                 Items = {
-                    new NativeMenuItem("About Foreman 2") { IsEnabled = false },
-                    MenuItem("Settings", Commands.Settings),
+                    new NativeMenuItem("Last Saved Version") { Command = new DeferredMenuCommand(revertToLastSavedCommand) },
                     new NativeMenuItemSeparator(),
-                    QuitMenuItem(),
+                    ActionItem("Browse Versions…", () => Async.Fire(BrowseVersionsAsync(), nameof(BrowseVersionsAsync))),
                 },
             };
-
+            NativeMenuItem revert = new("Revert To") { Menu = revertMenu };
+            NativeMenuItem exportFjson = ActionItem("Export as .fjson…", () => Async.Fire(ExportGraphFileAsync(), nameof(ExportGraphFileAsync)));
+            NativeMenuItem exportImage = MenuItem("Export Image…", Commands.ExportImageCommand, new KeyGesture(Key.E, PlatformModifiers.Primary | KeyModifiers.Shift));
+            NativeMenuItem close = ActionItem("Close", Close, new KeyGesture(Key.W, PlatformModifiers.Primary));
+            openRecentItem = new NativeMenuItem("Open Recent") { IsEnabled = false, Menu = [] };
             var fileMenu = new NativeMenu {
                 Items = {
-                    MenuItem("New", Commands.New, new KeyGesture(Key.N, PlatformModifiers.Primary)),
-                    MenuItem("Open", Commands.Load, new KeyGesture(Key.O, PlatformModifiers.Primary)),
-                    MenuItem("Save", Commands.Save, new KeyGesture(Key.S, PlatformModifiers.Primary)),
-                    MenuItem("Save As", Commands.SaveAs, new KeyGesture(Key.S, PlatformModifiers.Primary | KeyModifiers.Shift)),
-                    MenuItem("Import", Commands.Import),
-                    MenuItem("Export Image", Commands.ExportImage, new KeyGesture(Key.E, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    MenuItem("New Graph", Commands.NewCommand, new KeyGesture(Key.N, PlatformModifiers.Primary)),
+                    MenuItem("Open…", Commands.LoadCommand, new KeyGesture(Key.O, PlatformModifiers.Primary)),
+                    openRecentItem,
+                    new NativeMenuItemSeparator(),
+                    close,
+                    save,
+                    duplicate,
+                    rename,
+                    revert,
+                    new NativeMenuItemSeparator(),
+                    MenuItem("Import Graph…", Commands.ImportCommand),
+                    exportFjson,
+                    exportImage,
+                },
+            };
+            fileMenu.Opening += (_, _) => RefreshLibraryMenus();
+
+            selectNextNodeCommand = new RelayCommand(() => GraphCanvas.StepNode(forward: true), CanSelectNode);
+            selectPreviousNodeCommand = new RelayCommand(() => GraphCanvas.StepNode(forward: false), CanSelectNode);
+            selectNextNodeItem = new NativeMenuItem("Select Next Node") { Command = new DeferredMenuCommand(selectNextNodeCommand), IsEnabled = false };
+            selectPreviousNodeItem = new NativeMenuItem("Select Previous Node") { Command = new DeferredMenuCommand(selectPreviousNodeCommand), IsEnabled = false };
+            var findMenu = new NativeMenu {
+                Items = {
+                    ActionItem("Find Node…", FocusSearchField, new KeyGesture(Key.F, PlatformModifiers.Primary)),
+                    ActionItem("Find Next", () => StepSearchMatch(forward: true), new KeyGesture(Key.G, PlatformModifiers.Primary)),
+                    ActionItem("Find Previous", () => StepSearchMatch(forward: false), new KeyGesture(Key.G, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    new NativeMenuItemSeparator(),
+                    selectNextNodeItem,
+                    selectPreviousNodeItem,
                 },
             };
 
+            //Cut/Copy/Paste/Delete carry no gesture: GraphCanvasControl owns Cmd+C/X/V/Delete, and a second binding would steal or double-fire
             var editMenu = new NativeMenu {
                 Items = {
-                    new NativeMenuItem("Undo") { IsEnabled = false },
-                    new NativeMenuItem("Redo") { IsEnabled = false },
+                    DisabledItem("Undo", new KeyGesture(Key.Z, PlatformModifiers.Primary)),
+                    DisabledItem("Redo", new KeyGesture(Key.Z, PlatformModifiers.Primary | KeyModifiers.Shift)),
                     new NativeMenuItemSeparator(),
-                    new NativeMenuItem("Cut") { IsEnabled = false },
-                    new NativeMenuItem("Copy") { IsEnabled = false },
-                    new NativeMenuItem("Paste") { IsEnabled = false },
+                    ActionItem("Cut", MenuCut),
+                    ActionItem("Copy", MenuCopy),
+                    ActionItem("Paste", MenuPaste),
+                    new NativeMenuItemSeparator(),
+                    ActionItem("Delete", MenuDelete),
+                    ActionItem("Select All", MenuSelectAll, new KeyGesture(Key.A, PlatformModifiers.Primary)),
+                    ActionItem("Deselect All", MenuDeselectAll, new KeyGesture(Key.A, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    new NativeMenuItemSeparator(),
+                    new NativeMenuItem("Find") { Menu = findMenu },
                 },
             };
 
-            var viewMenu = new NativeMenu {
+            minorGridlinesMenuItems = RadioItems(GridlineLabels, MenuSetMinorGridlines, Array.IndexOf(GridlineLabels, minorGridlinesPopUp.SelectedItem));
+            majorGridlinesMenuItems = RadioItems(GridlineLabels, MenuSetMajorGridlines, Array.IndexOf(GridlineLabels, majorGridlinesPopUp.SelectedItem));
+            rateUnitMenuItems = RadioItems(RateUnitLabels, MenuSetRateUnit, Array.IndexOf(RateUnitOptions, rateOptionsPopUp.SelectedItem));
+
+            //A NativeMenu gesture on an unmodified key swallows every space typed in a text field
+            showGridlinesMenuItem = new NativeMenuItem("Show Gridlines") {
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = gridlinesCheckBox.IsChecked == true,
+                Gesture = new KeyGesture(Key.G, PlatformModifiers.Primary | KeyModifiers.Alt),
+                Command = new DeferredMenuCommand(new RelayCommand(MenuToggleShowGridlines)),
+            };
+            iconViewMenuItem = new NativeMenuItem("Icon View") {
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = iconViewCheckBox.IsChecked == true,
+                Command = new DeferredMenuCommand(new RelayCommand(MenuToggleIconView)),
+            };
+            pauseCalculationsMenuItem = new NativeMenuItem("Pause All Calculations") {
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = pauseUpdatesCheckBox.IsChecked == true,
+                Gesture = new KeyGesture(Key.P, PlatformModifiers.Primary | KeyModifiers.Alt),
+                Command = new DeferredMenuCommand(new RelayCommand(MenuTogglePauseCalculations)),
+            };
+            showInspectorMenuItem = new NativeMenuItem("Show Inspector") {
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = ViewModel.Inspector.ShowOverride,
+                Gesture = new KeyGesture(Key.I, PlatformModifiers.Primary | KeyModifiers.Alt),
+                Command = new DeferredMenuCommand(new RelayCommand(MenuToggleShowInspector)),
+            };
+            pinInspectorMenuItem = new NativeMenuItem("Pin Inspector") {
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = ViewModel.Inspector.IsPinned,
+                Gesture = new KeyGesture(Key.I, PlatformModifiers.Primary | KeyModifiers.Alt | KeyModifiers.Shift),
+                Command = new DeferredMenuCommand(new RelayCommand(MenuTogglePinInspector)),
+            };
+
+            showToolbarMenuItem = new NativeMenuItem("Show Toolbar") {
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = showToolbar,
+                Gesture = new KeyGesture(Key.T, PlatformModifiers.Primary | KeyModifiers.Alt),
+                Command = new DeferredMenuCommand(new RelayCommand(MenuToggleShowToolbar)),
+            };
+
+            roundedRoutingMenuItem = RoutingItem("Rounded", LinkRouting.Rounded);
+            orthogonalRoutingMenuItem = RoutingItem("Orthogonal", LinkRouting.Orthogonal);
+            clearWaypointsMenuItem = ActionItem("Clear Waypoints", MenuClearWaypoints);
+            clearWaypointsMenuItem.IsEnabled = false;
+            var linkRoutingMenu = new NativeMenu {
                 Items = {
-                    new NativeMenuItem("Show Gridlines") { IsEnabled = false },
-                    new NativeMenuItem("Rate Unit") { IsEnabled = false },
-                    new NativeMenuItem("Icon View") { IsEnabled = false },
-                    new NativeMenuItem("Level of Detail") { IsEnabled = false },
+                    roundedRoutingMenuItem,
+                    orthogonalRoutingMenuItem,
+                    new NativeMenuItemSeparator(),
+                    clearWaypointsMenuItem,
+                },
+            };
+            linkRoutingMenu.Opening += (_, _) => UpdateLinkRoutingMenu();
+            GraphCanvas.Viewer.SelectionChanged += (_, _) => UpdateLinkRoutingMenu();
+
+            NativeMenuItemBase[] canvasHalf = [
+                MenuItem("Zoom In", ZoomInCommand, new KeyGesture(Key.OemPlus, PlatformModifiers.Primary)),
+                MenuItem("Zoom Out", ZoomOutCommand, new KeyGesture(Key.OemMinus, PlatformModifiers.Primary)),
+                ActionItem("Actual Size", MenuActualSize, new KeyGesture(Key.D0, PlatformModifiers.Primary)),
+                ActionItem("Fit to Graph", MenuFitToGraph, new KeyGesture(Key.D0, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                new NativeMenuItemSeparator(),
+                showGridlinesMenuItem,
+                new NativeMenuItem("Minor Gridlines") { Menu = SubmenuFrom(minorGridlinesMenuItems) },
+                new NativeMenuItem("Major Gridlines") { Menu = SubmenuFrom(majorGridlinesMenuItems) },
+                new NativeMenuItem("Rate Unit") { Menu = SubmenuFrom(rateUnitMenuItems) },
+                new NativeMenuItem("Link Routing") { Menu = linkRoutingMenu },
+                iconViewMenuItem,
+                pauseCalculationsMenuItem,
+                new NativeMenuItemSeparator(),
+                showInspectorMenuItem,
+                pinInspectorMenuItem,
+            ];
+            var viewMenu = new NativeMenu();
+            viewMenu.Opening += (_, _) => UpdateLinkRoutingMenu();
+            foreach (NativeMenuItemBase item in canvasHalf)
+                viewMenu.Items.Add(item);
+            viewMenu.Items.Insert(viewMenu.Items.IndexOf(pauseCalculationsMenuItem) + 1, showSolveErrorMenuItem);
+            viewMenu.Items.Add(new NativeMenuItemSeparator());
+            viewMenu.Items.Add(showToolbarMenuItem);
+            viewMenu.Items.Add(DisabledItem("Customize Toolbar…"));
+            viewMenu.Items.Add(ActionItem("Enter Full Screen", MenuToggleFullScreen, EnterFullScreenGesture()));
+
+            var windowMenu = new NativeMenu {
+                Items = {
+                    ActionItem("Minimize", MenuMinimize, new KeyGesture(Key.M, PlatformModifiers.Primary)),
+                    ActionItem("Zoom", MenuZoomWindow),
+                    new NativeMenuItemSeparator(),
+                    ActionItem("Welcome to Foreman", ShowWelcome, new KeyGesture(Key.D1, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    new NativeMenuItem("Preset Comparator") { Command = new DeferredMenuCommand(presetComparatorCommand) },
+                    new NativeMenuItemSeparator(),
+                    ActionItem("Bring All to Front", MenuBringAllToFront),
                 },
             };
 
-            var helpMenu = new NativeMenu { Items = { MenuItem("Help / Git repo", Commands.Help) } };
+            windowMenu.Opening += (_, _) => presetComparatorCommand.NotifyCanExecuteChanged();
+
+            var helpMenu = new NativeMenu {
+                Items = {
+                    ActionItem("Foreman 2 Help", () => OpenInBrowser(RepositoryUrl + "#readme"), new KeyGesture(Key.OemQuestion, PlatformModifiers.Primary | KeyModifiers.Shift)),
+                    ActionItem("Keyboard Shortcuts", () => OpenInBrowser(RepositoryUrl + "/blob/main/docs/keyboard-shortcuts.md")),
+                    new NativeMenuItemSeparator(),
+                    ActionItem("Foreman 2 on GitHub", () => OpenInBrowser(RepositoryUrl)),
+                    ActionItem("Report an Issue…", () => OpenInBrowser(ReportIssueUrl())),
+                },
+            };
+
+            documentScopedMenuItems = [.. WithSubmenuItems([save, duplicate, rename, revert, exportFjson, exportImage, close, .. editMenu.Items, .. canvasHalf])];
 
             return new NativeMenu {
                 Items = {
-                    new NativeMenuItem { Menu = appMenu },
                     new NativeMenuItem("File") { Menu = fileMenu },
                     new NativeMenuItem("Edit") { Menu = editMenu },
                     new NativeMenuItem("View") { Menu = viewMenu },
+                    new NativeMenuItem("Window") { Menu = windowMenu },
                     new NativeMenuItem("Help") { Menu = helpMenu },
                 },
             };
         }
 
-        private static NativeMenuItem MenuItem(string header, ShellCommand command, KeyGesture? gesture = null) =>
-            new(header) { Command = command, IsEnabled = command.IsImplemented, Gesture = gesture };
+        private static KeyGesture? EnterFullScreenGesture() =>
+            PlatformModifiers.Primary == KeyModifiers.Meta ? new KeyGesture(Key.F, KeyModifiers.Meta | KeyModifiers.Control) : null;
+
+        private static IEnumerable<NativeMenuItem> WithSubmenuItems(IEnumerable<NativeMenuItemBase> items) {
+            foreach (NativeMenuItem item in items.OfType<NativeMenuItem>().Where(i => i is not NativeMenuItemSeparator)) {
+                yield return item;
+                if (item.Menu is NativeMenu submenu)
+                    foreach (NativeMenuItem nested in WithSubmenuItems(submenu.Items))
+                        yield return nested;
+            }
+        }
+
+        private NativeMenuItem[] documentScopedMenuItems = [];
+        private readonly Dictionary<NativeMenuItem, bool> enabledBeforeNoDocument = [];
+        private bool isDocumentOpen = true;
+
+        internal bool IsDocumentOpen {
+            get => isDocumentOpen;
+            set {
+                if (isDocumentOpen == value)
+                    return;
+                isDocumentOpen = value;
+                if (value) {
+                    foreach ((NativeMenuItem item, bool enabled) in enabledBeforeNoDocument)
+                        item.IsEnabled = enabled;
+                    enabledBeforeNoDocument.Clear();
+                    UpdateLinkRoutingMenu();
+                    UpdateSelectNodeMenuItems();
+                    return;
+                }
+                foreach (NativeMenuItem item in documentScopedMenuItems) {
+                    enabledBeforeNoDocument[item] = item.IsEnabled;
+                    item.IsEnabled = false;
+                }
+            }
+        }
+
+        internal void RefreshLibraryMenus() {
+            revertToLastSavedCommand.NotifyCanExecuteChanged();
+            RefreshOpenRecentMenu();
+        }
+
+        internal void RefreshOpenRecentMenu() {
+            openRecentItem.Menu = BuildOpenRecentMenu(Library, Settings, PresetResolver,
+                id => Async.Fire(OpenLibraryGraphAsync(id), nameof(OpenLibraryGraphAsync)), ClearOpenRecent);
+            openRecentItem.IsEnabled = Library?.All().Count > 0;
+        }
+
+        internal static NativeMenu BuildOpenRecentMenu(GraphLibraryService? library, AppSettings? settings, PresetResolver? resolver, Action<Guid> open, Action clear) {
+            IReadOnlyList<GraphRow> rows = library?.OpenRecent(settings?.OpenRecentClearedAt) ?? [];
+            HashSet<string> installed = resolver is not null && settings is not null
+                ? [.. resolver.BuildPresetList(settings.CurrentPresetName).Select(p => p.Name)]
+                : [];
+            var menu = new NativeMenu();
+            foreach (GraphRow row in rows) {
+                bool missing = resolver is not null && !installed.Contains(row.PresetName);
+                Guid id = row.Id;
+                menu.Items.Add(new NativeMenuItem(rows.Count(r => r.Name == row.Name) > 1 ? $"{row.Name} — {row.PresetName}" : row.Name) {
+                    Command = new DeferredMenuCommand(new RelayCommand(() => open(id))),
+                    IsEnabled = !missing,
+                    ToolTip = missing ? $"Needs the “{row.PresetName}” preset" : null,
+                });
+            }
+            if (rows.Count > 0)
+                menu.Items.Add(new NativeMenuItemSeparator());
+            menu.Items.Add(new NativeMenuItem("Clear Menu") { Command = new DeferredMenuCommand(new RelayCommand(clear)), IsEnabled = rows.Count > 0 });
+            return menu;
+        }
+
+        private void ClearOpenRecent() {
+            if (Settings is not AppSettings current || Library is null)
+                return;
+            current.OpenRecentClearedAt = Library.Now;
+            SettingsService?.Save(current);
+            RefreshOpenRecentMenu();
+        }
+
+        private static NativeMenuItem MenuItem(string header, IRelayCommand command, KeyGesture? gesture = null) =>
+            new(header) { Command = new DeferredMenuCommand(command), IsEnabled = command.CanExecute(null), Gesture = gesture };
+
+        private static NativeMenuItem ActionItem(string header, Action action, KeyGesture? gesture = null) =>
+            new(header) { Command = new DeferredMenuCommand(new RelayCommand(action)), Gesture = gesture };
+
+        private NativeMenuItem RoutingItem(string header, LinkRouting routing) =>
+            new(header) {
+                ToggleType = MenuItemToggleType.Radio,
+                Command = new DeferredMenuCommand(new RelayCommand(() => MenuSetLinkRouting(routing))),
+                IsEnabled = false,
+            };
+
+        private void MenuSetLinkRouting(LinkRouting routing) {
+            GraphCanvas.Viewer.SetSelectedLinksRouting(routing);
+            UpdateLinkRoutingMenu();
+            GraphCanvas.RequestRedraw();
+        }
+
+        private void MenuClearWaypoints() {
+            GraphCanvas.Viewer.ClearSelectedWaypoints();
+            UpdateLinkRoutingMenu();
+            GraphCanvas.RequestRedraw();
+        }
+
+        internal void UpdateLinkRoutingMenu() {
+            if (roundedRoutingMenuItem is null || orthogonalRoutingMenuItem is null || clearWaypointsMenuItem is null)
+                return;
+
+            HashSet<LinkElement> selected = GraphCanvas.Viewer.SelectedLinks;
+            bool any = isDocumentOpen && selected.Count > 0;
+            roundedRoutingMenuItem.IsEnabled = any;
+            orthogonalRoutingMenuItem.IsEnabled = any;
+            roundedRoutingMenuItem.IsChecked = any && selected.All(link => link.ViewModel.Routing == LinkRouting.Rounded);
+            orthogonalRoutingMenuItem.IsChecked = any && selected.All(link => link.ViewModel.Routing == LinkRouting.Orthogonal);
+            clearWaypointsMenuItem.IsEnabled = isDocumentOpen && selected.Any(link => link.ViewModel.Waypoints.Count > 0);
+        }
+
+        private static NativeMenuItem DisabledItem(string header, KeyGesture? gesture = null) =>
+            new(header) { IsEnabled = false, Gesture = gesture };
+
+        private static NativeMenuItem[] RadioItems(string[] labels, Action<int> onSelect, int currentIndex) {
+            var command = new DeferredMenuCommand(new RelayCommand<int>(onSelect));
+            var items = new NativeMenuItem[labels.Length];
+            for (int i = 0; i < labels.Length; i++) {
+                items[i] = new NativeMenuItem(labels[i]) {
+                    ToggleType = MenuItemToggleType.Radio,
+                    IsChecked = i == currentIndex,
+                    //CommandParameter must be set before Command, or IsEnabled snapshots CanExecute(null)
+                    CommandParameter = i,
+                    Command = command,
+                };
+            }
+            return items;
+        }
+
+        private static NativeMenu SubmenuFrom(NativeMenuItem[] items) {
+            var menu = new NativeMenu();
+            foreach (NativeMenuItem item in items)
+                menu.Items.Add(item);
+            return menu;
+        }
 
         private static NativeMenuItem QuitMenuItem() {
-            var item = new NativeMenuItem("Quit Foreman 2") { Gesture = new KeyGesture(Key.Q, PlatformModifiers.Primary) };
-            item.Click += (_, _) => (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
-            return item;
+            var command = new RelayCommand(() => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.TryShutdown());
+            return new NativeMenuItem("Quit Foreman 2") {
+                Gesture = new KeyGesture(Key.Q, PlatformModifiers.Primary),
+                Command = new DeferredMenuCommand(command),
+            };
+        }
+
+        //Defers Execute past AppKit's synchronous menu dispatch, or an async sheet strands the menu open
+        internal sealed class DeferredMenuCommand(ICommand inner) : ICommand {
+            internal ICommand Inner { get; } = inner;
+
+            public event EventHandler? CanExecuteChanged {
+                add => Inner.CanExecuteChanged += value;
+                remove => Inner.CanExecuteChanged -= value;
+            }
+
+            public bool CanExecute(object? parameter) => Inner.CanExecute(parameter);
+
+            public void Execute(object? parameter) => Dispatcher.UIThread.Post(() => Inner.Execute(parameter), DispatcherPriority.Background);
         }
     }
 }

@@ -56,7 +56,7 @@ namespace Foreman.Models.Nodes {
 
         internal PassthroughNodeController(PassthroughNode myNode) : base(myNode) { MyNode = myNode; }
 
-        public void SetSimpleDraw(bool alwaysRegularDraw) { MyNode.SimpleDraw = alwaysRegularDraw; }
+        public void SetSimpleDraw(bool alwaysRegularDraw) { if (MyNode.SimpleDraw != alwaysRegularDraw) { MyNode.SimpleDraw = alwaysRegularDraw; Mutated(); } }
 
         public override Dictionary<string, Action> GetErrorResolutions() =>
             ErrorResolutionsDeleteOrFixLinks(MyNode.ErrorSet != PassthroughNode.Errors.Clean);

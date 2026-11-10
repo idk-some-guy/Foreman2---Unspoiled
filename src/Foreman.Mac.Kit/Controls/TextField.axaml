@@ -1,0 +1,76 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls">
+
+  <ControlTheme x:Key="Kit.TextField" TargetType="TextBox">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ControlHeightRegular}" />
+    <Setter Property="MinWidth" Value="{DynamicResource Foreman.Metrics.TextFieldMinWidth}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.WellBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.TextFieldPadding}" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Callout.FontSize}" />
+    <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.Callout.FontWeight}" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    <Setter Property="PlaceholderForeground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
+    <Setter Property="CaretBrush" Value="{DynamicResource Foreman.Color.Accent}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource Foreman.Color.AccentSoft}" />
+    <Setter Property="SelectionForegroundBrush" Value="{DynamicResource Foreman.Color.Text}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="Cursor" Value="Ibeam" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="kit:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_BorderElement"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}">
+          <DockPanel Margin="{TemplateBinding Padding}">
+            <ContentPresenter x:Name="PART_InnerLeftContent"
+                              DockPanel.Dock="Left"
+                              Content="{TemplateBinding InnerLeftContent}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+            <Grid>
+              <TextBlock x:Name="PART_Placeholder"
+                         Text="{TemplateBinding PlaceholderText}"
+                         Foreground="{TemplateBinding PlaceholderForeground}"
+                         FontSize="{TemplateBinding FontSize}"
+                         FontWeight="{TemplateBinding FontWeight}"
+                         VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+              <ScrollViewer Name="PART_ScrollViewer"
+                            HorizontalScrollBarVisibility="Hidden"
+                            VerticalScrollBarVisibility="Hidden">
+                <TextPresenter Name="PART_TextPresenter"
+                               Text="{TemplateBinding Text, Mode=TwoWay}"
+                               CaretIndex="{TemplateBinding CaretIndex}"
+                               SelectionStart="{TemplateBinding SelectionStart}"
+                               SelectionEnd="{TemplateBinding SelectionEnd}"
+                               CaretBrush="{TemplateBinding CaretBrush}"
+                               SelectionBrush="{TemplateBinding SelectionBrush}"
+                               SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+              </ScrollViewer>
+            </Grid>
+          </DockPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:not(:empty) /template/ TextBlock#PART_Placeholder">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
+    </Style>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

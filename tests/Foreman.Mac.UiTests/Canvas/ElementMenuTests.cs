@@ -77,6 +77,12 @@ namespace Foreman.Mac.UiTests.Canvas {
             controller?.SetKeyNode(false);
         }
 
+        private static Point BadgePoint(BaseNodeElement node) {
+            SkiaSharp.SKRect badge = node.BadgeRect();
+            Assert.False(badge.IsEmpty);
+            return new Point((int)badge.MidX, (int)badge.MidY);
+        }
+
         private static SupplierNodeElement AddSupplier(Fixture fx, ItemQualityPair item, Point location) {
             fx.Control.Viewer.Graph.CreateSupplierNode(item, location);
             ISupplierNodeViewModel viewModel = fx.Control.Viewer.Session.View.Nodes.OfType<ISupplierNodeViewModel>().Last();
@@ -336,7 +342,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             NodeId nodeId = node.ViewModel.Id;
             Assert.Equal(NodeState.Error, node.ViewModel.State);
 
-            var errorPoint = new Point(node.X - (node.Width / 2), node.Y - (node.Height / 2));
+            Point errorPoint = BadgePoint(node);
             node.MouseUpLeft(errorPoint);
 
             Assert.False(fx.Control.Viewer.NodeElementDictionary.ContainsKey(nodeId));
@@ -350,7 +356,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             SupplierNodeElement node = AddSupplier(fx, item, Point.Empty);
             NodeId nodeId = node.ViewModel.Id;
 
-            var errorPoint = new Point(node.X - (node.Width / 2), node.Y - (node.Height / 2));
+            var errorPoint = new Point(node.X + (node.Width / 2) - 20, node.Y - (node.Height / 2) + 60);
             node.MouseUpLeft(errorPoint);
 
             Assert.True(fx.Control.Viewer.NodeElementDictionary.ContainsKey(nodeId));
@@ -376,7 +382,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Fixture fx = NewFixture();
             ItemPrototype ghost = fx.NewItem("ghost-item", isMissing: true);
             SupplierNodeElement node = AddSupplier(fx, fx.Pair(ghost), Point.Empty);
-            var errorPoint = new Point(node.X - (node.Width / 2), node.Y - (node.Height / 2));
+            Point errorPoint = BadgePoint(node);
 
             var entries = node.MouseUpRight(errorPoint);
 
@@ -416,7 +422,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             ItemPrototype ghost = fx.NewItem("ghost-item", isMissing: true);
             SupplierNodeElement node = AddSupplier(fx, fx.Pair(ghost), Point.Empty);
             NodeId nodeId = node.ViewModel.Id;
-            AvaloniaPoint badgeScreenPoint = fx.Control.Viewport.GraphToScreen(new Point(node.X - (node.Width / 2), node.Y - (node.Height / 2)));
+            AvaloniaPoint badgeScreenPoint = fx.Control.Viewport.GraphToScreen(BadgePoint(node));
 
             fx.Window.MouseDown(badgeScreenPoint, MouseButton.Left, RawInputModifiers.None);
             fx.Window.MouseUp(badgeScreenPoint, MouseButton.Left, RawInputModifiers.None);

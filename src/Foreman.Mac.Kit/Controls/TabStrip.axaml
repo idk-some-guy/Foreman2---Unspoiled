@@ -1,0 +1,32 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.TabStrip" TargetType="kit:TabStrip">
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Chrome">
+          <Panel>
+            <Border x:Name="PART_Baseline" Height="1" VerticalAlignment="Bottom" IsVisible="False" />
+            <Border x:Name="PART_Underline"
+                    Height="2"
+                    Width="0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    IsVisible="False"
+                    Transitions="{x:Static m:Motion.SegmentedTransitions}" />
+            <StackPanel x:Name="PART_Track" Orientation="Horizontal" />
+          </Panel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

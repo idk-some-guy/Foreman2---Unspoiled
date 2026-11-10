@@ -7,9 +7,12 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.Canvas.KitSkia;
+using Foreman.Mac.Services;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using Foreman.Serialization;
+using Foreman.Mac.UiTests.support;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -20,6 +23,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+using static Foreman.Mac.UiTests.support.PixelColors;
 using AvaloniaPoint = Avalonia.Point;
 using AvaloniaWindow = Avalonia.Controls.Window;
 
@@ -212,6 +216,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             //SupplierNodeElement's only tooltip is the exclusive help text, pinned at the literal screen
             //corner (10, 10) upstream's ExclusiveHelpTooltip always uses - not near the cursor itself.
             window.MouseMove(new AvaloniaPoint(Half, Half));
+            AnimationClock.Settle(900);
             Assert.True(BubbleVisibleNear(fx.Control, 10, 10));
 
             window.MouseMove(new AvaloniaPoint(Half - 150, Half - 150));
@@ -223,7 +228,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             control.Render(surface.Canvas);
             using SKImage image = surface.Snapshot();
             using SKPixmap pixmap = image.PeekPixels();
-            var bubbleColor = new SKColor(65, 65, 65);
+            SKColor bubbleColor = TokenBridge.Current.TooltipMaterialOpaque.WithAlpha(255);
             for (int dx = -3; dx <= 20; dx++)
                 for (int dy = -3; dy <= 20; dy++)
                     if (pixmap.GetPixelColor(screenX + dx, screenY + dy) == bubbleColor)
@@ -278,11 +283,10 @@ namespace Foreman.Mac.UiTests.Canvas {
             return fx.Session.View.Nodes.OfType<IRecipeNodeViewModel>().Single();
         }
 
-        [AvaloniaFact]
-        public async Task GetToolTips_ShowRecipeToolTipEnabled_MatchesUpstreamTooltipStructure() {
+        [Fact]
+        public async Task GetToolTips_HoverRecipeNode_NeverShowsRecipeCard() {
             RecipeFixture fx = NewRecipeFixture(await GetRecipeCacheAsync());
             IRecipeNodeViewModel viewModel = MakeIronGearWheelNode(fx);
-            fx.Context.ShowRecipeToolTip = true;
             var element = new RecipeNodeElement(fx.Context, viewModel);
 
             //Far outside every subelement (tabs/assembler/beacon), so the cascade falls through to
@@ -290,36 +294,11 @@ namespace Foreman.Mac.UiTests.Canvas {
             //text otherwise depends on which subelement happened to be under the probe point.
             List<TooltipInfo> tooltips = element.GetToolTips(new Point(5000, 5000));
 
-            Assert.Equal(2, tooltips.Count);
-
-            TooltipInfo recipeTooltip = tooltips[0];
-            Assert.Null(recipeTooltip.Text);
-            Assert.Equal(Direction.Left, recipeTooltip.Direction);
-            Assert.NotNull(recipeTooltip.CustomDraw);
-            IRecipe recipe = fx.Cache.Recipes["iron-gear-wheel"];
-            Size expectedSize = RecipePainter.GetSize([recipe], fx.Context.AbbreviateSciPacks);
-            Assert.Equal(expectedSize.Width, recipeTooltip.ScreenSize!.Value.Width);
-            Assert.Equal(expectedSize.Height, recipeTooltip.ScreenSize!.Value.Height);
-
+            TooltipInfo helpTooltip = Assert.Single(tooltips);
             string entityName = viewModel.SelectedAssembler.Assembler is IAssembler helpAssembler ? helpAssembler.GetEntityTypeName(false).ToLowerInvariant() : "assembler";
-            TooltipInfo helpTooltip = tooltips[1];
             Assert.Equal($"Left click on this node to edit its {entityName}, modules, beacon, etc.\nRight click for options.", helpTooltip.Text);
             Assert.Equal(Direction.None, helpTooltip.Direction);
             Assert.Null(helpTooltip.CustomDraw);
-        }
-
-        [AvaloniaFact]
-        public async Task GetToolTips_ShowRecipeToolTipDisabled_OmitsRecipeTooltip() {
-            RecipeFixture fx = NewRecipeFixture(await GetRecipeCacheAsync());
-            IRecipeNodeViewModel viewModel = MakeIronGearWheelNode(fx);
-            fx.Context.ShowRecipeToolTip = false;
-            var element = new RecipeNodeElement(fx.Context, viewModel);
-
-            List<TooltipInfo> tooltips = element.GetToolTips(new Point(5000, 5000));
-
-            TooltipInfo tooltip = Assert.Single(tooltips);
-            Assert.NotNull(tooltip.Text);
-            Assert.Null(tooltip.CustomDraw);
         }
 
         [Fact]
@@ -334,10 +313,52 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             using SKImage image = surface.Snapshot();
             using SKPixmap pixmap = image.PeekPixels();
-            SKColor[] backgrounds = [SKColors.White, new SKColor(65, 65, 65), new SKColor(40, 40, 40)];
+            SKColor[] backgrounds = [SKColors.White, TokenBridge.Current.TooltipMaterialOpaque.WithAlpha(255), TokenBridge.Current.WindowBackground.WithAlpha(255)];
 
             Assert.True(RegionHasPixelUnlike(pixmap, new Rectangle(4, 4, 32, 32), backgrounds)); //recipe title icon
             Assert.True(RegionHasPixelUnlike(pixmap, new Rectangle(14, 70, 32, 32), backgrounds)); //first ingredient icon row
+        }
+
+        [AvaloniaFact]
+        public async Task RecipePainter_Paint_ReadsTokens_InBothAppearances() {
+            DataCache cache = await GetRecipeCacheAsync();
+            IRecipe recipe = cache.Recipes["iron-gear-wheel"];
+            Size size = RecipePainter.GetSize([recipe, recipe], abbreviateSciPacks: true);
+            App app = (App)Avalonia.Application.Current!;
+            try {
+                foreach (ThemeMode mode in new[] { ThemeMode.Light, ThemeMode.Dark }) {
+                    app.ApplyTheme(mode);
+                    TokenBridge.Refresh();
+                    CanvasTokens tokens = TokenBridge.Current;
+                    using SKSurface surface = SKSurface.Create(new SKImageInfo(size.Width, size.Height));
+                    surface.Canvas.Clear(tokens.CanvasBackground);
+
+                    RecipePainter.Paint([recipe, recipe], surface.Canvas, Point.Empty, abbreviateSciPacks: true);
+
+                    using SKImage image = surface.Snapshot();
+                    using SKPixmap pixmap = image.PeekPixels();
+                    Assert.Equal(tokens.WindowBackground.WithAlpha(255), pixmap.GetPixelColor(198, 20));
+                    Assert.Equal(tokens.TooltipMaterialOpaque.WithAlpha(255), pixmap.GetPixelColor(198, 70));
+                    Assert.Equal(tokens.TooltipMaterialOpaque.WithAlpha(255), pixmap.GetPixelColor(201, 20));
+                    Assert.NotEqual(tokens.TooltipMaterialOpaque.WithAlpha(255), pixmap.GetPixelColor(205, 20));
+
+                    SKColor fill = tokens.TooltipMaterialOpaque.WithAlpha(255);
+                    SKColor breaker = StrongestIn(pixmap, new Rectangle(204, 20, 2, 1), fill);
+                    AssertClose(Blend(fill, Over(tokens.TextSecondary, fill), 0.5f), breaker);
+                    SKColor textHalf = Blend(fill, Over(tokens.Text, fill), 0.5f);
+                    Assert.True(Math.Abs(breaker.Red - textHalf.Red) > 2 || Math.Abs(breaker.Green - textHalf.Green) > 2 || Math.Abs(breaker.Blue - textHalf.Blue) > 2, "the breaker took the Text token");
+
+                    SKColor border = pixmap.GetPixelColor(0, 42);
+                    AssertClose(Blend(fill, Over(tokens.NodeTabBorder, fill), 0.5f), border);
+
+                    SKColor band = tokens.WindowBackground.WithAlpha(255);
+                    AssertClose(Over(tokens.Text, band), StrongestIn(pixmap, new Rectangle(42, 4, 152, 32), band));
+                    AssertClose(Over(tokens.TooltipText, fill), StrongestIn(pixmap, new Rectangle(52, 86, 40, 14), fill));
+                }
+            } finally {
+                app.ApplyTheme(ThemeMode.System);
+                TokenBridge.Refresh();
+            }
         }
 
         //Pins RecipePainter's literal "0.##" quantity format against GraphicsStuff.DoubleToString's
@@ -353,41 +374,28 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(expected, RecipePainter.FormatQuantity(quantity));
         }
 
+        private static int Distance(SKColor a, SKColor b) => Math.Abs(a.Red - b.Red) + Math.Abs(a.Green - b.Green) + Math.Abs(a.Blue - b.Blue);
+
+        private static SKColor StrongestIn(SKPixmap pixmap, Rectangle region, SKColor ground) {
+            SKColor strongest = ground;
+            for (int x = region.Left; x < region.Right; x++)
+                for (int y = region.Top; y < region.Bottom; y++) {
+                    SKColor pixel = pixmap.GetPixelColor(x, y);
+                    if (Distance(pixel, ground) > Distance(strongest, ground))
+                        strongest = pixel;
+                }
+            return strongest;
+        }
+
+        private static SKColor Blend(SKColor ground, SKColor full, float coverage) =>
+            new((byte)Math.Round(ground.Red + ((full.Red - ground.Red) * coverage)), (byte)Math.Round(ground.Green + ((full.Green - ground.Green) * coverage)), (byte)Math.Round(ground.Blue + ((full.Blue - ground.Blue) * coverage)));
+
         private static bool RegionHasPixelUnlike(SKPixmap pixmap, Rectangle region, params SKColor[] backgroundColors) {
             for (int x = region.Left; x < region.Right; x++)
                 for (int y = region.Top; y < region.Bottom; y++)
                     if (!backgroundColors.Contains(pixmap.GetPixelColor(x, y)))
                         return true;
             return false;
-        }
-
-        //---- reference render: a real recipe node hovered, with its full recipe tooltip visible ----
-
-        [AvaloniaFact]
-        public async Task RenderRecipeNodeWithHoverTooltip_WritesReferencePngToSddWorkspace() {
-            const int width = 1100, height = 500;
-            RecipeFixture fx = NewRecipeFixture(await GetRecipeCacheAsync(), width, height);
-            fx.Context.ShowRecipeToolTip = true;
-            IRecipeNodeViewModel viewModel = MakeIronGearWheelNode(fx);
-            var element = new RecipeNodeElement(fx.Context, viewModel);
-            fx.Control.NodeElements.Add(element);
-
-            var window = new AvaloniaWindow { Content = fx.Control, Width = width, Height = height };
-            window.Show();
-            window.MouseMove(fx.Control.Viewport.GraphToScreen(Point.Empty));
-
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(width, height));
-            fx.Control.Render(surface.Canvas);
-
-            string workspaceDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".superpowers", "sdd", "2026-09-01-phase3-canvas-readonly");
-            Directory.CreateDirectory(workspaceDir);
-            string pngPath = Path.Combine(workspaceDir, "task-6-recipe-node-hover-tooltip.png");
-            using SKImage image = surface.Snapshot();
-            using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
-            using (FileStream file = File.OpenWrite(pngPath))
-                data.SaveTo(file);
-
-            Assert.True(File.Exists(pngPath));
         }
     }
 }

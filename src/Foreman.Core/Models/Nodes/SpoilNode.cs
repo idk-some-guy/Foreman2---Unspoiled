@@ -76,15 +76,15 @@ namespace Foreman.Models.Nodes {
                 return errors;
 
             if ((ErrorSet & Errors.InputItemMissing) != 0)
-                errors.Add(string.Format(DisplayCulture.Format, "> Item \"{0}\" doesnt exist in preset!", InputItem.Item?.FriendlyName));
+                errors.Add(string.Create(DisplayCulture.Format, $"> Item \"{InputItem.Item?.FriendlyName}\" doesnt exist in preset!"));
             if ((ErrorSet & Errors.OutputItemMissing) != 0)
-                errors.Add(string.Format(DisplayCulture.Format, "> Spoilage Item \"{0}\" doesnt exist in preset!", OutputItem.Item?.FriendlyName));
+                errors.Add(string.Create(DisplayCulture.Format, $"> Spoilage Item \"{OutputItem.Item?.FriendlyName}\" doesnt exist in preset!"));
             if ((ErrorSet & Errors.ItemDoesntSpoil) != 0)
-                errors.Add(string.Format(DisplayCulture.Format, "> Item \"{0}\" doesnt spoil!", InputItem.Item?.FriendlyName));
+                errors.Add(string.Create(DisplayCulture.Format, $"> Item \"{InputItem.Item?.FriendlyName}\" doesnt spoil!"));
             if ((ErrorSet & Errors.InvalidSpoilResult) != 0)
-                errors.Add(string.Format(DisplayCulture.Format, "> Spoil result for item \"{0}\" doesnt match preset!", InputItem.Item?.FriendlyName));
+                errors.Add(string.Create(DisplayCulture.Format, $"> Spoil result for item \"{InputItem.Item?.FriendlyName}\" doesnt match preset!"));
             if ((ErrorSet & Errors.QualityMissing) != 0)
-                errors.Add(string.Format(DisplayCulture.Format, "> Quality \"{0}\" doesnt exist in preset!", InputItem.Quality?.FriendlyName));
+                errors.Add(string.Create(DisplayCulture.Format, $"> Quality \"{InputItem.Quality?.FriendlyName}\" doesnt exist in preset!"));
             if ((ErrorSet & Errors.InvalidLinks) != 0)
                 errors.Add("> Some links are invalid!");
             return errors;
@@ -112,6 +112,7 @@ namespace Foreman.Models.Nodes {
                     link.Controller.Delete();
                 MyNode.OutputItem = correctSpoilResult;
                 MyNode.UpdateState();
+                Mutated();
             }
         }
 

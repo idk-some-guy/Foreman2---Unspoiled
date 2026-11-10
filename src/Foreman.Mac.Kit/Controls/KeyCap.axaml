@@ -1,0 +1,31 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls">
+
+  <ControlTheme x:Key="Kit.KeyCap" TargetType="kit:KeyCap">
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="Margin" Value="0,0,0,1" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{DynamicResource Foreman.Color.ControlBackground}"
+                BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
+                BorderThickness="1"
+                CornerRadius="{DynamicResource Foreman.Radius.KeyCap}"
+                Padding="{DynamicResource Foreman.Thickness.KeyCapPadding}"
+                BoxShadow="{DynamicResource Foreman.Shadow.KeyCapEdge}"
+                MinWidth="{TemplateBinding MinWidth}"
+                MinHeight="{TemplateBinding MinHeight}"
+                HorizontalAlignment="Left">
+          <TextBlock Text="{TemplateBinding Text}"
+                     Foreground="{DynamicResource Foreman.Color.Text}"
+                     FontSize="{DynamicResource Foreman.Type.Caption.FontSize}"
+                     FontWeight="{DynamicResource Foreman.Type.SectionHeader.FontWeight}"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

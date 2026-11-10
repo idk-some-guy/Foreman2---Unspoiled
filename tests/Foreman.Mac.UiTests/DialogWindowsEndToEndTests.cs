@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
@@ -10,19 +11,23 @@ using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Canvas.Panels;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.QuickAdd;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
-using InputPointer = Avalonia.Input.Pointer;
 
 namespace Foreman.Mac.UiTests {
     //Task 6's phase gate (docs/superpowers/plans/2026-09-02-phase5b-dialog-windows.md): the three dialog
@@ -92,29 +97,21 @@ namespace Foreman.Mac.UiTests {
         private static string SettingsJsonPath(string tempHome) =>
             Path.Combine(tempHome, "Library", "Application Support", "Foreman", "settings.json");
 
-        //---- shared chooser-flow helper (EditingEndToEndTests' own copy, adapted to a caller-supplied
-        //control rather than one it built itself) ----
-
-        private static void Click(Avalonia.Controls.Control control) {
-            var pointer = new InputPointer(InputPointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
-            var properties = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased);
-            var args = new PointerReleasedEventArgs(control, pointer, control, default, 0, properties, KeyModifiers.None, MouseButton.Left);
-            control.RaiseEvent(args);
+        private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000) {
+            var stopwatch = Stopwatch.StartNew();
+            while (!condition() && stopwatch.ElapsedMilliseconds < timeoutMs)
+                await Task.Delay(10);
         }
 
         private static Task<RecipeNodeElement> AddRecipeViaChooser(GraphCanvasControl control, DataCache cache, string recipeName, Point location) {
             IRecipe recipe = cache.Recipes[recipeName];
             int before = control.NodeElements.Count;
             control.AddRecipeAsync(location);
-            var panel = Assert.IsType<RecipeChooserPanel>(control.FloatingPanelHost.Content);
-
-            IconButton? cell = panel.GetVisualDescendants().OfType<IconButton>().FirstOrDefault(b => Equals(b.DataObject, recipe));
-            if (cell is null && recipe.MySubgroup.MyGroup is IGroup targetGroup) {
-                IconButton groupButton = panel.GetVisualDescendants().OfType<IconButton>().First(b => Equals(b.DataObject, targetGroup));
-                Click(groupButton);
-                cell = panel.GetVisualDescendants().OfType<IconButton>().First(b => Equals(b.DataObject, recipe));
-            }
-            Click(cell!);
+            QuickAddPalette palette = Assert.IsType<QuickAddPalette>(control.OpenPalette);
+            ((QuickAddViewModel)palette.DataContext!).Query = recipe.FriendlyName;
+            Dispatcher.UIThread.RunJobs();
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
+            control.ClosePanels();
             Assert.Equal(before + 1, control.NodeElements.Count);
             return Task.FromResult((RecipeNodeElement)control.NodeElements[^1]);
         }
@@ -131,7 +128,7 @@ namespace Foreman.Mac.UiTests {
         //================================================================================================
 
         [AvaloniaFact]
-        public async Task SettingsCascade_ConfirmWithGraphOptionEditAndRecipeToggle_PersistsToDiskCacheAndSolvesOnce() {
+        public async Task SettingsLiveApply_GraphOptionEditsAndRecipeToggle_PersistToDiskAndSolveOnceAfterFlush() {
             DataCache cache = await LoadCacheAsync(VanillaPresetName); //dedicated cache: this test disables a recipe permanently
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
@@ -143,20 +140,17 @@ namespace Foreman.Mac.UiTests {
             IRecipe ironPlateRecipe = cache.Recipes["iron-plate"];
             Assert.True(ironPlateRecipe.Enabled); //sanity: starts enabled, so the toggle below is a real flip
 
-            window.SettingsDialogStub = options => {
-                var settingsWindow = new SettingsWindow(options);
-                settingsWindow.LowPriorityPowerInputControl.Value = 5.5m;
-                settingsWindow.QualityStepsInputControl.Value = 9m;
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-                var recipeItem = settingsWindow.RecipeListViewControl.ItemsSource!
-                    .Cast<EnabledObjectsListItem>().First(i => i.DataObject == ironPlateRecipe);
-                recipeItem.IsChecked = false;
+            settingsWindow!.AdvancedTabControl.LowPriorityPowerStepperControl.Value = 5.5;
+            settingsWindow.GeneralTabControl.QualityStepsStepperControl.Value = 9;
 
-                settingsWindow.SimulateConfirmClick();
-                return Task.FromResult<bool?>(settingsWindow.DialogResultValue);
-            };
+            var recipeItem = settingsWindow.ViewModel.RecipeObjects.First(i => i.DataObject == ironPlateRecipe);
+            recipeItem.IsChecked = false;
 
-            await window.OpenSettingsAsync();
+            await window.CurrentSettingsSession!.FlushAsync();
 
             Assert.Equal(1, solveCount);
             Assert.Equal(5.5m, settings.LowPriorityPower);
@@ -171,7 +165,7 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public async Task SettingsCascade_Cancel_LeavesSettingsCacheAndSolveCountUnchanged() {
+        public async Task SettingsWindow_OpenedAndClosedWithoutChanges_LeavesSettingsCacheAndSolveCountUnchanged() {
             DataCache cache = await GetSharedVanillaCacheAsync();
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName, LowPriorityPower = 4m };
@@ -182,18 +176,11 @@ namespace Foreman.Mac.UiTests {
             IRecipe ironPlateRecipe = cache.Recipes["iron-plate"];
             bool enabledBefore = ironPlateRecipe.Enabled;
 
-            window.SettingsDialogStub = options => {
-                var settingsWindow = new SettingsWindow(options);
-                settingsWindow.LowPriorityPowerInputControl.Value = 5.5m;
-                var recipeItem = settingsWindow.RecipeListViewControl.ItemsSource!
-                    .Cast<EnabledObjectsListItem>().First(i => i.DataObject == ironPlateRecipe);
-                recipeItem.IsChecked = !recipeItem.IsChecked;
-
-                settingsWindow.SimulateCancelClick();
-                return Task.FromResult<bool?>(settingsWindow.DialogResultValue);
-            };
-
-            await window.OpenSettingsAsync();
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
+            settingsWindow!.Close();
+            await Task.CompletedTask;
 
             Assert.Equal(0, solveCount);
             Assert.Equal(4m, settings.LowPriorityPower);
@@ -201,32 +188,25 @@ namespace Foreman.Mac.UiTests {
             Assert.False(File.Exists(SettingsJsonPath(tempHome)));
         }
 
-        //Regression (C1): "Load from save" writes LastSaveFileLocation onto AppSettings through its own
-        //SettingsService as soon as it succeeds, but OpenSettingsAsync's own tail then unconditionally saves
-        //ITS settings object over that - reverting the value on the very Confirm that's supposed to finish
-        //the feature. Options.LastSaveFileLocation is the seam that carries the value back to that tail.
         [AvaloniaFact]
-        public async Task SettingsCascade_LoadFromSaveThenConfirm_PersistsLastSaveFileLocation() {
-            DataCache cache = await LoadCacheAsync(VanillaPresetName); //dedicated cache: the empty stub SaveFileInfo disables every non-pseudo recipe on Confirm
+        public async Task SettingsLiveApply_LoadFromSave_PersistsLastSaveFileLocationImmediately() {
+            DataCache cache = await LoadCacheAsync(VanillaPresetName);
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(cache, settings, tempHome);
 
-            window.SettingsDialogStub = async options => {
-                var settingsWindow = new SettingsWindow(options) { SettingsService = new SettingsService(tempHome) };
-                settingsWindow.LoadFromSaveDialogStub = w => {
-                    w.OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip");
-                    w.LoadPipelineStub = (_, _) => new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Ok, SaveFileInfo = new SaveFileInfo() };
-                    w.ConfirmDialogStub = (_, _) => Task.FromResult(true); //mods mismatch is expected here - the stub result carries none.
-                    return w.RunAsync();
-                };
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-                await settingsWindow.SimulateLoadFromSaveClickAsync().ConfigureAwait(true);
-                settingsWindow.SimulateConfirmClick();
-                return settingsWindow.DialogResultValue;
+            settingsWindow!.LoadFromSaveDialogStub = w => {
+                w.OpenSaveFilePathStub = () => Task.FromResult<string?>("/tmp/saves/mysave.zip");
+                w.LoadPipelineStub = (_, _) => new SaveFileReader.Result { Outcome = SaveFileLoadOutcome.Ok, SaveFileInfo = new SaveFileInfo() };
+                w.ConfirmDialogStub = (_, _) => Task.FromResult(true); //mods mismatch is expected here - the stub result carries none.
+                return w.RunAsync();
             };
 
-            await window.OpenSettingsAsync();
+            await settingsWindow.SimulateLoadFromSaveClickAsync().ConfigureAwait(true);
 
             AppSettings persisted = new SettingsService(tempHome).Load();
             Assert.Equal(Path.GetDirectoryName("/tmp/saves/mysave.zip"), persisted.LastSaveFileLocation);
@@ -245,15 +225,15 @@ namespace Foreman.Mac.UiTests {
 
             RecipeNodeElement recipeNode = await AddRecipeViaChooser(window.GraphCanvas, vanilla, "iron-plate", new Point(0, 0));
             Assert.Single(window.GraphCanvas.Viewer.Session.View.Nodes);
-            NodeId originalId = recipeNode.ViewModel.Id;
 
-            window.SettingsDialogStub = options => {
-                Preset spaceAge = options.Presets!.First(p => p.Name == SpaceAgePresetName);
-                options.SelectedPreset = spaceAge;
-                return Task.FromResult<bool?>(true);
-            };
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-            await window.OpenSettingsAsync();
+            Preset spaceAge = settingsWindow!.Options.Presets!.First(p => p.Name == SpaceAgePresetName);
+            settingsWindow.SimulateSelectPresetMenuItemClick(spaceAge);
+
+            await WaitUntilAsync(() => !ReferenceEquals(window.DataCache, vanilla));
 
             Assert.Equal(SpaceAgePresetName, settings.CurrentPresetName);
             Assert.NotSame(vanilla, window.DataCache);
@@ -263,18 +243,12 @@ namespace Foreman.Mac.UiTests {
             AppSettings persisted = new SettingsService(tempHome).Load();
             Assert.Equal(SpaceAgePresetName, persisted.CurrentPresetName);
 
-            SettingsWindow.SettingsWindowOptions? reopenedOptions = null;
-            window.SettingsDialogStub = options => {
-                reopenedOptions = options;
-                return Task.FromResult<bool?>(false);
-            };
-            await window.OpenSettingsAsync();
-
             //DataObjectBasePrototype.Equals compares by (Type, Name), so a plain Contains can't tell the new
             //cache's "iron-plate" recipe apart from the old one - only reference identity can.
             IRecipe ironPlateInNewCache = window.DataCache!.Recipes["iron-plate"];
-            Assert.Contains(reopenedOptions!.EnabledObjects, o => ReferenceEquals(o, ironPlateInNewCache));
-            Assert.DoesNotContain(reopenedOptions.EnabledObjects, o => ReferenceEquals(o, vanilla.Recipes["iron-plate"]));
+            var recipeDataObjects = settingsWindow.ViewModel.RecipeObjects.Select(i => i.DataObject).ToList();
+            Assert.Contains(recipeDataObjects, o => ReferenceEquals(o, ironPlateInNewCache));
+            Assert.DoesNotContain(recipeDataObjects, o => ReferenceEquals(o, vanilla.Recipes["iron-plate"]));
         }
 
         //Phase 6 Task 8: ReloadForPresetAsync now serializes through GraphViewerSaveAssembler.BuildSaveDocument
@@ -296,13 +270,14 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Viewport.ViewOffset = new Point(20, 30);
             window.GraphCanvas.Viewport.ViewScale = 2.5f;
 
-            window.SettingsDialogStub = options => {
-                Preset spaceAge = options.Presets!.First(p => p.Name == SpaceAgePresetName);
-                options.SelectedPreset = spaceAge;
-                return Task.FromResult<bool?>(true);
-            };
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-            await window.OpenSettingsAsync();
+            Preset spaceAge = settingsWindow!.Options.Presets!.First(p => p.Name == SpaceAgePresetName);
+            settingsWindow.SimulateSelectPresetMenuItemClick(spaceAge);
+
+            await WaitUntilAsync(() => !ReferenceEquals(window.DataCache, vanilla));
 
             Assert.Equal(SpaceAgePresetName, settings.CurrentPresetName);
             TextAnnotationElement annotation = Assert.IsType<TextAnnotationElement>(Assert.Single(window.GraphCanvas.Viewer.Annotations));
@@ -330,13 +305,14 @@ namespace Foreman.Mac.UiTests {
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(vanilla, settings, tempHome, presetsOverride: null); //real Presets dir: need a genuine second preset to switch to
 
-            window.SettingsDialogStub = options => {
-                Preset spaceAgePreset = options.Presets!.First(p => p.Name == SpaceAgePresetName);
-                options.SelectedPreset = spaceAgePreset;
-                return Task.FromResult<bool?>(true);
-            };
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-            await window.OpenSettingsAsync();
+            Preset spaceAgePreset = settingsWindow!.Options.Presets!.First(p => p.Name == SpaceAgePresetName);
+            settingsWindow.SimulateSelectPresetMenuItemClick(spaceAgePreset);
+
+            await WaitUntilAsync(() => !ReferenceEquals(window.DataCache, vanilla));
 
             Assert.Equal(SpaceAgePresetName, settings.CurrentPresetName);
             Assert.True(window.DataCache!.Recipes[spaceAgeExclusiveEnabledRecipeName].Enabled);
@@ -349,43 +325,53 @@ namespace Foreman.Mac.UiTests {
         //================================================================================================
 
         [AvaloniaFact]
-        public async Task GraphSummary_OverLiveEditedGraph_TotalsMatchHandDerivedValues_UpdateAfterEdit() {
+        public async Task GraphSummary_OverLiveEditedGraph_TotalsMatchHandDerivedValues() {
             DataCache cache = await GetSharedVanillaCacheAsync();
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(cache, settings, tempHome);
 
             IItem ironPlate = cache.Items["iron-plate"];
-            IItem copperPlate = cache.Items["copper-plate"];
             IQuality quality = cache.DefaultQuality!;
 
             NodeId supplierId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(new ItemQualityPair(ironPlate, quality), new Point(0, 0));
             SetManualRate(window.GraphCanvas, supplierId, 12.5); //hand-derived: Input = 12.5, the fixed rate, no other node feeds or drains it
             window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
 
-            GraphSummaryWindow? firstOpen = null;
-            window.GraphSummaryDialogStub = session => firstOpen = new GraphSummaryWindow(session, window.GraphCanvas.Viewer.Graph.GetRateName());
-            await window.OpenGraphSummaryAsync();
+            window.ShowGraphSummary();
+            GraphSummaryWindow summary = window.CurrentGraphSummaryWindow!;
 
-            Assert.Equal("#Buildings: 0", firstOpen!.BuildingCountLabelControl.Text); //no recipe/assembler nodes yet
-            GraphSummaryWindow.ItemRow ironRowFirst = Assert.Single(firstOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == ironPlate);
+            Assert.Equal("#Buildings: 0", summary.BuildingCountText); //no recipe/assembler nodes yet
+            ItemRow ironRowFirst = Assert.Single(summary.ViewModel.Items, r => ((ItemQualityPair)r.Tag).Item == ironPlate);
             Assert.Equal(12.5, ironRowFirst.InValue, 3);
-            firstOpen.Close();
 
-            NodeId supplier2Id = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(new ItemQualityPair(copperPlate, quality), new Point(200, 0));
-            SetManualRate(window.GraphCanvas, supplier2Id, 7); //hand-derived: Input = 7 for the newly added item
+            summary.Close();
+        }
+
+        [AvaloniaFact]
+        public async Task RateCells_FollowTheGraphRateUnit_ThroughTheHostTheAppBuilds() {
+            DataCache cache = await GetSharedVanillaCacheAsync();
+            MainWindow window = NewReadyWindow(cache, new AppSettings { CurrentPresetName = VanillaPresetName }, NewTempHome());
+            NodeId supplierId = window.GraphCanvas.Viewer.Session.Editor.CreateSupplierNode(new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!), new Point(0, 0));
+            SetManualRate(window.GraphCanvas, supplierId, 12.5);
+            window.GraphCanvas.Viewer.Graph.SelectedRateUnit = ProductionGraph.RateUnit.Per1Min;
             window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
 
-            GraphSummaryWindow? secondOpen = null;
-            window.GraphSummaryDialogStub = session => secondOpen = new GraphSummaryWindow(session, window.GraphCanvas.Viewer.Graph.GetRateName());
-            await window.OpenGraphSummaryAsync();
+            window.ShowGraphSummary();
+            GraphSummaryWindow summary = window.CurrentGraphSummaryWindow!;
+            summary.SelectSegment(1);
+            Dispatcher.UIThread.RunJobs();
+            summary.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(2, secondOpen!.UnfilteredItemsList.Count); //reopen picks up the edit rather than reusing a stale snapshot
-            GraphSummaryWindow.ItemRow ironRowSecond = Assert.Single(secondOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == ironPlate);
-            Assert.Equal(12.5, ironRowSecond.InValue, 3);
-            GraphSummaryWindow.ItemRow copperRow = Assert.Single(secondOpen.UnfilteredItemsList, r => ((ItemQualityPair)r.Tag).Item == copperPlate);
-            Assert.Equal(7, copperRow.InValue, 3);
-            secondOpen.Close();
+            SummaryRow row = summary.Rows(SummaryTableId.Items).Single(r => r.Cells[0].Contains("Plate", StringComparison.OrdinalIgnoreCase));
+            Assert.NotEqual(0, row.Values[1]);
+            Assert.Equal(NodeCardPainter.Rate(row.Values[1], ProductionGraph.RateUnit.Per1Min), row.Cells[1]);
+            Assert.EndsWith("/min", row.Cells[1]);
+            ListBoxItem container = summary.TableControl.GetVisualDescendants().OfType<ListBoxItem>().Single(c => ReferenceEquals(c.Content, row));
+            Assert.Contains($"{NodeCardPainter.Number(row.Values[1])} per minute", Avalonia.Automation.AutomationProperties.GetName(container));
+
+            summary.Close();
         }
 
         //Phase5b hands-on gate (Finding 3): the human reported a solved factory summing to 0 buildings.
@@ -420,12 +406,11 @@ namespace Foreman.Mac.UiTests {
             SetManualRate(window.GraphCanvas, consumerId, 10); //forces demand; the recipe node's own rate stays Auto so the LP solver derives ActualSetValue, same as CoreEndToEndTests
             window.GraphCanvas.Viewer.Graph.UpdateNodeValues();
 
-            GraphSummaryWindow? summary = null;
-            window.GraphSummaryDialogStub = session => summary = new GraphSummaryWindow(session, window.GraphCanvas.Viewer.Graph.GetRateName());
-            await window.OpenGraphSummaryAsync();
+            window.ShowGraphSummary();
+            GraphSummaryWindow summary = window.CurrentGraphSummaryWindow!;
 
-            Assert.NotEqual("#Buildings: 0", summary!.BuildingCountLabelControl.Text);
-            GraphSummaryWindow.BuildingRow assemblerRow = Assert.Single(summary.UnfilteredAssemblerList);
+            Assert.NotEqual("#Buildings: 0", summary.BuildingCountText);
+            BuildingRow assemblerRow = Assert.Single(summary.ViewModel.Assemblers);
             Assert.NotEqual("0", assemblerRow.CountText);
             summary.Close();
         }
@@ -448,27 +433,27 @@ namespace Foreman.Mac.UiTests {
             MainWindow window = NewReadyWindow(vanilla, settings, tempHome, presetsOverride: null); //real Presets dir: need the real >=2-preset guard to pass
 
             window.GraphCanvas.Focus();
+            window.ViewModel.ToggleViewOptionsCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
             CheckBox gridlinesCheckbox = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "GridlinesCheckbox");
             window.GraphCanvas.Grid.ShowGrid = false;
             gridlinesCheckbox.IsChecked = false;
 
-            bool comparatorPopulated = false;
-            window.SettingsDialogStub = async options => {
-                var settingsWindow = new SettingsWindow(options);
-                settingsWindow.ComparePresetsDialogStub = async presets => {
-                    var comparator = new PresetComparatorWindow(presets) {
-                        LoadCacheStub = preset => Task.FromResult<DataCache?>(preset.Name == VanillaPresetName ? comparatorVanilla : preset.Name == SpaceAgePresetName ? comparatorSpaceAge : null),
-                    };
-                    await comparator.SimulateProcessPresetsClickAsync().ConfigureAwait(true);
-                    comparatorPopulated = comparator.LeftCache is not null && comparator.RightCache is not null;
-                    comparator.Close();
-                };
-                await settingsWindow.SimulateComparePresetsClickAsync().ConfigureAwait(true);
-                settingsWindow.SimulateCancelClick();
-                return settingsWindow.DialogResultValue;
-            };
+            SettingsWindow? settingsWindow = null;
+            window.SettingsDialogStub = w => settingsWindow = w;
+            window.ShowSettings();
 
-            await window.OpenSettingsAsync();
+            bool comparatorPopulated = false;
+            settingsWindow!.ComparePresetsDialogStub = async presets => {
+                var comparator = new PresetComparatorWindow(presets) {
+                    LoadCacheStub = preset => Task.FromResult(new DataLoadResult(preset.Name == VanillaPresetName ? comparatorVanilla : preset.Name == SpaceAgePresetName ? comparatorSpaceAge : null, DataLoadOutcome.Loaded)),
+                };
+                await comparator.SimulateCompareClickAsync().ConfigureAwait(true);
+                comparatorPopulated = comparator.LeftCache is not null && comparator.RightCache is not null;
+                comparator.Close();
+            };
+            await settingsWindow.SimulateComparePresetsClickAsync().ConfigureAwait(true);
+            settingsWindow.Close();
 
             Assert.True(comparatorPopulated);
 
@@ -492,41 +477,39 @@ namespace Foreman.Mac.UiTests {
             MainWindow window = NewReadyWindow(cache, settings, tempHome, presetsOverride: null); //real Presets dir: the comparator cycle below needs the real >=2-preset guard to pass
 
             for (int i = 0; i < 3; i++) {
-                window.SettingsDialogStub = options => {
-                    var settingsWindow = new SettingsWindow(options);
-                    settingsWindow.SimulateConfirmClick(); //Confirm (not Cancel): exercises MainWindow's rebind-guarded ApplyLoadedSettings path each cycle
-                    return Task.FromResult<bool?>(settingsWindow.DialogResultValue);
-                };
-                await window.OpenSettingsAsync();
+                window.SettingsDialogStub = w => w.Close();
+                window.ShowSettings();
             }
 
             for (int i = 0; i < 3; i++) {
-                window.GraphSummaryDialogStub = session => new GraphSummaryWindow(session, window.GraphCanvas.Viewer.Graph.GetRateName()).Close();
-                await window.OpenGraphSummaryAsync();
+                window.ShowGraphSummary();
+                window.CurrentGraphSummaryWindow!.Close();
             }
 
             for (int i = 0; i < 3; i++) {
-                window.SettingsDialogStub = async options => {
-                    var settingsWindow = new SettingsWindow(options);
-                    settingsWindow.ComparePresetsDialogStub = presets => {
+                window.SettingsDialogStub = w => {
+                    w.ComparePresetsDialogStub = presets => {
                         //Never started (SimulateProcessPresetsClickAsync isn't called), so PresetComparatorWindow's
                         //own Closed handler no-ops (comparing stays false) rather than clearing a cache this test
                         //never loaded.
                         new PresetComparatorWindow(presets).Close();
                         return Task.CompletedTask;
                     };
-                    await settingsWindow.SimulateComparePresetsClickAsync().ConfigureAwait(true);
-                    settingsWindow.SimulateCancelClick();
-                    return settingsWindow.DialogResultValue;
+                    Async.Fire(w.SimulateComparePresetsClickAsync(), "SimulateComparePresetsClickAsync");
+                    w.Close();
                 };
-                await window.OpenSettingsAsync();
+                window.ShowSettings();
             }
 
             int solveCount = 0;
             window.GraphCanvas.Viewer.Graph.NodeValuesUpdated += (_, _) => solveCount++;
 
-            var rateOptions = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "RateOptionsDropDown");
-            rateOptions.SelectedIndex = (rateOptions.SelectedIndex + 1) % rateOptions.ItemCount;
+            window.ViewModel.ToggleViewOptionsCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            var rateOptions = window.GetVisualDescendants().OfType<PopUp>().Single(c => c.Name == "RateOptionsDropDown");
+            string nextRateUnit = MainWindow.RateUnitOptions[(Array.IndexOf(MainWindow.RateUnitOptions, rateOptions.SelectedItem) + 1) % MainWindow.RateUnitOptions.Length];
+            rateOptions.SelectedItem = nextRateUnit;
+            rateOptions.Command?.Execute(nextRateUnit);
 
             Assert.Equal(1, solveCount);
         }
@@ -540,39 +523,36 @@ namespace Foreman.Mac.UiTests {
         //================================================================================================
 
         [AvaloniaFact]
-        public async Task RealShowSettingsDialogAsync_Closing_RestoresGraphCanvasFocus() {
+        public async Task RealShowSettings_Closing_RestoresGraphCanvasFocus() {
             DataCache cache = await GetSharedVanillaCacheAsync();
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(cache, settings, tempHome);
 
-            CheckBox gridlinesCheckbox = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "GridlinesCheckbox");
-            gridlinesCheckbox.Focus();
-            Assert.True(gridlinesCheckbox.IsFocused);
+            Button newGraphButton = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "NewGraphButton");
+            newGraphButton.Focus();
+            Assert.True(newGraphButton.IsFocused);
 
-            Task openTask = window.OpenSettingsAsync();
+            window.ShowSettings();
             SettingsWindow settingsWindow = window.OwnedWindows.OfType<SettingsWindow>().Single();
-            settingsWindow.SimulateCancelClick();
-            await openTask;
+            settingsWindow.Close();
 
             Assert.True(window.GraphCanvas.IsFocused);
         }
 
         [AvaloniaFact]
-        public async Task RealShowGraphSummaryAsync_Closing_RestoresGraphCanvasFocus() {
+        public async Task ShowGraphSummary_Closing_RestoresGraphCanvasFocus() {
             DataCache cache = await GetSharedVanillaCacheAsync();
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(cache, settings, tempHome);
 
-            CheckBox gridlinesCheckbox = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "GridlinesCheckbox");
-            gridlinesCheckbox.Focus();
-            Assert.True(gridlinesCheckbox.IsFocused);
+            Button newGraphButton = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "NewGraphButton");
+            newGraphButton.Focus();
+            Assert.True(newGraphButton.IsFocused);
 
-            Task openTask = window.OpenGraphSummaryAsync();
-            GraphSummaryWindow summaryWindow = window.OwnedWindows.OfType<GraphSummaryWindow>().Single();
-            summaryWindow.Close();
-            await openTask;
+            window.ShowGraphSummary();
+            window.CurrentGraphSummaryWindow!.Close();
 
             Assert.True(window.GraphCanvas.IsFocused);
         }
@@ -584,21 +564,20 @@ namespace Foreman.Mac.UiTests {
         //assertion (the dialog's open-panel focus-restore guard skipping GraphCanvas.Focus() while a panel
         //was still open) - the panel is gone by the time that guard runs now, so focus always restores.
         [AvaloniaFact]
-        public async Task RealShowSettingsDialogAsync_OpenedWhilePanelOpen_ClosesPanelAndRestoresCanvasFocusOnClose() {
+        public async Task RealShowSettings_OpenedWhilePanelOpen_ClosesPanelAndRestoresCanvasFocusOnClose() {
             DataCache cache = await GetSharedVanillaCacheAsync();
             string tempHome = NewTempHome();
             var settings = new AppSettings { CurrentPresetName = VanillaPresetName };
             MainWindow window = NewReadyWindow(cache, settings, tempHome);
             window.GraphCanvas.AddRecipeAsync(new Point(0, 0));
-            Assert.True(window.GraphCanvas.FloatingPanelHost.IsOpen);
+            Assert.True(window.GraphCanvas.IsPanelOpen);
 
-            Task openTask = window.OpenSettingsAsync();
+            window.ShowSettings();
 
-            Assert.False(window.GraphCanvas.FloatingPanelHost.IsOpen);
+            Assert.False(window.GraphCanvas.IsPanelOpen);
 
             SettingsWindow settingsWindow = window.OwnedWindows.OfType<SettingsWindow>().Single();
-            settingsWindow.SimulateCancelClick();
-            await openTask;
+            settingsWindow.Close();
 
             Assert.True(window.GraphCanvas.IsFocused);
         }

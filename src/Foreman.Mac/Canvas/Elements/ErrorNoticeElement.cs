@@ -6,35 +6,40 @@ using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.IO;
 using System.Linq;
 
 namespace Foreman.Mac.Canvas.Elements {
     //Ports ProductionGraphView/Elements/ErrorNoticeElement.cs: draw/tooltip path plus left-click autoresolve
     //and the right-click resolution menu (reference §4e).
     public sealed class ErrorNoticeElement : GraphElement {
-        private const int ErrorIconSize = 24;
-        private static readonly SKBitmap ErrorIcon = IconCache.GetIcon(Path.Combine("Graphics", "ErrorIcon.png"), 64);
-
         private readonly NodeElementContext context;
         private readonly INodeViewModel nodeViewModel;
 
         public ErrorNoticeElement(NodeElementContext context, BaseNodeElement parent) : base(parent) {
             this.context = context;
             nodeViewModel = parent.ViewModel;
-            Width = ErrorIconSize;
-            Height = ErrorIconSize;
+        }
+
+        private SKRect hitRect;
+
+        internal void Place(SKRect hit) {
+            hitRect = hit;
+            X = (int)Math.Round(hit.MidX);
+            Y = (int)Math.Round(hit.MidY);
+            Width = (int)Math.Ceiling(hit.Width);
+            Height = (int)Math.Ceiling(hit.Height);
+        }
+
+        public override bool ContainsPoint(Point graphPoint) {
+            if (!Visible)
+                return false;
+            Point local = Point.Add(GraphToLocal(graphPoint), new Size(X, Y));
+            return hitRect.Contains(local.X, local.Y);
         }
 
         public void SetVisibility(bool visible) => Visible = visible;
 
-        protected override void Draw(SKCanvas canvas, NodeDrawingStyle style) {
-            if (style == NodeDrawingStyle.IconsOnly)
-                return;
-
-            Point trans = LocalToGraph(new Point(-Width / 2, -Height / 2));
-            canvas.DrawBitmap(ErrorIcon, SKRect.Create(trans.X, trans.Y, ErrorIconSize, ErrorIconSize));
-        }
+        protected override void Draw(SKCanvas canvas, NodeDrawingStyle style) { }
 
         public override List<TooltipInfo> GetToolTips(Point graphPoint) {
             if (!Visible)

@@ -9,6 +9,7 @@ using Foreman.Graph;
 using Foreman.Mac;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
 using Foreman.Models.Nodes;
 using Foreman.Serialization;
@@ -407,7 +408,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Viewer.Context.SetClipboardText = text => written = text;
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.C, RawInputModifiers.Meta);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.C, KeyModifiers.Meta);
 
             Assert.NotNull(written);
             ProductionGraphSaveDocument? document = GraphSaveCodec.ReadGraphPayload(written!);
@@ -428,7 +429,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Viewer.Context.SetClipboardText = text => written = text;
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.C, RawInputModifiers.Control);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.C, KeyModifiers.Control);
 
             Assert.NotNull(written);
             ProductionGraphSaveDocument? document = GraphSaveCodec.ReadGraphPayload(written!);
@@ -445,7 +446,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             fx.Control.Viewer.Context.SetClipboardText = text => written = text;
             fx.Control.Focus();
 
-            fx.Window.KeyPressQwerty(PhysicalKey.X, RawInputModifiers.Meta);
+            CanvasKeys.PressOnCanvas(fx.Control, Key.X, KeyModifiers.Meta);
 
             Assert.NotNull(written);
             Assert.Empty(fx.Control.Viewer.NodeElements);
@@ -465,9 +466,94 @@ namespace Foreman.Mac.UiTests.Canvas {
             var cursorScreenPoint = new AvaloniaPoint(Half + 60, Half - 40);
             target.Window.MouseMove(cursorScreenPoint, RawInputModifiers.None);
 
-            target.Window.KeyPressQwerty(PhysicalKey.V, RawInputModifiers.Meta);
+            CanvasKeys.PressOnCanvas(target.Control, Key.V, KeyModifiers.Meta);
 
             Assert.Single(target.Control.Viewer.NodeElements);
+        }
+
+        [AvaloniaFact]
+        public async Task CopySelection_CopiesSelectionFragmentToClipboard() {
+            Fixture fx = NewFixture(await GetCacheAsync());
+            RecipeNodeElement node = AddRecipeNode(fx, "iron-gear-wheel", Point.Empty);
+            fx.Control.Viewer.SetSelection([node]);
+            string? written = null;
+            fx.Control.Viewer.Context.SetClipboardText = text => written = text;
+
+            fx.Control.CopySelection();
+
+            Assert.NotNull(written);
+            ProductionGraphSaveDocument? document = GraphSaveCodec.ReadGraphPayload(written!);
+            Assert.NotNull(document);
+            Assert.Single(document.Nodes);
+            Assert.Single(fx.Control.Viewer.NodeElements);
+        }
+
+        [AvaloniaFact]
+        public async Task CutSelection_CutsSelectionAndWritesTheFragmentToClipboard() {
+            Fixture fx = NewFixture(await GetCacheAsync());
+            RecipeNodeElement node = AddRecipeNode(fx, "iron-gear-wheel", Point.Empty);
+            fx.Control.Viewer.SetSelection([node]);
+            string? written = null;
+            fx.Control.Viewer.Context.SetClipboardText = text => written = text;
+
+            fx.Control.CutSelection();
+
+            Assert.NotNull(written);
+            Assert.Empty(fx.Control.Viewer.NodeElements);
+        }
+
+        [AvaloniaFact]
+        public async Task PasteFromClipboard_PastesClipboardFragmentAtTheCursor() {
+            DataCache cache = await GetCacheAsync();
+            Fixture source = NewFixture(cache);
+            RecipeNodeElement node = AddRecipeNode(source, "iron-gear-wheel", Point.Empty);
+            source.Control.Viewer.SetSelection([node]);
+            string fragmentJson = NodeClipboard.Copy(source.Control.Viewer);
+
+            Fixture target = NewFixture(cache);
+            target.Control.Viewer.Context.GetClipboardText = () => fragmentJson;
+            var cursorScreenPoint = new AvaloniaPoint(Half + 60, Half - 40);
+            target.Window.MouseMove(cursorScreenPoint, RawInputModifiers.None);
+
+            target.Control.PasteFromClipboard();
+
+            Assert.Single(target.Control.Viewer.NodeElements);
+        }
+
+        [AvaloniaFact]
+        public void PasteFromClipboard_NoDataCache_NoCrash_NoNewNodes() {
+            var control = new GraphCanvasControl();
+            control.Viewport.SetSize(2 * Half, 2 * Half);
+            control.Viewer.Context.GetClipboardText = () => "some clipboard text";
+
+            control.PasteFromClipboard();
+
+            Assert.Empty(control.Viewer.NodeElements);
+        }
+
+        [AvaloniaFact]
+        public async Task DeleteSelection_AnnotationsSelected_DeletesAnnotationAndLeavesUnselectedNodeAlone() {
+            Fixture fx = NewFixture(await GetCacheAsync());
+            AddRecipeNode(fx, "iron-gear-wheel", Point.Empty);
+            var shape = new ShapeAnnotationElement(new Point(0, 0), 50, 50);
+            fx.Control.Viewer.AddAnnotationElement(shape);
+            fx.Control.Viewer.SelectedAnnotations.Add(shape);
+
+            fx.Control.DeleteSelection();
+
+            Assert.DoesNotContain(shape, fx.Control.Viewer.Annotations);
+            Assert.Single(fx.Control.Viewer.NodeElements);
+        }
+
+        [AvaloniaFact]
+        public async Task DeleteSelection_NoAnnotationsSelected_DeletesSelectedNodes() {
+            Fixture fx = NewFixture(await GetCacheAsync());
+            RecipeNodeElement node = AddRecipeNode(fx, "iron-gear-wheel", Point.Empty);
+            fx.Control.Viewer.SetSelection([node]);
+
+            fx.Control.DeleteSelection();
+
+            Assert.Empty(fx.Control.Viewer.NodeElements);
         }
     }
 }

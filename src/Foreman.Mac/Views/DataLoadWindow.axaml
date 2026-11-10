@@ -1,14 +1,24 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
         x:Class="Foreman.Mac.Views.DataLoadWindow"
-        Title="Preparing Foreman"
+        Title="Loading Preset"
         Width="420"
         Height="110"
         CanResize="False"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource SystemChromeMediumColor}">
-  <StackPanel Margin="16" Spacing="8">
-    <TextBlock Name="StatusTextBlock" Text="" />
-    <ProgressBar Name="LoadProgressBar" Minimum="0" Maximum="100" Value="0" />
-  </StackPanel>
+        Background="{DynamicResource Foreman.Color.WindowBackground}">
+  <Panel Name="Root">
+    <StackPanel Name="LoadingLayout" Margin="20">
+      <TextBlock Name="HeadlineText" Theme="{StaticResource Kit.Text}" Classes="headline" TextTrimming="CharacterEllipsis" MaxLines="1" />
+      <TextBlock Name="StageText" Theme="{StaticResource Kit.Text}" Classes="callout secondary" TextTrimming="CharacterEllipsis" MaxLines="1"
+                 Margin="0,4,0,0" />
+      <Grid Height="22" Margin="0,10,0,0" ColumnDefinitions="*,Auto">
+        <ctrl:ProgressBar Name="LoadProgress" Theme="{StaticResource Kit.ProgressBar}" Width="NaN" HorizontalAlignment="Stretch"
+                          VerticalAlignment="Center" Minimum="0" Maximum="100" />
+        <Button Name="CancelButton" Grid.Column="1" Theme="{StaticResource Kit.Button}" Content="Cancel" Margin="12,0,0,0" />
+      </Grid>
+    </StackPanel>
+    <TextBlock Name="StageAnnouncer" Opacity="0" Width="0" Height="0" IsHitTestVisible="False" AutomationProperties.LiveSetting="Polite" />
+  </Panel>
 </Window>

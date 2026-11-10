@@ -53,31 +53,6 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal(4d.ToString("0.##", DisplayCulture.Format) + " PW", GraphicsStuff.DoubleToEnergy(4000000000000, "W"));
         }
 
-        [Fact]
-        public void BuildingQuantityToText_Zero_ReturnsZero() {
-            Assert.Equal("0", GraphicsStuff.BuildingQuantityToText(0, roundAssemblerCount: false));
-        }
-
-        [Fact]
-        public void BuildingQuantityToText_BelowOneTenth_ReturnsLessThanOneTenth() {
-            Assert.Equal("<0.1", GraphicsStuff.BuildingQuantityToText(0.05, roundAssemblerCount: false));
-        }
-
-        [Fact]
-        public void BuildingQuantityToText_RegularRange_UsesOneDecimal() {
-            Assert.Equal(3.456.ToString("0.#", DisplayCulture.Format), GraphicsStuff.BuildingQuantityToText(3.456, roundAssemblerCount: false));
-        }
-
-        [Fact]
-        public void BuildingQuantityToText_RoundAssemblerCount_CeilsToInteger() {
-            Assert.Equal("4", GraphicsStuff.BuildingQuantityToText(3.1, roundAssemblerCount: true));
-        }
-
-        [Fact]
-        public void BuildingQuantityToText_AtOrAboveTenThousand_UsesScientificNotation() {
-            Assert.Equal(12345.6.ToString("0.##e0", DisplayCulture.Format), GraphicsStuff.BuildingQuantityToText(12345.6, roundAssemblerCount: true));
-        }
-
         [Theory]
         [InlineData("Short name")]
         [InlineData("A rather long node name that will not fit at the starting font size")]

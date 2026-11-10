@@ -1,9 +1,15 @@
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Services;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
 using Foreman.Serialization;
 using System;
@@ -42,180 +48,52 @@ namespace Foreman.Mac.UiTests {
 
         private static string TempSavePath() => Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".fjson");
 
-        //---- Save / SaveAs round-trip -------------------------------------------------------------------
-
-        [AvaloniaFact]
-        public async Task SaveGraphAsAsync_WritesFjsonAndCapturesBaselineAndTitleBar() {
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = new DataCache(filterRecipes: true);
-            window.Settings = new AppSettings { CurrentPresetName = "Some Preset" };
-            string path = TempSavePath();
-            window.SaveFilePathStub = () => Task.FromResult<string?>(path);
-
-            try {
-                await window.SaveGraphAsAsync();
-
-                Assert.True(File.Exists(path));
-                Assert.Equal(path, window.SaveFilePath);
-                Assert.NotNull(window.SaveFileBaselineJson);
-                Assert.Equal(File.ReadAllText(path), window.SaveFileBaselineJson);
-                Assert.Equal("Foreman 2 (Some Preset) - " + path, window.Title);
-                Assert.NotNull(GraphSaveCodec.ReadViewer(window.SaveFileBaselineJson!));
-            } finally {
-                File.Delete(path);
-            }
+        private static AlertSheet ShownAlert(MainWindow window) {
+            Dispatcher.UIThread.RunJobs();
+            return Assert.IsType<AlertSheet>(SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>().Last());
         }
 
-        [AvaloniaFact]
-        public async Task SaveGraphAsAsync_NullFromStub_DoesNotWriteOrSetPath() {
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = new DataCache(filterRecipes: true);
-            window.SaveFilePathStub = () => Task.FromResult<string?>(null);
-
-            await window.SaveGraphAsAsync();
-
-            Assert.Null(window.SaveFilePath);
-        }
+        private static string[] Rendered(AlertSheet alert) => [
+            alert.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Headline").Text ?? "",
+            alert.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Informative").Text ?? "",
+            .. alert.Buttons!.Items.Cast<Button>().Select(b => b.Content as string ?? ""),
+        ];
 
         [AvaloniaFact]
-        public async Task SaveGraphOrPromptAsync_NoExistingPath_FallsBackToSaveAs() {
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = new DataCache(filterRecipes: true);
-            string path = TempSavePath();
-            window.SaveFilePathStub = () => Task.FromResult<string?>(path);
-
-            try {
-                await window.SaveGraphOrPromptAsync();
-
-                Assert.Equal(path, window.SaveFilePath);
-                Assert.True(File.Exists(path));
-            } finally {
-                File.Delete(path);
-            }
-        }
-
-        [AvaloniaFact]
-        public async Task SaveGraphOrPromptAsync_ExistingPath_OverwritesWithoutReopeningThePicker() {
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = new DataCache(filterRecipes: true);
-            string path = TempSavePath();
-            int stubCalls = 0;
-            window.SaveFilePathStub = () => { stubCalls++; return Task.FromResult<string?>(path); };
-
-            try {
-                await window.SaveGraphOrPromptAsync();
-                await window.SaveGraphOrPromptAsync();
-
-                Assert.Equal(1, stubCalls);
-                Assert.Equal(path, window.SaveFilePath);
-            } finally {
-                File.Delete(path);
-            }
-        }
-
-        //---- TestGraphSavedStatus: empty-untitled-graph-never-prompts rule ------------------------------
-
-        [AvaloniaFact]
-        public async Task TestGraphSavedStatusAsync_EmptyUntitledGraph_NeverPrompts() {
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = new DataCache(filterRecipes: true);
-            window.DiscardUnsavedGraphConfirmStub = () => throw new InvalidOperationException("must not prompt for an empty untitled graph");
-
-            bool result = await window.TestGraphSavedStatusAsync();
-
-            Assert.True(result);
-        }
-
-        [AvaloniaFact]
-        public async Task TestGraphSavedStatusAsync_NonEmptyUntitledGraph_PromptsAndHonorsCancel() {
+        public async Task FailedOpenImportAndExport_RaiseOKAlerts_WithTheRuledCopy() {
             DataCache cache = await GetCacheAsync();
             var window = new MainWindow();
             window.Show();
             window.DataCache = cache;
+            window.Settings = new AppSettings();
             window.ApplyLoadedSettings();
-            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
-            window.GraphCanvas.Viewer.Graph.CreateSupplierNode(pair, System.Drawing.Point.Empty);
-            window.DiscardUnsavedGraphConfirmStub = () => Task.FromResult(false);
 
-            Assert.False(await window.TestGraphSavedStatusAsync());
+            Task opened = window.LoadGraphJsonAsync("{}", "Iron smelting");
+            AlertSheet open = ShownAlert(window);
+            Assert.Equal(["Couldn’t open “Iron smelting”.",
+                "The file is too old or damaged to read. Open it in the previous Foreman release, save it again, then open the new copy here.", "OK"], Rendered(open));
+            CanvasKeys.KeyDownOn(open.YesButtonControl, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(opened.IsCompleted);
+            await opened;
+            AnimationClock.Settle();
 
-            window.DiscardUnsavedGraphConfirmStub = () => Task.FromResult(true);
+            Task imported = window.ImportGraphJsonAsync("{}", "/tmp/graphs/Copper wire.fjson");
+            AlertSheet import = ShownAlert(window);
+            Assert.Equal(["Couldn’t import “Copper wire”.", "Foreman couldn’t read it as a graph. The details are in Foreman’s log.", "OK"], Rendered(import));
+            CanvasKeys.KeyDownOn(import.YesButtonControl, Key.Escape);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(imported.IsCompleted);
+            await imported;
+            AnimationClock.Settle();
 
-            Assert.True(await window.TestGraphSavedStatusAsync());
-        }
-
-        //---- TestGraphSavedStatus: re-serialize diff against the save baseline --------------------------
-
-        [AvaloniaFact]
-        public async Task TestGraphSavedStatusAsync_SavedPathUnmodified_ReturnsTrueWithoutPrompting() {
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = new DataCache(filterRecipes: true);
-            string path = TempSavePath();
-            window.SaveFilePathStub = () => Task.FromResult<string?>(path);
-            window.SaveBeforeContinuingChoiceStub = () => throw new InvalidOperationException("must not prompt when nothing changed since the save");
-
-            try {
-                await window.SaveGraphAsAsync();
-
-                Assert.True(await window.TestGraphSavedStatusAsync());
-            } finally {
-                File.Delete(path);
-            }
-        }
-
-        [AvaloniaFact]
-        public async Task TestGraphSavedStatusAsync_SavedPathModified_ChoiceGatesTheOutcome() {
-            DataCache cache = await GetCacheAsync();
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = cache;
-            window.ApplyLoadedSettings();
-            string path = TempSavePath();
-            window.SaveFilePathStub = () => Task.FromResult<string?>(path);
-
-            try {
-                await window.SaveGraphAsAsync();
-                var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
-                window.GraphCanvas.Viewer.Graph.CreateSupplierNode(pair, System.Drawing.Point.Empty);
-
-                window.SaveBeforeContinuingChoiceStub = () => Task.FromResult(ConfirmChoice.Cancel);
-                Assert.False(await window.TestGraphSavedStatusAsync());
-
-                string baselineBeforeNo = window.SaveFileBaselineJson!;
-                window.SaveBeforeContinuingChoiceStub = () => Task.FromResult(ConfirmChoice.No);
-                Assert.True(await window.TestGraphSavedStatusAsync());
-                Assert.Equal(baselineBeforeNo, window.SaveFileBaselineJson); //"No" continues without saving
-
-                window.SaveBeforeContinuingChoiceStub = () => Task.FromResult(ConfirmChoice.Yes);
-                Assert.True(await window.TestGraphSavedStatusAsync());
-                Assert.NotEqual(baselineBeforeNo, window.SaveFileBaselineJson); //"Yes" re-saves over the path
-            } finally {
-                File.Delete(path);
-            }
-        }
-
-        //---- New calls TestGraphSavedStatus first -------------------------------------------------------
-
-        [AvaloniaFact]
-        public async Task NewGraphAsync_DirtyGraphCancelled_LeavesGraphIntact() {
-            DataCache cache = await GetCacheAsync();
-            var window = new MainWindow();
-            window.Show();
-            window.DataCache = cache;
-            window.ApplyLoadedSettings();
-            var pair = new ItemQualityPair(cache.Items["iron-plate"], cache.DefaultQuality!);
-            window.GraphCanvas.Viewer.Graph.CreateSupplierNode(pair, System.Drawing.Point.Empty);
-            window.DiscardUnsavedGraphConfirmStub = () => Task.FromResult(false);
-
-            await window.NewGraphAsync();
-
-            Assert.NotEmpty(window.GraphCanvas.Viewer.NodeElements);
+            Task<bool> saved = window.ExportGraphAsync(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName(), "Green circuits.fjson"));
+            AlertSheet save = ShownAlert(window);
+            Assert.Equal(["Couldn’t save “Green circuits”.", "Your graph is still open and unchanged. The details are in Foreman’s log.", "OK"], Rendered(save));
+            CanvasKeys.KeyDownOn(save.YesButtonControl, Key.Enter);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(saved.IsCompleted);
+            Assert.False(await saved);
         }
 
         //---- Load bookkeeping: enabled-flag application + the 4 non-rate-unit Default* settings ---------
@@ -296,9 +174,9 @@ namespace Foreman.Mac.UiTests {
             window.GraphCanvas.Viewer.Graph.EnableExtraProductivityForNonMiners = true;
             window.GraphCanvas.Viewer.Graph.DefaultNodeDirection = NodeDirection.Down;
 
-            window.ApplyLoadedGraphUiState("/tmp/does-not-need-to-exist.fjson");
+            window.ApplyLoadedGraphUiState("Loaded graph");
 
-            Assert.Equal("/tmp/does-not-need-to-exist.fjson", window.SaveFilePath);
+            Assert.Equal("Loaded graph", window.ViewModel.DocumentTitle);
             Assert.Equal(AssemblerSelector.Style.Best, window.Settings.DefaultAssemblerOption);
             Assert.Equal(ModuleSelector.Style.Productivity, window.Settings.DefaultModuleOption);
             Assert.True(window.Settings.EnableExtraProductivityForNonMiners);

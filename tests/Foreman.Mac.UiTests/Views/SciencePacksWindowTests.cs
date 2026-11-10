@@ -1,13 +1,17 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
-using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
-using Foreman.Mac.Views;
+using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.UiTests.support;
+using Foreman.Mac.Views.Sheets;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -45,56 +49,68 @@ namespace Foreman.Mac.UiTests.Views {
 
         private static IItem PackNamed(DataCache cache, string name) => cache.SciencePacks.First(p => p.Name == name);
 
-        private static bool StateOf(SciencePacksWindow window, DataCache cache, string name) =>
-            window.SciencePackButtonStates[window.PackButtonFor(PackNamed(cache, name))!];
+        private static bool StateOf(SciencePacksSheet sheet, DataCache cache, string name) =>
+            sheet.SciencePackButtonStates[sheet.PackButtonFor(PackNamed(cache, name))!];
 
-        //Real click through the actual input pipeline (window.Show() + MouseDown/MouseUp at the button's
-        //own screen point), not a direct handler call - proves the constructor's Click wiring, not just
-        //the cascade logic behind it.
-        private static void ClickPack(SciencePacksWindow window, IItem pack) {
-            Button button = window.PackButtonFor(pack)!;
+        private static (SciencePacksSheet Sheet, Window Window) NewShownSheet(DataCache cache, HashSet<IDataObjectBase> enabledObjects) {
+            (SciencePacksSheet sheet, Window window) = ShowWhileSliding(cache, enabledObjects);
+            AnimationClock.UntilSheetOpen(sheet.PackButtonFor(PackNamed(cache, "automation-science-pack"))!);
+            return (sheet, window);
+        }
+
+        private static (SciencePacksSheet Sheet, Window Window) ShowWhileSliding(DataCache cache, HashSet<IDataObjectBase> enabledObjects) {
+            var sheet = new SciencePacksSheet(cache, enabledObjects);
+            var window = new Window { Width = 900, Height = 700 };
+            window.Show();
+            SheetHost host = SheetHost.For(window);
+            _ = host.ShowAsync(sheet);
+            Dispatcher.UIThread.RunJobs();
+            return (sheet, window);
+        }
+
+        private static void ClickPack(SciencePacksSheet sheet, Window window, IItem pack) {
+            ChooserCell button = sheet.PackButtonFor(pack)!;
             Point screen = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
             window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
             window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
             Dispatcher.UIThread.RunJobs();
         }
 
-        private static void ClickConfirm(SciencePacksWindow window) {
-            Button button = window.ConfirmationButtonControl;
+        private static void ClickConfirm(SciencePacksSheet sheet, Window window) {
+            Button button = sheet.ConfirmationButtonControl;
             Point screen = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
             window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
             window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
             Dispatcher.UIThread.RunJobs();
         }
-
-        //---- grid row/column balancing (reference §6, SciencePacksLoadForm.cs:36-45) ---------------------
-
-        [Theory]
-        [InlineData(7, 1, 7)]
-        [InlineData(14, 1, 14)]
-        [InlineData(15, 2, 8)]
-        [InlineData(20, 2, 10)]
-        public void ComputeGridDimensions_BalancesIntoANearSquareGridCappedAtMaxColumns(int count, int expectedRows, int expectedColumns) {
-            (int rows, int columns) = SciencePacksWindow.ComputeGridDimensions(count);
-
-            Assert.Equal(expectedRows, rows);
-            Assert.Equal(expectedColumns, columns);
-        }
-
-        //---- population (reference §6: DisabledPackBGColor = DarkRed, one button per DCache.SciencePacks) -
 
         [AvaloniaFact]
-        public async Task Constructor_PopulatesOneDarkRedButtonPerSciencePack_AllStartingDisabled() {
+        public async Task ASheetJustShown_IsStillSlidingIn_SoAPointTakenNowGoesStaleOnceItSettles() {
+            DataCache cache = await GetVanillaCacheAsync();
+            (SciencePacksSheet sheet, Window window) = ShowWhileSliding(cache, []);
+            ChooserCell cell = sheet.PackButtonFor(PackNamed(cache, "production-science-pack"))!;
+            Point Centre() => cell.TranslatePoint(new Point(cell.Bounds.Width / 2, cell.Bounds.Height / 2), window)!.Value;
+            Point early = Centre();
+
+            Assert.False(AnimationClock.SheetPanelIsOpen(cell));
+
+            AnimationClock.UntilSheetOpen(cell);
+
+            Assert.True(AnimationClock.SheetPanelIsOpen(cell));
+            Assert.NotEqual(early, Centre());
+        }
+
+        [AvaloniaFact]
+        public async Task Constructor_PopulatesOneUnselectedCellPerSciencePack_NamedForThePack() {
             DataCache cache = await GetVanillaCacheAsync();
 
-            var window = new SciencePacksWindow(cache, []);
+            var sheet = new SciencePacksSheet(cache, []);
 
-            Assert.Equal(cache.SciencePacks.Count, window.SciencePackButtonStates.Count);
-            foreach (KeyValuePair<Button, bool> entry in window.SciencePackButtonStates) {
+            Assert.Equal(cache.SciencePacks.Count, sheet.SciencePackButtonStates.Count);
+            foreach (KeyValuePair<ChooserCell, bool> entry in sheet.SciencePackButtonStates) {
                 Assert.False(entry.Value);
-                Assert.Equal(Brushes.DarkRed, entry.Key.Background);
-                Assert.Equal(48, entry.Key.Width);
-                Assert.Equal(48, entry.Key.Height);
+                Assert.False(entry.Key.IsSelected);
+                Assert.Equal(((IItem)entry.Key.Tag!).FriendlyName, entry.Key.FullName);
             }
         }
 
@@ -106,38 +122,34 @@ namespace Foreman.Mac.UiTests.Views {
         [AvaloniaFact]
         public async Task RealClick_EnablingAPack_CascadesToEnableOnlyItsOwnPrerequisites() {
             DataCache cache = await GetVanillaCacheAsync();
-            var window = new SciencePacksWindow(cache, []);
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
+            (SciencePacksSheet sheet, Window window) = NewShownSheet(cache, []);
 
-            ClickPack(window, PackNamed(cache, "production-science-pack"));
+            ClickPack(sheet, window, PackNamed(cache, "production-science-pack"));
 
-            Assert.True(StateOf(window, cache, "production-science-pack"));
-            Assert.True(StateOf(window, cache, "automation-science-pack"));
-            Assert.True(StateOf(window, cache, "logistic-science-pack"));
-            Assert.True(StateOf(window, cache, "chemical-science-pack"));
-            Assert.False(StateOf(window, cache, "military-science-pack"));
-            Assert.False(StateOf(window, cache, "utility-science-pack"));
-            Assert.False(StateOf(window, cache, "space-science-pack"));
+            Assert.True(StateOf(sheet, cache, "production-science-pack"));
+            Assert.True(StateOf(sheet, cache, "automation-science-pack"));
+            Assert.True(StateOf(sheet, cache, "logistic-science-pack"));
+            Assert.True(StateOf(sheet, cache, "chemical-science-pack"));
+            Assert.False(StateOf(sheet, cache, "military-science-pack"));
+            Assert.False(StateOf(sheet, cache, "utility-science-pack"));
+            Assert.False(StateOf(sheet, cache, "space-science-pack"));
         }
 
         [AvaloniaFact]
         public async Task RealClick_DisablingAPack_CascadesToDisableEveryDependent() {
             DataCache cache = await GetVanillaCacheAsync();
-            var window = new SciencePacksWindow(cache, []);
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-            ClickPack(window, PackNamed(cache, "production-science-pack")); //enables automation, logistic, chemical too
+            (SciencePacksSheet sheet, Window window) = NewShownSheet(cache, []);
+            ClickPack(sheet, window, PackNamed(cache, "production-science-pack")); //enables automation, logistic, chemical too
 
-            ClickPack(window, PackNamed(cache, "logistic-science-pack")); //was enabled by the cascade above - disable it
+            ClickPack(sheet, window, PackNamed(cache, "logistic-science-pack")); //was enabled by the cascade above - disable it
 
-            Assert.False(StateOf(window, cache, "logistic-science-pack"));
-            Assert.False(StateOf(window, cache, "military-science-pack"));
-            Assert.False(StateOf(window, cache, "chemical-science-pack"));
-            Assert.False(StateOf(window, cache, "production-science-pack"));
-            Assert.False(StateOf(window, cache, "utility-science-pack"));
-            Assert.False(StateOf(window, cache, "space-science-pack"));
-            Assert.True(StateOf(window, cache, "automation-science-pack")); //not a dependent of logistic - stays enabled
+            Assert.False(StateOf(sheet, cache, "logistic-science-pack"));
+            Assert.False(StateOf(sheet, cache, "military-science-pack"));
+            Assert.False(StateOf(sheet, cache, "chemical-science-pack"));
+            Assert.False(StateOf(sheet, cache, "production-science-pack"));
+            Assert.False(StateOf(sheet, cache, "utility-science-pack"));
+            Assert.False(StateOf(sheet, cache, "space-science-pack"));
+            Assert.True(StateOf(sheet, cache, "automation-science-pack")); //not a dependent of logistic - stays enabled
         }
 
         //---- Confirm: subset rule (reference §6, SciencePacksLoadForm.cs:121-161) -------------------------
@@ -146,16 +158,14 @@ namespace Foreman.Mac.UiTests.Views {
         public async Task Confirm_UnionsRecipesOnlyForAvailableTechsWhoseSciPackListIsFullySubsetOfAccepted() {
             DataCache cache = await GetVanillaCacheAsync();
             var enabledObjects = new HashSet<IDataObjectBase>();
-            var window = new SciencePacksWindow(cache, enabledObjects);
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
+            (SciencePacksSheet sheet, Window window) = NewShownSheet(cache, enabledObjects);
             foreach (string packName in new[] {
                 "automation-science-pack", "logistic-science-pack", "chemical-science-pack",
                 "production-science-pack", "utility-science-pack",
             })
-                ClickPack(window, PackNamed(cache, packName)); //accepted = every pack except military and space
+                ClickPack(sheet, window, PackNamed(cache, packName)); //accepted = every pack except military and space
 
-            ClickConfirm(window);
+            ClickConfirm(sheet, window);
 
             var accepted = cache.SciencePacks.Where(p => p.Name is not ("military-science-pack" or "space-science-pack")).ToHashSet();
             var expected = new HashSet<IDataObjectBase>();
@@ -187,18 +197,16 @@ namespace Foreman.Mac.UiTests.Views {
             DataCache cache = await GetVanillaCacheAsync();
             IRecipe preExisting = cache.Recipes.Values.First();
             var enabledObjects = new HashSet<IDataObjectBase> { preExisting };
-            var window = new SciencePacksWindow(cache, enabledObjects);
-            window.Show();
-            Dispatcher.UIThread.RunJobs();
-            ClickPack(window, PackNamed(cache, "automation-science-pack"));
+            (SciencePacksSheet sheet, Window window) = NewShownSheet(cache, enabledObjects);
+            ClickPack(sheet, window, PackNamed(cache, "automation-science-pack"));
 
-            Button cancelButton = window.CancellationButtonControl;
+            Button cancelButton = sheet.Buttons!.Items.Cast<Button>().Single(b => ButtonRow.GetRole(b) == ButtonRowRole.Cancel);
             Point screen = cancelButton.TranslatePoint(new Point(cancelButton.Bounds.Width / 2, cancelButton.Bounds.Height / 2), window)!.Value;
             window.MouseDown(screen, MouseButton.Left, RawInputModifiers.None);
             window.MouseUp(screen, MouseButton.Left, RawInputModifiers.None);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.False(window.Accepted);
+            Assert.False(sheet.Accepted);
             Assert.Single(enabledObjects);
             Assert.Contains(preExisting, enabledObjects);
         }
@@ -214,7 +222,7 @@ namespace Foreman.Mac.UiTests.Views {
 
         [Fact]
         public void ConfirmHandler_CallsTheSharedDerivationHelper_WithNoSecondTransitiveDeriveImplementation() {
-            string source = File.ReadAllText(Path.Combine(RepoRoot(), "src", "Foreman.Mac", "Views", "SciencePacksWindow.axaml.cs"));
+            string source = File.ReadAllText(Path.Combine(RepoRoot(), "src", "Foreman.Mac", "Views", "Sheets", "SciencePacksSheet.axaml.cs"));
 
             Assert.Contains("EnabledObjectsDerivation.ResetToPlayerAssembler(", source);
             Assert.Contains("EnabledObjectsDerivation.DeriveAssemblersBeaconsModules(", source);
@@ -222,6 +230,79 @@ namespace Foreman.Mac.UiTests.Views {
             //SavefileLoadForm.cs and SciencePacksLoadForm.cs must not be re-implemented here - only
             //referenced through the shared helper above.
             Assert.DoesNotContain("AssociatedItems.Select(item => item.ProductionRecipes)", source);
+        }
+
+        [AvaloniaFact]
+        public async Task SciencePacks_Width_IsTheNamedWidthToken() {
+            DataCache cache = await GetVanillaCacheAsync();
+            var sheet = new SciencePacksSheet(cache, []);
+            (_, SheetHost host, _) = SheetFixture.Present(sheet);
+
+            Assert.Equal(SheetFixture.Token("Foreman.Metrics.SheetWidthStandard"), SheetFixture.PanelOf(host, sheet).Bounds.Width, 0.5);
+            Assert.Equal("Select researched science packs", SheetFixture.FrameOf(host, sheet).Title);
+            Assert.Equal(["Cancel", "Confirm"], sheet.Buttons!.Items.Cast<Button>().Select(b => b.Content));
+            Assert.Same(sheet.ConfirmationButtonControl, sheet.Buttons.ResolveDefaultButton());
+        }
+
+        [AvaloniaFact]
+        public async Task SciencePacks_Grid_UsesChooserCells_At88pt() {
+            DataCache cache = await GetVanillaCacheAsync();
+            var sheet = new SciencePacksSheet(cache, []);
+            (Window window, SheetHost host, _) = SheetFixture.Present(sheet);
+
+            double pitch = SheetFixture.Token("Foreman.Size.ChooserCell");
+            Assert.Equal(88, pitch);
+            ChooserCell[] cells = [.. sheet.GetVisualDescendants().OfType<ChooserCell>()];
+            Assert.Equal(cache.SciencePacks.Count, cells.Length);
+            Assert.Empty(sheet.GetVisualDescendants().OfType<Button>());
+            double right = SheetFixture.PanelOf(host, sheet).Bounds.Width;
+            foreach (ChooserCell cell in cells) {
+                Assert.Equal(pitch, cell.Bounds.Width, 0.5);
+                Assert.Equal(pitch, cell.Bounds.Height, 0.5);
+                Assert.True(cell.TranslatePoint(new Point(cell.Bounds.Width, 0), SheetFixture.PanelOf(host, sheet))!.Value.X <= right);
+            }
+            Assert.True(cells.Select(c => c.TranslatePoint(new Point(0, 0), sheet)!.Value.Y).Distinct().Count() > 1);
+
+            ChooserCell automation = sheet.PackButtonFor(PackNamed(cache, "automation-science-pack"))!;
+            Assert.True(automation.Focusable);
+            ClickPack(sheet, window, PackNamed(cache, "automation-science-pack"));
+            Assert.True(automation.IsSelected);
+            Assert.Contains(":selected", automation.Classes);
+            CanvasKeys.KeyDownOn(automation, Key.Space);
+            Assert.False(automation.IsSelected);
+            Assert.False(StateOf(sheet, cache, "automation-science-pack"));
+        }
+
+        [AvaloniaFact]
+        public async Task VoiceOverPress_OnACell_TogglesItAndCascadesLikeAClick() {
+            DataCache cache = await GetVanillaCacheAsync();
+            var sheet = new SciencePacksSheet(cache, []);
+            SheetFixture.Present(sheet);
+            ChooserCell chemical = sheet.PackButtonFor(PackNamed(cache, "chemical-science-pack"))!;
+
+            ((IInvokeProvider)ControlAutomationPeer.CreatePeerForElement(chemical)).Invoke();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(chemical.IsSelected);
+            Assert.True(StateOf(sheet, cache, "chemical-science-pack"));
+            Assert.True(StateOf(sheet, cache, "automation-science-pack"));
+            Assert.True(StateOf(sheet, cache, "logistic-science-pack"));
+            Assert.False(StateOf(sheet, cache, "production-science-pack"));
+        }
+
+        [AvaloniaFact]
+        public async Task ManyPacksInAShortWindow_ScrollInsideTheSheet_WhichStaysInTheWindow() {
+            DataCache cache = await GetVanillaCacheAsync();
+            var sheet = new SciencePacksSheet(cache, []);
+            (Window window, SheetHost host, _) = SheetFixture.Present(sheet, 700, 300);
+            AnimationClock.UntilReflowsSettled(window);
+
+            Border panel = SheetFixture.PanelOf(host, sheet);
+            Point bottom = panel.TranslatePoint(new Point(0, panel.Bounds.Height), window)!.Value;
+            Assert.True(bottom.Y <= window.Bounds.Height + 0.5);
+            ScrollViewer scroller = sheet.GetVisualDescendants().OfType<ScrollViewer>().First();
+            Assert.True(scroller.Extent.Height > scroller.Viewport.Height);
+            Assert.Contains(sheet.PackButtonFor(PackNamed(cache, "space-science-pack"))!, scroller.GetVisualDescendants().OfType<ChooserCell>());
         }
     }
 }

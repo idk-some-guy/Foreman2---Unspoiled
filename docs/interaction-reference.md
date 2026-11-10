@@ -174,8 +174,15 @@ selections (`ClearAnnotationSelection`).
   `Session.Editor.CreateLink(...)` and disposes the drag; no full bind but
   slave sub-links exist (multi-passthrough, below) →
   `graphViewer.AddPassthroughNodesFromSelection(...)`; exactly one end
-  bound, dropped on empty space → `graphViewer.AddNewNode(...)`, opening
-  the P5-panel chooser (§10) pre-wired to the bound node.
+  bound, dropped on empty space → the radial menu (§10), pre-wired to the
+  bound node. Its slice set follows drag direction: a Supplier request (dragged from an input tab) offers
+  Add…/Source/Passthrough/UnSpoil/UnPlant/Cancel, a Consumer request
+  (dragged from an output tab) offers Add…/Output/Passthrough/Spoil/Plant/
+  Cancel, with UnSpoil/Spoil/UnPlant/Plant appearing only when the dragged
+  item actually has that spoil/plant data. Source/Output/Spoil/Plant place
+  the linked node directly; UnSpoil/UnPlant place directly too when the
+  item has exactly one origin, otherwise they open the "Add to Graph"
+  browser with its Origins-of chip already showing.
 - **Cancel**: `MouseDown(Right)` on the ghost calls
   `graphViewer.DisposeLinkDrag()` — no node created, no confirmation.
 - **Ctrl+drag multi-passthrough bus** (`UpdateSlaveLinks`, every `PrePaint`
@@ -432,7 +439,12 @@ menu.
 | ← → ↑ ↓ | (+ Shift = large step) | any state (`ProcessCmdKey`) | Move selected nodes + annotations by grid unit (or major-grid/4x with Shift) |
 | W A S D | (+ Shift = 5x speed) | `!SubwindowOpen` (`ProcessCmdKey`) | Pan the view |
 | Shift | held | any state | Live-toggles `Grid.LockDragToAxis`, re-anchoring `DragOrigin` at the node's current position on every toggle (§2) |
-| Escape | | `inDrawShapeMode` only | Cancels the pending shape draw; no other Escape handling exists anywhere (no cancel-link-drag Escape — that's right-click only; no deselect-all Escape) |
+| Escape | | `inDrawShapeMode`, an in-flight link drag, or an open floating panel | Cancels the pending shape draw; cancels a link drag in progress (Mac-convention addition, not a strict port - upstream's own cancel is right-click only); closes an open panel, including the link-drag radial menu, whose own Cancel slice does the same thing |
+| Tab | (+ Shift = previous) | canvas focused, at least one node | Mac port: focus and select the next or previous node in reading order (centre Y, then X, then id), wrapping with a polite "Wrapped to first node." announcement. ⌃⇥ is not consumed and leaves for the next stop |
+| ← → ↑ ↓ | Alt (+ Shift = extend) | canvas focused | Mac port: select the nearest node within 45° of the direction, off-axis distance weighted twice; no candidate changes nothing. Alt-arrow never nudges |
+| Tab | Alt (+ Shift = previous) | canvas focused | Mac port: step the focused node's links (outputs left to right, then inputs), selecting each; from a link, the node's next or previous link |
+| Return | | canvas focused | Mac port: select the focused node and show the inspector with focus in its first control |
+| Escape | | no drag or panel in flight | Mac port: from a focused link return to its node, else clear the selection and hide the focus ring |
 | Space | | `MainForm.GraphViewer_KeyDown`, not the canvas control | Toggles `Grid.ShowGrid` and syncs the toolbar checkbox |
 | S | Ctrl | `MainForm_KeyDown`, not the canvas control | Save (or Save As if untitled) |
 
@@ -458,6 +470,49 @@ Alt staying Alt, exactly as anticipated above. See
 `docs/upstream-divergences.md`'s "Phase 4 lasso and drag modifiers" entry
 for the settled statement; Cmd+S stays unwired pending `ShellCommands.Save`
 (see that same file's Task 7 keyboard-map entry).
+
+### Menu bar and command shortcuts
+
+`MainWindow.BuildNativeMenu` registers these on the native menu. ⌘ below is
+`PlatformModifiers.Primary`, so each chord reads Ctrl on Linux. Cut, Copy,
+Paste and Delete stay gesture-less because the canvas owns those keys.
+
+| Menu | Item | Shortcut | Notes |
+|---|---|---|---|
+| File | Open Recent | | Lists the most recently opened library graphs; picking one opens it, and Clear Menu empties the list. Entries whose preset is not installed are disabled. The item is disabled while the library is empty |
+| Edit | Select All | ⌘A | Selects every node; with a text field focused, selects the field's text instead |
+| Edit | Deselect All | ⇧⌘A | Clears the node and annotation selection |
+| Edit ▸ Find | Find Node… | ⌘F | Focuses the toolbar search field (also handled by `MainWindow.OnKeyDown`) |
+| Edit ▸ Find | Find Next / Find Previous | ⌘G / ⇧⌘G | Steps the search matches, wrapping both ways |
+| Edit ▸ Find | Select Next Node / Select Previous Node | ⇥ / ⇧⇥ | The gesture is set only while the canvas is the focused element and cleared otherwise, so a text field keeps its Tab. Enabled with the canvas focused and at least one node |
+| View | Pause All Calculations | ⌥⌘P | Uses ⌥⌘P rather than ⌘. |
+| View | Link Routing ▸ Rounded / Orthogonal / Clear Waypoints | | Rounded and Orthogonal are enabled while links are selected and show the routing the selection shares; Clear Waypoints is enabled when a selected link has waypoints |
+| View | Show Toolbar | ⌥⌘T | Checkbox. Hidden, the window keeps a 28 pt titlebar with the title centred and the graph held still on screen; ⌘F shows the toolbar until the search field resigns. Session-only (`AppSettings.ShowToolbar`, no settings column yet) |
+| View | Customize Toolbar… | | Disabled until the customization surface exists |
+| View | Enter Full Screen | ⌃⌘F | Toggles full screen and back to the prior window state; no chord on Linux, where ⌃⌘F would fold onto Find Node's Ctrl+F |
+| Window | Welcome to Foreman | ⇧⌘1 | Opens the welcome window |
+| Window | Preset Comparator | | Opens the comparator on the resolved preset list, one instance; disabled below two presets, the same rule (`PresetComparatorWindow.CanCompare`) as Settings' Compare Presets…, re-checked each time the Window menu opens |
+| Help | Foreman 2 Help | ⌘? | Opens the repository README in the browser |
+| Help | Keyboard Shortcuts | | Opens `docs/keyboard-shortcuts.md` on GitHub |
+| Help | Foreman 2 on GitHub | | Opens the repository |
+| Help | Report an Issue… | | Opens a new issue prefilled with the version, macOS version and chip; if no browser opens, an alert offers Copy Link |
+
+File's items read New Graph, Open…, Save As…, Import Graph… and Export
+Image…, and the app menu's Settings… has its ellipsis. With the canvas
+focused, W, A, S and D pan only without ⌘, so ⌘S, ⌘A, ⇧⌘A, ⌘W and ⇧⌘W
+reach their menu items.
+
+⌘. is bound to no menu item. `MainWindow.OnCancelInFlightKeyDown` (a
+window tunnel handler) cancels a running solve first, else the frontmost
+open popover, else an open canvas panel or radial (Escape's own path), else
+the frontmost sheet. The popover and sheet cases replay the key on the kit
+frame so its own ⌘. handling runs, which also carries Linux's Ctrl+period
+to frames that only recognise ⌘.
+
+With no document open (A25, `MainWindow.IsDocumentOpen`), File's Save, Save
+As, Export Image and Close, all of Edit, and the canvas half of View
+disable; leaving the state restores each item's own prior enablement.
+Show Toolbar, Customize Toolbar… and Enter Full Screen are outside that set.
 
 ## 8. Node auto-placement
 
@@ -511,7 +566,9 @@ beyond parity.
 Every one of these is a floating WinForms-hosted panel out of scope for
 both P3 and P4 per `canvas-reference.md`'s tagging, but P4 needs a
 placeholder at each exact call site so the interaction it's attached to is
-demoable rather than a dead end:
+demoable rather than a dead end. The add-a-node panels below are the
+Quick Add palette, the "Add to Graph" browser and the radial menu described
+in §7's keyboard map.
 
 - **`BaseNodeElement.MouseUpAction`** (left click, non-dragged) →
   `graphViewer.EditNode(this)` → `EditFlowPanel` for simple nodes, or
@@ -519,14 +576,26 @@ demoable rather than a dead end:
   stacked depending on `LockedRecipeEditPanelPosition`) for recipe nodes.
   **Stub point**: left-click-to-select must still work; the panel-open call
   needs a no-op or placeholder until P5.
-- **`ProductionGraphViewer.AddItem`/`AddNewNode`** → `ItemChooserPanel` /
-  `RecipeChooserPanel`. Reached from: background right-click Add
-  Item/Add Recipe (§4a), `DraggedLinkElement.EndDrag`'s new-node outcome
-  (§3), `MainForm`'s toolbar Add Item/Add Recipe buttons, and the
-  Spoil/Plant multi-origin item-selection sub-flows nested inside
-  `AddNewNode`. **Stub point**: every one of these needs at least a minimal
-  synchronous picker, or the "drag a tab into empty space" and "right-click
-  add" flows have nothing to attach to.
+- **`ProductionGraphViewer.AddItem`/`AddNewNode`**: reached from
+  background right-click Add Item/Add Recipe (§4a), `DraggedLinkElement.
+  EndDrag`'s new-node outcome (§3), `MainWindow`'s toolbar Add Item/Add
+  Recipe buttons, and double-click on empty canvas. All of these now open
+  the Quick Add palette (search-as-you-type, Return to place and close,
+  ⌥Return or ⌥-click to place and keep the palette open, Escape to close,
+  ⌘Enter to open the full "Add to Graph" browser); a link-drag dropped on
+  empty space opens the radial menu instead, whose Add slice opens the
+  palette scoped to that link and whose own Source/Output/Spoil/Plant/
+  UnSpoil/UnPlant slices place those roles straight from the
+  radial. The Spoil/Plant multi-origin picks are an "Origins of…" chip inside
+  the browser itself,
+  reached either from there or from a multi-origin UnSpoil/UnPlant slice.
+  Inside the browser, the two segments differ on what a click does: in
+  Items a click only selects, and the footer's role buttons (or Enter/
+  double-click, which default to Source) decide what gets placed; in
+  Recipes a click has nothing to pick, so it places the recipe node
+  immediately and keeps the window open, with a following double-click or
+  Enter on that same still-selected cell deduped rather than placing a
+  second node.
 - **Annotation properties dialogs** (`ShapePropertiesForm`/
   `TextPropertiesForm`, §6) are plain modal `Form`s, not
   `FloatingTooltipControl`-hosted, but still need a genuine Avalonia window

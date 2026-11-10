@@ -3,6 +3,7 @@ using Foreman;
 using Foreman.DataCaching;
 using Foreman.Graph;
 using Foreman.Mac.Services;
+using Foreman.Mac.Views;
 using Foreman.Serialization;
 using System;
 using System.Collections.Generic;
@@ -40,7 +41,7 @@ namespace Foreman.Mac.UiTests {
         private static GraphViewerSaveDocument NewEmptyDocument(string? savedPresetName, Dictionary<string, string>? includedMods = null) => new() {
             Version = GraphSaveFormat.SaveFormatVersion,
             SavedPresetName = savedPresetName,
-            IncludedMods = includedMods ?? new Dictionary<string, string>(),
+            IncludedMods = includedMods ?? [],
             ProductionGraph = GraphSaveCodec.BuildProductionGraph(new ProductionGraph()),
         };
 
@@ -48,7 +49,7 @@ namespace Foreman.Mac.UiTests {
         //IncludedMods matches that preset's own declared mod list exactly - PresetProcessor.TestPreset flags
         //anything in the preset's own mods that isn't in the requested set as "Added".
         private static Dictionary<string, string> RealModListFor(Preset preset) =>
-            PresetProcessor.ReadPresetInfo(preset).ModList ?? new Dictionary<string, string>();
+            PresetProcessor.ReadPresetInfo(preset).ModList ?? [];
 
         //---- Fast path: exact SavedPresetName match, zero errors -> no dialog -------------------------
 
@@ -181,11 +182,54 @@ namespace Foreman.Mac.UiTests {
 
             string json = GraphSaveCodec.WriteViewerDocumentToString(NewEmptyDocument(savedPresetName: "Not An Installed Preset"));
 
-            await window.LoadGraphJsonAsync(json, "/tmp/does-not-matter.fjson");
+            await window.LoadGraphJsonAsync(json, "does-not-matter");
 
             Assert.Same(cache, window.DataCache);
             Assert.Single(window.GraphCanvas.Viewer.NodeElements);
-            Assert.Null(window.SaveFilePath);
+            Assert.Equal("Untitled", window.ViewModel.DocumentTitle);
+        }
+
+        [AvaloniaFact]
+        public async Task LoadGraphJsonAsync_DataLoadCancelled_LeavesDataCacheAndCurrentPresetUntouched() {
+            var cache = new DataCache(filterRecipes: true);
+            var window = NewWindow(VanillaPresetName, NewTempDir());
+            window.DataCache = cache;
+            window.PresetSelectionDialogStub = _ => Task.FromResult<Preset?>(new Preset(SpaceAgePresetName, false, false));
+            window.DataLoadStub = (_, _) => Task.FromResult(new DataLoadResult(null, DataLoadOutcome.Cancelled));
+
+            await window.LoadGraphJsonAsync(GraphSaveCodec.WriteViewerDocumentToString(NewEmptyDocument("Not An Installed Preset")), "does-not-matter");
+
+            Assert.Same(cache, window.DataCache);
+            Assert.Equal(VanillaPresetName, window.Settings!.CurrentPresetName);
+            Assert.Equal("Untitled", window.ViewModel.DocumentTitle);
+        }
+
+        [AvaloniaFact]
+        public async Task LoadGraphJsonAsync_ChooseAnother_ReopensThePickerForTheFailedPreset_ThenLoadsThePick() {
+            var window = NewWindow(VanillaPresetName, NewTempDir());
+            window.DataCache = new DataCache(filterRecipes: true);
+            var picked = new DataCache(filterRecipes: true);
+            var loads = new List<string>();
+            window.PresetSelectionDialogStub = _ => Task.FromResult<Preset?>(new Preset(SpaceAgePresetName, false, false));
+            Preset? failedSeen = null;
+            window.ChooseAnotherPresetDialogStub = (errors, failed) => {
+                failedSeen = failed;
+                Assert.Contains(errors, e => e.Preset.Name == VanillaPresetName);
+                return Task.FromResult<Preset?>(new Preset(VanillaPresetName, true, true));
+            };
+            window.DataLoadStub = (preset, _) => {
+                loads.Add(preset.Name);
+                return Task.FromResult(loads.Count == 1
+                    ? new DataLoadResult(null, DataLoadOutcome.ChooseAnother)
+                    : new DataLoadResult(picked, DataLoadOutcome.Loaded));
+            };
+
+            await window.LoadGraphJsonAsync(GraphSaveCodec.WriteViewerDocumentToString(NewEmptyDocument("Not An Installed Preset")), "does-not-matter");
+
+            Assert.Equal([SpaceAgePresetName, VanillaPresetName], loads);
+            Assert.Equal(SpaceAgePresetName, failedSeen!.Name);
+            Assert.Same(picked, window.DataCache);
+            Assert.Equal(VanillaPresetName, window.Settings!.CurrentPresetName);
         }
     }
 }

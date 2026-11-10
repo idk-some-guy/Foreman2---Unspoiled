@@ -1,0 +1,50 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites">
+
+  <ControlTheme x:Key="Kit.PopoverFrame" TargetType="kit:PopoverFrame">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid>
+          <Border x:Name="PART_Panel"
+                  Background="{DynamicResource Foreman.Color.PopoverMaterial}"
+                  BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
+                  BorderThickness="1"
+                  CornerRadius="{DynamicResource Foreman.Radius.Popover}"
+                  BoxShadow="{DynamicResource Foreman.Shadow.Popover}"
+                  Width="{TemplateBinding PanelWidth}"
+                  Padding="14,10,14,14"
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Top"
+                  Opacity="0">
+            <Border x:Name="PART_ContentClip"
+                    CornerRadius="{DynamicResource Foreman.Radius.Popover}">
+              <ContentPresenter Content="{TemplateBinding Content}" />
+            </Border>
+          </Border>
+          <Border x:Name="PART_Tail"
+                  Background="{DynamicResource Foreman.Color.PopoverMaterial}"
+                  BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
+                  RenderTransformOrigin="50%,50%"
+                  RenderTransform="rotate(45deg)"
+                  Opacity="0" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:open /template/ Border#PART_Panel">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <Style Selector="^:flush /template/ Border#PART_Panel">
+      <Setter Property="Background" Value="{x:Null}" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="^:open /template/ Border#PART_Tail">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

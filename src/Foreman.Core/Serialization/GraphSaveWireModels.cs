@@ -40,7 +40,6 @@ namespace Foreman.Serialization {
         public List<string>? EnabledAssemblers { get; set; }
         public List<string>? EnabledModules { get; set; }
         public List<string>? EnabledBeacons { get; set; }
-        public bool OldImport { get; set; }
         public ProductionGraphWire? ProductionGraph { get; set; }
         public List<AnnotationSaveData>? Annotations { get; set; }
         public int? AnnotationDpi { get; set; }
@@ -98,6 +97,8 @@ namespace Foreman.Serialization {
         public int ConsumerID { get; set; }
         public string? Item { get; set; }
         public string? Quality { get; set; }
+        public string? Routing { get; set; }
+        public int[][]? Waypoints { get; set; }
     }
 
     /// <summary>Flat node wire (all node types share one shape; discriminated by NodeType).</summary>

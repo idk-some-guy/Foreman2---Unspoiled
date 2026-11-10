@@ -95,7 +95,6 @@ GraphViewerSaveDocument {
         ExtraProdForNonMiners = ..., AssemblerSelectorStyle = viewer.Graph.AssemblerSelector.DefaultSelectionStyle,       // ProductionGraph already carries AssemblerSelector/ModuleSelector/FuelSelector
         ModuleSelectorStyle = ..., FuelPriorityList = [.. viewer.Graph.FuelSelector.FuelPriority.Select(i => i.Name)],
         EnabledRecipes/Assemblers/Modules/Beacons = <sort cache.{Recipes,Assemblers,Modules,Beacons}.Values.Where(x => x.Enabled).Select(x => x.Name)>,  // upstream's private SortEnabled<T>, ~4 LOC, needs re-adding
-        OldImport = false
     },
     Annotations = viewer's live AnnotationElements.Select(a => a.ToSaveData()).ToList(),  // AnnotationElement.ToSaveData() already exists (Canvas/Elements/AnnotationElement.cs:296)
     AnnotationDpi = AnnotationDeviceDpi                            // private const already on GraphViewer (`:34`) - the assembly function needs to live in/alongside GraphViewer to reach it, or the const needs widening
@@ -266,3 +265,39 @@ Steps 1-4 (~350 LOC) close out the graph-file half; steps 5 (~250 LOC) and 11 (~
 4. **Writing into `AppPaths.ExecutableDirectory` (Presets/Saved-Graphs/Exported-Graphs, all currently resolved relative to the executable, matching upstream's `Application.StartupPath` pattern) is a real design question for a signed macOS `.app` bundle**, not just a path-separator fix. `PresetResolver`/`PresetProcessor`/the already-shipped `DeletePresetAsync` all write there today and it works in dev, but a distributed, code-signed `.app` bundle is conventionally read-only at its own bundle path — Preset Import (§4, writes `.pjson`/`.json`/`.dat`) and Save/SaveAs's default folder (§2) are the two places this phase adds *new* writes into that same directory, at higher volume than the existing delete-only case. Decide once (e.g. move to `~/Library/Application Support/Foreman/` for Presets, `~/Documents` for saved graphs) rather than each new dialog picking its own convention.
 5. **`ProcessSaveData` (§5) and `SciencePacksLoadForm`'s `ConfirmationButton_Click` (§6) implement the identical assembler/beacon/module transitive-enable derivation twice upstream** (`SavefileLoadForm.cs:244-269` vs `SciencePacksLoadForm.cs:132-157`, byte-for-byte identical loop structure). Porting each in isolation risks porting the duplication too; factor it into one shared helper the first time either dialog is built, since the second dialog's implementation should just call it.
 6. **Validating against a real, installed Factorio binary is exclusively Jozef's-gate scope.** It's a manual check he runs himself, never part of the automated test suite — launching the real Factorio process from a test would be slow, machine-dependent, and (per this project's global constraints) a real Factorio launch isn't permitted from an agent-run verification pass.
+
+## 12. Storage (SQLite)
+
+Settings, preset data, and preset icons are cached in one SQLite database, `foreman.db`, opened via `ForemanDbContext.Open(StoragePaths.DbPath(AppPaths.UserDataDirectory))` — `~/Library/Application Support/Foreman/foreman.db` on macOS, `$XDG_DATA_HOME/Foreman/foreman.db` (falling back to `~/.local/share/Foreman/foreman.db`) on Linux. `Open` creates the file and seeds `SchemaVersion=1` on first use, guarded by a process-wide lock against two callers racing a not-yet-existing db.
+
+EF Core's Sqlite provider opens `foreman.db` in WAL journal mode, so a live install also carries `foreman.db-wal` and `foreman.db-shm` alongside it — a manual backup that copies only `foreman.db` can miss committed data still sitting in the WAL file. Copy all three, or close the app first so SQLite checkpoints the WAL back into the main file.
+
+If `foreman.db` itself can't be opened — SQLite reports `SQLITE_NOTADB` or `SQLITE_CORRUPT` from disk corruption or a write that got killed mid-flush — `ForemanDbContext.Open` renames it aside to `foreman.db.corrupt` (with its `-wal`/`-shm` sidecars renamed the same way) and creates a fresh db in its place, logging one line. Settings and presets both reimport from their legacy files on the next load, the same recovery path a missing `foreman.db` already takes. A locked or read-only db (`SQLITE_READONLY` and similar) is a different failure — that one propagates to the caller instead of being treated as corruption, since quarantining a perfectly good db file over a transient write failure would be its own data-loss bug.
+
+### Schema (`src/Foreman.Core/DataCaching/Storage/StorageEntities.cs`)
+
+| Table | Key | Columns | Written by |
+|---|---|---|---|
+| `SettingsRow` | `Id` (always 1) | one typed column per `AppSettings` property (47 currently) | `SettingsService.SaveToDb` |
+| `PresetDataRow` | `PresetName` | `CompressedPJson` (zstd level 19), `CustomOverlayJson`, `ImportedUtc` | `PresetStore.Import` |
+| `IconBlob` | `Sha256` | `PngBytes` | `IconStore.ImportFoic` |
+| `PresetIconRow` | `(PresetName, IconName)` | `Tint`, `Sha256` (FK into `IconBlob`) | `IconStore.ImportFoic` |
+| `SchemaVersionRow` | `Version` | seeded once at `Version=1` | `ForemanDbContext.Open` |
+
+`IconBlob` is content-addressed: two presets sharing byte-identical PNGs (common — Foreman's vanilla/mod icon set repeats across presets) share one row, keyed by `Sha256`. Icon PNGs decode from those bytes lazily, at first paint rather than at import or preset-load time (288ms → 68ms, 4.2x, measured against an eager whole-atlas decode, on a real Space Age preset).
+
+### Import semantics
+
+Every entity is db-first with a one-time import on a cache miss:
+
+- **Settings** — `SettingsService.Load` returns the db row when one exists; otherwise it reads legacy `settings.json`, immediately persists it to `SettingsRow`, and never reads the file again for that install.
+- **Preset data + icons** — `PresetProcessor.PrepPreset`/`ReadOrImportPreset` check `PresetDataRow` and `PresetIconRow` independently for the preset name, so a preset with no `.dat` file still caches its base `.pjson` on first load instead of re-reading it every time; a `.dat` that shows up later still imports on the next load that finds it uncached. A `presetCustom.json` overlay edited between runs is re-diffed and re-imported on every load, independent of the base preset's cache state — but only while the overlay file still exists. Once a preset's base content is cached, further edits to its `.pjson` on disk are never picked up; only the overlay half stays live, and only for as long as `presetCustom.json` keeps existing. A `presetCustom.json` that's deleted is treated as no news rather than "the overlay was cleared" — the overlay already in the db keeps applying.
+- Each preset icon decodes from its stored PNG bytes independently, at first paint (`IconCache.DecodeLazyIcon`); one icon's undecodable PNG logs and falls back to a blank bitmap for that icon alone, without failing the rest of the preset's icon set or the load itself.
+
+### Legacy-file policy
+
+Legacy `settings.json`/`.pjson`/`.json`/`.dat` files are read-only import sources. Production code writes into them in exactly one remaining place:
+
+`PresetImporter.ProcessPreset` still writes the freshly exported preset's `.pjson`/`.json`/`.dat` to the user's writable Presets directory in full — the `.dat` write is an `IconCacheProcessor.CreateIconCache` call targeting the preset's real path directly rather than a scratch copy. That content is what `PresetProcessor.ReadPresetInfo` reads directly (the Settings window's per-preset mod-list display) and what `PresetResolver.CollectPresetNames` scans to build the Presets-tab listing — neither path is db-first, so both still depend on the files being there. Immediately after, `IconStore.ImportFoic` reads that same on-disk `.dat` into `IconBlob`/`PresetIconRow`, mirroring `PresetProcessor.ReadOrImportPreset`'s own db-import pattern. Because the real FOIC bytes land on disk before the db import runs, an imported preset stays fully recoverable if `foreman.db` is ever deleted — the legacy files are a real fallback, not a marker. A db failure at that last step (a locked or unwritable `foreman.db`) logs and still reports the import as successful, since the files the next `PrepPreset` reimports from are already safely on disk.
+
+Delete-preset (`SettingsWindow.DeletePresetAsync`) removes the on-disk `.pjson`/`.json`/`.dat` trio and clears the matching `PresetDataRow`/`PresetIconRow` rows. `IconStore.ImportFoic` and the delete path both finish through the same `IconStore.RemoveOrphanedBlobs` sweep, so an `IconBlob` no `PresetIconRow` references is gone, whether the preset was deleted or re-importing it dropped an icon the new version does not use (safe either way — blobs are content-addressed and shared by hash across presets). A preset re-imported under the name of a deleted one reads back its own fresh content — nothing from the deleted preset survives in either the files or the db.

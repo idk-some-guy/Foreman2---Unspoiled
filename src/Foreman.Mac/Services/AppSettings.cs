@@ -1,5 +1,6 @@
 using Foreman;
 using Foreman.Models;
+using System;
 
 namespace Foreman.Mac.Services {
     //Upstream only had a bool FlagDarkMode; we widen it to a tri-state to follow the OS theme by default.
@@ -15,14 +16,11 @@ namespace Foreman.Mac.Services {
         public bool ShowHidden { get; set; }
         public bool IgnoreAssemblerStatus { get; set; }
         public bool DynamicLineWidth { get; set; }
-        public bool RecipeNameOnlyFilter { get; set; }
         public int LevelOfDetail { get; set; }
         public AssemblerSelector.Style DefaultAssemblerOption { get; set; } = AssemblerSelector.Style.Worst;
         public ProductionGraph.RateUnit DefaultRateUnit { get; set; } = ProductionGraph.RateUnit.Per1Sec;
         public string LastSaveFileLocation { get; set; } = "";
-        public bool ShowRecipeToolTip { get; set; } = true;
         public bool ShowUnavailable { get; set; }
-        public bool LockedRecipeEditorPosition { get; set; }
         public int NodeCountForSimpleView { get; set; } = 300;
         public bool UseRecipeBWfilters { get; set; } = true;
         public bool ShowWarningArrows { get; set; } = true;
@@ -59,5 +57,34 @@ namespace Foreman.Mac.Services {
         public decimal LowPriorityPower { get; set; } = 4;
         public bool PullConsumerNodes { get; set; }
         public decimal PullConsumerNodesPower { get; set; } = 1;
+
+        public double UiScale { get; set; } = 1.0;
+
+        public bool InspectorPinned { get; set; }
+
+        public double InspectorWidth { get; set; } = 300;
+
+        public double BrowserWidth { get; set; } = 760;
+        public double BrowserHeight { get; set; } = 520;
+        public string BrowserItemsGroup { get; set; } = "";
+        public string BrowserRecipesGroup { get; set; } = "";
+
+        public double? SettingsEnabledObjectsWidth { get; set; }
+        public double? SettingsEnabledObjectsHeight { get; set; }
+        public double? SettingsAdvancedWidth { get; set; }
+        public double? SettingsAdvancedHeight { get; set; }
+
+        public double? GraphSummaryLeft { get; set; }
+        public double? GraphSummaryTop { get; set; }
+        public double? GraphSummaryWidth { get; set; }
+        public double? GraphSummaryHeight { get; set; }
+        public int GraphSummarySegment { get; set; }
+
+        public LinkRouting DefaultLinkRouting { get; set; } = LinkRouting.Rounded;
+
+        public bool ShowToolbar { get; set; } = true;
+        public bool ShowWelcomeAtLaunch { get; set; } = true;
+
+        public DateTime? OpenRecentClearedAt { get; set; }
     }
 }

@@ -2,12 +2,18 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Avalonia.Styling;
+using Avalonia.Media;
+using Avalonia.Platform;
 using Foreman;
 using Foreman.DataCaching;
+using Foreman.Mac.Canvas.KitSkia;
+using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Services;
 using Foreman.Mac.Views;
 using System;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using Avalonia.Platform.Storage;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac {
@@ -16,11 +22,49 @@ namespace Foreman.Mac {
         //existing - a dev-only switch to the gallery boot path (`--gallery`) instead of the normal shell.
         public static bool GalleryMode { get; set; }
 
-        public override void Initialize() => AvaloniaXamlLoader.Load(this);
+        public ThemeService Theme { get; private set; }
+
+        public AppearanceHub Hub { get; private set; }
+
+        //Rescaled is a static event: replace the previous App's handler or the list grows per test
+        private static EventHandler? rescaledHandler;
+
+        public App() {
+            InstallAppearance(null);
+        }
+
+        [MemberNotNull(nameof(Hub), nameof(Theme))]
+        internal void InstallAppearance(IPlatformAppearance? appearance) {
+            Hub?.Dispose();
+
+            Hub = new AppearanceHub(this, appearance ?? (IPlatformAppearance?)PlatformAppearance.TryCreate(this) ?? new NullPlatformAppearance());
+            AppearanceHub.Current = Hub;
+            Hub.Changed += (_, _) => TokenBridge.Refresh();
+            Theme = new ThemeService(this);
+
+            if (rescaledHandler is not null)
+                WindowScaler.Rescaled -= rescaledHandler;
+            rescaledHandler = (_, _) => Hub.Refresh();
+            WindowScaler.Rescaled += rescaledHandler;
+        }
+
+        //The native menu exporter reads NativeMenu once, before OnFrameworkInitializationCompleted; set it here or it is never seen
+        public override void Initialize() {
+            AvaloniaXamlLoader.Load(this);
+            Hub.Refresh();
+            NativeMenu.SetMenu(this, MainWindow.BuildAppMenu());
+        }
 
         public override void OnFrameworkInitializationCompleted() {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 BootAndShow(desktop);
+            if (!GalleryMode && this.TryGetFeature<IActivatableLifetime>() is { } activatable)
+                activatable.Activated += (_, e) => {
+                    if (e.Kind == ActivationKind.Reopen)
+                        Async.Fire(ShellHost.ReopenAsync(), nameof(ShellHost.ReopenAsync));
+                    else if (e is FileActivatedEventArgs files)
+                        Async.Fire(ShellHost.OpenFilesAsync(files.Files.Select(f => f.TryGetLocalPath()).OfType<string>()), nameof(ShellHost.OpenFilesAsync));
+                };
 
             base.OnFrameworkInitializationCompleted();
         }
@@ -45,8 +89,8 @@ namespace Foreman.Mac {
                 ApplyTheme(settings.FlagDarkMode);
 
                 Preset preset = new PresetResolver().Resolve(settings.CurrentPresetName);
-                DataCache? cache = await ShellBootstrapper.LoadPresetAsync(preset, settings.UseRecipeBWfilters).ConfigureAwait(true);
-                if (cache is null) {
+                (DataCache Cache, Preset Preset)? loaded = await ShellBootstrapper.LoadPresetAsync(preset, null, settings.UseRecipeBWfilters).ConfigureAwait(true);
+                if (loaded is not (DataCache cache, _)) {
                     ShellBootstrapper.DefaultFatalExit();
                     return;
                 }
@@ -74,22 +118,23 @@ namespace Foreman.Mac {
                 var settings = settingsService.Load();
                 ApplyTheme(settings.FlagDarkMode);
                 var window = await bootShell(settingsService, settings).ConfigureAwait(true);
-                if (window is not null) {
+                if (window is not null)
                     desktop.MainWindow = window;
-                    desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
-                }
             } catch (Exception ex) {
                 ErrorLogging.LogException(ex, "Unhandled exception during startup boot");
                 fatalExit();
             }
         }
 
-        public void ApplyTheme(ThemeMode mode) {
-            RequestedThemeVariant = mode switch {
-                ThemeMode.Light => ThemeVariant.Light,
-                ThemeMode.Dark => ThemeVariant.Dark,
-                _ => ThemeVariant.Default,
-            };
+        public void ApplyTheme(ThemeMode mode) => Theme.Apply(mode);
+
+        private sealed class NullPlatformAppearance : IPlatformAppearance {
+            public Color? AccentColor => null;
+            public ColorContrastPreference ContrastPreference => ColorContrastPreference.NoPreference;
+            public bool ReduceTransparency => false;
+            public bool ReduceMotion => false;
+            public PlatformThemeVariant ThemeVariant => PlatformThemeVariant.Light;
+            public event EventHandler? Changed { add { } remove { } }
         }
     }
 }

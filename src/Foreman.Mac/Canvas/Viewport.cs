@@ -56,6 +56,27 @@ namespace Foreman.Mac.Canvas {
             UpdateGraphBounds(limitToGraphBounds);
         }
 
+        public void SetAbsoluteZoom(AvaloniaPoint anchorScreenPoint, float scale, Rectangle? limitToGraphBounds = null) {
+            Point oldAnchor = ScreenToGraph(anchorScreenPoint);
+
+            ViewScale = Math.Clamp(scale, MinViewScale, MaxViewScale);
+
+            Point newAnchor = ScreenToGraph(anchorScreenPoint);
+            ViewOffset = new Point(ViewOffset.X + newAnchor.X - oldAnchor.X, ViewOffset.Y + newAnchor.Y - oldAnchor.Y);
+
+            UpdateGraphBounds(limitToGraphBounds);
+        }
+
+        public void FitToBounds(Rectangle bounds, Rectangle? limitToGraphBounds = null) {
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+                return;
+
+            ViewScale = Math.Clamp((float)Math.Min(Width / bounds.Width, Height / bounds.Height), MinViewScale, MaxViewScale);
+            ViewOffset = new Point(-(bounds.X + bounds.Width / 2), -(bounds.Y + bounds.Height / 2));
+
+            UpdateGraphBounds(limitToGraphBounds);
+        }
+
         //limitToGraphBounds ports upstream's UpdateGraphBounds(limitView) split (reference §2's carried
         //note, ProductionGraphViewer.cs:1058): a mouse-drag pan hard-limits ViewOffset to stay over the
         //graph unless an object is being dragged at the same time, in which case upstream passes
@@ -68,6 +89,29 @@ namespace Foreman.Mac.Canvas {
             Point graphLocation = ScreenToGraph(currentScreenPoint);
             ViewOffset = new Point(ViewOffset.X + graphLocation.X - dragOriginGraphPoint.X, ViewOffset.Y + graphLocation.Y - dragOriginGraphPoint.Y);
             UpdateGraphBounds(limitToGraphBounds);
+        }
+
+        public void PanIntoView(Rectangle nodeBounds, double margin = 0) {
+            if (PanIntoViewTarget(nodeBounds, margin) is not Point target)
+                return;
+
+            ViewOffset = target;
+            UpdateGraphBounds();
+        }
+
+        public Point? PanIntoViewTarget(Rectangle nodeBounds, double margin = 0) {
+            int marginGraph = ViewScale > 0 ? (int)Math.Round(margin / ViewScale) : (int)margin;
+            Rectangle inset = Rectangle.Inflate(VisibleGraphBounds, -marginGraph, -marginGraph);
+            int dx = 0, dy = 0;
+            if (nodeBounds.Left < inset.Left)
+                dx = inset.Left - nodeBounds.Left;
+            else if (nodeBounds.Right > inset.Right)
+                dx = inset.Right - nodeBounds.Right;
+            if (nodeBounds.Top < inset.Top)
+                dy = inset.Top - nodeBounds.Top;
+            else if (nodeBounds.Bottom > inset.Bottom)
+                dy = inset.Bottom - nodeBounds.Bottom;
+            return dx == 0 && dy == 0 ? null : new Point(ViewOffset.X + dx, ViewOffset.Y + dy);
         }
 
         public void UpdateGraphBounds(Rectangle? limitToGraphBounds = null) {

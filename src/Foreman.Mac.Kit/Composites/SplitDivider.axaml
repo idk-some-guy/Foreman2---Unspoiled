@@ -1,0 +1,50 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites"
+                    xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.SplitDivider" TargetType="kit:SplitDivider">
+    <Setter Property="Width" Value="{DynamicResource Foreman.Size.SplitDividerHit}" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="ctrl:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="Minimum" Value="{DynamicResource Foreman.Size.InspectorWidthMin}" />
+    <Setter Property="Maximum" Value="{DynamicResource Foreman.Size.InspectorWidthMax}" />
+    <Setter Property="Value" Value="{DynamicResource Foreman.Size.InspectorWidth}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel Background="{TemplateBinding Background}">
+          <Rectangle x:Name="PART_Hairline"
+                     Width="1"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Stretch"
+                     Fill="{DynamicResource Foreman.Color.Border}" />
+          <Rectangle x:Name="PART_Grip"
+                     Width="1" Height="28"
+                     RadiusX="0.5" RadiusY="0.5"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     Fill="{DynamicResource Foreman.Color.BorderStrong}"
+                     Opacity="{DynamicResource Foreman.Opacity.SplitGripIdle}"
+                     Transitions="{x:Static m:Motion.SplitGripTransitions}" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Rectangle#PART_Grip, ^.gallery-hover /template/ Rectangle#PART_Grip">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^:dragging /template/ Rectangle#PART_Grip, ^.gallery-dragging /template/ Rectangle#PART_Grip">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="Fill" Value="{DynamicResource Foreman.Color.Accent}" />
+    </Style>
+    <Style Selector="^:dragging /template/ Rectangle#PART_Hairline, ^.gallery-dragging /template/ Rectangle#PART_Hairline">
+      <Setter Property="Fill" Value="{DynamicResource Foreman.Color.Accent}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

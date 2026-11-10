@@ -1,0 +1,130 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls">
+
+  <ControlTheme x:Key="Kit.PopUp" TargetType="kit:PopUp">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ControlHeightRegular}" />
+    <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.PopUpPadding}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="kit:FocusRing.CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border x:Name="PART_Frame"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource Foreman.Size.ControlGlyphGap}">
+              <Grid x:Name="PART_LeadingGrid" Grid.Column="0" ColumnDefinitions="Auto,*" ColumnSpacing="0">
+                <Border x:Name="PART_IconFrame"
+                        Grid.Column="0"
+                        Width="{DynamicResource Foreman.Size.PopUpLeadingIcon}"
+                        Height="{DynamicResource Foreman.Size.PopUpLeadingIcon}"
+                        CornerRadius="{DynamicResource Foreman.Radius.PopUpLeadingIcon}"
+                        ClipToBounds="True"
+                        IsVisible="False">
+                  <Image x:Name="PART_Icon" Source="{TemplateBinding Icon}" Stretch="Uniform" />
+                </Border>
+                <TextBlock x:Name="PART_Label"
+                           Grid.Column="1"
+                           Text="{TemplateBinding DisplayText}"
+                           FontSize="{DynamicResource Foreman.Type.Callout.FontSize}"
+                           FontWeight="{DynamicResource Foreman.Type.Callout.FontWeight}"
+                           Foreground="{DynamicResource Foreman.Color.Text}"
+                           TextTrimming="CharacterEllipsis"
+                           kit:TrimmedTooltip.Enabled="True"
+                           VerticalAlignment="Center" />
+              </Grid>
+              <StackPanel x:Name="PART_TrailingColumn"
+                          Grid.Column="1"
+                          Orientation="Horizontal"
+                          Spacing="{DynamicResource Foreman.Size.ControlGlyphGap}">
+                <Border x:Name="PART_Indicator"
+                        Width="{DynamicResource Foreman.Size.PopUpIndicator}"
+                        Height="{DynamicResource Foreman.Size.PopUpIndicator}"
+                        CornerRadius="{DynamicResource Foreman.Radius.PopUpIndicator}"
+                        Background="{DynamicResource Foreman.Color.Accent}">
+                  <Viewbox Width="{DynamicResource Foreman.Size.PopUpIndicator}"
+                           Height="{DynamicResource Foreman.Size.PopUpIndicator}"
+                           Stretch="Uniform"
+                           StretchDirection="Both">
+                    <Path Data="{StaticResource Kit.Glyph.PopUpChevrons.16}"
+                          Fill="{DynamicResource Foreman.Color.TextOnAccent}"
+                          Stretch="None"
+                          Width="16" Height="16" />
+                  </Viewbox>
+                </Border>
+                <Viewbox x:Name="PART_PulldownChevronBox"
+                         Width="{DynamicResource Foreman.Size.Glyph10}"
+                         Height="{DynamicResource Foreman.Size.Glyph10}"
+                         Stretch="Uniform"
+                         StretchDirection="Both"
+                         IsVisible="False">
+                  <Path x:Name="PART_PulldownChevron"
+                        Data="{StaticResource Kit.Glyph.Chevron.10}"
+                        Fill="{DynamicResource Foreman.Color.TextTertiary}"
+                        Stretch="None"
+                        Width="10" Height="10" />
+                </Viewbox>
+              </StackPanel>
+            </Grid>
+          </Border>
+          <Popup x:Name="PART_Popup"
+                 Placement="BottomEdgeAlignedLeft"
+                 IsLightDismissEnabled="True">
+            <ContentPresenter Content="{TemplateBinding Menu}" />
+          </Popup>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pulldown /template/ Border#PART_Indicator">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="^:pulldown /template/ Viewbox#PART_PulldownChevronBox">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:pulldown">
+      <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.PopUpPulldownPadding}" />
+    </Style>
+
+    <Style Selector="^:hasicon">
+      <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.PopUpIconPadding}" />
+    </Style>
+    <Style Selector="^:hasicon /template/ Border#PART_IconFrame">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="^:hasicon /template/ Grid#PART_LeadingGrid">
+      <Setter Property="ColumnSpacing" Value="{DynamicResource Foreman.Size.ControlGlyphGap}" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+    </Style>
+    <Style Selector="^:open /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+
+    <Style Selector="^.gallery-hover /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+    <Style Selector="^.gallery-pressed /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

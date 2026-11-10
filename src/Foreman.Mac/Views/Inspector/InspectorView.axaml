@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             xmlns:composites="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+             xmlns:insp="using:Foreman.Mac.Views.Inspector"
+             x:Class="Foreman.Mac.Views.Inspector.InspectorView"
+             x:DataType="vm:InspectorViewModel">
+  <Border Width="{Binding Width}"
+          Background="{DynamicResource Foreman.Color.InspectorBackground}"
+          BoxShadow="{DynamicResource Foreman.Shadow.Sidebar}">
+    <Grid ColumnDefinitions="Auto,*">
+      <composites:SplitDivider Grid.Column="0" Name="WidthDivider" Theme="{StaticResource Kit.SplitDivider}"
+                                Anchor="Trailing" Value="{Binding Width, Mode=TwoWay}" />
+      <Grid Grid.Column="1" RowDefinitions="Auto,*">
+        <insp:IdentityRow Grid.Row="0" Name="IdentityRow" Padding="12,11" IsVisible="{Binding HasNode}"
+                BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="Auto,10,*">
+            <Border Grid.Column="0" Width="32" Height="32" CornerRadius="7"
+                    Background="{DynamicResource Foreman.Color.ControlBackground}"
+                    BorderBrush="{DynamicResource Foreman.Color.BorderStrong}" BorderThickness="1"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Image Name="IdentityIcon" Width="17" Height="17" />
+            </Border>
+            <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
+              <TextBlock Name="IdentityName" Theme="{StaticResource Kit.Text}" Classes="headline"
+                         TextTrimming="CharacterEllipsis" />
+              <TextBlock Name="IdentitySubtitle" Theme="{StaticResource Kit.Text}" Classes="caption tertiary"
+                         TextTrimming="CharacterEllipsis" />
+              <StackPanel Name="QualityRow" Orientation="Horizontal" Spacing="4" IsVisible="False" Margin="0,4,0,0">
+                <ctrl:PopUp Name="QualityMiniSelect" Theme="{StaticResource Kit.PopUp}" HorizontalAlignment="Left" />
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+        </insp:IdentityRow>
+
+        <ScrollViewer Grid.Row="1" Name="InspectorScroller">
+          <ContentControl Name="SegmentHost" IsVisible="{Binding HasNode}" />
+        </ScrollViewer>
+        <composites:StatePanel Grid.Row="1" Name="EmptyState" Theme="{StaticResource Kit.StatePanel}"
+                                Shape="Empty" Headline="No node selected"
+                                Sentence="Select a node on the canvas to edit its recipe, building and modules."
+                                IsVisible="{Binding !HasNode}" />
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

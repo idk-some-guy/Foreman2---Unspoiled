@@ -1,0 +1,96 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.ToolbarItem" TargetType="kit:ToolbarItem">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ToolbarItemHeight}" />
+    <Setter Property="MinWidth" Value="{DynamicResource Foreman.Size.ToolbarItemWidth}" />
+    <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.ToolbarItemPadding}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}">
+          <Panel>
+            <Border x:Name="PART_HoverFill"
+                    Opacity="0"
+                    IsHitTestVisible="False"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    Transitions="{x:Static m:Motion.ToolbarItemHoverTransitions}" />
+            <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Margin="{TemplateBinding Padding}">
+              <Viewbox Width="{DynamicResource Foreman.Size.Glyph17}"
+                       Height="{DynamicResource Foreman.Size.Glyph17}"
+                       Stretch="Uniform"
+                       StretchDirection="Both">
+                <Path Theme="{StaticResource Kit.Glyph}"
+                      Classes="size17"
+                      Data="{TemplateBinding Glyph}"
+                      Stroke="{TemplateBinding Foreground}" />
+              </Viewbox>
+              <TextBlock x:Name="PART_Label"
+                         Text="{TemplateBinding Label}"
+                         Foreground="{TemplateBinding Foreground}"
+                         FontSize="{DynamicResource Foreman.Type.Legacy.ToolbarItem.Label.FontSize}"
+                         FontWeight="{DynamicResource Foreman.Type.Legacy.ToolbarItem.Label.FontWeight}" />
+            </StackPanel>
+          </Panel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:on /template/ Border#PART_HoverFill">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentSoft}" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^:on">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Accent}" />
+    </Style>
+    <Style Selector="^:pointerover /template/ Border#PART_HoverFill">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#PART_HoverFill">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^:pressed">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+
+    <Style Selector="^.icon-only">
+      <Setter Property="MinWidth" Value="{DynamicResource Foreman.Size.ToolbarItemIconOnlyWidth}" />
+    </Style>
+    <Style Selector="^.icon-only /template/ TextBlock#PART_Label">
+      <Setter Property="Opacity" Value="0" />
+    </Style>
+
+    <Style Selector="^.gallery-hover /template/ Border#PART_HoverFill">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^.gallery-hover">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    </Style>
+    <Style Selector="^.gallery-pressed /template/ Border#PART_HoverFill">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^.gallery-pressed">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

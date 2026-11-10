@@ -15,6 +15,7 @@ namespace Foreman.Mac {
         public static AppBuilder BuildAvaloniaApp() =>
             AppBuilder.Configure<App>()
                 .UsePlatformDetect()
+                .With(new MacOSPlatformOptions { DisableDefaultApplicationMenuItems = true })
                 .WithInterFont()
                 .LogToTrace();
     }

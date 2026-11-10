@@ -1,0 +1,53 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.ProgressBar" TargetType="kit:ProgressBar">
+    <Setter Property="Width" Value="{DynamicResource Foreman.Size.ProgressBarWidth}" />
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ProgressBarHeight}" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border Background="{DynamicResource Foreman.Color.BorderStrong}"
+                  CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                  ClipToBounds="True">
+            <Border x:Name="PART_Fill"
+                    Background="{DynamicResource Foreman.Color.Accent}"
+                    CornerRadius="{DynamicResource Foreman.Radius.Pill}"
+                    HorizontalAlignment="Left" />
+          </Border>
+          <!-- Avalonia's ProgressBar requires and sizes PART_Indicator itself, which would snap the eased fill; it stays undrawn. -->
+          <Border x:Name="PART_Indicator" IsVisible="False" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:indeterminate.animating:not(.reduce-motion) /template/ Border#PART_Fill">
+      <Style.Animations>
+        <Animation IterationCount="Infinite" PlaybackDirection="Alternate" Easing="{x:Static m:Motion.IndeterminateProgressEasing}" Duration="{x:Static m:Motion.IndeterminateProgressDuration}">
+          <KeyFrame Cue="0%">
+            <Setter Property="TranslateTransform.X" Value="0" />
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="TranslateTransform.X" Value="{Binding TravelDistance, RelativeSource={RelativeSource TemplatedParent}}" />
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+    <Style Selector="^:indeterminate.animating.reduce-motion /template/ Border#PART_Fill">
+      <Style.Animations>
+        <Animation IterationCount="Infinite" PlaybackDirection="Alternate" Easing="{x:Static m:Motion.IndeterminateProgressEasing}" Duration="{x:Static m:Motion.IndeterminateProgressDuration}">
+          <KeyFrame Cue="0%">
+            <Setter Property="Opacity" Value="0.5" />
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="Opacity" Value="1" />
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

@@ -1,0 +1,101 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.Button" TargetType="Button">
+    <Setter Property="Height" Value="{DynamicResource Foreman.Size.ControlHeightRegular}" />
+    <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.ButtonPadding}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Control}" />
+    <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.BorderStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Callout.FontSize}" />
+    <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.Callout.Emphasized.FontWeight}" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="Transitions" Value="{x:Static m:Motion.ButtonTransitions}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                             HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                             VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+    <Style Selector="^:pressed">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+
+    <Style Selector="^.primary">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.Accent}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextOnAccent}" />
+      <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.EmphasizedBody.FontWeight}" />
+    </Style>
+    <Style Selector="^.primary:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentHover}" />
+    </Style>
+    <Style Selector="^.primary:pressed">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentPressed}" />
+    </Style>
+
+    <Style Selector="^.destructive">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.Error}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextOnAccent}" />
+      <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.EmphasizedBody.FontWeight}" />
+    </Style>
+    <Style Selector="^.destructive:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ErrorHover}" />
+    </Style>
+    <Style Selector="^.destructive:pressed">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ErrorPressed}" />
+    </Style>
+
+    <Style Selector="^.plain">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.AccentText}" />
+      <Setter Property="Padding" Value="6,0" />
+    </Style>
+    <Style Selector="^.plain:pointerover, ^.plain:pressed">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="^.gallery-hover">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundHover}" />
+    </Style>
+    <Style Selector="^.gallery-pressed">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ControlBackgroundPressed}" />
+    </Style>
+    <Style Selector="^.primary.gallery-hover">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentHover}" />
+    </Style>
+    <Style Selector="^.primary.gallery-pressed">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.AccentPressed}" />
+    </Style>
+    <Style Selector="^.destructive.gallery-hover">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ErrorHover}" />
+    </Style>
+    <Style Selector="^.destructive.gallery-pressed">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.ErrorPressed}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

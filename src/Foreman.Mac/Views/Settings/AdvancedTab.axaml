@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Foreman.Mac.ViewModels"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+             x:Class="Foreman.Mac.Views.Settings.AdvancedTab"
+             x:DataType="vm:SettingsViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" AllowAutoHide="True">
+    <StackPanel Margin="20,18,20,20">
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Calculations">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Extra productivity"
+                     Note="Applies the extra productivity bonus to every building, not only to miners.">
+          <ctrl:Switch Name="ShowProductivityBonusOnAllSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding ShowProductivityBonusOnAllChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
+
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Data">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Unavailable objects"
+                     Note="Loads objects the preset marks as unavailable, which helps when checking a preset and clutters normal planning.">
+          <ctrl:Switch Name="ShowUnavailablesSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding ShowUnavailablesChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Barreling recipes"
+                     Note="Loads the barreling and crating recipes that are left out by default.">
+          <ctrl:Switch Name="LoadBarrelingSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding LoadBarrelingChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
+
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Solver" TrailingGap="0">
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Low-priority multiplier"
+                     Note="Sets how strongly the solver avoids low-priority recipes; raising it by 1 makes that ten times stronger.">
+          <ctrl:Stepper Name="LowPriorityPowerStepper" Theme="{StaticResource Kit.Stepper}"
+                        Minimum="1" Maximum="6" Increment="0.2" Decimals="1"
+                        Value="{Binding LowPriorityPowerValue, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Maximize output nodes"
+                     Note="Lets output nodes take as much as the rest of the graph can supply.">
+          <ctrl:Switch Name="PullConsumerNodesSwitch" Theme="{StaticResource Kit.Switch}"
+                       IsChecked="{Binding PullConsumerNodesChecked, Mode=TwoWay}" />
+        </kit:FormRow>
+        <kit:FormRow Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Output pull strength"
+                     Note="Sets how hard output nodes pull; raising it by 1 makes the pull ten times stronger.">
+          <ctrl:Stepper Name="PullConsumerNodesPowerStepper" Theme="{StaticResource Kit.Stepper}"
+                        Minimum="0" Maximum="5" Increment="0.1" Decimals="1"
+                        IsEnabled="{Binding PullConsumerNodesChecked}"
+                        Value="{Binding PullConsumerNodesPowerValue, Mode=TwoWay}" />
+        </kit:FormRow>
+      </kit:FormGroup>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

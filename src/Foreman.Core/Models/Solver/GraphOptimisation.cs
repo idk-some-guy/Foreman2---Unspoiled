@@ -8,29 +8,52 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 
 
 namespace Foreman {
     public partial class ProductionGraph {
         private int updateCounter;
-        public void OptimizeGraphNodeValues() {
-            foreach (var nodeGroup in GetConnectedComponents(false))
-                OptimiseNodeGroup(nodeGroup);
 
+        public IReadOnlyList<SolveFailure> LastSolveFailures { get; internal set; } = [];
+        public event EventHandler? SolveStarted;
+        public event EventHandler<SolveEndedEventArgs>? SolveEnded;
+
+        public SynchronizationContext? SolveContext { get; set; }
+        public GraphSolveScheduler Solver { get; }
+
+        internal Func<ILpSolver> LpSolverFactory { get; set; } = () => HighsSolver.Create();
+
+        internal void RaiseSolveStarted() => SolveStarted?.Invoke(this, EventArgs.Empty);
+        internal void RaiseSolveEnded(SolveEndKind kind, IReadOnlyList<SolveFailure> failures) => SolveEnded?.Invoke(this, new SolveEndedEventArgs(kind, failures));
+
+        public void SolveNow() => Solver.SolveNow();
+
+        public void OptimizeGraphNodeValues() {
+            SolveNow();
             Debug.WriteLine("UPDATE #" + updateCounter++);
         }
 
-        private void OptimiseNodeGroup(IEnumerable<BaseNode> nodeGroup) {
+        internal List<HashSet<BaseNode>> DirtyComponents() => GetConnectedComponents(false);
+
+        internal SolveGroup BuildSolveGroup(IEnumerable<BaseNode> nodeGroup) {
+            List<BaseNode> nodes = [.. nodeGroup];
             double minRatio = 0.1;
-            foreach (RecipeNode node in nodeGroup.Where(n => n is RecipeNode))
+            foreach (RecipeNode node in nodes.Where(n => n is RecipeNode))
                 minRatio = Math.Min(minRatio, node.GetMinOutputRatio());
 
-            var solver = new ProductionSolver(PullOutputNodes, Math.Pow(10, PullOutputNodesPower), minRatio, Math.Pow(10, LowPriorityPower));
+            var solver = new ProductionSolver(PullOutputNodes, Math.Pow(10, PullOutputNodesPower), minRatio, Math.Pow(10, Math.Min(LowPriorityPower, 6)), LpSolverFactory());
 
-            foreach (BaseNode node in nodeGroup)
+            foreach (BaseNode node in nodes)
                 node.AddConstraints(solver);
 
-            var solution = solver.Solve();
+            return new SolveGroup(solver, nodes);
+        }
+
+        internal static SolveFailure? ApplyGroupResult(SolveGroup group) {
+            ProductionSolver solver = group.Solver;
+            List<BaseNode> nodes = group.Nodes;
+            var solution = group.Solved ? solver.BuildSolution() : null;
 
 #if VERBOSEDEBUG
         Debug.WriteLine(solver.ToString());
@@ -43,14 +66,30 @@ namespace Foreman {
                 //ErrorLogging.LogLine(solver.ToString(CultureInfo.InvariantCulture));
                 //Console.WriteLine(solver.ToString(CultureInfo.InvariantCulture));
                 ErrorLogging.LogLine("Solver failed to find a solution for a connected node group");
+
+                foreach (BaseNode node in nodes)
+                    node.MarkSolveStale();
+                return new SolveFailure([.. nodes.Select(n => n.NodeID)], !group.Solved ? SolveFailureReason.Unknown : solver.LastStatus switch {
+                    LpSolveStatus.Infeasible => SolveFailureReason.Infeasible,
+                    LpSolveStatus.Unbounded => SolveFailureReason.Unbounded,
+                    _ => SolveFailureReason.Unknown,
+                });
             }
 
-            foreach (BaseNode node in nodeGroup) {
-                node.SetSolvedRate(solution?.ActualRate(node) ?? 0);
+            foreach (BaseNode node in nodes) {
+                node.SolveState = NodeSolveState.Current;
+                node.SetSolvedRate(solution.ActualRate(node));
                 foreach (NodeLink link in node.OutputLinks)
-                    link.ThroughputPerSec = solution?.Throughput(link) ?? 0;
+                    link.ThroughputPerSec = solution.Throughput(link);
             }
+            return null;
         }
+    }
+
+    internal sealed class SolveGroup(ProductionSolver solver, List<BaseNode> nodes) {
+        public ProductionSolver Solver { get; } = solver;
+        public List<BaseNode> Nodes { get; } = nodes;
+        public bool Solved { get; set; }
     }
 
     // Using partial classes here to group all the constraints related code into this file so it's

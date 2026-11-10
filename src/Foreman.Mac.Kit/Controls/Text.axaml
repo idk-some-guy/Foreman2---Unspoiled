@@ -1,0 +1,38 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls">
+
+  <ControlTheme x:Key="Kit.Text" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.Text}" />
+    <Style Selector="^.title">
+      <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.LargeTitle.FontSize}" />
+      <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.LargeTitle.FontWeight}" />
+    </Style>
+    <Style Selector="^.headline">
+      <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.EmphasizedBody.FontSize}" />
+      <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.EmphasizedBody.FontWeight}" />
+    </Style>
+    <Style Selector="^.body">
+      <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Body.FontSize}" />
+      <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.Body.FontWeight}" />
+    </Style>
+    <Style Selector="^.callout">
+      <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Callout.FontSize}" />
+      <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.Callout.FontWeight}" />
+    </Style>
+    <Style Selector="^.caption">
+      <Setter Property="FontSize" Value="{DynamicResource Foreman.Type.Caption.FontSize}" />
+      <Setter Property="FontWeight" Value="{DynamicResource Foreman.Type.Caption.FontWeight}" />
+    </Style>
+    <Style Selector="^.secondary">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    </Style>
+    <Style Selector="^.middle-ellipsis">
+      <Setter Property="TextTrimming" Value="{x:Static kit:MiddleTrimming.Instance}" />
+    </Style>
+    <Style Selector="^.tertiary">
+      <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextTertiary}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

@@ -7,9 +7,6 @@ using System.Drawing;
 namespace Foreman.Mac.Canvas {
     //Ports Controls/GraphicsStuff.cs: rounded-rect fill/stroke (GraphicsPath's 4-arc construction collapses
     //to SKCanvas.DrawRoundRect), the shrink-to-fit DrawText loop, and the number-formatting helpers.
-    //BuildingQuantityToText moved here from Elements/GraphElement.cs (its only home upstream) since it's a
-    //plain formatting helper with no element-tree dependency, and this task doesn't port GraphElement's
-    //subclasses that call it yet.
     public enum TextHorizontalAlign { Near, Center }
     public enum TextVerticalAlign { Near, Center, Far }
 
@@ -192,21 +189,6 @@ namespace Foreman.Mac.Canvas {
             canvas.DrawRoundRect(new SKRect(x, y, x + width, y + height), radius, radius, brush);
         }
 
-        public static void FillRoundRectTLFlag(SKCanvas canvas, float x, float y, float width, float height, float radius, SKPaint brush) {
-            float left = x;
-            float top = y;
-            float bottom = y + height;
-            float right = x + width;
-
-            using var path = new SKPath();
-            path.ArcTo(new SKRect(left, top, left + 2 * radius, top + 2 * radius), 180f, 90f, forceMoveTo: true);
-            path.LineTo(right, top);
-            path.LineTo(left, bottom);
-            path.Close();
-
-            canvas.DrawPath(path, brush);
-        }
-
         //Approximates GDI+'s AdjustableArrowCap/LineCap.ArrowAnchor line-end arrows, neither of which Skia
         //has a built-in equivalent for (reference §7): a filled triangle at the tip, oriented along the
         //tangentAnchor->tip direction, sized as multiples of the pen width (matching AdjustableArrowCap's
@@ -261,16 +243,6 @@ namespace Foreman.Mac.Canvas {
                 : Math.Abs(value) >= 1000
                 ? (value / 1000).ToString("0.##", DisplayCulture.Format) + " K" + unit
                 : value.ToString("0.##", DisplayCulture.Format) + " " + unit;
-        }
-
-        public static string BuildingQuantityToText(double quantity, bool roundAssemblerCount) {
-            if (quantity >= 10000)
-                return quantity.ToString("0.##e0", DisplayCulture.Format);
-            if (roundAssemblerCount)
-                return Math.Ceiling(quantity).ToString("0", DisplayCulture.Format);
-            if (quantity >= 0.1)
-                return quantity.ToString("0.#", DisplayCulture.Format);
-            return quantity != 0 ? "<0.1" : "0";
         }
     }
 }

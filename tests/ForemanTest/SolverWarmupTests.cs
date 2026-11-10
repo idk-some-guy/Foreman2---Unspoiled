@@ -37,7 +37,15 @@ namespace ForemanTest {
 
             // A cold solve still has to work after warmup - the warmup is a discard-the-result
             // throwaway, not a replacement for the real solver instance a solve creates.
-            Assert.IsNotNull(GoogleSolver.Create());
+            var solver = HighsSolver.Create();
+            _ = solver.MakeNumVar(0.0, 1.0);
+            solver.SetMinimization();
+            Assert.AreEqual(LpSolveStatus.Optimal, solver.Solve());
+        }
+
+        [TestMethod]
+        public void WarmupSolve_RunsARealSolveThroughHighs_ReturnsOptimal() {
+            Assert.AreEqual(LpSolveStatus.Optimal, SolverWarmup.WarmupSolve());
         }
     }
 }

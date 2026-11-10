@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:p="using:Foreman"
+             xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             x:Class="Foreman.Mac.Views.Settings.PresetsTab">
+  <UserControl.Resources>
+    <kit:StatePanel x:Key="PresetsLoadingPanel" Theme="{StaticResource Kit.StatePanel}" Shape="Loading" ForceCompact="True"
+                    VerticalAlignment="Top" Sentence="Reading this preset’s mods." />
+    <Border x:Key="PresetLoadWarning" Background="{DynamicResource Foreman.Color.WarningSoft}" VerticalAlignment="Top"
+            CornerRadius="{DynamicResource Foreman.Radius.Control}" Padding="6,8">
+      <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource Foreman.Space.Space2}">
+        <Viewbox Grid.Column="0" Width="{DynamicResource Foreman.Size.Glyph16}" Height="{DynamicResource Foreman.Size.Glyph16}"
+                 Stretch="Uniform" VerticalAlignment="Top">
+          <Path Theme="{StaticResource Kit.Glyph}" Data="{StaticResource Kit.Glyph.Alert.16}"
+                Stroke="{DynamicResource Foreman.Color.Warning}" Width="16" Height="16" Stretch="None" />
+        </Viewbox>
+        <TextBlock Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="callout" TextWrapping="Wrap" />
+        <Button Grid.Row="1" Grid.Column="1" Theme="{StaticResource Kit.Button}" Content="Retry"
+                HorizontalAlignment="Left" Margin="0,6,0,0" />
+      </Grid>
+    </Border>
+  </UserControl.Resources>
+  <Grid Margin="20,18,20,20">
+    <kit:FormGroup Name="PresetsGroup" Theme="{StaticResource Kit.FormGroup}" IsBoxed="True" Title="Presets" TrailingGap="0"
+                   VerticalAlignment="Stretch">
+      <kit:FormGroup.ItemsPanel>
+        <ItemsPanelTemplate>
+          <Panel />
+        </ItemsPanelTemplate>
+      </kit:FormGroup.ItemsPanel>
+      <Grid RowDefinitions="Auto,*,Auto" RowSpacing="{DynamicResource Foreman.Space.Space2}">
+        <kit:FormRow Grid.Row="0" Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Current preset"
+                     Note="Graphs use the mods, recipes and buildings in this preset.">
+          <TextBlock Name="CurrentPresetLabel" Theme="{StaticResource Kit.Text}" Classes="body" FontWeight="Bold"
+                     Background="Transparent" TextTrimming="CharacterEllipsis" />
+        </kit:FormRow>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" RowDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource Foreman.Space.Space3}">
+          <TextBlock Name="PresetListLabel" Grid.Row="0" Grid.Column="0" Theme="{StaticResource Kit.Text}" Classes="callout"
+                     Foreground="{DynamicResource Foreman.Color.Text}" Margin="0,0,0,4" Text="Other presets" />
+          <TextBlock Name="ModListLabel" Grid.Row="0" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="callout"
+                     Foreground="{DynamicResource Foreman.Color.Text}" Margin="0,0,0,4" Text="Mods in preset" />
+          <ListBox Name="PresetListBox" Grid.Row="1" Grid.Column="0" Theme="{StaticResource Kit.List}" SelectionMode="Single"
+                   AutomationProperties.Name="Other presets" AutomationProperties.LabeledBy="{Binding #PresetListLabel}"
+                   AutomationProperties.HelpText="Double-click a preset to make it the current one.">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="p:Preset">
+                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+            <ListBox.ContextMenu>
+              <ContextMenu>
+                <MenuItem Name="SelectPresetMenuItem" Header="Use Preset" />
+                <MenuItem Name="DeletePresetMenuItem" Header="Delete Preset" />
+              </ContextMenu>
+            </ListBox.ContextMenu>
+          </ListBox>
+          <Panel Grid.Row="1" Grid.Column="1">
+            <ListBox Name="ModSelectionBox" Theme="{StaticResource Kit.List}" SelectionMode="Single"
+                     AutomationProperties.Name="Mods in preset" AutomationProperties.LabeledBy="{Binding #ModListLabel}"
+                     AutomationProperties.HelpText="Shows the selected preset’s mods, or the current preset’s." />
+            <Border Name="ModsStateHost" Background="{DynamicResource Foreman.Color.WellBackground}"
+                    BorderBrush="{DynamicResource Foreman.Color.Border}" BorderThickness="1"
+                    CornerRadius="{DynamicResource Foreman.Radius.Control}" Padding="{DynamicResource Foreman.Thickness.ListFramePadding}"
+                    MinHeight="{Binding #ModSelectionBox.MinHeight}" IsVisible="False" />
+          </Panel>
+          <TextBlock Grid.Row="2" Grid.Column="0" Theme="{StaticResource Kit.Text}" Classes="caption"
+                     Foreground="{DynamicResource Foreman.Color.TextTertiary}" TextWrapping="Wrap" Margin="0,3,0,0"
+                     Text="Double-click a preset to make it the current one." />
+          <TextBlock Grid.Row="2" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="caption"
+                     Foreground="{DynamicResource Foreman.Color.TextTertiary}" TextWrapping="Wrap" Margin="0,3,0,0"
+                     Text="Shows the selected preset’s mods, or the current preset’s." />
+        </Grid>
+
+        <StackPanel Grid.Row="2">
+          <kit:ButtonRow Name="PresetButtonRow" Theme="{StaticResource Kit.ButtonRow}" HorizontalAlignment="Left"
+                         AutomationProperties.HelpText="Reads a Factorio install and stores it as a new preset.">
+            <Button Name="ImportPresetButton" Theme="{StaticResource Kit.Button}" Content="Import From Factorio…" />
+            <Button Name="ComparePresetsButton" Theme="{StaticResource Kit.Button}" Content="Compare Presets…"
+                    ToolTip.ShowOnDisabled="True" />
+          </kit:ButtonRow>
+          <TextBlock Theme="{StaticResource Kit.Text}" Classes="caption" Foreground="{DynamicResource Foreman.Color.TextTertiary}"
+                     TextWrapping="Wrap" Margin="0,3,0,0" Text="Reads a Factorio install and stores it as a new preset." />
+        </StackPanel>
+      </Grid>
+    </kit:FormGroup>
+  </Grid>
+</UserControl>

@@ -1,0 +1,6 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Foreman.Mac.Views.Sheets.RenameGraphSheet">
+  <TextBox Name="NameInput" Theme="{StaticResource Kit.TextField}" HorizontalAlignment="Stretch"
+           AutomationProperties.Name="Name" />
+</UserControl>

@@ -1,4 +1,6 @@
 ﻿using Foreman.DataCaching.DataTypes;
+using Foreman.DataCaching.Storage;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,6 +10,13 @@ using System.Threading.Tasks;
 
 namespace Foreman.DataCaching {
     public static class PresetProcessor {
+        private static string? defaultUserDataDirectoryOverride;
+
+        internal static void SetDefaultUserDataDirectoryOverride(string? path) => defaultUserDataDirectoryOverride = path;
+
+        internal static string ResolveUserDataDirectory(string? userDataDirectoryOverride = null) =>
+            userDataDirectoryOverride ?? defaultUserDataDirectoryOverride ?? AppPaths.UserDataDirectory;
+
         //File-location policy (docs/upstream-divergences.md): a preset is read from the user's writable
         //Presets directory when it exists there, falling back to the bundle-shipped one otherwise - the user
         //copy wins on a name collision (its content, not just its name), since that's what Task 7's import
@@ -22,7 +31,7 @@ namespace Foreman.DataCaching {
 
         //The write/delete target for a user-owned preset - never the bundle-shipped copy.
         internal static string GetUserPresetPath(string presetName, string extension, string? userPresetsDirectoryOverride = null) =>
-            Path.Combine(userPresetsDirectoryOverride ?? AppPaths.UserPresetsDirectory, presetName + extension);
+            Path.Combine(userPresetsDirectoryOverride ?? Path.Combine(ResolveUserDataDirectory(), "Presets"), presetName + extension);
 
         public static PresetInfo ReadPresetInfo(Preset preset) {
             var mods = new Dictionary<string, string>();
@@ -46,15 +55,65 @@ namespace Foreman.DataCaching {
         }
 
         //The two directory overrides are the same test-only seam GetPresetPath already takes; every
-        //production call site omits them.
         public static JsonObject PrepPreset(Preset preset, string? userPresetsDirectoryOverride = null, string? bundlePresetsDirectoryOverride = null) {
-            string presetPath = GetPresetPath(preset.Name, ".pjson", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
-            string presetCustomPath = GetPresetPath(preset.Name, ".json", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+            using ForemanDbContext db = OpenDb(userPresetsDirectoryOverride);
 
-            JsonObject jsonData = PresetJson.ParseObject(Utf8File.ReadAllText(presetPath));
-            if (File.Exists(presetCustomPath))
-                PresetJson.MergePresetOverlay(jsonData, PresetJson.ParseObject(Utf8File.ReadAllText(presetCustomPath)));
+            (string pjsonText, string? overlayText) = ReadOrImportPreset(db, preset.Name, userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+
+            string presetCustomPath = GetPresetPath(preset.Name, ".json", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+            string? currentOverlayText = File.Exists(presetCustomPath) ? Utf8File.ReadAllText(presetCustomPath) : null;
+            if (currentOverlayText is not null && currentOverlayText != overlayText) {
+                PresetStore.Import(db, preset.Name, pjsonText, currentOverlayText);
+                overlayText = currentOverlayText;
+            }
+
+            JsonObject jsonData = PresetJson.ParseObject(pjsonText);
+            if (overlayText is not null)
+                PresetJson.MergePresetOverlay(jsonData, PresetJson.ParseObject(overlayText));
             return jsonData;
+        }
+
+        internal static IReadOnlyList<(string Name, int Tint, byte[] PngBytes)> GetPresetIconEntries(Preset preset, string? userPresetsDirectoryOverride = null) {
+            using ForemanDbContext db = OpenDb(userPresetsDirectoryOverride);
+            return [.. IconStore.ReadPresetIcons(db, preset.Name)];
+        }
+
+        private static ForemanDbContext OpenDb(string? userPresetsDirectoryOverride) =>
+            ForemanDbContext.Open(StoragePaths.DbPath(ResolveUserDataDirectory(userPresetsDirectoryOverride)));
+
+        private static (string PJsonText, string? OverlayText) ReadOrImportPreset(
+                ForemanDbContext db, string presetName, string? userPresetsDirectoryOverride, string? bundlePresetsDirectoryOverride) {
+            bool presetDataCached = db.Presets.Any(row => row.PresetName == presetName);
+            bool iconsCached = db.PresetIcons.Any(row => row.PresetName == presetName);
+
+            if (!presetDataCached) {
+                string presetPath = GetPresetPath(presetName, ".pjson", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+                string presetCustomPath = GetPresetPath(presetName, ".json", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+
+                string pjsonText = Utf8File.ReadAllText(presetPath);
+                string? overlayText = File.Exists(presetCustomPath) ? Utf8File.ReadAllText(presetCustomPath) : null;
+
+                try {
+                    PresetStore.Import(db, presetName, pjsonText, overlayText);
+                } catch (DbUpdateException) {
+                    db.ChangeTracker.Clear();
+                }
+            }
+
+            if (!iconsCached) {
+                string datPath = GetPresetPath(presetName, ".dat", userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
+                if (File.Exists(datPath)) {
+                    try {
+                        IconStore.ImportFoic(db, presetName, datPath);
+                    } catch (DbUpdateException) {
+                        db.ChangeTracker.Clear();
+                        if (!db.PresetIcons.Any(row => row.PresetName == presetName))
+                            IconStore.ImportFoic(db, presetName, datPath);
+                    }
+                }
+            }
+
+            return PresetStore.Read(db, presetName);
         }
 
         //this preset comparer loads a 'light' version of the preset - basically loading the items and entities as strings only (no data), and only the minimal info for recipes (name, ingredients + amounts, products + amounts)

@@ -44,7 +44,6 @@ namespace Foreman.Mac.UiTests.Canvas {
         private const int GridColumns = 40;
         private const int CellSpacing = 400;
         private const int WarmupFrames = 2;
-        private const int MeasuredFrames = 5;
 
         private static readonly SemaphoreSlim CacheGate = new(1, 1);
         private static DataCache? sharedCache;
@@ -139,15 +138,17 @@ namespace Foreman.Mac.UiTests.Canvas {
             return Convert.ToHexString(hash);
         }
 
-        private static TimeSpan TimePaint(GraphViewer viewer, SKSurface surface, bool fullGraph = false) {
-            for (int i = 0; i < WarmupFrames; i++)
-                viewer.Paint(surface.Canvas, fullGraph);
+        private static int CountDrawOperations(GraphViewer viewer, bool fullGraph = false) {
+            for (int i = 0; i < WarmupFrames; i++) {
+                using var warmup = new SKPictureRecorder();
+                viewer.Paint(warmup.BeginRecording(new SKRect(0, 0, Width, Height)), fullGraph);
+                using SKPicture discarded = warmup.EndRecording();
+            }
 
-            var stopwatch = Stopwatch.StartNew();
-            for (int i = 0; i < MeasuredFrames; i++)
-                viewer.Paint(surface.Canvas, fullGraph);
-            stopwatch.Stop();
-            return stopwatch.Elapsed / MeasuredFrames;
+            using var recorder = new SKPictureRecorder();
+            viewer.Paint(recorder.BeginRecording(new SKRect(0, 0, Width, Height)), fullGraph);
+            using SKPicture picture = recorder.EndRecording();
+            return picture.ApproximateOperationCount;
         }
 
         //---- (a) NodeCountForSimpleView's exact dispatch: visibleElements > threshold, not >= ----
@@ -184,46 +185,42 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.NotEqual(atThreshold, belowThreshold);
         }
 
-        //---- (b) LOD/style timing (relative sanity only - absolutes go in task-4-report.md) ----
-
         [AvaloniaFact]
-        public async Task WideViewportPaint_IconsOnlyAndSimple_CheaperThanRegular() {
+        public async Task WideViewportPaint_IconsOnlyAndSimple_IssueFewerDrawOperationsThanRegular() {
             GraphViewer viewer = await GetLargeGraphViewerAsync();
             SetViewport(viewer, 0.25f, GraphCenter(viewer));
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(Width, Height));
 
             viewer.IconsOnly = true;
-            TimeSpan iconsOnly = TimePaint(viewer, surface);
+            int iconsOnly = CountDrawOperations(viewer);
             viewer.IconsOnly = false;
 
             viewer.NodeCountForSimpleView = 0; //forces Simple regardless of how many nodes are visible
-            TimeSpan simple = TimePaint(viewer, surface);
+            int simple = CountDrawOperations(viewer);
 
             viewer.NodeCountForSimpleView = int.MaxValue; //forces Regular
-            TimeSpan regular = TimePaint(viewer, surface);
+            int regular = CountDrawOperations(viewer);
 
-            Assert.True(iconsOnly < regular, $"IconsOnly ({iconsOnly.TotalMilliseconds:F3}ms) should be cheaper than Regular ({regular.TotalMilliseconds:F3}ms).");
-            Assert.True(simple < regular, $"Simple ({simple.TotalMilliseconds:F3}ms) should be cheaper than Regular ({regular.TotalMilliseconds:F3}ms).");
+            Assert.True(iconsOnly < regular, $"IconsOnly ({iconsOnly} operations) should issue fewer than Regular ({regular}).");
+            Assert.True(simple < regular, $"Simple ({simple} operations) should issue fewer than Regular ({regular}).");
         }
 
         [AvaloniaFact]
-        public async Task CulledPaint_SmallViewport_CheaperThanFullGraphPaint() {
+        public async Task CulledPaint_SmallViewport_IssuesFewerDrawOperationsThanFullGraphPaint() {
             GraphViewer viewer = await GetLargeGraphViewerAsync();
-            using SKSurface surface = SKSurface.Create(new SKImageInfo(Width, Height));
 
             //A handful of nodes near the graph's middle, at a normal (non-zoomed-out) scale - culling
             //should drop everything else from the visibility pass before it ever reaches the style dispatch.
             int midIndex = RecipeNodeCount / 2;
             var smallAreaCenter = new Point((midIndex % GridColumns) * CellSpacing, (midIndex / GridColumns) * CellSpacing);
             SetViewport(viewer, 1f, smallAreaCenter);
-            TimeSpan culled = TimePaint(viewer, surface, fullGraph: false);
+            int culled = CountDrawOperations(viewer, fullGraph: false);
 
             //fullGraph:true ignores the viewport entirely (Paint uses Graph.Bounds as the visibility zone -
             //GraphViewer.cs:411) and forces PrintStyle, so every node in the graph draws at full detail.
-            TimeSpan fullGraphPaint = TimePaint(viewer, surface, fullGraph: true);
+            int fullGraphPaint = CountDrawOperations(viewer, fullGraph: true);
 
             Assert.True(culled < fullGraphPaint,
-                $"Culled small-viewport paint ({culled.TotalMilliseconds:F3}ms) should be far cheaper than an uncalled fullGraph paint ({fullGraphPaint.TotalMilliseconds:F3}ms).");
+                $"Culled small-viewport paint ({culled} operations) should issue far fewer than an uncalled fullGraph paint ({fullGraphPaint}).");
         }
 
         //---- (c) one solve at scale (absolute recorded in task-4-report.md, no timing assertion here) ----

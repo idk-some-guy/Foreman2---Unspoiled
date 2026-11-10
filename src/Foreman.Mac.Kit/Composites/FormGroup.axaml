@@ -1,0 +1,43 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Composites"
+                    xmlns:conv="using:Avalonia.Data.Converters">
+
+  <ControlTheme x:Key="Kit.FormGroup" TargetType="kit:FormGroup">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Spacing="{DynamicResource Foreman.Space.Space2}" />
+      </ItemsPanelTemplate>
+    </Setter>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="PART_Frame">
+          <DockPanel x:Name="PART_Stack" VerticalSpacing="{DynamicResource Foreman.Space.Space2}">
+            <TextBlock x:Name="PART_Title"
+                       DockPanel.Dock="Top"
+                       Theme="{StaticResource Kit.Text}"
+                       Text="{TemplateBinding Title}"
+                       FontSize="{DynamicResource Foreman.Type.SectionHeader.FontSize}"
+                       FontWeight="{DynamicResource Foreman.Type.SectionHeader.FontWeight}"
+                       LetterSpacing="0"
+                       Foreground="{DynamicResource Foreman.Color.TextSecondary}"
+                       IsVisible="{TemplateBinding Title, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}" />
+            <ContentPresenter x:Name="PART_StateHost" DockPanel.Dock="Top" IsVisible="False" />
+            <ItemsPresenter x:Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+          </DockPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:boxed /template/ Border#PART_Frame">
+      <Setter Property="Background" Value="{DynamicResource Foreman.Color.WellBackground}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Foreman.Color.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource Foreman.Radius.Card}" />
+      <Setter Property="Padding" Value="{DynamicResource Foreman.Thickness.GroupBoxPadding}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>
