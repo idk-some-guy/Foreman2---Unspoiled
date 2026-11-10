@@ -151,6 +151,36 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void DefaultRoleButton_IsMarkedIsDefault_AndReturnInvokesItOnce() {
+            using var fixture = new KitFixture();
+            Button other = Btn("Other", ButtonRowRole.Other);
+            Button cancel = Btn("Cancel", ButtonRowRole.Cancel);
+            Button save = Btn("Save", ButtonRowRole.Default);
+            Layout(300, other, cancel, save);
+
+            Assert.True(save.IsDefault);
+            Assert.False(other.IsDefault);
+            Assert.False(cancel.IsDefault);
+
+            int hits = 0;
+            save.Click += (_, _) => hits++;
+            fixture.StateOf(save).KeyDown(Key.Enter);
+
+            Assert.Equal(1, hits);
+        }
+
+        [AvaloniaFact]
+        public void CancelFallbackDefault_IsMarkedIsDefault() {
+            using var fixture = new KitFixture();
+            Button discard = Btn("Discard", ButtonRowRole.Destructive);
+            Button cancel = Btn("Cancel", ButtonRowRole.Cancel);
+            Layout(300, discard, cancel);
+
+            Assert.True(cancel.IsDefault);
+            Assert.False(discard.IsDefault);
+        }
+
+        [AvaloniaFact]
         public void OneButtonRow_ReturnAndEscapeBothFireIt() {
             using var fixture = new KitFixture();
             Button done = Btn("Done", ButtonRowRole.Default);

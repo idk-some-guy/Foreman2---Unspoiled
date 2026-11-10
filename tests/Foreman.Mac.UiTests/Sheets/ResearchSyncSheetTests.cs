@@ -541,19 +541,26 @@ namespace Foreman.Mac.UiTests.Sheets {
             rig.AddTyped("iron-gear-wheel");
             string headline = "", text = "";
             string[] labels = [];
+            bool clearIsDefault = false, keepIsDefault = true, cancelIsDefault = true;
             ResearchSyncSheet sheet = rig.Sheet((_, _) => Ok(AfterInfo()));
             sheet.FirstSyncStub = notice => {
                 headline = notice.HeadlineText;
                 text = notice.InformativeText;
                 labels = [(string)notice.KeepButtonControl.Content!, (string)notice.CancelButtonControl.Content!, (string)notice.ClearButtonControl.Content!];
+                clearIsDefault = notice.ClearButtonControl.IsDefault;
+                keepIsDefault = notice.KeepButtonControl.IsDefault;
+                cancelIsDefault = notice.CancelButtonControl.IsDefault;
                 return Task.FromResult(FirstSyncChoice.Keep);
             };
 
             await sheet.RunAsync().WaitAsync(Timeout);
 
             Assert.Equal("One node already has extra productivity typed in.", headline);
-            Assert.Equal("Clear the typed value so it isn’t counted twice, or keep it as an extra on top of research.\n\nIron gear wheel", text);
+            Assert.Equal("Research from the save now adds productivity by itself. Clear the typed value so it isn’t counted twice, or keep it as an extra on top of research.\n\nIron gear wheel", text);
             Assert.Equal(["Keep It", "Cancel", "Clear It"], labels);
+            Assert.True(clearIsDefault);
+            Assert.False(keepIsDefault);
+            Assert.False(cancelIsDefault);
         }
 
         [AvaloniaFact]

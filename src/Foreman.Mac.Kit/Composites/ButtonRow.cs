@@ -35,19 +35,15 @@ namespace Foreman.Mac.Kit.Composites {
             IsCenteredProperty.Changed.AddClassHandler<ButtonRow>((r, _) => r.PseudoClasses.Set(":centered", r.IsCentered));
         }
 
-        public ButtonRow() => AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+        public ButtonRow() {
+            AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+            if (Items is INotifyCollectionChanged incc)
+                incc.CollectionChanged += OnItemsChanged;
+        }
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
             base.OnAttachedToVisualTree(e);
-            if (Items is INotifyCollectionChanged incc)
-                incc.CollectionChanged += OnItemsChanged;
             ApplyRoles();
-        }
-
-        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) {
-            base.OnDetachedFromVisualTree(e);
-            if (Items is INotifyCollectionChanged incc)
-                incc.CollectionChanged -= OnItemsChanged;
         }
 
         private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e) => ApplyRoles();
@@ -68,6 +64,10 @@ namespace Foreman.Mac.Kit.Composites {
                 def.Classes.Set("primary", true);
             else if (destructive is not null && cancel is not null)
                 cancel.Classes.Set("primary", true);
+
+            Button? effective = EffectiveDefault();
+            foreach (Button b in buttons)
+                b.IsDefault = ReferenceEquals(b, effective);
         }
 
         private static Button? Find(Button[] buttons, ButtonRowRole role) =>

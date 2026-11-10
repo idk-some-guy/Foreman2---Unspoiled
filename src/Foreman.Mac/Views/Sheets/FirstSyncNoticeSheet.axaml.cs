@@ -29,7 +29,7 @@ namespace Foreman.Mac.Views.Sheets {
                 : ResearchText.CountWords(nodeNames.Count, true) + " nodes already have extra productivity typed in.";
             frame.Headline = Title;
             frame.InformativeText = single
-                ? "Clear the typed value so it isn’t counted twice, or keep it as an extra on top of research."
+                ? "Research from the save now adds productivity by itself. Clear the typed value so it isn’t counted twice, or keep it as an extra on top of research."
                 : "Research from the save now adds productivity by itself. Clear the typed values so it isn’t counted twice, or keep them as extras on top of research.";
             if (nodeNames.Count > 0)
                 frame.InformativeText += "\n\n" + SaveModComparison.NameList(nodeNames);
