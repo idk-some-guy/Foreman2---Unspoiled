@@ -79,7 +79,7 @@ namespace Foreman.Mac.Views.Research {
 
             Table = new ListBox { Name = "RecipesTable", Theme = KitTheme("Kit.List"), SelectionMode = SelectionMode.Single, IsTextSearchEnabled = false };
             AutomationProperties.SetName(Table, "Recipe productivity table");
-            KeyboardNavigation.SetTabNavigation(Table, KeyboardNavigationMode.Continue);
+            KeyboardNavigation.SetTabNavigation(Table, KeyboardNavigationMode.Once);
             Table.AddHandler(KeyDownEvent, OnTableKeyDown, RoutingStrategies.Tunnel);
 
             (EmptyPanel, emptyAddButton) = NewPanel(StatePanelShape.Empty, "No recipe productivity", "A sync lists the recipes research has made more productive. You can also add one by hand.", "Add Recipe…", () => OpenPopover(emptyAddButton!));
@@ -363,6 +363,26 @@ namespace Foreman.Mac.Views.Research {
                 box.SelectAll();
         }
 
+        private bool MoveWithinRow(Visual? source, bool backward) {
+            if (source?.FindAncestorOfType<ListBoxItem>(includeSelf: true) is not { } item || !rowsByItem.TryGetValue(item, out ResearchRecipeRow? row))
+                return false;
+            bool onItem = ReferenceEquals(source, item);
+            bool onRevert = source.FindAncestorOfType<RevertButton>(includeSelf: true) is not null;
+            bool revertStop = !row.Revert.IsReserved;
+            if (backward) {
+                if (onRevert)
+                    FocusStepper(row, selectAll: false);
+                else if (!onItem)
+                    item.Focus(NavigationMethod.Tab);
+                return onRevert || !onItem;
+            }
+            if (onItem)
+                FocusStepper(row, selectAll: false);
+            else if (!onRevert && revertStop)
+                row.Revert.Focus(NavigationMethod.Tab);
+            return onItem || (!onRevert && revertStop);
+        }
+
         private void FocusFirstRow() {
             if (shown.Count == 0)
                 return;
@@ -371,6 +391,10 @@ namespace Foreman.Mac.Views.Research {
         }
 
         private void OnTableKeyDown(object? sender, KeyEventArgs e) {
+            if (e.Key == Key.Tab && (e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift) && MoveWithinRow(e.Source as Visual, e.KeyModifiers == KeyModifiers.Shift)) {
+                e.Handled = true;
+                return;
+            }
             bool commandBackspace = e.Key == Key.Back && e.KeyModifiers == KeyModifiers.Meta;
             bool delete = e.Key == Key.Delete && e.KeyModifiers == KeyModifiers.None && e.Source is not TextBox;
             if (!commandBackspace && !delete)

@@ -72,8 +72,11 @@ namespace Foreman.Mac.UiTests.Views.Research {
             Assert.Equal(272, popover.Frame.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_Panel").Bounds.Width);
             Assert.Equal("Find a recipe", popover.Search.PlaceholderText);
             Assert.Equal(8, popover.ShownNames.Count);
+
+            popover.Search.Text = "steel";
+            Assert.NotEmpty(popover.ShownNames);
             Assert.DoesNotContain("steel-plate", popover.ShownNames);
-            Assert.DoesNotContain("plastic-bar", popover.ShownNames);
+            Assert.All(popover.ShownNames, n => Assert.Contains("steel", n));
 
             popover.Search.Text = "gear";
             Assert.Equal(["iron-gear-wheel"], popover.ShownNames);
@@ -402,16 +405,66 @@ namespace Foreman.Mac.UiTests.Views.Research {
         }
 
         [AvaloniaFact]
-        public void Recipes_TabsIntoTheStepper_AndArrowsMoveRows() {
+        public void Recipes_ArrowsMoveRows() {
             using var rig = new Rig();
             ResearchWindow window = OpenRecipes(rig, ThreeRecipes());
-
-            Assert.Equal(Avalonia.Input.KeyboardNavigationMode.Continue, KeyboardNavigation.GetTabNavigation(window.RecipesView.Table));
 
             window.RecipesView.Select("plastic-bar");
             window.RecipesView.Row("plastic-bar").Item.Focus();
             CanvasKeys.KeyDownOn(window.RecipesView.Row("plastic-bar").Item, Key.Down);
             Assert.Equal("processing-unit", window.RecipesView.SelectedName);
         }
+
+        [AvaloniaFact]
+        public void Recipes_Tab_EntersTheTableOnce_ThenTheSelectedRowsStepper_ThenLeaves() {
+            using var rig = new Rig();
+            ResearchWindow window = OpenRecipes(rig, ThreeRecipes());
+            ResearchRecipesView view = window.RecipesView;
+            string[] names = [.. view.ShownNames];
+            Assert.Equal(3, names.Length);
+
+            view.FocusFilter();
+            Assert.True(view.Filter.IsKeyboardFocusWithin);
+            TabFromFocus(window);
+            Assert.True(view.AddButton.IsKeyboardFocusWithin);
+            TabFromFocus(window);
+            Assert.True(view.Table.IsKeyboardFocusWithin);
+            Assert.Same(view.Row(names[0]).Item, window.FocusManager!.GetFocusedElement());
+
+            CanvasKeys.KeyDownOn(view.Row(names[0]).Item, Key.Down);
+            Assert.Equal(names[1], view.SelectedName);
+            TabFromFocus(window);
+            Assert.True(ValueBox(view.Row(names[1]).Stepper).IsFocused);
+
+            TabFromFocus(window);
+            Assert.False(view.Table.IsKeyboardFocusWithin, $"Tab should leave the table, reached {window.FocusManager!.GetFocusedElement()}");
+            Assert.True(window.SegmentControl.IsKeyboardFocusWithin);
+        }
+
+        [AvaloniaFact]
+        public void Recipes_Tab_FromAnEditedRowsStepper_ReachesItsRevert_ThenLeaves() {
+            using var rig = new Rig();
+            ResearchWindow window = OpenRecipes(rig, ThreeRecipes());
+            ResearchRecipesView view = window.RecipesView;
+            string name = view.ShownNames[1];
+            Type(view.Row(name).Stepper, "55");
+            Assert.False(view.Row(name).Revert.IsReserved);
+
+            view.Select(name);
+            view.Row(name).Item.Focus(NavigationMethod.Tab);
+            TabFromFocus(window);
+            Assert.True(ValueBox(view.Row(name).Stepper).IsFocused);
+            TabFromFocus(window);
+            Assert.True(view.Row(name).Revert.IsKeyboardFocusWithin, $"reached {window.FocusManager!.GetFocusedElement()}");
+            TabFromFocus(window);
+            Assert.False(view.Table.IsKeyboardFocusWithin);
+            Assert.True(window.SegmentControl.IsKeyboardFocusWithin);
+
+            CanvasKeys.KeyDownOn((Control)window.FocusManager!.GetFocusedElement()!, Key.Tab, KeyModifiers.Shift);
+            Assert.True(view.Table.IsKeyboardFocusWithin);
+        }
+
+        private static void TabFromFocus(ResearchWindow window) =>
+            CanvasKeys.KeyDownOn((Control)window.FocusManager!.GetFocusedElement()!, Key.Tab);
     }
 }
