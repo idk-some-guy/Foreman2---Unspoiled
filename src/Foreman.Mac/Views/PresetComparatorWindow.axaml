@@ -51,10 +51,20 @@
                   BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}">
             <DockPanel>
               <v:ComparatorColumnHeader x:Name="PART_ColumnHeader" DockPanel.Dock="Top" Height="20" Margin="10,0" ColumnDefinitions="*,*,72">
-                <TextBlock x:Name="PART_LeftHeader" Theme="{StaticResource Kit.Text}" Classes="caption secondary group-heading"
-                           AutomationProperties.ControlTypeOverride="HeaderItem" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                <TextBlock x:Name="PART_RightHeader" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="caption secondary group-heading"
-                           AutomationProperties.ControlTypeOverride="HeaderItem" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <v:ComparatorHeaderText x:Name="PART_LeftHeader" Theme="{StaticResource Kit.Text}" Classes="caption secondary group-heading"
+                             AutomationProperties.ControlTypeOverride="HeaderItem" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <TextBlock x:Name="PART_LeftVersion" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="caption secondary"
+                             FontFeatures="tnum" Margin="8,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center"
+                             AutomationProperties.AccessibilityView="Raw" />
+                </Grid>
+                <Grid Grid.Column="1" ColumnDefinitions="*,Auto">
+                  <v:ComparatorHeaderText x:Name="PART_RightHeader" Theme="{StaticResource Kit.Text}" Classes="caption secondary group-heading"
+                             AutomationProperties.ControlTypeOverride="HeaderItem" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <TextBlock x:Name="PART_RightVersion" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="caption secondary"
+                             FontFeatures="tnum" Margin="8,0,12,0" HorizontalAlignment="Right" VerticalAlignment="Center"
+                             AutomationProperties.AccessibilityView="Raw" />
+                </Grid>
                 <TextBlock Grid.Column="2" Theme="{StaticResource Kit.Text}" Classes="caption secondary group-heading" Text="Match"
                            AutomationProperties.ControlTypeOverride="HeaderItem" VerticalAlignment="Center" />
               </v:ComparatorColumnHeader>

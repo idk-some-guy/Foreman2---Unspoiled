@@ -232,7 +232,7 @@ namespace Foreman.Mac.UiTests {
         public async Task BootAsync_WelcomeOn_ShowsOnlyTheWelcomeWindow_LoadsThePresetInline_NoDataLoadWindow() {
             var settingsService = new SettingsService(NewTempHome());
             AppSettings settings = settingsService.Load();
-            var cache = new DataCache(filterRecipes: true);
+            var cache = CacheVersions.Create(PresetExportFormat.CurrentVersion, filterRecipes: true);
             var gate = new TaskCompletionSource<DataCache?>();
             WelcomeLauncher.CacheLoaderOverride = _ => gate.Task;
             bool dataLoadUsed = false;
@@ -276,7 +276,7 @@ namespace Foreman.Mac.UiTests {
         public async Task BootAsync_WelcomeOn_PresetFailure_InlineErrorWithTryAgain_NoUseDefaultPreset() {
             var settingsService = new SettingsService(NewTempHome());
             bool fail = true;
-            var cache = new DataCache(filterRecipes: true);
+            var cache = CacheVersions.Create(PresetExportFormat.CurrentVersion, filterRecipes: true);
             WelcomeLauncher.CacheLoaderOverride = _ => Task.FromResult<DataCache?>(fail ? null : cache);
             bool dataLoadUsed = false;
             bool fatalExit = false;

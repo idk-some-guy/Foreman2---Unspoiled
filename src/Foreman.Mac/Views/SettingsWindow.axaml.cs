@@ -135,6 +135,9 @@ namespace Foreman.Mac.Views {
             SelectTab(0);
 
             currentPresetLabel.Text = Options.SelectedPreset?.Name;
+            TextBlock currentVersion = presetsTab.CurrentPresetVersionTextControl;
+            PresetCaption.SetNameTarget(currentVersion, currentPresetLabel);
+            PresetCaption.SetPreset(currentVersion, Options.SelectedPreset);
 
             RefreshPresetList();
             RefreshModList();

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
@@ -52,6 +53,56 @@ namespace Foreman.DataCaching {
                 return new PresetInfo(mods, false, false);
             }
 
+        }
+
+        public static PresetHeader? ReadPresetHeader(Preset preset) {
+            string presetPath = GetPresetPath(preset.Name, ".pjson");
+            if (!File.Exists(presetPath))
+                return null;
+
+            try {
+                ReadOnlySpan<byte> bytes = File.ReadAllBytes(presetPath);
+                if (bytes.StartsWith("\uFEFF"u8))
+                    bytes = bytes[3..];
+                var reader = new Utf8JsonReader(bytes);
+                int? exportVersion = null;
+                string? gameVersion = null, baseVersion = null, modName = null, modVersion = null, topLevel = null;
+                while (reader.Read()) {
+                    switch (reader.TokenType) {
+                        case JsonTokenType.PropertyName when reader.CurrentDepth == 1:
+                            topLevel = reader.GetString();
+                            break;
+                        case JsonTokenType.Number when reader.CurrentDepth == 1 && topLevel == PresetExportFormat.VersionPropertyName:
+                            exportVersion = reader.TryGetInt32(out int parsed) ? parsed
+                                : reader.TryGetInt64(out long wide) && wide >= int.MinValue && wide <= int.MaxValue ? (int)wide
+                                : reader.TryGetDouble(out double real) ? (int)real : null;
+                            break;
+                        case JsonTokenType.String when reader.CurrentDepth == 1 && topLevel == "game_version":
+                            gameVersion = reader.GetString();
+                            break;
+                        case JsonTokenType.StartObject when reader.CurrentDepth == 2 && topLevel == "mods":
+                            modName = modVersion = null;
+                            break;
+                        case JsonTokenType.PropertyName when reader.CurrentDepth == 3 && topLevel == "mods":
+                            string? key = reader.GetString();
+                            if (key is "name" or "version" && reader.Read() && reader.TokenType == JsonTokenType.String) {
+                                if (key == "name")
+                                    modName = reader.GetString();
+                                else
+                                    modVersion = reader.GetString();
+                            }
+                            break;
+                        case JsonTokenType.EndObject when reader.CurrentDepth == 2 && topLevel == "mods":
+                            if (modName == "base")
+                                baseVersion ??= modVersion;
+                            break;
+                    }
+                }
+                return new PresetHeader(FactorioGameVersion.FromPreset(gameVersion, baseVersion), (exportVersion ?? 0) < PresetExportFormat.CurrentVersion);
+            } catch (Exception ex) {
+                ErrorLogging.LogException(ex, string.Format(CultureInfo.InvariantCulture, "Failed to read preset header from {0}", presetPath));
+                return null;
+            }
         }
 
         //The two directory overrides are the same test-only seam GetPresetPath already takes; every

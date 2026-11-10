@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 using Foreman.DataCaching;
 using Foreman.DataCaching.Storage;
 using Foreman.Mac.Views;
@@ -256,7 +257,25 @@ namespace Foreman.Mac.Services {
             context.CacheLoaded = true;
             if (context.Window is { IsClosed: false } window)
                 window.PendingCache = cache;
+            Dispatcher.UIThread.Post(() => {
+                if (context.LoadGeneration != generation)
+                    return;
+                if (AlertOwnerFor(context) is { } owner)
+                    OutdatedPresetAlert.Present(owner, preset, cache, Warning);
+                else if (PresetExportFormat.IsOutdated(cache))
+                    context.PendingOutdatedAlert = (preset, cache);
+            }, DispatcherPriority.Background);
             return true;
+        }
+
+        private static Window? AlertOwnerFor(ShellContext context) =>
+            Current is { IsVisible: true } welcome ? welcome : context.Window is { IsClosed: false, ShowDeferred: false } main ? main : null;
+
+        internal static void PresentPending(ShellContext context) {
+            if (context.PendingOutdatedAlert is not var (preset, cache) || AlertOwnerFor(context) is not { } owner)
+                return;
+            context.PendingOutdatedAlert = null;
+            OutdatedPresetAlert.Present(owner, preset, cache, Warning);
         }
 
         internal static MainWindow EnsureWindow(ShellContext context, bool deferShow = false) {
@@ -265,6 +284,7 @@ namespace Foreman.Mac.Services {
 
             MainWindow window = ShellBootstrapper.CreateWindow(context, deferShow);
             context.Window = window;
+            PresentPending(context);
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 desktop.MainWindow = window;
             return window;

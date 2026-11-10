@@ -510,7 +510,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(AutomationControlType.Table, table.GetAutomationControlType());
             AutomationPeer header = table.GetChildren()[0];
             Assert.Equal(AutomationControlType.Header, header.GetAutomationControlType());
-            Assert.Equal(["Left preset", "Right preset", "Match"],
+            Assert.Equal(["Left preset, unknown version, made by an older version of Foreman", "Right preset, unknown version, made by an older version of Foreman", "Match"],
                 header.GetChildren().Where(p => p.GetAutomationControlType() == AutomationControlType.HeaderItem).Select(p => p.GetName()));
             ListBoxItem gone = window.LeftOnlyListControl.GetVisualDescendants().OfType<ListBoxItem>().Single(c => c.DataContext is ComparatorRow { Name: "Gone" });
             Assert.EndsWith("unavailable", ControlAutomationPeer.CreatePeerForElement(gone).GetName());

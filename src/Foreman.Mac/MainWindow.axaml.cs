@@ -912,6 +912,8 @@ namespace Foreman.Mac {
                 return;
             ShowDeferred = false;
             Show();
+            if (ShellContext is { } context)
+                WelcomeLauncher.PresentPending(context);
         }
 
         internal async Task OpenFjsonPathAsync(string path) {

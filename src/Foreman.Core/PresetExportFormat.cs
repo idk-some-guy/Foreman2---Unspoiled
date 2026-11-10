@@ -1,4 +1,5 @@
 ﻿using Foreman.DataCaching;
+using System.Globalization;
 
 namespace Foreman {
     /// <summary>
@@ -15,13 +16,15 @@ namespace Foreman {
 
         public static bool IsOutdated(DataCache? dc) => dc is null || dc.Version < CurrentVersion;
 
-        public static void ShowOutdatedWarningIfNeeded(DataCache? dc) {
-            if (!IsOutdated(dc))
-                return;
+        public const string OutdatedSentence = "To get the latest fixes, import it again from Factorio in Settings > Presets.";
 
-            ErrorLogging.LogLine(
-                "Your preset was exported with an older version of Foreman. " +
-                "We recommend you regenerate it in the Settings menu to ensure you benefit from our improvements and fixes.");
+        public static string? ShowOutdatedWarningIfNeeded(DataCache? dc) {
+            if (!IsOutdated(dc))
+                return null;
+
+            ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture,
+                "Preset \"{0}\" was made by an older version of Foreman. {1}", dc?.PresetName, OutdatedSentence));
+            return OutdatedSentence;
         }
     }
 }

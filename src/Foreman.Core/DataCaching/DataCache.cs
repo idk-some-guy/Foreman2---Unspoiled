@@ -139,12 +139,13 @@ namespace Foreman.DataCaching {
         }
 
         internal static FactorioGameVersion? ReadGameVersion(JsonObject jsonData) {
-            if (FactorioGameVersion.TryParse(PresetJson.GetString(jsonData, "game_version"), out FactorioGameVersion marked))
-                return marked;
+            string? baseVersion = null;
             foreach (JsonNode mod in PresetJson.EnumerateArray(jsonData, "mods"))
-                if (PresetJson.GetString(mod, "name") == "base" && FactorioGameVersion.TryParse(PresetJson.GetString(mod, "version"), out FactorioGameVersion based))
-                    return based;
-            return null;
+                if (PresetJson.GetString(mod, "name") == "base") {
+                    baseVersion = PresetJson.GetString(mod, "version");
+                    break;
+                }
+            return FactorioGameVersion.FromPreset(PresetJson.GetString(jsonData, "game_version"), baseVersion);
         }
 
         public void Clear() => DataCacheBootstrap.ClearLoadedData(_store);

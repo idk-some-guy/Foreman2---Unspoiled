@@ -72,6 +72,8 @@ namespace Foreman.Mac.Views {
         public DataCache? Result { get; private set; }
         public DataLoadOutcome Outcome { get; private set; }
         public Preset LoadedPreset => currentPreset;
+        internal bool PresentsOutdatedAlert { get; init; } = true;
+        internal Task? OutdatedAlertTask { get; private set; }
         public int Progress => currentPercent;
 
         internal TextBlock StageTextControl => stageText;
@@ -216,9 +218,13 @@ namespace Foreman.Mac.Views {
             Outcome = outcome;
             Result = cache;
             finishing = true;
+            Window? alertOwner = Owner as Window ?? (MainWindow.MostRecentlyOpened is { IsVisible: true, IsClosed: false } main ? main : null);
+            Preset loaded = currentPreset;
             finished.TrySetResult();
             if (!isClosed)
                 Close();
+            if (outcome == DataLoadOutcome.Loaded && cache is not null && PresentsOutdatedAlert)
+                Dispatcher.UIThread.Post(() => OutdatedAlertTask = OutdatedPresetAlert.Present(alertOwner, loaded, cache, showAlert), DispatcherPriority.Background);
         }
 
         private void RequestCancel() {

@@ -22,6 +22,12 @@ namespace Foreman {
             return true;
         }
 
+        public static FactorioGameVersion? FromPreset(string? gameVersion, string? baseModVersion) {
+            if (TryParse(gameVersion, out FactorioGameVersion marked))
+                return marked;
+            return TryParse(baseModVersion, out FactorioGameVersion based) ? based : null;
+        }
+
         public int CompareTo(FactorioGameVersion other) {
             int byMajor = Major.CompareTo(other.Major);
             if (byMajor != 0)

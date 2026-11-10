@@ -9,6 +9,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Each preset in Settings, the Welcome window and the Preset Comparator shows the Factorio version
+  it came from, and presets made by an older version of Foreman say so. After such a preset loads,
+  Foreman tells you to import it again from Factorio to get the latest fixes.
 - A graph library. Graphs live in Foreman's own database and save themselves two seconds after your
   last change, and again when you close the graph, open another one, quit or switch to another app.
   File ▸ Rename… and File ▸ Duplicate (⇧⌘S) work on the open graph, Open Recent lists the ten latest
