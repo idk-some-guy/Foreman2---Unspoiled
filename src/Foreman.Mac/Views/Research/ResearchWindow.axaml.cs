@@ -160,7 +160,7 @@ namespace Foreman.Mac.Views.Research {
             if (meta && e.Key == Key.W) {
                 Close();
                 e.Handled = true;
-            } else if (meta && !alt && e.Key is >= Key.D1 and <= Key.D3) {
+            } else if (meta && !alt && !e.KeyModifiers.HasFlag(KeyModifiers.Shift) && e.Key is >= Key.D1 and <= Key.D3) {
                 SelectSegment(e.Key - Key.D1);
                 e.Handled = true;
             } else if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && FocusManager?.GetFocusedElement() is not TextBox) {

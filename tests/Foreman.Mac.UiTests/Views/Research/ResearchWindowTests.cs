@@ -123,6 +123,8 @@ namespace Foreman.Mac.UiTests.Views.Research {
             Assert.Equal(0, window.SegmentControl.SelectedIndex);
             CanvasKeys.KeyDownOn(window, Key.D3, KeyModifiers.Meta);
             Assert.Equal(2, rig.Window.Settings!.ResearchSegment);
+            CanvasKeys.KeyDownOn(window, Key.D1, KeyModifiers.Meta | KeyModifiers.Shift);
+            Assert.Equal(2, window.SegmentControl.SelectedIndex);
 
             window.Close();
             Dispatcher.UIThread.RunJobs();
@@ -307,11 +309,26 @@ namespace Foreman.Mac.UiTests.Views.Research {
             Assert.Equal("Research view", AutomationProperties.GetName(window.SegmentControl));
             ResearchBonusRow mining = window.BonusRow(ResearchField.MiningProductivity);
             ResearchBonusRow lab = window.BonusRow(ResearchField.LabSpeed);
-            Control[] expected = [window.SegmentControl, window.SourceBar.ChooseButton, window.SourceBar.SyncButton, window.SourceBar.RevertAllButton,
+            Control[] expected = [window.SegmentControl, window.SourceBar.RevertAllButton, window.SourceBar.ChooseButton, window.SourceBar.SyncButton,
                 mining.Stepper, mining.Revert, window.RecipeProductivityRow.ShowRecipesButton, lab.Stepper];
 
             window.SegmentControl.Focus(NavigationMethod.Tab);
             Assert.True(expected[0].IsKeyboardFocusWithin);
+            for (int i = 1; i < expected.Length; i++) {
+                CanvasKeys.KeyDownOn((Control)window.FocusManager!.GetFocusedElement()!, Key.Tab);
+                Assert.True(expected[i].IsKeyboardFocusWithin, $"Tab {i} should reach {expected[i].GetType().Name}, reached {window.FocusManager.GetFocusedElement()}");
+            }
+        }
+
+        [AvaloniaFact]
+        public void ResearchWindow_Keyboard_TabSkipsHiddenRevertAll() {
+            using var rig = new Rig();
+            ResearchWindow window = rig.Open(Synced());
+            window.UpdateLayout();
+            Assert.False(window.SourceBar.RevertAllButton.IsVisible);
+
+            Control[] expected = [window.SegmentControl, window.SourceBar.ChooseButton, window.SourceBar.SyncButton];
+            window.SegmentControl.Focus(NavigationMethod.Tab);
             for (int i = 1; i < expected.Length; i++) {
                 CanvasKeys.KeyDownOn((Control)window.FocusManager!.GetFocusedElement()!, Key.Tab);
                 Assert.True(expected[i].IsKeyboardFocusWithin, $"Tab {i} should reach {expected[i].GetType().Name}, reached {window.FocusManager.GetFocusedElement()}");

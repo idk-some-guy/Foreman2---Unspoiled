@@ -372,6 +372,26 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal("14", peer.GetProvider<IValueProvider>()!.Value);
         }
 
+        [AvaloniaFact]
+        public void AutomationPeer_SpokenValue_TrimsTrailingZeros() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Minimum = 0;
+            stepper.Maximum = 50;
+            stepper.Decimals = 2;
+            stepper.Value = 2.5;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(stepper);
+            IValueProvider value = peer.GetProvider<IValueProvider>()!;
+            Assert.Equal("2.5", value.Value);
+            stepper.Value = 2;
+            Assert.Equal("2", value.Value);
+            stepper.ShowsPlusSign = true;
+            Assert.Equal("plus 2", value.Value);
+        }
+
         private static Stepper BorderWidth() {
             Stepper stepper = Themed();
             stepper.Minimum = 0;

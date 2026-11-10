@@ -1,3 +1,4 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -177,10 +178,10 @@ namespace Foreman.Mac.Views.Research {
             formRow.AddHandler(InputElement.KeyDownEvent, (object? _, KeyEventArgs e) => {
                 if (e.Key != Key.Back || e.KeyModifiers != KeyModifiers.Meta)
                     return;
-                e.Handled = true;
                 if (viewModel.State.IsHandEdited(field)) {
                     viewModel.Revert(field);
                     RaiseChanged();
+                    e.Handled = true;
                 }
             }, RoutingStrategies.Tunnel);
             return row;
@@ -250,6 +251,6 @@ namespace Foreman.Mac.Views.Research {
         }
 
         private static string Spoken(double value, bool isCount) =>
-            isCount ? "plus " + value.ToString("0.##", DisplayCulture.Format) : (value * 100).ToString("0.##", DisplayCulture.Format) + " percent";
+            isCount ? "plus " + value.ToString("0.##", CultureInfo.InvariantCulture) : (value * 100).ToString("0.##", CultureInfo.InvariantCulture) + " percent";
     }
 }

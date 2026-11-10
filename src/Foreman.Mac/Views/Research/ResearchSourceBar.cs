@@ -68,8 +68,8 @@ namespace Foreman.Mac.Views.Research {
             Grid.SetColumn(column, 1);
             Grid.SetColumn(buttons, 2);
             grid.Children.Add(box);
-            grid.Children.Add(buttons);
             grid.Children.Add(column);
+            grid.Children.Add(buttons);
             Child = grid;
         }
 

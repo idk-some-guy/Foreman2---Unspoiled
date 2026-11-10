@@ -145,8 +145,17 @@ namespace Foreman.Mac.UiTests.Views.Research {
             Assert.Equal(1.2, rig.Graph.Research.MiningProductivity);
 
             ResearchState before = rig.Graph.Research;
-            CanvasKeys.KeyDownOn(ValueBox(mining.Stepper), Key.Back, KeyModifiers.Meta);
+            var clean = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Back, KeyModifiers = KeyModifiers.Meta };
+            bool handledBeforeTextBox = true;
+            ValueBox(mining.Stepper).AddHandler(InputElement.KeyDownEvent, (object? _, KeyEventArgs e) => handledBeforeTextBox = e.Handled, RoutingStrategies.Tunnel);
+            ValueBox(mining.Stepper).RaiseEvent(clean);
             Assert.Same(before, rig.Graph.Research);
+            Assert.False(handledBeforeTextBox);
+
+            var edited = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Back, KeyModifiers = KeyModifiers.Meta };
+            Type(lab.Stepper, "50");
+            ValueBox(lab.Stepper).RaiseEvent(edited);
+            Assert.True(edited.Handled);
         }
 
         [AvaloniaFact]
