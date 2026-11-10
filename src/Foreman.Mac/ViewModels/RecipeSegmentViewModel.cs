@@ -6,6 +6,7 @@ using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Views;
+using Foreman.Mac.Views.Research;
 using Foreman.Models;
 using SkiaSharp;
 using System;
@@ -106,6 +107,7 @@ namespace Foreman.Mac.ViewModels {
 
         public bool ShowsNeighbours { get; private set; }
         public bool ShowsExtraProductivity { get; private set; }
+        public string? ExtraProductivityNote { get; private set; }
 
         public RecipeSegmentViewModel(IRecipeNodeViewModel node, GraphViewer viewer, DataCache cache, Action? requestRedraw = null) {
             this.node = node;
@@ -162,8 +164,15 @@ namespace Foreman.Mac.ViewModels {
             ShowsExtraProductivity = node.BaseRecipe is not { Recipe: IRecipe productivityRecipe }
                 || productivityRecipe.HasProductivityResearch
                 || node.SelectedAssembler.Assembler.EntityType == EntityType.Miner
-                || viewer.Graph.EnableExtraProductivityForNonMiners;
+                || viewer.Graph.EnableExtraProductivityForNonMiners
+                || node.HasResearchProductivity;
             OnPropertyChanged(nameof(ShowsExtraProductivity));
+
+            ExtraProductivityNote = !node.HasResearchProductivity ? null
+                : node.ProductivityAtRecipeLimit && node.MaxProductivityBonus > 0
+                    ? $"Research adds {ResearchText.Percent(node.ResearchProductivity)}. The total stops at the recipe\u2019s limit of {ResearchText.Percent(node.MaxProductivityBonus)}."
+                    : $"Research adds {ResearchText.Percent(node.ResearchProductivity)}. This value adds on top.";
+            OnPropertyChanged(nameof(ExtraProductivityNote));
 
             HasRecipeError = node.BaseRecipe.Recipe?.IsMissing == true;
             OnPropertyChanged(nameof(HasRecipeError));

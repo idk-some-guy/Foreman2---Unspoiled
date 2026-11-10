@@ -22,6 +22,9 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<string?> LabelProperty =
             AvaloniaProperty.Register<FormRow, string?>(nameof(Label));
 
+        public static readonly StyledProperty<string?> SpokenLabelProperty =
+            AvaloniaProperty.Register<FormRow, string?>(nameof(SpokenLabel));
+
         public static readonly StyledProperty<string?> NoteProperty =
             AvaloniaProperty.Register<FormRow, string?>(nameof(Note));
 
@@ -52,6 +55,11 @@ namespace Foreman.Mac.Kit.Composites {
         public string? Label {
             get => GetValue(LabelProperty);
             set => SetValue(LabelProperty, value);
+        }
+
+        public string? SpokenLabel {
+            get => GetValue(SpokenLabelProperty);
+            set => SetValue(SpokenLabelProperty, value);
         }
 
         public string? Note {
@@ -120,6 +128,7 @@ namespace Foreman.Mac.Kit.Composites {
             NoteProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyRowState(); r.ApplyAccessibility(); });
             ErrorProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyRowState(); r.ApplyAccessibility(); });
             LabelProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyAccessibility());
+            SpokenLabelProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyAccessibility());
             ContentProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyAccessibility(); r.WatchContent(); });
             LabelColumnProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyLabelColumnWidth());
             NoteIsValueProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
@@ -358,7 +367,7 @@ namespace Foreman.Mac.Kit.Composites {
         private void ApplyAccessibility() {
             if (Content is not Control contentControl)
                 return;
-            AutomationProperties.SetName(contentControl, Label);
+            AutomationProperties.SetName(contentControl, SpokenLabel ?? Label);
             AutomationProperties.SetHelpText(contentControl, !string.IsNullOrEmpty(Error) ? Error : Note);
         }
 
