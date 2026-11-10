@@ -130,6 +130,9 @@ namespace Foreman.Graph {
     public interface IPlantNodeViewModel : INodeViewModel {
         ItemQualityPair Seed { get; }
         IPlantProcess PlantProcess { get; }
+        AssemblerQualityPair? Tower { get; }
+        IReadOnlyList<ModuleQualityPair> TowerModules { get; }
+        double GetProductivityBonus();
     }
 
     public interface IProductionGraphEditor {

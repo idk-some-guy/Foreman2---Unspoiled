@@ -91,6 +91,7 @@ namespace Foreman.Models.Nodes {
 
         internal void TowerModulesAdd(ModuleQualityPair module) { towerModules.Add(module); }
         internal void TowerModulesRemoveAt(int index) { towerModules.RemoveAt(index); }
+        internal void TowerModulesReplaceAt(int index, ModuleQualityPair module) { towerModules[index] = module; }
         internal void TowerModulesClear() { towerModules.Clear(); }
 
         public override double GetConsumeRate(ItemQualityPair item) { return ActualRate; }
@@ -164,6 +165,20 @@ namespace Foreman.Models.Nodes {
 
         public void AddTowerModule(ModuleQualityPair module) {
             MyNode.TowerModulesAdd(module);
+            MyNode.UpdateState();
+            Mutated();
+        }
+
+        public void RemoveTowerModule(int index) {
+            if (index >= 0 && index < MyNode.TowerModules.Count)
+                MyNode.TowerModulesRemoveAt(index);
+            MyNode.UpdateState();
+            Mutated();
+        }
+
+        public void ReplaceTowerModule(int index, ModuleQualityPair module) {
+            if (index >= 0 && index < MyNode.TowerModules.Count)
+                MyNode.TowerModulesReplaceAt(index, module);
             MyNode.UpdateState();
             Mutated();
         }

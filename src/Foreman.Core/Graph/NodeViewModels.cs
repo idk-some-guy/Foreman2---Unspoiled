@@ -170,6 +170,9 @@ namespace Foreman.Graph {
         public override NodeType NodeType => NodeType.Plant;
         public ItemQualityPair Seed => _plantNode.Seed;
         public IPlantProcess PlantProcess => _plantNode.BasePlantProcess;
+        public AssemblerQualityPair? Tower => _plantNode.Tower;
+        public IReadOnlyList<ModuleQualityPair> TowerModules => _plantNode.TowerModules;
+        public double GetProductivityBonus() => _plantNode.GetProductivityBonus();
     }
 
     internal static class NodeViewModelFactory {

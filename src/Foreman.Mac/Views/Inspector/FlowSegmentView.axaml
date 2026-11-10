@@ -24,6 +24,50 @@
 
     <Border Classes="inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />
 
+    <kit:InspectorGroup Name="TowerGroup" Header="Tower" IsVisible="{Binding ShowsTower}" Theme="{StaticResource Kit.InspectorGroup}">
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+        <kit:FormRow Name="TowerRow" Theme="{StaticResource Kit.FormRow}" Label="Tower" LabelColumn="Inspector">
+          <Panel>
+            <kit:PickGrid Name="TowerChoiceGrid" Theme="{StaticResource Kit.PickGrid}" IsChoiceMode="True"
+                          NamesSlots="False" GroupLabel="Tower" />
+            <StackPanel Name="TowerValueLine" Orientation="Horizontal" Spacing="7" IsVisible="False">
+              <Image Name="TowerValueLineIcon" Width="18" Height="18" Stretch="Uniform" />
+              <TextBlock Name="TowerValueLineText"
+                         FontSize="{DynamicResource Foreman.Type.Body.FontSize}"
+                         FontWeight="{DynamicResource Foreman.Type.Body.FontWeight}"
+                         Foreground="{DynamicResource Foreman.Color.Text}" />
+            </StackPanel>
+            <ctrl:PopUp Name="TowerFallbackPopUp" Theme="{StaticResource Kit.PopUp}" IsVisible="False" />
+          </Panel>
+        </kit:FormRow>
+        <kit:FormRow Name="TowerQualityRow" Theme="{StaticResource Kit.FormRow}" Label="Quality" LabelColumn="Inspector"
+                     Note="New modules use this quality." IsVisible="{Binding ShowsTowerQuality}">
+          <Panel>
+            <ctrl:PopUp Name="TowerQualityPopUp" Theme="{StaticResource Kit.PopUp}" HorizontalAlignment="Left"
+                        AutomationProperties.Name="Tower quality" AutomationProperties.HelpText="New modules use this quality." />
+          </Panel>
+        </kit:FormRow>
+      </kit:FormGroup>
+    </kit:InspectorGroup>
+
+    <Border Classes="inspector-group-rule" Height="1" IsVisible="{Binding ShowsTower}"
+            Background="{DynamicResource Foreman.Color.Border}" />
+
+    <kit:InspectorGroup Name="TowerModulesGroup" Header="{Binding TowerModulesTitle}" IsVisible="{Binding ShowsTowerModules}" Theme="{StaticResource Kit.InspectorGroup}">
+      <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
+        <kit:FormRow Name="TowerModulesEquippedRow" Theme="{StaticResource Kit.FormRow}" Label="Equipped" LabelColumn="Inspector">
+          <kit:PickGrid Name="EquippedTowerGrid" Theme="{StaticResource Kit.PickGrid}" GroupLabel="Tower module slots" EmptyItemNoun="module" />
+        </kit:FormRow>
+        <kit:FormRow Name="TowerModuleOptionsRow" Theme="{StaticResource Kit.FormRow}" Label="Add" LabelColumn="Inspector"
+                     Note="{Binding TowerModuleOptionsNote}" IsVisible="{Binding HasTowerModuleOptions}">
+          <kit:PickGrid Name="TowerModuleOptionsGrid" Theme="{StaticResource Kit.PickGrid}" GroupLabel="Available tower modules" NamesSlots="False" EmptyItemNoun="module" />
+        </kit:FormRow>
+      </kit:FormGroup>
+    </kit:InspectorGroup>
+
+    <Border Classes="inspector-group-rule" Height="1" IsVisible="{Binding ShowsTowerModules}"
+            Background="{DynamicResource Foreman.Color.Border}" />
+
     <kit:InspectorGroup Header="Node" Theme="{StaticResource Kit.InspectorGroup}">
       <kit:FormGroup Theme="{StaticResource Kit.FormGroup}">
         <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Options" LabelColumn="Inspector">

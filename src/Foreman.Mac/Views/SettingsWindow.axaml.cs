@@ -536,7 +536,7 @@ namespace Foreman.Mac.Views {
         }
 
         private void LoadUnfilteredLists() {
-            LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(a => a.EntityType == EntityType.Assembler), unfilteredAssemblerList);
+            LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(PlantTowerRules.IsAssemblerListEntry), unfilteredAssemblerList);
             LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(a => a.EntityType is EntityType.Miner or EntityType.OffshorePump), unfilteredMinerList);
             LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(a => a.EntityType is EntityType.Boiler or EntityType.BurnerGenerator or EntityType.Generator or EntityType.Reactor), unfilteredPowerList);
             LoadUnfilteredList(Options.DCache.Beacons.Values, unfilteredBeaconList);

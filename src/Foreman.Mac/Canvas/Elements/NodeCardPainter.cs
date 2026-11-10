@@ -267,9 +267,18 @@ namespace Foreman.Mac.Canvas.Elements {
                 DrawText(canvas, new NodeText(NodeTextRole.Badge, badge.Text, new SKRect(x, box.Top, box.Right - tokens.Space15, box.Bottom), tokens.CanvasFontSize, tokens.CanvasEmphasizedWeight, text), 0, 0);
         }
 
-        internal static void DrawIcon(SKCanvas canvas, SKBitmap? icon, SKRect rect) {
-            if (icon is not null)
+        [ThreadStatic] private static SKPaint? threadIconPaint;
+
+        internal static void DrawIcon(SKCanvas canvas, SKBitmap? icon, SKRect rect, float opacity = 1) {
+            if (icon is null)
+                return;
+            if (opacity >= 1) {
                 canvas.DrawBitmap(icon, rect);
+                return;
+            }
+            SKPaint paint = threadIconPaint ??= new SKPaint();
+            paint.Color = SKColor.Empty.WithAlpha((byte)Math.Round(255 * Math.Clamp(opacity, 0, 1)));
+            canvas.DrawBitmap(icon, rect, paint);
         }
 
         internal static void DrawText(SKCanvas canvas, in NodeText text, float dx, float dy, string? content = null, float opacity = 1) {

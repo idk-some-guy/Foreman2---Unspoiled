@@ -29,8 +29,10 @@ namespace ForemanTest.support {
             return tower;
         }
 
-        public static ModulePrototype CreateTestModule(DataCache cache, ModuleEffects effects) {
-            var module = new ModulePrototype(cache, "§§test:module", "Test Module") {
+        public static ModulePrototype CreateTestModule(DataCache cache, ModuleEffects effects) => CreateTestModule(cache, "§§test:module", "Test Module", effects);
+
+        public static ModulePrototype CreateTestModule(DataCache cache, string name, string friendlyName, ModuleEffects effects) {
+            var module = new ModulePrototype(cache, name, friendlyName) {
                 ConsumptionBonus = effects.Consumption,
                 SpeedBonus = effects.Speed,
                 ProductivityBonus = effects.Productivity,

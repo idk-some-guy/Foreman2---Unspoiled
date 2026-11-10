@@ -685,5 +685,24 @@ namespace Foreman.Mac.UiTests.Views {
             TextBlock text = window.ComparisonTabStripControl.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == label);
             SheetFixture.Click(window, (Control)text.GetVisualParent()!);
         }
+
+        [AvaloniaFact]
+        public async Task Comparator_AssemblersTab_ListsSlottedTowerOnly() {
+            DataStore store = NewStore();
+            foreach (DataCache cache in new[] { store.Left, store.Right }) {
+                DataCacheStore cacheStore = StoreOf(cache);
+                cacheStore.Assemblers["plain"] = new AssemblerPrototype(cache, "plain", "Plain assembler", EntityType.Assembler, EnergySource.Electric) { Available = true };
+                cacheStore.Assemblers["vanilla-tower"] = new AssemblerPrototype(cache, "vanilla-tower", "Vanilla tower", EntityType.AgriculturalTower, EnergySource.Electric) { Available = true };
+                cacheStore.Assemblers["slotted-tower"] = new AssemblerPrototype(cache, "slotted-tower", "Slotted tower", EntityType.AgriculturalTower, EnergySource.Electric) { Available = true, ModuleSlots = 2 };
+            }
+
+            PresetComparatorWindow window = await ComparedAsync(store);
+            window.HideIdenticalCheckBoxControl.IsChecked = false;
+            window.ComparisonTabStripControl.SelectedIndex = 3;
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(["Plain assembler", "Slotted tower"],
+                window.BothListControl.ItemsSource!.Cast<ComparatorPairRow>().Select(r => r.Left.Name).Where(n => !n.StartsWith("§§", StringComparison.Ordinal)).Order());
+        }
     }
 }

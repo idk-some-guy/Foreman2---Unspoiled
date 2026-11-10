@@ -13,6 +13,7 @@ using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
+using Foreman.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -269,7 +270,7 @@ namespace Foreman.Mac.Views {
                 ProcessMods(leftCache.IncludedMods, rightCache.IncludedMods, unfilteredModTabObjects);
                 ProcessObjects(leftCache.Items, rightCache.Items, unfilteredItemTabObjects);
                 ProcessObjects(leftCache.Recipes, rightCache.Recipes, unfilteredRecipeTabObjects);
-                ProcessObjects(FilterAssemblers(leftCache, EntityType.Assembler), FilterAssemblers(rightCache, EntityType.Assembler), unfilteredAssemblerTabObjects);
+                ProcessObjects(FilterAssemblers(leftCache, PlantTowerRules.IsAssemblerListEntry), FilterAssemblers(rightCache, PlantTowerRules.IsAssemblerListEntry), unfilteredAssemblerTabObjects);
                 ProcessObjects(FilterAssemblers(leftCache, EntityType.Miner, EntityType.OffshorePump), FilterAssemblers(rightCache, EntityType.Miner, EntityType.OffshorePump), unfilteredMinerTabObjects);
                 ProcessObjects(FilterAssemblers(leftCache, EntityType.Boiler, EntityType.BurnerGenerator, EntityType.Generator, EntityType.Reactor), FilterAssemblers(rightCache, EntityType.Boiler, EntityType.BurnerGenerator, EntityType.Generator, EntityType.Reactor), unfilteredPowerTabObjects);
                 ProcessObjects(leftCache.Beacons.Values.ToDictionary(b => b.Name), rightCache.Beacons.Values.ToDictionary(b => b.Name), unfilteredBeaconTabObjects);
@@ -299,7 +300,10 @@ namespace Foreman.Mac.Views {
         }
 
         private static Dictionary<string, IAssembler>? FilterAssemblers(DataCache? cache, params EntityType[] types) =>
-            cache?.Assemblers.Values.Where(a => types.Contains(a.EntityType)).ToDictionary(a => a.Name);
+            FilterAssemblers(cache, a => types.Contains(a.EntityType));
+
+        private static Dictionary<string, IAssembler>? FilterAssemblers(DataCache? cache, Func<IAssembler, bool> keep) =>
+            cache?.Assemblers.Values.Where(keep).ToDictionary(a => a.Name);
 
         private Task<DataLoadResult> LoadCacheAsync(Preset preset) =>
             LoadCacheStub?.Invoke(preset) ?? RealLoadCacheAsync(preset);

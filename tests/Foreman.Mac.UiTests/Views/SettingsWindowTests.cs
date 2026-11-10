@@ -1437,5 +1437,19 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.True(vm.ErrorArrowsChecked);
             Assert.True(vm.FlagOUSupplyNodesChecked);
         }
+
+        [AvaloniaFact]
+        public void EnabledAssemblers_ListsSlottedTowerNotVanillaTower() {
+            var cache = new DataCache(filterRecipes: false);
+            var store = (Foreman.DataCaching.Loading.DataCacheStore)typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(cache)!;
+            store.Assemblers["plain"] = new AssemblerPrototype(cache, "plain", "Plain assembler", EntityType.Assembler, EnergySource.Electric) { Available = true };
+            store.Assemblers["vanilla-tower"] = new AssemblerPrototype(cache, "vanilla-tower", "Vanilla tower", EntityType.AgriculturalTower, EnergySource.Electric) { Available = true };
+            store.Assemblers["slotted-tower"] = new AssemblerPrototype(cache, "slotted-tower", "Slotted tower", EntityType.AgriculturalTower, EnergySource.Electric) { Available = true, ModuleSlots = 2 };
+
+            var window = NewEnabledObjectsWindow(cache);
+            window.EnabledObjectsTabControl.ShowUnavailablesFilterCheckBoxControl.IsChecked = true;
+
+            Assert.Equal(["Plain assembler", "Slotted tower"], window.ViewModel.AssemblerObjects.Select(i => i.Name).Order());
+        }
     }
 }
