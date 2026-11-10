@@ -114,7 +114,7 @@ namespace Foreman.Mac.UiTests {
             Preset? chosen = await window.ResolveChosenPresetAsync(document);
 
             Assert.NotNull(captured);
-            Assert.Equal(2, captured!.Count);
+            Assert.Equal(4, captured!.Count);
             Assert.Contains(captured, e => e.Preset.Name == VanillaPresetName);
             Assert.Contains(captured, e => e.Preset.Name == SpaceAgePresetName);
 
@@ -141,7 +141,7 @@ namespace Foreman.Mac.UiTests {
             await window.ResolveChosenPresetAsync(document);
 
             Assert.NotNull(captured);
-            Assert.Equal(2, captured!.Count);
+            Assert.Equal(4, captured!.Count);
             PresetErrorPackage vanillaErrors = captured.Single(e => e.Preset.Name == VanillaPresetName);
             Assert.Contains("totally-not-a-real-mod|1.0.0", vanillaErrors.MissingMods);
         }
