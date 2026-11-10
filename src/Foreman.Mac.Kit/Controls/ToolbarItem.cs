@@ -25,6 +25,9 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<string?> OverflowLabelProperty =
             AvaloniaProperty.Register<ToolbarItem, string?>(nameof(OverflowLabel));
 
+        public static readonly StyledProperty<string?> TooltipProperty =
+            AvaloniaProperty.Register<ToolbarItem, string?>(nameof(Tooltip));
+
         private TextBlock? label;
         private IDisposable? labelOpacitySub;
         private NotifyCollectionChangedEventHandler? classesChanged;
@@ -36,6 +39,7 @@ namespace Foreman.Mac.Kit.Controls {
             IsOnProperty.Changed.AddClassHandler<ToolbarItem>((item, e) => item.PseudoClasses.Set(":on", (bool)e.NewValue!));
             AutomationNameProperty.Changed.AddClassHandler<ToolbarItem>((item, _) => item.SyncAutomationName());
             LabelProperty.Changed.AddClassHandler<ToolbarItem>((item, _) => item.SyncAutomationName());
+            TooltipProperty.Changed.AddClassHandler<ToolbarItem>((item, _) => item.ApplyTooltip());
         }
 
         public Geometry? Glyph {
@@ -52,6 +56,13 @@ namespace Foreman.Mac.Kit.Controls {
             get => GetValue(OverflowLabelProperty);
             set => SetValue(OverflowLabelProperty, value);
         }
+
+        public string? Tooltip {
+            get => GetValue(TooltipProperty);
+            set => SetValue(TooltipProperty, value);
+        }
+
+        internal void ApplyTooltip() => ToolTip.SetTip(this, Tooltip ?? (Classes.Contains("icon-only") ? Label : null));
 
         public bool IsOn {
             get => GetValue(IsOnProperty);

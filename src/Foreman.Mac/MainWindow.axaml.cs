@@ -29,8 +29,10 @@ using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Mac.Views;
 using Foreman.Mac.Views.Inspector;
+using Foreman.Mac.Views.Research;
 using Foreman.Mac.Views.Sheets;
 using Foreman.Models;
+using Foreman.Models.Research;
 using Foreman.Serialization;
 using SkiaSharp;
 using System;
@@ -82,6 +84,9 @@ namespace Foreman.Mac {
         private readonly PopoverHost contentPopoverHost;
         private ToolbarItem viewOptionsItem = null!;
         private ToolbarItem saveItem = null!;
+        private ToolbarItem syncResearchItem = null!;
+        private NativeMenuItem syncResearchMenuItem = null!;
+        private NativeMenuItem syncResearchFromAnotherMenuItem = null!;
         private PopoverFrame viewOptionsPopover = null!;
         private PopUp minorGridlinesPopUp = null!;
         private PopUp majorGridlinesPopUp = null!;
@@ -109,6 +114,8 @@ namespace Foreman.Mac {
 
         internal SettingsWindow? CurrentSettingsWindow => settingsWindow;
         internal SettingsSession? CurrentSettingsSession => settingsSession;
+
+        internal ResearchSyncFlow ResearchSync { get; }
 
         private GraphSummaryWindow? graphSummaryWindow;
         internal GraphSummaryWindow? CurrentGraphSummaryWindow => graphSummaryWindow;
@@ -182,6 +189,8 @@ namespace Foreman.Mac {
             ZoomInCommand = new RelayCommand(MenuZoomIn);
             ZoomOutCommand = new RelayCommand(MenuZoomOut);
             ActualSizeCommand = new RelayCommand(MenuActualSize);
+            ResearchSync = new ResearchSyncFlow(() => GraphCanvas.Viewer.Graph, () => DataCache!, () => Settings) { Announce = Announce };
+            ResearchSync.RunningChanged += (_, _) => UpdateSyncResearchState();
             Commands = new ShellViewModel(
                 onNew: () => Async.Fire(NewGraphAsync(), nameof(NewGraphAsync)),
                 onLoad: () => Async.Fire(OpenGraphFileAsync(), nameof(OpenGraphFileAsync)),
@@ -194,7 +203,10 @@ namespace Foreman.Mac {
                 onAlignSelection: () => { GraphCanvas.ClosePanels(); GraphCanvas.AlignSelection(); GraphCanvas.RequestRedraw(); },
                 onSettings: () => ShowSettings(),
                 onGraphSummary: ShowGraphSummary,
-                canExecuteAlignSelection: () => GraphCanvas.Viewer.SelectedNodes.Count > 0);
+                onSyncResearch: () => SyncResearch(chooseAnother: false),
+                onSyncResearchFromAnotherSave: () => SyncResearch(chooseAnother: true),
+                canExecuteAlignSelection: () => GraphCanvas.Viewer.SelectedNodes.Count > 0,
+                canExecuteSyncResearch: () => isDocumentOpen && !ResearchSync.IsRunning);
             Inspector.AddRecipeCommand = Commands.AddRecipeCommand;
             Inspector.OpenPresetsRequested += (_, _) => ShowSettings(selectPresetsPane: true);
             Inspector.PickAnotherRecipeRequested += (_, node) =>
@@ -244,6 +256,7 @@ namespace Foreman.Mac {
             };
             GraphCanvas.ViewScaleChanged += (_, _) => ResyncZoomLabel();
             NativeMenu.SetMenu(this, BuildNativeMenu());
+            UpdateSyncResearchState();
             Opened += (_, _) => MostRecentlyOpened = this;
             if (Application.Current?.TryGetFeature<IActivatableLifetime>() is { } activatable) {
                 EventHandler<ActivatedEventArgs> flushOnResign = (_, _) => OnAppDeactivated();
@@ -288,12 +301,17 @@ namespace Foreman.Mac {
                     ToolbarButton("AlignSelectionButton", "Align", "Align", Commands.AlignSelectionCommand, automationName: "Align Selected"),
                 ],
             });
-            viewOptionsItem = ToolbarButton("ViewOptionsButton", "View", "View Options", ViewModel.ToggleViewOptionsCommand);
+            syncResearchItem = ToolbarButton("SyncResearchButton", "Sync", "Sync", Commands.SyncResearchCommand, automationName: "Sync Research", overflowLabel: "Sync Research");
+            toolbar.Groups.Add(new ToolbarGroup {
+                Role = ToolbarGroupRole.Research,
+                Items = [syncResearchItem],
+            });
+            viewOptionsItem = ToolbarButton("ViewOptionsButton", "View", "View Options", ViewModel.ToggleViewOptionsCommand, overflowLabel: "View Options");
             toolbar.Groups.Add(new ToolbarGroup {
                 Role = ToolbarGroupRole.ShareView,
                 Items = [
-                    ToolbarButton("ExportImageButton", "Export", "Export", Commands.ExportImageCommand, automationName: "Export Image", acceleratorKey: "⇧⌘E"),
-                    ToolbarButton("GraphSummaryButton", "Summary", "Summary", Commands.GraphSummaryCommand, automationName: "Graph Summary"),
+                    ToolbarButton("ExportImageButton", "Export", "Export", Commands.ExportImageCommand, automationName: "Export Image", acceleratorKey: "⇧⌘E", overflowLabel: "Export Image…"),
+                    ToolbarButton("GraphSummaryButton", "Summary", "Summary", Commands.GraphSummaryCommand, automationName: "Graph Summary", overflowLabel: "Graph Summary"),
                     viewOptionsItem,
                 ],
             });
@@ -375,8 +393,8 @@ namespace Foreman.Mac {
             contentPopoverHost.Surface.Children.Add(viewOptionsPopover);
         }
 
-        private static ToolbarItem ToolbarButton(string name, string glyphName, string label, IRelayCommand command, string? automationName = null, string? acceleratorKey = null) {
-            var item = new ToolbarItem { Name = name, Glyph = ToolbarGlyph(glyphName), Label = label, AutomationName = automationName, Command = command, IsEnabled = command.CanExecute(null) };
+        private static ToolbarItem ToolbarButton(string name, string glyphName, string label, IRelayCommand command, string? automationName = null, string? acceleratorKey = null, string? overflowLabel = null) {
+            var item = new ToolbarItem { Name = name, Glyph = ToolbarGlyph(glyphName), Label = label, OverflowLabel = overflowLabel, AutomationName = automationName, Command = command, IsEnabled = command.CanExecute(null) };
             if (acceleratorKey is not null)
                 AutomationProperties.SetAcceleratorKey(item, acceleratorKey);
             command.CanExecuteChanged += (_, _) => item.IsEnabled = command.CanExecute(null);
@@ -1214,6 +1232,7 @@ namespace Foreman.Mac {
         internal void ApplyLoadedGraphUiState(string name) {
             ViewModel.DocumentName = name;
             ViewModel.IsDirty = false;
+            UpdateSyncResearchState();
             ResyncZoomLabel();
             ResyncRateOptionsDropDown();
 
@@ -1240,6 +1259,7 @@ namespace Foreman.Mac {
                 loadingGraph = false;
             }
             ViewModel.IsDirty = false;
+            UpdateSyncResearchState();
             ViewModel.DocumentName = null;
             if (PendingCache is { } pending) {
                 PendingCache = null;
@@ -1311,7 +1331,31 @@ namespace Foreman.Mac {
             return new GraphSnapshot(json, GraphCanvas.Viewer.Graph.Nodes.Count(), GraphThumbnail.Capture(GraphCanvas.Viewer));
         }
 
+        private void SyncResearch(bool chooseAnother) {
+            if (DataCache is not null)
+                Async.Fire(ResearchSync.RunAsync(AlertHost(), chooseAnother), nameof(ResearchSyncFlow.RunAsync));
+        }
+
+        private void UpdateSyncResearchState() {
+            ResearchSource? source = GraphCanvas.Viewer.Graph.Research.Source;
+            bool enabled = isDocumentOpen && !ResearchSync.IsRunning;
+            syncResearchMenuItem.Header = source is null ? "Sync Research…" : "Sync Research";
+            syncResearchMenuItem.IsEnabled = enabled;
+            syncResearchFromAnotherMenuItem.IsEnabled = enabled;
+            if (source is null) {
+                syncResearchItem.Tooltip = "Sync research from a save (⌘R)";
+                AutomationProperties.SetHelpText(syncResearchItem, "Asks for a save, then syncs research from it.");
+            } else {
+                string name = Dialogs.MiddleTruncate(source.SaveName);
+                syncResearchItem.Tooltip = $"Sync research from “{name}” (⌘R)";
+                AutomationProperties.SetHelpText(syncResearchItem, $"Syncs research from “{name}”.");
+            }
+            Commands.SyncResearchCommand.NotifyCanExecuteChanged();
+            Commands.SyncResearchFromAnotherSaveCommand.NotifyCanExecuteChanged();
+        }
+
         private void OnGraphMutated() {
+            UpdateSyncResearchState();
             if (loadingGraph)
                 return;
             ViewModel.IsDirty = true;
@@ -2077,6 +2121,8 @@ namespace Foreman.Mac {
             NativeMenuItem exportImage = MenuItem("Export Image…", Commands.ExportImageCommand, new KeyGesture(Key.E, PlatformModifiers.Primary | KeyModifiers.Shift));
             NativeMenuItem close = ActionItem("Close", Close, new KeyGesture(Key.W, PlatformModifiers.Primary));
             openRecentItem = new NativeMenuItem("Open Recent") { IsEnabled = false, Menu = [] };
+            syncResearchMenuItem = MenuItem("Sync Research…", Commands.SyncResearchCommand, new KeyGesture(Key.R, PlatformModifiers.Primary));
+            syncResearchFromAnotherMenuItem = MenuItem("Sync Research From Another Save…", Commands.SyncResearchFromAnotherSaveCommand, new KeyGesture(Key.R, PlatformModifiers.Primary | KeyModifiers.Shift));
             var fileMenu = new NativeMenu {
                 Items = {
                     MenuItem("New Graph", Commands.NewCommand, new KeyGesture(Key.N, PlatformModifiers.Primary)),
@@ -2088,6 +2134,9 @@ namespace Foreman.Mac {
                     duplicate,
                     rename,
                     revert,
+                    new NativeMenuItemSeparator(),
+                    syncResearchMenuItem,
+                    syncResearchFromAnotherMenuItem,
                     new NativeMenuItemSeparator(),
                     MenuItem("Import Graph…", Commands.ImportCommand),
                     exportFjson,
@@ -2272,6 +2321,7 @@ namespace Foreman.Mac {
                 if (isDocumentOpen == value)
                     return;
                 isDocumentOpen = value;
+                UpdateSyncResearchState();
                 if (value) {
                     foreach ((NativeMenuItem item, bool enabled) in enabledBeforeNoDocument)
                         item.IsEnabled = enabled;
@@ -2289,6 +2339,7 @@ namespace Foreman.Mac {
 
         internal void RefreshLibraryMenus() {
             revertToLastSavedCommand.NotifyCanExecuteChanged();
+            UpdateSyncResearchState();
             RefreshOpenRecentMenu();
         }
 

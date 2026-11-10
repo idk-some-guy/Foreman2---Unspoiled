@@ -13,6 +13,8 @@ Foreman 2 on the Mac uses ⌘ for its command shortcuts. On Linux, read Ctrl whe
 | File | Open… | ⌘O |
 | File | Save | ⌘S |
 | File | Duplicate | ⇧⌘S |
+| File | Sync Research | ⌘R |
+| File | Sync Research From Another Save… | ⇧⌘R |
 | File | Export Image… | ⇧⌘E |
 | File | Close | ⌘W |
 | Edit | Select All | ⌘A |

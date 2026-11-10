@@ -14,8 +14,10 @@ namespace Foreman.Mac.ViewModels {
         public IRelayCommand SettingsCommand { get; }
         public IRelayCommand GraphSummaryCommand { get; }
         public IRelayCommand AlignSelectionCommand { get; }
+        public IRelayCommand SyncResearchCommand { get; }
+        public IRelayCommand SyncResearchFromAnotherSaveCommand { get; }
 
-        public ShellViewModel(Action onNew, Action onLoad, Action onSave, Action onImport, Action onExportImage, Action onAddItem, Action onAddRecipe, Action onAutoconnect, Action onAlignSelection, Action onSettings, Action onGraphSummary, Func<bool>? canExecuteAlignSelection = null) {
+        public ShellViewModel(Action onNew, Action onLoad, Action onSave, Action onImport, Action onExportImage, Action onAddItem, Action onAddRecipe, Action onAutoconnect, Action onAlignSelection, Action onSettings, Action onGraphSummary, Action onSyncResearch, Action onSyncResearchFromAnotherSave, Func<bool>? canExecuteAlignSelection = null, Func<bool>? canExecuteSyncResearch = null) {
             NewCommand = new RelayCommand(onNew);
             LoadCommand = new RelayCommand(onLoad);
             SaveCommand = new RelayCommand(onSave);
@@ -27,6 +29,8 @@ namespace Foreman.Mac.ViewModels {
             AlignSelectionCommand = new RelayCommand(onAlignSelection, canExecuteAlignSelection ?? (() => true));
             SettingsCommand = new RelayCommand(onSettings);
             GraphSummaryCommand = new RelayCommand(onGraphSummary);
+            SyncResearchCommand = new RelayCommand(onSyncResearch, canExecuteSyncResearch ?? (() => true));
+            SyncResearchFromAnotherSaveCommand = new RelayCommand(onSyncResearchFromAnotherSave, canExecuteSyncResearch ?? (() => true));
         }
     }
 }

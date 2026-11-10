@@ -114,7 +114,7 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public void AllElevenCommands_AreReachableFromToolbarOrNativeMenu() {
+        public void AllThirteenCommands_AreReachableFromToolbarOrNativeMenu() {
             var window = new MainWindow();
             window.Show();
             Dispatcher.UIThread.RunJobs();
@@ -144,7 +144,7 @@ namespace Foreman.Mac.UiTests {
                 .Where(p => typeof(IRelayCommand).IsAssignableFrom(p.PropertyType))
                 .ToDictionary(p => p.Name, p => (IRelayCommand)p.GetValue(window.Commands)!);
 
-            Assert.Equal(11, commandsByProperty.Count);
+            Assert.Equal(13, commandsByProperty.Count);
             foreach ((string name, IRelayCommand command) in commandsByProperty)
                 Assert.Contains(command, reachableCommands);
         }

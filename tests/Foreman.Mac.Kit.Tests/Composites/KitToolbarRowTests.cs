@@ -408,6 +408,22 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void Tooltip_OverridesTheLabelTooltipAtEveryCollapseStep() {
+            using var fixture = new KitFixture();
+            ToolbarRow row = NewRow(820);
+            ToolbarItem[] items = AllItems(row);
+            items[0].Tooltip = "Custom tip";
+            Shown(row, 920);
+
+            Assert.Equal("Custom tip", ToolTip.GetTip(items[0]));
+            Assert.Equal(items[1].Label, ToolTip.GetTip(items[1]));
+
+            items[0].Tooltip = null;
+
+            Assert.Equal(items[0].Label, ToolTip.GetTip(items[0]));
+        }
+
+        [AvaloniaFact]
         public void NarrowestWidth_TrailingGroupMovesIntoOverflow() {
             using var fixture = new KitFixture();
             ToolbarRow row = NewRow(260);

@@ -245,7 +245,7 @@ namespace Foreman.Mac.Kit.Composites {
             bool iconOnly = step >= 1;
             foreach (ToolbarItem item in allItems) {
                 item.Classes.Set("icon-only", iconOnly);
-                ToolTip.SetTip(item, iconOnly ? item.Label : null);
+                item.ApplyTooltip();
             }
 
             if (searchField is not null)

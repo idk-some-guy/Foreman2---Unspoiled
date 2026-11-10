@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Foreman.Mac.UiTests.ViewModels {
     public class ShellViewModelTests {
-        private static readonly string[] ExpectedHits = ["new", "save"];
+        private static readonly string[] ExpectedHits = ["new", "save", "syncResearch", "syncResearchFromAnotherSave"];
 
         private static ShellViewModel NewViewModel(List<string> hit) =>
             new(
@@ -18,7 +18,9 @@ namespace Foreman.Mac.UiTests.ViewModels {
                 onAutoconnect: () => hit.Add("autoconnect"),
                 onAlignSelection: () => hit.Add("alignSelection"),
                 onSettings: () => hit.Add("settings"),
-                onGraphSummary: () => hit.Add("graphSummary"));
+                onGraphSummary: () => hit.Add("graphSummary"),
+                onSyncResearch: () => hit.Add("syncResearch"),
+                onSyncResearchFromAnotherSave: () => hit.Add("syncResearchFromAnotherSave"));
 
         [Fact]
         public void Commands_InvokeTheirDelegates() {
@@ -27,6 +29,8 @@ namespace Foreman.Mac.UiTests.ViewModels {
 
             vm.NewCommand.Execute(null);
             vm.SaveCommand.Execute(null);
+            vm.SyncResearchCommand.Execute(null);
+            vm.SyncResearchFromAnotherSaveCommand.Execute(null);
 
             Assert.Equal(ExpectedHits, hit);
         }
