@@ -128,6 +128,8 @@ namespace Foreman.DataCaching.Loading {
             quality.BeaconPowerMultiplier = beaconPowerMult;
             quality.MiningDrillResourceDrainMultiplier = miningDrillResDrainMult;
             quality.NextProbability = PresetJson.GetDouble(objJsonNode, "next_probability") ?? 0;
+            if (PresetJson.GetDouble(objJsonNode, "chain_probability") is double chainProbability)
+                quality.ChainProbability = chainProbability;
 
             if (quality.NextProbability != 0 && PresetJson.GetString(objJsonNode, "next") is string next)
                 _session.NextQualities.Add(quality, next);

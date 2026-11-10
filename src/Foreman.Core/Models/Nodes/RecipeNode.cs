@@ -328,29 +328,19 @@ namespace Foreman {
                         outputSet.Add(fluidProduct, amount);
                     } else {
                         var currentProduct = new ItemQualityPair(item, recipeQuality);
-                        uint currentStep = 1;
                         outputList.Add(currentProduct);
                         outputSet.Add(currentProduct, amount);
-                        double currentMultiplier = GetQualityMultiplier();
-                        while (currentStep < MaxQualitySteps && currentProduct.Quality is IQuality stepQuality && stepQuality.NextQuality is IQuality nextQuality) {
-                            currentStep++;
+                        foreach ((IQuality tier, double chance) in QualityRoll.Distribute(recipeQuality, GetQualityMultiplier(), MaxQualitySteps)) {
                             ItemQualityPair lastProduct = currentProduct;
-                            currentMultiplier *= stepQuality.NextProbability;
-                            currentProduct = new ItemQualityPair(item, nextQuality);
-                            if (currentMultiplier == 0)
-                                break;
-                            if (!nextQuality.Enabled || !nextQuality.Available)
-                                break;
-
+                            currentProduct = new ItemQualityPair(item, tier);
                             outputList.Add(currentProduct);
-                            outputSet.Add(currentProduct, Math.Min(currentMultiplier, 1.0) * amount);
+                            outputSet.Add(currentProduct, chance * amount);
                             outputSet[lastProduct] -= outputSet[currentProduct];
 
                             if (outputSet[lastProduct] <= 0) {
                                 outputList.Remove(lastProduct);
                                 outputSet.Remove(lastProduct);
                             }
-
                         }
                     }
                 }

@@ -7,6 +7,21 @@ namespace ForemanTest.support {
     internal static class TestPrototypeFactory {
         public static AssemblerPrototype CreateTestAssembler(DataCache cache) => new(cache, "§§test:assembler", "Test Assembler", EntityType.Assembler, EnergySource.Electric, false);
 
+        public static QualityPrototype[] CreateQualityChain(DataCache cache, params (double next, double chain)[] tiers) {
+            var chain = new QualityPrototype[tiers.Length];
+            for (int i = 0; i < tiers.Length; i++)
+                chain[i] = new QualityPrototype(cache, "tier" + i, "Tier " + i, ((char)('a' + i)).ToString()) {
+                    Level = i,
+                    NextProbability = tiers[i].next,
+                    ChainProbability = tiers[i].chain,
+                };
+            for (int i = 0; i < tiers.Length - 1; i++) {
+                chain[i].NextQuality = chain[i + 1];
+                chain[i + 1].PrevQuality = chain[i];
+            }
+            return chain;
+        }
+
         public static void LinkRecipeAndAssembler(RecipePrototype recipe, AssemblerPrototype assembler) {
             recipe.AssemblersInternal.Add(assembler);
             assembler.RecipesInternal.Add(recipe);
