@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Foreman.Graph;
+using Foreman.Mac.Kit;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
@@ -33,6 +34,7 @@ namespace Foreman.Mac.Views.Research {
         private ResearchViewModel viewModel = null!;
         private ResearchBonusesView bonuses = null!;
         private ResearchRecipesView recipes = null!;
+        private ResearchTechnologiesView technologies = null!;
         private readonly ScrollViewer body;
         private readonly PopoverHost popoverLayer;
         private int segment;
@@ -93,6 +95,8 @@ namespace Foreman.Mac.Views.Research {
             recipes = new ResearchRecipesView(viewModel, host.Cache, popoverLayer);
             recipes.Changed += (_, _) => Refresh();
             recipesHost.Children.Add(recipes);
+            technologies = new ResearchTechnologiesView(viewModel, host.Cache, host.Settings, () => sourceBar.ChooseButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)));
+            technologiesHost.Children.Add(technologies);
             segment = Math.Clamp(host.Settings?.ResearchSegment ?? 0, 0, 2);
             ResearchPlacement.Apply(this, host.Settings);
             ShowSegment();
@@ -130,6 +134,7 @@ namespace Foreman.Mac.Views.Research {
                 return;
             bonuses.Refresh();
             recipes.Refresh();
+            technologies.Refresh();
             UpdateSourceBar();
         }
 
@@ -148,21 +153,32 @@ namespace Foreman.Mac.Views.Research {
             segment = Math.Clamp(index, 0, 2);
             if (host?.Settings is AppSettings settings)
                 settings.ResearchSegment = segment;
-            ShowSegment();
+            ShowSegment(animate: true);
         }
 
-        private void ShowSegment() {
+        private void ShowSegment(bool animate = false) {
             if (segmentControl.SelectedIndex != segment) {
                 selecting = true;
                 segmentControl.SelectedIndex = segment;
                 selecting = false;
             }
-            body.VerticalScrollBarVisibility = segment == 1 ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
-            bodyHost.Child = segment switch {
+            body.VerticalScrollBarVisibility = segment == 0 ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+            Control next = segment switch {
                 1 => recipesHost,
                 2 => technologiesHost,
                 _ => bonuses,
             };
+            if (animate && !Motion.ReduceMotion && !ReferenceEquals(bodyHost.Child, next)) {
+                bodyHost.Transitions = null;
+                bodyHost.Opacity = 0;
+                bodyHost.Child = next;
+                bodyHost.Transitions = Motion.Transition(TransitionKind.CrossFade, Motion.CrossFadeDuration);
+                Dispatcher.UIThread.Post(() => bodyHost.Opacity = 1, DispatcherPriority.Render);
+            } else {
+                bodyHost.Transitions = null;
+                bodyHost.Opacity = 1;
+                bodyHost.Child = next;
+            }
         }
 
         public void RefreshTheme() => minSizeScale.Apply();
@@ -176,12 +192,20 @@ namespace Foreman.Mac.Views.Research {
             } else if (meta && !alt && !e.KeyModifiers.HasFlag(KeyModifiers.Shift) && e.Key is >= Key.D1 and <= Key.D3) {
                 SelectSegment(e.Key - Key.D1);
                 e.Handled = true;
-            } else if (meta && !alt && e.Key == Key.F && segment == 1) {
-                recipes.FocusFilter();
+            } else if (meta && alt && !e.KeyModifiers.HasFlag(KeyModifiers.Shift) && e.Key is >= Key.D1 and <= Key.D3 && segment == 2) {
+                technologies.SelectStateFilter(e.Key - Key.D1);
+                e.Handled = true;
+            } else if (meta && !alt && e.Key == Key.F && segment is 1 or 2) {
+                if (segment == 1)
+                    recipes.FocusFilter();
+                else
+                    technologies.FocusFilter();
                 e.Handled = true;
             } else if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && !popoverLayer.Surface.Children.OfType<PopoverFrame>().Any(f => f.IsOpen) && (FocusManager?.GetFocusedElement() is not TextBox field || field is SearchField)) {
                 if (segment == 1 && recipes.HasFilter)
                     recipes.Filter.Text = "";
+                else if (segment == 2 && technologies.HasFilter)
+                    technologies.Filter.Text = "";
                 else
                     Close();
                 e.Handled = true;
@@ -195,6 +219,8 @@ namespace Foreman.Mac.Views.Research {
         internal Panel RecipesHost => recipesHost;
         internal ResearchRecipesView RecipesView => recipes;
         internal Panel TechnologiesHost => technologiesHost;
+        internal ResearchTechnologiesView TechnologiesView => technologies;
+        internal Border BodyHostControl => bodyHost;
         internal ResearchViewModel ViewModel => viewModel;
         internal ResearchBonusRow BonusRow(ResearchField field) => bonuses.BonusRow(field);
         internal ResearchRecipeProductivityRow RecipeProductivityRow => bonuses.RecipeProductivityRow;

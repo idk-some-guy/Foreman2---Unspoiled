@@ -85,6 +85,7 @@ namespace Foreman.Mac.Services {
         public double? ResearchWidth { get; set; }
         public double? ResearchHeight { get; set; }
         public int ResearchSegment { get; set; }
+        public int ResearchTechnologyFilter { get; set; }
 
         public LinkRouting DefaultLinkRouting { get; set; } = LinkRouting.Rounded;
 

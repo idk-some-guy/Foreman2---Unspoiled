@@ -99,6 +99,7 @@ namespace Foreman.Mac.UiTests {
             ResearchWidth = 660,
             ResearchHeight = 520,
             ResearchSegment = 1,
+            ResearchTechnologyFilter = 2,
         };
 
         [Fact]

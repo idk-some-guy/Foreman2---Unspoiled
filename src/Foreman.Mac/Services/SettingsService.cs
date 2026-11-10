@@ -195,6 +195,7 @@ namespace Foreman.Mac.Services {
             ResearchWidth = settings.ResearchWidth,
             ResearchHeight = settings.ResearchHeight,
             ResearchSegment = settings.ResearchSegment,
+            ResearchTechnologyFilter = settings.ResearchTechnologyFilter,
         };
 
         private static AppSettings ToAppSettings(SettingsRow row) => new() {
@@ -268,6 +269,7 @@ namespace Foreman.Mac.Services {
             ResearchWidth = row.ResearchWidth,
             ResearchHeight = row.ResearchHeight,
             ResearchSegment = row.ResearchSegment,
+            ResearchTechnologyFilter = row.ResearchTechnologyFilter,
         };
     }
 }

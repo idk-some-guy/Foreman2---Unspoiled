@@ -75,7 +75,7 @@ namespace ForemanTest.Storage {
 
             using ForemanDbContext context = ForemanDbContext.Open(dbPath);
 
-            Assert.AreEqual(6, context.SchemaVersions.Single().Version);
+            Assert.AreEqual(7, context.SchemaVersions.Single().Version);
             List<string> tables = Names(context, "SELECT name FROM sqlite_master WHERE type = 'table'");
             CollectionAssert.Contains(tables, "Graphs");
             CollectionAssert.Contains(tables, "GraphVersions");
@@ -136,7 +136,7 @@ namespace ForemanTest.Storage {
 
             using ForemanDbContext context = ForemanDbContext.Open(dbPath);
 
-            Assert.AreEqual(6, context.SchemaVersions.Single().Version);
+            Assert.AreEqual(7, context.SchemaVersions.Single().Version);
             CollectionAssert.AreEquivalent(
                 typeof(SettingsRow).GetProperties().Select(p => p.Name).ToArray(),
                 Names(context, "SELECT name FROM pragma_table_info('Settings')"));
@@ -159,13 +159,33 @@ namespace ForemanTest.Storage {
 
             using ForemanDbContext reopened = ForemanDbContext.Open(dbPath);
 
-            Assert.AreEqual(6, reopened.SchemaVersions.Single().Version);
+            Assert.AreEqual(7, reopened.SchemaVersions.Single().Version);
             SettingsRow row = reopened.Settings.Single();
             Assert.AreEqual("v5-preset", row.CurrentPresetName);
             Assert.AreEqual(120, row.GraphSummaryLeft);
             Assert.IsNull(row.ResearchLeft);
             Assert.IsNull(row.ResearchWidth);
             Assert.AreEqual(0, row.ResearchSegment);
+        }
+
+        [TestMethod]
+        public void V6File_GainsTheTechnologyFilterColumn_AndKeepsItsValues() {
+            string dbPath = StoragePaths.DbPath(tempRoot);
+            using (ForemanDbContext created = ForemanDbContext.Open(dbPath)) {
+                created.Settings.Add(new SettingsRow { Id = 1, CurrentPresetName = "v6-preset", ResearchSegment = 2 });
+                created.SaveChanges();
+                created.Database.ExecuteSqlRaw("ALTER TABLE Settings DROP COLUMN ResearchTechnologyFilter");
+                created.Database.ExecuteSqlRaw("UPDATE SchemaVersions SET Version = 6");
+            }
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+            using ForemanDbContext reopened = ForemanDbContext.Open(dbPath);
+
+            Assert.AreEqual(7, reopened.SchemaVersions.Single().Version);
+            SettingsRow row = reopened.Settings.Single();
+            Assert.AreEqual("v6-preset", row.CurrentPresetName);
+            Assert.AreEqual(2, row.ResearchSegment);
+            Assert.AreEqual(0, row.ResearchTechnologyFilter);
         }
 
         [TestMethod]
@@ -179,7 +199,7 @@ namespace ForemanTest.Storage {
 
             using ForemanDbContext reopened = ForemanDbContext.Open(dbPath);
 
-            Assert.AreEqual(6, reopened.SchemaVersions.Single().Version);
+            Assert.AreEqual(7, reopened.SchemaVersions.Single().Version);
             Assert.AreEqual("v5-preset", reopened.Settings.Single().CurrentPresetName);
             Assert.AreEqual(333, reopened.Settings.Single().InspectorWidth);
             CollectionAssert.Contains(
