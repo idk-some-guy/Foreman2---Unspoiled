@@ -20,6 +20,8 @@ namespace Foreman.Mac.UiTests.support {
             string dbDirectory = Path.Combine(Path.GetTempPath(), "foreman-uitests-db-" + Guid.NewGuid().ToString("N"));
             PresetProcessor.SetDefaultUserDataDirectoryOverride(dbDirectory);
 
+            App.DefaultAppearanceSource = () => new FixedAppearance();
+
             ProductionAttachSolveContext = Foreman.Mac.Canvas.GraphViewer.AttachSolveContext;
             Foreman.Mac.Canvas.GraphViewer.AttachSolveContext = graph => ManualTaskScheduler.InstallInline(graph);
         }
