@@ -101,7 +101,7 @@ namespace Foreman.Serialization {
                 SupplierNodeSaveData supplier => CreateSupplierNode(graph, cache, import, supplier, newNodeCollection),
                 PassthroughNodeSaveData passthrough => CreatePassthroughNode(graph, cache, import, passthrough, newNodeCollection),
                 SpoilNodeSaveData spoil => CreateSpoilNode(graph, cache, import, spoil, newNodeCollection),
-                PlantNodeSaveData plant => CreatePlantNode(graph, import, plant, newNodeCollection),
+                PlantNodeSaveData plant => CreatePlantNode(graph, cache, import, plant, newNodeCollection),
                 RecipeNodeSaveData recipe => CreateRecipeNode(graph, cache, import, recipe, newNodeCollection),
                 _ => null
             };
@@ -185,14 +185,28 @@ namespace Foreman.Serialization {
 
         private static BaseNode? CreatePlantNode(
             ProductionGraph graph,
+            DataCache cache,
             GraphImportContext import,
             PlantNodeSaveData data,
             ProductionGraph.NewNodeBatch newNodeCollection) {
-            return !import.QualityLinks.TryGetValue(data.QualityName, out IQuality? quality) || quality is null
-                ? null
-                : !import.PlantProcessLinks.TryGetValue(data.PlantProcessId, out IPlantProcess? plantProcess)
-                ? null
-                : TrackCreatedNode(newNodeCollection, graph.CreatePlantNode(plantProcess, quality, data.Location));
+            if (!import.QualityLinks.TryGetValue(data.QualityName, out IQuality? quality) || quality is null)
+                return null;
+            if (!import.PlantProcessLinks.TryGetValue(data.PlantProcessId, out IPlantProcess? plantProcess))
+                return null;
+
+            PlantNode node = graph.CreatePlantNode(plantProcess, quality, data.Location);
+            if (data.AssemblerName is not null && data.AssemblerQualityName is not null
+                && import.QualityLinks.TryGetValue(data.AssemblerQualityName, out IQuality? towerQuality) && towerQuality is not null) {
+                if (cache.Assemblers.TryGetValue(data.AssemblerName, out IAssembler? tower))
+                    node.Tower = new AssemblerQualityPair(tower, towerQuality);
+                else if (cache.MissingAssemblers.TryGetValue(data.AssemblerName, out IAssembler? missingTower))
+                    node.Tower = new AssemblerQualityPair(missingTower, towerQuality);
+            }
+            if (node.Tower is not null)
+                foreach (ModuleQualitySaveData module in data.AssemblerModules)
+                    AddModule(cache, import, node.TowerModulesAdd, module);
+            node.UpdateState();
+            return TrackCreatedNode(newNodeCollection, node);
         }
 
         private static BaseNode? CreateRecipeNode(

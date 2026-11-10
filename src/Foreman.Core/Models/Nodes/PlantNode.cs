@@ -14,6 +14,9 @@ namespace Foreman.Models.Nodes {
             PlantProcessMissing = 0b_0000_0000_1000,
 
             QualityMissing = 0b_0000_0001_0000,
+            TowerIsMissing = 0b_0000_0010_0000,
+            TowerModuleIsMissing = 0b_0000_0100_0000,
+            TowerModuleLimitExceeded = 0b_0000_1000_0000,
 
             InvalidLinks = 0b_1000_0000_0000
         }
@@ -29,6 +32,9 @@ namespace Foreman.Models.Nodes {
 
         public ItemQualityPair Seed { get; private set; }
         public IPlantProcess BasePlantProcess { get; internal set; }
+        public AssemblerQualityPair? Tower { get; internal set; }
+        private readonly List<ModuleQualityPair> towerModules = [];
+        public IReadOnlyList<ModuleQualityPair> TowerModules => towerModules;
 
         public override IEnumerable<ItemQualityPair> Inputs { get { yield return Seed; } }
         public override IEnumerable<ItemQualityPair> Outputs {
@@ -69,11 +75,23 @@ namespace Foreman.Models.Nodes {
                 ErrorSet |= Errors.PlantProcessMissing;
             if (Seed.Quality?.IsMissing is true)
                 ErrorSet |= Errors.QualityMissing;
+            if (Tower is AssemblerQualityPair tower) {
+                if (tower.Assembler.IsMissing || tower.Quality.IsMissing)
+                    ErrorSet |= Errors.TowerIsMissing;
+                if (TowerModules.Any(m => m.Module.IsMissing || m.Quality.IsMissing))
+                    ErrorSet |= Errors.TowerModuleIsMissing;
+                if (TowerModules.Count > tower.Assembler.ModuleSlots)
+                    ErrorSet |= Errors.TowerModuleLimitExceeded;
+            }
             if (!AllLinksValid)
                 ErrorSet |= Errors.InvalidLinks;
 
             return ErrorSet != Errors.Clean ? NodeState.Error : AllLinksConnected ? NodeState.Clean : NodeState.MissingLink;
         }
+
+        internal void TowerModulesAdd(ModuleQualityPair module) { towerModules.Add(module); }
+        internal void TowerModulesRemoveAt(int index) { towerModules.RemoveAt(index); }
+        internal void TowerModulesClear() { towerModules.Clear(); }
 
         public override double GetConsumeRate(ItemQualityPair item) { return ActualRate; }
         public override double GetSupplyRate(ItemQualityPair item) { return ActualRate * outputRateFor(item); }
@@ -82,7 +100,17 @@ namespace Foreman.Models.Nodes {
         internal override double outputRateFor(ItemQualityPair item) {
             return item.Item is not IItem outputItem
                 ? throw new ArgumentException("Item must be populated.", nameof(item))
-                : BasePlantProcess.ProductSet[outputItem];
+                : BasePlantProcess.ProductSet[outputItem] * (1 + GetProductivityBonus());
+        }
+
+        public double GetProductivityBonus() {
+            if (Tower is not AssemblerQualityPair tower)
+                return 0;
+            EffectRange limits = tower.Assembler.EffectLimits.Productivity;
+            double sum = tower.Assembler.BaseProductivityBonus;
+            foreach (ModuleQualityPair module in TowerModules)
+                sum += module.Module.GetProductivityBonus(module.Quality);
+            return Math.Max(0, Math.Clamp(sum, limits.Low, limits.High));
         }
 
         public override List<string> GetErrors() {
@@ -100,6 +128,12 @@ namespace Foreman.Models.Nodes {
                 errors.Add(string.Create(DisplayCulture.Format, $"> Growth result for item \"{Seed.Item.FriendlyName}\" doesnt match preset!"));
             if ((ErrorSet & Errors.QualityMissing) != 0)
                 errors.Add(string.Create(DisplayCulture.Format, $"> Quality \"{Seed.Quality.FriendlyName}\" doesnt exist in preset!"));
+            if ((ErrorSet & Errors.TowerIsMissing) != 0 && Tower is AssemblerQualityPair tower)
+                errors.Add(string.Create(DisplayCulture.Format, $"> Tower \"{tower.FriendlyName}\" doesnt exist in preset!"));
+            if ((ErrorSet & Errors.TowerModuleIsMissing) != 0)
+                errors.Add("> Some of the tower modules dont exist in preset!");
+            if ((ErrorSet & Errors.TowerModuleLimitExceeded) != 0)
+                errors.Add(string.Create(DisplayCulture.Format, $"> Tower has too many modules ({TowerModules.Count}/{Tower?.Assembler.ModuleSlots})!"));
             if ((ErrorSet & Errors.InvalidLinks) != 0)
                 errors.Add("> Some links are invalid!");
             return errors;
@@ -118,6 +152,32 @@ namespace Foreman.Models.Nodes {
 
         internal PlantNodeController(PlantNode myNode) : base(myNode) { MyNode = myNode; }
 
+        public void SetTower(AssemblerQualityPair? tower) {
+            MyNode.Tower = tower;
+            if (tower is null)
+                MyNode.TowerModulesClear();
+            else
+                RemoveInvalidTowerModules(tower.Value.Assembler);
+            MyNode.UpdateState();
+            Mutated();
+        }
+
+        public void AddTowerModule(ModuleQualityPair module) {
+            MyNode.TowerModulesAdd(module);
+            MyNode.UpdateState();
+            Mutated();
+        }
+
+        private void RemoveInvalidTowerModules(IAssembler tower) {
+            for (int i = MyNode.TowerModules.Count - 1; i >= 0; i--) {
+                ModuleQualityPair module = MyNode.TowerModules[i];
+                if (module.Module.IsMissing || !tower.Modules.Contains(module.Module) || !module.Quality.Available || module.Quality.IsMissing)
+                    MyNode.TowerModulesRemoveAt(i);
+            }
+            while (MyNode.TowerModules.Count > tower.ModuleSlots)
+                MyNode.TowerModulesRemoveAt(MyNode.TowerModules.Count - 1);
+        }
+
         public void UpdatePlantResult() {
             if (MyNode.Seed.Item?.PlantResult is IPlantProcess plantResult && MyNode.BasePlantProcess != plantResult) {
                 MyNode.BasePlantProcess = plantResult;
@@ -128,11 +188,21 @@ namespace Foreman.Models.Nodes {
             }
         }
 
-        public override Dictionary<string, Action> GetErrorResolutions() =>
-            ErrorResolutionsWithFixOrLinks(
+        public override Dictionary<string, Action> GetErrorResolutions() {
+            Dictionary<string, Action> resolutions = ErrorResolutionsWithFixOrLinks(
                 (MyNode.ErrorSet & (PlantNode.Errors.InputItemMissing | PlantNode.Errors.PlantProcessMissing | PlantNode.Errors.ItemDoesntGrow)) != 0,
                 (MyNode.ErrorSet & PlantNode.Errors.InvalidGrowResult) != 0 ? "Update plant results" : null,
                 (MyNode.ErrorSet & PlantNode.Errors.InvalidGrowResult) != 0 ? UpdatePlantResult : null);
 
+            if ((MyNode.ErrorSet & PlantNode.Errors.TowerIsMissing) != 0)
+                resolutions.Add("Remove tower", () => SetTower(null));
+            else if ((MyNode.ErrorSet & (PlantNode.Errors.TowerModuleIsMissing | PlantNode.Errors.TowerModuleLimitExceeded)) != 0 && MyNode.Tower is AssemblerQualityPair tower)
+                resolutions.Add("Fix tower modules", () => {
+                    RemoveInvalidTowerModules(tower.Assembler);
+                    MyNode.UpdateState();
+                    Mutated();
+                });
+            return resolutions;
+        }
     }
 }

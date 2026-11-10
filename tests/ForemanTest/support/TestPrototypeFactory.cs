@@ -18,6 +18,17 @@ namespace ForemanTest.support {
             return assembler;
         }
 
+        public static AssemblerPrototype CreateTestTower(DataCache cache, int moduleSlots, EffectLimits limits) {
+            var tower = new AssemblerPrototype(cache, "§§test:tower", "Test Tower", EntityType.AgriculturalTower, EnergySource.Electric, false) {
+                EffectLimits = limits,
+                ModuleSlots = moduleSlots,
+                AllowModules = true,
+            };
+            foreach (IQuality quality in cache.Qualities.Values)
+                tower.SpeedInternal[quality] = 1;
+            return tower;
+        }
+
         public static ModulePrototype CreateTestModule(DataCache cache, ModuleEffects effects) {
             var module = new ModulePrototype(cache, "§§test:module", "Test Module") {
                 ConsumptionBonus = effects.Consumption,

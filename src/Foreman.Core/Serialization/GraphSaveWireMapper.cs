@@ -230,7 +230,10 @@ namespace Foreman.Serialization {
                     Direction = direction,
                     KeyNodeTitle = keyNode,
                     PlantProcessId = wire.PlantProcessID,
-                    QualityName = wire.BaseQuality ?? "QualityError"
+                    QualityName = wire.BaseQuality ?? "QualityError",
+                    AssemblerName = wire.Assembler,
+                    AssemblerQualityName = wire.AssemblerQuality,
+                    AssemblerModules = [.. (wire.AssemblerModules ?? []).Select(ToModuleSave)]
                 },
                 NodeType.Recipe => new RecipeNodeSaveData {
                     NodeId = wire.NodeID,
@@ -298,6 +301,11 @@ namespace Foreman.Serialization {
                 case PlantNodeSaveData plant:
                     wire.PlantProcessID = plant.PlantProcessId;
                     wire.BaseQuality = plant.QualityName;
+                    if (plant.AssemblerName is not null && plant.AssemblerQualityName is not null) {
+                        wire.Assembler = plant.AssemblerName;
+                        wire.AssemblerQuality = plant.AssemblerQualityName;
+                        wire.AssemblerModules = [.. plant.AssemblerModules.Select(FromModule)];
+                    }
                     break;
                 case ConsumerNodeSaveData consumer:
                     wire.Item = consumer.ItemName;

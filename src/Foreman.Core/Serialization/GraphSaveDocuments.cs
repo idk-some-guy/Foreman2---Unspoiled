@@ -60,6 +60,9 @@ namespace Foreman.Serialization {
         public override NodeType NodeType => NodeType.Plant;
         public required long PlantProcessId { get; init; }
         public required string QualityName { get; init; }
+        public string? AssemblerName { get; init; }
+        public string? AssemblerQualityName { get; init; }
+        public IReadOnlyList<ModuleQualitySaveData> AssemblerModules { get; init; } = [];
     }
 
     public sealed class RecipeNodeSaveData : GraphNodeSaveData {
