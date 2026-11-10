@@ -816,6 +816,32 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
+        public async Task OpenOnWindowAsync_WhenTheOpenThrows_ClosesTheDeferredWindowAndReleasesTheOpen() {
+            try {
+                WelcomeWindow welcome = await BootedWelcomeAsync();
+                ShellContext context = ShellHost.Context!;
+                MainWindow? deferred = null;
+
+                await Assert.ThrowsAsync<InvalidOperationException>(() => WelcomeLauncher.OpenOnWindowAsync(
+                    context,
+                    window => {
+                        deferred = window;
+                        throw new InvalidOperationException();
+                    },
+                    (_, _) => true));
+
+                Assert.NotNull(deferred);
+                Assert.Null(deferred.AlertOwner);
+                Assert.True(deferred.IsClosed);
+                Assert.False(context.OpenPending);
+                Assert.False(ShellHost.HasLiveMainWindow);
+                Assert.Same(welcome, WelcomeLauncher.Current);
+            } finally {
+                CloseWelcome();
+            }
+        }
+
+        [AvaloniaFact]
         public async Task OpenGraphAsync_WhenTheWelcomeClosesWhileItsAlertIsUp_ReleasesTheOpenAndLeavesNoHiddenWindow() {
             string dir = NewTempHome();
             try {

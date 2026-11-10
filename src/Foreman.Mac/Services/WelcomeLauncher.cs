@@ -165,7 +165,7 @@ namespace Foreman.Mac.Services {
         internal static Task<bool> OpenGraphAsync(ShellContext context, GraphRow row, Preset? preset) =>
             OpenOnWindowAsync(context, window => window.OpenLibraryGraphAsync(row.Id, preset), (_, after) => after == row.Id);
 
-        private static async Task<bool> OpenOnWindowAsync(ShellContext context, Func<MainWindow, Task> open, Func<Guid?, Guid?, bool> openedGraph) {
+        internal static async Task<bool> OpenOnWindowAsync(ShellContext context, Func<MainWindow, Task> open, Func<Guid?, Guid?, bool> openedGraph) {
             if (context.OpenPending)
                 return false;
             context.OpenPending = true;
@@ -184,16 +184,21 @@ namespace Foreman.Mac.Services {
                     welcome.Closed += welcomeClosed;
                 }
                 Guid? before = context.Library.OpenGraphId;
-                await open(window).ConfigureAwait(true);
-                bool opened = openedGraph(before, context.Library.OpenGraphId);
-                window.AlertOwner = null;
+                bool opened;
+                try {
+                    await open(window).ConfigureAwait(true);
+                    opened = openedGraph(before, context.Library.OpenGraphId);
+                } catch {
+                    AbandonDeferred(context, window, created);
+                    throw;
+                } finally {
+                    window.AlertOwner = null;
+                }
                 if (opened) {
                     window.RevealDeferred();
                     window.Activate();
-                } else if (created) {
-                    if (ReferenceEquals(context.Window, window))
-                        context.Window = null;
-                    window.CloseAbandoned();
+                } else {
+                    AbandonDeferred(context, window, created);
                 }
                 return opened;
             } finally {
@@ -201,6 +206,14 @@ namespace Foreman.Mac.Services {
                     welcome.Closed -= welcomeClosed;
                 context.OpenPending = false;
             }
+        }
+
+        private static void AbandonDeferred(ShellContext context, MainWindow window, bool created) {
+            if (!created)
+                return;
+            if (ReferenceEquals(context.Window, window))
+                context.Window = null;
+            window.CloseAbandoned();
         }
 
         private static async Task<bool> LoadAsync(ShellContext context, Preset preset, IProgress<KeyValuePair<int, string>> progress, System.Threading.CancellationToken ct) {

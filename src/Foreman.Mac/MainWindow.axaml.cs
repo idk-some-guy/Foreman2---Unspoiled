@@ -147,6 +147,7 @@ namespace Foreman.Mac {
             set {
                 if (library is not null) {
                     library.WriteFailed -= OnLibraryWriteFailed;
+                    library.Saved -= OnLibrarySaved;
                     library.Snapshot = null;
                 }
                 library = value;
@@ -154,6 +155,7 @@ namespace Foreman.Mac {
                     library.Snapshot = CaptureSnapshot;
                     library.Post = action => Dispatcher.UIThread.Post(action);
                     library.WriteFailed += OnLibraryWriteFailed;
+                    library.Saved += OnLibrarySaved;
                 }
             }
         }
@@ -1325,6 +1327,12 @@ namespace Foreman.Mac {
             ViewModel.DocumentName = row.Name;
         }
 
+        private void OnLibrarySaved(object? sender, bool clean) {
+            if (clean)
+                ViewModel.IsDirty = false;
+            RefreshLibraryMenus();
+        }
+
         private void OnLibraryWriteFailed(object? sender, string name) =>
             Async.Fire(Dialogs.ShowWarningAsync(this, $"Couldn’t save “{Dialogs.MiddleTruncate(name)}”.",
                 "Foreman keeps trying. Check that your disk has free space."), nameof(OnLibraryWriteFailed));
@@ -1333,8 +1341,7 @@ namespace Foreman.Mac {
             if (Library is null)
                 return;
             EnsureLibraryGraph();
-            if (Library.Save())
-                ViewModel.IsDirty = false;
+            Library.Save();
             RefreshLibraryMenus();
         }
 

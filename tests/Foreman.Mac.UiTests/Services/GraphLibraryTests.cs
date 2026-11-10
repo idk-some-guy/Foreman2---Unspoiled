@@ -180,6 +180,7 @@ namespace Foreman.Mac.UiTests {
             using var library = new LibraryFixture();
             MainWindow window = await NewWindowAsync(library);
             window.SaveVersion();
+            Dispatcher.UIThread.RunJobs();
             Guid id = library.Service.OpenGraphId!.Value;
             string backup = Path.Combine(library.NewTempDir(), "library.bak");
             SqliteConnection.ClearAllPools();
@@ -215,6 +216,7 @@ namespace Foreman.Mac.UiTests {
             Assert.True(window.ViewModel.IsDirty);
 
             window.SaveVersion();
+            Dispatcher.UIThread.RunJobs();
 
             Assert.False(window.ViewModel.IsDirty);
             GraphVersionRow saved = Assert.Single(library.Service.Versions(), v => v.Kind == GraphVersionKind.Saved);
@@ -642,16 +644,188 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public void SaveOverAWriteThatThrowsOutsideTheFilter_ReturnsFalse_AndRecordsNoVersion() {
+        public void SaveOverAWriteThatThrowsOutsideTheFilter_RecordsNoVersion_AndRaisesWriteFailedWithoutSaved() {
             using var library = new LibraryFixture();
             using var logIsolation = ErrorLogging.UseIsolatedLogDirectory(library.NewTempDir());
             UseSnapshotNodes(library);
             Guid id = library.Service.Create("a", VanillaPresetName, "{}", 0, null).Id;
+            int raised = 0, saved = 0;
+            library.Service.WriteFailed += (_, _) => raised++;
+            library.Service.Saved += (_, _) => saved++;
             Edit(library);
             library.Store.Delete(id);
 
-            Assert.False(library.Service.Save());
+            Assert.True(library.Service.Save());
+            Dispatcher.UIThread.RunJobs();
+
             Assert.Empty(library.Store.Versions(id));
+            Assert.Equal(1, raised);
+            Assert.Equal(0, saved);
+        }
+
+        [AvaloniaFact]
+        public void AWriteFailureThatArrivesAfterTheGraphWasDeleted_RaisesNoWriteFailed() {
+            using var library = new LibraryFixture();
+            using var logIsolation = ErrorLogging.UseIsolatedLogDirectory(library.NewTempDir());
+            UseSnapshotNodes(library);
+            Guid id = library.Service.Create("a", VanillaPresetName, "{}", 0, null).Id;
+            int raised = 0;
+            library.Service.WriteFailed += (_, _) => raised++;
+            library.Worker.RunInline = false;
+
+            Edit(library);
+            library.Service.FlushNow();
+            library.Store.Delete(id);
+            library.Worker.RunAll();
+            library.Service.Delete(id);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(0, raised);
+        }
+
+        [AvaloniaFact]
+        public void Save_WithTheWorkerBusy_ReturnsAtOnceAndLeavesTheEditPending() {
+            using var library = new LibraryFixture();
+            UseSnapshotNodes(library);
+            Guid id = library.Service.Create("a", VanillaPresetName, "{}", 0, null).Id;
+            library.Worker.RunInline = false;
+            Edit(library);
+
+            Assert.True(library.Service.Save());
+
+            Assert.Equal(1, library.Worker.Pending);
+            Assert.DoesNotContain(library.Store.Versions(id), v => v.Kind == GraphVersionKind.Saved);
+            Assert.Null(library.Service.OpenGraphSavedAt);
+        }
+
+        [AvaloniaFact]
+        public void ASaveTheWorkerFinishes_RecordsTheSavedVersionAndRaisesSavedAsClean() {
+            using var library = new LibraryFixture();
+            UseSnapshotNodes(library);
+            Guid id = library.Service.Create("a", VanillaPresetName, "{}", 0, null).Id;
+            bool? clean = null;
+            library.Service.Saved += (_, isClean) => clean = isClean;
+            library.Worker.RunInline = false;
+            Edit(library);
+
+            library.Service.Save();
+            library.Worker.RunAll();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Single(library.Store.Versions(id), v => v.Kind == GraphVersionKind.Saved);
+            Assert.NotNull(library.Service.OpenGraphSavedAt);
+            Assert.True(clean);
+        }
+
+        [AvaloniaFact]
+        public void AnEditBetweenSaveAndTheWrite_RaisesSavedAsNotClean() {
+            using var library = new LibraryFixture();
+            UseSnapshotNodes(library);
+            library.Service.Create("a", VanillaPresetName, "{}", 0, null);
+            bool? clean = null;
+            library.Service.Saved += (_, isClean) => clean = isClean;
+            library.Worker.RunInline = false;
+            Edit(library);
+
+            library.Service.Save();
+            Edit(library);
+            library.Worker.RunAll();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(clean);
+        }
+
+        [AvaloniaFact]
+        public void ASaveTheWorkerFinishesAfterSwitchingToAnotherGraph_RaisesNoSavedAndLeavesTheOtherGraphAlone() {
+            using var library = new LibraryFixture();
+            UseSnapshotNodes(library);
+            Guid first = library.Service.Create("a", VanillaPresetName, "{}", 0, null).Id;
+            GraphRow other = library.Store.Create("b", VanillaPresetName, "{}", 0, null, library.Service.Now);
+            int saved = 0;
+            library.Service.Saved += (_, _) => saved++;
+            library.Worker.RunInline = false;
+            Edit(library);
+
+            library.Service.Save();
+            library.Service.Resume(other);
+            library.Worker.RunAll();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(0, saved);
+            Assert.Equal(other.Id, library.Service.OpenGraphId);
+            Assert.Null(library.Service.OpenGraphSavedAt);
+            Assert.Empty(library.Store.Versions(other.Id));
+            Assert.Single(library.Store.Versions(first), v => v.Kind == GraphVersionKind.Saved);
+        }
+
+        [AvaloniaFact]
+        public void TwoSavesMergedIntoOneJob_RecordOneSavedVersionHoldingTheNewestSnapshot() {
+            using var library = new LibraryFixture();
+            UseSnapshotNodes(library);
+            Guid id = library.Service.Create("a", VanillaPresetName, "{}", 0, null).Id;
+            library.Worker.RunInline = false;
+
+            Edit(library);
+            library.Service.Save();
+            Edit(library);
+            library.Service.Save();
+            Assert.Equal(1, library.Worker.Pending);
+            library.Worker.RunAll();
+            Dispatcher.UIThread.RunJobs();
+
+            GraphVersionRow saved = Assert.Single(library.Store.Versions(id), v => v.Kind == GraphVersionKind.Saved);
+            Assert.Equal(2, library.Store.Get(id)!.NodeCount);
+            Assert.Equal(library.Store.Get(id)!.Data, saved.Data);
+        }
+
+        [AvaloniaFact]
+        public void DeletingTheOpenGraphWithAnAutosaveQueued_RaisesNoWriteFailed() {
+            using var library = new LibraryFixture();
+            using var logIsolation = ErrorLogging.UseIsolatedLogDirectory(library.NewTempDir());
+            UseSnapshotNodes(library);
+            Guid id = library.Service.Create("a", VanillaPresetName, "{}", 0, null).Id;
+            int raised = 0;
+            library.Service.WriteFailed += (_, _) => raised++;
+            library.Worker.RunInline = false;
+
+            Edit(library);
+            library.Clock.Advance(GraphLibraryService.Debounce);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, library.Worker.Pending);
+            library.Service.Delete(id);
+            library.Worker.RunAll();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(0, raised);
+            Assert.Null(library.Store.Get(id));
+        }
+
+        [AvaloniaFact]
+        public void DisposingTheServiceWithAWriteQueued_StillWritesTheThumbnailItWasGiven() {
+            using var library = new LibraryFixture();
+            using var logIsolation = ErrorLogging.UseIsolatedLogDirectory(library.NewTempDir());
+            Guid id = library.Service.Create("a", VanillaPresetName, "{}", 0, null).Id;
+            library.Service.Post = action => Dispatcher.UIThread.Post(action);
+            library.Service.Snapshot = () => {
+                using var recorder = new SKPictureRecorder();
+                recorder.BeginRecording(new SKRect(0, 0, 60, 60)).DrawRect(new SKRect(10, 10, 50, 50), new SKPaint { Color = SKColors.Red });
+                return new GraphSnapshot("{}", 1, recorder.EndRecording());
+            };
+            int raised = 0;
+            library.Service.WriteFailed += (_, _) => raised++;
+            library.Worker.RunInline = false;
+
+            library.Service.NotifyChanged();
+            library.Service.FlushNow();
+            library.Service.Dispose();
+            library.Worker.RunAll();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(0, raised);
+            byte[]? png = library.Store.Get(id)!.Thumbnail;
+            Assert.NotNull(png);
+            using SKBitmap bitmap = SKBitmap.Decode(png);
+            Assert.Equal(SKColors.Red, bitmap.GetPixel(30, 30));
         }
 
         [AvaloniaFact]

@@ -56,7 +56,8 @@ namespace Foreman.Mac.Kit.Composites {
         private ControlTheme? cellTheme;
         private ControlTheme? headingTheme;
         private double headingSpacing = 6;
-        private double cellSize = 88;
+        private bool suspendRebuild;
+        private bool rebuildRequested;
         private double cellGap = 8;
         private readonly List<ChooserCell> cells = [];
         private readonly List<ChooserItem> items = [];
@@ -217,21 +218,31 @@ namespace Foreman.Mac.Kit.Composites {
         }
 
         private void MoveByPage(int direction) {
-            if (CurrentIndex() < 0) {
+            int start = CurrentIndex();
+            if (start < 0) {
                 MoveTo(0);
                 return;
             }
             double viewport = scroll?.Viewport.Height ?? 0;
-            int rows = Math.Max(1, (int)(viewport / (cellSize + cellGap)));
-            for (int i = 0; i < rows; i++) {
-                int before = CurrentIndex();
-                MoveVertical(before, direction);
-                if (CurrentIndex() == before)
+            double startTop = TrackTop(cells[start]);
+            int last = start;
+            for (int step = 0; ; step++) {
+                int next = VerticalTarget(last, direction);
+                if (next < 0)
                     break;
+                if (step > 0 && Math.Abs(TrackTop(cells[next]) - startTop) + cells[next].Bounds.Height > viewport)
+                    break;
+                last = next;
             }
+            MoveTo(last);
         }
 
-        private void MoveVertical(int index, int direction) {
+        private double TrackTop(ChooserCell cell) =>
+            (track is null ? null : cell.TranslatePoint(default, track))?.Y ?? cell.Bounds.Y;
+
+        private void MoveVertical(int index, int direction) => MoveTo(VerticalTarget(index, direction));
+
+        private int VerticalTarget(int index, int direction) {
             ChooserCell current = cells[index];
             int section = sectionOfCell[index];
             double x = current.Bounds.X, y = current.Bounds.Y;
@@ -245,21 +256,20 @@ namespace Foreman.Mac.Kit.Composites {
                 double targetY = direction > 0 ? candidates.Min(c => c.Bounds.Y) : candidates.Max(c => c.Bounds.Y);
                 ChooserCell target = candidates.Where(c => Math.Abs(c.Bounds.Y - targetY) <= 1)
                     .OrderBy(c => Math.Abs(c.Bounds.X - x)).First();
-                MoveTo(cells.IndexOf(target));
-                return;
+                return cells.IndexOf(target);
             }
 
             int nextSection = section + direction;
             while (nextSection >= 0 && nextSection < Sections.Count && CellsInSection(nextSection).Count == 0)
                 nextSection += direction;
             if (nextSection < 0 || nextSection >= Sections.Count)
-                return;
+                return -1;
 
             List<ChooserCell> nextSectionCells = CellsInSection(nextSection);
             double edgeY = direction > 0 ? nextSectionCells.Min(c => c.Bounds.Y) : nextSectionCells.Max(c => c.Bounds.Y);
             ChooserCell landing = nextSectionCells.Where(c => Math.Abs(c.Bounds.Y - edgeY) <= 1)
                 .OrderBy(c => Math.Abs(c.Bounds.X - x)).First();
-            MoveTo(cells.IndexOf(landing));
+            return cells.IndexOf(landing);
         }
 
         private List<ChooserCell> CellsInSection(int section) {
@@ -285,11 +295,24 @@ namespace Foreman.Mac.Kit.Composites {
 
         private void Subscribe() {
             Unsubscribe();
-            subs.Add(this.GetResourceObservable("Kit.ChooserCell").Subscribe(new ResourceSinks.Sink<ControlTheme?>(v => { cellTheme = v; Rebuild(); }, null)));
-            subs.Add(this.GetResourceObservable("Kit.ChooserHeading").Subscribe(new ResourceSinks.Sink<ControlTheme?>(v => { headingTheme = v; Rebuild(); }, null)));
-            subs.Add(this.GetResourceObservable("Foreman.Space.Space15").Subscribe(new ResourceSinks.Sink<double>(v => { headingSpacing = v; Rebuild(); }, 6)));
-            subs.Add(this.GetResourceObservable("Foreman.Size.ChooserCell").Subscribe(new ResourceSinks.Sink<double>(v => cellSize = v, 88)));
-            subs.Add(this.GetResourceObservable("Foreman.Space.Space2").Subscribe(new ResourceSinks.Sink<double>(v => { cellGap = v; Rebuild(); }, 8)));
+            suspendRebuild = true;
+            try {
+                subs.Add(this.GetResourceObservable("Kit.ChooserCell").Subscribe(new ResourceSinks.Sink<ControlTheme?>(v => { cellTheme = v; RequestRebuild(); }, null)));
+                subs.Add(this.GetResourceObservable("Kit.ChooserHeading").Subscribe(new ResourceSinks.Sink<ControlTheme?>(v => { headingTheme = v; RequestRebuild(); }, null)));
+                subs.Add(this.GetResourceObservable("Foreman.Space.Space15").Subscribe(new ResourceSinks.Sink<double>(v => { headingSpacing = v; RequestRebuild(); }, 6)));
+                subs.Add(this.GetResourceObservable("Foreman.Space.Space2").Subscribe(new ResourceSinks.Sink<double>(v => { cellGap = v; RequestRebuild(); }, 8)));
+            } finally {
+                suspendRebuild = false;
+            }
+            if (rebuildRequested)
+                Rebuild();
+        }
+
+        private void RequestRebuild() {
+            if (suspendRebuild)
+                rebuildRequested = true;
+            else
+                Rebuild();
         }
 
         private void Unsubscribe() {
@@ -299,6 +322,7 @@ namespace Foreman.Mac.Kit.Composites {
         }
 
         private void Rebuild() {
+            rebuildRequested = false;
             if (track is null)
                 return;
 

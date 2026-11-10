@@ -26,12 +26,15 @@ namespace Foreman.Mac.Services {
         private readonly object gate = new();
         private Task writeChain = Task.CompletedTask;
         private WriteJob? waiting;
-        private volatile bool lastWriteFailed;
+        private readonly HashSet<Guid> deleted = [];
+        private long changeCount;
 
-        private sealed class WriteJob(Guid id, string? name, GraphSnapshot snapshot) {
+        private sealed class WriteJob(Guid id, string? name, GraphSnapshot snapshot, long changeStamp) {
             public Guid Id { get; } = id;
             public string? Name { get; } = name;
             public GraphSnapshot Snapshot { get; set; } = snapshot;
+            public long ChangeStamp { get; set; } = changeStamp;
+            public bool RecordSaved { get; set; }
         }
 
         public Guid? OpenGraphId { get; private set; }
@@ -44,12 +47,15 @@ namespace Foreman.Mac.Services {
 
         public event EventHandler<string>? WriteFailed;
 
+        public event EventHandler<bool>? Saved;
+
         public DateTime Now => time.GetUtcNow().UtcDateTime;
 
         public void NotifyChanged() {
             if (OpenGraphId is null)
                 return;
             pending = true;
+            changeCount++;
             timer ??= time.CreateTimer(_ => Post(FlushNow), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             timer.Change(Debounce, Timeout.InfiniteTimeSpan);
         }
@@ -66,17 +72,10 @@ namespace Foreman.Mac.Services {
         }
 
         public bool Save() {
-            if (OpenGraphId is not Guid id)
+            if (OpenGraphId is null)
                 return false;
             timer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-            lastWriteFailed = false;
-            if (!Enqueue() || !Drain() || lastWriteFailed)
-                return false;
-            DateTime now = Now;
-            store.AddVersion(id, GraphVersionKind.Saved, now);
-            store.ThinAutomaticVersions(id, now);
-            OpenGraphSavedAt = now;
-            return true;
+            return Enqueue(recordSaved: true);
         }
 
         public GraphRow CreateBlank(string name, string presetName, string data) {
@@ -179,6 +178,8 @@ namespace Foreman.Mac.Services {
                 OpenGraphSavedAt = null;
                 pending = false;
             }
+            lock (gate)
+                deleted.Add(id);
             store.Delete(id);
         }
 
@@ -204,10 +205,8 @@ namespace Foreman.Mac.Services {
         public void Dispose() {
             timer?.Dispose();
             timer = null;
-            lock (gate) {
-                waiting?.Snapshot.Thumbnail?.Dispose();
+            lock (gate)
                 waiting = null;
-            }
         }
 
         private void Attach(GraphRow row) {
@@ -230,7 +229,7 @@ namespace Foreman.Mac.Services {
             }
         }
 
-        private bool Enqueue() {
+        private bool Enqueue(bool recordSaved = false) {
             if (OpenGraphId is not Guid id || Snapshot?.Invoke() is not GraphSnapshot snapshot)
                 return false;
             pending = false;
@@ -238,9 +237,11 @@ namespace Foreman.Mac.Services {
                 if (waiting is { } queued && queued.Id == id) {
                     queued.Snapshot.Thumbnail?.Dispose();
                     queued.Snapshot = snapshot;
+                    queued.ChangeStamp = changeCount;
+                    queued.RecordSaved |= recordSaved;
                     return true;
                 }
-                var job = new WriteJob(id, OpenGraphName, snapshot);
+                var job = new WriteJob(id, OpenGraphName, snapshot, changeCount) { RecordSaved = recordSaved };
                 waiting = job;
                 writeChain = writeChain.ContinueWith(_ => Run(job), CancellationToken.None, TaskContinuationOptions.None, Worker);
             }
@@ -253,6 +254,10 @@ namespace Foreman.Mac.Services {
                 if (ReferenceEquals(waiting, job))
                     waiting = null;
                 snapshot = job.Snapshot;
+                if (deleted.Contains(job.Id)) {
+                    snapshot.Thumbnail?.Dispose();
+                    return;
+                }
             }
             DateTime now = Now;
             try {
@@ -267,17 +272,30 @@ namespace Foreman.Mac.Services {
                     lock (gate)
                         nextAutomaticAt = now + AutomaticInterval;
                 }
-                lastWriteFailed = false;
+                if (job.RecordSaved) {
+                    store.AddVersion(job.Id, GraphVersionKind.Saved, now);
+                    store.ThinAutomaticVersions(job.Id, now);
+                    Post(() => OnSaved(job, now));
+                }
             } catch (Exception ex) {
                 ErrorLogging.LogException(ex, "Error autosaving the graph");
-                lastWriteFailed = true;
                 Post(() => OnWriteFailed(job));
             } finally {
                 snapshot.Thumbnail?.Dispose();
             }
         }
 
+        private void OnSaved(WriteJob job, DateTime savedAt) {
+            if (OpenGraphId != job.Id)
+                return;
+            OpenGraphSavedAt = savedAt;
+            Saved?.Invoke(this, job.ChangeStamp == changeCount);
+        }
+
         private void OnWriteFailed(WriteJob job) {
+            lock (gate)
+                if (deleted.Contains(job.Id))
+                    return;
             if (OpenGraphId == job.Id)
                 pending = true;
             if (failureReported)

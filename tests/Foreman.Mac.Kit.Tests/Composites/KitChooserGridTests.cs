@@ -265,6 +265,30 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void PageDown_WithSectionHeadingsInView_LandsOnTheLastRowTheViewportShowsInFull() {
+            using var fixture = new KitFixture();
+            var grid = new ChooserGrid { Theme = KitChooserGridTheme(), Width = 250, Height = 300 };
+            for (int s = 0; s < 6; s++) {
+                var section = new ChooserSection { Group = "Production", Subgroup = $"Section {s}" };
+                section.Items.Add(new ChooserItem { Name = $"Item {s}" });
+                grid.Sections.Add(section);
+            }
+            grid.SelectedItem = grid.Sections[0].Items[0];
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            ScrollViewer scroll = Scroll(grid);
+            ChooserCell[] cells = Cells(grid);
+            int lastShown = Enumerable.Range(0, cells.Length)
+                .Last(i => cells[i].TranslatePoint(new Point(0, cells[i].Bounds.Height), scroll)!.Value.Y <= scroll.Viewport.Height);
+            Assert.InRange(lastShown, 1, 2);
+
+            fixture.StateOf(grid).KeyDown(Key.PageDown);
+
+            Assert.Equal(grid.Sections[lastShown].Items[0], grid.SelectedItem);
+        }
+
+        [AvaloniaFact]
         public void Return_RaisesActivatedForTheSelectedItem() {
             using var fixture = new KitFixture();
             ChooserGrid grid = TwoSectionGrid();
@@ -523,6 +547,28 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(grid.Bounds.Height > 0);
             Assert.Equal(10, Cells(grid).Length);
             Assert.Equal(2, Headings(grid).Length);
+        }
+
+        [AvaloniaFact]
+        public void ReattachingATemplatedGrid_RebuildsTheCellsOnce() {
+            using var fixture = new KitFixture();
+            ChooserGrid grid = TwoSectionGrid();
+            int rebuilds = 0;
+            grid.TemplateApplied += (_, e) =>
+                e.NameScope.Find<StackPanel>("PART_Track")!.Children.CollectionChanged += (_, args) => {
+                    if (args.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && args.NewStartingIndex == 0)
+                        rebuilds++;
+                };
+
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.Window.Content = null;
+            Dispatcher.UIThread.RunJobs();
+            rebuilds = 0;
+            fixture.Window.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, rebuilds);
         }
 
         [AvaloniaFact]
