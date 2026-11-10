@@ -24,6 +24,7 @@
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/TextField.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/SearchField.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Stepper.axaml" />
+    <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/RevertButton.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Slider.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/Disclosure.axaml" />
     <ResourceInclude Source="avares://Foreman.Mac.Kit/Controls/ListRow.axaml" />

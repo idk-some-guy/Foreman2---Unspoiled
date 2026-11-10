@@ -412,6 +412,79 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             AutomationPropertyChangedEventArgs change = Assert.Single(events, e => e.Property == RangeValuePatternIdentifiers.ValueProperty);
             Assert.Equal((2d, 3d), ((double)change.OldValue!, (double)change.NewValue!));
         }
+
+        [AvaloniaFact]
+        public void Stepper_Empty_ShowsPlaceholderAndNoValue() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Value = 5;
+            stepper.Placeholder = "None";
+            stepper.IsEmpty = true;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBox box = ValueBox(stepper);
+            Assert.Equal("", box.Text);
+            Assert.Equal("None", box.PlaceholderText);
+            TextBlock placeholder = box.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Placeholder");
+            Assert.True(placeholder.IsVisible);
+            Assert.Equal(fixture.Brush("Foreman.Color.TextTertiary").ToImmutable(), placeholder.Foreground?.ToImmutable());
+        }
+
+        [AvaloniaFact]
+        public void Stepper_EmptyThenStep_BecomesNonEmpty() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Value = 5;
+            stepper.Placeholder = "None";
+            stepper.IsEmpty = true;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.StateOf(UpButton(stepper)).Click();
+
+            Assert.False(stepper.IsEmpty);
+            Assert.Equal(6, stepper.Value);
+            Assert.Equal("6", ValueBox(stepper).Text);
+        }
+
+        [AvaloniaFact]
+        public void Stepper_EmptyThenTypedValue_BecomesNonEmpty() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.IsEmpty = true;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBox box = ValueBox(stepper);
+            box.Text = "12";
+            box.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+
+            Assert.False(stepper.IsEmpty);
+            Assert.Equal(12, stepper.Value);
+        }
+
+        [AvaloniaFact]
+        public void Stepper_PlusSign_FormatsAndSpeaks() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Minimum = -50;
+            stepper.Value = 2;
+            stepper.ShowsPlusSign = true;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("+2", ValueBox(stepper).Text);
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(stepper);
+            Assert.Equal("plus 2", peer.GetProvider<IValueProvider>()!.Value);
+
+            stepper.Value = -3;
+            Assert.Equal("-3", ValueBox(stepper).Text);
+            Assert.Equal("-3", peer.GetProvider<IValueProvider>()!.Value);
+
+            stepper.Value = 0;
+            Assert.Equal("0", ValueBox(stepper).Text);
+        }
     }
 
     [Collection(KitScaleGroup.Name)]

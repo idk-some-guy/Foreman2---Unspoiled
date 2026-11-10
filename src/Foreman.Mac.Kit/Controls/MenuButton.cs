@@ -147,6 +147,10 @@ namespace Foreman.Mac.Kit.Controls {
 
             if (ActionItems.Count > 0) {
                 foreach (MenuButtonAction action in ActionItems) {
+                    if (action.IsSeparator) {
+                        Menu.Items.Add(MenuRow.Separator());
+                        continue;
+                    }
                     MenuButtonAction captured = action;
                     Menu.Items.Add(new MenuRow {
                         Text = action.Text,

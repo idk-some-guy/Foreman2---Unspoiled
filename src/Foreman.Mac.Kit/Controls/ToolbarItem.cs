@@ -22,6 +22,9 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<string?> AutomationNameProperty =
             AvaloniaProperty.Register<ToolbarItem, string?>(nameof(AutomationName));
 
+        public static readonly StyledProperty<string?> OverflowLabelProperty =
+            AvaloniaProperty.Register<ToolbarItem, string?>(nameof(OverflowLabel));
+
         private TextBlock? label;
         private IDisposable? labelOpacitySub;
         private NotifyCollectionChangedEventHandler? classesChanged;
@@ -43,6 +46,11 @@ namespace Foreman.Mac.Kit.Controls {
         public string? Label {
             get => GetValue(LabelProperty);
             set => SetValue(LabelProperty, value);
+        }
+
+        public string? OverflowLabel {
+            get => GetValue(OverflowLabelProperty);
+            set => SetValue(OverflowLabelProperty, value);
         }
 
         public bool IsOn {

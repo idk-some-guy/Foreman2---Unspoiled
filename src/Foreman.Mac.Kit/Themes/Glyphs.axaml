@@ -80,6 +80,24 @@
   <StreamGeometry x:Key="Kit.Glyph.Summary.18">M3.6,13.95 V8.1 M8.1,13.95 V3.6 M12.6,13.95 v-6.3</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.Summary.20">M4,15.5 V9 M9,15.5 V4 M14,15.5 v-7</StreamGeometry>
 
+  <StreamGeometry x:Key="Kit.Glyph.Sync.12">M2.454,5.4 A3.6,3.6 0 0,1 8.88,3.84 M9.12,2.04 L8.88,3.84 L7.08,3.6 M9.546,6.6 A3.6,3.6 0 0,1 3.12,8.16 M2.88,9.96 L3.12,8.16 L4.92,8.4</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Sync.16">M3.272,7.2 A4.8,4.8 0 0,1 11.84,5.12 M12.16,2.72 L11.84,5.12 L9.44,4.8 M12.728,8.8 A4.8,4.8 0 0,1 4.16,10.88 M3.84,13.28 L4.16,10.88 L6.56,11.2</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Sync.17">M3.4765,7.65 A5.1,5.1 0 0,1 12.58,5.44 M12.92,2.89 L12.58,5.44 L10.03,5.1 M13.5235,9.35 A5.1,5.1 0 0,1 4.42,11.56 M4.08,14.11 L4.42,11.56 L6.97,11.9</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Sync.18">M3.681,8.1 A5.4,5.4 0 0,1 13.32,5.76 M13.68,3.06 L13.32,5.76 L10.62,5.4 M14.319,9.9 A5.4,5.4 0 0,1 4.68,12.24 M4.32,14.94 L4.68,12.24 L7.38,12.6</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Sync.20">M4.09,9 A6,6 0 0,1 14.8,6.4 M15.2,3.4 L14.8,6.4 L11.8,6 M15.91,11 A6,6 0 0,1 5.2,13.6 M4.8,16.6 L5.2,13.6 L8.2,14</StreamGeometry>
+
+  <StreamGeometry x:Key="Kit.Glyph.Research.12">M4.8,1.65 h2.4 M5.25,1.65 v2.7 L2.58,9 a0.84,0.84 0 0,0 0.72,1.26 h5.4 a0.84,0.84 0 0,0 0.72,-1.26 L6.75,4.35 v-2.7 M3.84,7.2 h4.32</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Research.16">M6.4,2.2 h3.2 M7,2.2 v3.6 L3.44,12 a1.12,1.12 0 0,0 0.96,1.68 h7.2 a1.12,1.12 0 0,0 0.96,-1.68 L9,5.8 v-3.6 M5.12,9.6 h5.76</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Research.17">M6.8,2.3375 h3.4 M7.4375,2.3375 v3.825 L3.655,12.75 a1.19,1.19 0 0,0 1.02,1.785 h7.65 a1.19,1.19 0 0,0 1.02,-1.785 L9.5625,6.1625 v-3.825 M5.44,10.2 h6.12</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Research.18">M7.2,2.475 h3.6 M7.875,2.475 v4.05 L3.87,13.5 a1.26,1.26 0 0,0 1.08,1.89 h8.1 a1.26,1.26 0 0,0 1.08,-1.89 L10.125,6.525 v-4.05 M5.76,10.8 h6.48</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Research.20">M8,2.75 h4 M8.75,2.75 v4.5 L4.3,15 a1.4,1.4 0 0,0 1.2,2.1 h9 a1.4,1.4 0 0,0 1.2,-2.1 L11.25,7.25 v-4.5 M6.4,12 h7.2</StreamGeometry>
+
+  <StreamGeometry x:Key="Kit.Glyph.Revert.12">M2.4,4.8 h4.5 a2.4,2.4 0 0,1 0,4.8 H4.8 M4.5,2.7 L2.4,4.8 l2.1,2.1</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Revert.16">M3.2,6.4 h6 a3.2,3.2 0 0,1 0,6.4 H6.4 M6,3.6 L3.2,6.4 l2.8,2.8</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Revert.17">M3.4,6.8 h6.375 a3.4,3.4 0 0,1 0,6.8 H6.8 M6.375,3.825 L3.4,6.8 l2.975,2.975</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Revert.18">M3.6,7.2 h6.75 a3.6,3.6 0 0,1 0,7.2 H7.2 M6.75,4.05 L3.6,7.2 l3.15,3.15</StreamGeometry>
+  <StreamGeometry x:Key="Kit.Glyph.Revert.20">M4,8 h7.5 a4,4 0 0,1 0,8 H8 M7.5,4.5 L4,8 l3.5,3.5</StreamGeometry>
+
   <StreamGeometry x:Key="Kit.Glyph.View.16">M3.2,4 h9.6 M3.2,8 h9.6 M3.2,12 h9.6</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.View.17">M3.4,4.25 h10.2 M3.4,8.5 h10.2 M3.4,12.75 h10.2</StreamGeometry>
   <StreamGeometry x:Key="Kit.Glyph.View.18">M3.6,4.5 h10.8 M3.6,9 h10.8 M3.6,13.5 h10.8</StreamGeometry>

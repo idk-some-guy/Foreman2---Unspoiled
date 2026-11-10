@@ -19,8 +19,8 @@ namespace Foreman.Mac.Kit.Composites {
         private readonly Dictionary<ToolbarItem, double> iconOnlyWidths = [];
         private readonly Dictionary<Control, Control> gapSpacerBefore = [];
         private readonly double[] requiredByStep = new double[4];
-        private StackPanel? overflowGroupPanel;
-        private Control? overflowGroupSpacer;
+        private List<StackPanel> overflowGroupPanels = [];
+        private List<Control> overflowGroupSpacers = [];
         private MenuButton? overflowButton;
         private Control? overflowSpacer;
         private SearchField? searchField;
@@ -67,7 +67,7 @@ namespace Foreman.Mac.Kit.Composites {
             subs.Clear();
         }
 
-        internal void SetContent(IReadOnlyList<(Control Child, ToolbarGapKind Gap)> content, IReadOnlyList<ToolbarItem> items, IReadOnlyList<StackPanel> groups, StackPanel? overflowGroup, MenuButton? overflow, SearchField? field, ZoomStepper? zoom) {
+        internal void SetContent(IReadOnlyList<(Control Child, ToolbarGapKind Gap)> content, IReadOnlyList<ToolbarItem> items, IReadOnlyList<StackPanel> groups, IReadOnlyList<StackPanel> overflowGroups, MenuButton? overflow, SearchField? field, ZoomStepper? zoom) {
             Children.Clear();
             gaps.Clear();
             gapSpacerBefore.Clear();
@@ -85,8 +85,8 @@ namespace Foreman.Mac.Kit.Composites {
             }
             allItems = [.. items];
             groupPanels = [.. groups];
-            overflowGroupPanel = overflowGroup;
-            overflowGroupSpacer = overflowGroup is not null ? gapSpacerBefore.GetValueOrDefault(overflowGroup) : null;
+            overflowGroupPanels = [.. overflowGroups];
+            overflowGroupSpacers = [.. overflowGroups.Select(g => gapSpacerBefore.GetValueOrDefault(g)).OfType<Control>()];
             overflowButton = overflow;
             overflowSpacer = overflow is not null ? gapSpacerBefore.GetValueOrDefault(overflow) : null;
             searchField = field;
@@ -152,7 +152,7 @@ namespace Foreman.Mac.Kit.Composites {
             List<Control> targets = FocusTargets();
             if (previous is not null && targets.Contains(previous))
                 return previous;
-            if (previous is not null && overflowGroupPanel is not null && overflowGroupPanel.Children.Contains(previous) && overflowButton is { IsVisible: true })
+            if (previous is not null && overflowGroupPanels.Any(g => g.Children.Contains(previous)) && overflowButton is { IsVisible: true })
                 return overflowButton;
             return targets.FirstOrDefault();
         }
@@ -180,12 +180,16 @@ namespace Foreman.Mac.Kit.Composites {
             for (int step = 0; step <= 3; step++) {
                 bool iconOnly = step >= 1;
                 double searchW = step >= 2 ? searchMinWidth : searchNaturalWidth;
-                bool overflow = step >= 3 && overflowGroupPanel is not null;
+                bool overflow = step >= 3 && overflowGroupPanels.Count > 0;
 
                 double sum = titleWidth;
                 foreach (StackPanel group in groupPanels) {
-                    double gWidth = group == overflowGroupPanel && overflow ? overflowWidth : GroupWidth(group, iconOnly);
-                    sum += groupGap + gWidth;
+                    if (overflow && overflowGroupPanels.Contains(group)) {
+                        if (group == overflowGroupPanels[0])
+                            sum += groupGap + overflowWidth;
+                        continue;
+                    }
+                    sum += groupGap + GroupWidth(group, iconOnly);
                 }
                 sum += searchW;
                 sum += groupGap + zoomWidth;
@@ -247,10 +251,10 @@ namespace Foreman.Mac.Kit.Composites {
             if (searchField is not null)
                 searchField.Width = step >= 2 ? searchMinWidth : searchNaturalWidth;
 
-            bool overflow = step >= 3 && overflowGroupPanel is not null;
-            if (overflowGroupPanel is not null)
+            bool overflow = step >= 3 && overflowGroupPanels.Count > 0;
+            foreach (StackPanel overflowGroupPanel in overflowGroupPanels)
                 overflowGroupPanel.IsVisible = !overflow;
-            if (overflowGroupSpacer is not null)
+            foreach (Control overflowGroupSpacer in overflowGroupSpacers)
                 overflowGroupSpacer.IsVisible = !overflow;
             if (overflowButton is not null)
                 overflowButton.IsVisible = overflow;

@@ -35,6 +35,15 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<int> DecimalsProperty =
             AvaloniaProperty.Register<Stepper, int>(nameof(Decimals), 0);
 
+        public static readonly StyledProperty<bool> IsEmptyProperty =
+            AvaloniaProperty.Register<Stepper, bool>(nameof(IsEmpty), defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
+
+        public static readonly StyledProperty<string?> PlaceholderProperty =
+            AvaloniaProperty.Register<Stepper, string?>(nameof(Placeholder));
+
+        public static readonly StyledProperty<bool> ShowsPlusSignProperty =
+            AvaloniaProperty.Register<Stepper, bool>(nameof(ShowsPlusSign));
+
         public double Value {
             get => GetValue(ValueProperty);
             set => SetValue(ValueProperty, value);
@@ -70,6 +79,21 @@ namespace Foreman.Mac.Kit.Controls {
             set => SetValue(DecimalsProperty, value);
         }
 
+        public bool IsEmpty {
+            get => GetValue(IsEmptyProperty);
+            set => SetValue(IsEmptyProperty, value);
+        }
+
+        public string? Placeholder {
+            get => GetValue(PlaceholderProperty);
+            set => SetValue(PlaceholderProperty, value);
+        }
+
+        public bool ShowsPlusSign {
+            get => GetValue(ShowsPlusSignProperty);
+            set => SetValue(ShowsPlusSignProperty, value);
+        }
+
         private TextBox? valueBox;
         private Button? upButton;
         private Button? downButton;
@@ -86,6 +110,12 @@ namespace Foreman.Mac.Kit.Controls {
             MaximumProperty.Changed.AddClassHandler<Stepper>((s, _) => s.CoerceValue(ValueProperty));
             UnitProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshUnitDisplay());
             DecimalsProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
+            IsEmptyProperty.Changed.AddClassHandler<Stepper>((s, _) => {
+                s.RefreshValueDisplay();
+                s.RefreshUnitDisplay();
+            });
+            PlaceholderProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
+            ShowsPlusSignProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
         }
 
         private static double CoerceValue(AvaloniaObject sender, double value) =>
@@ -189,24 +219,45 @@ namespace Foreman.Mac.Kit.Controls {
         private double StepAmount(KeyModifiers modifiers) =>
             modifiers.HasFlag(KeyModifiers.Shift) ? Increment * 10 : Increment;
 
-        private void Step(double delta) => Value += delta;
+        private void Step(double delta) {
+            IsEmpty = false;
+            Value += delta;
+        }
 
         private void CommitText() {
             if (valueBox is null)
                 return;
 
-            if (double.TryParse(valueBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed))
+            if (double.TryParse(valueBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed)) {
+                IsEmpty = false;
                 Value = parsed;
+            }
             else
                 RefreshValueDisplay();
         }
 
         private void RefreshValueDisplay() {
-            if (valueBox is not null)
-                valueBox.Text = FormattedValue;
+            if (valueBox is null)
+                return;
+            valueBox.PlaceholderText = Placeholder;
+            valueBox.Text = IsEmpty ? "" : FormattedValue;
         }
 
-        private string FormattedValue => Value.ToString("F" + Decimals, CultureInfo.InvariantCulture);
+        private string FormattedValue {
+            get {
+                string text = Value.ToString("F" + Decimals, CultureInfo.InvariantCulture);
+                return ShowsPlusSign && Value > 0 ? "+" + text : text;
+            }
+        }
+
+        private string SpokenNumber {
+            get {
+                if (IsEmpty)
+                    return Placeholder ?? "";
+                string text = FormattedValue;
+                return text.StartsWith('+') ? "plus " + text[1..] : text;
+            }
+        }
 
         protected override AutomationPeer OnCreateAutomationPeer() => new StepperAutomationPeer(this);
 
@@ -243,14 +294,14 @@ namespace Foreman.Mac.Kit.Controls {
             void IRangeValueProvider.SetValue(double value) => Stepper.SetCurrentValue(ValueProperty, value);
 
             bool IValueProvider.IsReadOnly => true;
-            string? IValueProvider.Value => SpokenValue.Describe(Stepper.FormattedValue, Stepper.Unit, Stepper.SpokenUnit);
+            string? IValueProvider.Value => Stepper.IsEmpty ? Stepper.SpokenNumber : SpokenValue.Describe(Stepper.SpokenNumber, Stepper.Unit, Stepper.SpokenUnit);
             void IValueProvider.SetValue(string? value) { }
         }
 
         private void RefreshUnitDisplay() {
             if (unitText is null)
                 return;
-            bool hasUnit = !string.IsNullOrEmpty(Unit);
+            bool hasUnit = !IsEmpty && !string.IsNullOrEmpty(Unit);
             unitText.Text = Unit;
             unitText.IsVisible = hasUnit;
             unitText.Margin = hasUnit ? new Thickness(0, 0, glyphGap, 0) : default;

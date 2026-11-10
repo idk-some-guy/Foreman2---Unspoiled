@@ -108,7 +108,7 @@ namespace Foreman.Mac.UiTests.Views {
                  "Buttons", "Toolbar items", "Buttons & Toolbar items (150%)",
                  "Checkbox", "Radio group", "Switch", "Checkbox, Radio group & Switch (150%)",
                  "Segmented", "Pop-up buttons", "Menu button", "Segmented, Pop-up buttons & Menu button (150%)",
-                 "Text field", "Search field", "Stepper", "Slider", "Text field, Search field, Stepper & Slider (150%)",
+                 "Text field", "Search field", "Stepper", "Revert button", "Slider", "Text field, Search field, Stepper & Slider (150%)",
                  "List rows", "Sidebar rows", "Group box", "Tab strips", "Disclosure",
                  "List rows, Sidebar rows, Group box, Tab strips & Disclosure (150%)",
                  "Tooltip", "Spinner & progress", "Chips", "Key caps", "Value text",

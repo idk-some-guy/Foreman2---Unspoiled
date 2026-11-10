@@ -22,6 +22,7 @@ namespace Foreman.Mac.Kit.Tests.Themes {
             "Settings.Advanced", "Settings.Annotations", "Settings.Appearance",
             "Category.Mods", "Category.Items", "Category.Recipes", "Category.Assemblers",
             "Category.Miners", "Category.Power", "Category.Modules",
+            "Sync", "Research", "Revert",
         ];
 
         private static readonly int[] Sizes = [16, 17, 18, 20];
@@ -44,6 +45,15 @@ namespace Foreman.Mac.Kit.Tests.Themes {
 
             foreach (string name in GlyphNames)
                 foreach (int size in Sizes)
+                    ResourceGeometry($"Kit.Glyph.{name}.{size}");
+        }
+
+        [AvaloniaFact]
+        public void Glyphs_ResearchSet_ShippedAtEverySize() {
+            MergeKitIntoApplication();
+
+            foreach (string name in new[] { "Sync", "Research", "Revert" })
+                foreach (int size in new[] { 12, 16, 17, 18, 20 })
                     ResourceGeometry($"Kit.Glyph.{name}.{size}");
         }
 
