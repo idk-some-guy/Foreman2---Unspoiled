@@ -2,6 +2,7 @@
 using Foreman.DataCaching.DataTypes;
 using Foreman.Models;
 using Foreman.Models.Nodes;
+using Foreman.Models.Research;
 using System;
 using System.Collections.Generic;
 
@@ -31,6 +32,9 @@ namespace Foreman.Serialization {
 
                 if (applySolverSettings && document.Solver is not null)
                     ApplySolverSettings(graph, document.Solver, import);
+
+                if (applySolverSettings)
+                    graph.Research = ReadResearch(document.Research);
 
                 foreach (GraphNodeSaveData nodeData in document.Nodes) {
                     BaseNode? newNode = CreateNode(graph, cache, import, nodeData, newNodeCollection);
@@ -88,6 +92,30 @@ namespace Foreman.Serialization {
             graph.MaxQualitySteps = solver.MaxQualitySteps;
             if (import.QualityLinks.TryGetValue(solver.DefaultQualityName, out IQuality? defaultQuality))
                 graph.DefaultAssemblerQuality = defaultQuality;
+        }
+
+        private static ResearchState ReadResearch(ResearchSaveData? data) {
+            if (data is null)
+                return ResearchState.None;
+
+            ResearchSource? source = data.SaveName is not null && data.SavePath is not null && data.SyncedAtUtc is DateTime syncedAt
+                ? new ResearchSource(data.SaveName, data.SavePath, data.TicksPlayed, syncedAt)
+                : null;
+            return new ResearchState(
+                source,
+                ReadFields(data.Values),
+                ReadFields(data.SyncedValues),
+                data.RecipeProductivity,
+                data.SyncedRecipeProductivity,
+                data.Technologies);
+        }
+
+        private static Dictionary<ResearchField, double> ReadFields(IReadOnlyDictionary<string, double> values) {
+            Dictionary<ResearchField, double> fields = [];
+            foreach ((string name, double value) in values)
+                if (Enum.TryParse(name, out ResearchField field) && field.ToString() == name)
+                    fields[field] = value;
+            return fields;
         }
 
         private static BaseNode? CreateNode(

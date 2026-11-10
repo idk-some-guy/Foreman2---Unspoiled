@@ -1,5 +1,7 @@
 ﻿using Foreman.DataCaching.DataTypes;
 using Foreman.Models;
+using Foreman.Models.Research;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 
@@ -95,6 +97,18 @@ namespace Foreman.Serialization {
         public required string DefaultQualityName { get; init; }
     }
 
+    public sealed class ResearchSaveData {
+        public string? SaveName { get; init; }
+        public string? SavePath { get; init; }
+        public long? TicksPlayed { get; init; }
+        public DateTime? SyncedAtUtc { get; init; }
+        public IReadOnlyDictionary<string, double> Values { get; init; } = new Dictionary<string, double>();
+        public IReadOnlyDictionary<string, double> SyncedValues { get; init; } = new Dictionary<string, double>();
+        public IReadOnlyDictionary<string, double> RecipeProductivity { get; init; } = new Dictionary<string, double>();
+        public IReadOnlyDictionary<string, double> SyncedRecipeProductivity { get; init; } = new Dictionary<string, double>();
+        public IReadOnlyList<ResearchTechnology> Technologies { get; init; } = [];
+    }
+
     public sealed class ProductionGraphSaveDocument {
         public required int Version { get; init; }
         public IReadOnlyList<string> IncludedItems { get; init; } = [];
@@ -105,6 +119,7 @@ namespace Foreman.Serialization {
         public IReadOnlyList<string> IncludedModules { get; init; } = [];
         public IReadOnlyList<string> IncludedBeacons { get; init; } = [];
         public ProductionGraphSolverSaveData? Solver { get; init; }
+        public ResearchSaveData? Research { get; init; }
         public IReadOnlyList<GraphNodeSaveData> Nodes { get; init; } = [];
         public IReadOnlyList<GraphLinkSaveData> Links { get; init; } = [];
     }

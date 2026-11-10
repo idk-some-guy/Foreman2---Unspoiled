@@ -1,8 +1,10 @@
 ﻿using Foreman.DataCaching.DataTypes;
 using Foreman.Models;
+using Foreman.Models.Research;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
 
 namespace Foreman.Serialization {
@@ -26,7 +28,8 @@ namespace Foreman.Serialization {
             IncludedBeacons = [.. document.IncludedBeacons],
             IncludedQualities = [.. document.IncludedQualities.Select(q => new QualityEntryWire { Key = q.Key, Value = q.Value })],
             Nodes = [.. document.Nodes.Select(FromNode)],
-            NodeLinks = [.. document.Links.Select(FromLink)]
+            NodeLinks = [.. document.Links.Select(FromLink)],
+            Research = document.Research is null ? null : FromResearch(document.Research)
         };
 
         public static GraphViewerWire FromDocument(GraphViewerSaveDocument document) {
@@ -83,6 +86,7 @@ namespace Foreman.Serialization {
             IncludedModules = wire.IncludedModules ?? [],
             IncludedBeacons = wire.IncludedBeacons ?? [],
             Solver = ToSolver(wire),
+            Research = wire.Research is null ? null : ToResearch(wire.Research),
             Nodes = [.. (wire.Nodes ?? []).Select(ToNode).OfType<GraphNodeSaveData>()],
             Links = [.. (wire.NodeLinks ?? []).Select(ToLink)]
         };
@@ -159,6 +163,37 @@ namespace Foreman.Serialization {
             EnabledAssemblers = wire.EnabledAssemblers ?? [],
             EnabledModules = wire.EnabledModules ?? [],
             EnabledBeacons = wire.EnabledBeacons ?? []
+        };
+
+        private static ResearchWire FromResearch(ResearchSaveData research) => new() {
+            SaveName = research.SaveName,
+            SavePath = research.SavePath,
+            TicksPlayed = research.TicksPlayed,
+            SyncedAtUtc = research.SyncedAtUtc?.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+            Values = new Dictionary<string, double>(research.Values),
+            SyncedValues = new Dictionary<string, double>(research.SyncedValues),
+            RecipeProductivity = new Dictionary<string, double>(research.RecipeProductivity),
+            SyncedRecipeProductivity = new Dictionary<string, double>(research.SyncedRecipeProductivity),
+            Technologies = [.. research.Technologies.Select(t => new ResearchTechnologyWire {
+                Name = t.Name,
+                Researched = t.Researched,
+                LevelsDone = t.LevelsDone,
+                MinLevel = t.MinLevel,
+                MaxLevel = t.MaxLevel
+            })]
+        };
+
+        private static ResearchSaveData ToResearch(ResearchWire wire) => new() {
+            SaveName = wire.SaveName,
+            SavePath = wire.SavePath,
+            TicksPlayed = wire.TicksPlayed,
+            SyncedAtUtc = DateTime.TryParse(wire.SyncedAtUtc, CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTime syncedAt) ? syncedAt : null,
+            Values = wire.Values ?? [],
+            SyncedValues = wire.SyncedValues ?? [],
+            RecipeProductivity = wire.RecipeProductivity ?? [],
+            SyncedRecipeProductivity = wire.SyncedRecipeProductivity ?? [],
+            Technologies = [.. (wire.Technologies ?? []).Select(t => new ResearchTechnology(t.Name ?? "", t.Researched, t.LevelsDone, t.MinLevel, t.MaxLevel))]
         };
 
         private static ProductionGraphSolverSaveData ToSolver(ProductionGraphWire wire) => new() {

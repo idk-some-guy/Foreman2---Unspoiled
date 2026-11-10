@@ -1,6 +1,7 @@
 ﻿using Foreman.DataCaching.DataTypes;
 using Foreman.Models;
 using Foreman.Models.Nodes;
+using Foreman.Models.Research;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,6 +24,7 @@ namespace Foreman.Serialization {
                 IncludedModules = Sort(included.Modules),
                 IncludedBeacons = Sort(included.Beacons),
                 Solver = WriteSolver(graph),
+                Research = graph.Research.Equals(ResearchState.None) ? null : WriteResearch(graph.Research),
                 Nodes = [.. includedNodes.Select(WriteNode)],
                 Links = [.. includedLinks.Select(WriteLink)]
             };
@@ -30,6 +32,18 @@ namespace Foreman.Serialization {
 
         public static KeyNodeClipboardSaveData WriteKeyNodeClipboard(bool keyNode, string title) =>
             new(keyNode, title);
+
+        private static ResearchSaveData WriteResearch(ResearchState research) => new() {
+            SaveName = research.Source?.SaveName,
+            SavePath = research.Source?.SavePath,
+            TicksPlayed = research.Source?.TicksPlayed,
+            SyncedAtUtc = research.Source?.SyncedAtUtc,
+            Values = research.Values.ToDictionary(p => p.Key.ToString(), p => p.Value),
+            SyncedValues = research.SyncedValues.ToDictionary(p => p.Key.ToString(), p => p.Value),
+            RecipeProductivity = research.RecipeProductivity.ToDictionary(p => p.Key, p => p.Value),
+            SyncedRecipeProductivity = research.SyncedRecipeProductivity.ToDictionary(p => p.Key, p => p.Value),
+            Technologies = [.. research.Technologies]
+        };
 
         private static ProductionGraphSolverSaveData WriteSolver(ProductionGraph graph) => new() {
             EnableExtraProductivityForNonMiners = graph.EnableExtraProductivityForNonMiners,

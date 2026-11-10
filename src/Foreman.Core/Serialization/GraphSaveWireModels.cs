@@ -22,6 +22,27 @@ namespace Foreman.Serialization {
         public List<QualityEntryWire>? IncludedQualities { get; set; }
         public List<NodeWire>? Nodes { get; set; }
         public List<GraphLinkWire>? NodeLinks { get; set; }
+        public ResearchWire? Research { get; set; }
+    }
+
+    internal sealed class ResearchWire {
+        public string? SaveName { get; set; }
+        public string? SavePath { get; set; }
+        public long? TicksPlayed { get; set; }
+        public string? SyncedAtUtc { get; set; }
+        public Dictionary<string, double>? Values { get; set; }
+        public Dictionary<string, double>? SyncedValues { get; set; }
+        public Dictionary<string, double>? RecipeProductivity { get; set; }
+        public Dictionary<string, double>? SyncedRecipeProductivity { get; set; }
+        public List<ResearchTechnologyWire>? Technologies { get; set; }
+    }
+
+    internal sealed class ResearchTechnologyWire {
+        public string? Name { get; set; }
+        public bool Researched { get; set; }
+        public int LevelsDone { get; set; }
+        public int MinLevel { get; set; }
+        public int MaxLevel { get; set; }
     }
 
     internal sealed class GraphViewerWire {
