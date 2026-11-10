@@ -100,6 +100,35 @@ namespace ForemanTest.Research {
         }
 
         [TestMethod]
+        public async Task ReadAsync_CancelOutcomeWithFailure_KeepsTheFailureDetails() {
+            var rejected = new SaveFileReader.Result {
+                Outcome = SaveFileLoadOutcome.Cancel,
+                Failure = FactorioRunFailure.InvalidInstall,
+                InstallCheck = new FactorioInstallCheck(FactorioInstallProblem.TooOld, "1.1.0"),
+            };
+
+            ResearchRead read = await ResearchSync.ReadAsync(SavePath, CancellationToken.None, (_, _) => rejected);
+
+            Assert.AreEqual(SaveFileLoadOutcome.Cancel, read.Outcome);
+            Assert.AreEqual(FactorioRunFailure.InvalidInstall, read.Failure);
+            Assert.IsNotNull(read.InstallCheck);
+            Assert.IsNull(read.State);
+            Assert.IsFalse(read.Succeeded);
+        }
+
+        [TestMethod]
+        public async Task ReadAsync_TokenCancelledUpFront_NeverCallsTheLoader() {
+            using var source = new CancellationTokenSource();
+            source.Cancel();
+            bool called = false;
+
+            ResearchRead read = await ResearchSync.ReadAsync(SavePath, source.Token, (_, _) => { called = true; return FixtureResult(); });
+
+            Assert.AreEqual(SaveFileLoadOutcome.Cancel, read.Outcome);
+            Assert.IsFalse(called);
+        }
+
+        [TestMethod]
         public void Apply_FirstSync_ReportsCountsAndNoChangeList() {
             ProductionGraph graph = TwoRecipeGraph();
             ResearchState state = ResearchStateMapper.FromSave(FixtureResult().SaveFileInfo!, SavePath, SyncedAt);

@@ -12,9 +12,10 @@ namespace Foreman.Models.Research {
             Func<string, CancellationToken, SaveFileReader.Result> loader = load ?? SaveFileReader.Load;
             TimeProvider time = clock ?? TimeProvider.System;
             return Task.Run(() => {
-                SaveFileReader.Result result = loader(savePath, token);
-                if (result.Outcome == SaveFileLoadOutcome.Cancel)
+                if (token.IsCancellationRequested)
                     return new ResearchRead { Outcome = SaveFileLoadOutcome.Cancel };
+
+                SaveFileReader.Result result = loader(savePath, token);
 
                 SaveFileInfo? info = result.SaveFileInfo;
                 ResearchState? state = null;
