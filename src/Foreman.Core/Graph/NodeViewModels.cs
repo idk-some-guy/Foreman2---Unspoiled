@@ -132,6 +132,10 @@ namespace Foreman.Graph {
         public IReadOnlyList<ModuleQualityPair> BeaconModules => _recipeNode.BeaconModules;
         public double NeighbourCount => _recipeNode.NeighbourCount;
         public double ExtraProductivity => _recipeNode.ExtraProductivityBonus;
+        public double ResearchProductivity => _recipeNode.ResearchProductivityBonus;
+        public bool HasResearchProductivity => _recipeNode.HasResearchProductivity;
+        public bool ProductivityAtRecipeLimit => _recipeNode.ProductivityAtRecipeLimit;
+        public double MaxProductivityBonus => _recipeNode.MaxProductivityBonus;
         public double BeaconCount => _recipeNode.BeaconCount;
         public double BeaconsPerAssembler => _recipeNode.BeaconsPerAssembler;
         public double BeaconsConst => _recipeNode.BeaconsConst;
