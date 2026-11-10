@@ -76,6 +76,8 @@ namespace Foreman {
 
         private readonly DataCache RecipeOwner;
 
+        internal void OnResearchChanged() { ioUpdateRequired = true; UpdateState(); OnNodeValuesChanged(); }
+
         public AssemblerQualityPair SelectedAssembler {
             get;
             set { if (value && field != value) { field = value; ioUpdateRequired = true; UpdateState(); OnNodeStateChanged(); } }

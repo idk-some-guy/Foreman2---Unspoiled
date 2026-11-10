@@ -2,6 +2,7 @@
 using Foreman.DataCaching.DataTypes;
 using Foreman.Models;
 using Foreman.Models.Nodes;
+using Foreman.Models.Research;
 using Foreman.Models.Solver;
 using Foreman.Serialization;
 using System;
@@ -112,6 +113,20 @@ namespace Foreman {
             Bump();
             NodeMutated?.Invoke(this, EventArgs.Empty);
         }
+
+        public ResearchState Research {
+            get;
+            set {
+                if (field.Equals(value))
+                    return;
+                field = value;
+                foreach (BaseNode node in nodes)
+                    if (node is RecipeNode recipeNode)
+                        recipeNode.OnResearchChanged();
+                NotifyNodeMutated();
+                UpdateNodeValues();
+            }
+        } = ResearchState.None;
 
         public long Version { get; private set; }
         private void Bump() => Version++;

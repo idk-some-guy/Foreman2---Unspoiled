@@ -42,21 +42,10 @@ namespace ForemanTest {
             return (builder.Build(), [firstSupply.BuiltNode, firstRecipe.BuiltNode, firstConsumer.BuiltNode], [secondSupply.BuiltNode, secondRecipe.BuiltNode, secondConsumer.BuiltNode]);
         }
 
-        private static (ManualTaskScheduler Worker, ManualSyncContext Context, List<string> Events) Wire(GraphBuilder.BuiltData data) {
-            var worker = new ManualTaskScheduler();
-            var context = new ManualSyncContext();
-            data.Graph.SolveContext = context;
-            data.Graph.Solver.Worker = worker;
-            List<string> events = [];
-            data.Graph.SolveStarted += (_, _) => events.Add("started");
-            data.Graph.SolveEnded += (_, e) => events.Add("ended:" + e.Kind);
-            return (worker, context, events);
-        }
-
         [TestMethod]
         public void Request_BuildsOnCaller_SolvesOnWorker_AppliesOnContext_InOrder() {
             (GraphBuilder.BuiltData data, _, _) = BuildTwoChains();
-            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = Wire(data);
+            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = SolveWiring.Wire(data.Graph);
 
             data.Graph.UpdateNodeValues();
             CollectionAssert.AreEqual(new[] { "started" }, events);
@@ -76,7 +65,7 @@ namespace ForemanTest {
         [TestMethod]
         public void EditDuringSolve_DropsTheStaleResult_AndRequestsAgain() {
             (GraphBuilder.BuiltData data, BaseNode[] first, _) = BuildTwoChains();
-            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = Wire(data);
+            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = SolveWiring.Wire(data.Graph);
 
             data.Graph.UpdateNodeValues();
             worker.RunAll();
@@ -101,7 +90,7 @@ namespace ForemanTest {
                 consumer.DesiredRatePerSec = 20;
             double[] rates = [.. data.Graph.Nodes.Select(n => n.ActualRatePerSec)];
             NodeSolveState[] states = [.. data.Graph.Nodes.Select(n => n.SolveState)];
-            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = Wire(data);
+            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = SolveWiring.Wire(data.Graph);
 
             data.Graph.UpdateNodeValues();
             data.Graph.Solver.Cancel();
@@ -180,7 +169,7 @@ namespace ForemanTest {
             double[] firstRates = [.. first.Select(n => n.ActualRatePerSec)];
             int created = 0;
             data.Graph.LpSolverFactory = () => ++created == 2 ? new ThrowingSolver() : HighsSolver.Create();
-            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = Wire(data);
+            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = SolveWiring.Wire(data.Graph);
 
             data.Graph.UpdateNodeValues();
             worker.RunAll();
@@ -210,7 +199,7 @@ namespace ForemanTest {
         [TestMethod]
         public void Cancel_OnTheContextThread_EndsSynchronously_BeforeTheNextStart() {
             (GraphBuilder.BuiltData data, _, _) = BuildTwoChains();
-            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = Wire(data);
+            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = SolveWiring.Wire(data.Graph);
             var previous = SynchronizationContext.Current;
             SynchronizationContext.SetSynchronizationContext(new ManualSyncContext());
             try {
@@ -239,7 +228,7 @@ namespace ForemanTest {
             data.Solve();
             foreach (ConsumerNode consumer in data.Graph.Nodes.OfType<ConsumerNode>())
                 consumer.DesiredRatePerSec = 20;
-            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = Wire(data);
+            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = SolveWiring.Wire(data.Graph);
             var throwing = data.Graph.Nodes.OfType<ConsumerNode>().First();
             throwing.NodeValuesChanged += (_, _) => throw new OverflowException("apply");
             SolveEndedEventArgs? ended = null;
@@ -263,7 +252,7 @@ namespace ForemanTest {
         [TestMethod]
         public void NewRequestWhileInFlight_EndsTheOldRunSuperseded_ThenSolveNowRunsToApplied() {
             (GraphBuilder.BuiltData data, _, _) = BuildTwoChains();
-            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = Wire(data);
+            (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = SolveWiring.Wire(data.Graph);
 
             data.Graph.UpdateNodeValues();
             data.Graph.UpdateNodeValues();
