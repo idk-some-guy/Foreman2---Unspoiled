@@ -26,6 +26,10 @@ namespace Foreman.Mac {
 
         public AppearanceHub Hub { get; private set; }
 
+        internal IPlatformAppearance Appearance { get; private set; }
+
+        internal static Func<IPlatformAppearance>? DefaultAppearanceSource { get; set; }
+
         //Rescaled is a static event: replace the previous App's handler or the list grows per test
         private static EventHandler? rescaledHandler;
 
@@ -33,11 +37,12 @@ namespace Foreman.Mac {
             InstallAppearance(null);
         }
 
-        [MemberNotNull(nameof(Hub), nameof(Theme))]
+        [MemberNotNull(nameof(Hub), nameof(Theme), nameof(Appearance))]
         internal void InstallAppearance(IPlatformAppearance? appearance) {
             Hub?.Dispose();
 
-            Hub = new AppearanceHub(this, appearance ?? (IPlatformAppearance?)PlatformAppearance.TryCreate(this) ?? new NullPlatformAppearance());
+            Appearance = appearance ?? DefaultAppearanceSource?.Invoke() ?? (IPlatformAppearance?)PlatformAppearance.TryCreate(this) ?? new NullPlatformAppearance();
+            Hub = new AppearanceHub(this, Appearance);
             AppearanceHub.Current = Hub;
             Hub.Changed += (_, _) => TokenBridge.Refresh();
             Theme = new ThemeService(this);
