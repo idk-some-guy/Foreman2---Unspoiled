@@ -93,6 +93,43 @@ namespace PresetRig {
             return name;
         }
 
+        public void WriteBoolStartupSetting(string name, bool value) {
+            using var stream = new MemoryStream();
+            using var writer = new BinaryWriter(stream);
+            void WriteString(string text) {
+                writer.Write((byte)0);
+                byte[] bytes = Encoding.UTF8.GetBytes(text);
+                if (bytes.Length < 255)
+                    writer.Write((byte)bytes.Length);
+                else {
+                    writer.Write((byte)255);
+                    writer.Write((uint)bytes.Length);
+                }
+                writer.Write(bytes);
+            }
+            void WriteDictionaryHeader(int count) {
+                writer.Write((byte)5);
+                writer.Write((byte)0);
+                writer.Write((uint)count);
+            }
+            writer.Write((ushort)2);
+            writer.Write((ushort)0);
+            writer.Write((ushort)0);
+            writer.Write((ushort)0);
+            writer.Write((byte)0);
+            WriteDictionaryHeader(1);
+            WriteString("startup");
+            WriteDictionaryHeader(1);
+            WriteString(name);
+            WriteDictionaryHeader(1);
+            WriteString("value");
+            writer.Write((byte)1);
+            writer.Write((byte)0);
+            writer.Write((byte)(value ? 1 : 0));
+            writer.Flush();
+            File.WriteAllBytes(Path.Combine(ModsFolder, "mod-settings.dat"), stream.ToArray());
+        }
+
         static void CopyDirectory(string source, string target) {
             Directory.CreateDirectory(target);
             foreach (string file in Directory.GetFiles(source))

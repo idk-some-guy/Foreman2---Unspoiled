@@ -6,7 +6,7 @@
   "author": "Me",
   "contact": "",
   "homepage": "",
-  "description": "temp mod to grab the mod list and the enabled statuses of technologies and recipes)",
+  "description": "temp mod to grab the mod list, the enabled statuses of technologies and recipes, and the research bonuses and technology levels",
   "dependencies": 
   [
 					"base >= 2.1.23"
