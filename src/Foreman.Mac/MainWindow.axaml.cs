@@ -1815,7 +1815,7 @@ namespace Foreman.Mac {
 
         private void MenuCopy() => GraphCanvas.CopySelection();
 
-        private void MenuPaste() { GraphCanvas.PasteFromClipboard(); GraphCanvas.RequestRedraw(); }
+        private void MenuPaste() => GraphCanvas.PasteFromClipboard();
 
         private void MenuDelete() { GraphCanvas.DeleteSelection(); GraphCanvas.RequestRedraw(); }
 

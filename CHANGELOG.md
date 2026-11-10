@@ -166,6 +166,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- Right-clicking a node or pressing Ctrl+V on Linux no longer freezes Foreman.
 - Graphs with a low-priority recipe failed to solve. Settings carrying the bad priority value are
   repaired automatically.
 - The application menu reads Foreman 2, and About Foreman 2 opens Foreman's own About window.

@@ -140,7 +140,7 @@ namespace Foreman.Mac.Canvas {
             FloatingPanelHost = new FloatingPanelHost(overlay, Viewport, this);
             AddHandler(PointerPressedEvent, NoteDismissingPress, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
             Viewer.Context.SetClipboardText = SetClipboardText;
-            Viewer.Context.GetClipboardText = GetClipboardText;
+            Viewer.Context.GetClipboardTextAsync = GetClipboardTextAsync;
             Viewer.Context.StartLinkDrag = StartLinkDrag;
             Viewer.Context.EditNode = EditNode;
             Viewer.Context.LabelValuesChanged = StartLabelFade;
@@ -431,16 +431,35 @@ namespace Foreman.Mac.Canvas {
             Viewer.Session.Editor.SetLocation(placedId, new DrawingPoint(at.X, y));
         }
 
-        //Adapts Avalonia's async IClipboard to the plain synchronous delegates BaseNodeElement's menu
-        //building expects (reference §4b copy/paste, upstream's WinForms Clipboard is synchronous) - see
+        //Fire-and-forget clipboard write, matching upstream's WinForms Clipboard.SetText - see
         //docs/upstream-divergences.md.
         private void SetClipboardText(string text) {
             if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
                 Async.Fire(clipboard.SetTextAsync(text), nameof(SetClipboardText));
         }
 
-        private string? GetClipboardText() =>
-            TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard ? clipboard.TryGetTextAsync().GetAwaiter().GetResult() : null;
+        internal Func<Task<string?>>? ClipboardReader { get; set; }
+
+        //A sync clipboard read on the UI thread deadlocks X11.
+        private async Task<string?> GetClipboardTextAsync() {
+            try {
+                if (ClipboardReader is { } reader)
+                    return await reader();
+                return TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard ? await clipboard.TryGetTextAsync() : null;
+            } catch (Exception ex) {
+                ErrorLogging.LogException(ex, "Failed to read the clipboard");
+                return null;
+            }
+        }
+
+        private int interactionGeneration;
+
+        private async Task ShowNodeContextMenuAsync(BaseNodeElement node, DrawingPoint graphPoint) {
+            int generation = interactionGeneration;
+            List<MenuEntry> entries = await node.MouseUpRightAsync(graphPoint);
+            if (generation == interactionGeneration && Viewer.NodeElementDictionary.TryGetValue(node.ViewModel.Id, out BaseNodeElement? live) && live == node)
+                ShowContextMenu(entries);
+        }
 
         //Test-only seams (nothing outside Foreman.Mac.UiTests reads these): the entries and the real
         //Avalonia ContextMenu most recently built for a right click, so tests can assert content/routing
@@ -593,6 +612,7 @@ namespace Foreman.Mac.Canvas {
         //§2); Focus() picks up keyboard input (arrow keys, Shift axis-lock) the same click starts.
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
             base.OnPointerPressed(e);
+            interactionGeneration++;
             FinishAlign();
             pressReachedCanvas = true;
             dismissingPress = false;
@@ -898,7 +918,7 @@ namespace Foreman.Mac.Canvas {
                     } else if (CurrentDragOperation is not (DragOperation.Selection or DragOperation.Item)) {
                         GraphElement? rightClickTarget = HitTest(e.GetPosition(this));
                         if (rightClickTarget is BaseNodeElement rightClickedNode)
-                            ShowContextMenu(rightClickedNode.MouseUpRight(graphPoint));
+                            Async.Fire(ShowNodeContextMenuAsync(rightClickedNode, graphPoint), nameof(ShowNodeContextMenuAsync));
                         else if (rightClickTarget is AnnotationElement rightClickedAnnotation)
                             ShowContextMenu(rightClickedAnnotation.BuildRightClickMenu());
                         else if (LinkOf(rightClickTarget) is LinkElement rightClickedLink) {
@@ -1603,11 +1623,16 @@ namespace Foreman.Mac.Canvas {
         public void CutSelection() => Viewer.Context.SetClipboardText?.Invoke(NodeClipboard.Cut(Viewer));
 
         public void PasteFromClipboard() {
-            if (Viewer.Context.DCache is not DataCache cache || Viewer.Context.GetClipboardText?.Invoke() is not string clipboardText)
-                return;
-
+            interactionGeneration++;
             AvaloniaPoint cursorScreenPoint = hoverScreenPoint ?? new AvaloniaPoint(Viewport.Width / 2, Viewport.Height / 2);
-            NodeClipboard.Paste(Viewer, cache, clipboardText, Viewport.ScreenToGraph(cursorScreenPoint));
+            Async.Fire(PasteFromClipboardAsync(cursorScreenPoint), nameof(PasteFromClipboardAsync));
+        }
+
+        internal async Task PasteFromClipboardAsync(AvaloniaPoint cursorScreenPoint) {
+            if (Viewer.Context.DCache is DataCache cache && Viewer.Context.GetClipboardTextAsync is { } read && await read() is string clipboardText) {
+                NodeClipboard.Paste(Viewer, cache, clipboardText, Viewport.ScreenToGraph(cursorScreenPoint));
+                RequestRedraw();
+            }
         }
 
         public void DeleteSelection() {

@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Foreman.Mac.Canvas.Elements {
     //Ports ProductionGraphView/Elements/BaseNodeElement.cs: Draw/DetailsDraw dispatch, UpdateState/
@@ -720,6 +721,15 @@ namespace Foreman.Mac.Canvas.Elements {
                 Context.EditNode?.Invoke(this);
         }
 
+        public async Task<List<MenuEntry>> MouseUpRightAsync(Point graphPoint) =>
+            IsBodyPoint(graphPoint) ? await BuildRightClickMenuAsync() : MouseUpRight(graphPoint);
+
+        private bool IsBodyPoint(Point graphPoint) =>
+            !SubElements.OfType<ItemTabElement>().Any(t => t.ContainsPoint(graphPoint)) && !ErrorNotice.ContainsPoint(graphPoint);
+
+        public async Task<List<MenuEntry>> BuildRightClickMenuAsync() =>
+            BuildRightClickMenu(Context.GetClipboardTextAsync is { } read ? await read() : null);
+
         public List<MenuEntry> MouseUpRight(Point graphPoint) {
             ItemTabElement? tab = SubElements.OfType<ItemTabElement>().FirstOrDefault(t => t.ContainsPoint(graphPoint));
             if (tab is not null)
@@ -732,7 +742,7 @@ namespace Foreman.Mac.Canvas.Elements {
         //Ports MouseUpAction's right-click body (reference §4b), minus the auto-connect items (a
         //consolidation candidate the reference itself flags as not a verbatim re-port target) and
         //AddRClickMenuOptions' own ~280-line body (reference §4c, RecipeNodeElement's job).
-        public List<MenuEntry> BuildRightClickMenu() {
+        public List<MenuEntry> BuildRightClickMenu(string? clipboardText = null) {
             bool inMultiSelection = Context.SelectedNodes is { Count: > 1 } selected && selected.Contains(this);
             var entries = new List<MenuEntry> {
                 MenuEntry.Item("Delete node", () => {
@@ -756,14 +766,14 @@ namespace Foreman.Mac.Canvas.Elements {
             }
 
             bool nodeInSelection = Context.SelectedNodes is null or { Count: 0 } || Context.SelectedNodes.Contains(this);
-            AddRClickMenuOptions(entries, nodeInSelection);
+            AddRClickMenuOptions(entries, nodeInSelection, clipboardText);
 
             entries.Add(MenuEntry.Divider);
             entries.Add(MenuEntry.Item("Copy key node status", () =>
                 Context.SetClipboardText?.Invoke(GraphSaveCodec.WriteKeyNodeClipboardToString(ViewModel.KeyNode, ViewModel.KeyNodeTitle, writeIndented: false))));
 
             if (nodeInSelection)
-                TryAddPasteKeyNodeStatus(entries);
+                TryAddPasteKeyNodeStatus(entries, clipboardText);
 
             return entries;
         }
@@ -771,8 +781,7 @@ namespace Foreman.Mac.Canvas.Elements {
         //Ports the paste-side half of upstream's try/catch around Clipboard.GetText()/ReadKeyNodeClipboard
         //(reference §4b): a clipboard holding unrelated text throws on deserialize rather than returning
         //null, so this stays wrapped exactly like upstream's "Failed to apply clipboard node options" guard.
-        private void TryAddPasteKeyNodeStatus(List<MenuEntry> entries) {
-            string? clipboardText = Context.GetClipboardText?.Invoke();
+        private void TryAddPasteKeyNodeStatus(List<MenuEntry> entries, string? clipboardText) {
             if (clipboardText is null)
                 return;
 
@@ -819,6 +828,6 @@ namespace Foreman.Mac.Canvas.Elements {
                 entries.Add(MenuEntry.Item("Auto-connect disconnected outputs", () => context.AutoconnectSelectionOutputs?.Invoke()));
         }
 
-        protected virtual void AddRClickMenuOptions(List<MenuEntry> entries, bool nodeInSelection) { }
+        protected virtual void AddRClickMenuOptions(List<MenuEntry> entries, bool nodeInSelection, string? clipboardText) { }
     }
 }

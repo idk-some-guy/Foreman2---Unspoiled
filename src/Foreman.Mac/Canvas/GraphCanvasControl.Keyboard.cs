@@ -8,6 +8,7 @@ using Foreman.Mac.Kit.Composites;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using AvaloniaPoint = Avalonia.Point;
 using DrawingPoint = System.Drawing.Point;
 
@@ -251,7 +252,9 @@ namespace Foreman.Mac.Canvas {
             InspectorRequested?.Invoke(this, node);
         }
 
-        internal void ShowContextMenuFor(BaseNodeElement node) => ShowContextMenu(node.MouseUpRight(node.Location));
+        internal Task ShowContextMenuForAsync(BaseNodeElement node) => ShowNodeContextMenuAsync(node, node.Location);
+
+        internal void ShowContextMenuFor(BaseNodeElement node) => Async.Fire(ShowContextMenuForAsync(node), nameof(ShowContextMenuFor));
 
         internal void ShowContextMenuFor(LinkElement link) {
             if (!Viewer.SelectedLinks.Contains(link))
