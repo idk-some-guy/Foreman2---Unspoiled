@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ForemanTest {
@@ -19,6 +20,34 @@ namespace ForemanTest {
             Assert.IsTrue(icons.Count > 100);
             var first = icons.Values.First(i => i.Icon != null).Icon!;
             Assert.IsTrue(first.Width >= 8 && first.Width <= 256);
+        }
+
+        [TestMethod]
+        public void PrepareModPaths_RecyclerMod_IsBuiltInAndLinked() {
+            string root = Path.Combine(Path.GetTempPath(), "recycler-links-" + Path.GetRandomFileName());
+            string modsPath = Path.Combine(root, "mods");
+            string dataPath = Path.Combine(root, "data");
+            string iconFolder = Path.Combine(dataPath, "recycler", "graphics", "icons");
+            Directory.CreateDirectory(modsPath);
+            Directory.CreateDirectory(iconFolder);
+            try {
+                using (var bitmap = new SKBitmap(1, 1))
+                using (var stream = File.Create(Path.Combine(iconFolder, "x.png"))) {
+                    bitmap.Erase(SKColors.Red);
+                    bitmap.Encode(stream, SKEncodedImageFormat.Png, 100);
+                }
+                using var processor = new IconCacheProcessor();
+                var modSet = new Dictionary<string, string> { ["recycler"] = "2.1.24" };
+
+                bool prepared = processor.PrepareModPaths(modSet, modsPath, dataPath, CancellationToken.None);
+                IconColorPair icon = processor.GetIconAndColor(new IconInfo("__recycler__/graphics/icons/x.png", 64), [], 64);
+
+                Assert.IsTrue(prepared);
+                Assert.IsNotNull(icon.Icon);
+                Assert.AreEqual(0, processor.FailedPathCount);
+            } finally {
+                Directory.Delete(root, recursive: true);
+            }
         }
 
         [TestMethod]

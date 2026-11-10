@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.Input;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Graph;
+using Foreman.Models;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Kit.Appearance;
 using Foreman.Mac.Kit.Composites;
@@ -75,10 +76,15 @@ namespace Foreman.Mac.Views.Inspector {
 
             //The compiled XAML name scope is sealed after InitializeComponent, so controls built in code register into this scope instead.
             flowSegmentView = new FlowSegmentView { Name = "FlowSegment" };
+            flowSegmentView.TowerChanged += OnFlowTowerChanged;
             recipeSegmentView = new RecipeSegmentView { Name = "RecipeSegment" };
             recipeSegmentView.OpenPresetsRequested += (_, _) => OpenPresetsRequested?.Invoke(this, EventArgs.Empty);
             recipeSegmentView.PickAnotherRecipeRequested += (_, node) => PickAnotherRecipeRequested?.Invoke(this, node);
             recipeSegmentView.RateUnitChanged += (_, unit) => RateUnitChanged?.Invoke(this, unit);
+            recipeSegmentView.QualitySwitched += (_, _) => {
+                UpdateLayout();
+                FocusFirstControl();
+            };
             flowSegmentView.RateUnitChanged += (_, unit) => RateUnitChanged?.Invoke(this, unit);
             var scope = new NameScope();
             scope.Register("IdentityRow", identityRow);
@@ -142,12 +148,9 @@ namespace Foreman.Mac.Views.Inspector {
                 return;
             }
 
-            (string name, string subtitle, SKBitmap? icon) = Describe(node);
-            identityName.Text = name;
-            identitySubtitle.Text = subtitle;
+            (_, _, SKBitmap? icon) = Describe(node);
             identityIcon.Source = icon is null ? null : GetOrBakeIcon(icon);
-            AutomationProperties.SetName(identityRow, name);
-            identityRow.AccessibleValue = subtitle;
+            UpdateIdentityText(node);
 
             bool recipeActive = boundViewModel!.Segment == InspectorSegment.Recipe;
 
@@ -166,6 +169,19 @@ namespace Foreman.Mac.Views.Inspector {
                 segmentHost.Content = null;
                 SetQualityMiniSelect(null);
             }
+        }
+
+        private void UpdateIdentityText(INodeViewModel node) {
+            (string name, string subtitle, _) = Describe(node);
+            identityName.Text = name;
+            identitySubtitle.Text = subtitle;
+            AutomationProperties.SetName(identityRow, name);
+            identityRow.AccessibleValue = subtitle;
+        }
+
+        private void OnFlowTowerChanged(object? sender, EventArgs e) {
+            if (boundViewModel?.Node is INodeViewModel node)
+                UpdateIdentityText(node);
         }
 
         private void SetQualityMiniSelect(RecipeSegmentViewModel? recipeViewModel) {
@@ -217,7 +233,9 @@ namespace Foreman.Mac.Views.Inspector {
             IConsumerNodeViewModel consumer => (consumer.ConsumedItem.FriendlyName ?? "", "Consumer node", consumer.ConsumedItem.Icon),
             IPassthroughNodeViewModel passthrough => (passthrough.PassthroughItem.FriendlyName ?? "", "Passthrough node", passthrough.PassthroughItem.Icon),
             ISpoilNodeViewModel spoil => (spoil.InputItem.FriendlyName ?? "", "Spoil node", spoil.InputItem.Icon),
-            IPlantNodeViewModel plant => (plant.Seed.FriendlyName ?? "", "Plant node", plant.Seed.Icon),
+            IPlantNodeViewModel plant => (plant.Seed.FriendlyName ?? "",
+                plant.Tower is AssemblerQualityPair tower ? $"Plant node · {tower.Assembler.FriendlyName}{QualitySuffix(tower.Quality)}" : "Plant node",
+                plant.Seed.Icon),
             _ => ("", "", null),
         };
 

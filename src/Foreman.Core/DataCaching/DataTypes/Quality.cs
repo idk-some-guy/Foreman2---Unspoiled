@@ -5,6 +5,7 @@ namespace Foreman.DataCaching.DataTypes {
         IQuality? NextQuality { get; }
         IQuality? PrevQuality { get; }
         double NextProbability { get; }
+        double ChainProbability { get; }
 
         bool IsMissing { get; }
 
@@ -20,6 +21,7 @@ namespace Foreman.DataCaching.DataTypes {
         public IQuality? NextQuality { get; internal set; }
         public IQuality? PrevQuality { get; internal set; }
         public double NextProbability { get; set; }
+        public double ChainProbability { get => chainProbability ?? NextProbability; set => chainProbability = value; }
 
         public bool IsMissing { get; private set; }
 
@@ -30,6 +32,7 @@ namespace Foreman.DataCaching.DataTypes {
         public IReadOnlyCollection<ITechnology> MyUnlockTechnologies { get { return _myUnlockTechnologies; } }
         public IReadOnlyList<IReadOnlyList<IItem>> MyUnlockSciencePacks { get; set; }
 
+        private double? chainProbability;
         private readonly HashSet<TechnologyPrototype> _myUnlockTechnologies;
         internal HashSet<TechnologyPrototype> MyUnlockTechnologiesInternal => _myUnlockTechnologies;
 

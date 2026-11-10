@@ -15,6 +15,7 @@ namespace Foreman.Mac.Services {
         public Task<bool>? LoadTask { get; set; }
         public string? LoadingPresetName { get; set; }
         public int LoadGeneration { get; set; }
+        public (Preset Preset, DataCache Cache)? PendingOutdatedAlert { get; set; }
         public bool Loading => LoadTask is { IsCompleted: false };
     }
 }

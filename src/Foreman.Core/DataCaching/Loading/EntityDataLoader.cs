@@ -44,6 +44,7 @@ namespace Foreman.DataCaching.Loading {
                 "generator" => EntityType.Generator,
                 "burner-generator" => EntityType.BurnerGenerator,
                 "reactor" => EntityType.Reactor,
+                "agricultural-tower" => EntityType.AgriculturalTower,
                 _ => EntityType.ERROR,
             };
             if (etype == EntityType.ERROR)
@@ -78,7 +79,7 @@ namespace Foreman.DataCaching.Loading {
             entity.ModuleSlots = PresetJson.GetInt32(objJsonNode, "module_inventory_size") ?? 0;
 
             //_store.Modules
-            if (entity.EntityType == EntityType.Assembler || entity.EntityType == EntityType.Miner || entity.EntityType == EntityType.Rocket || entity.EntityType == EntityType.Beacon) {
+            if (entity.EntityType == EntityType.Assembler || entity.EntityType == EntityType.Miner || entity.EntityType == EntityType.Rocket || entity.EntityType == EntityType.Beacon || entity.EntityType == EntityType.AgriculturalTower) {
                 if (entity is AssemblerPrototype prototype) {
                     prototype.BaseConsumptionBonus = PresetJson.GetDouble(objJsonNode, "base_module_effects", "consumption") ?? default;
                     prototype.BaseSpeedBonus = PresetJson.GetDouble(objJsonNode, "base_module_effects", "speed") ?? default;
@@ -87,6 +88,13 @@ namespace Foreman.DataCaching.Loading {
                     prototype.BaseQualityBonus = PresetJson.GetDouble(objJsonNode, "base_module_effects", "quality") ?? default;
                     prototype.AllowModules = PresetJson.GetBool(objJsonNode, "uses_module_effects") is true;
                     prototype.AllowBeacons = PresetJson.GetBool(objJsonNode, "uses_beacon_effects") is true;
+                    if (objJsonNode["effect_limits"] is JsonNode limits)
+                        prototype.EffectLimits = new EffectLimits(
+                            ReadEffectRange(limits, "consumption", DefaultEffectRange),
+                            ReadEffectRange(limits, "speed", DefaultEffectRange),
+                            ReadEffectRange(limits, "productivity", DefaultEffectRange),
+                            ReadEffectRange(limits, "pollution", DefaultEffectRange),
+                            ReadEffectRange(limits, "quality", DefaultQualityRange));
                 }
 
                 if (objJsonNode["allowed_effects"] is JsonNode allowedEffects) {
@@ -171,10 +179,22 @@ namespace Foreman.DataCaching.Loading {
                     case EntityType.Reactor:
                         success = ReactorAdditionalProcessing(objJsonNode, aEntity);
                         break;
+                    case EntityType.AgriculturalTower:
+                        success = true;
+                        break;
                 }
                 if (success)
                     _store.Assemblers.Add(aEntity.Name, aEntity);
             }
+        }
+
+        private static readonly EffectRange DefaultEffectRange = new(-0.8, 1000);
+        private static readonly EffectRange DefaultQualityRange = new(0, 1000);
+
+        private static EffectRange ReadEffectRange(JsonNode limits, string effect, EffectRange fallback) {
+            double low = PresetJson.GetDouble(limits, effect, "low") ?? fallback.Low;
+            double high = PresetJson.GetDouble(limits, effect, "high") ?? fallback.High;
+            return low <= high ? new EffectRange(low, high) : new EffectRange(high, low);
         }
 
         internal void EntityEnergyFurtherProcessing(JsonNode objJsonNode, EntityObjectBasePrototype entity) {

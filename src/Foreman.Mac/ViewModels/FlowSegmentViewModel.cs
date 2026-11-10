@@ -39,6 +39,7 @@ namespace Foreman.Mac.ViewModels {
             controller = requestedController;
             passthroughController = controller as PassthroughNodeController;
             ShowsSimplify = passthroughController is not null;
+            InitTower();
             Refresh();
         }
 
@@ -52,6 +53,7 @@ namespace Foreman.Mac.ViewModels {
             if (node is IPassthroughNodeViewModel passthrough)
                 SimplifyThroughput = passthrough.SimpleDraw;
             suppressWrites = false;
+            RefreshTower();
         }
 
         partial void OnIsFixedRateChanged(bool value) {

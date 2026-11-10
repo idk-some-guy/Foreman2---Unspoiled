@@ -4,6 +4,9 @@
     <Project Path="src/Foreman.Mac/Foreman.Mac.csproj" />
     <Project Path="src/Foreman.Mac.Kit/Foreman.Mac.Kit.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/PresetRig/PresetRig.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ForemanTest/ForemanTest.csproj" />
     <Project Path="tests/Foreman.Mac.UiTests/Foreman.Mac.UiTests.csproj" />

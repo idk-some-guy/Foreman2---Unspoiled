@@ -127,6 +127,7 @@ namespace Foreman.Mac.Canvas {
 
             Session.NodeViewModelAdded += OnNodeViewModelAdded;
             Session.NodeViewModelRemoved += OnNodeViewModelRemoved;
+            Session.NodeViewModelReplaced += OnNodeViewModelReplaced;
             Session.LinkViewModelAdded += OnLinkViewModelAdded;
             Session.LinkViewModelRemoved += OnLinkViewModelRemoved;
             Session.NodeValuesUpdated += (_, _) => UpdateNodeVisuals();
@@ -564,6 +565,16 @@ namespace Foreman.Mac.Canvas {
         }
 
         public event EventHandler? ElementsChanged;
+
+        public event EventHandler<NodeViewModelReplacedEventArgs>? NodeReplaced;
+
+        private void OnNodeViewModelReplaced(object? sender, NodeViewModelReplacedEventArgs e) {
+            if (!NodeElementDictionary.TryGetValue(e.New, out BaseNodeElement? copy))
+                return;
+            if (NodeElementDictionary.TryGetValue(e.Old, out BaseNodeElement? old) && SelectedNodes.Contains(old))
+                SetSelection([.. SelectedNodes.Where(n => n != old), copy]);
+            NodeReplaced?.Invoke(this, e);
+        }
 
         private void OnNodeViewModelAdded(object? sender, NodeViewModelEventArgs e) {
             BaseNodeElement? element = CreateNodeElement(e.ViewModel);

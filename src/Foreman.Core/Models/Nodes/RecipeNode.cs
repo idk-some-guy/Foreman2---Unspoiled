@@ -52,6 +52,7 @@ namespace Foreman {
             BeaconQualityIsDisabled = 0b_0001_0000_0000_0000_0000,
             AModulesQualityIsDisabled = 0b_0010_0000_0000_0000_0000,
             BModulesQualityIsDisabled = 0b_0100_0000_0000_0000_0000,
+            RecipeQualityCannotBeSet = 0b_1000_0000_0000_0000_0000,
 
             TemeratureFluidBurnerInvalidLinks = 0b_0100_0000_0000_0000,
         }
@@ -234,6 +235,8 @@ namespace Foreman {
                 WarningSet |= Warnings.RecipeIsDisabled;
             if (!recipeDefinition.Available)
                 WarningSet |= Warnings.RecipeIsUnavailable;
+            if (!recipeDefinition.CanSetQuality && recipeQuality.Level > RecipeQualityLock.LowestEnabled(RecipeOwner).Level)
+                WarningSet |= Warnings.RecipeQualityCannotBeSet;
 
             if (!SelectedAssembler.Assembler.Enabled)
                 WarningSet |= Warnings.AssemblerIsDisabled;
@@ -328,29 +331,19 @@ namespace Foreman {
                         outputSet.Add(fluidProduct, amount);
                     } else {
                         var currentProduct = new ItemQualityPair(item, recipeQuality);
-                        uint currentStep = 1;
                         outputList.Add(currentProduct);
                         outputSet.Add(currentProduct, amount);
-                        double currentMultiplier = GetQualityMultiplier();
-                        while (currentStep < MaxQualitySteps && currentProduct.Quality is IQuality stepQuality && stepQuality.NextQuality is IQuality nextQuality) {
-                            currentStep++;
+                        foreach ((IQuality tier, double chance) in QualityRoll.Distribute(recipeQuality, GetQualityMultiplier(), MaxQualitySteps)) {
                             ItemQualityPair lastProduct = currentProduct;
-                            currentMultiplier *= stepQuality.NextProbability;
-                            currentProduct = new ItemQualityPair(item, nextQuality);
-                            if (currentMultiplier == 0)
-                                break;
-                            if (!nextQuality.Enabled || !nextQuality.Available)
-                                break;
-
+                            currentProduct = new ItemQualityPair(item, tier);
                             outputList.Add(currentProduct);
-                            outputSet.Add(currentProduct, Math.Min(currentMultiplier, 1.0) * amount);
+                            outputSet.Add(currentProduct, chance * amount);
                             outputSet[lastProduct] -= outputSet[currentProduct];
 
                             if (outputSet[lastProduct] <= 0) {
                                 outputList.Remove(lastProduct);
                                 outputSet.Remove(lastProduct);
                             }
-
                         }
                     }
                 }
@@ -411,44 +404,62 @@ namespace Foreman {
             if (SelectedAssembler.Assembler.EntityType == EntityType.Rocket) //this is a bit of a hack - by setting the speed multiplier here like so we get the # of buildings to be the # of rockets launched no matter the time scale.
                 return 1 / MyGraph.GetRateMultipler();
 
+            EffectLimits limits = SelectedAssembler.Assembler.EffectLimits;
             double multiplier = 1.0f;
             double beaconTransmission = BeaconTransmissionFromModules();
             foreach (ModuleQualityPair module in AssemblerModules)
                 multiplier += module.Module.GetSpeedBonus(module.Quality);
             foreach (ModuleQualityPair beaconModule in BeaconModules)
                 multiplier += beaconModule.Module.GetSpeedBonus(beaconModule.Quality) * beaconTransmission;
-            return Math.Max(0.2f, multiplier);
+            return Math.Clamp(multiplier, 1 + limits.Speed.Low, 1 + limits.Speed.High);
         }
 
         public double GetProductivityBonus() //unlike most of the others, this is the bonus (aka: starts from 0%, not 100%) //also: quality bonus is rounded down to 2 decimal places (1 percent)
         {
+            EffectLimits limits = SelectedAssembler.Assembler.EffectLimits;
+            if (limits.IsLegacy)
+                return Math.Min(Math.Max(0, LegacyProductivitySum()), recipeDefinition.MaxProductivityBonus);
+
+            double multiplier = SelectedAssembler.Assembler.BaseProductivityBonus;
+            double beaconTransmission = BeaconTransmissionFromModules();
+            foreach (ModuleQualityPair module in AssemblerModules)
+                multiplier += module.Module.GetProductivityBonus(module.Quality);
+            foreach (ModuleQualityPair beaconModule in BeaconModules)
+                multiplier += beaconModule.Module.GetProductivityBonus(beaconModule.Quality) * beaconTransmission;
+            multiplier = Math.Clamp(multiplier, limits.Productivity.Low, limits.Productivity.High) + ExtraProductivityBonus;
+            return Math.Min(Math.Max(0, multiplier), recipeDefinition.MaxProductivityBonus);
+        }
+
+        private double LegacyProductivitySum() {
             double multiplier = SelectedAssembler.Assembler.BaseProductivityBonus + ExtraProductivityBonus;
             double beaconTransmission = BeaconTransmissionFromModules();
             foreach (ModuleQualityPair module in AssemblerModules)
                 multiplier += module.Module.GetProductivityBonus(module.Quality);
             foreach (ModuleQualityPair beaconModule in BeaconModules)
                 multiplier += beaconModule.Module.GetProductivityBonus(beaconModule.Quality) * beaconTransmission;
-            return Math.Min(Math.Max(0, multiplier), recipeDefinition.MaxProductivityBonus);
+            return multiplier;
         }
 
         public double GetConsumptionMultiplier() {
+            EffectLimits limits = SelectedAssembler.Assembler.EffectLimits;
             double multiplier = 1.0f;
             double beaconTransmission = BeaconTransmissionFromModules();
             foreach (ModuleQualityPair module in AssemblerModules)
                 multiplier += module.Module.GetConsumptionBonus(module.Quality);
             foreach (ModuleQualityPair beaconModule in BeaconModules)
                 multiplier += beaconModule.Module.GetConsumptionBonus(beaconModule.Quality) * beaconTransmission;
-            return Math.Max(0.2f, multiplier);
+            return Math.Clamp(multiplier, 1 + limits.Consumption.Low, 1 + limits.Consumption.High);
         }
 
         public double GetPollutionMultiplier() {
+            EffectLimits limits = SelectedAssembler.Assembler.EffectLimits;
             double multiplier = 1.0f;
             double beaconTransmission = BeaconTransmissionFromModules();
             foreach (ModuleQualityPair module in AssemblerModules)
                 multiplier += module.Module.GetPolutionBonus(module.Quality);
             foreach (ModuleQualityPair beaconModule in BeaconModules)
                 multiplier += beaconModule.Module.GetPolutionBonus(beaconModule.Quality) * beaconTransmission;
-            return Math.Max(0.2f, multiplier);
+            return Math.Clamp(multiplier, 1 + limits.Pollution.Low, 1 + limits.Pollution.High);
         }
 
         public double GetQualityMultiplier() //unlike the rest this one starts at 0 and is a multiplier (not bonus) - so without modules that add quality the chance to get better quality items from a recipe is 0%
@@ -460,7 +471,8 @@ namespace Foreman {
             foreach (ModuleQualityPair beaconModule in BeaconModules)
                 multiplier += beaconModule.Module.GetQualityBonus(beaconModule.Quality) * beaconTransmission;
 
-            return Math.Max(0.0f, multiplier);
+            EffectLimits limits = SelectedAssembler.Assembler.EffectLimits;
+            return Math.Max(0, Math.Clamp(multiplier, limits.Quality.Low, limits.Quality.High));
         }
 
         //------------------------------------------------------------------------ graph optimization functions
@@ -589,8 +601,13 @@ namespace Foreman {
                         MyNode.MyGraph.DeleteLink(fuelLink);
                 }));
 
+            if ((WarningSet & RecipeNode.Warnings.RecipeQualityCannotBeSet) != 0)
+                resolutions.Add("Switch to " + RecipeQualityLock.LowestEnabled(MyNode.RecipeDefinition.Owner).FriendlyName + " quality", new Action(() => SwitchToLowestQuality()));
+
             return resolutions;
         }
+
+        public NodeReplacement SwitchToLowestQuality() => MyNode.MyGraph.ReplaceRecipeNodeQuality(MyNode, RecipeQualityLock.LowestEnabled(MyNode.RecipeDefinition.Owner));
 
         //-----------------------------------------------------------------------Set functions
 

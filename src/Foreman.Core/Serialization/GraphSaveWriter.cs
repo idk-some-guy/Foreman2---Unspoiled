@@ -69,7 +69,10 @@ namespace Foreman.Serialization {
                     Direction = baseFields.Direction,
                     KeyNodeTitle = baseFields.KeyNodeTitle,
                     PlantProcessId = pnode.BasePlantProcess.PlantID,
-                    QualityName = pnode.Seed.Quality?.Name ?? "QualityError"
+                    QualityName = pnode.Seed.Quality?.Name ?? "QualityError",
+                    AssemblerName = pnode.Tower?.Assembler.Name,
+                    AssemblerQualityName = pnode.Tower?.Quality.Name,
+                    AssemblerModules = pnode.Tower is null ? [] : WriteModules(pnode.TowerModules)
                 },
                 ConsumerNode cnode => new ConsumerNodeSaveData {
                     NodeId = baseFields.NodeId,

@@ -22,23 +22,33 @@ namespace ForemanTest {
         }
 
         [TestMethod]
-        public void ShowOutdatedWarningIfNeeded_OldVersion_RaisesMessage() {
+        public void ShowOutdatedWarningIfNeeded_OldVersion_ReturnsSentence() {
             var dc = new DataCache(false);
+            dc.GetType().GetProperty("PresetName")!.SetMethod!.Invoke(dc, ["Old Modpack"]);
             ErrorLogging.ClearLog();
-            PresetExportFormat.ShowOutdatedWarningIfNeeded(dc);
+
+            string? sentence = PresetExportFormat.ShowOutdatedWarningIfNeeded(dc);
+
+            Assert.AreEqual("To get the latest fixes, import it again from Factorio in Settings > Presets.", sentence);
             string log = File.ReadAllText(ErrorLogging.LogFilePath);
-            Assert.Contains("older version of Foreman", log);
-            Assert.Contains("Settings menu", log);
+            Assert.Contains("Preset \"Old Modpack\" was made by an older version of Foreman. To get the latest fixes, import it again from Factorio in Settings > Presets.", log);
         }
 
         [TestMethod]
-        public void ShowOutdatedWarningIfNeeded_CurrentVersion_DoesNotRaiseMessage() {
+        public void ShowOutdatedWarningIfNeeded_CurrentVersion_ReturnsNull() {
             var dc = new DataCache(false);
             dc.GetType().GetProperty("Version")!.SetMethod!.Invoke(dc, [1]);
             ErrorLogging.ClearLog();
-            PresetExportFormat.ShowOutdatedWarningIfNeeded(dc);
-            string log = File.ReadAllText(ErrorLogging.LogFilePath);
-            Assert.DoesNotContain("older version of Foreman", log);
+
+            Assert.IsNull(PresetExportFormat.ShowOutdatedWarningIfNeeded(dc));
+            Assert.DoesNotContain("older version of Foreman", File.ReadAllText(ErrorLogging.LogFilePath));
+        }
+
+        [TestMethod]
+        public void ExportMod_TwoZero_WritesTheBaseModVersionAsGameVersion() {
+            string lua = File.ReadAllText(Path.Combine(AppPaths.ExecutableDirectory, "Mods", "foremanexport_2.0.0", "instrument-control.lua"));
+
+            Assert.Contains("etable['game_version'] = script.active_mods['base']", lua);
         }
     }
 }

@@ -1,6 +1,7 @@
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Canvas;
+using Foreman.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +21,8 @@ namespace Foreman.Mac.Services {
         }
 
         public bool ShowsQuality => cache.AvailableQualities.Count() > 1;
+
+        public IQuality LowestQuality => RecipeQualityLock.LowestEnabled(cache);
 
         public IReadOnlyList<AddCandidate> Search(string query, AddScope scope, AddLinkContext? link, int limit = 200) {
             string q = query.Trim();

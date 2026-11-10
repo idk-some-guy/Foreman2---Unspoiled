@@ -16,9 +16,11 @@ namespace Foreman.Mac.UiTests.Inspector {
     internal static class InspectorTestSupport {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private const string SpaceAgePresetName = "Factorio 2.0 Space Age";
+        private const string SpaceAge21PresetName = "Factorio 2.1 Space Age";
         private static readonly SemaphoreSlim CacheGate = new(1, 1);
         private static DataCache? sharedCache;
         private static DataCache? sharedSpaceAgeCache;
+        private static DataCache? sharedSpaceAge21Cache;
 
         internal static async Task<DataCache> GetCacheAsync() {
             if (sharedCache is not null)
@@ -56,6 +58,22 @@ namespace Foreman.Mac.UiTests.Inspector {
         internal static DataCacheStore Store(DataCache cache) {
             FieldInfo field = typeof(DataCache).GetField("_store", BindingFlags.Instance | BindingFlags.NonPublic)!;
             return (DataCacheStore)field.GetValue(cache)!;
+        }
+
+        internal static async Task<DataCache> GetSpaceAge21CacheAsync() {
+            if (sharedSpaceAge21Cache is not null)
+                return sharedSpaceAge21Cache;
+            await CacheGate.WaitAsync().ConfigureAwait(false);
+            try {
+                if (sharedSpaceAge21Cache is null) {
+                    var cache = new DataCache(filterRecipes: true);
+                    await cache.LoadAllData(new Preset(SpaceAge21PresetName, true, true), new Progress<KeyValuePair<int, string>>()).ConfigureAwait(false);
+                    sharedSpaceAge21Cache = cache;
+                }
+            } finally {
+                CacheGate.Release();
+            }
+            return sharedSpaceAge21Cache;
         }
 
         internal static async Task<MainWindow> OpenWindowWithGraphAsync(DataCache? cache = null) {

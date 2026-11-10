@@ -13,6 +13,8 @@ namespace Foreman.DataCaching {
         }
     }
 
+    public readonly record struct PresetHeader(FactorioGameVersion? GameVersion, bool IsOutdated);
+
     public record struct PresetInfo(Dictionary<string, string>? ModList, bool ExpensiveRecipes, bool ExpensiveTechnology);
 
     public class PresetErrorPackage(Preset preset) : IComparable<PresetErrorPackage> {

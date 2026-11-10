@@ -1,4 +1,5 @@
 ﻿using Foreman.DataCaching.DataTypes;
+using Foreman.Models;
 using Foreman.Models.Nodes;
 using System.Collections.Generic;
 using System.Linq;
@@ -56,6 +57,13 @@ namespace Foreman.Serialization {
                         else
                             PlantProcesses.Add(pnode.BasePlantProcess);
                         IncludeQuality(pnode.Seed.Quality);
+                        if (pnode.Tower is AssemblerQualityPair tower) {
+                            Assemblers.Add(tower.Assembler.Name);
+                            IncludeQuality(tower.Quality);
+                        }
+                        Modules.UnionWith(pnode.TowerModules.Select(m => m.Module.Name));
+                        foreach (var m in pnode.TowerModules)
+                            IncludeQuality(m.Quality);
                         break;
                     case ConsumerNode cnode:
                         IncludeQuality(cnode.ConsumedItem.Quality);

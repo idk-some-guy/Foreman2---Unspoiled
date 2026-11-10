@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
@@ -326,10 +327,10 @@ namespace Foreman.Mac.UiTests.Canvas {
             Fixture fx = NewFixture(await GetCacheAsync());
             RecipeNodeElement node = AddRecipeNode(fx, "iron-gear-wheel", Point.Empty);
             var viewModel = (IRecipeNodeViewModel)node.ViewModel;
-            fx.Control.Viewer.Context.GetClipboardText = () => GraphSaveCodec.WriteNodeCopyOptionsToString(new NodeCopyOptions(viewModel).ToSaveDocument());
+            string clipboardText = GraphSaveCodec.WriteNodeCopyOptionsToString(new NodeCopyOptions(viewModel).ToSaveDocument());
             fx.Control.Viewer.Context.DCache = null;
 
-            var entries = node.BuildRightClickMenu();
+            var entries = node.BuildRightClickMenu(clipboardText);
 
             Assert.DoesNotContain(entries, e => e.Caption == "Paste selected options");
         }
@@ -344,10 +345,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             string incompatibleAssemblerBefore = incompatibleViewModel.SelectedAssembler.Assembler.Name;
             string compatibleAssemblerName = compatibleViewModel.SelectedAssembler.Assembler.Name;
             string clipboardText = GraphSaveCodec.WriteNodeCopyOptionsToString(new NodeCopyOptions(compatibleViewModel).ToSaveDocument());
-            fx.Control.Viewer.Context.GetClipboardText = () => clipboardText;
             fx.Control.Viewer.SetSelection([compatible, incompatible]);
 
-            var entries = compatible.BuildRightClickMenu();
+            var entries = compatible.BuildRightClickMenu(clipboardText);
             MenuEntry assemblerCheckbox = entries.Single(e => e.Caption == compatibleViewModel.SelectedAssembler.Assembler.GetEntityTypeName(false));
             Assert.True(assemblerCheckbox.Enabled);
             assemblerCheckbox.Checkbox!.Checked = true;
@@ -366,10 +366,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             SetAssemblerModuleCount(fx, viewModel, "speed-module", 1);
             string clipboardText = GraphSaveCodec.WriteNodeCopyOptionsToString(new NodeCopyOptions(viewModel).ToSaveDocument());
             ControllerFor(fx, viewModel).SetAssemblerModules([], filterModules: false);
-            fx.Control.Viewer.Context.GetClipboardText = () => clipboardText;
             fx.Control.Viewer.SetSelection([node]);
 
-            var entries = node.BuildRightClickMenu();
+            var entries = node.BuildRightClickMenu(clipboardText);
             entries.Single(e => e.Caption == "Modules").Checkbox!.Checked = false;
             entries.Single(e => e.Caption == "Paste selected options").Invoke!.Invoke();
 
@@ -382,16 +381,15 @@ namespace Foreman.Mac.UiTests.Canvas {
             RecipeNodeElement node = AddRecipeNode(fx, "iron-gear-wheel", Point.Empty);
             var viewModel = (IRecipeNodeViewModel)node.ViewModel;
             string clipboardText = GraphSaveCodec.WriteNodeCopyOptionsToString(new NodeCopyOptions(viewModel).ToSaveDocument());
-            fx.Control.Viewer.Context.GetClipboardText = () => clipboardText;
             string assemblerCaption = viewModel.SelectedAssembler.Assembler.GetEntityTypeName(false);
 
-            var firstEntries = node.BuildRightClickMenu();
+            var firstEntries = node.BuildRightClickMenu(clipboardText);
             MenuEntry firstCheckbox = firstEntries.Single(e => e.Caption == assemblerCaption);
             bool flipped = !firstCheckbox.Checkbox!.Checked;
             firstCheckbox.Checkbox!.Checked = flipped;
             firstEntries.Single(e => e.Caption == "Paste selected options").Invoke!.Invoke();
 
-            var secondEntries = node.BuildRightClickMenu();
+            var secondEntries = node.BuildRightClickMenu(clipboardText);
             MenuEntry secondCheckbox = secondEntries.Single(e => e.Caption == assemblerCaption);
 
             Assert.Equal(flipped, secondCheckbox.Checkbox!.Checked);
@@ -461,12 +459,13 @@ namespace Foreman.Mac.UiTests.Canvas {
             string fragmentJson = NodeClipboard.Copy(source.Control.Viewer);
 
             Fixture target = NewFixture(cache);
-            target.Control.Viewer.Context.GetClipboardText = () => fragmentJson;
+            target.Control.ClipboardReader = () => Task.FromResult<string?>(fragmentJson);
             target.Control.Focus();
             var cursorScreenPoint = new AvaloniaPoint(Half + 60, Half - 40);
             target.Window.MouseMove(cursorScreenPoint, RawInputModifiers.None);
 
             CanvasKeys.PressOnCanvas(target.Control, Key.V, KeyModifiers.Meta);
+            await PumpUntil(() => target.Control.Viewer.NodeElements.Count > 0);
 
             Assert.Single(target.Control.Viewer.NodeElements);
         }
@@ -511,22 +510,204 @@ namespace Foreman.Mac.UiTests.Canvas {
             string fragmentJson = NodeClipboard.Copy(source.Control.Viewer);
 
             Fixture target = NewFixture(cache);
-            target.Control.Viewer.Context.GetClipboardText = () => fragmentJson;
+            target.Control.ClipboardReader = () => Task.FromResult<string?>(fragmentJson);
             var cursorScreenPoint = new AvaloniaPoint(Half + 60, Half - 40);
             target.Window.MouseMove(cursorScreenPoint, RawInputModifiers.None);
 
             target.Control.PasteFromClipboard();
+            await PumpUntil(() => target.Control.Viewer.NodeElements.Count > 0);
 
             Assert.Single(target.Control.Viewer.NodeElements);
+        }
+
+        private sealed class UiThreadBoundClipboard(string text) {
+            private const int WatchdogMilliseconds = 60000;
+            private readonly TaskCompletionSource<string?> source = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            private int completedByWatchdog;
+
+            public bool CompletedByWatchdog => Volatile.Read(ref completedByWatchdog) == 1;
+
+            public Task<string?> Read() {
+                Dispatcher.UIThread.Post(() => source.TrySetResult(text));
+                _ = Task.Delay(WatchdogMilliseconds).ContinueWith(_ => {
+                    if (source.TrySetResult(text))
+                        Volatile.Write(ref completedByWatchdog, 1);
+                }, TaskScheduler.Default);
+                return source.Task;
+            }
+        }
+
+        private sealed class ManualClipboard(string text) {
+            private readonly List<TaskCompletionSource<string?>> reads = [];
+
+            public Task<string?> Read() {
+                var source = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+                reads.Add(source);
+                return source.Task;
+            }
+
+            public void Complete(int index) => reads[index].SetResult(text);
+        }
+
+        private static async Task PumpUntil(Func<bool> condition) {
+            for (int i = 0; i < 200 && !condition(); i++) {
+                Dispatcher.UIThread.RunJobs();
+                await Task.Yield();
+            }
+        }
+
+        private static async Task Settle() {
+            for (int i = 0; i < 20; i++) {
+                Dispatcher.UIThread.RunJobs();
+                await Task.Yield();
+            }
+        }
+
+        private static void RightClick(Fixture fx, Point graphPoint) {
+            AvaloniaPoint screenPoint = fx.Control.Viewport.GraphToScreen(graphPoint);
+            fx.Window.MouseDown(screenPoint, MouseButton.Right, RawInputModifiers.None);
+            fx.Window.MouseUp(screenPoint, MouseButton.Right, RawInputModifiers.None);
+        }
+
+        [AvaloniaFact]
+        public async Task RealRightClick_OnRecipeNodeBody_WithUiThreadBoundClipboard_OpensMenuWithoutBlockingTheUiThread() {
+            DataCache cache = await GetCacheAsync();
+            Fixture fx = NewFixture(cache);
+            RecipeNodeElement node = AddRecipeNode(fx, "iron-gear-wheel", Point.Empty);
+            var viewModel = (IRecipeNodeViewModel)node.ViewModel;
+            var clipboard = new UiThreadBoundClipboard(GraphSaveCodec.WriteNodeCopyOptionsToString(new NodeCopyOptions(viewModel).ToSaveDocument()));
+            fx.Control.ClipboardReader = clipboard.Read;
+
+            RightClick(fx, Point.Empty);
+            await PumpUntil(() => fx.Control.LastContextMenuEntries is not null);
+
+            Assert.False(clipboard.CompletedByWatchdog);
+            Assert.NotNull(fx.Control.LastContextMenuEntries);
+            Assert.Contains(fx.Control.LastContextMenuEntries!, e => e.Caption == "Paste selected options");
+        }
+
+        [AvaloniaFact]
+        public async Task ShowContextMenuFor_WithUiThreadBoundClipboard_OpensMenuWithoutBlockingTheUiThread() {
+            DataCache cache = await GetCacheAsync();
+            Fixture fx = NewFixture(cache);
+            RecipeNodeElement node = AddRecipeNode(fx, "iron-gear-wheel", Point.Empty);
+            var viewModel = (IRecipeNodeViewModel)node.ViewModel;
+            var clipboard = new UiThreadBoundClipboard(GraphSaveCodec.WriteNodeCopyOptionsToString(new NodeCopyOptions(viewModel).ToSaveDocument()));
+            fx.Control.ClipboardReader = clipboard.Read;
+
+            fx.Control.ShowContextMenuFor(node);
+            await PumpUntil(() => fx.Control.LastContextMenuEntries is not null);
+
+            Assert.False(clipboard.CompletedByWatchdog);
+            Assert.Contains(fx.Control.LastContextMenuEntries!, e => e.Caption == "Paste selected options");
+        }
+
+        [AvaloniaFact]
+        public async Task CmdV_WithUiThreadBoundClipboard_PastesWithoutBlockingTheUiThread() {
+            DataCache cache = await GetCacheAsync();
+            Fixture source = NewFixture(cache);
+            RecipeNodeElement node = AddRecipeNode(source, "iron-gear-wheel", Point.Empty);
+            source.Control.Viewer.SetSelection([node]);
+            var clipboard = new UiThreadBoundClipboard(NodeClipboard.Copy(source.Control.Viewer));
+
+            Fixture target = NewFixture(cache);
+            target.Control.ClipboardReader = clipboard.Read;
+            target.Control.Focus();
+
+            CanvasKeys.PressOnCanvas(target.Control, Key.V, KeyModifiers.Meta);
+            await PumpUntil(() => target.Control.Viewer.NodeElements.Count > 0);
+
+            Assert.False(clipboard.CompletedByWatchdog);
+            Assert.Single(target.Control.Viewer.NodeElements);
+        }
+
+        [AvaloniaFact]
+        public async Task CmdV_WhenTheCacheIsClearedDuringThePendingRead_PastesNothing() {
+            DataCache cache = await GetCacheAsync();
+            Fixture source = NewFixture(cache);
+            RecipeNodeElement node = AddRecipeNode(source, "iron-gear-wheel", Point.Empty);
+            source.Control.Viewer.SetSelection([node]);
+            var clipboard = new ManualClipboard(NodeClipboard.Copy(source.Control.Viewer));
+
+            Fixture target = NewFixture(cache);
+            target.Control.ClipboardReader = clipboard.Read;
+            target.Control.Focus();
+
+            CanvasKeys.PressOnCanvas(target.Control, Key.V, KeyModifiers.Meta);
+            target.Control.Viewer.Context.DCache = null;
+            clipboard.Complete(0);
+            await Settle();
+
+            Assert.Empty(target.Control.Viewer.NodeElements);
+        }
+
+        [AvaloniaFact]
+        public async Task SecondRightClickBeforeTheFirstReadCompletes_OpensOnlyTheSecondNodesMenu() {
+            DataCache cache = await GetCacheAsync();
+            Fixture fx = NewFixture(cache);
+            RecipeNodeElement first = AddRecipeNode(fx, "iron-gear-wheel", new Point(-120, 0));
+            AddRecipeNode(fx, "iron-gear-wheel", new Point(120, 0));
+            var clipboard = new ManualClipboard("");
+            fx.Control.ClipboardReader = clipboard.Read;
+
+            RightClick(fx, new Point(-120, 0));
+            RightClick(fx, new Point(120, 0));
+            clipboard.Complete(0);
+            await Settle();
+            Assert.Null(fx.Control.LastContextMenuEntries);
+
+            clipboard.Complete(1);
+            await Settle();
+
+            Assert.NotNull(fx.Control.LastContextMenuEntries);
+            fx.Control.LastContextMenuEntries!.Single(e => e.Caption == "Delete node").Invoke!.Invoke();
+            Assert.Equal([first], fx.Control.Viewer.NodeElements);
+        }
+
+        [AvaloniaFact]
+        public async Task NodeDeletedWhileTheClipboardReadIsPending_OpensNoMenu() {
+            DataCache cache = await GetCacheAsync();
+            Fixture fx = NewFixture(cache);
+            RecipeNodeElement node = AddRecipeNode(fx, "iron-gear-wheel", Point.Empty);
+            var clipboard = new ManualClipboard("");
+            fx.Control.ClipboardReader = clipboard.Read;
+
+            RightClick(fx, Point.Empty);
+            fx.Control.Viewer.Session.Editor.DeleteNode(node.ViewModel.Id);
+            clipboard.Complete(0);
+            await Settle();
+
+            Assert.Null(fx.Control.LastContextMenuEntries);
+        }
+
+        [AvaloniaFact]
+        public async Task CmdV_WithAsynchronousClipboard_RequestsARedrawOnceThePasteLands() {
+            DataCache cache = await GetCacheAsync();
+            Fixture source = NewFixture(cache);
+            RecipeNodeElement node = AddRecipeNode(source, "iron-gear-wheel", Point.Empty);
+            source.Control.Viewer.SetSelection([node]);
+            var clipboard = new ManualClipboard(NodeClipboard.Copy(source.Control.Viewer));
+            Fixture target = NewFixture(cache);
+            target.Control.ClipboardReader = clipboard.Read;
+            target.Control.Focus();
+
+            CanvasKeys.PressOnCanvas(target.Control, Key.V, KeyModifiers.Meta);
+            int redrawsBefore = target.Control.RedrawRequestCount;
+            clipboard.Complete(0);
+            await Settle();
+
+            Assert.Single(target.Control.Viewer.NodeElements);
+            Assert.True(target.Control.RedrawRequestCount > redrawsBefore);
         }
 
         [AvaloniaFact]
         public void PasteFromClipboard_NoDataCache_NoCrash_NoNewNodes() {
             var control = new GraphCanvasControl();
             control.Viewport.SetSize(2 * Half, 2 * Half);
-            control.Viewer.Context.GetClipboardText = () => "some clipboard text";
+            control.ClipboardReader = () => Task.FromResult<string?>("some clipboard text");
 
             control.PasteFromClipboard();
+            Dispatcher.UIThread.RunJobs();
 
             Assert.Empty(control.Viewer.NodeElements);
         }

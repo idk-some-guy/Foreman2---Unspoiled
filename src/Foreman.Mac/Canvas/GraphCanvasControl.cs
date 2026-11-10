@@ -135,11 +135,12 @@ namespace Foreman.Mac.Canvas {
             emptyState = BuildEmptyState();
             IsTabStop = false;
             Viewer.ElementsChanged += OnElementsChanged;
+            Viewer.NodeReplaced += OnNodeReplaced;
             Child = new Panel { Children = { overlay, emptyState, pausedCapsule, paletteHost, radialFallbackPopup } };
             FloatingPanelHost = new FloatingPanelHost(overlay, Viewport, this);
             AddHandler(PointerPressedEvent, NoteDismissingPress, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
             Viewer.Context.SetClipboardText = SetClipboardText;
-            Viewer.Context.GetClipboardText = GetClipboardText;
+            Viewer.Context.GetClipboardTextAsync = GetClipboardTextAsync;
             Viewer.Context.StartLinkDrag = StartLinkDrag;
             Viewer.Context.EditNode = EditNode;
             Viewer.Context.LabelValuesChanged = StartLabelFade;
@@ -430,16 +431,35 @@ namespace Foreman.Mac.Canvas {
             Viewer.Session.Editor.SetLocation(placedId, new DrawingPoint(at.X, y));
         }
 
-        //Adapts Avalonia's async IClipboard to the plain synchronous delegates BaseNodeElement's menu
-        //building expects (reference §4b copy/paste, upstream's WinForms Clipboard is synchronous) - see
+        //Fire-and-forget clipboard write, matching upstream's WinForms Clipboard.SetText - see
         //docs/upstream-divergences.md.
         private void SetClipboardText(string text) {
             if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
                 Async.Fire(clipboard.SetTextAsync(text), nameof(SetClipboardText));
         }
 
-        private string? GetClipboardText() =>
-            TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard ? clipboard.TryGetTextAsync().GetAwaiter().GetResult() : null;
+        internal Func<Task<string?>>? ClipboardReader { get; set; }
+
+        //A sync clipboard read on the UI thread deadlocks X11.
+        private async Task<string?> GetClipboardTextAsync() {
+            try {
+                if (ClipboardReader is { } reader)
+                    return await reader();
+                return TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard ? await clipboard.TryGetTextAsync() : null;
+            } catch (Exception ex) {
+                ErrorLogging.LogException(ex, "Failed to read the clipboard");
+                return null;
+            }
+        }
+
+        private int interactionGeneration;
+
+        private async Task ShowNodeContextMenuAsync(BaseNodeElement node, DrawingPoint graphPoint) {
+            int generation = interactionGeneration;
+            List<MenuEntry> entries = await node.MouseUpRightAsync(graphPoint);
+            if (generation == interactionGeneration && Viewer.NodeElementDictionary.TryGetValue(node.ViewModel.Id, out BaseNodeElement? live) && live == node)
+                ShowContextMenu(entries);
+        }
 
         //Test-only seams (nothing outside Foreman.Mac.UiTests reads these): the entries and the real
         //Avalonia ContextMenu most recently built for a right click, so tests can assert content/routing
@@ -592,6 +612,7 @@ namespace Foreman.Mac.Canvas {
         //§2); Focus() picks up keyboard input (arrow keys, Shift axis-lock) the same click starts.
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
             base.OnPointerPressed(e);
+            interactionGeneration++;
             FinishAlign();
             pressReachedCanvas = true;
             dismissingPress = false;
@@ -897,7 +918,7 @@ namespace Foreman.Mac.Canvas {
                     } else if (CurrentDragOperation is not (DragOperation.Selection or DragOperation.Item)) {
                         GraphElement? rightClickTarget = HitTest(e.GetPosition(this));
                         if (rightClickTarget is BaseNodeElement rightClickedNode)
-                            ShowContextMenu(rightClickedNode.MouseUpRight(graphPoint));
+                            Async.Fire(ShowNodeContextMenuAsync(rightClickedNode, graphPoint), nameof(ShowNodeContextMenuAsync));
                         else if (rightClickTarget is AnnotationElement rightClickedAnnotation)
                             ShowContextMenu(rightClickedAnnotation.BuildRightClickMenu());
                         else if (LinkOf(rightClickTarget) is LinkElement rightClickedLink) {
@@ -1140,7 +1161,7 @@ namespace Foreman.Mac.Canvas {
             if (candidate.Kind == AddKind.Recipe) {
                 var baseItem = request.Link?.Item ?? default;
                 var ctx = new NewNodeContext(baseItem, request.Location, outer, request.Link?.OriginElement, direction, request.Link is not null);
-                placed = ProcessNodeRequest(ctx, NodeType.Recipe, new RecipeQualityPair(candidate.Recipe!, q), direction);
+                placed = ProcessNodeRequest(ctx, NodeType.Recipe, new RecipeQualityPair(candidate.Recipe!, RecipeQualityLock.PlacementQuality(candidate.Recipe!, q, cache)), direction);
             } else {
                 var item = new ItemQualityPair(candidate.Item!, q);
                 var ctx = new NewNodeContext(item, request.Location, outer, request.Link?.OriginElement, direction, request.Link is not null);
@@ -1309,7 +1330,7 @@ namespace Foreman.Mac.Canvas {
         private Services.AppSettings? fallbackChooserSettings;
         private Services.AppSettings ChooserSettings => AnnotationSettings ?? (fallbackChooserSettings ??= new Services.AppSettings());
 
-        private readonly record struct NewNodeContext(ItemQualityPair BaseItem, DrawingPoint NewLocation, NewNodeType OuterNodeType, BaseNodeElement? OriginElement, NodeDirection NewNodeDirection, bool OffsetLocationToItemTabLevel);
+        private readonly record struct NewNodeContext(ItemQualityPair BaseItem, DrawingPoint NewLocation, NewNodeType OuterNodeType, BaseNodeElement? OriginElement, NodeDirection NewNodeDirection, bool OffsetLocationToItemTabLevel, bool LinkToOrigin = true);
 
         private NodeId ProcessNodeRequest(NewNodeContext ctx, NodeType nodeType, RecipeQualityPair recipe, NodeDirection direction, IItem? explicitOrigin = null) {
             if (Viewer.Context.DCache is not DataCache cache)
@@ -1333,7 +1354,10 @@ namespace Foreman.Mac.Canvas {
                     newNodeId = Viewer.Session.Editor.CreateSpoilNode(ctx.BaseItem, spoilOutput, ctx.NewLocation);
                     break;
                 case NodeType.Spoil when direction == NodeDirection.Down && itemNN is not null && qualityNN is not null && ResolveOrigin(explicitOrigin, itemNN.SpoilOrigins) is IItem spoilOrigin:
-                    newNodeId = Viewer.Session.Editor.CreateSpoilNode(new ItemQualityPair(spoilOrigin, qualityNN), itemNN, ctx.NewLocation);
+                    IQuality? originQuality = SpoilQuality.InputFor(spoilOrigin, qualityNN);
+                    newNodeId = Viewer.Session.Editor.CreateSpoilNode(new ItemQualityPair(spoilOrigin, originQuality ?? qualityNN), itemNN, ctx.NewLocation);
+                    if (originQuality is null)
+                        ctx = ctx with { LinkToOrigin = false };
                     break;
                 case NodeType.Plant when direction == NodeDirection.Up && itemNN?.PlantResult is IPlantProcess plantUp && qualityNN is not null:
                     newNodeId = Viewer.Session.Editor.CreatePlantNode(plantUp, qualityNN, ctx.NewLocation);
@@ -1397,8 +1421,8 @@ namespace Foreman.Mac.Canvas {
 
         //Ports FinalizeNodePosition's direction/link half (reference §3): direction only gets set when an
         //origin element exists (the two disconnected entry points already got Graph.DefaultNodeDirection from
-        //node creation itself), and the link always runs through baseItem in the direction the drag started
-        //from, regardless of which NodeType the chooser ultimately produced - matching upstream exactly.
+        //node creation itself), and the link runs through baseItem in the direction the drag started from
+        //when the new node carries that item.
         //Also ports FinalizeNodePosition's tab-level Y-offset (upstream lines 413-414): only when
         //OffsetLocationToItemTabLevel is set (the link-drag flow) does the drop point land on the new node's
         //tab row instead of its center - Consumer shifts the node down by half its height (so its top-edge
@@ -1427,9 +1451,9 @@ namespace Foreman.Mac.Canvas {
                     ClearOfOrigin(newNodeId, ctx.OriginElement!);
             }
 
-            if (ctx.OuterNodeType == NewNodeType.Consumer && originStillExists)
+            if (ctx.OuterNodeType == NewNodeType.Consumer && originStillExists && ctx.LinkToOrigin && NodeCarries(newNodeId, LinkType.Input, ctx.BaseItem))
                 Viewer.Session.Editor.CreateLink(ctx.OriginElement!.ViewModel.Id, newNodeId, ctx.BaseItem);
-            else if (ctx.OuterNodeType == NewNodeType.Supplier && originStillExists)
+            else if (ctx.OuterNodeType == NewNodeType.Supplier && originStillExists && ctx.LinkToOrigin && NodeCarries(newNodeId, LinkType.Output, ctx.BaseItem))
                 Viewer.Session.Editor.CreateLink(newNodeId, ctx.OriginElement!.ViewModel.Id, ctx.BaseItem);
 
             Viewer.Graph.UpdateNodeValues();
@@ -1437,6 +1461,16 @@ namespace Foreman.Mac.Canvas {
             if (Viewer.NodeElementDictionary.TryGetValue(newNodeId, out BaseNodeElement? element))
                 Viewer.SetSelection([element]);
             RequestRedraw();
+        }
+
+        private bool NodeCarries(NodeId nodeId, LinkType side, ItemQualityPair item) =>
+            Viewer.Session.View.TryGetNode(nodeId, out INodeViewModel? node) && node is not null && (side == LinkType.Input ? node.Inputs : node.Outputs).Contains(item);
+
+        private void OnNodeReplaced(object? sender, NodeViewModelReplacedEventArgs e) {
+            if (!Viewer.Session.View.TryGetNode(e.New, out INodeViewModel? node) || node is not IRecipeNodeViewModel copy)
+                return;
+            string removed = e.RemovedLinkCount switch { 0 => "", 1 => ", 1 link removed", _ => $", {e.RemovedLinkCount} links removed" };
+            Announce($"{copy.BaseRecipe.Recipe?.FriendlyName} switched to {copy.BaseRecipe.Quality?.FriendlyName} quality{removed}");
         }
 
         //Test-only seams (reference §6's "double-click opens dialog (headless-testable hook)"): stub these to
@@ -1589,11 +1623,16 @@ namespace Foreman.Mac.Canvas {
         public void CutSelection() => Viewer.Context.SetClipboardText?.Invoke(NodeClipboard.Cut(Viewer));
 
         public void PasteFromClipboard() {
-            if (Viewer.Context.DCache is not DataCache cache || Viewer.Context.GetClipboardText?.Invoke() is not string clipboardText)
-                return;
-
+            interactionGeneration++;
             AvaloniaPoint cursorScreenPoint = hoverScreenPoint ?? new AvaloniaPoint(Viewport.Width / 2, Viewport.Height / 2);
-            NodeClipboard.Paste(Viewer, cache, clipboardText, Viewport.ScreenToGraph(cursorScreenPoint));
+            Async.Fire(PasteFromClipboardAsync(cursorScreenPoint), nameof(PasteFromClipboardAsync));
+        }
+
+        internal async Task PasteFromClipboardAsync(AvaloniaPoint cursorScreenPoint) {
+            if (Viewer.Context.GetClipboardTextAsync is { } read && await read() is string clipboardText && Viewer.Context.DCache is DataCache cache) {
+                NodeClipboard.Paste(Viewer, cache, clipboardText, Viewport.ScreenToGraph(cursorScreenPoint));
+                RequestRedraw();
+            }
         }
 
         public void DeleteSelection() {

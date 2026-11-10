@@ -18,11 +18,7 @@ namespace Foreman.DataCaching {
     //the same way SaveFileReader (§5) already is. PresetImportWindow (Foreman.Mac) wraps this with the form
     //fields, live validation, and the interactive icon-failure confirmation this pipeline can't show itself.
     internal static class PresetImporter {
-        //Only Factorio 2.x installs reach this pipeline (FactorioInstallValidator's major==2 gate), and the
-        //repo only ships the 2.0.0 build of the bundled export mod - upstream instead derives this string
-        //from FileVersionInfo.ProductMajorPart at call time, which this port has no PE-resource source for
-        //anyway (docs/upstream-divergences.md).
-        private const string ForemanExportModName = "foremanexport_2.0.0";
+        private const string ExportModFolderPrefix = "foremanexport_";
         private const string AnotherInstanceMessage =
             "Foreman export could not be completed because this instance of Factorio is currently running. Please stop expanding the factory for just a brief moment and let the export commence in peace!";
 
@@ -43,6 +39,7 @@ namespace Foreman.DataCaching {
 
         public static async Task<Result> ProcessPreset(
             string installPath,
+            FactorioGameVersion gameVersion,
             string modsPath,
             string scratchDirectory,
             string newPresetName,
@@ -64,11 +61,15 @@ namespace Foreman.DataCaching {
                 return Fail("factorio.exe not found...", FactorioRunFailure.InvalidInstall, install: new FactorioInstallCheck(FactorioInstallProblem.ExecutableMissing, ""));
             }
 
+            if (SupportedGameVersions.LineFor(gameVersion) is not SupportedGameLine line)
+                return Fail("Factorio " + gameVersion + " can not be used with this version of Foreman.", FactorioRunFailure.InvalidInstall,
+                    install: new FactorioInstallCheck(SupportedGameVersions.Classify(gameVersion), gameVersion.ToString()));
+            string exportModName = line.ExportModFolder;
+
             try {
                 if (!Directory.Exists(modsPath))
                     Directory.CreateDirectory(modsPath);
-                if (Directory.Exists(Path.Combine(modsPath, ForemanExportModName)))
-                    Directory.Delete(Path.Combine(modsPath, ForemanExportModName));
+                FactorioBundledModHelper.DeleteInstalledCopies(modsPath, ExportModFolderPrefix);
             } catch (Exception e) {
                 CleanupFailedImport(tempSavePath, modsPath);
                 if (e is UnauthorizedAccessException) {
@@ -111,15 +112,15 @@ namespace Foreman.DataCaching {
             FactorioModListHelper.SetModState(modsPath, "foremanexport", enabled: true, removeFromListWhenDisabled: false);
 
             try {
-                FactorioBundledModHelper.CopyToModsFolder(ForemanExportModName, modsPath, "info.json", "instrument-after-data.lua", "instrument-control.lua");
+                FactorioBundledModHelper.CopyToModsFolder(exportModName, modsPath, "info.json", "instrument-after-data.lua", "instrument-control.lua");
             } catch (Exception e) {
                 CleanupFailedImport(tempSavePath, modsPath);
                 if (e is UnauthorizedAccessException) {
                     ErrorLogging.LogException(e, "copying of foreman export mod files failed - insufficient access");
-                    return Fail("Insufficient access to copy foreman export mod files (Mods/" + ForemanExportModName + "/) to the factorio mods folder. Please ensure factorio mods are in an accessible folder, or launch Foreman with Administrator privileges.", FactorioRunFailure.ModsFolderNoAccess);
+                    return Fail("Insufficient access to copy foreman export mod files (Mods/" + exportModName + "/) to the factorio mods folder. Please ensure factorio mods are in an accessible folder, or launch Foreman with Administrator privileges.", FactorioRunFailure.ModsFolderNoAccess);
                 }
                 ErrorLogging.LogException(e, "copying of foreman export mod files failed");
-                return Fail("could not copy foreman export mod files (Mods/" + ForemanExportModName + "/) to the factorio mods folder. Reinstall foreman?", FactorioRunFailure.HelperModCopyFailed);
+                return Fail("could not copy foreman export mod files (Mods/" + exportModName + "/) to the factorio mods folder. Reinstall foreman?", FactorioRunFailure.HelperModCopyFailed);
             }
 
             progress.Report(new(20, "Running Factorio - foreman export scripts."));
@@ -139,8 +140,7 @@ namespace Foreman.DataCaching {
 
             if (File.Exists(tempSavePath))
                 File.Delete(tempSavePath);
-            if (Directory.Exists(Path.Combine(modsPath, ForemanExportModName)))
-                Directory.Delete(Path.Combine(modsPath, ForemanExportModName), true);
+            FactorioBundledModHelper.DeleteInstalledCopies(modsPath, ExportModFolderPrefix);
 
             progress.Report(new(25, "Processing mod files."));
 
@@ -148,95 +148,11 @@ namespace Foreman.DataCaching {
                 CleanupFailedImport(tempSavePath, modsPath);
                 return Fail(AnotherInstanceMessage, FactorioRunFailure.AnotherInstanceRunning);
             }
-            if (!resultString.Contains("<<<END-EXPORT-P1>>>", StringComparison.Ordinal) || !resultString.Contains("<<<END-EXPORT-P2>>>", StringComparison.Ordinal)) {
-                bool savedMissing = resultString.Contains("temp-save.zip does not exist", StringComparison.Ordinal);
-                string failureMessage = savedMissing
-                    ? "Foreman export could not finish because Factorio could not load the test save (temp-save.zip). " +
-                      "The save may not have been created in the previous step; check factorio-current.log for crashes or errors."
-                    : "Foreman export could not be completed - possible mod conflict detected. Please run Factorio and ensure it can successfully load to menu before retrying.";
-                ErrorLogging.LogLine("Foreman export failed partway. Consult errorExporting.json for full output (and search for <<<END-EXPORT-P1>>> or <<<END-EXPORT-P2>>>, at least one of which is missing)");
-                WriteExportFailureLog(scratchDirectory, resultString);
+            Result written = await WritePresetFromExportOutput(
+                resultString, Path.Combine(installPath, "data"), modsPath, scratchDirectory, presetBasePath, progress, confirmContinueWithMissingIconsAsync, token).ConfigureAwait(false);
+            if (written.Outcome != PresetImportOutcome.Ok) {
                 CleanupFailedImport(tempSavePath, modsPath);
-                return Fail(failureMessage, savedMissing ? FactorioRunFailure.TestSaveNotLoaded : FactorioRunFailure.ExportIncomplete);
-            }
-
-            //Marker slicing (docs/upstream-divergences.md): upstream's fixed byte offsets (marker index + 23,
-            //end index - 1) only produce valid JSON on CRLF-terminated output. This finds each marker's real
-            //length and trims the extracted span instead, the same fix SaveFileReader.ParseP0Export (§5) made.
-            string lnamesString = ExtractSection(resultString, "<<<START-EXPORT-LN>>>", "<<<END-EXPORT-LN>>>")
-                .Replace("\n", "").Replace("\r", "").Replace("<#~#>", "\n");
-            string iconString = ExtractSection(resultString, "<<<START-EXPORT-P1>>>", "<<<END-EXPORT-P1>>>");
-            string dataString = ExtractSection(resultString, "<<<START-EXPORT-P2>>>", "<<<END-EXPORT-P2>>>");
-
-            string[] lnames = lnamesString.Split('\n'); //keep empties - we know where they are!
-            var localisedNames = new Dictionary<string, string>();
-            for (int i = 0; i < lnames.Length / 2; i++)
-                localisedNames.Add('$' + i.ToString(CultureInfo.InvariantCulture), lnames[(i * 2) + 1].Replace("Unknown key: \"", "").Replace("\"", ""));
-
-            JsonObject iconJObject;
-            JsonObject dataJObject;
-            try {
-                iconJObject = PresetJson.ParseObject(iconString);
-                dataJObject = PresetJson.ParseObject(dataString);
-            } catch (Exception ex) {
-                ErrorLogging.LogException(ex, "json parsing of export mod output failed (" + ForemanExportModName + "); consult _iconJObjectOut.json and _dataJObjectOut.json");
-                try {
-                    Utf8File.WriteAllText(Path.Combine(scratchDirectory, "_iconJObjectOut.json"), iconString);
-                    Utf8File.WriteAllText(Path.Combine(scratchDirectory, "_dataJObjectOut.json"), dataString);
-                } catch (Exception dumpEx) {
-                    ErrorLogging.LogException(dumpEx, "Foreman preset export: failed to write _iconJObjectOut.json/_dataJObjectOut.json");
-                }
-                CleanupFailedImport(tempSavePath, modsPath);
-                return Fail("Foreman export could not be completed - unknown json parsing error.\nSorry", FactorioRunFailure.ExportUnreadable);
-            }
-
-            //trawl over the dataJObject entities and replace any 'lid' with 'localised_name'
-            foreach (string groupName in PresetJson.GetObjectPropertyNames(dataJObject)) {
-                if (dataJObject[groupName] is not JsonArray set)
-                    continue;
-                foreach (JsonNode? obj in set) {
-                    if (obj is JsonObject jobject && PresetJson.GetString(jobject, "lid") is string lid) {
-                        jobject["localised_name"] = localisedNames[lid];
-                        jobject.Remove("lid");
-                    }
-                }
-            }
-
-            Directory.CreateDirectory(userPresetsDirectory);
-            Utf8File.WriteAllText(presetBasePath + ".pjson", PresetJson.WriteIndented(dataJObject));
-            File.Copy(Path.Combine(AppPaths.ExecutableDirectory, "baseCustom.json"), presetBasePath + ".json", true);
-
-            if (token.IsCancellationRequested) {
-                CleanupFailedImport(tempSavePath, modsPath, presetBasePath);
-                return Cancelled();
-            }
-
-            var modSet = new Dictionary<string, string>();
-            foreach (JsonNode objJToken in PresetJson.EnumerateArray(dataJObject, "mods"))
-                if (PresetJson.GetString(objJToken, "name") is string name && PresetJson.GetString(objJToken, "version") is string version)
-                    modSet.Add(name.ToLowerInvariant(), version);
-
-            using (var icProcessor = new IconCacheProcessor()) {
-                if (!icProcessor.PrepareModPaths(modSet, modsPath, Path.Combine(installPath, "data"), token)) {
-                    CleanupFailedImport(tempSavePath, modsPath, presetBasePath);
-                    if (token.IsCancellationRequested)
-                        return Cancelled();
-                    ErrorLogging.LogLine("Mod parsing failed - the list of mods provided could not be mapped to the existing mod folders & zip files.");
-                    return Fail("Mod inconsistency detected. Try to see if launching Factorio gives an error?", FactorioRunFailure.ModInconsistency);
-                }
-
-                if (!await icProcessor.CreateIconCache(iconJObject, presetBasePath + ".dat", progress, 30, 100, token).ConfigureAwait(false)) {
-                    if (token.IsCancellationRequested) {
-                        CleanupFailedImport(tempSavePath, modsPath, presetBasePath);
-                        return Cancelled();
-                    }
-                    ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "{0}/{1} images were not found while processing icons.", icProcessor.FailedPathCount, icProcessor.TotalPathCount));
-                    bool proceed = await confirmContinueWithMissingIconsAsync(icProcessor.FailedPathCount, icProcessor.TotalPathCount).ConfigureAwait(false);
-                    if (!proceed) {
-                        CleanupFailedImport(tempSavePath, modsPath, presetBasePath);
-                        return Cancelled();
-                    }
-                }
+                return written;
             }
 
             FactorioModListHelper.SetModState(modsPath, "foremanexport", enabled: false, removeFromListWhenDisabled: true);
@@ -254,6 +170,116 @@ namespace Foreman.DataCaching {
             return new Result { Outcome = PresetImportOutcome.Ok, NewPresetName = newPresetName };
         }
 
+        internal static async Task<Result> WritePresetFromExportOutput(
+            string exportOutput,
+            string dataPath,
+            string modsPath,
+            string scratchDirectory,
+            string presetBasePath,
+            IProgress<KeyValuePair<int, string>> progress,
+            Func<int, int, Task<bool>> confirmContinueWithMissingIconsAsync,
+            CancellationToken token) {
+
+            if (!exportOutput.Contains("<<<END-EXPORT-P1>>>", StringComparison.Ordinal) || !exportOutput.Contains("<<<END-EXPORT-P2>>>", StringComparison.Ordinal)) {
+                bool savedMissing = exportOutput.Contains("temp-save.zip does not exist", StringComparison.Ordinal);
+                string failureMessage = savedMissing
+                    ? "Foreman export could not finish because Factorio could not load the test save (temp-save.zip). " +
+                      "The save may not have been created in the previous step; check factorio-current.log for crashes or errors."
+                    : "Foreman export could not be completed - possible mod conflict detected. Please run Factorio and ensure it can successfully load to menu before retrying.";
+                ErrorLogging.LogLine("Foreman export failed partway. Consult errorExporting.json for full output (and search for <<<END-EXPORT-P1>>> or <<<END-EXPORT-P2>>>, at least one of which is missing)");
+                WriteExportFailureLog(scratchDirectory, exportOutput);
+                return Fail(failureMessage, savedMissing ? FactorioRunFailure.TestSaveNotLoaded : FactorioRunFailure.ExportIncomplete);
+            }
+
+            //Marker slicing (docs/upstream-divergences.md): upstream's fixed byte offsets (marker index + 23,
+            //end index - 1) only produce valid JSON on CRLF-terminated output. This finds each marker's real
+            //length and trims the extracted span instead, the same fix SaveFileReader.ParseP0Export (§5) made.
+            string lnamesString = ExtractSection(exportOutput, "<<<START-EXPORT-LN>>>", "<<<END-EXPORT-LN>>>")
+                .Replace("\n", "").Replace("\r", "").Replace("<#~#>", "\n");
+            string iconString = ExtractSection(exportOutput, "<<<START-EXPORT-P1>>>", "<<<END-EXPORT-P1>>>");
+            string dataString = ExtractSection(exportOutput, "<<<START-EXPORT-P2>>>", "<<<END-EXPORT-P2>>>");
+
+            string[] lnames = lnamesString.Split('\n'); //keep empties - we know where they are!
+            var localisedNames = new Dictionary<string, string>();
+            for (int i = 0; i < lnames.Length / 2; i++)
+                localisedNames.Add('$' + i.ToString(CultureInfo.InvariantCulture), lnames[(i * 2) + 1].Replace("Unknown key: \"", "").Replace("\"", ""));
+
+            JsonObject iconJObject;
+            JsonObject dataJObject;
+            try {
+                iconJObject = PresetJson.ParseObject(iconString);
+                dataJObject = PresetJson.ParseObject(dataString);
+            } catch (Exception ex) {
+                ErrorLogging.LogException(ex, "json parsing of export mod output failed; consult _iconJObjectOut.json and _dataJObjectOut.json");
+                try {
+                    Utf8File.WriteAllText(Path.Combine(scratchDirectory, "_iconJObjectOut.json"), iconString);
+                    Utf8File.WriteAllText(Path.Combine(scratchDirectory, "_dataJObjectOut.json"), dataString);
+                } catch (Exception dumpEx) {
+                    ErrorLogging.LogException(dumpEx, "Foreman preset export: failed to write _iconJObjectOut.json/_dataJObjectOut.json");
+                }
+                return Fail("Foreman export could not be completed - unknown json parsing error.\nSorry", FactorioRunFailure.ExportUnreadable);
+            }
+
+            //trawl over the dataJObject entities and replace any 'lid' with 'localised_name'
+            foreach (string groupName in PresetJson.GetObjectPropertyNames(dataJObject)) {
+                if (dataJObject[groupName] is not JsonArray set)
+                    continue;
+                foreach (JsonNode? obj in set) {
+                    if (obj is JsonObject jobject && PresetJson.GetString(jobject, "lid") is string lid) {
+                        jobject["localised_name"] = localisedNames[lid];
+                        jobject.Remove("lid");
+                    }
+                }
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(presetBasePath)!);
+            Utf8File.WriteAllText(presetBasePath + ".pjson", PresetJson.WriteIndented(dataJObject));
+            File.Copy(Path.Combine(AppPaths.ExecutableDirectory, "baseCustom.json"), presetBasePath + ".json", true);
+
+            if (token.IsCancellationRequested) {
+                DeletePresetFiles(presetBasePath);
+                return Cancelled();
+            }
+
+            var modSet = new Dictionary<string, string>();
+            foreach (JsonNode objJToken in PresetJson.EnumerateArray(dataJObject, "mods"))
+                if (PresetJson.GetString(objJToken, "name") is string name && PresetJson.GetString(objJToken, "version") is string version)
+                    modSet.Add(name.ToLowerInvariant(), version);
+
+            using (var icProcessor = new IconCacheProcessor()) {
+                if (!icProcessor.PrepareModPaths(modSet, modsPath, dataPath, token)) {
+                    DeletePresetFiles(presetBasePath);
+                    if (token.IsCancellationRequested)
+                        return Cancelled();
+                    ErrorLogging.LogLine("Mod parsing failed - the list of mods provided could not be mapped to the existing mod folders & zip files.");
+                    return Fail("Mod inconsistency detected. Try to see if launching Factorio gives an error?", FactorioRunFailure.ModInconsistency);
+                }
+
+                if (!await icProcessor.CreateIconCache(iconJObject, presetBasePath + ".dat", progress, 30, 100, token).ConfigureAwait(false)) {
+                    if (token.IsCancellationRequested) {
+                        DeletePresetFiles(presetBasePath);
+                        return Cancelled();
+                    }
+                    ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "{0}/{1} images were not found while processing icons.", icProcessor.FailedPathCount, icProcessor.TotalPathCount));
+                    bool proceed = await confirmContinueWithMissingIconsAsync(icProcessor.FailedPathCount, icProcessor.TotalPathCount).ConfigureAwait(false);
+                    if (!proceed) {
+                        DeletePresetFiles(presetBasePath);
+                        return Cancelled();
+                    }
+                }
+            }
+
+            return new Result { Outcome = PresetImportOutcome.Ok, NewPresetName = Path.GetFileName(presetBasePath) };
+        }
+
+        private static void DeletePresetFiles(string presetBasePath) {
+            foreach (string extension in new[] { ".pjson", ".json", ".dat" }) {
+                string path = presetBasePath + extension;
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+        }
+
         //Ports CleanupFailedImport (reference §4 step 8). Real fix over upstream (docs/upstream-divergences.md):
         //upstream's own version takes a foremanModName parameter it never actually threads through from any
         //of ProcessPreset's own call sites (every call passes at most modsPath/presetPath), so the mod-folder
@@ -267,19 +293,11 @@ namespace Foreman.DataCaching {
             if (File.Exists(tempSavePath))
                 File.Delete(tempSavePath);
 
-            if (!string.IsNullOrEmpty(modsPath)) {
-                string modFolder = Path.Combine(modsPath, ForemanExportModName);
-                if (Directory.Exists(modFolder))
-                    Directory.Delete(modFolder, true);
-            }
+            if (!string.IsNullOrEmpty(modsPath))
+                FactorioBundledModHelper.DeleteInstalledCopies(modsPath, ExportModFolderPrefix);
 
-            if (!string.IsNullOrEmpty(presetBasePath)) {
-                foreach (string extension in new[] { ".pjson", ".json", ".dat" }) {
-                    string path = presetBasePath + extension;
-                    if (File.Exists(path))
-                        File.Delete(path);
-                }
-            }
+            if (!string.IsNullOrEmpty(presetBasePath))
+                DeletePresetFiles(presetBasePath);
         }
 
         private static Result? CheckCrash(FactorioRunResult run, string phaseDescription, FactorioCrashPhase phase, string scratchDirectory, string tempSavePath, string modsPath) {

@@ -26,10 +26,13 @@ namespace Foreman.Mac.Views.Sheets {
 
         public static string Install(FactorioInstallCheck check) => check.Problem switch {
             FactorioInstallProblem.VersionUnreadable => "Foreman couldn’t read this Factorio’s version. Choose another Factorio installation.",
-            FactorioInstallProblem.TooOld => $"Factorio {check.VersionText} is too old for this Foreman. Use Factorio 2.0.7 or later.",
+            FactorioInstallProblem.TooOld => $"Factorio {check.VersionText} is too old for this Foreman. Use Factorio {MinimumFor(check)} or later.",
             FactorioInstallProblem.TooNew => $"Factorio {check.VersionText} is newer than this Foreman supports. Check for a Foreman update.",
             _ => NotAFactorioFolder,
         };
+
+        private static FactorioGameVersion MinimumFor(FactorioInstallCheck check) =>
+            SupportedGameVersions.MinimumFor(check.GameVersion ?? SupportedGameVersions.Lines[0].Minimum);
 
         private static string CrashPhrase(FactorioCrashPhase phase) => phase switch {
             FactorioCrashPhase.CreatingTestSave => "creating the test save",

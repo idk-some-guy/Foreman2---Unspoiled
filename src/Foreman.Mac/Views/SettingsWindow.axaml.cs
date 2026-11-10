@@ -135,6 +135,9 @@ namespace Foreman.Mac.Views {
             SelectTab(0);
 
             currentPresetLabel.Text = Options.SelectedPreset?.Name;
+            TextBlock currentVersion = presetsTab.CurrentPresetVersionTextControl;
+            PresetCaption.SetNameTarget(currentVersion, currentPresetLabel);
+            PresetCaption.SetPreset(currentVersion, Options.SelectedPreset);
 
             RefreshPresetList();
             RefreshModList();
@@ -401,8 +404,12 @@ namespace Foreman.Mac.Views {
             selectPresetMenuItem.Header = "Use Preset";
             selectPresetMenuItem.IsEnabled = !preset.IsCurrentlySelected;
             deletePresetMenuItem.Header = "Delete Preset";
-            deletePresetMenuItem.IsEnabled = !preset.IsDefaultPreset && !preset.IsCurrentlySelected;
+            deletePresetMenuItem.IsEnabled = !preset.IsDefaultPreset && !preset.IsCurrentlySelected && IsDeletable(preset.Name);
         }
+
+        private static bool IsDeletable(string presetName) =>
+            PresetResolver.BundledPresetNameMatching(presetName) is null
+            || File.Exists(PresetProcessor.GetUserPresetPath(presetName, ".pjson"));
 
         private async Task DeletePresetAsync(Preset preset) {
             bool confirmed = await ConfirmDeleteAsync(preset).ConfigureAwait(true);
@@ -533,7 +540,7 @@ namespace Foreman.Mac.Views {
         }
 
         private void LoadUnfilteredLists() {
-            LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(a => a.EntityType == EntityType.Assembler), unfilteredAssemblerList);
+            LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(PlantTowerRules.IsAssemblerListEntry), unfilteredAssemblerList);
             LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(a => a.EntityType is EntityType.Miner or EntityType.OffshorePump), unfilteredMinerList);
             LoadUnfilteredList(Options.DCache.Assemblers.Values.Where(a => a.EntityType is EntityType.Boiler or EntityType.BurnerGenerator or EntityType.Generator or EntityType.Reactor), unfilteredPowerList);
             LoadUnfilteredList(Options.DCache.Beacons.Values, unfilteredBeaconList);

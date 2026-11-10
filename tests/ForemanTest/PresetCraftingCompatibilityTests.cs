@@ -32,6 +32,39 @@ namespace ForemanTest {
             CollectionAssert.AreEquivalent(expected as ICollection, categories);
         }
 
+        [TestMethod]
+        public void CollectRecipeCraftingCategories_CategoriesArrayOnly_ReturnsEveryEntry() {
+            var recipe = new JsonObject {
+                ["categories"] = new JsonArray("crafting", "hand-crafting"),
+            };
+
+            var categories = PresetCraftingCompatibility.CollectRecipeCraftingCategories(recipe).ToArray();
+            ICollection<string> expected = ["crafting", "hand-crafting"];
+            CollectionAssert.AreEquivalent(expected as ICollection, categories);
+        }
+
+        [TestMethod]
+        public void CollectRecipeCraftingCategories_LegacyCategoryAndAdditional_StillMerged() {
+            var recipe = MinimalRecipeJson(
+                primaryCategory: "crafting",
+                additionalCategories: ["advanced-crafting"]);
+
+            var categories = PresetCraftingCompatibility.CollectRecipeCraftingCategories(recipe).ToArray();
+            ICollection<string> expected = ["crafting", "advanced-crafting"];
+            CollectionAssert.AreEquivalent(expected as ICollection, categories);
+        }
+
+        [TestMethod]
+        public void ResolvePrimaryCategory_PrefersCategoryThenCategoriesThenCraftingCategories() {
+            Assert.AreEqual("a", PresetCraftingCompatibility.ResolvePrimaryCategory(
+                new JsonObject { ["category"] = "a", ["categories"] = new JsonArray("b"), ["crafting_categories"] = new JsonArray("c") }));
+            Assert.AreEqual("b", PresetCraftingCompatibility.ResolvePrimaryCategory(
+                new JsonObject { ["categories"] = new JsonArray("b", "x"), ["crafting_categories"] = new JsonArray("c") }));
+            Assert.AreEqual("c", PresetCraftingCompatibility.ResolvePrimaryCategory(
+                new JsonObject { ["crafting_categories"] = new JsonArray("c") }));
+            Assert.IsNull(PresetCraftingCompatibility.ResolvePrimaryCategory(new JsonObject()));
+        }
+
         private static JsonObject MinimalRecipeJson(
             string primaryCategory,
             string[]? craftingCategories = null,

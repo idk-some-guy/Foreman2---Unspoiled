@@ -98,7 +98,17 @@ namespace Foreman.Mac.Views {
                 var label = new TextBlock { Theme = KitTheme("Kit.Text"), Text = preset.Name, VerticalAlignment = VerticalAlignment.Center };
                 label.Classes.Add("callout");
                 label.Classes.Add("middle-ellipsis");
-                return label;
+                var caption = new TextBlock { Name = "PresetVersionText", Theme = KitTheme("Kit.Text"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+                caption.Classes.Add("caption");
+                caption.Classes.Add("secondary");
+                caption.FontFeatures = FontFeatureCollection.Parse("tnum");
+                AutomationProperties.SetAccessibilityView(caption, AccessibilityView.Raw);
+                PresetCaption.SetPreset(caption, preset);
+                var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+                Grid.SetColumn(caption, 1);
+                row.Children.Add(label);
+                row.Children.Add(caption);
+                return row;
             }, supportsRecycling: false);
             presetList.SelectedItem = ViewModel.SelectedPreset;
             presetList.SelectionChanged += OnPresetSelectionChanged;

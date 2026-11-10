@@ -912,6 +912,8 @@ namespace Foreman.Mac {
                 return;
             ShowDeferred = false;
             Show();
+            if (ShellContext is { } context)
+                WelcomeLauncher.PresentPending(context);
         }
 
         internal async Task OpenFjsonPathAsync(string path) {
@@ -1813,7 +1815,7 @@ namespace Foreman.Mac {
 
         private void MenuCopy() => GraphCanvas.CopySelection();
 
-        private void MenuPaste() { GraphCanvas.PasteFromClipboard(); GraphCanvas.RequestRedraw(); }
+        private void MenuPaste() => GraphCanvas.PasteFromClipboard();
 
         private void MenuDelete() { GraphCanvas.DeleteSelection(); GraphCanvas.RequestRedraw(); }
 

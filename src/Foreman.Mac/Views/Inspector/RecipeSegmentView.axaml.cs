@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.Input;
 using Foreman.Mac;
@@ -14,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using SkiaSharp;
 using KitPickGrid = Foreman.Mac.Kit.Composites.PickGrid;
 
 namespace Foreman.Mac.Views.Inspector {
@@ -44,6 +46,9 @@ namespace Foreman.Mac.Views.Inspector {
         private readonly KitPickGrid beaconModuleOptionsGrid;
         private readonly InspectorGroup beaconGroup;
         private readonly StatePanel recipeErrorPanel;
+        private readonly Image recipeQualityIcon;
+        private readonly Button switchQualityButton;
+        private readonly Dictionary<SKBitmap, Bitmap> qualityIconCache = [];
         private GraphViewer? boundViewer;
         private bool lastHasBeacon;
 
@@ -51,6 +56,8 @@ namespace Foreman.Mac.Views.Inspector {
 
         public event EventHandler? OpenPresetsRequested;
         public event EventHandler<IRecipeNodeViewModel>? PickAnotherRecipeRequested;
+
+        public event EventHandler? QualitySwitched;
 
         public event EventHandler<ProductionGraph.RateUnit>? RateUnitChanged;
 
@@ -90,6 +97,12 @@ namespace Foreman.Mac.Views.Inspector {
             beaconModuleOptionsGrid = this.FindControl<KitPickGrid>("BeaconModuleOptionsGrid")!;
             beaconGroup = this.FindControl<InspectorGroup>("BeaconGroup")!;
             recipeErrorPanel = this.FindControl<StatePanel>("RecipeErrorPanel")!;
+            recipeQualityIcon = this.FindControl<Image>("RecipeQualityIcon")!;
+            switchQualityButton = this.FindControl<Button>("SwitchQualityButton")!;
+            switchQualityButton.Click += (_, _) => {
+                ViewModel?.SwitchToLowestQuality();
+                QualitySwitched?.Invoke(this, EventArgs.Empty);
+            };
             var openPresetsButton = new Button { Content = "Open Presets…", Theme = KitTheme("Kit.Button") };
             ButtonRow.SetRole(openPresetsButton, ButtonRowRole.Other);
             openPresetsButton.Click += (_, _) => OpenPresetsRequested?.Invoke(this, EventArgs.Empty);
@@ -149,23 +162,30 @@ namespace Foreman.Mac.Views.Inspector {
             equippedGrid.Cleared += EquippedGrid_Cleared;
             equippedGrid.PropertyChanged += (_, e) => {
                 if (e.Property == KitPickGrid.SelectedIndexProperty)
-                    UpdateOptionsAvailability(equippedGrid, moduleOptionsGrid);
+                    InspectorChoiceRows.UpdateOptionsAvailability(equippedGrid, moduleOptionsGrid);
             };
             moduleOptionsGrid.CellClicked += ModuleOptionsGrid_CellClicked;
             equippedBeaconGrid.ChooseRequested += (_, _) => beaconModuleOptionsGrid.Focus();
             equippedBeaconGrid.Cleared += EquippedBeaconGrid_Cleared;
             equippedBeaconGrid.PropertyChanged += (_, e) => {
                 if (e.Property == KitPickGrid.SelectedIndexProperty)
-                    UpdateOptionsAvailability(equippedBeaconGrid, beaconModuleOptionsGrid);
+                    InspectorChoiceRows.UpdateOptionsAvailability(equippedBeaconGrid, beaconModuleOptionsGrid);
             };
             beaconModuleOptionsGrid.CellClicked += BeaconModuleOptionsGrid_CellClicked;
 
-            DetachedFromVisualTree += (_, _) => Detach();
+            DetachedFromVisualTree += (_, _) => {
+                Detach();
+                recipeQualityIcon.Source = null;
+                foreach (Bitmap bitmap in qualityIconCache.Values)
+                    bitmap.Dispose();
+                qualityIconCache.Clear();
+            };
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
         private const string NoBeaconName = "No beacon";
+        private const int QualityIconSize = 16;
 
         internal void Bind(IRecipeNodeViewModel node, GraphViewer viewer, DataCache cache, Action? requestRedraw = null) {
             Detach();
@@ -185,12 +205,12 @@ namespace Foreman.Mac.Views.Inspector {
             equippedBeaconGrid.FocusedIndex = -1;
             beaconModuleOptionsGrid.SelectedIndex = -1;
             beaconModuleOptionsGrid.FocusedIndex = -1;
-            SyncSlots(equippedGrid, ViewModel.EquippedModules, ViewModel.ModuleSlotCount);
-            SyncSlots(moduleOptionsGrid, ViewModel.ModuleOptions, ViewModel.ModuleOptions.Count);
-            SyncSlots(equippedBeaconGrid, ViewModel.EquippedBeaconModules, ViewModel.BeaconModuleSlotCount);
-            SyncSlots(beaconModuleOptionsGrid, ViewModel.BeaconModuleOptions, ViewModel.BeaconModuleOptions.Count);
-            UpdateOptionsAvailability(equippedGrid, moduleOptionsGrid);
-            UpdateOptionsAvailability(equippedBeaconGrid, beaconModuleOptionsGrid);
+            InspectorChoiceRows.SyncSlots(equippedGrid, ViewModel.EquippedModules, ViewModel.ModuleSlotCount);
+            InspectorChoiceRows.SyncSlots(moduleOptionsGrid, ViewModel.ModuleOptions, ViewModel.ModuleOptions.Count);
+            InspectorChoiceRows.SyncSlots(equippedBeaconGrid, ViewModel.EquippedBeaconModules, ViewModel.BeaconModuleSlotCount);
+            InspectorChoiceRows.SyncSlots(beaconModuleOptionsGrid, ViewModel.BeaconModuleOptions, ViewModel.BeaconModuleOptions.Count);
+            InspectorChoiceRows.UpdateOptionsAvailability(equippedGrid, moduleOptionsGrid);
+            InspectorChoiceRows.UpdateOptionsAvailability(equippedBeaconGrid, beaconModuleOptionsGrid);
             UpdateChoiceRows();
             ViewModel.PropertyChanged += OnRecipeViewModelPropertyChanged;
             viewer.Session.NodeValuesUpdated += OnNodeValuesUpdated;
@@ -223,7 +243,7 @@ namespace Foreman.Mac.Views.Inspector {
             if (ViewModel is null || index < 0 || index >= ViewModel.EquippedModules.Count)
                 return;
             ViewModel.RemoveEquippedModule(ViewModel.EquippedModules[index]);
-            RetargetArmAfterDelete(equippedGrid);
+            InspectorChoiceRows.RetargetArmAfterDelete(equippedGrid);
         }
 
         private void ModuleOptionsGrid_CellClicked(object? sender, int index) {
@@ -237,7 +257,7 @@ namespace Foreman.Mac.Views.Inspector {
             if (ViewModel is null || index < 0 || index >= ViewModel.EquippedBeaconModules.Count)
                 return;
             ViewModel.RemoveEquippedBeaconModule(ViewModel.EquippedBeaconModules[index]);
-            RetargetArmAfterDelete(equippedBeaconGrid);
+            InspectorChoiceRows.RetargetArmAfterDelete(equippedBeaconGrid);
         }
 
         private void BeaconModuleOptionsGrid_CellClicked(object? sender, int index) {
@@ -247,33 +267,15 @@ namespace Foreman.Mac.Views.Inspector {
             equippedBeaconGrid.SelectedIndex = -1;
         }
 
-        private static void UpdateOptionsAvailability(KitPickGrid equipped, KitPickGrid options) {
-            int firstEmpty = FirstEmptySlotIndex(equipped);
-            options.TargetIsReplace = equipped.SelectedIndex >= 0;
-            options.TargetSlot = equipped.Slots.Count == 0 ? null
-                : equipped.SelectedIndex >= 0 ? equipped.SelectedIndex + 1
-                : firstEmpty >= 0 ? firstEmpty + 1
-                : 0;
-        }
-
-        private static void RetargetArmAfterDelete(KitPickGrid grid) => grid.ArmAfterClear(FirstEmptySlotIndex(grid));
-
-        private static int FirstEmptySlotIndex(KitPickGrid grid) {
-            for (int i = 0; i < grid.Slots.Count; i++)
-                if (grid.Slots[i].IsEmpty)
-                    return i;
-            return -1;
-        }
-
         //A live {Binding HasBeacon} would re-push on every RefreshComputed and undo a manual collapse.
         private void OnRecipeViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e) {
             if (ViewModel is not null) {
-                SyncSlots(equippedGrid, ViewModel.EquippedModules, ViewModel.ModuleSlotCount);
-                SyncSlots(moduleOptionsGrid, ViewModel.ModuleOptions, ViewModel.ModuleOptions.Count);
-                SyncSlots(equippedBeaconGrid, ViewModel.EquippedBeaconModules, ViewModel.BeaconModuleSlotCount);
-                SyncSlots(beaconModuleOptionsGrid, ViewModel.BeaconModuleOptions, ViewModel.BeaconModuleOptions.Count);
-                UpdateOptionsAvailability(equippedGrid, moduleOptionsGrid);
-                UpdateOptionsAvailability(equippedBeaconGrid, beaconModuleOptionsGrid);
+                InspectorChoiceRows.SyncSlots(equippedGrid, ViewModel.EquippedModules, ViewModel.ModuleSlotCount);
+                InspectorChoiceRows.SyncSlots(moduleOptionsGrid, ViewModel.ModuleOptions, ViewModel.ModuleOptions.Count);
+                InspectorChoiceRows.SyncSlots(equippedBeaconGrid, ViewModel.EquippedBeaconModules, ViewModel.BeaconModuleSlotCount);
+                InspectorChoiceRows.SyncSlots(beaconModuleOptionsGrid, ViewModel.BeaconModuleOptions, ViewModel.BeaconModuleOptions.Count);
+                InspectorChoiceRows.UpdateOptionsAvailability(equippedGrid, moduleOptionsGrid);
+                InspectorChoiceRows.UpdateOptionsAvailability(equippedBeaconGrid, beaconModuleOptionsGrid);
                 UpdateChoiceRows();
             }
             if (e.PropertyName != nameof(RecipeSegmentViewModel.HasBeacon) || ViewModel is null || ViewModel.HasBeacon == lastHasBeacon)
@@ -285,144 +287,18 @@ namespace Foreman.Mac.Views.Inspector {
         private void UpdateChoiceRows() {
             if (ViewModel is null)
                 return;
-            UpdateChoiceRow(assemblerRow, assemblerChoiceGrid, assemblerValueLine, assemblerValueLineIcon, assemblerValueLineText,
+            recipeQualityIcon.Source = ViewModel.RecipeQualityIcon is SKBitmap qualityIcon ? IconBaker.GetOrBake(qualityIconCache, qualityIcon, QualityIconSize) : null;
+            InspectorChoiceRows.UpdateChoiceRow(this, assemblerRow, assemblerChoiceGrid, assemblerValueLine, assemblerValueLineIcon, assemblerValueLineText,
                 assemblerFallbackPopUp, ViewModel.AssemblerOptions, ViewModel.SelectedAssembler,
                 "No enabled building crafts this recipe.", includeNone: false, statsSuffix: ViewModel.AssemblerStats,
                 oneCandidateNote: "The only building that crafts this recipe.");
-            UpdateChoiceRow(fuelRow, fuelChoiceGrid, fuelValueLine, fuelValueLineIcon, fuelValueLineText,
+            InspectorChoiceRows.UpdateChoiceRow(this, fuelRow, fuelChoiceGrid, fuelValueLine, fuelValueLineIcon, fuelValueLineText,
                 fuelFallbackPopUp, ViewModel.FuelOptions, ViewModel.SelectedFuel,
                 "No enabled fuel burns in this building.", includeNone: false);
-            UpdateChoiceRow(beaconRow, beaconChoiceGrid, beaconValueLine, beaconValueLineIcon, beaconValueLineText,
+            InspectorChoiceRows.UpdateChoiceRow(this, beaconRow, beaconChoiceGrid, beaconValueLine, beaconValueLineIcon, beaconValueLineText,
                 beaconFallbackPopUp, ViewModel.BeaconOptions, ViewModel.SelectedBeacon,
-                "No beacon is enabled in this preset.", includeNone: true);
+                "No beacon is enabled in this preset.", includeNone: true, noneName: NoBeaconName);
         }
-
-        private void UpdateChoiceRow(FormRow row, KitPickGrid grid, StackPanel valueLine, Image valueLineIcon, TextBlock valueLineText,
-                PopUp fallback, IReadOnlyList<PickGridItem> options, PickGridItem? current, string emptyWarning, bool includeNone,
-                string? statsSuffix = null, string? oneCandidateNote = null) {
-            bool currentOrphaned = current is not null && options.Count > 0 && !options.Any(o => o.IsSelected);
-            int total = options.Count + (includeNone ? 1 : 0) + (currentOrphaned ? 1 : 0);
-            row.Error = null;
-            row.ErrorIsWarning = false;
-            row.NoteIsWarning = false;
-            row.NoteSuffix = null;
-            row.NoteIsValue = true;
-
-            if (total == 0) {
-                grid.Slots.Clear();
-                fallback.IsVisible = false;
-                valueLine.IsVisible = true;
-                valueLine.Opacity = UnavailableOpacity();
-                valueLineIcon.Source = current?.Icon;
-                valueLineText.Text = current?.Name ?? "";
-                row.Note = null;
-                row.Error = emptyWarning;
-                row.ErrorIsWarning = true;
-                return;
-            }
-
-            if (total == 1) {
-                grid.Slots.Clear();
-                fallback.IsVisible = false;
-                valueLine.IsVisible = true;
-                valueLine.Opacity = 1;
-                bool onlyNone = includeNone && options.Count == 0;
-                valueLineIcon.Source = onlyNone ? null : options[0].Icon;
-                valueLineText.Text = onlyNone ? NoBeaconName : options[0].Name;
-                row.Note = oneCandidateNote;
-                row.NoteSuffix = oneCandidateNote is not null && !string.IsNullOrEmpty(statsSuffix) ? statsSuffix : null;
-                return;
-            }
-
-            valueLine.IsVisible = false;
-
-            if (total > MaxChoiceCells()) {
-                grid.Slots.Clear();
-                fallback.IsVisible = true;
-                fallback.Icon = current?.Icon;
-                fallback.Items.Clear();
-                fallback.ItemIcons.Clear();
-                if (includeNone) {
-                    fallback.Items.Add(NoBeaconName);
-                    fallback.ItemIcons.Add(null);
-                }
-                foreach (PickGridItem item in options) {
-                    fallback.Items.Add(item.Name);
-                    fallback.ItemIcons.Add(item.Icon);
-                }
-                fallback.SelectedItem = current?.Name ?? (includeNone ? NoBeaconName : null);
-                row.NoteIsValue = false;
-                row.Note = statsSuffix;
-                return;
-            }
-
-            fallback.IsVisible = false;
-
-            var desired = new List<PickSlot>(total);
-            if (includeNone)
-                desired.Add(new PickSlot { Name = NoBeaconName, IsNone = true });
-            foreach (PickGridItem item in options)
-                desired.Add(new PickSlot { Icon = item.Icon, Name = item.Name, IsMissing = item.IsMissing, IsUnavailable = !item.IsAvailable && !item.IsMissing });
-            if (currentOrphaned)
-                desired.Add(new PickSlot { Icon = current!.Icon, Name = current.Name, IsMissing = true });
-            SyncChoiceSlots(grid, desired);
-
-            int selected = includeNone && current is null ? 0 : -1;
-            for (int i = 0; i < options.Count; i++)
-                if (options[i].IsSelected)
-                    selected = i + (includeNone ? 1 : 0);
-            if (currentOrphaned)
-                selected = desired.Count - 1;
-            grid.SelectedIndex = selected;
-            row.Note = selected >= 0 && selected < desired.Count ? desired[selected].Name : null;
-            row.NoteIsWarning = currentOrphaned;
-            row.NoteSuffix = !currentOrphaned && !string.IsNullOrEmpty(statsSuffix) ? statsSuffix : null;
-        }
-
-        private int MaxChoiceCells() {
-            this.TryFindResource("Foreman.Metrics.PickChoiceMax", null, out object? value);
-            return value is double d ? (int)d : 9;
-        }
-
-        private double UnavailableOpacity() {
-            this.TryFindResource("Foreman.Opacity.Unavailable", ActualThemeVariant, out object? value);
-            return value is double d ? d : 0.55;
-        }
-
-        private static void SyncSlots(KitPickGrid grid, IReadOnlyList<PickGridItem> items, int slotCount) {
-            int total = Math.Max(slotCount, items.Count);
-            for (int i = 0; i < total; i++) {
-                PickSlot desired = i < items.Count ? BuildSlot(items[i]) : new PickSlot { IsEmpty = true };
-                if (i < grid.Slots.Count) {
-                    if (!SlotsEqual(grid.Slots[i], desired))
-                        grid.Slots[i] = desired;
-                } else {
-                    grid.Slots.Add(desired);
-                }
-            }
-            while (grid.Slots.Count > total)
-                grid.Slots.RemoveAt(grid.Slots.Count - 1);
-        }
-
-        private static void SyncChoiceSlots(KitPickGrid grid, List<PickSlot> desired) {
-            for (int i = 0; i < desired.Count; i++) {
-                if (i < grid.Slots.Count) {
-                    if (!SlotsEqual(grid.Slots[i], desired[i]))
-                        grid.Slots[i] = desired[i];
-                } else {
-                    grid.Slots.Add(desired[i]);
-                }
-            }
-            while (grid.Slots.Count > desired.Count)
-                grid.Slots.RemoveAt(grid.Slots.Count - 1);
-        }
-
-        private static PickSlot BuildSlot(PickGridItem item) =>
-            new() { Icon = item.Icon, Name = item.Name, IsMissing = !item.IsAvailable };
-
-        private static bool SlotsEqual(PickSlot a, PickSlot b) =>
-            a.Icon == b.Icon && a.Name == b.Name && a.IsEmpty == b.IsEmpty && a.IsMissing == b.IsMissing
-            && a.IsEnabled == b.IsEnabled && a.IsUnavailable == b.IsUnavailable && a.IsNone == b.IsNone;
 
         private void OnNodeValuesUpdated(object? sender, EventArgs e) => Refresh();
 

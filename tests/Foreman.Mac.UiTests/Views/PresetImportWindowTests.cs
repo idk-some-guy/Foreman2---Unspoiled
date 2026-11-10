@@ -51,7 +51,7 @@ namespace Foreman.Mac.UiTests.Views {
         //---- live name validation (reference §4 step 8) ---------------------------------------------------
 
         private const string NameRule = "5–40 characters: letters, numbers, spaces, and ( ) . - _";
-        private const string BuiltInName = "“Factorio 2.0 Vanilla” is built in and can’t be replaced. Choose another name.";
+        private const string BuiltInName = "“Factorio 2.1 Vanilla” is built in and can’t be replaced. Choose another name.";
 
         [AvaloniaFact]
         public void PresetName_FewerThanFiveChars_TurnsTheRuleNoteToAWarning_UntilTheNameIsUsable() {
@@ -93,7 +93,7 @@ namespace Foreman.Mac.UiTests.Views {
         public void PresetName_TheBuiltInPreset_IsARowError() {
             var sheet = new PresetImportSheet([]);
 
-            sheet.PresetNameTextBoxControl.Text = "factorio 2.0 vanilla";
+            sheet.PresetNameTextBoxControl.Text = "factorio 2.1 vanilla";
 
             Assert.Equal(BuiltInName, sheet.PresetNameRowControl.Error);
             Assert.False(sheet.PresetNameRowControl.ErrorIsWarning);
@@ -198,10 +198,49 @@ namespace Foreman.Mac.UiTests.Views {
         }
 
         [AvaloniaFact]
-        public async Task RunImportAsync_DefaultPresetName_IsTheBuiltInRowError_AndFocusesTheName() {
+        public void PresetName_TheSeededName_IsNotBuiltInAndPassesValidation() {
+            var sheet = new PresetImportSheet([]);
+            string seeded = sheet.PresetNameTextBoxControl.Text!;
+
+            Assert.Null(Foreman.Mac.Services.PresetResolver.BundledPresetNameMatching(seeded));
+
+            sheet.PresetNameTextBoxControl.Text = "";
+            sheet.PresetNameTextBoxControl.Text = seeded;
+
+            Assert.Null(sheet.PresetNameRowControl.Error);
+        }
+
+        [AvaloniaFact]
+        public void PresetName_EveryBundledPreset_IsARowError() {
+            foreach (string name in new[] { "Factorio 2.0 Vanilla", "Factorio 2.0 Space Age", "Factorio 2.1 Vanilla", "Factorio 2.1 Space Age" }) {
+                var sheet = new PresetImportSheet([]);
+
+                sheet.PresetNameTextBoxControl.Text = name.ToLowerInvariant();
+
+                Assert.Equal($"“{name}” is built in and can’t be replaced. Choose another name.", sheet.PresetNameRowControl.Error);
+                Assert.False(sheet.PresetNameRowControl.ErrorIsWarning);
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task RunImportAsync_Factorio20VanillaName_IsTheBuiltInRowError_AndFocusesTheName() {
             (PresetImportSheet sheet, SheetHost host) = Presented();
             sheet.FactorioLocationTextBoxControl.Text = NewTempDir();
             sheet.PresetNameTextBoxControl.Text = "Factorio 2.0 Vanilla";
+
+            await sheet.RunImportAsync().WaitAsync(Timeout);
+
+            SheetFixture.AssertNoAlert(host);
+            Assert.Equal("“Factorio 2.0 Vanilla” is built in and can’t be replaced. Choose another name.", sheet.PresetNameRowControl.Error);
+            Assert.True(sheet.PresetNameTextBoxControl.IsFocused);
+            Assert.False(sheet.ImportStarted);
+        }
+
+        [AvaloniaFact]
+        public async Task RunImportAsync_DefaultPresetName_IsTheBuiltInRowError_AndFocusesTheName() {
+            (PresetImportSheet sheet, SheetHost host) = Presented();
+            sheet.FactorioLocationTextBoxControl.Text = NewTempDir();
+            sheet.PresetNameTextBoxControl.Text = "Factorio 2.1 Vanilla";
 
             await sheet.RunImportAsync().WaitAsync(Timeout);
 

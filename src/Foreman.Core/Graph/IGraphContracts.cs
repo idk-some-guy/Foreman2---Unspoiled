@@ -11,6 +11,12 @@ namespace Foreman.Graph {
         public INodeViewModel ViewModel { get; } = viewModel;
     }
 
+    public sealed class NodeViewModelReplacedEventArgs(NodeId oldId, NodeId newId, int removedLinkCount) : EventArgs {
+        public NodeId Old { get; } = oldId;
+        public NodeId New { get; } = newId;
+        public int RemovedLinkCount { get; } = removedLinkCount;
+    }
+
     public sealed class LinkViewModelEventArgs(INodeLinkViewModel viewModel) : EventArgs {
         public INodeLinkViewModel ViewModel { get; } = viewModel;
     }
@@ -124,6 +130,9 @@ namespace Foreman.Graph {
     public interface IPlantNodeViewModel : INodeViewModel {
         ItemQualityPair Seed { get; }
         IPlantProcess PlantProcess { get; }
+        AssemblerQualityPair? Tower { get; }
+        IReadOnlyList<ModuleQualityPair> TowerModules { get; }
+        double GetProductivityBonus();
     }
 
     public interface IProductionGraphEditor {
@@ -153,6 +162,7 @@ namespace Foreman.Graph {
         bool TryGetDomainLink(LinkId id, out NodeLink? link);
         event EventHandler<NodeViewModelEventArgs>? NodeViewModelAdded;
         event EventHandler<NodeViewModelEventArgs>? NodeViewModelRemoved;
+        event EventHandler<NodeViewModelReplacedEventArgs>? NodeViewModelReplaced;
         event EventHandler<LinkViewModelEventArgs>? LinkViewModelAdded;
         event EventHandler<LinkViewModelEventArgs>? LinkViewModelRemoved;
         event EventHandler? GraphCleared;

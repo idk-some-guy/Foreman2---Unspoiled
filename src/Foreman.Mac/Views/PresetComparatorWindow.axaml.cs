@@ -13,9 +13,11 @@ using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
+using Foreman.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Foreman.Mac.Views {
@@ -263,11 +265,12 @@ namespace Foreman.Mac.Views {
                 RightCache = rightCache;
                 compared = true;
                 ApplyGroupNames(leftPreset.Name, rightPreset.Name);
+                ((ComparatorTableList)bothList).SetColumnVersions(leftCache, rightCache);
 
                 ProcessMods(leftCache.IncludedMods, rightCache.IncludedMods, unfilteredModTabObjects);
                 ProcessObjects(leftCache.Items, rightCache.Items, unfilteredItemTabObjects);
                 ProcessObjects(leftCache.Recipes, rightCache.Recipes, unfilteredRecipeTabObjects);
-                ProcessObjects(FilterAssemblers(leftCache, EntityType.Assembler), FilterAssemblers(rightCache, EntityType.Assembler), unfilteredAssemblerTabObjects);
+                ProcessObjects(FilterAssemblers(leftCache, PlantTowerRules.IsAssemblerListEntry), FilterAssemblers(rightCache, PlantTowerRules.IsAssemblerListEntry), unfilteredAssemblerTabObjects);
                 ProcessObjects(FilterAssemblers(leftCache, EntityType.Miner, EntityType.OffshorePump), FilterAssemblers(rightCache, EntityType.Miner, EntityType.OffshorePump), unfilteredMinerTabObjects);
                 ProcessObjects(FilterAssemblers(leftCache, EntityType.Boiler, EntityType.BurnerGenerator, EntityType.Generator, EntityType.Reactor), FilterAssemblers(rightCache, EntityType.Boiler, EntityType.BurnerGenerator, EntityType.Generator, EntityType.Reactor), unfilteredPowerTabObjects);
                 ProcessObjects(leftCache.Beacons.Values.ToDictionary(b => b.Name), rightCache.Beacons.Values.ToDictionary(b => b.Name), unfilteredBeaconTabObjects);
@@ -297,13 +300,19 @@ namespace Foreman.Mac.Views {
         }
 
         private static Dictionary<string, IAssembler>? FilterAssemblers(DataCache? cache, params EntityType[] types) =>
-            cache?.Assemblers.Values.Where(a => types.Contains(a.EntityType)).ToDictionary(a => a.Name);
+            FilterAssemblers(cache, a => types.Contains(a.EntityType));
+
+        private static Dictionary<string, IAssembler>? FilterAssemblers(DataCache? cache, Func<IAssembler, bool> keep) =>
+            cache?.Assemblers.Values.Where(keep).ToDictionary(a => a.Name);
 
         private Task<DataLoadResult> LoadCacheAsync(Preset preset) =>
             LoadCacheStub?.Invoke(preset) ?? RealLoadCacheAsync(preset);
 
+        internal static DataLoadWindow NewLoadWindow(Preset preset, Func<Preset, DataCache, IProgress<KeyValuePair<int, string>>, CancellationToken, Task>? load = null) =>
+            new(preset, true, DataLoadMode.AfterLaunch, null, load, null) { PresentsOutdatedAlert = false };
+
         private async Task<DataLoadResult> RealLoadCacheAsync(Preset preset) {
-            var window = new DataLoadWindow(preset);
+            DataLoadWindow window = NewLoadWindow(preset);
             await window.ShowDialog(this).ConfigureAwait(true);
             return new DataLoadResult(window.Result, window.Outcome);
         }
@@ -556,6 +565,10 @@ namespace Foreman.Mac.Views {
         private Control? rowScroller;
         private TextBlock? leftHeaderCell;
         private TextBlock? rightHeaderCell;
+        private TextBlock? leftVersionCell;
+        private TextBlock? rightVersionCell;
+        private (FactorioGameVersion? Version, bool Outdated)? leftVersion;
+        private (FactorioGameVersion? Version, bool Outdated)? rightVersion;
         private string? leftHeader;
         private string? rightHeader;
 
@@ -569,8 +582,16 @@ namespace Foreman.Mac.Views {
             ApplyColumnNames();
         }
 
+        internal void SetColumnVersions(DataCache left, DataCache right) {
+            leftVersion = (left.GameVersion, PresetExportFormat.IsOutdated(left));
+            rightVersion = (right.GameVersion, PresetExportFormat.IsOutdated(right));
+            ApplyColumnNames();
+        }
+
         protected override void OnApplyTemplate(Avalonia.Controls.Primitives.TemplateAppliedEventArgs e) {
             base.OnApplyTemplate(e);
+            leftVersionCell = e.NameScope.Find<TextBlock>("PART_LeftVersion");
+            rightVersionCell = e.NameScope.Find<TextBlock>("PART_RightVersion");
             ColumnHeader = e.NameScope.Find<Control>("PART_ColumnHeader");
             rowScroller = e.NameScope.Find<Control>("PART_ScrollViewer");
             leftHeaderCell = e.NameScope.Find<TextBlock>("PART_LeftHeader");
@@ -579,11 +600,17 @@ namespace Foreman.Mac.Views {
         }
 
         private void ApplyColumnNames() {
-            foreach ((TextBlock? cell, string? text) in new[] { (leftHeaderCell, leftHeader), (rightHeaderCell, rightHeader) }) {
+            foreach ((TextBlock? cell, TextBlock? versionCell, string? text, (FactorioGameVersion? Version, bool Outdated)? version) in new[] {
+                (leftHeaderCell, leftVersionCell, leftHeader, leftVersion), (rightHeaderCell, rightVersionCell, rightHeader, rightVersion) }) {
                 if (cell is null)
                     continue;
                 cell.Text = text;
                 ToolTip.SetTip(cell, text);
+                if (version is not { } shown || text is null)
+                    continue;
+                if (versionCell is not null)
+                    versionCell.Text = PresetVersionCaption.ForComparator(shown.Version, shown.Outdated);
+                AutomationProperties.SetName(cell, PresetVersionCaption.ComparatorName(text, shown.Version, shown.Outdated));
             }
         }
 
@@ -600,6 +627,16 @@ namespace Foreman.Mac.Views {
         }
     }
 
+    internal sealed class ComparatorHeaderText : TextBlock {
+        protected override Type StyleKeyOverride => typeof(TextBlock);
+
+        protected override AutomationPeer OnCreateAutomationPeer() => new HeaderTextPeer(this);
+
+        private sealed class HeaderTextPeer(ComparatorHeaderText owner) : TextBlockAutomationPeer(owner) {
+            protected override string? GetNameCore() => AutomationProperties.GetName(owner) is { Length: > 0 } name ? name : base.GetNameCore();
+        }
+    }
+
     internal sealed class ComparatorColumnHeader : Grid {
         protected override AutomationPeer OnCreateAutomationPeer() => new HeaderPeer(this);
 
@@ -607,6 +644,14 @@ namespace Foreman.Mac.Views {
             protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Header;
 
             protected override bool IsControlElementCore() => true;
+
+            protected override IReadOnlyList<AutomationPeer>? GetChildrenCore() {
+                var peers = new List<AutomationPeer>();
+                foreach (Control child in owner.Children)
+                    foreach (Control cell in child is Grid group ? group.Children : [child])
+                        peers.Add(CreatePeerForElement(cell));
+                return peers;
+            }
 
             protected override AutomationPeer? GetParentCore() =>
                 owner.TemplatedParent is ComparatorTableList table ? CreatePeerForElement(table) : base.GetParentCore();

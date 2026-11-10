@@ -510,7 +510,7 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(AutomationControlType.Table, table.GetAutomationControlType());
             AutomationPeer header = table.GetChildren()[0];
             Assert.Equal(AutomationControlType.Header, header.GetAutomationControlType());
-            Assert.Equal(["Left preset", "Right preset", "Match"],
+            Assert.Equal(["Left preset, unknown version, made by an older version of Foreman", "Right preset, unknown version, made by an older version of Foreman", "Match"],
                 header.GetChildren().Where(p => p.GetAutomationControlType() == AutomationControlType.HeaderItem).Select(p => p.GetName()));
             ListBoxItem gone = window.LeftOnlyListControl.GetVisualDescendants().OfType<ListBoxItem>().Single(c => c.DataContext is ComparatorRow { Name: "Gone" });
             Assert.EndsWith("unavailable", ControlAutomationPeer.CreatePeerForElement(gone).GetName());
@@ -684,6 +684,25 @@ namespace Foreman.Mac.UiTests.Views {
         internal static void ClickTab(PresetComparatorWindow window, string label) {
             TextBlock text = window.ComparisonTabStripControl.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == label);
             SheetFixture.Click(window, (Control)text.GetVisualParent()!);
+        }
+
+        [AvaloniaFact]
+        public async Task Comparator_AssemblersTab_ListsSlottedTowerOnly() {
+            DataStore store = NewStore();
+            foreach (DataCache cache in new[] { store.Left, store.Right }) {
+                DataCacheStore cacheStore = StoreOf(cache);
+                cacheStore.Assemblers["plain"] = new AssemblerPrototype(cache, "plain", "Plain assembler", EntityType.Assembler, EnergySource.Electric) { Available = true };
+                cacheStore.Assemblers["vanilla-tower"] = new AssemblerPrototype(cache, "vanilla-tower", "Vanilla tower", EntityType.AgriculturalTower, EnergySource.Electric) { Available = true };
+                cacheStore.Assemblers["slotted-tower"] = new AssemblerPrototype(cache, "slotted-tower", "Slotted tower", EntityType.AgriculturalTower, EnergySource.Electric) { Available = true, ModuleSlots = 2 };
+            }
+
+            PresetComparatorWindow window = await ComparedAsync(store);
+            window.HideIdenticalCheckBoxControl.IsChecked = false;
+            window.ComparisonTabStripControl.SelectedIndex = 3;
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(["Plain assembler", "Slotted tower"],
+                window.BothListControl.ItemsSource!.Cast<ComparatorPairRow>().Select(r => r.Left.Name).Where(n => !n.StartsWith("§§", StringComparison.Ordinal)).Order());
         }
     }
 }

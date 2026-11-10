@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:p="using:Foreman"
              xmlns:kit="using:Foreman.Mac.Kit.Composites"
+             xmlns:v="using:Foreman.Mac.Views"
              x:Class="Foreman.Mac.Views.Settings.PresetsTab">
   <UserControl.Resources>
     <kit:StatePanel x:Key="PresetsLoadingPanel" Theme="{StaticResource Kit.StatePanel}" Shape="Loading" ForceCompact="True"
@@ -31,8 +32,12 @@
       <Grid RowDefinitions="Auto,*,Auto" RowSpacing="{DynamicResource Foreman.Space.Space2}">
         <kit:FormRow Grid.Row="0" Theme="{StaticResource Kit.FormRow}" LabelColumn="Window" Label="Current preset"
                      Note="Graphs use the mods, recipes and buildings in this preset.">
-          <TextBlock Name="CurrentPresetLabel" Theme="{StaticResource Kit.Text}" Classes="body" FontWeight="Bold"
-                     Background="Transparent" TextTrimming="CharacterEllipsis" />
+          <Grid ColumnDefinitions="*,Auto" HorizontalAlignment="Left">
+            <TextBlock Name="CurrentPresetLabel" Theme="{StaticResource Kit.Text}" Classes="body" FontWeight="Bold"
+                       Background="Transparent" TextTrimming="CharacterEllipsis" />
+            <TextBlock Name="CurrentPresetVersionText" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="caption secondary"
+                       FontFeatures="tnum" Margin="8,0,0,0" VerticalAlignment="Bottom" AutomationProperties.AccessibilityView="Raw" />
+          </Grid>
         </kit:FormRow>
 
         <Grid Grid.Row="1" ColumnDefinitions="*,*" RowDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource Foreman.Space.Space3}">
@@ -45,7 +50,13 @@
                    AutomationProperties.HelpText="Double-click a preset to make it the current one.">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="p:Preset">
-                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                  <TextBlock Name="PresetVersionText" Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="caption secondary"
+                             FontFeatures="tnum" Margin="8,0,0,0"
+                             VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw"
+                             v:PresetCaption.Preset="{Binding}" />
+                </Grid>
               </DataTemplate>
             </ListBox.ItemTemplate>
             <ListBox.ContextMenu>

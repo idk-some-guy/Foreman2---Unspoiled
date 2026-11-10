@@ -16,7 +16,7 @@
     </kit:FormRow>
     <kit:FormRow Name="PresetNameRow" Theme="{StaticResource Kit.FormRow}" Label="Preset name" LabelColumn="Window"
                  Note="5–40 characters: letters, numbers, spaces, and ( ) . - _">
-      <TextBox Name="PresetNameTextBox" Theme="{StaticResource Kit.TextField}" Text="Factorio 2.0 Space Age" MaxLength="40" />
+      <TextBox Name="PresetNameTextBox" Theme="{StaticResource Kit.TextField}" Text="My Preset" MaxLength="40" />
     </kit:FormRow>
     <kit:FormRow Name="ModsLocationRow" Theme="{StaticResource Kit.FormRow}" Label="Mods folder" LabelColumn="Window"
                  Note="Leave blank to detect it automatically.">

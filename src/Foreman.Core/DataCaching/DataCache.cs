@@ -17,6 +17,7 @@ namespace Foreman.DataCaching {
 
         public string? PresetName { get; private set; }
         public int Version { get; private set; }
+        public FactorioGameVersion? GameVersion { get; private set; }
 
         public IEnumerable<IGroup> AvailableGroups => _store.Groups.Values.Where(g => g.Available);
         public IEnumerable<ISubgroup> AvailableSubgroups => _store.Subgroups.Values.Where(g => g.Available);
@@ -82,6 +83,7 @@ namespace Foreman.DataCaching {
                 Clear();
                 PresetName = null;
                 Version = 0;
+                GameVersion = null;
                 throw;
             }
         }
@@ -95,6 +97,7 @@ namespace Foreman.DataCaching {
             PresetName = preset.Name;
             JsonObject jsonData = PresetProcessor.PrepPreset(preset, userPresetsDirectoryOverride, bundlePresetsDirectoryOverride);
             Version = PresetJson.GetInt32(jsonData, PresetExportFormat.VersionPropertyName) ?? 0;
+            GameVersion = ReadGameVersion(jsonData);
             ct.ThrowIfCancellationRequested();
 
             if (loadIcons) {
@@ -133,6 +136,16 @@ namespace Foreman.DataCaching {
                 progress.Report(new KeyValuePair<int, string>(98, "Finalizing..."));
                 progress.Report(new KeyValuePair<int, string>(100, "Done!"));
             }, ct).ConfigureAwait(false);
+        }
+
+        internal static FactorioGameVersion? ReadGameVersion(JsonObject jsonData) {
+            string? baseVersion = null;
+            foreach (JsonNode mod in PresetJson.EnumerateArray(jsonData, "mods"))
+                if (PresetJson.GetString(mod, "name") == "base") {
+                    baseVersion = PresetJson.GetString(mod, "version");
+                    break;
+                }
+            return FactorioGameVersion.FromPreset(PresetJson.GetString(jsonData, "game_version"), baseVersion);
         }
 
         public void Clear() => DataCacheBootstrap.ClearLoadedData(_store);

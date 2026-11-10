@@ -6,7 +6,14 @@ using System.Linq;
 
 namespace Foreman.Mac.Services {
     public sealed class PresetResolver {
-        public const string DefaultPresetName = "Factorio 2.0 Vanilla";
+        public const string DefaultPresetName = "Factorio 2.1 Vanilla";
+
+        public static readonly IReadOnlyList<string> BundledPresetNames = [
+            "Factorio 2.0 Vanilla", "Factorio 2.0 Space Age", DefaultPresetName, "Factorio 2.1 Space Age",
+        ];
+
+        public static string? BundledPresetNameMatching(string name) =>
+            BundledPresetNames.FirstOrDefault(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
 
         private readonly string presetsDirectory;
         //File-location policy (docs/upstream-divergences.md): imported presets write to the user's writable

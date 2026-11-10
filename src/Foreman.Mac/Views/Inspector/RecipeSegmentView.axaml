@@ -4,19 +4,51 @@
              xmlns:insp="using:Foreman.Mac.Views.Inspector"
              xmlns:kit="using:Foreman.Mac.Kit.Composites"
              xmlns:ctrl="using:Foreman.Mac.Kit.Controls"
+             xmlns:m="using:Foreman.Mac.Kit"
              x:Class="Foreman.Mac.Views.Inspector.RecipeSegmentView"
              x:DataType="vm:RecipeSegmentViewModel">
   <StackPanel Spacing="0">
     <kit:InspectorGroup Header="Recipe" Theme="{StaticResource Kit.InspectorGroup}">
-      <Grid>
-        <ContentControl IsVisible="{Binding HasCard}">
-          <insp:RecipeCardView Name="RecipeCard" DataContext="{Binding Card}" />
-        </ContentControl>
-        <kit:StatePanel Name="RecipeErrorPanel" Theme="{StaticResource Kit.StatePanel}" Shape="Error"
-                         Headline="Recipe missing from this preset"
-                         Sentence="The current preset has no recipe by this name, so this node cannot be solved."
-                         IsVisible="{Binding HasRecipeError}" />
-      </Grid>
+      <StackPanel Spacing="{DynamicResource Foreman.Space.Space2}">
+        <Grid>
+          <ContentControl IsVisible="{Binding HasCard}">
+            <insp:RecipeCardView Name="RecipeCard" DataContext="{Binding Card}" />
+          </ContentControl>
+          <kit:StatePanel Name="RecipeErrorPanel" Theme="{StaticResource Kit.StatePanel}" Shape="Error"
+                           Headline="Recipe missing from this preset"
+                           Sentence="The current preset has no recipe by this name, so this node cannot be solved."
+                           IsVisible="{Binding HasRecipeError}" />
+        </Grid>
+        <kit:FormGroup Theme="{StaticResource Kit.FormGroup}" IsVisible="{Binding ShowsRecipeQualityGroup}">
+          <kit:FormRow Name="RecipeQualityRow" Theme="{StaticResource Kit.FormRow}" Label="Quality" LabelColumn="Inspector"
+                       Note="{Binding RecipeQualityNote}" IsVisible="{Binding ShowsRecipeQualityRow}">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <Image Name="RecipeQualityIcon" Width="{DynamicResource Foreman.Size.PopUpLeadingIcon}"
+                     Height="{DynamicResource Foreman.Size.PopUpLeadingIcon}" Stretch="Uniform" />
+              <ctrl:ValueText Name="RecipeQualityValue" Theme="{StaticResource Kit.Text}" Classes="body"
+                              Text="{Binding RecipeQualityName}" AutomationProperties.Name="Recipe quality"
+                              AutomationProperties.HelpText="{Binding RecipeQualityHelp}" />
+            </StackPanel>
+          </kit:FormRow>
+        </kit:FormGroup>
+        <Border Name="RecipeQualityWarning" Margin="12,0,12,0" Background="{DynamicResource Foreman.Color.WarningSoft}"
+                CornerRadius="{DynamicResource Foreman.Radius.Control}" Padding="6,8"
+                Transitions="{x:Static m:Motion.FormRowReflowTransitions}" IsVisible="{Binding ShowsRecipeQualityWarning}">
+          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource Foreman.Space.Space2}">
+            <Viewbox Grid.Column="0" Width="{DynamicResource Foreman.Size.Glyph16}" Height="{DynamicResource Foreman.Size.Glyph16}"
+                     Stretch="Uniform" VerticalAlignment="Top">
+              <Path Theme="{StaticResource Kit.Glyph}" Data="{StaticResource Kit.Glyph.Alert.16}"
+                    Stroke="{DynamicResource Foreman.Color.Warning}" Width="16" Height="16" Stretch="None" />
+            </Viewbox>
+            <TextBlock Grid.Column="1" Theme="{StaticResource Kit.Text}" Classes="callout" TextWrapping="Wrap"
+                       Text="{Binding RecipeQualitySentence}" />
+            <Button Name="SwitchQualityButton" Grid.Row="1" Grid.Column="1" Theme="{StaticResource Kit.Button}"
+                    Content="{Binding SwitchQualityLabel}" HorizontalAlignment="Left" Margin="0,6,0,0"
+                    AutomationProperties.Name="{Binding SwitchQualityLabel}"
+                    AutomationProperties.HelpText="{Binding SwitchQualityHelp}" />
+          </Grid>
+        </Border>
+      </StackPanel>
     </kit:InspectorGroup>
 
     <Border Classes="inspector-group-rule" Height="1" Background="{DynamicResource Foreman.Color.Border}" />

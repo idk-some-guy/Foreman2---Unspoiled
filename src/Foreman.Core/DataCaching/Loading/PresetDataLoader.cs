@@ -128,6 +128,8 @@ namespace Foreman.DataCaching.Loading {
             quality.BeaconPowerMultiplier = beaconPowerMult;
             quality.MiningDrillResourceDrainMultiplier = miningDrillResDrainMult;
             quality.NextProbability = PresetJson.GetDouble(objJsonNode, "next_probability") ?? 0;
+            if (PresetJson.GetDouble(objJsonNode, "chain_probability") is double chainProbability)
+                quality.ChainProbability = chainProbability;
 
             if (quality.NextProbability != 0 && PresetJson.GetString(objJsonNode, "next") is string next)
                 _session.NextQualities.Add(quality, next);
@@ -239,19 +241,29 @@ namespace Foreman.DataCaching.Loading {
             item.Weight = weight;
             item.IngredientToWeightCoefficient = ingredientToWeightCoeff;
 
-            if (PresetJson.GetString(objJsonNode, "fuel_category") is string fuelCategory &&
+            string[] fuelCategories = [.. PresetJson.EnumerateStrings(objJsonNode, "fuel_categories")];
+            if (fuelCategories.Length == 0 && PresetJson.GetString(objJsonNode, "fuel_category") is string legacyFuelCategory)
+                fuelCategories = [legacyFuelCategory];
+            if (fuelCategories.Length > 0 &&
                 PresetJson.GetDouble(objJsonNode, "fuel_value") is double fuelValue &&
                 fuelValue > 0) //factorio eliminates any 0fuel value fuel from the list (checked)
             {
                 item.FuelValue = fuelValue;
                 item.PollutionMultiplier = PresetJson.GetDouble(objJsonNode, "fuel_emissions_multiplier") ?? 1;
 
-                if (!_session.FuelCategories.ContainsKey(fuelCategory))
-                    _session.FuelCategories.Add(fuelCategory, []);
-                _session.FuelCategories[fuelCategory].Add(item);
+                foreach (string fuelCategory in fuelCategories) {
+                    if (!_session.FuelCategories.ContainsKey(fuelCategory))
+                        _session.FuelCategories.Add(fuelCategory, []);
+                    _session.FuelCategories[fuelCategory].Add(item);
+                }
             }
             if (PresetJson.GetString(objJsonNode, "burnt_result") is string burntResult)
                 _session.BurnResults.Add(item, burntResult);
+            item.SpoilQualityChange = PresetJson.GetInt32(objJsonNode, "spoil_quality_change") ?? 0;
+            if (PresetJson.GetString(objJsonNode, "spoil_quality_min") is string spoilQualityMin && _store.Qualities.TryGetValue(spoilQualityMin, out IQuality? minQuality))
+                item.SpoilQualityMin = minQuality;
+            if (PresetJson.GetString(objJsonNode, "spoil_quality_max") is string spoilQualityMax && _store.Qualities.TryGetValue(spoilQualityMax, out IQuality? maxQuality))
+                item.SpoilQualityMax = maxQuality;
             if (PresetJson.GetString(objJsonNode, "spoil_result") is string spoilResult && objJsonNode["q_spoil_time"] is JsonNode qSpoilTime) {
                 _session.SpoilResults.Add(item, spoilResult);
                 foreach (JsonNode spoilToken in PresetJson.EnumerateArray(qSpoilTime))
@@ -321,6 +333,15 @@ namespace Foreman.DataCaching.Loading {
             module.PollutionBonus = Math.Round((PresetJson.GetDouble(objJsonNode, "module_effects", "pollution") ?? default) * 1000, 0, MidpointRounding.AwayFromZero) / 1000;
             module.QualityBonus = Math.Round((PresetJson.GetDouble(objJsonNode, "module_effects", "quality") ?? default) * 1000, 0, MidpointRounding.AwayFromZero) / 1000;
 
+            Dictionary<IQuality, ModuleEffects>? qualityEffects = null;
+            foreach (JsonNode entry in PresetJson.EnumerateArray(objJsonNode, "q_module_effects")) {
+                if (PresetJson.GetString(entry, "quality") is not string qualityName || !_store.Qualities.TryGetValue(qualityName, out var quality))
+                    continue;
+                double Effect(string key) => Math.Round((PresetJson.GetDouble(entry, "effects", key) ?? default) * 10000, 0, MidpointRounding.AwayFromZero) / 10000;
+                (qualityEffects ??= [])[quality] = new ModuleEffects(Effect("consumption"), Effect("speed"), Effect("productivity"), Effect("pollution"), Effect("quality"));
+            }
+            module.QualityEffects = qualityEffects;
+
             module.Tier = tier;
 
             module.Category = category;
@@ -336,12 +357,13 @@ namespace Foreman.DataCaching.Loading {
             if (PresetJson.GetString(objJsonNode, "name") is not string name ||
                 PresetJson.GetString(objJsonNode, "localised_name") is not string localisedName ||
                 PresetJson.GetString(objJsonNode, "order") is not string order ||
-                PresetJson.GetString(objJsonNode, "category") is not string category ||
+                PresetCraftingCompatibility.ResolvePrimaryCategory(objJsonNode) is not string category ||
                 ResolvePresetSubgroup(objJsonNode) is not SubgroupPrototype sgProto)
                 return;
             RecipePrototype recipe = new(_owner, name, localisedName, sgProto, order) {
                 HiddenInGame = PresetJson.GetBool(objJsonNode, "hidden") is true,
                 HideFromPlayerCrafting = PresetJson.GetBool(objJsonNode, "hide_from_player_crafting") is true,
+                CanSetQuality = PresetJson.GetBool(objJsonNode, "can_set_quality") is not false,
 
                 Time = PresetJson.GetDouble(objJsonNode, "energy") ?? default
             };

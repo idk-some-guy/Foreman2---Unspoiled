@@ -11,34 +11,38 @@ using System.Xml.Linq;
 namespace Foreman {
     public enum FactorioInstallProblem { None, ExecutableMissing, VersionUnreadable, TooOld, TooNew }
 
-    public sealed record FactorioInstallCheck(FactorioInstallProblem Problem, string VersionText);
+    public sealed record FactorioInstallCheck(FactorioInstallProblem Problem, string VersionText) {
+        public FactorioGameVersion? GameVersion => FactorioGameVersion.TryParse(VersionText, out FactorioGameVersion version) ? version : null;
+    }
 
     public static class FactorioInstallValidator {
         public static FactorioInstallCheck CheckExecutable(string factorioExePath) {
             if (!File.Exists(factorioExePath))
                 return Rejected(new FactorioInstallCheck(FactorioInstallProblem.ExecutableMissing, ""));
 
-            if (!TryGetVersion(factorioExePath, out int major, out int minor, out int build, out string versionText)) {
+            if (!TryGetVersion(factorioExePath, out FactorioGameVersion version, out string versionText)) {
                 ErrorLogging.LogLine("FactorioInstallValidator: could not determine version for " + factorioExePath);
                 return Rejected(new FactorioInstallCheck(FactorioInstallProblem.VersionUnreadable, ""));
             }
 
-            if (major < 2) {
-                ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "Factorio version 0.x or 1.x instead of 2.x - use Foreman dev.13 or below for these factorio installs. ({0})", versionText));
-                return Rejected(new FactorioInstallCheck(FactorioInstallProblem.TooOld, versionText));
+            FactorioInstallProblem problem = SupportedGameVersions.Classify(version);
+            switch (problem) {
+                case FactorioInstallProblem.TooOld when version.Major < 2:
+                    ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "Factorio version 0.x or 1.x instead of 2.x - use Foreman dev.13 or below for these factorio installs. ({0})", versionText));
+                    break;
+                case FactorioInstallProblem.TooOld:
+                    ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "Factorio version was too old. {0} instead of {1}+", versionText, SupportedGameVersions.MinimumFor(version)));
+                    break;
+                case FactorioInstallProblem.TooNew when version.Major > 2:
+                    ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "Factorio version 3.x+ isnt supported. ({0})", versionText));
+                    break;
+                case FactorioInstallProblem.TooNew:
+                    ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "Factorio version {0} is newer than this Foreman supports.", versionText));
+                    break;
             }
-
-            if (major > 2) {
-                ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "Factorio version 3.x+ isnt supported. ({0})", versionText));
-                return Rejected(new FactorioInstallCheck(FactorioInstallProblem.TooNew, versionText));
-            }
-
-            if (minor < 0 || (minor == 0 && build < 7)) {
-                ErrorLogging.LogLine(string.Format(CultureInfo.InvariantCulture, "Factorio version was too old. {0} instead of 2.0.7+", versionText));
-                return Rejected(new FactorioInstallCheck(FactorioInstallProblem.TooOld, versionText));
-            }
-
-            return new FactorioInstallCheck(FactorioInstallProblem.None, versionText);
+            return problem == FactorioInstallProblem.None
+                ? new FactorioInstallCheck(problem, versionText)
+                : Rejected(new FactorioInstallCheck(problem, versionText));
         }
 
         private static FactorioInstallCheck Rejected(FactorioInstallCheck check) {
@@ -50,26 +54,28 @@ namespace Foreman {
             FactorioInstallProblem.None => null,
             FactorioInstallProblem.ExecutableMissing => "Could not find factorio.exe. Please select a valid Factorio install location.",
             FactorioInstallProblem.VersionUnreadable => "Could not determine the Factorio version. Please select a valid Factorio install location.",
+            FactorioInstallProblem.TooNew when check.GameVersion is { Major: <= 2 } =>
+                "Factorio version (" + check.VersionText + ") is newer than this Foreman supports. Sit tight and wait for update...",
             FactorioInstallProblem.TooNew => "Factorio Version 3.x+ can not be used with this version of Foreman. Sit tight and wait for update...\nYou can also try to msg me on discord (u\\DanielKotes) if for some reason I am not already aware of this.",
-            _ when TryParseVersionParts(check.VersionText, out int major, out _, out _) && major < 2 =>
+            _ when check.GameVersion is { Major: < 2 } =>
                 "Factorio Version below 2.0 can not be used with this version of Foreman. Please use Factorio 2.0 or newer. Alternatively download dev.13 or under of foreman 2.0 for pre factorio 2.0.",
-            _ => "Factorio version (" + check.VersionText + ") can not be used with Foreman. Please use Factorio 2.0.7 or newer.",
+            _ => "Factorio version (" + check.VersionText + ") can not be used with Foreman. Please use Factorio " + (check.GameVersion is { } version ? SupportedGameVersions.MinimumFor(version) : SupportedGameVersions.Lines[0].Minimum) + " or newer.",
         };
 
-        private static bool TryGetVersion(string factorioExePath, out int major, out int minor, out int build, out string versionText) {
-            if (TryReadStdoutVersion(factorioExePath, out versionText) && TryParseVersionParts(versionText, out major, out minor, out build))
+        private static bool TryGetVersion(string factorioExePath, out FactorioGameVersion version, out string versionText) {
+            if (TryReadStdoutVersion(factorioExePath, out versionText) && FactorioGameVersion.TryParse(versionText, out version))
                 return true;
 
-            if (TryReadBundleVersion(factorioExePath, out versionText) && TryParseVersionParts(versionText, out major, out minor, out build))
+            if (TryReadBundleVersion(factorioExePath, out versionText) && FactorioGameVersion.TryParse(versionText, out version))
                 return true;
 
             //non-bundle layout (e.g. a Windows factorio.exe with real PE version resources).
-            var factorioVersionInfo = FileVersionInfo.GetVersionInfo(factorioExePath);
-            versionText = factorioVersionInfo.ProductVersion ?? "";
-            major = factorioVersionInfo.ProductMajorPart;
-            minor = factorioVersionInfo.ProductMinorPart;
-            build = factorioVersionInfo.ProductBuildPart;
-            return !string.IsNullOrEmpty(versionText);
+            return TryParseProductVersion(FileVersionInfo.GetVersionInfo(factorioExePath).ProductVersion, out version, out versionText);
+        }
+
+        internal static bool TryParseProductVersion(string? productVersion, out FactorioGameVersion version, out string versionText) {
+            versionText = productVersion ?? "";
+            return FactorioGameVersion.TryParse(versionText, out version);
         }
 
         //primary source: run the executable itself with --version and read its own stdout.
@@ -130,18 +136,6 @@ namespace Foreman {
                 }
             }
             return false;
-        }
-
-        private static bool TryParseVersionParts(string versionText, out int major, out int minor, out int build) {
-            major = minor = build = 0;
-            string[] parts = versionText.Split('.');
-            if (parts.Length == 0 || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out major))
-                return false;
-            if (parts.Length > 1)
-                int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out minor);
-            if (parts.Length > 2)
-                int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out build);
-            return true;
         }
     }
 }

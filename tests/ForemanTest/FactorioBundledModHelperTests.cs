@@ -41,6 +41,22 @@ namespace ForemanTest {
         }
 
         [TestMethod]
+        public void CopyToModsFolder_TwoOneExportMod_CopiesEveryFile() {
+            string modsPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(modsPath);
+
+            FactorioBundledModHelper.CopyToModsFolder("foremanexport_2.1.0", modsPath,
+                "info.json", "instrument-after-data.lua", "instrument-control.lua");
+
+            string destDir = Path.Combine(modsPath, "foremanexport_2.1.0");
+            string sourceDir = Path.Combine(AppPaths.ExecutableDirectory, "Mods", "foremanexport_2.1.0");
+            foreach (string file in new[] { "info.json", "instrument-after-data.lua", "instrument-control.lua" }) {
+                Assert.IsTrue(File.Exists(Path.Combine(destDir, file)));
+                Assert.AreEqual(File.ReadAllText(Path.Combine(sourceDir, file)), File.ReadAllText(Path.Combine(destDir, file)));
+            }
+        }
+
+        [TestMethod]
         public void CopyToModsFolder_SaveReaderMod_LandsBothFilesInOutputDir() {
             string modsPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             Directory.CreateDirectory(modsPath);

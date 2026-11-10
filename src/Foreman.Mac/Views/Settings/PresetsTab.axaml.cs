@@ -43,6 +43,7 @@ namespace Foreman.Mac.Views.Settings {
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
         internal TextBlock CurrentPresetLabelControl => currentPresetLabel;
+        internal TextBlock CurrentPresetVersionTextControl => this.FindControl<TextBlock>("CurrentPresetVersionText")!;
         internal ListBox ModSelectionBoxControl => modSelectionBox;
         internal ListBox PresetListBoxControl => presetListBox;
         internal MenuItem SelectPresetMenuItemControl => selectPresetMenuItem;

@@ -16,6 +16,7 @@ namespace Foreman.Mac.UiTests.support {
     internal sealed class CanvasFixture : IDisposable {
         private const string VanillaPresetName = "Factorio 2.0 Vanilla";
         private static readonly Lazy<DataCache> VanillaCache = new(LoadVanilla);
+        private static readonly Lazy<DataCache> SpaceAge21Cache = new(LoadSpaceAge21);
 
         public required DataCache Cache { get; init; }
         public required GraphCanvasControl Control { get; init; }
@@ -25,6 +26,12 @@ namespace Foreman.Mac.UiTests.support {
 
         public static CanvasFixture WithVanilla() {
             DataCache cache = VanillaCache.Value;
+            (GraphCanvasControl control, AvaloniaWindow window) = NewControl(cache);
+            return new CanvasFixture { Cache = cache, Control = control, Window = window };
+        }
+
+        public static CanvasFixture WithSpaceAge21() {
+            DataCache cache = SpaceAge21Cache.Value;
             (GraphCanvasControl control, AvaloniaWindow window) = NewControl(cache);
             return new CanvasFixture { Cache = cache, Control = control, Window = window };
         }
@@ -137,6 +144,12 @@ namespace Foreman.Mac.UiTests.support {
             var window = new AvaloniaWindow { Content = control, Width = 900, Height = 700 };
             window.Show();
             return (control, window);
+        }
+
+        private static DataCache LoadSpaceAge21() {
+            var cache = new DataCache(filterRecipes: true);
+            cache.LoadAllData(new Preset("Factorio 2.1 Space Age", true, true), new Progress<KeyValuePair<int, string>>()).GetAwaiter().GetResult();
+            return cache;
         }
 
         private static DataCache LoadVanilla() {

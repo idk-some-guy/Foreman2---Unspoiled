@@ -69,6 +69,19 @@ namespace Foreman.Mac.UiTests {
             Assert.Equal(VanillaPresetName, window.Settings!.CurrentPresetName);
         }
 
+        [AvaloniaFact]
+        public async Task AGraphSavedUnderFactorio20Vanilla_OpensUnderIt() {
+            var vanilla = new Preset(VanillaPresetName, false, false);
+            var window = NewWindow("Factorio 2.1 Vanilla", NewTempDir());
+            window.PresetSelectionDialogStub = _ => throw new InvalidOperationException("an exact match must not show the picker");
+            window.PresetSwitchInfoStub = _ => Task.CompletedTask;
+
+            Preset? chosen = await window.ResolveChosenPresetAsync(NewEmptyDocument(VanillaPresetName, RealModListFor(vanilla)));
+
+            Assert.Equal(VanillaPresetName, chosen!.Name);
+            Assert.Equal(VanillaPresetName, window.Settings!.CurrentPresetName);
+        }
+
         //---- Silent-switch: exact match, zero errors, but not the currently active preset -------------
 
         [AvaloniaFact]
@@ -114,7 +127,7 @@ namespace Foreman.Mac.UiTests {
             Preset? chosen = await window.ResolveChosenPresetAsync(document);
 
             Assert.NotNull(captured);
-            Assert.Equal(2, captured!.Count);
+            Assert.Equal(4, captured!.Count);
             Assert.Contains(captured, e => e.Preset.Name == VanillaPresetName);
             Assert.Contains(captured, e => e.Preset.Name == SpaceAgePresetName);
 
@@ -141,7 +154,7 @@ namespace Foreman.Mac.UiTests {
             await window.ResolveChosenPresetAsync(document);
 
             Assert.NotNull(captured);
-            Assert.Equal(2, captured!.Count);
+            Assert.Equal(4, captured!.Count);
             PresetErrorPackage vanillaErrors = captured.Single(e => e.Preset.Name == VanillaPresetName);
             Assert.Contains("totally-not-a-real-mod|1.0.0", vanillaErrors.MissingMods);
         }

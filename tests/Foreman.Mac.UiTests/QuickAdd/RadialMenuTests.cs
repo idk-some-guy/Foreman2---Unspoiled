@@ -480,6 +480,23 @@ namespace Foreman.Mac.UiTests.QuickAdd {
         }
 
         [AvaloniaFact]
+        public void ClickingUnspoilWhereNoInputQualityReachesTheOutput_PlacesTheSpoilNodeUnlinked() {
+            DataCache cache = SpoilCache(out ItemPrototype rottenFood, out ItemPrototype freshFood);
+            DataCacheStore store = Store(cache);
+            var above = new QualityPrototype(cache, "above", "Above", "b") { Level = 1 };
+            freshFood.SpoilQualityMin = above;
+            var pair = new ItemQualityPair(rottenFood, store.DefaultQuality!);
+            using var fx = CanvasFixture.WithCacheAndOneConsumerOf(cache, pair, out AvaloniaPoint inputTab);
+            fx.DragFrom(inputTab).To(new AvaloniaPoint(400, 300)).Release();
+
+            RadialMenu radial = fx.Control.OpenRadial!;
+            ClickSlice(fx, radial, RadialChoice.Unspoil);
+
+            Assert.Single(fx.Viewer.Graph.Nodes.OfType<SpoilNode>());
+            Assert.Empty(fx.Viewer.Graph.NodeLinks);
+        }
+
+        [AvaloniaFact]
         public void ClickingUnspoilWithSeveralOriginsRaisesTheBrowseOpenSeamWithTheOriginsRole() {
             DataCache cache = SpoilCache(out ItemPrototype rottenFood, out _, originCount: 2);
             var pair = new ItemQualityPair(rottenFood, Store(cache).DefaultQuality!);

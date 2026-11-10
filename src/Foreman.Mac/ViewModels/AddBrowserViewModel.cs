@@ -4,6 +4,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Services;
+using Foreman.Models;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -240,7 +241,9 @@ namespace Foreman.Mac.ViewModels {
             ? cell.Candidate.Kind == AddKind.Recipe
             : pendingOrigin is not null || IsRoleEnabled(IndexOf(SelectedRole)));
 
-        public string SelectionCaption => SelectedCell is { } cell ? $"{cell.Label} selected" : "";
+        public string SelectionCaption => SelectedCell is not { } cell ? ""
+            : ShowsQuality && cell.Candidate.Recipe is { CanSetQuality: false } ? $"{cell.Label} selected · {catalog.LowestQuality.FriendlyName} quality only"
+            : $"{cell.Label} selected";
 
         private static int IndexOf(BrowserRole role) => Roles.ToList().IndexOf(role);
 
@@ -395,7 +398,7 @@ namespace Foreman.Mac.ViewModels {
         public void Place(NodeType role, NodeDirection? spoilPlantDirection = null) {
             if (SelectedCell is null)
                 return;
-            IQuality resolvedQuality = Quality ?? cache.DefaultQuality!;
+            IQuality resolvedQuality = ResolveQuality(SelectedCell.Candidate);
 
             if (pendingOrigin is { } pending && spoilPlantDirection == NodeDirection.Down && role == pending.Role) {
                 if (SelectedCell.Candidate.Item is IItem chosenOrigin) {
@@ -420,10 +423,15 @@ namespace Foreman.Mac.ViewModels {
             PlaceRequested?.Invoke(this, new BrowserPick(SelectedCell.Candidate, role, spoilPlantDirection, resolvedQuality));
         }
 
+        private IQuality ResolveQuality(AddCandidate candidate) {
+            IQuality requested = Quality ?? cache.DefaultQuality!;
+            return candidate.Recipe is IRecipe recipe ? RecipeQualityLock.PlacementQuality(recipe, requested, cache) : requested;
+        }
+
         public void PlaceSelectedRecipe() {
             if (SelectedCell?.Candidate.Kind != AddKind.Recipe)
                 return;
-            IQuality resolvedQuality = Quality ?? cache.DefaultQuality!;
+            IQuality resolvedQuality = ResolveQuality(SelectedCell.Candidate);
             PlaceRequested?.Invoke(this, new BrowserPick(SelectedCell.Candidate, NodeType.Recipe, null, resolvedQuality));
         }
 

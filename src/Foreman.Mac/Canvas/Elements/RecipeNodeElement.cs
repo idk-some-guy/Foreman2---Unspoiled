@@ -168,7 +168,7 @@ namespace Foreman.Mac.Canvas.Elements {
         //Ports AddRClickMenuOptions (reference §4c). `nodeInSelection` means "the target set is the current
         //multi-selection (if this node is part of it) or just this node alone" - already resolved by
         //BaseNodeElement.BuildRightClickMenu before calling in.
-        protected override void AddRClickMenuOptions(List<MenuEntry> entries, bool nodeInSelection) {
+        protected override void AddRClickMenuOptions(List<MenuEntry> entries, bool nodeInSelection, string? clipboardText) {
             if (nodeInSelection) {
                 List<IRecipeNodeViewModel> targets = [.. (Context.SelectedNodes ?? []).OfType<RecipeNodeElement>().Select(e => e.RecipeViewModel)];
                 if (!targets.Contains(RecipeViewModel))
@@ -183,7 +183,7 @@ namespace Foreman.Mac.Canvas.Elements {
                     entries.Add(MenuEntry.Item("Remove beacons", () => ApplyToEachTarget(targets, c => c.ClearBeacon())));
 
                 entries.Add(MenuEntry.Divider);
-                AddPasteOptionsBlock(entries, targets);
+                AddPasteOptionsBlock(entries, targets, clipboardText);
             } else
                 entries.Add(MenuEntry.Divider);
 
@@ -202,10 +202,9 @@ namespace Foreman.Mac.Canvas.Elements {
         //"can paste" predicate is evaluated across every target node, deciding whether its checkbox appears
         //at all - "Paste selected options" itself re-checks the same predicate per node, per field, so a
         //checked-but-incompatible target is silently skipped rather than applied.
-        private void AddPasteOptionsBlock(List<MenuEntry> entries, List<IRecipeNodeViewModel> targets) {
+        private void AddPasteOptionsBlock(List<MenuEntry> entries, List<IRecipeNodeViewModel> targets, string? clipboardText) {
             if (Context.DCache is not DataCache cache)
                 return;
-            string? clipboardText = Context.GetClipboardText?.Invoke();
             if (clipboardText is null)
                 return;
             NodeCopyOptions? pasteOptions = NodeCopyOptions.GetNodeCopyOptions(clipboardText, cache);
