@@ -30,6 +30,13 @@ namespace Foreman.Mac.ViewModels {
 
         public void RevertRecipe(string recipe) => graph.Research = State.RevertRecipe(recipe);
 
+        public bool DiscardRecipeEdit(string recipe) {
+            if (!State.IsRecipeHandAdded(recipe) && !State.IsRecipeHandEdited(recipe))
+                return false;
+            graph.Research = State.RevertRecipe(recipe);
+            return true;
+        }
+
         private static double ToDisplay(double stored, bool isCount) => isCount ? stored : Math.Round(stored * 100, 10);
 
         private static double FromDisplay(double shown, bool isCount) => isCount ? Math.Round(shown) : shown / 100;

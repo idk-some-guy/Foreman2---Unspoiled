@@ -1707,7 +1707,7 @@ namespace Foreman.Mac {
                 return;
             }
 
-            var host = new ResearchWindowHost { Sync = () => ResearchSync, Settings = Settings };
+            var host = new ResearchWindowHost { Sync = () => ResearchSync, Settings = Settings, Cache = () => DataCache };
             ResearchWindow window = ResearchWindow.Create(GraphCanvas.Viewer.Session, host);
             window.SetTitle(ViewModel.DocumentTitle);
             void OnViewModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) {

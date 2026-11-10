@@ -1,16 +1,19 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Foreman.Graph;
 using Foreman.Mac.Kit.Appearance;
+using Foreman.Mac.Kit.Composites;
 using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Mac.ViewModels;
 using Foreman.Models.Research;
 using System;
+using System.Linq;
 
 namespace Foreman.Mac.Views.Research {
     public sealed partial class ResearchWindow : Window, IThemeAware {
@@ -29,6 +32,9 @@ namespace Foreman.Mac.Views.Research {
         private ResearchSyncFlow? flow;
         private ResearchViewModel viewModel = null!;
         private ResearchBonusesView bonuses = null!;
+        private ResearchRecipesView recipes = null!;
+        private readonly ScrollViewer body;
+        private readonly PopoverHost popoverLayer;
         private int segment;
         private bool selecting;
         private bool saveMissing;
@@ -38,6 +44,8 @@ namespace Foreman.Mac.Views.Research {
             segmentControl = this.FindControl<Segmented>("SegmentControl")!;
             toolbarRow = this.FindControl<Border>("ToolbarRow")!;
             bodyHost = this.FindControl<Border>("BodyHost")!;
+            body = this.FindControl<ScrollViewer>("Body")!;
+            popoverLayer = this.FindControl<PopoverHost>("PopoverLayer")!;
             this.FindControl<Panel>("SourceBarHost")!.Children.Add(sourceBar);
 
             segmentControl.Items.AddRange(SegmentLabels);
@@ -82,6 +90,9 @@ namespace Foreman.Mac.Views.Research {
             viewModel = new ResearchViewModel(session.Graph);
             bonuses = new ResearchBonusesView(viewModel, () => SelectSegment(1));
             bonuses.Changed += (_, _) => Refresh();
+            recipes = new ResearchRecipesView(viewModel, host.Cache, popoverLayer);
+            recipes.Changed += (_, _) => Refresh();
+            recipesHost.Children.Add(recipes);
             segment = Math.Clamp(host.Settings?.ResearchSegment ?? 0, 0, 2);
             ResearchPlacement.Apply(this, host.Settings);
             ShowSegment();
@@ -118,6 +129,7 @@ namespace Foreman.Mac.Views.Research {
             if (session is null)
                 return;
             bonuses.Refresh();
+            recipes.Refresh();
             UpdateSourceBar();
         }
 
@@ -145,6 +157,7 @@ namespace Foreman.Mac.Views.Research {
                 segmentControl.SelectedIndex = segment;
                 selecting = false;
             }
+            body.VerticalScrollBarVisibility = segment == 1 ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
             bodyHost.Child = segment switch {
                 1 => recipesHost,
                 2 => technologiesHost,
@@ -163,8 +176,14 @@ namespace Foreman.Mac.Views.Research {
             } else if (meta && !alt && !e.KeyModifiers.HasFlag(KeyModifiers.Shift) && e.Key is >= Key.D1 and <= Key.D3) {
                 SelectSegment(e.Key - Key.D1);
                 e.Handled = true;
-            } else if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && FocusManager?.GetFocusedElement() is not TextBox) {
-                Close();
+            } else if (meta && !alt && e.Key == Key.F && segment == 1) {
+                recipes.FocusFilter();
+                e.Handled = true;
+            } else if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None && !popoverLayer.Surface.Children.OfType<PopoverFrame>().Any(f => f.IsOpen) && (FocusManager?.GetFocusedElement() is not TextBox field || field is SearchField)) {
+                if (segment == 1 && recipes.HasFilter)
+                    recipes.Filter.Text = "";
+                else
+                    Close();
                 e.Handled = true;
             }
         }
@@ -174,6 +193,7 @@ namespace Foreman.Mac.Views.Research {
         internal ResearchSourceBar SourceBar => sourceBar;
         internal ResearchBonusesView BonusesView => bonuses;
         internal Panel RecipesHost => recipesHost;
+        internal ResearchRecipesView RecipesView => recipes;
         internal Panel TechnologiesHost => technologiesHost;
         internal ResearchViewModel ViewModel => viewModel;
         internal ResearchBonusRow BonusRow(ResearchField field) => bonuses.BonusRow(field);
