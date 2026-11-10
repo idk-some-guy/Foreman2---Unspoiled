@@ -191,7 +191,7 @@ namespace Foreman.Mac.Canvas {
             foreach (AnnotationElement annotation in AnnotationLoader.LoadFromSave(document.Annotations, document.AnnotationDpi, AnnotationDeviceDpi))
                 AddAnnotationElement(annotation);
 
-            ProductionGraph.NewNodeBatch batch = GraphSaveLoader.LoadProductionGraph(Graph, cache, document.ProductionGraph, applySolverSettings: true, DefaultLinkRouting);
+            ProductionGraph.NewNodeBatch batch = GraphSaveLoader.LoadProductionGraph(Graph, cache, document.ProductionGraph, applySolverSettings: true, applyResearch: true, DefaultLinkRouting);
             if (batch.NewNodes.Count == 0 && document.ProductionGraph.Nodes.Count > 0)
                 return GraphLoadResult.Failure("The production graph in this save could not be loaded (nodes failed to import).");
 

@@ -439,7 +439,7 @@ namespace Foreman {
             bool applySolverSettings,
             LinkRouting defaultLinkRouting = LinkRouting.Rounded) {
             Bump();
-            return GraphSaveLoader.LoadProductionGraph(this, cache, document, applySolverSettings, defaultLinkRouting);
+            return GraphSaveLoader.LoadProductionGraph(this, cache, document, applySolverSettings, applyResearch: false, defaultLinkRouting);
         }
 
         public NewNodeBatch InsertNodesFromFragment(DataCache cache, string json, bool applySolverSettings, LinkRouting defaultLinkRouting = LinkRouting.Rounded) {

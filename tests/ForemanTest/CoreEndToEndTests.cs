@@ -54,7 +54,7 @@ namespace ForemanTest {
             Assert.IsNotNull(firstDocument);
 
             ProductionGraph reloaded = ctx.NewGraph();
-            GraphSaveLoader.LoadProductionGraph(reloaded, cache, firstDocument, applySolverSettings: true);
+            GraphSaveLoader.LoadProductionGraph(reloaded, cache, firstDocument, applySolverSettings: true, applyResearch: true);
             reloaded.UpdateNodeValues();
 
             Assert.AreEqual(graph.Nodes.Count(), reloaded.Nodes.Count());
@@ -66,7 +66,7 @@ namespace ForemanTest {
             Assert.AreEqual(firstDocument.Nodes.Count, secondDocument.Nodes.Count);
 
             ProductionGraph reloadedAgain = ctx.NewGraph();
-            GraphSaveLoader.LoadProductionGraph(reloadedAgain, cache, secondDocument, applySolverSettings: true);
+            GraphSaveLoader.LoadProductionGraph(reloadedAgain, cache, secondDocument, applySolverSettings: true, applyResearch: true);
             reloadedAgain.UpdateNodeValues();
             string thirdSave = GraphSaveCodec.WriteProductionGraphToString(reloadedAgain);
 

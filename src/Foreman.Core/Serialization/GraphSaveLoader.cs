@@ -23,6 +23,7 @@ namespace Foreman.Serialization {
             DataCache cache,
             ProductionGraphSaveDocument document,
             bool applySolverSettings,
+            bool applyResearch,
             LinkRouting defaultLinkRouting = LinkRouting.Rounded) {
             var newNodeCollection = new ProductionGraph.NewNodeBatch();
             var oldNodeIndices = new Dictionary<int, BaseNode>();
@@ -32,9 +33,6 @@ namespace Foreman.Serialization {
 
                 if (applySolverSettings && document.Solver is not null)
                     ApplySolverSettings(graph, document.Solver, import);
-
-                if (applySolverSettings)
-                    graph.Research = ReadResearch(document.Research);
 
                 foreach (GraphNodeSaveData nodeData in document.Nodes) {
                     BaseNode? newNode = CreateNode(graph, cache, import, nodeData, newNodeCollection);
@@ -60,6 +58,9 @@ namespace Foreman.Serialization {
                         newNodeCollection.NewLinks.Add(created);
                     }
                 }
+
+                if (applyResearch)
+                    graph.Research = ReadResearch(document.Research);
             } catch (Exception e) {
                 ErrorLogging.LogException(e, "Error loading nodes into production graph");
                 graph.DeleteNodes(newNodeCollection.NewNodes);

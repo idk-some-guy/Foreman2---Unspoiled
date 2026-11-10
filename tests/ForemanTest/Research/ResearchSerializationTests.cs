@@ -29,7 +29,8 @@ namespace ForemanTest.Research {
         }
 
         private static ProductionGraph LoadInto(ProductionGraph target, GraphBuilder.BuiltData data, string json, bool applySolverSettings = true) {
-            target.InsertNodesFromFragment(data.Cache, json, applySolverSettings);
+            ProductionGraphSaveDocument document = GraphSaveCodec.ReadGraphPayload(json)!;
+            GraphSaveLoader.LoadProductionGraph(target, data.Cache, document, applySolverSettings, applyResearch: applySolverSettings);
             return target;
         }
 
@@ -55,10 +56,49 @@ namespace ForemanTest.Research {
             Assert.IsNull(viewer.ProductionGraph.Research);
 
             GraphBuilder.BuiltData data = GraphSessionTestHelper.BuildSimpleChain();
-            string json = GraphSaveCodec.WriteProductionGraphToString(data.Graph, writeIndented: false);
-            ProductionGraph loaded = LoadInto(new ProductionGraph(), data, json);
+            ProductionGraphSaveDocument withoutBlock = GraphSaveCodec.BuildProductionGraph(data.Graph);
+            Assert.IsNull(withoutBlock.Research);
+            ProductionGraph target = new() { Research = SyncedAndEdited() };
 
-            Assert.AreEqual(ResearchState.None, loaded.Research);
+            GraphSaveLoader.LoadProductionGraph(target, data.Cache, withoutBlock, applySolverSettings: true, applyResearch: true);
+
+            Assert.AreEqual(ResearchState.None, target.Research);
+        }
+
+        [TestMethod]
+        public void Import_DocumentWithoutOrWithDifferentBlock_LeavesResearchUnchanged() {
+            GraphBuilder.BuiltData data = GraphSessionTestHelper.BuildSimpleChain();
+            ResearchState mine = SyncedAndEdited();
+            data.Graph.Research = mine;
+            ProductionGraphSaveDocument without = GraphSaveCodec.BuildProductionGraph(GraphSessionTestHelper.BuildSimpleChain().Graph);
+            ProductionGraphSaveDocument different = GraphSaveCodec.BuildProductionGraph(OtherGraphWith(data, ResearchState.None.WithValue(ResearchField.LabSpeed, 3)));
+            Assert.IsNotNull(different.Research);
+
+            data.Graph.InsertNodesFromDocument(data.Cache, without, applySolverSettings: true);
+            Assert.AreEqual(mine, data.Graph.Research);
+            data.Graph.InsertNodesFromDocument(data.Cache, different, applySolverSettings: true);
+            Assert.AreEqual(mine, data.Graph.Research);
+        }
+
+        [TestMethod]
+        public void RoundTrip_SourceWithoutTicks_KeepsSourceAndNullTicks() {
+            GraphBuilder.BuiltData data = GraphSessionTestHelper.BuildSimpleChain();
+            DateTime synced = new(2026, 11, 10, 14, 5, 0, DateTimeKind.Utc);
+            ResearchState state = new(new ResearchSource("Megabase", "/tmp/saves/Megabase.zip", null, synced),
+                new Dictionary<ResearchField, double>(), new Dictionary<ResearchField, double>(),
+                new Dictionary<string, double>(), new Dictionary<string, double>(), []);
+            data.Graph.Research = state;
+
+            ProductionGraphSaveDocument? document = GraphSaveCodec.ReadProductionGraph(GraphSaveCodec.WriteProductionGraphToString(data.Graph, writeIndented: false));
+            Assert.IsNotNull(document);
+            ProductionGraph loaded = new();
+            GraphSaveLoader.LoadProductionGraph(loaded, data.Cache, document, applySolverSettings: true, applyResearch: true);
+
+            Assert.IsNotNull(loaded.Research.Source);
+            Assert.IsNull(loaded.Research.Source.TicksPlayed);
+            Assert.AreEqual("Megabase", loaded.Research.Source.SaveName);
+            Assert.AreEqual("/tmp/saves/Megabase.zip", loaded.Research.Source.SavePath);
+            Assert.AreEqual(synced, loaded.Research.Source.SyncedAtUtc);
         }
 
         [TestMethod]
@@ -105,7 +145,7 @@ namespace ForemanTest.Research {
             ProductionGraphSaveDocument? document = GraphSaveCodec.ReadProductionGraph(GraphSaveCodec.WriteProductionGraphToString(data.Graph, writeIndented: true));
             Assert.IsNotNull(document);
             ProductionGraph copy = new();
-            copy.InsertNodesFromDocument(data.Cache, document, applySolverSettings: true);
+            GraphSaveLoader.LoadProductionGraph(copy, data.Cache, document, applySolverSettings: true, applyResearch: true);
 
             Assert.AreEqual(data.Graph.Research, copy.Research);
         }
