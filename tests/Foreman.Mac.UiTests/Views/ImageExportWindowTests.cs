@@ -336,9 +336,16 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal("Limit to the visible area", sheet.ViewLimitCheckBoxControl.Content);
         }
 
-        private static string LongPathUnderHome() =>
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        private const int MinimumLongPathLength = 120;
+
+        private static string LongPathUnderHome() {
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string path = Path.Combine(home,
                 "Documents", "Factorio", "Builds", "Megabase", "Iron and copper smelting columns", "west block", "iron-plate-line-final.png");
+            int shortfall = MinimumLongPathLength - path.Length;
+            return shortfall <= 0 ? path : Path.Combine(home, "Documents", "Factorio", "Builds", "Megabase",
+                "Iron and copper smelting columns" + new string('x', shortfall), "west block", "iron-plate-line-final.png");
+        }
 
         [AvaloniaFact]
         public void SaveTo_LongPath_TruncatesTheLabel_AndBrowseKeepsItsNaturalWidthAtTheTrailingEdge() {
@@ -351,7 +358,7 @@ namespace Foreman.Mac.UiTests.Views {
             foreach (string key in new[] { "Foreman.Type.Body.FontSize", "Foreman.Type.Callout.FontSize" })
                 sheet.Resources[key] = SheetFixture.Token(key) * fontFactor;
             string path = LongPathUnderHome();
-            Assert.True(path.Length >= 120);
+            Assert.True(path.Length >= MinimumLongPathLength);
             (_, SheetHost host, _) = SheetFixture.Present(sheet);
             sheet.SavePath = path;
             AnimationClock.Settle();
