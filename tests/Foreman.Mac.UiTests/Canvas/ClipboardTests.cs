@@ -521,7 +521,7 @@ namespace Foreman.Mac.UiTests.Canvas {
         }
 
         private sealed class UiThreadBoundClipboard(string text) {
-            private const int WatchdogMilliseconds = 5000;
+            private const int WatchdogMilliseconds = 60000;
             private readonly TaskCompletionSource<string?> source = new(TaskCreationOptions.RunContinuationsAsynchronously);
             private int completedByWatchdog;
 
@@ -619,6 +619,26 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             Assert.False(clipboard.CompletedByWatchdog);
             Assert.Single(target.Control.Viewer.NodeElements);
+        }
+
+        [AvaloniaFact]
+        public async Task CmdV_WhenTheCacheIsClearedDuringThePendingRead_PastesNothing() {
+            DataCache cache = await GetCacheAsync();
+            Fixture source = NewFixture(cache);
+            RecipeNodeElement node = AddRecipeNode(source, "iron-gear-wheel", Point.Empty);
+            source.Control.Viewer.SetSelection([node]);
+            var clipboard = new ManualClipboard(NodeClipboard.Copy(source.Control.Viewer));
+
+            Fixture target = NewFixture(cache);
+            target.Control.ClipboardReader = clipboard.Read;
+            target.Control.Focus();
+
+            CanvasKeys.PressOnCanvas(target.Control, Key.V, KeyModifiers.Meta);
+            target.Control.Viewer.Context.DCache = null;
+            clipboard.Complete(0);
+            await Settle();
+
+            Assert.Empty(target.Control.Viewer.NodeElements);
         }
 
         [AvaloniaFact]

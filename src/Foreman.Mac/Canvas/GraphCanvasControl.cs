@@ -1629,7 +1629,7 @@ namespace Foreman.Mac.Canvas {
         }
 
         internal async Task PasteFromClipboardAsync(AvaloniaPoint cursorScreenPoint) {
-            if (Viewer.Context.DCache is DataCache cache && Viewer.Context.GetClipboardTextAsync is { } read && await read() is string clipboardText) {
+            if (Viewer.Context.GetClipboardTextAsync is { } read && await read() is string clipboardText && Viewer.Context.DCache is DataCache cache) {
                 NodeClipboard.Paste(Viewer, cache, clipboardText, Viewport.ScreenToGraph(cursorScreenPoint));
                 RequestRedraw();
             }

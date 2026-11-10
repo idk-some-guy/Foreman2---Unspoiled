@@ -415,6 +415,30 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
+        public async Task WelcomeLoad_CurrentPresetLoadedAfterAnOutdatedOne_LeavesNoPendingAlert() {
+            using var library = new LibraryFixture();
+            var context = new ShellContext(library.Service, new AppSettings(), new DataCache(false), null, null) { CacheLoaded = false };
+            var shown = new List<string>();
+            WelcomeLauncher.CacheLoaderOverride = preset => Task.FromResult<DataCache?>(NewCache(preset.Name == TwoZero ? 0 : PresetExportFormat.CurrentVersion, null));
+            WelcomeLauncher.WarningOverride = (_, title, _) => { shown.Add(title); return Task.CompletedTask; };
+            try {
+                var host = WelcomeLauncher.BuildHost(context, () => null);
+                await host.LoadPreset(new Preset(TwoZero, false, false), new Progress<KeyValuePair<int, string>>(), CancellationToken.None);
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(TwoZero, context.PendingOutdatedAlert?.Preset.Name);
+
+                await host.LoadPreset(new Preset("Current", false, false), new Progress<KeyValuePair<int, string>>(), CancellationToken.None);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Null(context.PendingOutdatedAlert);
+                Assert.Empty(shown);
+            } finally {
+                WelcomeLauncher.CacheLoaderOverride = null;
+                WelcomeLauncher.WarningOverride = null;
+            }
+        }
+
+        [AvaloniaFact]
         public async Task PresetsTab_LongCurrentPresetName_TrimsInsteadOfOverflowing() {
             var current = new Preset(new string('x', 160), true, true);
             var options = new SettingsWindow.SettingsWindowOptions(await TwoZeroCacheAsync()) { Presets = [current], SelectedPreset = current };

@@ -15,7 +15,7 @@ on a 2.1 save. Your 2.0 presets and graphs work as before.
 
 ### Added
 
-- Import presets from Factorio 2.1.23 and newer. Foreman picks the right exporter from the game
+- Import presets from Factorio 2.1.23 or a later 2.1. Foreman picks the right exporter from the game
   version it finds.
 - Factorio 2.1 Vanilla and Factorio 2.1 Space Age presets come with the app, beside the 2.0 ones.
   New graphs start on 2.1 Vanilla. A preset you already chose stays as it is, and none of the four
@@ -183,10 +183,9 @@ on a 2.1 save. Your 2.0 presets and graphs work as before.
 
 ### Fixed
 
-- Right-clicking a node or pressing Ctrl+V on Linux no longer freezes Foreman.
 - Graphs with a low-priority recipe failed to solve. Settings carrying the bad priority value are
   repaired automatically.
-- The application menu reads Foreman 2, and About Foreman 2 opens Foreman's own About window.
+- About Foreman 2 opens Foreman's own About window.
 - A rate unit picked from the View menu was lost unless the app closed cleanly. It is saved straight
   away and stays in step with the inspector and View Options.
 - After opening a file or cancelling a save dialog, the menu bar no longer looks stuck, and a ⇧ held
@@ -207,6 +206,18 @@ on a 2.1 save. Your 2.0 presets and graphs work as before.
 - The Recipe tooltips and recipe name filter settings, the General pane's Canvas group and the View
   menu's Level of Detail item. Level of detail, Simplify above, icon size, link arrows and science
   packs are set in Settings ▸ Appearance.
+
+## [1.0.2] - 2026-11-10
+
+### Fixed
+
+- Right-clicking a node or pressing Ctrl+V on Linux no longer freezes Foreman.
+
+## [1.0.1] - 2026-09-03
+
+### Fixed
+
+- The macOS menu bar named the app "Avalonia Application" instead of Foreman 2.
 
 ## [1.0.0] - 2026-09-03
 
@@ -239,4 +250,6 @@ Three defects present in upstream, fixed in this port rather than carried forwar
 
 [Unreleased]: https://github.com/idk-some-guy/Foreman2---Unspoiled/compare/v2.0.0...HEAD
 [2.0.0]: https://github.com/idk-some-guy/Foreman2---Unspoiled/releases/tag/v2.0.0
+[1.0.2]: https://github.com/idk-some-guy/Foreman2---Unspoiled/releases/tag/v1.0.2
+[1.0.1]: https://github.com/idk-some-guy/Foreman2---Unspoiled/releases/tag/v1.0.1
 [1.0.0]: https://github.com/idk-some-guy/Foreman2---Unspoiled/releases/tag/v1.0.0

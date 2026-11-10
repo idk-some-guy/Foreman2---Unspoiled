@@ -260,6 +260,7 @@ namespace Foreman.Mac.Services {
             Dispatcher.UIThread.Post(() => {
                 if (context.LoadGeneration != generation)
                     return;
+                context.PendingOutdatedAlert = null;
                 if (AlertOwnerFor(context) is { } owner)
                     OutdatedPresetAlert.Present(owner, preset, cache, Warning);
                 else if (PresetExportFormat.IsOutdated(cache))
