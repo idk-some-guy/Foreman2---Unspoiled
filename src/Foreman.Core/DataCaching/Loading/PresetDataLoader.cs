@@ -328,6 +328,15 @@ namespace Foreman.DataCaching.Loading {
             module.PollutionBonus = Math.Round((PresetJson.GetDouble(objJsonNode, "module_effects", "pollution") ?? default) * 1000, 0, MidpointRounding.AwayFromZero) / 1000;
             module.QualityBonus = Math.Round((PresetJson.GetDouble(objJsonNode, "module_effects", "quality") ?? default) * 1000, 0, MidpointRounding.AwayFromZero) / 1000;
 
+            Dictionary<IQuality, ModuleEffects>? qualityEffects = null;
+            foreach (JsonNode entry in PresetJson.EnumerateArray(objJsonNode, "q_module_effects")) {
+                if (PresetJson.GetString(entry, "quality") is not string qualityName || !_store.Qualities.TryGetValue(qualityName, out var quality))
+                    continue;
+                double Effect(string key) => Math.Round((PresetJson.GetDouble(entry, "effects", key) ?? default) * 10000, 0, MidpointRounding.AwayFromZero) / 10000;
+                (qualityEffects ??= [])[quality] = new ModuleEffects(Effect("consumption"), Effect("speed"), Effect("productivity"), Effect("pollution"), Effect("quality"));
+            }
+            module.QualityEffects = qualityEffects;
+
             module.Tier = tier;
 
             module.Category = category;

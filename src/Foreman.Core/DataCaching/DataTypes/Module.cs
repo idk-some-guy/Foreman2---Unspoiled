@@ -37,11 +37,11 @@ namespace Foreman.DataCaching.DataTypes {
         public IReadOnlyCollection<IRecipe>? AvailableRecipes { get; private set; }
         public IItem AssociatedItem => Owner.Items[Name];
 
-        public double GetSpeedBonus(IQuality quality) { return GetSpeedBonus(quality.Level); }
-        public double GetProductivityBonus(IQuality quality) { return GetProductivityBonus(quality.Level); }
-        public double GetConsumptionBonus(IQuality quality) { return GetConsumptionBonus(quality.Level); }
-        public double GetPolutionBonus(IQuality quality) { return GetPolutionBonus(quality.Level); }
-        public double GetQualityBonus(IQuality quality) { return GetQualityBonus(quality.Level); }
+        public double GetSpeedBonus(IQuality quality) { return QualityEffects is not null && QualityEffects.TryGetValue(quality, out var e) ? e.Speed : GetSpeedBonus(quality.Level); }
+        public double GetProductivityBonus(IQuality quality) { return QualityEffects is not null && QualityEffects.TryGetValue(quality, out var e) ? e.Productivity : GetProductivityBonus(quality.Level); }
+        public double GetConsumptionBonus(IQuality quality) { return QualityEffects is not null && QualityEffects.TryGetValue(quality, out var e) ? e.Consumption : GetConsumptionBonus(quality.Level); }
+        public double GetPolutionBonus(IQuality quality) { return QualityEffects is not null && QualityEffects.TryGetValue(quality, out var e) ? e.Pollution : GetPolutionBonus(quality.Level); }
+        public double GetQualityBonus(IQuality quality) { return QualityEffects is not null && QualityEffects.TryGetValue(quality, out var e) ? e.Quality : GetQualityBonus(quality.Level); }
 
         public double GetSpeedBonus(int qualityLevel = 0) { return SpeedBonus <= 0 || qualityLevel == 0 ? SpeedBonus : Math.Truncate(SpeedBonus * (1 + (qualityLevel * 0.3)) * 100) / 100; }
         public double GetProductivityBonus(int qualityLevel = 0) { return ProductivityBonus <= 0 || qualityLevel == 0 ? ProductivityBonus : Math.Truncate(ProductivityBonus * (1 + (qualityLevel * 0.3)) * 100) / 100; }
@@ -54,6 +54,8 @@ namespace Foreman.DataCaching.DataTypes {
         public double ConsumptionBonus { get; internal set; }
         public double PollutionBonus { get; internal set; }
         public double QualityBonus { get; internal set; }
+
+        internal Dictionary<IQuality, ModuleEffects>? QualityEffects { get; set; }
 
         public string Category { get; internal set; }
 
