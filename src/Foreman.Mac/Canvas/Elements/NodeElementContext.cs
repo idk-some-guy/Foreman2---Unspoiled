@@ -3,6 +3,7 @@ using Foreman.Graph;
 using Foreman.Models;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Foreman.Mac.Canvas.Elements {
     //Mirrors upstream's LOD enum (nested in ProductionGraphViewer). Low = names/icons only, Medium = adds
@@ -54,7 +55,7 @@ namespace Foreman.Mac.Canvas.Elements {
         public Action? AutoconnectSelectionInputs { get; set; }
         public Action? AutoconnectSelectionOutputs { get; set; }
         public Action<string>? SetClipboardText { get; set; }
-        public Func<string?>? GetClipboardText { get; set; }
+        public Func<Task<string?>>? GetClipboardTextAsync { get; set; }
 
         //P4 seam for RecipeNodeElement's paste-options block (reference §4c): the clipboard's NodeCopyOptions
         //payload can only be resolved against a live DataCache, which GraphViewer doesn't otherwise carry -
