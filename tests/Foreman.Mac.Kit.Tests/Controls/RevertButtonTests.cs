@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Headless.XUnit;
@@ -37,6 +38,27 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(0, button.Opacity);
             Assert.False(button.IsHitTestVisible);
             Assert.False(button.Focusable);
+        }
+
+        [AvaloniaFact]
+        public void RevertButton_Reserved_IsHiddenFromAutomationButKeepsItsSlot() {
+            using var fixture = new KitFixture();
+            RevertButton button = Themed();
+            fixture.Window.Content = button;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(button);
+            Assert.True(peer.IsControlElement());
+
+            button.IsReserved = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(peer.IsControlElement());
+            Assert.Equal(new Size(20, 20), button.Bounds.Size);
+
+            button.IsReserved = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(peer.IsControlElement());
         }
 
         [AvaloniaFact]

@@ -40,6 +40,7 @@
                          Foreground="{TemplateBinding PlaceholderForeground}"
                          FontSize="{TemplateBinding FontSize}"
                          FontWeight="{TemplateBinding FontWeight}"
+                         TextAlignment="{TemplateBinding TextAlignment}"
                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
               <ScrollViewer Name="PART_ScrollViewer"
                             HorizontalScrollBarVisibility="Hidden"

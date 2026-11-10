@@ -110,10 +110,7 @@ namespace Foreman.Mac.Kit.Controls {
             MaximumProperty.Changed.AddClassHandler<Stepper>((s, _) => s.CoerceValue(ValueProperty));
             UnitProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshUnitDisplay());
             DecimalsProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
-            IsEmptyProperty.Changed.AddClassHandler<Stepper>((s, _) => {
-                s.RefreshValueDisplay();
-                s.RefreshUnitDisplay();
-            });
+IsEmptyProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
             PlaceholderProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
             ShowsPlusSignProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
         }
@@ -291,17 +288,20 @@ namespace Foreman.Mac.Kit.Controls {
             double IRangeValueProvider.Value => Stepper.Value;
             double IRangeValueProvider.SmallChange => Stepper.Increment;
             double IRangeValueProvider.LargeChange => Stepper.StepAmount(KeyModifiers.Shift);
-            void IRangeValueProvider.SetValue(double value) => Stepper.SetCurrentValue(ValueProperty, value);
+            void IRangeValueProvider.SetValue(double value) {
+                Stepper.IsEmpty = false;
+                Stepper.SetCurrentValue(ValueProperty, value);
+            }
 
             bool IValueProvider.IsReadOnly => true;
-            string? IValueProvider.Value => Stepper.IsEmpty ? Stepper.SpokenNumber : SpokenValue.Describe(Stepper.SpokenNumber, Stepper.Unit, Stepper.SpokenUnit);
+            string? IValueProvider.Value => SpokenValue.Describe(Stepper.SpokenNumber, Stepper.Unit, Stepper.SpokenUnit);
             void IValueProvider.SetValue(string? value) { }
         }
 
         private void RefreshUnitDisplay() {
             if (unitText is null)
                 return;
-            bool hasUnit = !IsEmpty && !string.IsNullOrEmpty(Unit);
+            bool hasUnit = !string.IsNullOrEmpty(Unit);
             unitText.Text = Unit;
             unitText.IsVisible = hasUnit;
             unitText.Margin = hasUnit ? new Thickness(0, 0, glyphGap, 0) : default;

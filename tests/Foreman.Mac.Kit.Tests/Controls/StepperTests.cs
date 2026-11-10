@@ -419,15 +419,19 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Stepper stepper = Themed();
             stepper.Value = 5;
             stepper.Placeholder = "None";
+            stepper.Unit = "%";
             stepper.IsEmpty = true;
             fixture.Window.Content = stepper;
             Dispatcher.UIThread.RunJobs();
 
             TextBox box = ValueBox(stepper);
             Assert.Equal("", box.Text);
+            Assert.True(UnitText(stepper).IsVisible);
+            Assert.Equal("%", UnitText(stepper).Text);
             Assert.Equal("None", box.PlaceholderText);
             TextBlock placeholder = box.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Placeholder");
             Assert.True(placeholder.IsVisible);
+            Assert.Equal(TextAlignment.Center, placeholder.TextAlignment);
             Assert.Equal(fixture.Brush("Foreman.Color.TextTertiary").ToImmutable(), placeholder.Foreground?.ToImmutable());
         }
 
@@ -446,6 +450,36 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.False(stepper.IsEmpty);
             Assert.Equal(6, stepper.Value);
             Assert.Equal("6", ValueBox(stepper).Text);
+        }
+
+        [AvaloniaFact]
+        public void Stepper_EmptyThenAutomationSetValue_BecomesNonEmpty() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Placeholder = "None";
+            stepper.IsEmpty = true;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(stepper);
+            peer.GetProvider<IRangeValueProvider>()!.SetValue(7);
+
+            Assert.False(stepper.IsEmpty);
+            Assert.Equal("7", ValueBox(stepper).Text);
+        }
+
+        [AvaloniaFact]
+        public void Stepper_Empty_SpeaksThePlaceholderWithTheUnit() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Placeholder = "None";
+            stepper.Unit = "%";
+            stepper.IsEmpty = true;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(stepper);
+            Assert.Equal("None percent", peer.GetProvider<IValueProvider>()!.Value);
         }
 
         [AvaloniaFact]
