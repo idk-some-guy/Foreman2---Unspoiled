@@ -7,10 +7,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-10
+
+Foreman now supports Factorio 2.1. Import presets from Factorio 2.1.23 or newer, or start from the 2.1
+presets that come with the app, and quality, modules and machine limits behave the way the game does
+on a 2.1 save. Your 2.0 presets and graphs work as before.
+
 ### Added
 
-- New graphs start on Factorio 2.1 Vanilla. A preset you already chose stays as it is, and none of the
-  four built-in presets can be replaced by an import or deleted from Settings.
+- Import presets from Factorio 2.1.23 and newer. Foreman picks the right exporter from the game
+  version it finds.
+- Factorio 2.1 Vanilla and Factorio 2.1 Space Age presets come with the app, beside the 2.0 ones.
+  New graphs start on 2.1 Vanilla. A preset you already chose stays as it is, and none of the four
+  built-in presets can be replaced by an import or deleted from Settings.
+- On 2.1 presets, quality yields, module bonuses and machine effect limits follow the 2.1 rules: each
+  higher quality tier chains from the one before it, modules give the game's own per-quality values,
+  and a module stack can no longer push a machine past its limits. 2.0 presets keep their numbers.
+- A spoil node's result quality follows the item's own quality rules in 2.1.
+- A recipe that cannot be set to a quality shows a warning and offers the lowest tier that keeps its
+  settings and links.
+- Plant nodes can run in an agricultural tower with productivity modules, for towers that a mod
+  gives module slots.
 - Each preset in Settings, the Welcome window and the Preset Comparator shows the Factorio version
   it came from, and presets made by an older version of Foreman say so. After such a preset loads,
   Foreman tells you to import it again from Factorio to get the latest fixes.
@@ -219,3 +236,7 @@ Three defects present in upstream, fixed in this port rather than carried forwar
   level.
 - The "graph has unsaved changes" prompt's Yes button silently discarded the graph instead of
   saving it first. Yes now saves, then continues, as its label promises.
+
+[Unreleased]: https://github.com/idk-some-guy/Foreman2---Unspoiled/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/idk-some-guy/Foreman2---Unspoiled/releases/tag/v2.0.0
+[1.0.0]: https://github.com/idk-some-guy/Foreman2---Unspoiled/releases/tag/v1.0.0
