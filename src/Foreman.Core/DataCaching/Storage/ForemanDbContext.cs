@@ -123,10 +123,7 @@ namespace Foreman.DataCaching.Storage {
         ];
 
         private static void MigrateToV6(ForemanDbContext context) {
-            foreach ((string column, string definition) in V6AddedColumns) {
-                if (!ColumnExists(context, "Settings", column))
-                    Execute(context, "ALTER TABLE Settings ADD COLUMN " + column + " " + definition);
-            }
+            AddSettingsColumns(context, V6AddedColumns);
         }
 
         private static readonly (string Column, string Definition)[] V7AddedColumns = [
@@ -134,7 +131,11 @@ namespace Foreman.DataCaching.Storage {
         ];
 
         private static void MigrateToV7(ForemanDbContext context) {
-            foreach ((string column, string definition) in V7AddedColumns) {
+            AddSettingsColumns(context, V7AddedColumns);
+        }
+
+        private static void AddSettingsColumns(ForemanDbContext context, (string Column, string Definition)[] columns) {
+            foreach ((string column, string definition) in columns) {
                 if (!ColumnExists(context, "Settings", column))
                     Execute(context, "ALTER TABLE Settings ADD COLUMN " + column + " " + definition);
             }

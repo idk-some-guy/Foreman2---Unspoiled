@@ -49,16 +49,17 @@ namespace Foreman.Mac.Views.Research {
         private readonly Dictionary<SKBitmap, Bitmap> icons = [];
         private readonly List<ResearchRecipeRow> shown = [];
         private readonly Button emptyAddButton;
-        private int sortColumn;
-        private bool sortAscending = true;
+        private readonly ResearchTableHeader header;
         private bool rendering;
 
         public ResearchRecipesView(ResearchViewModel viewModel, Func<DataCache?> cache, PopoverHost popoverHost) {
             this.viewModel = viewModel;
             this.cache = cache;
             RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto");
+            HeaderRow = new Grid { Height = 20 };
+            header = new ResearchTableHeader(HeaderRow, "RecipesHeader", ["Recipe", "Productivity"], [HorizontalAlignment.Left, HorizontalAlignment.Right], 1, Render);
 
-            Filter = new SearchField { Theme = KitTheme("Kit.SearchField"), Width = 200, PlaceholderText = "Filter", VerticalAlignment = VerticalAlignment.Center };
+            Filter = new SearchField { Theme = ResearchTableKit.KitTheme("Kit.SearchField"), Width = 200, PlaceholderText = "Filter", VerticalAlignment = VerticalAlignment.Center };
             AutomationProperties.SetName(Filter, "Filter");
             Filter.PropertyChanged += (_, e) => {
                 if (e.Property == TextBox.TextProperty && !rendering)
@@ -66,18 +67,17 @@ namespace Foreman.Mac.Views.Research {
             };
             Filter.MoveDownRequested += (_, _) => FocusFirstRow();
 
-            AddButton = new Button { Theme = KitTheme("Kit.Button"), Content = "Add Recipe…", VerticalAlignment = VerticalAlignment.Center };
+            AddButton = new Button { Theme = ResearchTableKit.KitTheme("Kit.Button"), Content = "Add Recipe…", VerticalAlignment = VerticalAlignment.Center };
             AddButton.Click += (_, _) => OpenPopover(AddButton);
 
             var controls = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), Margin = new Thickness(0, 12, 0, 10), Children = { Filter, AddButton } };
             Grid.SetColumn(AddButton, 2);
             Children.Add(controls);
 
-            HeaderRow = new Grid { Height = 20 };
             Grid.SetRow(HeaderRow, 1);
             Children.Add(HeaderRow);
 
-            Table = new ListBox { Name = "RecipesTable", Theme = KitTheme("Kit.List"), SelectionMode = SelectionMode.Single, IsTextSearchEnabled = false };
+            Table = new ListBox { Name = "RecipesTable", Theme = ResearchTableKit.KitTheme("Kit.List"), SelectionMode = SelectionMode.Single, IsTextSearchEnabled = false };
             AutomationProperties.SetName(Table, "Recipe productivity table");
             KeyboardNavigation.SetTabNavigation(Table, KeyboardNavigationMode.Once);
             Table.AddHandler(KeyDownEvent, OnTableKeyDown, RoutingStrategies.Tunnel);
@@ -90,7 +90,7 @@ namespace Foreman.Mac.Views.Research {
             Grid.SetRow(tableHost, 2);
             Children.Add(tableHost);
 
-            Footer = new TextBlock { Theme = KitTheme("Kit.Text"), Classes = { "caption", "secondary" }, Margin = new Thickness(0, 8, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis };
+            Footer = new TextBlock { Theme = ResearchTableKit.KitTheme("Kit.Text"), Classes = { "caption", "secondary" }, Margin = new Thickness(0, 8, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis };
             Grid.SetRow(Footer, 3);
             Children.Add(Footer);
 
@@ -115,19 +115,16 @@ namespace Foreman.Mac.Views.Research {
 
         public ResearchRecipeRow Row(string name) => rows[name];
 
-        private static ControlTheme KitTheme(string key) {
-            Application.Current!.TryGetResource(key, null, out object? theme);
-            return theme as ControlTheme ?? throw new InvalidOperationException($"ResearchRecipesView: kit theme '{key}' not found.");
-        }
-
         private static (StatePanel Panel, Button Button) NewPanel(StatePanelShape shape, string headline, string sentence, string label, Action action) {
-            var button = new Button { Theme = KitTheme("Kit.Button"), Content = label };
+            var button = new Button { Theme = ResearchTableKit.KitTheme("Kit.Button"), Content = label };
             ButtonRow.SetRole(button, ButtonRowRole.Default);
             button.Click += (_, _) => action();
-            var row = new ButtonRow { Theme = KitTheme("Kit.ButtonRow") };
+            var row = new ButtonRow { Theme = ResearchTableKit.KitTheme("Kit.ButtonRow") };
             row.Items.Add(button);
-            return (new StatePanel { Theme = KitTheme("Kit.StatePanel"), Shape = shape, Headline = headline, Sentence = sentence, Buttons = row, MovesFocusOnAppear = false }, button);
+            return (new StatePanel { Theme = ResearchTableKit.KitTheme("Kit.StatePanel"), Shape = shape, Headline = headline, Sentence = sentence, Buttons = row, MovesFocusOnAppear = false }, button);
         }
+
+        private void FocusFirstRow() => ResearchTableKit.FocusFirstRow(Table, shown.Count > 0 ? shown[0].Item : null);
 
         public void FocusFilter() => Filter.Focus(NavigationMethod.Tab);
 
@@ -136,15 +133,7 @@ namespace Foreman.Mac.Views.Research {
                 Table.SelectedItem = row.Item;
         }
 
-        public void SortBy(int column) {
-            if (sortColumn == column)
-                sortAscending = !sortAscending;
-            else {
-                sortColumn = column;
-                sortAscending = column == 0;
-            }
-            Render();
-        }
+        public void SortBy(int column) => header.SortBy(column);
 
         public void AddRecipe(string name) {
             viewModel.SetRecipe(name, 0);
@@ -192,7 +181,7 @@ namespace Foreman.Mac.Views.Research {
             string display = recipe?.FriendlyName ?? name;
 
             var stepper = new Stepper {
-                Theme = KitTheme("Kit.Stepper"),
+                Theme = ResearchTableKit.KitTheme("Kit.Stepper"),
                 Minimum = 0,
                 Maximum = 100000,
                 Increment = 10,
@@ -202,22 +191,22 @@ namespace Foreman.Mac.Views.Research {
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            var revert = new RevertButton { Theme = KitTheme("Kit.RevertButton"), IsReserved = true, VerticalAlignment = VerticalAlignment.Center };
+            var revert = new RevertButton { Theme = ResearchTableKit.KitTheme("Kit.RevertButton"), IsReserved = true, VerticalAlignment = VerticalAlignment.Center };
             var dot = new Ellipse { Width = 6, Height = 6, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false, Opacity = 0, Transitions = Motion.Transition(TransitionKind.Fade, Motion.HoverDuration) };
             LiveBrush.Bind(dot, Shape.FillProperty, "Foreman.Color.Accent");
 
             var icon = new Image { Source = recipe is null ? null : IconFor(recipe), Width = 16, Height = 16, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Center };
-            var nameText = new TextBlock { Theme = KitTheme("Kit.Text"), Text = display, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+            var nameText = new TextBlock { Theme = ResearchTableKit.KitTheme("Kit.Text"), Text = display, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
             if (recipe is null)
                 LiveBrush.Bind(nameText, TextBlock.ForegroundProperty, "Foreman.Color.TextSecondary");
-            var caption = new TextBlock { Theme = KitTheme("Kit.Text"), Classes = { "caption", "tertiary" }, Text = "added by hand", VerticalAlignment = VerticalAlignment.Center, IsVisible = false };
+            var caption = new TextBlock { Theme = ResearchTableKit.KitTheme("Kit.Text"), Classes = { "caption", "tertiary" }, Text = "added by hand", VerticalAlignment = VerticalAlignment.Center, IsVisible = false };
             var nameCell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center, Children = { icon, nameText, caption } };
 
             var grid = new Grid { ColumnDefinitions = Columns(), ColumnSpacing = ColumnGap, Background = Brushes.Transparent, Children = { dot, nameCell, stepper, revert } };
             Grid.SetColumn(nameCell, 1);
             Grid.SetColumn(stepper, 2);
             Grid.SetColumn(revert, 3);
-            var item = new ListBoxItem { Theme = KitTheme("Kit.ListBoxItem"), Content = grid };
+            var item = new ListBoxItem { Theme = ResearchTableKit.KitTheme("Kit.ListBoxItem"), Content = grid };
             item.AddHandler(GotFocusEvent, (_, _) => {
                 if (!rendering)
                     Table.SelectedItem = item;
@@ -274,13 +263,13 @@ namespace Foreman.Mac.Views.Research {
         }
 
         private IEnumerable<ResearchRecipeRow> Ordered(IEnumerable<ResearchRecipeRow> source) {
-            if (sortColumn == 1) {
-                IOrderedEnumerable<ResearchRecipeRow> byValue = sortAscending
+            if (header.SortColumn == 1) {
+                IOrderedEnumerable<ResearchRecipeRow> byValue = header.SortAscending
                     ? source.OrderBy(r => r.Stepper.Value)
                     : source.OrderByDescending(r => r.Stepper.Value);
                 return byValue.ThenBy(r => r.Name, StringComparer.Ordinal);
             }
-            return sortAscending ? source.OrderBy(r => r.Name, StringComparer.Ordinal) : source.OrderByDescending(r => r.Name, StringComparer.Ordinal);
+            return header.SortAscending ? source.OrderBy(r => r.Name, StringComparer.Ordinal) : source.OrderByDescending(r => r.Name, StringComparer.Ordinal);
         }
 
         private static bool Matches(ResearchRecipeRow row, string query) =>
@@ -314,43 +303,7 @@ namespace Foreman.Mac.Views.Research {
             NoMatchPanel.Headline = $"No recipes match “{query}”";
             Footer.IsVisible = total > 0;
             Footer.Text = string.Create(DisplayCulture.Format, $"{total} {(total == 1 ? "recipe" : "recipes")}. {FooterSentence}");
-            BuildHeader();
-        }
-
-        private Thickness RowInset() {
-            Thickness frame = this.TryFindResource("Foreman.Thickness.ListFramePadding", ActualThemeVariant, out object? f) && f is Thickness ft ? ft : default;
-            Thickness item = this.TryFindResource("Foreman.Thickness.ListRowPadding", ActualThemeVariant, out object? r) && r is Thickness rt ? rt : default;
-            return new Thickness(1 + frame.Left + item.Left, 0, 1 + frame.Right + item.Right, 0);
-        }
-
-        private void BuildHeader() {
-            HeaderRow.Children.Clear();
-            HeaderRow.ColumnDefinitions = Columns();
-            HeaderRow.ColumnSpacing = ColumnGap;
-            HeaderRow.Margin = RowInset();
-            string[] labels = ["Recipe", "Productivity"];
-            for (int i = 0; i < labels.Length; i++) {
-                int column = i;
-                bool sorted = sortColumn == i;
-                string arrow = sorted ? (sortAscending ? " ▴" : " ▾") : "";
-                var label = new TextBlock {
-                    Theme = KitTheme("Kit.Text"), Classes = { "caption" }, Text = labels[i] + arrow, FontWeight = FontWeight.SemiBold,
-                    VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis,
-                    HorizontalAlignment = i == 1 ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-                };
-                if (!sorted)
-                    label.Classes.Add("secondary");
-                var cell = new Border { Background = Brushes.Transparent, Child = label, Focusable = false, Name = "RecipesHeader" + i };
-                AutomationProperties.SetName(cell, sorted ? $"{labels[i]}, sorted {(sortAscending ? "ascending" : "descending")}" : labels[i]);
-                cell.PointerPressed += (_, e) => {
-                    if (e.GetCurrentPoint(cell).Properties.IsLeftButtonPressed) {
-                        SortBy(column);
-                        e.Handled = true;
-                    }
-                };
-                Grid.SetColumn(cell, i + 1);
-                HeaderRow.Children.Add(cell);
-            }
+            header.Build(this, Columns(), ColumnGap);
         }
 
         private void FocusStepper(ResearchRecipeRow row, bool selectAll) {
@@ -381,13 +334,6 @@ namespace Foreman.Mac.Views.Research {
             else if (!onRevert && revertStop)
                 row.Revert.Focus(NavigationMethod.Tab);
             return onItem || (!onRevert && revertStop);
-        }
-
-        private void FocusFirstRow() {
-            if (shown.Count == 0)
-                return;
-            Table.SelectedItem = shown[0].Item;
-            shown[0].Item.Focus();
         }
 
         private void OnTableKeyDown(object? sender, KeyEventArgs e) {
