@@ -20,7 +20,7 @@ dotnet run --project tools/PresetRig -- pngs [--install <Factorio install>]
 
 `readsave` creates a save, installs a save reader mod (`src/Foreman.Core/Mods/foremansavereader_*`) and writes the text between `<<<START-EXPORT-P0>>>` and `<<<END-EXPORT-P0>>>`, markers included. It exits 0 when both markers are present (the reader ends on an undefined call, so the game exits 1 on success) and 1 otherwise. The rig writes `foreman-savereader-test-research` into the run's `mod-settings.dat`: `--test-research` sets it to true, which makes the reader mark a fixed list of technologies as researched before it exports (for example `mining-productivity-3` at level 5); without the flag it is false and the export is a fresh save's.
 
-The save reader fixtures in `tests/ForemanTest/assets/save-reader-*.txt` come from these runs, from the repository root. 2.1 uses the default image. 2.0 uses `factoriotools/factorio:2.0.77` with the x64 binary, which the arm64 image ships and which only runs under amd64 emulation, so set `DOCKER_DEFAULT_PLATFORM=linux/amd64`:
+The save reader fixtures in `tests/ForemanTest/assets/save-reader-*.txt` come from these runs, from the repository root. 2.1 uses the default image. 2.0 uses `factoriotools/factorio:2.0.77`, which ships only an x64 binary, so run it under amd64 emulation with `DOCKER_DEFAULT_PLATFORM=linux/amd64` and `--binary /opt/factorio/bin/x64/factorio`:
 
 ```
 dotnet run --project tools/PresetRig -- readsave --source docker --set space-age --reader src/Foreman.Core/Mods/foremansavereader_2.1.0 --out tests/ForemanTest/assets/save-reader-2.1-fresh.txt

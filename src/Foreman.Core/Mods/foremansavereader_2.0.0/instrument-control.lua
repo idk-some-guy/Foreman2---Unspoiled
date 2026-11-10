@@ -36,7 +36,7 @@ local function ReadForceResearch(force, research, recipeproductivity)
 end
 
 local function AddTechnology(technologies, tech)
-	ttech = {}
+	local ttech = {}
 	ttech['name'] = tech.name
 	ttech['enabled'] = tech.researched
 	ttech['level'] = tech.level
