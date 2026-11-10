@@ -659,6 +659,34 @@ namespace Foreman.Mac.UiTests.Views {
             Assert.Equal(("Use Preset", true, "Delete Preset", false), ((string?)use.Header, use.IsEnabled, (string?)delete.Header, delete.IsEnabled));
         }
 
+        [AvaloniaFact]
+        public async Task ContextMenu_DeleteIsDisabledForEveryBundledPreset() {
+            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, false)]));
+            MenuItem delete = window.PresetsTabControl.DeletePresetMenuItemControl;
+
+            foreach (string name in new[] { "Factorio 2.0 Vanilla", "Factorio 2.0 Space Age", "Factorio 2.1 Vanilla", "Factorio 2.1 Space Age" }) {
+                window.UpdatePresetMenuCaptionsFor(new Preset(name, false, false));
+
+                Assert.False(delete.IsEnabled, name);
+            }
+        }
+
+        [AvaloniaFact]
+        public async Task ContextMenu_DeleteIsEnabledForABundledNameWithAUserCopy() {
+            string basePath = PresetProcessor.GetUserPresetPath("Factorio 2.1 Space Age", "");
+            var window = new SettingsWindow(NewOptions(await GetCacheAsync(), [new Preset(VanillaPresetName, true, false)]));
+            try {
+                Directory.CreateDirectory(Path.GetDirectoryName(basePath)!);
+                File.WriteAllText(basePath + ".pjson", "{}");
+
+                window.UpdatePresetMenuCaptionsFor(new Preset("Factorio 2.1 Space Age", false, false));
+
+                Assert.True(window.PresetsTabControl.DeletePresetMenuItemControl.IsEnabled);
+            } finally {
+                File.Delete(basePath + ".pjson");
+            }
+        }
+
         //--- Delete preset ---------------------------------------------------------------------------------
 
         [AvaloniaFact]

@@ -25,9 +25,31 @@ namespace Foreman.Mac.UiTests {
             Directory.CreateDirectory(dir);
             File.WriteAllText(Path.Combine(dir, "Factorio 2.0 Vanilla.pjson"), "");
             File.WriteAllText(Path.Combine(dir, "Factorio 2.0 Vanilla.dat"), "");
+            File.WriteAllText(Path.Combine(dir, "Factorio 2.1 Vanilla.pjson"), "");
+            File.WriteAllText(Path.Combine(dir, "Factorio 2.1 Vanilla.dat"), "");
             File.WriteAllText(Path.Combine(dir, "Some Other Preset.pjson"), "");
             File.WriteAllText(Path.Combine(dir, "Some Other Preset.dat"), "");
             return dir;
+        }
+
+        [Fact]
+        public void FreshSettings_ResolveToFactorio21Vanilla() {
+            var resolver = new PresetResolver(NewPresetsDirectory(), NewEmptyDirectory());
+
+            var preset = resolver.Resolve(null);
+
+            Assert.Equal("Factorio 2.1 Vanilla", preset.Name);
+            Assert.True(preset.IsDefaultPreset);
+        }
+
+        [Fact]
+        public void SettingsNamingFactorio20Vanilla_KeepIt() {
+            var resolver = new PresetResolver(NewPresetsDirectory(), NewEmptyDirectory());
+
+            var preset = resolver.Resolve("Factorio 2.0 Vanilla");
+
+            Assert.Equal("Factorio 2.0 Vanilla", preset.Name);
+            Assert.False(preset.IsDefaultPreset);
         }
 
         [Fact]
@@ -107,7 +129,7 @@ namespace Foreman.Mac.UiTests {
 
         [Fact]
         public void BuildPresetList_PresetsFromBothDirectories_AreMergedAndDeduplicated() {
-            string bundleDir = NewPresetsDirectory(); //ships "Factorio 2.0 Vanilla" + "Some Other Preset"
+            string bundleDir = NewPresetsDirectory(); //ships both Vanilla presets + "Some Other Preset"
             string userDir = NewEmptyDirectory();
             WritePresetFiles(userDir, "Imported Preset");
             WritePresetFiles(userDir, "Factorio 2.0 Vanilla"); //also present in bundleDir - must not duplicate
@@ -115,7 +137,7 @@ namespace Foreman.Mac.UiTests {
 
             var names = resolver.BuildPresetList("Factorio 2.0 Vanilla").ConvertAll(p => p.Name);
 
-            Assert.Equal(3, names.Count);
+            Assert.Equal(4, names.Count);
             Assert.Contains("Imported Preset", names);
             Assert.Contains("Some Other Preset", names);
             Assert.Single(names, n => n == "Factorio 2.0 Vanilla");
@@ -137,6 +159,14 @@ namespace Foreman.Mac.UiTests {
     }
 
     public class StartupTests {
+        private static readonly string[] RetiredLoadAlerts = ["Preset load interrupted", "is corrupt. Switching to the default preset", "No Preset is loaded!"];
+
+        private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
+
+        private static Task Bounded(Task task) => task.WaitAsync(Timeout);
+
+        private static Task<T> Bounded<T>(Task<T> task) => task.WaitAsync(Timeout);
+
         private static string NewTempHome() {
             string home = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
             Directory.CreateDirectory(home);
@@ -148,13 +178,21 @@ namespace Foreman.Mac.UiTests {
             Directory.CreateDirectory(dir);
             File.WriteAllText(Path.Combine(dir, "Factorio 2.0 Vanilla.pjson"), "");
             File.WriteAllText(Path.Combine(dir, "Factorio 2.0 Vanilla.dat"), "");
+            File.WriteAllText(Path.Combine(dir, "Factorio 2.1 Vanilla.pjson"), "");
+            File.WriteAllText(Path.Combine(dir, "Factorio 2.1 Vanilla.dat"), "");
             File.WriteAllText(Path.Combine(dir, otherName + ".pjson"), "");
             File.WriteAllText(Path.Combine(dir, otherName + ".dat"), "");
             return dir;
         }
 
-        private static AppSettings WelcomeOff(SettingsService settingsService) {
+        private static AppSettings Factorio20Settings(SettingsService settingsService) {
             AppSettings settings = settingsService.Load();
+            settings.CurrentPresetName = "Factorio 2.0 Vanilla";
+            return settings;
+        }
+
+        private static AppSettings WelcomeOff(SettingsService settingsService) {
+            AppSettings settings = Factorio20Settings(settingsService);
             settings.ShowWelcomeAtLaunch = false;
             return settings;
         }
@@ -195,13 +233,13 @@ namespace Foreman.Mac.UiTests {
             bool fatalExitCalled = false;
             bool loadAttempted = false;
 
-            var window = await ShellBootstrapper.BootAsync(
+            var window = await Bounded(ShellBootstrapper.BootAsync(
                 settingsService,
                 settingsService.Load(),
                 new PresetResolver(emptyPresetsDir),
                 (_, _, _) => { loadAttempted = true; return Task.FromResult<(DataCache, Preset)?>(null); },
                 (_, _, _) => Task.CompletedTask,
-                () => fatalExitCalled = true);
+                () => fatalExitCalled = true));
 
             Assert.Null(window);
             Assert.True(fatalExitCalled);
@@ -215,13 +253,13 @@ namespace Foreman.Mac.UiTests {
             var warnings = new List<string>();
             bool fatalExitCalled = false;
 
-            var window = await ShellBootstrapper.BootAsync(
+            var window = await Bounded(ShellBootstrapper.BootAsync(
                 settingsService,
                 WelcomeOff(settingsService),
                 new PresetResolver(presetsDir),
                 (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
                 (_, _, message) => { warnings.Add(message); return Task.CompletedTask; },
-                () => fatalExitCalled = true);
+                () => fatalExitCalled = true));
 
             Assert.Null(window);
             Assert.True(fatalExitCalled);
@@ -238,14 +276,14 @@ namespace Foreman.Mac.UiTests {
             bool dataLoadUsed = false;
             MainWindow? before = MainWindow.MostRecentlyOpened;
             try {
-                MainWindow? window = await ShellBootstrapper.BootAsync(
+                MainWindow? window = await Bounded(ShellBootstrapper.BootAsync(
                     settingsService,
                     settings,
                     ResolverWithoutUserPresets(),
                     (_, _, _) => { dataLoadUsed = true; return Task.FromResult<(DataCache, Preset)?>(null); },
                     (_, _, _) => Task.CompletedTask,
                     () => { },
-                    () => Task.CompletedTask);
+                    () => Task.CompletedTask));
 
                 Assert.Null(window);
                 WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
@@ -256,7 +294,7 @@ namespace Foreman.Mac.UiTests {
                 Assert.Equal(WelcomeLoadPhase.Loading, welcome.ViewModel.Phase);
                 Assert.False(welcome.NewGraphButton.IsEnabled);
                 Assert.True(welcome.LoadingStrip.IsVisible);
-                Assert.Contains("Factorio 2.0 Vanilla", welcome.ViewModel.LoadSentence);
+                Assert.Contains("Factorio 2.1 Vanilla", welcome.ViewModel.LoadSentence);
 
                 gate.SetResult(cache);
                 await welcome.ViewModel.LoadTask;
@@ -265,7 +303,7 @@ namespace Foreman.Mac.UiTests {
                 Assert.True(welcome.NewGraphButton.IsEnabled);
                 Assert.Same(cache, ShellHost.Context.Cache);
                 Assert.Same(before, MainWindow.MostRecentlyOpened);
-                Assert.Equal("Factorio 2.0 Vanilla", settingsService.Load().CurrentPresetName);
+                Assert.Equal("Factorio 2.1 Vanilla", settingsService.Load().CurrentPresetName);
                 Assert.False(dataLoadUsed);
             } finally {
                 CloseWelcome();
@@ -282,20 +320,20 @@ namespace Foreman.Mac.UiTests {
             bool fatalExit = false;
             var warnings = new List<string>();
             try {
-                await ShellBootstrapper.BootAsync(
+                await Bounded(ShellBootstrapper.BootAsync(
                     settingsService,
                     settingsService.Load(),
                     ResolverWithoutUserPresets(),
                     (_, _, _) => { dataLoadUsed = true; return Task.FromResult<(DataCache, Preset)?>(null); },
                     (_, _, message) => { warnings.Add(message); return Task.CompletedTask; },
                     () => fatalExit = true,
-                    () => Task.CompletedTask);
+                    () => Task.CompletedTask));
                 WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
                 await welcome.ViewModel.LoadTask;
 
                 Assert.Equal(WelcomeLoadPhase.Failed, welcome.ViewModel.Phase);
                 Assert.True(welcome.ErrorPanel.IsVisible);
-                Assert.Equal("Couldn’t load “Factorio 2.0 Vanilla”", welcome.ErrorPanel.Headline);
+                Assert.Equal("Couldn’t load “Factorio 2.1 Vanilla”", welcome.ErrorPanel.Headline);
                 Button tryAgain = welcome.ErrorPanel.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Content, "Try Again"));
                 Assert.True(tryAgain.IsDefault);
                 Assert.DoesNotContain(welcome.GetVisualDescendants().OfType<Button>(), b => Equals(b.Content, "Use Default Preset"));
@@ -336,7 +374,7 @@ namespace Foreman.Mac.UiTests {
             GraphRow newest = store.Create("Newest", spaceAge, spaceAgeJson, 0, null, now.AddHours(-1));
             Preset? requested = null;
 
-            MainWindow? window = await ShellBootstrapper.BootAsync(
+            MainWindow? window = await Bounded(ShellBootstrapper.BootAsync(
                 settingsService,
                 settings,
                 ResolverWithoutUserPresets(),
@@ -346,7 +384,7 @@ namespace Foreman.Mac.UiTests {
                 },
                 (_, _, _) => Task.CompletedTask,
                 () => { },
-                () => Task.CompletedTask);
+                () => Task.CompletedTask));
 
             Assert.NotNull(window);
             Assert.Equal(spaceAge, requested!.Name);
@@ -367,14 +405,14 @@ namespace Foreman.Mac.UiTests {
             GraphRow failing = store.Create("Broken", "Factorio 2.0 Vanilla", "{}", 0, null, DateTime.UtcNow.AddHours(-1));
             DataCache cache = await LoadedVanillaCacheAsync();
 
-            Task<MainWindow?> booting = ShellBootstrapper.BootAsync(
+            Task<MainWindow?> booting = Bounded(ShellBootstrapper.BootAsync(
                 settingsService,
                 settings,
                 ResolverWithoutUserPresets(),
                 (preset, _, _) => Task.FromResult<(DataCache, Preset)?>((cache, preset)),
                 (_, _, _) => Task.CompletedTask,
                 () => { },
-                () => Task.CompletedTask);
+                () => Task.CompletedTask));
             await WaitUntilAsync(() => MainWindow.MostRecentlyOpened is { } opened
                 && SheetHost.For(opened).GetVisualDescendants().OfType<AlertSheet>().Any());
             MainWindow shown = MainWindow.MostRecentlyOpened!;
@@ -401,7 +439,7 @@ namespace Foreman.Mac.UiTests {
             (Preset Requested, Preset? Fallback)? call = null;
             var warnings = new List<string>();
 
-            MainWindow? window = await ShellBootstrapper.BootAsync(
+            MainWindow? window = await Bounded(ShellBootstrapper.BootAsync(
                 settingsService,
                 settings,
                 new PresetResolver(NewPresetsDirectoryWithVanillaAnd("Custom Preset"), NewTempHome()),
@@ -411,11 +449,11 @@ namespace Foreman.Mac.UiTests {
                 },
                 (_, _, message) => { warnings.Add(message); return Task.CompletedTask; },
                 () => { },
-                () => Task.CompletedTask);
+                () => Task.CompletedTask));
 
             Assert.NotNull(window);
             Assert.Equal("Custom Preset", call!.Value.Requested.Name);
-            Assert.Equal("Factorio 2.0 Vanilla", call.Value.Fallback!.Name);
+            Assert.Equal("Factorio 2.1 Vanilla", call.Value.Fallback!.Name);
             Assert.Empty(warnings);
             Assert.Equal("Untitled Graph", window.ViewModel.DocumentName);
             Assert.True(window.DataCache!.AvailableRecipes.Any());
@@ -428,7 +466,7 @@ namespace Foreman.Mac.UiTests {
 
             AppSettings reloaded = settingsService.Load();
             Assert.Equal(200, reloaded.IconsSize);
-            Assert.Equal("Factorio 2.0 Vanilla", reloaded.CurrentPresetName);
+            Assert.Equal("Factorio 2.1 Vanilla", reloaded.CurrentPresetName);
             Assert.Null(ShellHost.Context);
             Assert.False(ShellHost.HasLiveMainWindow);
         }
@@ -476,7 +514,7 @@ namespace Foreman.Mac.UiTests {
                 File.WriteAllText(second, json);
                 File.WriteAllText(other, "text");
 
-                Task opening = ShellHost.OpenFilesAsync([first, other, missing, second]);
+                Task opening = Bounded(ShellHost.OpenFilesAsync([first, other, missing, second]));
                 await WaitUntilAsync(() => opening.IsCompleted || SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>().Any());
                 AlertSheet alert = Assert.Single(SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>());
                 Assert.Equal("Couldn’t open “missing”.", alert.FrameControl.Headline);
@@ -494,7 +532,7 @@ namespace Foreman.Mac.UiTests {
                 Assert.Equal(currentData, after.Data);
                 Assert.Equal(currentNodes, after.NodeCount);
 
-                await ShellHost.OpenFilesAsync([first]);
+                await Bounded(ShellHost.OpenFilesAsync([first]));
 
                 Assert.Equal(3, library.Service.All().Count);
                 Assert.Equal(firstRow.Id, library.Service.OpenGraphId);
@@ -518,20 +556,20 @@ namespace Foreman.Mac.UiTests {
             WelcomeLauncher.CacheLoaderOverride = _ => gate.Task;
             var store = new GraphLibraryStore(settingsService.DatabasePath);
             try {
-                await ShellHost.OpenFilesAsync([early]);
+                await Bounded(ShellHost.OpenFilesAsync([early]));
                 Assert.Empty(store.ListByLastOpened());
 
-                await ShellBootstrapper.BootAsync(
+                await Bounded(ShellBootstrapper.BootAsync(
                     settingsService,
-                    settingsService.Load(),
+                    Factorio20Settings(settingsService),
                     ResolverWithoutUserPresets(),
                     (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
                     (_, _, _) => Task.CompletedTask,
                     () => { },
-                    () => Task.CompletedTask);
+                    () => Task.CompletedTask));
                 WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
                 Assert.Equal(WelcomeLoadPhase.Loading, welcome.ViewModel.Phase);
-                await ShellHost.OpenFilesAsync([loading]);
+                await Bounded(ShellHost.OpenFilesAsync([loading]));
                 Assert.Empty(store.ListByLastOpened());
 
                 gate.SetResult(cache);
@@ -560,19 +598,19 @@ namespace Foreman.Mac.UiTests {
             WelcomeLauncher.CacheLoaderOverride = _ => gate.Task;
             var store = new GraphLibraryStore(settingsService.DatabasePath);
             try {
-                await ShellBootstrapper.BootAsync(
+                await Bounded(ShellBootstrapper.BootAsync(
                     settingsService,
-                    settingsService.Load(),
+                    Factorio20Settings(settingsService),
                     ResolverWithoutUserPresets(),
                     (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
                     (_, _, _) => Task.CompletedTask,
                     () => { },
-                    () => Task.CompletedTask);
+                    () => Task.CompletedTask));
                 WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
                 Assert.Equal(WelcomeLoadPhase.Loading, welcome.ViewModel.Phase);
                 welcome.Close();
 
-                await ShellHost.OpenFilesAsync([file]);
+                await Bounded(ShellHost.OpenFilesAsync([file]));
                 Assert.Empty(store.ListByLastOpened());
                 Assert.False(ShellHost.HasLiveMainWindow);
 
@@ -597,19 +635,19 @@ namespace Foreman.Mac.UiTests {
             WelcomeLauncher.CacheLoaderOverride = _ => Task.FromResult<DataCache?>(null);
             var store = new GraphLibraryStore(settingsService.DatabasePath);
             try {
-                await ShellBootstrapper.BootAsync(
+                await Bounded(ShellBootstrapper.BootAsync(
                     settingsService,
-                    settingsService.Load(),
+                    Factorio20Settings(settingsService),
                     ResolverWithoutUserPresets(),
                     (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
                     (_, _, _) => Task.CompletedTask,
                     () => { },
-                    () => Task.CompletedTask);
+                    () => Task.CompletedTask));
                 WelcomeWindow failed = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
                 await failed.ViewModel.LoadTask;
                 Assert.Equal(WelcomeLoadPhase.Failed, failed.ViewModel.Phase);
                 failed.Close();
-                await ShellHost.OpenFilesAsync([file]);
+                await Bounded(ShellHost.OpenFilesAsync([file]));
 
                 await ShellHost.ReopenAsync();
 
@@ -630,16 +668,16 @@ namespace Foreman.Mac.UiTests {
             File.WriteAllText(file, await EmptyVanillaGraphJsonAsync());
             DataCache vanillaCache = await LoadedVanillaCacheAsync();
             try {
-                await ShellHost.OpenFilesAsync([file]);
+                await Bounded(ShellHost.OpenFilesAsync([file]));
 
-                MainWindow? window = await ShellBootstrapper.BootAsync(
+                MainWindow? window = await Bounded(ShellBootstrapper.BootAsync(
                     settingsService,
                     settings,
                     new PresetResolver(NewPresetsDirectoryWithVanillaAnd("Custom Preset"), NewTempHome()),
-                    (_, fallback, _) => Task.FromResult<(DataCache, Preset)?>((vanillaCache, fallback!)),
+                    (requested, _, _) => Task.FromResult<(DataCache, Preset)?>((vanillaCache, requested)),
                     (_, _, _) => Task.CompletedTask,
                     () => { },
-                    () => Task.CompletedTask);
+                    () => Task.CompletedTask));
 
                 Assert.NotNull(window);
                 Assert.Equal("dropped", window.ViewModel.DocumentName);
@@ -661,9 +699,9 @@ namespace Foreman.Mac.UiTests {
                 string second = Path.Combine(dir, "b.fjson");
                 File.WriteAllText(second, await EmptyVanillaGraphJsonAsync());
 
-                Task first = ShellHost.OpenFilesAsync([Path.Combine(dir, "missing.fjson")]);
+                Task first = Bounded(ShellHost.OpenFilesAsync([Path.Combine(dir, "missing.fjson")]));
                 await WaitUntilAsync(() => SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>().Any());
-                await ShellHost.OpenFilesAsync([second]);
+                await Bounded(ShellHost.OpenFilesAsync([second]));
                 Assert.DoesNotContain(library.Service.All(), r => r.Name == "b");
                 AlertSheet alert = Assert.Single(SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>());
                 alert.YesButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
@@ -687,18 +725,18 @@ namespace Foreman.Mac.UiTests {
             WelcomeLauncher.CacheLoaderOverride = _ => Task.FromResult<DataCache?>(cache);
             MainWindow? before = MainWindow.MostRecentlyOpened;
             try {
-                await ShellBootstrapper.BootAsync(
+                await Bounded(ShellBootstrapper.BootAsync(
                     settingsService,
-                    settingsService.Load(),
+                    Factorio20Settings(settingsService),
                     ResolverWithoutUserPresets(),
                     (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
                     (_, _, _) => Task.CompletedTask,
                     () => { },
-                    () => Task.CompletedTask);
+                    () => Task.CompletedTask));
                 WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
                 await welcome.ViewModel.LoadTask;
 
-                Task opening = ShellHost.OpenFilesAsync([missing]);
+                Task opening = Bounded(ShellHost.OpenFilesAsync([missing]));
                 await WaitUntilAsync(() => SheetHost.For(welcome).GetVisualDescendants().OfType<AlertSheet>().Any());
                 AlertSheet alert = Assert.Single(SheetHost.For(welcome).GetVisualDescendants().OfType<AlertSheet>());
                 Assert.Equal("Couldn’t open “missing”.", alert.FrameControl.Headline);
@@ -718,14 +756,16 @@ namespace Foreman.Mac.UiTests {
             var settingsService = new SettingsService(NewTempHome());
             DataCache cache = await LoadedVanillaCacheAsync();
             WelcomeLauncher.CacheLoaderOverride = _ => Task.FromResult<DataCache?>(cache);
-            await ShellBootstrapper.BootAsync(
+            AppSettings settings = settingsService.Load();
+            settings.CurrentPresetName = "Factorio 2.0 Vanilla";
+            await Bounded(ShellBootstrapper.BootAsync(
                 settingsService,
-                settingsService.Load(),
+                settings,
                 ResolverWithoutUserPresets(),
                 (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
                 (_, _, _) => Task.CompletedTask,
                 () => { },
-                () => Task.CompletedTask);
+                () => Task.CompletedTask));
             WelcomeWindow welcome = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
             await welcome.ViewModel.LoadTask;
             return welcome;
@@ -863,7 +903,7 @@ namespace Foreman.Mac.UiTests {
 
                 string dropped = Path.Combine(dir, "dropped.fjson");
                 File.WriteAllText(dropped, await VanillaGraphJsonWithASupplierAsync());
-                await ShellHost.OpenFilesAsync([dropped]);
+                await Bounded(ShellHost.OpenFilesAsync([dropped]));
                 Assert.True(ShellHost.HasLiveMainWindow);
                 Assert.NotNull(context.Library.OpenGraphId);
             } finally {
@@ -1007,7 +1047,7 @@ namespace Foreman.Mac.UiTests {
 
                 Task<bool> opening = WelcomeLauncher.OpenPathAsync(ShellHost.Context!, Path.Combine(dir, "missing.fjson"));
                 await WaitUntilAsync(() => AlertsOn(window).Count == 1);
-                await ShellHost.OpenFilesAsync([file]);
+                await Bounded(ShellHost.OpenFilesAsync([file]));
 
                 Assert.DoesNotContain(library.Service.All(), r => r.Name == "b");
                 AlertsOn(window)[0].Cancel();
@@ -1033,7 +1073,7 @@ namespace Foreman.Mac.UiTests {
                 string bad = Path.Combine(library.NewTempDir(), "bad.fjson");
                 File.WriteAllText(bad, broken);
 
-                Task opening = ShellHost.OpenFilesAsync([bad]);
+                Task opening = Bounded(ShellHost.OpenFilesAsync([bad]));
                 await WaitUntilAsync(() => SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>().Any());
                 Assert.Single(SheetHost.For(window).GetVisualDescendants().OfType<AlertSheet>()).YesButtonControl.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
                 await opening;
@@ -1054,14 +1094,14 @@ namespace Foreman.Mac.UiTests {
             WelcomeLauncher.CacheLoaderOverride = loader;
             AppSettings settings = settingsService.Load();
             settings.CurrentPresetName = presetName;
-            await ShellBootstrapper.BootAsync(
+            await Bounded(ShellBootstrapper.BootAsync(
                 settingsService,
                 settings,
                 resolver ?? ResolverWithoutUserPresets(),
                 (_, _, _) => Task.FromResult<(DataCache, Preset)?>(null),
                 (_, _, _) => Task.CompletedTask,
                 () => { },
-                () => Task.CompletedTask);
+                () => Task.CompletedTask));
             return Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
         }
 
@@ -1098,7 +1138,7 @@ namespace Foreman.Mac.UiTests {
                 Task opening = welcome.OpenRowAsync(row);
                 await WaitUntilAsync(() => AlertsOn(welcome).Count == 1);
 
-                await ShellHost.OpenFilesAsync([file]);
+                await Bounded(ShellHost.OpenFilesAsync([file]));
 
                 Assert.DoesNotContain(store.ListByLastOpened(), r => r.Name == "b");
                 Assert.Same(welcome, WelcomeLauncher.Current);
@@ -1127,7 +1167,7 @@ namespace Foreman.Mac.UiTests {
 
                 Task opening = window.OpenGraphFileAsync();
                 await WaitUntilAsync(() => AlertsOn(window).Count == 1);
-                await ShellHost.OpenFilesAsync([file]);
+                await Bounded(ShellHost.OpenFilesAsync([file]));
 
                 Assert.DoesNotContain(library.Service.All(), r => r.Name == "b");
                 AlertsOn(window)[0].Cancel();
@@ -1252,7 +1292,7 @@ namespace Foreman.Mac.UiTests {
                 WelcomeWindow welcome = await BootWelcomeAsync(settingsService, _ => Task.FromResult<DataCache?>(cache));
                 await welcome.ViewModel.LoadTask;
 
-                Task opening = ShellHost.OpenFilesAsync([bad]);
+                Task opening = Bounded(ShellHost.OpenFilesAsync([bad]));
                 await WaitUntilAsync(() => AlertsOn(welcome).Count == 1);
 
                 Assert.Equal("Couldn’t open “bad”.", AlertsOn(welcome)[0].FrameControl.Headline);
@@ -1286,11 +1326,11 @@ namespace Foreman.Mac.UiTests {
                 await ShellHost.ReopenAsync();
 
                 WelcomeWindow second = Assert.IsType<WelcomeWindow>(WelcomeLauncher.Current);
-                Assert.Equal(["Factorio 2.0 Vanilla"], names);
+                Assert.Equal(["Factorio 2.1 Vanilla"], names);
                 gate.SetResult(cache);
                 await WaitUntilAsync(() => second.ViewModel.ActionsEnabled);
-                Assert.Equal(["Factorio 2.0 Vanilla"], names);
-                Assert.Equal("Factorio 2.0 Vanilla", ShellHost.Context!.Settings.CurrentPresetName);
+                Assert.Equal(["Factorio 2.1 Vanilla"], names);
+                Assert.Equal("Factorio 2.1 Vanilla", ShellHost.Context!.Settings.CurrentPresetName);
             } finally {
                 CloseWelcome();
             }
@@ -1310,7 +1350,7 @@ namespace Foreman.Mac.UiTests {
                 MainWindow? live = await ShellHost.LiveWindowAsync();
 
                 Assert.NotNull(live);
-                Assert.Equal(["Factorio 2.0 Vanilla"], names);
+                Assert.Equal(["Factorio 2.1 Vanilla"], names);
                 Assert.Same(cache, live.DataCache);
                 CloseWithoutWelcome(live);
             } finally {
@@ -1611,7 +1651,7 @@ namespace Foreman.Mac.UiTests {
                 MainWindow document = ShellHost.Context!.Window!;
                 WelcomeWindow welcome = WelcomeLauncher.Show(ShellHost.Context)!;
 
-                Task opening = ShellHost.OpenFilesAsync([bad]);
+                Task opening = Bounded(ShellHost.OpenFilesAsync([bad]));
                 await WaitUntilAsync(() => AlertsOn(welcome).Count == 1);
 
                 Assert.Empty(AlertsOn(document));
@@ -1676,14 +1716,14 @@ namespace Foreman.Mac.UiTests {
             bool warmupInvoked = false;
 
             var stopwatch = Stopwatch.StartNew();
-            var window = await ShellBootstrapper.BootAsync(
+            var window = await Bounded(ShellBootstrapper.BootAsync(
                 settingsService,
                 WelcomeOff(settingsService),
                 new PresetResolver(),
                 ShellBootstrapper.LoadPresetAsync,
                 (_, _, _) => Task.CompletedTask,
                 () => { },
-                () => { warmupInvoked = true; return new TaskCompletionSource().Task; });
+                () => { warmupInvoked = true; return new TaskCompletionSource().Task; }));
             stopwatch.Stop();
 
             Assert.NotNull(window);

@@ -114,18 +114,15 @@ namespace Foreman.Mac.Views.Sheets {
             presetNameRow.NoteIsWarning = filtered.Length < 5;
             if (filtered.Length < 5)
                 SetNameProblem(null, warning: false);
-            else if (IsBuiltInName(filtered))
-                SetNameProblem(BuiltInNameSentence, warning: false);
+            else if (Services.PresetResolver.BundledPresetNameMatching(filtered) is { } builtIn)
+                SetNameProblem(BuiltInNameSentence(builtIn), warning: false);
             else if (existingPresets.Any(p => string.Equals(p.Name, filtered, StringComparison.OrdinalIgnoreCase)))
                 SetNameProblem("This name is in use. Importing replaces that preset.", warning: true);
             else
                 SetNameProblem(null, warning: false);
         }
 
-        private static string BuiltInNameSentence => $"“{Services.PresetResolver.DefaultPresetName}” is built in and can’t be replaced. Choose another name.";
-
-        private static bool IsBuiltInName(string name) =>
-            string.Equals(name, Services.PresetResolver.DefaultPresetName, StringComparison.OrdinalIgnoreCase);
+        private static string BuiltInNameSentence(string name) => $"“{name}” is built in and can’t be replaced. Choose another name.";
 
         private void SetNameProblem(string? sentence, bool warning) {
             presetNameRow.ErrorIsWarning = warning;
@@ -206,8 +203,8 @@ namespace Foreman.Mac.Views.Sheets {
                 return;
             }
 
-            if (IsBuiltInName(NewPresetName)) {
-                ShowFieldProblem(presetNameRow, presetNameTextBox, BuiltInNameSentence);
+            if (Services.PresetResolver.BundledPresetNameMatching(NewPresetName) is { } builtIn) {
+                ShowFieldProblem(presetNameRow, presetNameTextBox, BuiltInNameSentence(builtIn));
                 return;
             }
             if (existingPresets.Any(p => string.Equals(p.Name, NewPresetName, StringComparison.OrdinalIgnoreCase))) {

@@ -446,7 +446,7 @@ namespace Foreman.Mac.UiTests {
             bool comparatorPopulated = false;
             settingsWindow!.ComparePresetsDialogStub = async presets => {
                 var comparator = new PresetComparatorWindow(presets) {
-                    LoadCacheStub = preset => Task.FromResult(new DataLoadResult(preset.Name == VanillaPresetName ? comparatorVanilla : preset.Name == SpaceAgePresetName ? comparatorSpaceAge : null, DataLoadOutcome.Loaded)),
+                    LoadCacheStub = preset => Task.FromResult(new DataLoadResult(preset.Name == VanillaPresetName ? comparatorVanilla : comparatorSpaceAge, DataLoadOutcome.Loaded)),
                 };
                 await comparator.SimulateCompareClickAsync().ConfigureAwait(true);
                 comparatorPopulated = comparator.LeftCache is not null && comparator.RightCache is not null;

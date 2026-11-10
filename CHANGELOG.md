@@ -9,6 +9,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- New graphs start on Factorio 2.1 Vanilla. A preset you already chose stays as it is, and none of the
+  four built-in presets can be replaced by an import or deleted from Settings.
 - Each preset in Settings, the Welcome window and the Preset Comparator shows the Factorio version
   it came from, and presets made by an older version of Foreman say so. After such a preset loads,
   Foreman tells you to import it again from Factorio to get the latest fixes.
