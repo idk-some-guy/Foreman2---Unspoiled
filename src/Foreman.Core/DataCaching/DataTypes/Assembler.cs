@@ -11,6 +11,7 @@ namespace Foreman.DataCaching.DataTypes {
 
         bool AllowBeacons { get; }
         bool AllowModules { get; }
+        EffectLimits EffectLimits { get; }
     }
 
     internal class AssemblerPrototype(DataCache dCache, string name, string friendlyName, EntityType type, EnergySource source, bool isMissing = false) : EntityObjectBasePrototype(dCache, name, friendlyName, type, source, isMissing), IAssembler {
@@ -23,6 +24,7 @@ namespace Foreman.DataCaching.DataTypes {
 
         public bool AllowBeacons { get; internal set; }  //assumed to be default? no info in LUA
         public bool AllowModules { get; internal set; }  //assumed to be default? no info in LUA
+        public EffectLimits EffectLimits { get; internal set; } = EffectLimits.Legacy;
 
         private readonly HashSet<RecipePrototype> _recipes = [];
         internal HashSet<RecipePrototype> RecipesInternal => _recipes;
