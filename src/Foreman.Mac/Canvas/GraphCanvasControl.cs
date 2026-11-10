@@ -104,7 +104,7 @@ namespace Foreman.Mac.Canvas {
             Child = overlay;
             FloatingPanelHost = new FloatingPanelHost(overlay, Viewport, this);
             Viewer.Context.SetClipboardText = SetClipboardText;
-            Viewer.Context.GetClipboardText = GetClipboardText;
+            Viewer.Context.GetClipboardTextAsync = GetClipboardTextAsync;
             Viewer.Context.StartLinkDrag = StartLinkDrag;
             Viewer.Context.EditNode = EditNode;
             Viewer.ShowAnnotationPropertiesDialog = ShowAnnotationProperties;
@@ -245,16 +245,26 @@ namespace Foreman.Mac.Canvas {
             RequestRedraw();
         }
 
-        //Adapts Avalonia's async IClipboard to the plain synchronous delegates BaseNodeElement's menu
-        //building expects (reference §4b copy/paste, upstream's WinForms Clipboard is synchronous) - see
+        //Fire-and-forget clipboard write, matching upstream's WinForms Clipboard.SetText - see
         //docs/upstream-divergences.md.
         private void SetClipboardText(string text) {
             if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
                 Async.Fire(clipboard.SetTextAsync(text), nameof(SetClipboardText));
         }
 
-        private string? GetClipboardText() =>
-            TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard ? clipboard.TryGetTextAsync().GetAwaiter().GetResult() : null;
+        internal Func<Task<string?>>? ClipboardReader { get; set; }
+
+        //A sync clipboard read on the UI thread deadlocks X11.
+        private async Task<string?> GetClipboardTextAsync() {
+            try {
+                if (ClipboardReader is { } reader)
+                    return await reader();
+                return TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard ? await clipboard.TryGetTextAsync() : null;
+            } catch (Exception ex) {
+                ErrorLogging.LogException(ex, "Failed to read the clipboard");
+                return null;
+            }
+        }
 
         //Test-only seams (nothing outside Foreman.Mac.UiTests reads these): the entries and the real
         //Avalonia ContextMenu most recently built for a right click, so tests can assert content/routing
@@ -274,6 +284,15 @@ namespace Foreman.Mac.Canvas {
         internal void RequestRedraw() {
             RedrawRequestCount++;
             InvalidateVisual();
+        }
+
+        private int interactionGeneration;
+
+        private async Task ShowNodeContextMenuAsync(BaseNodeElement node, DrawingPoint graphPoint) {
+            int generation = interactionGeneration;
+            List<MenuEntry> entries = await node.MouseUpRightAsync(graphPoint);
+            if (generation == interactionGeneration && Viewer.NodeElementDictionary.TryGetValue(node.ViewModel.Id, out BaseNodeElement? live) && live == node)
+                ShowContextMenu(entries);
         }
 
         private void ShowContextMenu(List<MenuEntry> entries) {
@@ -328,6 +347,7 @@ namespace Foreman.Mac.Canvas {
         //§2); Focus() picks up keyboard input (arrow keys, Shift axis-lock) the same click starts.
         protected override void OnPointerPressed(PointerPressedEventArgs e) {
             base.OnPointerPressed(e);
+            interactionGeneration++;
             AvaloniaPoint screenPoint = e.GetPosition(this);
 
             //Ports ToolTipRenderer.ClearFloatingControls() being the first statement in
@@ -566,7 +586,7 @@ namespace Foreman.Mac.Canvas {
                     } else if (CurrentDragOperation is not (DragOperation.Selection or DragOperation.Item)) {
                         GraphElement? rightClickTarget = HitTest(e.GetPosition(this));
                         if (rightClickTarget is BaseNodeElement rightClickedNode)
-                            ShowContextMenu(rightClickedNode.MouseUpRight(graphPoint));
+                            Async.Fire(ShowNodeContextMenuAsync(rightClickedNode, graphPoint), nameof(ShowNodeContextMenuAsync));
                         else if (rightClickTarget is AnnotationElement rightClickedAnnotation)
                             ShowContextMenu(rightClickedAnnotation.BuildRightClickMenu());
                         else if (CurrentDragOperation == DragOperation.None)
@@ -1058,13 +1078,19 @@ namespace Foreman.Mac.Canvas {
                 return true;
             }
             if (key == Key.V) {
-                if (Viewer.Context.DCache is DataCache cache && Viewer.Context.GetClipboardText?.Invoke() is string clipboardText) {
-                    AvaloniaPoint cursorScreenPoint = hoverScreenPoint ?? new AvaloniaPoint(Viewport.Width / 2, Viewport.Height / 2);
-                    NodeClipboard.Paste(Viewer, cache, clipboardText, Viewport.ScreenToGraph(cursorScreenPoint));
-                }
+                interactionGeneration++;
+                AvaloniaPoint cursorScreenPoint = hoverScreenPoint ?? new AvaloniaPoint(Viewport.Width / 2, Viewport.Height / 2);
+                Async.Fire(PasteFromClipboardAsync(cursorScreenPoint), nameof(PasteFromClipboardAsync));
                 return true;
             }
             return false;
+        }
+
+        private async Task PasteFromClipboardAsync(AvaloniaPoint cursorScreenPoint) {
+            if (Viewer.Context.DCache is DataCache cache && Viewer.Context.GetClipboardTextAsync is { } read && await read() is string clipboardText) {
+                NodeClipboard.Paste(Viewer, cache, clipboardText, Viewport.ScreenToGraph(cursorScreenPoint));
+                RequestRedraw();
+            }
         }
 
         //Ports ProductionGraphViewer_KeyUp's Delete case (reference §7): annotations-if-any-selected, else

@@ -7,6 +7,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Right-clicking a node or pressing Ctrl+V on Linux no longer freezes Foreman.
+
 ## [1.0.1] - 2026-09-03
 
 ### Fixed

@@ -152,9 +152,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             Fixture fx = NewFixture();
             ItemQualityPair item = fx.Pair(fx.NewItem("iron-ore"));
             SupplierNodeElement node = AddSupplier(fx, item, Point.Empty);
-            fx.Control.Viewer.Context.GetClipboardText = () => GraphSaveCodec.WriteKeyNodeClipboardToString(true, "My Key Node");
+            string clipboardText = GraphSaveCodec.WriteKeyNodeClipboardToString(true, "My Key Node");
 
-            var entries = node.BuildRightClickMenu();
+            var entries = node.BuildRightClickMenu(clipboardText);
 
             Assert.Equal("Paste key node status", entries[^1].Caption);
         }
@@ -166,9 +166,8 @@ namespace Foreman.Mac.UiTests.Canvas {
             Fixture fx = NewFixture();
             ItemQualityPair item = fx.Pair(fx.NewItem("iron-ore"));
             SupplierNodeElement node = AddSupplier(fx, item, Point.Empty);
-            fx.Control.Viewer.Context.GetClipboardText = () => clipboardText;
 
-            var entries = node.BuildRightClickMenu();
+            var entries = node.BuildRightClickMenu(clipboardText);
 
             Assert.DoesNotContain(entries, e => e.Caption == "Paste key node status");
         }
@@ -180,9 +179,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             SupplierNodeElement selected = AddSupplier(fx, item, new Point(-300, 0));
             SupplierNodeElement unselected = AddSupplier(fx, item, new Point(300, 0));
             fx.Control.Viewer.SetSelection([selected]);
-            fx.Control.Viewer.Context.GetClipboardText = () => GraphSaveCodec.WriteKeyNodeClipboardToString(true, "My Key Node");
+            string clipboardText = GraphSaveCodec.WriteKeyNodeClipboardToString(true, "My Key Node");
 
-            var entries = unselected.BuildRightClickMenu();
+            var entries = unselected.BuildRightClickMenu(clipboardText);
 
             Assert.DoesNotContain(entries, e => e.Caption == "Paste key node status");
         }
@@ -207,9 +206,9 @@ namespace Foreman.Mac.UiTests.Canvas {
             Fixture fx = NewFixture();
             ItemQualityPair item = fx.Pair(fx.NewItem("iron-ore"));
             SupplierNodeElement node = AddSupplier(fx, item, Point.Empty);
-            fx.Control.Viewer.Context.GetClipboardText = () => GraphSaveCodec.WriteKeyNodeClipboardToString(true, "Pasted Title");
+            string clipboardText = GraphSaveCodec.WriteKeyNodeClipboardToString(true, "Pasted Title");
 
-            node.BuildRightClickMenu().Single(e => e.Caption == "Paste key node status").Invoke!.Invoke();
+            node.BuildRightClickMenu(clipboardText).Single(e => e.Caption == "Paste key node status").Invoke!.Invoke();
 
             Assert.True(node.ViewModel.KeyNode);
             Assert.Equal("Pasted Title", node.ViewModel.KeyNodeTitle);
