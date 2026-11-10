@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using CommunityToolkit.Mvvm.Input;
 using Foreman.Mac;
@@ -14,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using SkiaSharp;
 using KitPickGrid = Foreman.Mac.Kit.Composites.PickGrid;
 
 namespace Foreman.Mac.Views.Inspector {
@@ -44,6 +46,9 @@ namespace Foreman.Mac.Views.Inspector {
         private readonly KitPickGrid beaconModuleOptionsGrid;
         private readonly InspectorGroup beaconGroup;
         private readonly StatePanel recipeErrorPanel;
+        private readonly Image recipeQualityIcon;
+        private readonly Button switchQualityButton;
+        private readonly Dictionary<SKBitmap, Bitmap> qualityIconCache = [];
         private GraphViewer? boundViewer;
         private bool lastHasBeacon;
 
@@ -51,6 +56,8 @@ namespace Foreman.Mac.Views.Inspector {
 
         public event EventHandler? OpenPresetsRequested;
         public event EventHandler<IRecipeNodeViewModel>? PickAnotherRecipeRequested;
+
+        public event EventHandler? QualitySwitched;
 
         public event EventHandler<ProductionGraph.RateUnit>? RateUnitChanged;
 
@@ -90,6 +97,12 @@ namespace Foreman.Mac.Views.Inspector {
             beaconModuleOptionsGrid = this.FindControl<KitPickGrid>("BeaconModuleOptionsGrid")!;
             beaconGroup = this.FindControl<InspectorGroup>("BeaconGroup")!;
             recipeErrorPanel = this.FindControl<StatePanel>("RecipeErrorPanel")!;
+            recipeQualityIcon = this.FindControl<Image>("RecipeQualityIcon")!;
+            switchQualityButton = this.FindControl<Button>("SwitchQualityButton")!;
+            switchQualityButton.Click += (_, _) => {
+                ViewModel?.SwitchToLowestQuality();
+                QualitySwitched?.Invoke(this, EventArgs.Empty);
+            };
             var openPresetsButton = new Button { Content = "Open Presets…", Theme = KitTheme("Kit.Button") };
             ButtonRow.SetRole(openPresetsButton, ButtonRowRole.Other);
             openPresetsButton.Click += (_, _) => OpenPresetsRequested?.Invoke(this, EventArgs.Empty);
@@ -160,12 +173,19 @@ namespace Foreman.Mac.Views.Inspector {
             };
             beaconModuleOptionsGrid.CellClicked += BeaconModuleOptionsGrid_CellClicked;
 
-            DetachedFromVisualTree += (_, _) => Detach();
+            DetachedFromVisualTree += (_, _) => {
+                Detach();
+                recipeQualityIcon.Source = null;
+                foreach (Bitmap bitmap in qualityIconCache.Values)
+                    bitmap.Dispose();
+                qualityIconCache.Clear();
+            };
         }
 
         private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
         private const string NoBeaconName = "No beacon";
+        private const int QualityIconSize = 16;
 
         internal void Bind(IRecipeNodeViewModel node, GraphViewer viewer, DataCache cache, Action? requestRedraw = null) {
             Detach();
@@ -285,6 +305,7 @@ namespace Foreman.Mac.Views.Inspector {
         private void UpdateChoiceRows() {
             if (ViewModel is null)
                 return;
+            recipeQualityIcon.Source = ViewModel.RecipeQualityIcon is SKBitmap qualityIcon ? IconBaker.GetOrBake(qualityIconCache, qualityIcon, QualityIconSize) : null;
             UpdateChoiceRow(assemblerRow, assemblerChoiceGrid, assemblerValueLine, assemblerValueLineIcon, assemblerValueLineText,
                 assemblerFallbackPopUp, ViewModel.AssemblerOptions, ViewModel.SelectedAssembler,
                 "No enabled building crafts this recipe.", includeNone: false, statsSuffix: ViewModel.AssemblerStats,

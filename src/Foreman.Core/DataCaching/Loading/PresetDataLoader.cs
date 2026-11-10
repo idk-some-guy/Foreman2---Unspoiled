@@ -363,6 +363,7 @@ namespace Foreman.DataCaching.Loading {
             RecipePrototype recipe = new(_owner, name, localisedName, sgProto, order) {
                 HiddenInGame = PresetJson.GetBool(objJsonNode, "hidden") is true,
                 HideFromPlayerCrafting = PresetJson.GetBool(objJsonNode, "hide_from_player_crafting") is true,
+                CanSetQuality = PresetJson.GetBool(objJsonNode, "can_set_quality") is not false,
 
                 Time = PresetJson.GetDouble(objJsonNode, "energy") ?? default
             };

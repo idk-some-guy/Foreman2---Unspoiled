@@ -30,9 +30,12 @@ namespace Foreman.Mac.UiTests.support {
         }
 
         //A cold cache load awaited on this thread deadlocks on its SynchronizationContext, so it runs through Task.Run.
-        public static ShellFixture OpenWithSpaceAge() {
+        public static ShellFixture OpenWithSpaceAge() => OpenWithCache(Task.Run(InspectorTestSupport.GetSpaceAgeCacheAsync).GetAwaiter().GetResult());
+
+        public static ShellFixture OpenWithSpaceAge21() => OpenWithCache(Task.Run(InspectorTestSupport.GetSpaceAge21CacheAsync).GetAwaiter().GetResult());
+
+        private static ShellFixture OpenWithCache(DataCache cache) {
             WindowScaler.SetScale(1.0);
-            DataCache cache = Task.Run(InspectorTestSupport.GetSpaceAgeCacheAsync).GetAwaiter().GetResult();
             var window = new MainWindow();
             window.Show();
             window.DataCache = cache;

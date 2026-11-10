@@ -79,6 +79,17 @@ namespace Foreman.Mac.ViewModels {
         public string CurrentQualityName { get; private set; } = "";
         public SKBitmap? CurrentQualityIcon { get; private set; }
 
+        public bool ShowsRecipeQualityRow { get; private set; }
+        public bool ShowsRecipeQualityGroup { get; private set; }
+        public string RecipeQualityName { get; private set; } = "";
+        public SKBitmap? RecipeQualityIcon { get; private set; }
+        public string? RecipeQualityNote { get; private set; }
+        public string RecipeQualityHelp { get; private set; } = "";
+        public bool ShowsRecipeQualityWarning { get; private set; }
+        public string RecipeQualitySentence { get; private set; } = "";
+        public string SwitchQualityLabel { get; private set; } = "";
+        public string SwitchQualityHelp { get; private set; } = "";
+
         public RecipeCardViewModel? Card { get; private set; }
         public bool HasCard => Card is not null;
 
@@ -359,6 +370,33 @@ namespace Foreman.Mac.ViewModels {
             OnPropertyChanged(nameof(CurrentQualityName));
             CurrentQualityIcon = node.SelectedAssembler.Quality.Icon;
             OnPropertyChanged(nameof(CurrentQualityIcon));
+            RefreshRecipeQuality(qualities.Count);
+        }
+
+        private void RefreshRecipeQuality(int enabledQualityCount) {
+            IQuality lowest = RecipeQualityLock.LowestEnabled(Cache);
+            IQuality? recipeQuality = node.BaseRecipe.Quality;
+            bool cannotSet = node.BaseRecipe.Recipe is { CanSetQuality: false };
+            bool aboveLowest = cannotSet && recipeQuality is not null && recipeQuality.Level > lowest.Level;
+
+            ShowsRecipeQualityRow = !HasRecipeError && recipeQuality is not null && (enabledQualityCount > 1 || aboveLowest);
+            RecipeQualityName = recipeQuality?.FriendlyName ?? "";
+            RecipeQualityIcon = recipeQuality?.Icon;
+            RecipeQualitySentence = $"This recipe can only be crafted at {lowest.FriendlyName} quality.";
+            RecipeQualityNote = aboveLowest ? null : cannotSet ? RecipeQualitySentence : "Set when the node is added.";
+            RecipeQualityHelp = RecipeQualityNote ?? RecipeQualitySentence;
+            ShowsRecipeQualityWarning = ShowsRecipeQualityRow && aboveLowest;
+            ShowsRecipeQualityGroup = ShowsRecipeQualityRow || ShowsRecipeQualityWarning;
+            SwitchQualityLabel = $"Switch to {lowest.FriendlyName} Quality";
+            SwitchQualityHelp = $"Replaces this node with a {lowest.FriendlyName} quality copy. Its settings stay; links for items the copy doesn\u2019t make are removed.";
+            foreach (string name in new[] { nameof(ShowsRecipeQualityRow), nameof(ShowsRecipeQualityGroup), nameof(RecipeQualityName), nameof(RecipeQualityIcon), nameof(RecipeQualityNote),
+                nameof(RecipeQualityHelp), nameof(ShowsRecipeQualityWarning), nameof(RecipeQualitySentence), nameof(SwitchQualityLabel), nameof(SwitchQualityHelp) })
+                OnPropertyChanged(name);
+        }
+
+        public void SwitchToLowestQuality() {
+            controller.SwitchToLowestQuality();
+            viewer.Graph.UpdateNodeValues();
         }
 
         public void PickQuality(PickGridItem item) {

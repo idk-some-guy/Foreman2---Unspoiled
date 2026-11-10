@@ -17,6 +17,11 @@ namespace Foreman {
     public class NodeEventArgs(BaseNode node) : EventArgs {
         public BaseNode Node { get; } = node;
     }
+    public class NodeReplacedEventArgs(BaseNode oldNode, BaseNode newNode, int removedLinkCount) : EventArgs {
+        public BaseNode Old { get; } = oldNode;
+        public BaseNode New { get; } = newNode;
+        public int RemovedLinkCount { get; } = removedLinkCount;
+    }
     public class NodeLinkEventArgs(NodeLink link) : EventArgs {
         public NodeLink Link { get; } = link;
     }
@@ -96,6 +101,7 @@ namespace Foreman {
 
         public event EventHandler<NodeEventArgs>? NodeAdded;
         public event EventHandler<NodeEventArgs>? NodeDeleted;
+        public event EventHandler<NodeReplacedEventArgs>? NodeReplaced;
         public event EventHandler<NodeLinkEventArgs>? LinkAdded;
         public event EventHandler<NodeLinkEventArgs>? LinkDeleted;
         public event EventHandler<EventArgs>? NodeValuesUpdated;
@@ -217,6 +223,42 @@ namespace Foreman {
             Bump();
             LinkAdded?.Invoke(this, new NodeLinkEventArgs(link));
             return link;
+        }
+
+        internal NodeReplacement ReplaceRecipeNodeQuality(RecipeNode old, IQuality quality) {
+            RecipeNode copy = CreateRecipeNode(new RecipeQualityPair(old.BaseRecipe.Recipe!, quality), old.Location, node => {
+                node.NodeDirection = old.NodeDirection;
+                node.SelectedAssembler = old.SelectedAssembler;
+                node.Fuel = old.Fuel;
+                if (node.FuelRemains != old.FuelRemains)
+                    node.SetBurntOverride(old.FuelRemains);
+                node.AssemblerModulesAddRange(old.AssemblerModules);
+                node.SelectedBeacon = old.SelectedBeacon;
+                node.BeaconModulesAddRange(old.BeaconModules);
+                node.BeaconCount = old.BeaconCount;
+                node.BeaconsPerAssembler = old.BeaconsPerAssembler;
+                node.BeaconsConst = old.BeaconsConst;
+                node.NeighbourCount = old.NeighbourCount;
+                node.ExtraProductivityBonus = old.ExtraProductivityBonus;
+                node.LowPriority = old.LowPriority;
+                node.RateType = old.RateType;
+                node.DesiredSetValue = old.DesiredSetValue;
+                node.KeyNode = old.KeyNode;
+                node.KeyNodeTitle = old.KeyNodeTitle;
+            });
+            int removed = 0;
+            foreach (NodeLink link in old.InputLinks.Concat(old.OutputLinks).Distinct().ToList()) {
+                BaseNode supplier = link.SupplierNode == old ? copy : link.SupplierNode;
+                BaseNode consumer = link.ConsumerNode == old ? copy : link.ConsumerNode;
+                if (supplier.Outputs.Contains(link.Item) && consumer.Inputs.Contains(link.Item))
+                    CreateLink(supplier, consumer, link.Item, link.Routing).Waypoints = [.. link.Waypoints];
+                else
+                    removed++;
+            }
+
+            NodeReplaced?.Invoke(this, new NodeReplacedEventArgs(old, copy, removed));
+            DeleteNode(old);
+            return new NodeReplacement(old, copy, removed);
         }
 
         public void DeleteNode(BaseNode node) {

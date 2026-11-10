@@ -454,13 +454,18 @@ namespace Foreman.Mac.Canvas.Elements {
             return $"{NodeCardPainter.Number(rate)} per {NodeCardPainter.UnitWord(Context.RateUnit)}";
         }
 
+        private static string SpokenNotice(string notice) {
+            string rest = notice.StartsWith("X>", StringComparison.Ordinal) ? notice[2..] : notice.StartsWith('>') ? notice[1..] : notice;
+            return rest.StartsWith(' ') ? rest[1..] : rest;
+        }
+
         private IEnumerable<string> StateWords() {
             if (Unavailable)
                 yield return "unavailable";
             if (ViewModel.State == NodeState.Error)
-                yield return ViewModel.GetErrors().FirstOrDefault() is string error ? "error, " + error : "error";
+                yield return ViewModel.GetErrors().FirstOrDefault() is string error ? "error, " + SpokenNotice(error) : "error";
             if (ViewModel.State == NodeState.Warning)
-                yield return ViewModel.GetWarnings().FirstOrDefault() is string warning ? "warning, " + warning : "warning";
+                yield return ViewModel.GetWarnings().FirstOrDefault() is string warning ? "warning, " + SpokenNotice(warning) : "warning";
             if (FlowUndersupplied)
                 yield return "short of supply";
             if (ViewModel.IsOverproducing())

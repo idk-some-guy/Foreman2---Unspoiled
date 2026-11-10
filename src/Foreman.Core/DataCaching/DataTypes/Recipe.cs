@@ -8,6 +8,7 @@ namespace Foreman.DataCaching.DataTypes {
         double Time { get; }
         long RecipeID { get; }
         bool IsMissing { get; }
+        bool CanSetQuality { get; }
 
         bool HasProductivityResearch { get; }
 
@@ -106,6 +107,7 @@ namespace Foreman.DataCaching.DataTypes {
         internal List<string> CraftingCategoryKeysInternal => _craftingCategoryKeys;
 
         public bool IsMissing { get; private set; }
+        public bool CanSetQuality { get; internal set; } = true;
 
         public bool AllowConsumptionBonus { get; internal set; }
         public bool AllowSpeedBonus { get; internal set; }

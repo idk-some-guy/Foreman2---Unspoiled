@@ -52,6 +52,7 @@ namespace Foreman {
             BeaconQualityIsDisabled = 0b_0001_0000_0000_0000_0000,
             AModulesQualityIsDisabled = 0b_0010_0000_0000_0000_0000,
             BModulesQualityIsDisabled = 0b_0100_0000_0000_0000_0000,
+            RecipeQualityCannotBeSet = 0b_1000_0000_0000_0000_0000,
 
             TemeratureFluidBurnerInvalidLinks = 0b_0100_0000_0000_0000,
         }
@@ -234,6 +235,8 @@ namespace Foreman {
                 WarningSet |= Warnings.RecipeIsDisabled;
             if (!recipeDefinition.Available)
                 WarningSet |= Warnings.RecipeIsUnavailable;
+            if (!recipeDefinition.CanSetQuality && recipeQuality.Level > RecipeQualityLock.LowestEnabled(RecipeOwner).Level)
+                WarningSet |= Warnings.RecipeQualityCannotBeSet;
 
             if (!SelectedAssembler.Assembler.Enabled)
                 WarningSet |= Warnings.AssemblerIsDisabled;
@@ -598,8 +601,13 @@ namespace Foreman {
                         MyNode.MyGraph.DeleteLink(fuelLink);
                 }));
 
+            if ((WarningSet & RecipeNode.Warnings.RecipeQualityCannotBeSet) != 0)
+                resolutions.Add("Switch to " + RecipeQualityLock.LowestEnabled(MyNode.RecipeDefinition.Owner).FriendlyName + " quality", new Action(() => SwitchToLowestQuality()));
+
             return resolutions;
         }
+
+        public NodeReplacement SwitchToLowestQuality() => MyNode.MyGraph.ReplaceRecipeNodeQuality(MyNode, RecipeQualityLock.LowestEnabled(MyNode.RecipeDefinition.Owner));
 
         //-----------------------------------------------------------------------Set functions
 

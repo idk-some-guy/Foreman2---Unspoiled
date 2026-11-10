@@ -1,4 +1,5 @@
 ﻿using Foreman.DataCaching.DataTypes;
+using Foreman.Models;
 using Foreman.Models.Nodes;
 using System;
 using System.Collections.Generic;
@@ -65,6 +66,8 @@ namespace Foreman {
                 output.Add("X> Selected recipe is disabled.");
             if ((WarningSet & RecipeNode.Warnings.RecipeIsUnavailable) != 0)
                 output.Add("X> Selected recipe is unavailable in regular play.");
+            if ((WarningSet & RecipeNode.Warnings.RecipeQualityCannotBeSet) != 0)
+                output.Add("> Selected recipe can only be crafted at " + RecipeQualityLock.LowestEnabled(RecipeDefinition.Owner).FriendlyName + " quality.");
 
             if ((WarningSet & RecipeNode.Warnings.NoAvailableAssemblers) != 0)
                 output.Add("X> No enabled assemblers for this recipe.");

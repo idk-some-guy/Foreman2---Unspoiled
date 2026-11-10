@@ -312,5 +312,38 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             window.Show();
             return (canvas, window);
         }
+
+        [AvaloniaFact]
+        public void QuickAdd_UnsettableRecipeRow_SubSaysOnly() {
+            using var fx = CanvasFixture.WithSpaceAge21();
+            fx.Viewer.Graph.DefaultAssemblerQuality = fx.Cache.Qualities["uncommon"];
+            fx.Control.AddRecipeAsync(new DrawingPoint(0, 0));
+            var vm = (QuickAddViewModel)fx.Control.OpenPalette!.DataContext!;
+
+            vm.Query = "sulfur";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("recipe · Normal only", vm.Rows.First(r => r.Candidate.Recipe!.Name == "sulfur").Sub);
+
+            vm.Query = "iron gear";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("recipe · Uncommon", vm.Rows.First(r => r.Candidate.Recipe!.Name == "iron-gear-wheel").Sub);
+        }
+
+        [AvaloniaFact]
+        public void QuickAdd_UnsettableRecipe_PlacesAtLowestTier() {
+            using var fx = CanvasFixture.WithSpaceAge21();
+            fx.Viewer.Graph.DefaultAssemblerQuality = fx.Cache.Qualities["uncommon"];
+            fx.Control.AddRecipeAsync(new DrawingPoint(0, 0));
+            var palette = fx.Control.OpenPalette!;
+            var vm = (QuickAddViewModel)palette.DataContext!;
+            vm.Query = "sulfur";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("sulfur", vm.Rows[0].Candidate.Recipe!.Name);
+
+            CanvasKeys.KeyDownOn(palette.Search, Key.Enter);
+
+            RecipeNode node = Assert.Single(fx.Viewer.Graph.Nodes.OfType<RecipeNode>());
+            Assert.Equal("normal", node.BaseRecipe.Quality!.Name);
+        }
     }
 }

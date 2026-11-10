@@ -26,6 +26,7 @@ namespace Foreman.Graph {
 
         public event EventHandler<NodeViewModelEventArgs>? NodeViewModelAdded;
         public event EventHandler<NodeViewModelEventArgs>? NodeViewModelRemoved;
+        public event EventHandler<NodeViewModelReplacedEventArgs>? NodeViewModelReplaced;
         public event EventHandler<LinkViewModelEventArgs>? LinkViewModelAdded;
         public event EventHandler<LinkViewModelEventArgs>? LinkViewModelRemoved;
         public event EventHandler? GraphCleared;
@@ -41,6 +42,7 @@ namespace Foreman.Graph {
             _attached = true;
             Graph.NodeAdded += OnNodeAdded;
             Graph.NodeDeleted += OnNodeDeleted;
+            Graph.NodeReplaced += OnNodeViewModelReplaced;
             Graph.LinkAdded += OnLinkAdded;
             Graph.LinkDeleted += OnLinkDeleted;
             Graph.NodeValuesUpdated += OnNodeValuesUpdated;
@@ -55,6 +57,7 @@ namespace Foreman.Graph {
             _attached = false;
             Graph.NodeAdded -= OnNodeAdded;
             Graph.NodeDeleted -= OnNodeDeleted;
+            Graph.NodeReplaced -= OnNodeViewModelReplaced;
             Graph.LinkAdded -= OnLinkAdded;
             Graph.LinkDeleted -= OnLinkDeleted;
             Graph.NodeValuesUpdated -= OnNodeValuesUpdated;
@@ -115,6 +118,11 @@ namespace Foreman.Graph {
         }
 
         private void OnNodeMutated(object? sender, EventArgs e) => NotifyMutated();
+
+        private void OnNodeViewModelReplaced(object? sender, NodeReplacedEventArgs e) {
+            if (_registry.TryGetNodeId(e.Old, out NodeId oldId) && _registry.TryGetNodeId(e.New, out NodeId newId))
+                NodeViewModelReplaced?.Invoke(this, new NodeViewModelReplacedEventArgs(oldId, newId, e.RemovedLinkCount));
+        }
 
         private void OnNodeValuesUpdated(object? sender, EventArgs e) {
             foreach (INodeViewModel node in _view.Nodes) {

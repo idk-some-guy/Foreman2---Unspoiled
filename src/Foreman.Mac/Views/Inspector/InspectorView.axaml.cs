@@ -79,6 +79,10 @@ namespace Foreman.Mac.Views.Inspector {
             recipeSegmentView.OpenPresetsRequested += (_, _) => OpenPresetsRequested?.Invoke(this, EventArgs.Empty);
             recipeSegmentView.PickAnotherRecipeRequested += (_, node) => PickAnotherRecipeRequested?.Invoke(this, node);
             recipeSegmentView.RateUnitChanged += (_, unit) => RateUnitChanged?.Invoke(this, unit);
+            recipeSegmentView.QualitySwitched += (_, _) => {
+                UpdateLayout();
+                FocusFirstControl();
+            };
             flowSegmentView.RateUnitChanged += (_, unit) => RateUnitChanged?.Invoke(this, unit);
             var scope = new NameScope();
             scope.Register("IdentityRow", identityRow);

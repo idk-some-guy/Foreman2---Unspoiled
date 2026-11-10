@@ -28,7 +28,8 @@
               <TextBlock Name="IdentitySubtitle" Theme="{StaticResource Kit.Text}" Classes="caption tertiary"
                          TextTrimming="CharacterEllipsis" />
               <StackPanel Name="QualityRow" Orientation="Horizontal" Spacing="4" IsVisible="False" Margin="0,4,0,0">
-                <ctrl:PopUp Name="QualityMiniSelect" Theme="{StaticResource Kit.PopUp}" HorizontalAlignment="Left" />
+                <ctrl:PopUp Name="QualityMiniSelect" Theme="{StaticResource Kit.PopUp}" HorizontalAlignment="Left"
+                            AutomationProperties.Name="Building quality" ToolTip.Tip="Building quality" />
               </StackPanel>
             </StackPanel>
           </Grid>

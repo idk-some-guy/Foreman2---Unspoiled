@@ -10,7 +10,9 @@ using Foreman.DataCaching.Loading;
 using Foreman.Graph;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
+using Foreman.Mac.UiTests.support;
 using Foreman.Models;
+using Foreman.Models.Nodes;
 using Foreman.Serialization;
 using System.Collections.Generic;
 using System.Drawing;
@@ -556,6 +558,44 @@ namespace Foreman.Mac.UiTests.Canvas {
 
             Assert.NotNull(fx.Control.LastContextMenu);
             Assert.Contains(fx.Control.LastContextMenuEntries!, e => e.Caption == "Delete node");
+        }
+
+        [AvaloniaFact]
+        public void Notice_RightClick_ListsSwitchToNormalQuality() {
+            using CanvasFixture fx = CanvasFixture.WithSpaceAge21();
+            DataCache cache = fx.Cache;
+            NodeId id = fx.Viewer.Session.Editor.CreateRecipeNode(new RecipeQualityPair(cache.Recipes["sulfur"], cache.Qualities["uncommon"]), new Point(0, 0));
+            BaseNodeElement node = KeyboardRig.Prime(fx.Viewer, id);
+            var sulfur = new ItemQualityPair(cache.Items["sulfur"], cache.Qualities["uncommon"]);
+            NodeId consumer = fx.Viewer.Session.Editor.CreateConsumerNode(sulfur, new Point(400, 0));
+            fx.Viewer.Session.Editor.CreateLink(id, consumer, sulfur);
+            fx.Viewer.Graph.UpdateNodeValues();
+            var announced = new List<string>();
+            fx.Control.Announced += (_, text) => announced.Add(text);
+
+            List<MenuEntry> entries = node.MouseUpRight(BadgePoint(node));
+
+            MenuEntry last = entries[^1];
+            Assert.Equal("Switch to Normal quality", last.Caption);
+            last.Invoke!.Invoke();
+
+            RecipeNode copy = Assert.Single(fx.Viewer.Graph.Nodes.OfType<RecipeNode>());
+            Assert.Equal("normal", copy.BaseRecipe.Quality!.Name);
+            Assert.False(fx.Viewer.NodeElementDictionary.ContainsKey(id));
+            Assert.Contains("Sulfur switched to Normal quality, 1 link removed", announced);
+        }
+
+        [AvaloniaFact]
+        public void Notice_LeftClickAutoresolve_SwitchesTheNodeToNormalQuality() {
+            using CanvasFixture fx = CanvasFixture.WithSpaceAge21();
+            NodeId id = fx.Viewer.Session.Editor.CreateRecipeNode(new RecipeQualityPair(fx.Cache.Recipes["sulfur"], fx.Cache.Qualities["uncommon"]), new Point(0, 0));
+            BaseNodeElement node = KeyboardRig.Prime(fx.Viewer, id);
+
+            node.MouseUpLeft(BadgePoint(node));
+
+            RecipeNode copy = Assert.Single(fx.Viewer.Graph.Nodes.OfType<RecipeNode>());
+            Assert.Equal("normal", copy.BaseRecipe.Quality!.Name);
+            Assert.DoesNotContain(copy.GetWarnings(), w => w.Contains("can only be crafted"));
         }
     }
 }

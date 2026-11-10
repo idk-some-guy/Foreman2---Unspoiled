@@ -135,6 +135,7 @@ namespace Foreman.Mac.Canvas {
             emptyState = BuildEmptyState();
             IsTabStop = false;
             Viewer.ElementsChanged += OnElementsChanged;
+            Viewer.NodeReplaced += OnNodeReplaced;
             Child = new Panel { Children = { overlay, emptyState, pausedCapsule, paletteHost, radialFallbackPopup } };
             FloatingPanelHost = new FloatingPanelHost(overlay, Viewport, this);
             AddHandler(PointerPressedEvent, NoteDismissingPress, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
@@ -1140,7 +1141,7 @@ namespace Foreman.Mac.Canvas {
             if (candidate.Kind == AddKind.Recipe) {
                 var baseItem = request.Link?.Item ?? default;
                 var ctx = new NewNodeContext(baseItem, request.Location, outer, request.Link?.OriginElement, direction, request.Link is not null);
-                placed = ProcessNodeRequest(ctx, NodeType.Recipe, new RecipeQualityPair(candidate.Recipe!, q), direction);
+                placed = ProcessNodeRequest(ctx, NodeType.Recipe, new RecipeQualityPair(candidate.Recipe!, RecipeQualityLock.PlacementQuality(candidate.Recipe!, q, cache)), direction);
             } else {
                 var item = new ItemQualityPair(candidate.Item!, q);
                 var ctx = new NewNodeContext(item, request.Location, outer, request.Link?.OriginElement, direction, request.Link is not null);
@@ -1400,8 +1401,8 @@ namespace Foreman.Mac.Canvas {
 
         //Ports FinalizeNodePosition's direction/link half (reference §3): direction only gets set when an
         //origin element exists (the two disconnected entry points already got Graph.DefaultNodeDirection from
-        //node creation itself), and the link always runs through baseItem in the direction the drag started
-        //from, regardless of which NodeType the chooser ultimately produced - matching upstream exactly.
+        //node creation itself), and the link runs through baseItem in the direction the drag started from
+        //when the new node carries that item.
         //Also ports FinalizeNodePosition's tab-level Y-offset (upstream lines 413-414): only when
         //OffsetLocationToItemTabLevel is set (the link-drag flow) does the drop point land on the new node's
         //tab row instead of its center - Consumer shifts the node down by half its height (so its top-edge
@@ -1430,9 +1431,9 @@ namespace Foreman.Mac.Canvas {
                     ClearOfOrigin(newNodeId, ctx.OriginElement!);
             }
 
-            if (ctx.OuterNodeType == NewNodeType.Consumer && originStillExists && ctx.LinkToOrigin)
+            if (ctx.OuterNodeType == NewNodeType.Consumer && originStillExists && ctx.LinkToOrigin && NodeCarries(newNodeId, LinkType.Input, ctx.BaseItem))
                 Viewer.Session.Editor.CreateLink(ctx.OriginElement!.ViewModel.Id, newNodeId, ctx.BaseItem);
-            else if (ctx.OuterNodeType == NewNodeType.Supplier && originStillExists && ctx.LinkToOrigin)
+            else if (ctx.OuterNodeType == NewNodeType.Supplier && originStillExists && ctx.LinkToOrigin && NodeCarries(newNodeId, LinkType.Output, ctx.BaseItem))
                 Viewer.Session.Editor.CreateLink(newNodeId, ctx.OriginElement!.ViewModel.Id, ctx.BaseItem);
 
             Viewer.Graph.UpdateNodeValues();
@@ -1440,6 +1441,16 @@ namespace Foreman.Mac.Canvas {
             if (Viewer.NodeElementDictionary.TryGetValue(newNodeId, out BaseNodeElement? element))
                 Viewer.SetSelection([element]);
             RequestRedraw();
+        }
+
+        private bool NodeCarries(NodeId nodeId, LinkType side, ItemQualityPair item) =>
+            Viewer.Session.View.TryGetNode(nodeId, out INodeViewModel? node) && node is not null && (side == LinkType.Input ? node.Inputs : node.Outputs).Contains(item);
+
+        private void OnNodeReplaced(object? sender, NodeViewModelReplacedEventArgs e) {
+            if (!Viewer.Session.View.TryGetNode(e.New, out INodeViewModel? node) || node is not IRecipeNodeViewModel copy)
+                return;
+            string removed = e.RemovedLinkCount switch { 0 => "", 1 => ", 1 link removed", _ => $", {e.RemovedLinkCount} links removed" };
+            Announce($"{copy.BaseRecipe.Recipe?.FriendlyName} switched to {copy.BaseRecipe.Quality?.FriendlyName} quality{removed}");
         }
 
         //Test-only seams (reference §6's "double-click opens dialog (headless-testable hook)"): stub these to

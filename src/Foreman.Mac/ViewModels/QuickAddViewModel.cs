@@ -36,6 +36,7 @@ namespace Foreman.Mac.ViewModels {
 
         private readonly AddCatalog catalog;
         private readonly string qualitySuffix;
+        private readonly string lockedQualitySuffix;
         private readonly Func<SKBitmap, IImage?> bakeIcon;
         private readonly ObservableCollection<QuickAddRow> rows = [];
         private AddRequest request;
@@ -45,6 +46,7 @@ namespace Foreman.Mac.ViewModels {
             this.request = request;
             this.bakeIcon = bakeIcon;
             qualitySuffix = catalog.ShowsQuality && quality is not null ? $" · {quality.FriendlyName}" : "";
+            lockedQualitySuffix = catalog.ShowsQuality ? $" · {catalog.LowestQuality.FriendlyName} only" : "";
             Rows = new ReadOnlyObservableCollection<QuickAddRow>(rows);
             query = request.SeedText;
             Refresh();
@@ -104,7 +106,7 @@ namespace Foreman.Mac.ViewModels {
 
         private void Refresh() {
             var desired = catalog.Search(Query, request.Scope, request.Link, limit: 200)
-                .Select(c => new QuickAddRow(c, c.Name, c.KindLabel, c.Kind == AddKind.Recipe ? qualitySuffix : "", bakeIcon(c.Entry.Icon)))
+                .Select(c => new QuickAddRow(c, c.Name, c.KindLabel, c.Kind != AddKind.Recipe ? "" : c.Recipe is { CanSetQuality: false } ? lockedQualitySuffix : qualitySuffix, bakeIcon(c.Entry.Icon)))
                 .ToList();
             SyncRows(desired);
             RowsChanged?.Invoke(this, EventArgs.Empty);

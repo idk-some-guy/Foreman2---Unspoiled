@@ -106,7 +106,7 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Equal("Actions: Delete, Flip, Auto-connect, Show Inspector", healthy.AutomationHelpText);
             Assert.Equal(NodeState.Error, broken.ViewModel.State);
             Assert.Equal("Actions: Delete, Flip, Auto-connect, Show Inspector, Fix Errors", broken.AutomationHelpText);
-            Assert.Contains(", error, > Item \"Ghost item\" doesnt exist in preset!", broken.AutomationName);
+            Assert.Contains(", error, Item \"Ghost item\" doesnt exist in preset!", broken.AutomationName);
         }
 
         [AvaloniaFact]
@@ -253,6 +253,16 @@ namespace Foreman.Mac.UiTests.Canvas {
             Assert.Contains(linkItems, i => Equals(i.Header, "Orthogonal"));
             Assert.Contains(linkItems, i => Equals(i.Header, "Delete Link"));
             Assert.Same(((LinkAutomationPeer)menuChildren[2]).Link, Assert.Single(menus.Viewer.SelectedLinks));
+        }
+
+        [AvaloniaFact]
+        public void NodeAccessibility_StateWord_StripsResolutionPrefix() {
+            using CanvasFixture fx = CanvasFixture.WithSpaceAge21();
+            NodeId id = fx.Viewer.Session.Editor.CreateRecipeNode(new RecipeQualityPair(fx.Cache.Recipes["sulfur"], fx.Cache.Qualities["uncommon"]), new Point(0, 0));
+            BaseNodeElement node = KeyboardRig.Prime(fx.Viewer, id);
+
+            Assert.Contains("warning, Selected recipe can only be crafted at Normal quality", node.AutomationName);
+            Assert.DoesNotContain(">", node.AutomationName);
         }
     }
 }

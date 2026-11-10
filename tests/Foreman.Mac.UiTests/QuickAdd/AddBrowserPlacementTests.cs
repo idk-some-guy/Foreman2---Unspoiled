@@ -1,3 +1,4 @@
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -6,6 +7,7 @@ using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Kit.Composites;
+using Foreman.Mac.Kit.Controls;
 using Foreman.Mac.Services;
 using Foreman.Mac.UiTests.support;
 using Foreman.Mac.ViewModels;
@@ -320,6 +322,67 @@ namespace Foreman.Mac.UiTests.QuickAdd {
             CanvasKeys.KeyDownOn(window, Key.Escape);
             Assert.False(window.IsVisible);
             Assert.Same(window, shell.Window.BrowserWindow);
+        }
+
+        private static BrowserCell RecipeCell(AddBrowserViewModel vm, string recipeName) =>
+            vm.Sections.SelectMany(s => s.Cells).First(c => c.Candidate.Kind == AddKind.Recipe && c.Candidate.Recipe!.Name == recipeName);
+
+        [AvaloniaFact]
+        public void Browser_UnsettableRecipe_PicksAtLowestTier() {
+            using ShellFixture shell = ShellFixture.OpenWithSpaceAge21();
+            DataCache cache = shell.Window.DataCache!;
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Recipes, SeedText: "sulfur"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            var picks = new List<BrowserPick>();
+            vm.PlaceRequested += (_, pick) => picks.Add(pick);
+            vm.Quality = cache.Qualities["uncommon"];
+
+            vm.SelectCell(RecipeCell(vm, "sulfur"));
+            vm.PlaceSelectedRecipe();
+            vm.SearchText = "iron gear wheel";
+            vm.SelectCell(RecipeCell(vm, "iron-gear-wheel"));
+            vm.PlaceSelectedRecipe();
+
+            Assert.Equal(["normal", "uncommon"], picks.Select(p => p.Quality.Name));
+            Assert.Equal(["normal", "uncommon"], shell.Graph.Nodes.OfType<RecipeNode>().OrderBy(n => n.NodeID).Select(n => n.BaseRecipe.Quality!.Name));
+        }
+
+        [AvaloniaFact]
+        public void Browser_UnsettableRecipeSelected_CaptionNamesLock() {
+            using ShellFixture shell = ShellFixture.OpenWithSpaceAge21();
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Recipes, SeedText: "sulfur"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            TextBlock caption = shell.Window.BrowserWindow!.FindControl<TextBlock>("SelectionCaption")!;
+
+            vm.SelectCell(RecipeCell(vm, "sulfur"));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Sulfur selected · Normal quality only", vm.SelectionCaption);
+            Assert.Equal("Sulfur selected · Normal quality only", caption.Text);
+
+            vm.SearchText = "iron gear wheel";
+            vm.SelectCell(RecipeCell(vm, "iron-gear-wheel"));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Iron gear wheel selected", vm.SelectionCaption);
+            Assert.Equal("Iron gear wheel selected", caption.Text);
+        }
+
+        [AvaloniaFact]
+        public void Browser_QualityPopUp_NeverNarrowedOrDisabled() {
+            using ShellFixture shell = ShellFixture.OpenWithSpaceAge21();
+            DataCache cache = shell.Window.DataCache!;
+            shell.Window.OpenBrowser(new AddRequest(new DrawingPoint(0, 0), AddScope.Recipes, SeedText: "sulfur"));
+            AddBrowserViewModel vm = shell.BrowserVm;
+            PopUp quality = shell.Window.BrowserWindow!.FindControl<PopUp>("QualityPopUp")!;
+            int enabled = cache.AvailableQualities.Count(q => q.Enabled);
+            string? before = quality.DisplayText;
+
+            vm.SelectCell(RecipeCell(vm, "sulfur"));
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(quality.IsEnabled);
+            Assert.True(quality.IsVisible);
+            Assert.Equal(enabled, quality.Items.Count);
+            Assert.Equal(before, quality.DisplayText);
         }
     }
 }
