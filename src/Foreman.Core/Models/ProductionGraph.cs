@@ -117,6 +117,7 @@ namespace Foreman {
         public ResearchState Research {
             get;
             set {
+                ArgumentNullException.ThrowIfNull(value);
                 if (field.Equals(value))
                     return;
                 field = value;

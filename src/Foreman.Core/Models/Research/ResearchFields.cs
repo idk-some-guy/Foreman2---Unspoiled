@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Foreman.Models.Research {
     public static class ResearchFields {
-        public static IReadOnlyList<ResearchField> All { get; } = Enum.GetValues<ResearchField>();
+        public static IReadOnlyList<ResearchField> All { get; } = Array.AsReadOnly(Enum.GetValues<ResearchField>());
 
         public static bool IsCount(ResearchField field) => field switch {
             ResearchField.InserterStackBonus => true,

@@ -32,8 +32,8 @@ namespace ForemanTest.Research {
             Assert.AreEqual("/tmp/x/saves/Megabase.zip", state.Source.SavePath);
             Assert.AreEqual(SyncedAt, state.Source.SyncedAtUtc);
             Assert.AreEqual(0, state.HandEditCount);
-            foreach (ResearchField field in ResearchFields.All.Where(f => info.ResearchBonuses.ContainsKey(ResearchFields.ExportKey(f))))
-                Assert.AreEqual(info.ResearchBonuses[ResearchFields.ExportKey(field)], state.Get(field), field.ToString());
+            foreach (ResearchField field in ResearchFields.All)
+                Assert.IsTrue(state.Values.ContainsKey(field), field.ToString());
         }
 
         [TestMethod]

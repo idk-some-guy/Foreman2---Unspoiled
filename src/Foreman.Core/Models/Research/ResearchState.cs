@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -17,11 +18,11 @@ namespace Foreman.Models.Research {
         public ResearchState(ResearchSource? source, IReadOnlyDictionary<ResearchField, double> values, IReadOnlyDictionary<ResearchField, double> syncedValues,
             IReadOnlyDictionary<string, double> recipeProductivity, IReadOnlyDictionary<string, double> syncedRecipeProductivity, IReadOnlyList<ResearchTechnology> technologies) {
             Source = source;
-            Values = values;
-            SyncedValues = syncedValues;
-            RecipeProductivity = recipeProductivity;
-            SyncedRecipeProductivity = syncedRecipeProductivity;
-            Technologies = technologies;
+            Values = values.ToFrozenDictionary();
+            SyncedValues = syncedValues.ToFrozenDictionary();
+            RecipeProductivity = recipeProductivity.ToFrozenDictionary();
+            SyncedRecipeProductivity = syncedRecipeProductivity.ToFrozenDictionary();
+            Technologies = Array.AsReadOnly(technologies.ToArray());
         }
 
         public double? Get(ResearchField field) => Values.TryGetValue(field, out double value) ? value : null;
