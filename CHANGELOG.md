@@ -7,6 +7,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Sync research from a Factorio save (⌘R). Recipe and mining productivity follow the save's research, every bonus can be edited by hand in the new Research window, and the graph keeps what it synced, so it solves without the save.
+
 ## [2.0.0] - 2026-11-10
 
 Foreman now supports Factorio 2.1. Import presets from Factorio 2.1.23 or newer, or start from the 2.1
