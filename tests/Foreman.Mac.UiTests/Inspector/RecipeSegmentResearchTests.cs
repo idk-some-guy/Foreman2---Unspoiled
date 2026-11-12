@@ -131,6 +131,18 @@ namespace Foreman.Mac.UiTests.Inspector {
         }
 
         [AvaloniaFact]
+        public void Inspector_ExtraProd_ZeroResearchEntryShowsNoNote() {
+            (ShellFixture shell, RecipeSegmentView view, IRecipeNodeViewModel node) = Open("iron-gear-wheel");
+            using (shell) {
+                shell.Graph.EnableExtraProductivityForNonMiners = false;
+                Research(shell, WithRecipe(node.BaseRecipe.Recipe!.Name, 0));
+
+                Assert.False(view.ViewModel!.ShowsExtraProductivity);
+                Assert.Null(view.ViewModel.ExtraProductivityNote);
+            }
+        }
+
+        [AvaloniaFact]
         public void Inspector_ExtraProdRow_ShownWhenResearchApplies() {
             (ShellFixture shell, RecipeSegmentView view, IRecipeNodeViewModel node) = Open("iron-gear-wheel");
             using (shell) {

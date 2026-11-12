@@ -746,6 +746,24 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void VoiceOver_SpokenLabelOverridesLabelAndClearingFallsBack() {
+            using var fixture = new KitFixture();
+            var content = new TextBox();
+            FormRow row = Themed("Beacon count", content);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(content);
+
+            row.SpokenLabel = "Number of beacons";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Number of beacons", peer.GetName());
+
+            row.SpokenLabel = null;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Beacon count", peer.GetName());
+        }
+
+        [AvaloniaFact]
         public void VoiceOver_NoteBecomesHelpTextUnlessThereIsAnError() {
             using var fixture = new KitFixture();
             var content = new TextBox();

@@ -113,6 +113,9 @@ namespace ForemanTest.Research {
         public void HasResearchProductivity_EntryOrMiningOnMiner() {
             (RecipeNode assembler, _) = BuildNode(Limits());
             SetRecipeResearch(assembler, 0);
+            Assert.IsFalse(assembler.HasResearchProductivity);
+
+            SetRecipeResearch(assembler, 0.1);
             Assert.IsTrue(assembler.HasResearchProductivity);
 
             (RecipeNode miner, _) = BuildNode(Limits(), miner: true);

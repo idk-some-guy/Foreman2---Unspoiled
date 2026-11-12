@@ -427,8 +427,7 @@ namespace Foreman {
 
         public double ResearchProductivityBonus => RecipeResearchBonus() + MiningResearchBonus();
 
-        public bool HasResearchProductivity =>
-            (BaseRecipe.Recipe is { } recipe && MyGraph.Research.RecipeProductivity.ContainsKey(recipe.Name)) || MiningResearchBonus() > 0;
+        public bool HasResearchProductivity => ResearchProductivityBonus > 0;
 
         private double RecipeResearchBonus() =>
             BaseRecipe.Recipe is { } recipe && MyGraph.Research.RecipeProductivity.TryGetValue(recipe.Name, out double bonus) ? bonus : 0;
