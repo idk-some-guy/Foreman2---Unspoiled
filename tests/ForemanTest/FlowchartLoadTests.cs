@@ -56,7 +56,7 @@ namespace ForemanTest {
             GraphSaveTestUi.ApplyViewerUiToGraph(saveDocument, cache, graph);
 
             ProductionGraph.NewNodeBatch imported = GraphSaveLoader.LoadProductionGraph(
-                graph, cache, productionGraph, applySolverSettings: true);
+                graph, cache, productionGraph, applySolverSettings: true, applyResearch: true);
 
             Assert.HasCount(
                 productionGraph.Nodes.Count,

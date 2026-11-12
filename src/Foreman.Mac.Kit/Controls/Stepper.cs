@@ -35,6 +35,18 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<int> DecimalsProperty =
             AvaloniaProperty.Register<Stepper, int>(nameof(Decimals), 0);
 
+        public static readonly StyledProperty<bool> IsEmptyProperty =
+            AvaloniaProperty.Register<Stepper, bool>(nameof(IsEmpty), defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
+
+        public static readonly StyledProperty<string?> PlaceholderProperty =
+            AvaloniaProperty.Register<Stepper, string?>(nameof(Placeholder));
+
+        public static readonly StyledProperty<bool> ShowsPlusSignProperty =
+            AvaloniaProperty.Register<Stepper, bool>(nameof(ShowsPlusSign));
+
+        public static readonly StyledProperty<bool> IsWideProperty =
+            AvaloniaProperty.Register<Stepper, bool>(nameof(IsWide));
+
         public double Value {
             get => GetValue(ValueProperty);
             set => SetValue(ValueProperty, value);
@@ -70,12 +82,33 @@ namespace Foreman.Mac.Kit.Controls {
             set => SetValue(DecimalsProperty, value);
         }
 
+        public bool IsEmpty {
+            get => GetValue(IsEmptyProperty);
+            set => SetValue(IsEmptyProperty, value);
+        }
+
+        public string? Placeholder {
+            get => GetValue(PlaceholderProperty);
+            set => SetValue(PlaceholderProperty, value);
+        }
+
+        public bool ShowsPlusSign {
+            get => GetValue(ShowsPlusSignProperty);
+            set => SetValue(ShowsPlusSignProperty, value);
+        }
+
+        public bool IsWide {
+            get => GetValue(IsWideProperty);
+            set => SetValue(IsWideProperty, value);
+        }
+
         private TextBox? valueBox;
         private Button? upButton;
         private Button? downButton;
         private TextBlock? unitText;
         private Grid? columns;
         private double fieldWidth = 40;
+        private double wideFieldWidth = 72;
         private double arrowColumn = 15;
         private double glyphGap = 6;
         private readonly List<IDisposable> subs = [];
@@ -86,6 +119,10 @@ namespace Foreman.Mac.Kit.Controls {
             MaximumProperty.Changed.AddClassHandler<Stepper>((s, _) => s.CoerceValue(ValueProperty));
             UnitProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshUnitDisplay());
             DecimalsProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
+IsEmptyProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
+            PlaceholderProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
+            ShowsPlusSignProperty.Changed.AddClassHandler<Stepper>((s, _) => s.RefreshValueDisplay());
+            IsWideProperty.Changed.AddClassHandler<Stepper>((s, _) => s.ApplyFieldWidth());
         }
 
         private static double CoerceValue(AvaloniaObject sender, double value) =>
@@ -121,9 +158,9 @@ namespace Foreman.Mac.Kit.Controls {
 
             if (columns is not null) {
                 columns.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
-                columns.ColumnDefinitions[0].MinWidth = fieldWidth;
                 columns.ColumnDefinitions[2].Width = new GridLength(arrowColumn);
             }
+            ApplyFieldWidth();
 
             RefreshValueDisplay();
             RefreshUnitDisplay();
@@ -143,9 +180,12 @@ namespace Foreman.Mac.Kit.Controls {
             Unsubscribe();
             subs.Add(this.GetResourceObservable("Foreman.Size.StepperFieldWidth").Subscribe(new ResourceSinks.DoubleSink(v => {
                 fieldWidth = v;
-                if (columns is not null)
-                    columns.ColumnDefinitions[0].MinWidth = v;
+                ApplyFieldWidth();
             }, fieldWidth)));
+            subs.Add(this.GetResourceObservable("Foreman.Size.StepperFieldWidthWide").Subscribe(new ResourceSinks.DoubleSink(v => {
+                wideFieldWidth = v;
+                ApplyFieldWidth();
+            }, wideFieldWidth)));
             subs.Add(this.GetResourceObservable("Foreman.Size.StepperArrowColumn").Subscribe(new ResourceSinks.DoubleSink(v => {
                 arrowColumn = v;
                 if (columns is not null)
@@ -161,6 +201,11 @@ namespace Foreman.Mac.Kit.Controls {
             foreach (IDisposable sub in subs)
                 sub.Dispose();
             subs.Clear();
+        }
+
+        private void ApplyFieldWidth() {
+            if (columns is not null)
+                columns.ColumnDefinitions[0].MinWidth = IsWide ? wideFieldWidth : fieldWidth;
         }
 
         private void OnUpClicked(object? sender, RoutedEventArgs e) => Step(Increment);
@@ -189,24 +234,45 @@ namespace Foreman.Mac.Kit.Controls {
         private double StepAmount(KeyModifiers modifiers) =>
             modifiers.HasFlag(KeyModifiers.Shift) ? Increment * 10 : Increment;
 
-        private void Step(double delta) => Value += delta;
+        private void Step(double delta) {
+            IsEmpty = false;
+            Value += delta;
+        }
 
         private void CommitText() {
             if (valueBox is null)
                 return;
 
-            if (double.TryParse(valueBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed))
+            if (double.TryParse(valueBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed)) {
+                IsEmpty = false;
                 Value = parsed;
+            }
             else
                 RefreshValueDisplay();
         }
 
         private void RefreshValueDisplay() {
-            if (valueBox is not null)
-                valueBox.Text = FormattedValue;
+            if (valueBox is null)
+                return;
+            valueBox.PlaceholderText = Placeholder;
+            valueBox.Text = IsEmpty ? "" : FormattedValue;
         }
 
-        private string FormattedValue => Value.ToString("F" + Decimals, CultureInfo.InvariantCulture);
+        private string FormattedValue {
+            get {
+                string text = Value.ToString("F" + Decimals, CultureInfo.InvariantCulture);
+                return ShowsPlusSign && Value > 0 ? "+" + text : text;
+            }
+        }
+
+        private string SpokenNumber {
+            get {
+                if (IsEmpty)
+                    return Placeholder ?? "";
+                string text = Value.ToString(Decimals > 0 ? "0." + new string('#', Decimals) : "0", CultureInfo.InvariantCulture);
+                return ShowsPlusSign && Value > 0 ? "plus " + text : text;
+            }
+        }
 
         protected override AutomationPeer OnCreateAutomationPeer() => new StepperAutomationPeer(this);
 
@@ -240,10 +306,13 @@ namespace Foreman.Mac.Kit.Controls {
             double IRangeValueProvider.Value => Stepper.Value;
             double IRangeValueProvider.SmallChange => Stepper.Increment;
             double IRangeValueProvider.LargeChange => Stepper.StepAmount(KeyModifiers.Shift);
-            void IRangeValueProvider.SetValue(double value) => Stepper.SetCurrentValue(ValueProperty, value);
+            void IRangeValueProvider.SetValue(double value) {
+                Stepper.IsEmpty = false;
+                Stepper.SetCurrentValue(ValueProperty, value);
+            }
 
             bool IValueProvider.IsReadOnly => true;
-            string? IValueProvider.Value => SpokenValue.Describe(Stepper.FormattedValue, Stepper.Unit, Stepper.SpokenUnit);
+            string? IValueProvider.Value => SpokenValue.Describe(Stepper.SpokenNumber, Stepper.Unit, Stepper.SpokenUnit);
             void IValueProvider.SetValue(string? value) { }
         }
 

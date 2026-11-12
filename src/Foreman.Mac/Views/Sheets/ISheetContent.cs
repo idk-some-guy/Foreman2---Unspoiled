@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 namespace Foreman.Mac.Views.Sheets {
     public enum SheetActivityKind { InProgress, Failed }
 
-    public sealed record SheetActivity(SheetActivityKind Kind, string Sentence, double? Progress = null);
+    public sealed record SheetActivity(SheetActivityKind Kind, string Sentence, double? Progress = null, bool OffersRetry = true);
 
     public interface ISheetActivitySource {
         SheetActivity? Activity { get; }
@@ -24,6 +24,10 @@ namespace Foreman.Mac.Views.Sheets {
         void Cancel();
     }
 
+    public interface IAlertContent {
+        AlertFrame FrameControl { get; }
+    }
+
     public abstract class SheetContent<T> : UserControl, ISheetContent<T>, ISheetActivitySource {
         private readonly TaskCompletionSource<T?> completion = new();
 
@@ -36,13 +40,20 @@ namespace Foreman.Mac.Views.Sheets {
         public Task<T?> Result => completion.Task;
 
         public event EventHandler? ActivityChanged;
+        public event EventHandler? TitleChanged;
+
+        protected void SetTitle(string title) {
+            Title = title;
+            TitleChanged?.Invoke(this, EventArgs.Empty);
+        }
 
         protected void Complete(T? value) => completion.TrySetResult(value);
 
         protected void ReportProgress(string sentence, double? progress = null) =>
             SetActivity(new SheetActivity(SheetActivityKind.InProgress, sentence, progress));
 
-        protected void ReportFailure(string sentence) => SetActivity(new SheetActivity(SheetActivityKind.Failed, sentence));
+        protected void ReportFailure(string sentence, bool offersRetry = true) =>
+            SetActivity(new SheetActivity(SheetActivityKind.Failed, sentence, OffersRetry: offersRetry));
 
         protected void ClearActivity() => SetActivity(null);
 

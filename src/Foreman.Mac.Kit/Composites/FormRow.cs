@@ -22,6 +22,9 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<string?> LabelProperty =
             AvaloniaProperty.Register<FormRow, string?>(nameof(Label));
 
+        public static readonly StyledProperty<string?> SpokenLabelProperty =
+            AvaloniaProperty.Register<FormRow, string?>(nameof(SpokenLabel));
+
         public static readonly StyledProperty<string?> NoteProperty =
             AvaloniaProperty.Register<FormRow, string?>(nameof(Note));
 
@@ -43,12 +46,20 @@ namespace Foreman.Mac.Kit.Composites {
         public static readonly StyledProperty<bool> NoteIsWarningProperty =
             AvaloniaProperty.Register<FormRow, bool>(nameof(NoteIsWarning));
 
+        public static readonly StyledProperty<bool> IsEmphasizedProperty =
+            AvaloniaProperty.Register<FormRow, bool>(nameof(IsEmphasized));
+
         public static readonly StyledProperty<FormRowLabelColumn> LabelColumnProperty =
             AvaloniaProperty.Register<FormRow, FormRowLabelColumn>(nameof(LabelColumn));
 
         public string? Label {
             get => GetValue(LabelProperty);
             set => SetValue(LabelProperty, value);
+        }
+
+        public string? SpokenLabel {
+            get => GetValue(SpokenLabelProperty);
+            set => SetValue(SpokenLabelProperty, value);
         }
 
         public string? Note {
@@ -86,6 +97,11 @@ namespace Foreman.Mac.Kit.Composites {
             set => SetValue(ErrorIsWarningProperty, value);
         }
 
+        public bool IsEmphasized {
+            get => GetValue(IsEmphasizedProperty);
+            set => SetValue(IsEmphasizedProperty, value);
+        }
+
         public bool NoteIsWarning {
             get => GetValue(NoteIsWarningProperty);
             set => SetValue(NoteIsWarningProperty, value);
@@ -112,11 +128,13 @@ namespace Foreman.Mac.Kit.Composites {
             NoteProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyRowState(); r.ApplyAccessibility(); });
             ErrorProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyRowState(); r.ApplyAccessibility(); });
             LabelProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyAccessibility());
+            SpokenLabelProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyAccessibility());
             ContentProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyAccessibility(); r.WatchContent(); });
             LabelColumnProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyLabelColumnWidth());
             NoteIsValueProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
             ErrorIsWarningProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
             NoteIsWarningProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
+            IsEmphasizedProperty.Changed.AddClassHandler<FormRow>((r, _) => r.ApplyRowState());
             NoteSuffixProperty.Changed.AddClassHandler<FormRow>((r, _) => { r.BeginHeightReflow(); r.ApplyNoteSuffixText(); });
         }
 
@@ -349,7 +367,7 @@ namespace Foreman.Mac.Kit.Composites {
         private void ApplyAccessibility() {
             if (Content is not Control contentControl)
                 return;
-            AutomationProperties.SetName(contentControl, Label);
+            AutomationProperties.SetName(contentControl, SpokenLabel ?? Label);
             AutomationProperties.SetHelpText(contentControl, !string.IsNullOrEmpty(Error) ? Error : Note);
         }
 
@@ -360,6 +378,7 @@ namespace Foreman.Mac.Kit.Composites {
             PseudoClasses.Set(":value", NoteIsValue);
             PseudoClasses.Set(":warning", ErrorIsWarning);
             PseudoClasses.Set(":note-warning", NoteIsWarning);
+            PseudoClasses.Set(":emphasized", IsEmphasized);
         }
 
         private void ApplyNoteSuffixText() {

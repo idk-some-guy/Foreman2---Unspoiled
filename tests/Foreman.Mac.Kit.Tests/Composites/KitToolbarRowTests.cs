@@ -408,6 +408,22 @@ namespace Foreman.Mac.Kit.Tests.Composites {
         }
 
         [AvaloniaFact]
+        public void Tooltip_OverridesTheLabelTooltipAtEveryCollapseStep() {
+            using var fixture = new KitFixture();
+            ToolbarRow row = NewRow(820);
+            ToolbarItem[] items = AllItems(row);
+            items[0].Tooltip = "Custom tip";
+            Shown(row, 920);
+
+            Assert.Equal("Custom tip", ToolTip.GetTip(items[0]));
+            Assert.Equal(items[1].Label, ToolTip.GetTip(items[1]));
+
+            items[0].Tooltip = null;
+
+            Assert.Equal(items[0].Label, ToolTip.GetTip(items[0]));
+        }
+
+        [AvaloniaFact]
         public void NarrowestWidth_TrailingGroupMovesIntoOverflow() {
             using var fixture = new KitFixture();
             ToolbarRow row = NewRow(260);
@@ -419,6 +435,98 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Assert.True(row.OverflowButton.IsVisible);
             Assert.Equal(2, row.OverflowButton.ActionItems.Count);
             Assert.Equal(["Export", "View"], row.OverflowButton.ActionItems.Select(a => a.Text));
+        }
+
+        private static ToolbarRow NewResearchRow() {
+            var row = new ToolbarRow { Theme = KitToolbarRowTheme(), Title = "Untitled graph", Width = 260 };
+            row.Groups.Add(new ToolbarGroup { Role = ToolbarGroupRole.Document, Items = [Item("New"), Item("Open")] });
+            row.Groups.Add(new ToolbarGroup { Role = ToolbarGroupRole.Arrange, Items = [Item("Align")] });
+            ToolbarItem sync = Item("Sync");
+            sync.OverflowLabel = "Sync Research";
+            row.Groups.Add(new ToolbarGroup { Role = ToolbarGroupRole.Research, Items = [sync, Item("Research")] });
+            ToolbarItem export = Item("Export");
+            export.OverflowLabel = "Export Image…";
+            ToolbarItem summary = Item("Summary");
+            summary.OverflowLabel = "Graph Summary";
+            ToolbarItem view = Item("View");
+            view.OverflowLabel = "View Options";
+            row.Groups.Add(new ToolbarGroup { Role = ToolbarGroupRole.ShareView, Items = [export, summary, view] });
+            return row;
+        }
+
+        [AvaloniaFact]
+        public void ToolbarRow_ResearchGroup_FoldsIntoOverflowWithShareView() {
+            using var fixture = new KitFixture();
+            ToolbarRow row = NewResearchRow();
+            Shown(row, 320);
+
+            var panel = row.GetVisualDescendants().OfType<ToolbarRowPanel>().Single();
+            Assert.False(panel.Children.OfType<StackPanel>().Single(p => AutomationProperties.GetName(p) == "Research").IsVisible);
+            Assert.False(panel.Children.OfType<StackPanel>().Single(p => AutomationProperties.GetName(p) == "Share").IsVisible);
+            Assert.True(panel.Children.OfType<StackPanel>().Single(p => AutomationProperties.GetName(p) == "Arrange").IsVisible);
+            Assert.True(row.OverflowButton.IsVisible);
+            Assert.Equal(
+                ["Sync Research", "Research", "—", "Export Image…", "Graph Summary", "View Options"],
+                row.OverflowButton.ActionItems.Select(a => a.IsSeparator ? "—" : a.Text));
+        }
+
+        [AvaloniaFact]
+        public void OverflowMenu_ToggleRowShowsItsOnStateWithACheckmark() {
+            using var fixture = new KitFixture();
+            ToolbarRow row = NewResearchRow();
+            ToolbarItem research = AllItems(row).Single(i => i.Label == "Research");
+            research.IsToggle = true;
+            fixture.Window.Width = 320;
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle(50);
+            Assert.True(row.OverflowButton.IsVisible);
+            Assert.All(row.OverflowButton.ActionItems.Where(a => !a.IsSeparator), a => Assert.True(a.HasCheckSlot));
+
+            string[] Rows(out bool[] checks, out double[] slotWidths) {
+                row.OverflowButton.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Down });
+                Dispatcher.UIThread.RunJobs();
+                AnimationClock.Settle(300);
+                StackPanel items = row.OverflowButton.Menu.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "PART_Items");
+                Border[] borders = [.. items.Children.OfType<Border>().Where(b => b.Child is StackPanel)];
+                checks = [.. borders.Select(b => ((Panel)((StackPanel)b.Child!).Children[0]).Children.OfType<Path>().Single().IsVisible)];
+                slotWidths = [.. borders.Select(b => ((Panel)((StackPanel)b.Child!).Children[0]).Width)];
+                string[] names = [.. borders.Select(b => AutomationProperties.GetName(b) ?? "")];
+                row.OverflowButton.IsOpen = false;
+                Dispatcher.UIThread.RunJobs();
+                return names;
+            }
+
+            string[] closed = Rows(out bool[] closedChecks, out double[] widths);
+            Assert.Equal(["Sync Research", "Research, unchecked", "Export Image…", "Graph Summary", "View Options"], closed);
+            Assert.All(closedChecks, Assert.False);
+            Assert.All(widths, w => Assert.Equal(16, w));
+
+            research.IsOn = true;
+            string[] open = Rows(out bool[] openChecks, out _);
+            Assert.Equal(["Sync Research", "Research, checked", "Export Image…", "Graph Summary", "View Options"], open);
+            Assert.Equal([false, true, false, false, false], openChecks);
+
+            row.OverflowButton.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Down });
+            Dispatcher.UIThread.RunJobs();
+            AnimationClock.Settle(300);
+            StackPanel menuItems = row.OverflowButton.Menu.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "PART_Items");
+            Path check = menuItems.Children.OfType<Border>().Where(b => b.Child is StackPanel).ElementAt(1).GetVisualDescendants().OfType<Path>().Single();
+            Assert.Equal(12, check.Width);
+            Assert.Equal(12, check.Height);
+            Assert.Equal(fixture.Brush("Foreman.Color.Text").ToImmutable(), check.Stroke?.ToImmutable());
+        }
+
+        [AvaloniaFact]
+        public void ToolbarRow_WithoutResearchGroup_OverflowUnchanged() {
+            using var fixture = new KitFixture();
+            ToolbarRow row = NewRow(260);
+            Shown(row, 320);
+
+            Assert.DoesNotContain(row.OverflowButton.ActionItems, a => a.IsSeparator);
+            Assert.Equal(["Export", "View"], row.OverflowButton.ActionItems.Select(a => a.Text));
+            var panel = row.GetVisualDescendants().OfType<ToolbarRowPanel>().Single();
+            Assert.True(panel.Children.OfType<StackPanel>().Single(p => AutomationProperties.GetName(p) == "Arrange").IsVisible);
         }
 
         [AvaloniaFact]

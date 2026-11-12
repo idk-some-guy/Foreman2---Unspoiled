@@ -22,6 +22,7 @@ namespace Foreman.Mac.Kit.Composites {
             [ToolbarGroupRole.Document] = "Document",
             [ToolbarGroupRole.Add] = "Add",
             [ToolbarGroupRole.Arrange] = "Arrange",
+            [ToolbarGroupRole.Research] = "Research",
             [ToolbarGroupRole.ShareView] = "Share",
         };
 
@@ -97,7 +98,8 @@ namespace Foreman.Mac.Kit.Composites {
             List<(Control, ToolbarGapKind)> content = [(titleText, ToolbarGapKind.None)];
             List<ToolbarItem> allItems = [];
             List<StackPanel> groupPanels = [];
-            StackPanel? overflowGroupPanel = null;
+            List<StackPanel> overflowGroupPanels = [];
+            int overflowStart = Groups.Count >= 2 && Groups[^2].Role == ToolbarGroupRole.Research ? Groups.Count - 2 : Groups.Count - 1;
 
             for (int i = 0; i < Groups.Count; i++) {
                 ToolbarGroup group = Groups[i];
@@ -112,9 +114,10 @@ namespace Foreman.Mac.Kit.Composites {
                 groupPanels.Add(groupPanel);
                 content.Add((groupPanel, ToolbarGapKind.Group));
 
+                if (i >= overflowStart)
+                    overflowGroupPanels.Add(groupPanel);
                 if (i == Groups.Count - 1) {
-                    overflowGroupPanel = groupPanel;
-                    PopulateOverflow(group);
+                    PopulateOverflow(Groups.Skip(overflowStart));
                     content.Add((OverflowButton, ToolbarGapKind.Group));
                 }
             }
@@ -122,7 +125,7 @@ namespace Foreman.Mac.Kit.Composites {
             content.Add((SearchField, ToolbarGapKind.Flex));
             content.Add((ZoomStepper, ToolbarGapKind.Group));
 
-            panel.SetContent(content, allItems, groupPanels, overflowGroupPanel, Groups.Count > 0 ? OverflowButton : null, SearchField, ZoomStepper);
+            panel.SetContent(content, allItems, groupPanels, overflowGroupPanels, Groups.Count > 0 ? OverflowButton : null, SearchField, ZoomStepper);
             previousGroupPanels = groupPanels;
 
             SetRovingTabStop(null);
@@ -163,18 +166,26 @@ namespace Foreman.Mac.Kit.Composites {
             e.Handled = true;
         }
 
-        private void PopulateOverflow(ToolbarGroup group) {
+        private void PopulateOverflow(IEnumerable<ToolbarGroup> groups) {
             OverflowButton.ActionItems.Clear();
-            foreach (ToolbarItem item in group.Items) {
-                ToolbarItem captured = item;
-                OverflowButton.ActionItems.Add(new MenuButtonAction {
-                    Text = captured.Label ?? "",
-                    IsEnabled = captured.IsEnabled,
-                    Activate = () => {
-                        if (captured.Command?.CanExecute(captured.CommandParameter) == true)
-                            captured.Command.Execute(captured.CommandParameter);
-                    },
-                });
+            bool first = true;
+            foreach (ToolbarGroup group in groups) {
+                if (!first)
+                    OverflowButton.ActionItems.Add(new MenuButtonAction { Text = "", IsSeparator = true });
+                first = false;
+                foreach (ToolbarItem item in group.Items) {
+                    ToolbarItem captured = item;
+                    OverflowButton.ActionItems.Add(new MenuButtonAction {
+                        Text = captured.OverflowLabel ?? captured.Label ?? "",
+                        IsEnabled = captured.IsEnabled,
+                        HasCheckSlot = true,
+                        CheckState = captured.IsToggle ? () => captured.IsOn : null,
+                        Activate = () => {
+                            if (captured.Command?.CanExecute(captured.CommandParameter) == true)
+                                captured.Command.Execute(captured.CommandParameter);
+                        },
+                    });
+                }
             }
         }
 

@@ -163,7 +163,7 @@ namespace Foreman.Mac.UiTests {
 
             var headers = file.Items.OfType<NativeMenuItem>().Select(i => i is NativeMenuItemSeparator ? "-" : i.Header).ToList();
 
-            Assert.Equal(["New Graph", "Open…", "Open Recent", "-", "Close", "Save", "Duplicate", "Rename…", "Revert To", "-", "Import Graph…", "Export as .fjson…", "Export Image…"], headers);
+            Assert.Equal(["New Graph", "Open…", "Open Recent", "-", "Close", "Save", "Duplicate", "Rename…", "Revert To", "-", "Sync Research…", "Sync Research From Another Save…", "-", "Import Graph…", "Export as .fjson…", "Export Image…"], headers);
             Assert.DoesNotContain(AllItems(file), i => i.Header is not null && i.Header.StartsWith("Save As", StringComparison.Ordinal));
             Assert.Equal(new KeyGesture(Key.S, PlatformModifiers.Primary | KeyModifiers.Shift), ItemNamed(file, "Duplicate").Gesture);
             Assert.Equal(new KeyGesture(Key.S, PlatformModifiers.Primary), ItemNamed(file, "Save").Gesture);
@@ -770,7 +770,7 @@ namespace Foreman.Mac.UiTests {
 
             var headers = RealItems(SubMenu(TopMenu(window), "Window")).Select(i => i.Header).ToList();
 
-            Assert.Equal(["Minimize", "Zoom", "Welcome to Foreman", "Preset Comparator", "Bring All to Front"], headers);
+            Assert.Equal(["Minimize", "Zoom", "Welcome to Foreman", "Preset Comparator", "Research", "Bring All to Front"], headers);
         }
 
         [AvaloniaFact]
@@ -1489,7 +1489,7 @@ namespace Foreman.Mac.UiTests {
 
             window.IsDocumentOpen = false;
 
-            foreach (string header in new[] { "Save", "Duplicate", "Rename\u2026", "Revert To", "Export as .fjson\u2026", "Export Image\u2026", "Close" })
+            foreach (string header in new[] { "Save", "Duplicate", "Rename\u2026", "Revert To", "Export as .fjson\u2026", "Export Image\u2026", "Close", "Sync Research\u2026", "Sync Research From Another Save\u2026" })
                 Assert.False(ItemNamed(file, header).IsEnabled, header);
             foreach (string header in new[] { "New Graph", "Open\u2026", "Import Graph\u2026" })
                 Assert.True(ItemNamed(file, header).IsEnabled, header);
@@ -1500,10 +1500,12 @@ namespace Foreman.Mac.UiTests {
             Assert.True(ItemNamed(view, "Show Toolbar").IsEnabled);
             Assert.True(ItemNamed(windowMenu, "Welcome to Foreman").IsEnabled);
             Assert.Equal(comparatorBefore, ItemNamed(windowMenu, "Preset Comparator").IsEnabled);
-            Assert.All(RealItems(windowMenu).Where(i => i.Header is not "Preset Comparator"), i => Assert.True(i.IsEnabled, i.Header));
+            Assert.False(ItemNamed(windowMenu, "Research").IsEnabled);
+            Assert.All(RealItems(windowMenu).Where(i => i.Header is not ("Preset Comparator" or "Research")), i => Assert.True(i.IsEnabled, i.Header));
 
             window.IsDocumentOpen = true;
 
+            Assert.True(ItemNamed(windowMenu, "Research").IsEnabled);
             Assert.True(ItemNamed(file, "Save").IsEnabled);
             Assert.True(ItemNamed(edit, "Select All").IsEnabled);
             Assert.False(ItemNamed(edit, "Undo").IsEnabled);

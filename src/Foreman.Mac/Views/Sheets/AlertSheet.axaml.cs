@@ -11,11 +11,13 @@ using System;
 namespace Foreman.Mac.Views.Sheets {
     public enum AlertButtons { Ok, YesNo, Destructive }
 
-    public partial class AlertSheet : SheetContent<ConfirmChoice> {
+    public partial class AlertSheet : SheetContent<ConfirmChoice>, IAlertContent {
         private static readonly Lazy<Bitmap> appIcon = new(() => {
             using System.IO.Stream stream = AssetLoader.Open(new Uri("avares://Foreman.Mac/Assets/unspoiled-icon-512.png"));
             return new Bitmap(stream);
         });
+
+        internal static Bitmap AppIcon => appIcon.Value;
 
         private readonly AlertFrame frame;
         private readonly Button noButton;
@@ -38,7 +40,7 @@ namespace Foreman.Mac.Views.Sheets {
             Title = titled ? title : message;
             frame.Headline = Title;
             frame.InformativeText = titled ? message : null;
-            frame.Icon = appIcon.Value;
+            frame.Icon = AppIcon;
 
             noButton = RowButton(buttons switch {
                 AlertButtons.Destructive => "Cancel",
@@ -88,7 +90,7 @@ namespace Foreman.Mac.Views.Sheets {
             _ => ConfirmChoice.Yes,
         });
 
-        internal AlertFrame FrameControl => frame;
+        public AlertFrame FrameControl => frame;
         internal Button NoButtonControl => noButton;
         internal Button YesButtonControl => yesButton;
     }

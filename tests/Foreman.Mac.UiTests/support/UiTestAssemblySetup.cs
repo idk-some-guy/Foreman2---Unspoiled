@@ -1,5 +1,6 @@
 using Foreman.DataCaching;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
 
@@ -19,6 +20,8 @@ namespace Foreman.Mac.UiTests.support {
 
             string dbDirectory = Path.Combine(Path.GetTempPath(), "foreman-uitests-db-" + Guid.NewGuid().ToString("N"));
             PresetProcessor.SetDefaultUserDataDirectoryOverride(dbDirectory);
+
+            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = new CultureInfo("en-US");
 
             App.DefaultAppearanceSource = () => new FixedAppearance();
 

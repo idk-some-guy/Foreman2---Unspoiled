@@ -90,7 +90,7 @@ namespace ForemanTest {
             var graph = new ProductionGraph();
             GraphSaveTestUi.ApplyViewerUiToGraph(saveDocument, cache, graph);
 
-            GraphSaveLoader.LoadProductionGraph(graph, cache, saveDocument.ProductionGraph, applySolverSettings: true);
+            GraphSaveLoader.LoadProductionGraph(graph, cache, saveDocument.ProductionGraph, applySolverSettings: true, applyResearch: true);
             graph.UpdateNodeValues();
 
             Assert.IsTrue(graph.Nodes.OfType<RecipeNode>().Any(n => (n.ErrorSet & RecipeNode.Errors.RecipeIsMissing) != 0));

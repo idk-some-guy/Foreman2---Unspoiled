@@ -284,13 +284,13 @@ namespace Foreman.Mac.UiTests.Views {
 
         [Fact]
         public void MismatchLines_NameEachSideInOrder_WithASerialAnd_CappedAtFiveNames() {
-            Assert.Equal("", SaveFileLoadSheet.MismatchLines([], [], []));
+            Assert.Equal("", SaveModComparison.MismatchLines([], [], []));
             Assert.Equal("\nNot in the save: space-exploration and krastorio2",
-                SaveFileLoadSheet.MismatchLines(["space-exploration", "krastorio2"], [], []));
+                SaveModComparison.MismatchLines(["space-exploration", "krastorio2"], [], []));
             Assert.Equal("\nNot in the save: a\nDifferent version: flib\nNot in the preset: b, c, and d",
-                SaveFileLoadSheet.MismatchLines(["a"], ["flib"], ["b", "c", "d"]));
+                SaveModComparison.MismatchLines(["a"], ["flib"], ["b", "c", "d"]));
             Assert.Equal("\nNot in the preset: m1, m2, m3, m4, m5, and 3 more",
-                SaveFileLoadSheet.MismatchLines([], [], ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"]));
+                SaveModComparison.MismatchLines([], [], ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"]));
         }
 
         [AvaloniaFact]

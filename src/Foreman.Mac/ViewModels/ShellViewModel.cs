@@ -14,8 +14,12 @@ namespace Foreman.Mac.ViewModels {
         public IRelayCommand SettingsCommand { get; }
         public IRelayCommand GraphSummaryCommand { get; }
         public IRelayCommand AlignSelectionCommand { get; }
+        public IRelayCommand SyncResearchCommand { get; }
+        public IRelayCommand SyncResearchFromAnotherSaveCommand { get; }
+        public IRelayCommand ResearchWindowCommand { get; }
+        public IRelayCommand ResearchWindowToggleCommand { get; }
 
-        public ShellViewModel(Action onNew, Action onLoad, Action onSave, Action onImport, Action onExportImage, Action onAddItem, Action onAddRecipe, Action onAutoconnect, Action onAlignSelection, Action onSettings, Action onGraphSummary, Func<bool>? canExecuteAlignSelection = null) {
+        public ShellViewModel(Action onNew, Action onLoad, Action onSave, Action onImport, Action onExportImage, Action onAddItem, Action onAddRecipe, Action onAutoconnect, Action onAlignSelection, Action onSettings, Action onGraphSummary, Action onSyncResearch, Action onSyncResearchFromAnotherSave, Func<bool>? canExecuteAlignSelection = null, Func<bool>? canExecuteSyncResearch = null, Action? onResearchWindow = null, Func<bool>? canExecuteResearchWindow = null, Action? onToggleResearchWindow = null) {
             NewCommand = new RelayCommand(onNew);
             LoadCommand = new RelayCommand(onLoad);
             SaveCommand = new RelayCommand(onSave);
@@ -27,6 +31,10 @@ namespace Foreman.Mac.ViewModels {
             AlignSelectionCommand = new RelayCommand(onAlignSelection, canExecuteAlignSelection ?? (() => true));
             SettingsCommand = new RelayCommand(onSettings);
             GraphSummaryCommand = new RelayCommand(onGraphSummary);
+            SyncResearchCommand = new RelayCommand(onSyncResearch, canExecuteSyncResearch ?? (() => true));
+            SyncResearchFromAnotherSaveCommand = new RelayCommand(onSyncResearchFromAnotherSave, canExecuteSyncResearch ?? (() => true));
+            ResearchWindowCommand = new RelayCommand(onResearchWindow ?? (() => { }), canExecuteResearchWindow ?? (() => true));
+            ResearchWindowToggleCommand = new RelayCommand(onToggleResearchWindow ?? (() => { }), canExecuteResearchWindow ?? (() => true));
         }
     }
 }

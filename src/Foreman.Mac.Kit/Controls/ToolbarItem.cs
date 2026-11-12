@@ -19,8 +19,17 @@ namespace Foreman.Mac.Kit.Controls {
         public static readonly StyledProperty<bool> IsOnProperty =
             AvaloniaProperty.Register<ToolbarItem, bool>(nameof(IsOn));
 
+        public static readonly StyledProperty<bool> IsToggleProperty =
+            AvaloniaProperty.Register<ToolbarItem, bool>(nameof(IsToggle));
+
         public static readonly StyledProperty<string?> AutomationNameProperty =
             AvaloniaProperty.Register<ToolbarItem, string?>(nameof(AutomationName));
+
+        public static readonly StyledProperty<string?> OverflowLabelProperty =
+            AvaloniaProperty.Register<ToolbarItem, string?>(nameof(OverflowLabel));
+
+        public static readonly StyledProperty<string?> TooltipProperty =
+            AvaloniaProperty.Register<ToolbarItem, string?>(nameof(Tooltip));
 
         private TextBlock? label;
         private IDisposable? labelOpacitySub;
@@ -33,6 +42,7 @@ namespace Foreman.Mac.Kit.Controls {
             IsOnProperty.Changed.AddClassHandler<ToolbarItem>((item, e) => item.PseudoClasses.Set(":on", (bool)e.NewValue!));
             AutomationNameProperty.Changed.AddClassHandler<ToolbarItem>((item, _) => item.SyncAutomationName());
             LabelProperty.Changed.AddClassHandler<ToolbarItem>((item, _) => item.SyncAutomationName());
+            TooltipProperty.Changed.AddClassHandler<ToolbarItem>((item, _) => item.ApplyTooltip());
         }
 
         public Geometry? Glyph {
@@ -45,9 +55,26 @@ namespace Foreman.Mac.Kit.Controls {
             set => SetValue(LabelProperty, value);
         }
 
+        public string? OverflowLabel {
+            get => GetValue(OverflowLabelProperty);
+            set => SetValue(OverflowLabelProperty, value);
+        }
+
+        public string? Tooltip {
+            get => GetValue(TooltipProperty);
+            set => SetValue(TooltipProperty, value);
+        }
+
+        internal void ApplyTooltip() => ToolTip.SetTip(this, Tooltip ?? (Classes.Contains("icon-only") ? Label : null));
+
         public bool IsOn {
             get => GetValue(IsOnProperty);
             set => SetValue(IsOnProperty, value);
+        }
+
+        public bool IsToggle {
+            get => GetValue(IsToggleProperty);
+            set => SetValue(IsToggleProperty, value);
         }
 
         public string? AutomationName {

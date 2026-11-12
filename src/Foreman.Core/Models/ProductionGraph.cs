@@ -2,6 +2,7 @@
 using Foreman.DataCaching.DataTypes;
 using Foreman.Models;
 using Foreman.Models.Nodes;
+using Foreman.Models.Research;
 using Foreman.Models.Solver;
 using Foreman.Serialization;
 using System;
@@ -112,6 +113,21 @@ namespace Foreman {
             Bump();
             NodeMutated?.Invoke(this, EventArgs.Empty);
         }
+
+        public ResearchState Research {
+            get;
+            set {
+                ArgumentNullException.ThrowIfNull(value);
+                if (field.Equals(value))
+                    return;
+                field = value;
+                foreach (BaseNode node in nodes)
+                    if (node is RecipeNode recipeNode)
+                        recipeNode.OnResearchChanged();
+                NotifyNodeMutated();
+                UpdateNodeValues();
+            }
+        } = ResearchState.None;
 
         public long Version { get; private set; }
         private void Bump() => Version++;
@@ -298,6 +314,7 @@ namespace Foreman {
             foreach (BaseNode node in nodes.ToList())
                 DeleteNode(node);
 
+            Research = ResearchState.None;
             SerializeNodeIdSet = null;
             lastNodeID = 0;
             Bump();
@@ -423,7 +440,7 @@ namespace Foreman {
             bool applySolverSettings,
             LinkRouting defaultLinkRouting = LinkRouting.Rounded) {
             Bump();
-            return GraphSaveLoader.LoadProductionGraph(this, cache, document, applySolverSettings, defaultLinkRouting);
+            return GraphSaveLoader.LoadProductionGraph(this, cache, document, applySolverSettings, applyResearch: false, defaultLinkRouting);
         }
 
         public NewNodeBatch InsertNodesFromFragment(DataCache cache, string json, bool applySolverSettings, LinkRouting defaultLinkRouting = LinkRouting.Rounded) {

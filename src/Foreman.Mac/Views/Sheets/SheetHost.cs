@@ -173,7 +173,7 @@ namespace Foreman.Mac.Views.Sheets {
 
         private Layer PushLayer<T>(SheetContent<T> content) {
             double topInset = topAnchor?.Bounds.Bottom ?? 0;
-            Layer layer = content is AlertSheet alert ? AlertLayer(alert, topInset) : FrameLayer(content, topInset);
+            Layer layer = content is IAlertContent alert ? AlertLayer(content, alert.FrameControl, topInset) : FrameLayer(content, topInset);
             content.ActivityChanged += OnActivityChanged;
             layers.Add(layer);
             Children.Add(layer.Root);
@@ -186,8 +186,7 @@ namespace Foreman.Mac.Views.Sheets {
             return layer;
         }
 
-        private static Layer AlertLayer(AlertSheet alert, double topInset) {
-            AlertFrame frame = alert.FrameControl;
+        private static Layer AlertLayer<T>(SheetContent<T> alert, AlertFrame frame, double topInset) {
             frame.TopInset = topInset;
             var layer = new Layer {
                 Root = alert,
@@ -230,6 +229,7 @@ namespace Foreman.Mac.Views.Sheets {
                 if (!content.Result.IsCompleted)
                     layer.Cancel();
             };
+            content.TitleChanged += (_, _) => frame.Title = content.Title;
             return layer;
         }
 
@@ -264,7 +264,7 @@ namespace Foreman.Mac.Views.Sheets {
                 layer.PriorDefaultContent = def.Content;
                 if (activity.Kind == SheetActivityKind.InProgress)
                     def.IsEnabled = false;
-                else
+                else if (activity.OffersRetry)
                     def.Content = TryAgainLabel;
             }
 

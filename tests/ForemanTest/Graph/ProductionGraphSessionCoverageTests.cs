@@ -59,7 +59,7 @@ namespace ForemanTest.Graph {
 
             var session = GraphSessionTestHelper.AttachSession(graph);
             ProductionGraph.NewNodeBatch imported = GraphSaveLoader.LoadProductionGraph(
-                graph, built.Cache, document, applySolverSettings: true);
+                graph, built.Cache, document, applySolverSettings: true, applyResearch: true);
 
             Assert.HasCount(imported.NewNodes.Count, session.View.Nodes);
             Assert.HasCount(imported.NewLinks.Count, session.View.Links);
@@ -273,7 +273,7 @@ namespace ForemanTest.Graph {
                 graph,
                 SpaceAgeDataCacheFixture.GetLoadedAsync().GetAwaiter().GetResult(),
                 saveDocument.ProductionGraph,
-                applySolverSettings: true);
+                applySolverSettings: true, applyResearch: true);
 
             Assert.HasCount(imported.NewNodes.Count, session.View.Nodes);
             Assert.HasCount(imported.NewLinks.Count, session.View.Links);

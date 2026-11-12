@@ -6,10 +6,17 @@ namespace Foreman.DataCaching {
         public Dictionary<string, string> Mods { get; private set; }
         public Dictionary<string, bool> Technologies { get; private set; }
         public Dictionary<string, bool> Recipes { get; private set; }
+        public Dictionary<string, SaveTechnologyLevel> TechnologyLevels { get; private set; }
+        public Dictionary<string, double> ResearchBonuses { get; private set; }
+        public Dictionary<string, double> RecipeProductivity { get; private set; }
+        public long? TicksPlayed { get; set; }
         public SaveFileInfo() {
             Mods = [];
             Technologies = [];
             Recipes = [];
+            TechnologyLevels = [];
+            ResearchBonuses = [];
+            RecipeProductivity = [];
         }
     }
 

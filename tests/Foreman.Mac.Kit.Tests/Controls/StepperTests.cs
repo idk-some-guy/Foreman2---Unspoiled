@@ -372,6 +372,26 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal("14", peer.GetProvider<IValueProvider>()!.Value);
         }
 
+        [AvaloniaFact]
+        public void AutomationPeer_SpokenValue_TrimsTrailingZeros() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Minimum = 0;
+            stepper.Maximum = 50;
+            stepper.Decimals = 2;
+            stepper.Value = 2.5;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(stepper);
+            IValueProvider value = peer.GetProvider<IValueProvider>()!;
+            Assert.Equal("2.5", value.Value);
+            stepper.Value = 2;
+            Assert.Equal("2", value.Value);
+            stepper.ShowsPlusSign = true;
+            Assert.Equal("plus 2", value.Value);
+        }
+
         private static Stepper BorderWidth() {
             Stepper stepper = Themed();
             stepper.Minimum = 0;
@@ -411,6 +431,131 @@ namespace Foreman.Mac.Kit.Tests.Controls {
             Assert.Equal(3, stepper.Value);
             AutomationPropertyChangedEventArgs change = Assert.Single(events, e => e.Property == RangeValuePatternIdentifiers.ValueProperty);
             Assert.Equal((2d, 3d), ((double)change.OldValue!, (double)change.NewValue!));
+        }
+
+        [AvaloniaFact]
+        public void Stepper_Empty_ShowsPlaceholderAndNoValue() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Value = 5;
+            stepper.Placeholder = "None";
+            stepper.Unit = "%";
+            stepper.IsEmpty = true;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBox box = ValueBox(stepper);
+            Assert.Equal("", box.Text);
+            Assert.True(UnitText(stepper).IsVisible);
+            Assert.Equal("%", UnitText(stepper).Text);
+            Assert.Equal("None", box.PlaceholderText);
+            TextBlock placeholder = box.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "PART_Placeholder");
+            Assert.True(placeholder.IsVisible);
+            Assert.Equal(TextAlignment.Center, placeholder.TextAlignment);
+            Assert.Equal(fixture.Brush("Foreman.Color.TextTertiary").ToImmutable(), placeholder.Foreground?.ToImmutable());
+        }
+
+        [AvaloniaFact]
+        public void Stepper_IsWide_RaisesTheFieldMinimumTo72() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+            Grid columns = stepper.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PART_Columns");
+            Assert.Equal(40, columns.ColumnDefinitions[0].MinWidth);
+
+            stepper.IsWide = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(72, columns.ColumnDefinitions[0].MinWidth);
+
+            stepper.IsWide = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(40, columns.ColumnDefinitions[0].MinWidth);
+        }
+
+        [AvaloniaFact]
+        public void Stepper_EmptyThenStep_BecomesNonEmpty() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Value = 5;
+            stepper.Placeholder = "None";
+            stepper.IsEmpty = true;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            fixture.StateOf(UpButton(stepper)).Click();
+
+            Assert.False(stepper.IsEmpty);
+            Assert.Equal(6, stepper.Value);
+            Assert.Equal("6", ValueBox(stepper).Text);
+        }
+
+        [AvaloniaFact]
+        public void Stepper_EmptyThenAutomationSetValue_BecomesNonEmpty() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Placeholder = "None";
+            stepper.IsEmpty = true;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(stepper);
+            peer.GetProvider<IRangeValueProvider>()!.SetValue(7);
+
+            Assert.False(stepper.IsEmpty);
+            Assert.Equal("7", ValueBox(stepper).Text);
+        }
+
+        [AvaloniaFact]
+        public void Stepper_Empty_SpeaksThePlaceholderWithTheUnit() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Placeholder = "None";
+            stepper.Unit = "%";
+            stepper.IsEmpty = true;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(stepper);
+            Assert.Equal("None percent", peer.GetProvider<IValueProvider>()!.Value);
+        }
+
+        [AvaloniaFact]
+        public void Stepper_EmptyThenTypedValue_BecomesNonEmpty() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.IsEmpty = true;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            TextBox box = ValueBox(stepper);
+            box.Text = "12";
+            box.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+
+            Assert.False(stepper.IsEmpty);
+            Assert.Equal(12, stepper.Value);
+        }
+
+        [AvaloniaFact]
+        public void Stepper_PlusSign_FormatsAndSpeaks() {
+            using var fixture = new KitFixture();
+            Stepper stepper = Themed();
+            stepper.Minimum = -50;
+            stepper.Value = 2;
+            stepper.ShowsPlusSign = true;
+            fixture.Window.Content = stepper;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("+2", ValueBox(stepper).Text);
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(stepper);
+            Assert.Equal("plus 2", peer.GetProvider<IValueProvider>()!.Value);
+
+            stepper.Value = -3;
+            Assert.Equal("-3", ValueBox(stepper).Text);
+            Assert.Equal("-3", peer.GetProvider<IValueProvider>()!.Value);
+
+            stepper.Value = 0;
+            Assert.Equal("0", ValueBox(stepper).Text);
         }
     }
 

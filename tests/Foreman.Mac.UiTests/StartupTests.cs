@@ -198,6 +198,8 @@ namespace Foreman.Mac.UiTests {
         }
 
         private static void CloseWelcome() {
+            if (MainWindow.MostRecentlyOpened is { IsClosed: false } live)
+                live.CloseAbandoned();
             WelcomeLauncher.Current?.Close();
             WelcomeLauncher.CacheLoaderOverride = null;
             WelcomeLauncher.WarningOverride = null;

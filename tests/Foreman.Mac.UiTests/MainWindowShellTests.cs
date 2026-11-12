@@ -17,8 +17,10 @@ using Foreman;
 using Foreman.DataCaching;
 using Foreman.DataCaching.DataTypes;
 using Foreman.DataCaching.Loading;
+using Foreman.DataCaching.Storage;
 using Foreman.Graph;
 using Foreman.Models;
+using Foreman.Models.Research;
 using Foreman.Mac.Canvas;
 using Foreman.Mac.Canvas.Elements;
 using Foreman.Mac.Converters;
@@ -114,7 +116,7 @@ namespace Foreman.Mac.UiTests {
         }
 
         [AvaloniaFact]
-        public void AllElevenCommands_AreReachableFromToolbarOrNativeMenu() {
+        public void AllFifteenCommands_AreReachableFromToolbarOrNativeMenu() {
             var window = new MainWindow();
             window.Show();
             Dispatcher.UIThread.RunJobs();
@@ -144,7 +146,7 @@ namespace Foreman.Mac.UiTests {
                 .Where(p => typeof(IRelayCommand).IsAssignableFrom(p.PropertyType))
                 .ToDictionary(p => p.Name, p => (IRelayCommand)p.GetValue(window.Commands)!);
 
-            Assert.Equal(11, commandsByProperty.Count);
+            Assert.Equal(15, commandsByProperty.Count);
             foreach ((string name, IRelayCommand command) in commandsByProperty)
                 Assert.Contains(command, reachableCommands);
         }
@@ -1261,6 +1263,20 @@ namespace Foreman.Mac.UiTests {
             GraphLoadResult result = window.GraphCanvas.Viewer.LoadDocument(cache, FlowchartJson());
             Assert.True(result.Success, result.ErrorMessage);
             Assert.NotEmpty(window.GraphCanvas.Viewer.NodeElements);
+        }
+
+        [AvaloniaFact]
+        public async Task NewGraphAsync_AfterASync_StartsWithoutResearch() {
+            using var library = new LibraryFixture();
+            using var shell = ShellFixture.Open();
+            shell.Window.Library = library.Service;
+            shell.Graph.Research = Views.Research.ResearchWindowTests.Synced();
+
+            await shell.Window.NewGraphAsync();
+
+            Assert.Same(ResearchState.None, shell.Graph.Research);
+            GraphRow row = library.Service.Find(library.Service.OpenGraphId!.Value)!;
+            Assert.DoesNotContain("\"Research\"", row.Data);
         }
 
         //IMPORTANT 4 (final fix wave): New left an open panel bound to a node the clear just deleted -

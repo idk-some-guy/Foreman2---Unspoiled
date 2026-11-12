@@ -93,6 +93,9 @@ namespace Foreman.Mac.Canvas.Elements {
         private bool ShowsExtraProductivity =>
             RecipeViewModel.ExtraProductivity > 0 && (RecipeViewModel.SelectedAssembler.Assembler.EntityType == EntityType.Miner || Context.EnableExtraProductivityForNonMiners);
 
+        internal string? ResearchTooltipLine =>
+            RecipeViewModel.ResearchProductivity > 0 ? "Research Productivity: +" + (RecipeViewModel.ResearchProductivity * 100).ToString("0.##", DisplayCulture.Format) + "%" : null;
+
         private protected override void LayoutDetail(CanvasTokens tokens, List<NodeText> detail) {
             float rowTop = Top + NodeCardPainter.DetailRowTop(tokens);
             float rowHeight = NodeCardPainter.BuildingRowHeight * (float)tokens.Scale;
@@ -303,7 +306,10 @@ namespace Foreman.Mac.Canvas.Elements {
             string entityName = RecipeViewModel.SelectedAssembler.Assembler is IAssembler helpAssembler
                 ? helpAssembler.GetEntityTypeName(false).ToLowerInvariant()
                 : "assembler";
-            tooltips.AddRange(ExclusiveHelpTooltip($"Left click on this node to edit its {entityName}, modules, beacon, etc.\nRight click for options.", exclusive));
+            string help = $"Left click on this node to edit its {entityName}, modules, beacon, etc.\nRight click for options.";
+            if (ResearchTooltipLine is { } researchLine)
+                help += "\n" + researchLine;
+            tooltips.AddRange(ExclusiveHelpTooltip(help, exclusive));
 
             return tooltips;
         }

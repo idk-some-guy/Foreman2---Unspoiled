@@ -94,6 +94,12 @@ namespace Foreman.Mac.UiTests {
             GraphSummaryWidth = 640,
             GraphSummaryHeight = 480,
             GraphSummarySegment = 2,
+            ResearchLeft = 220,
+            ResearchTop = 110,
+            ResearchWidth = 660,
+            ResearchHeight = 520,
+            ResearchSegment = 1,
+            ResearchTechnologyFilter = 2,
         };
 
         [Fact]

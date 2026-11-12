@@ -103,8 +103,8 @@
             <ctrl:Stepper Name="AvgNeighboursValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="100" Increment="0.05" Decimals="2"
                           IsVisible="{Binding ShowsNeighbours}" Value="{Binding AvgNeighbours, Mode=TwoWay}" />
           </kit:FormRow>
-          <kit:FormRow Theme="{StaticResource Kit.FormRow}" Label="Extra prod." LabelColumn="Inspector"
-                       IsVisible="{Binding ShowsExtraProductivity}">
+          <kit:FormRow Name="ExtraProductivityRow" Theme="{StaticResource Kit.FormRow}" Label="Extra prod." SpokenLabel="Extra productivity" LabelColumn="Inspector"
+                       Note="{Binding ExtraProductivityNote}" IsVisible="{Binding ShowsExtraProductivity}">
             <ctrl:Stepper Name="ExtraProductivityValue" Theme="{StaticResource Kit.Stepper}" Minimum="0" Maximum="100000" Increment="10" Decimals="2"
                           Unit="%" IsVisible="{Binding ShowsExtraProductivity}" Value="{Binding ExtraProductivityPercent, Mode=TwoWay}" />
           </kit:FormRow>

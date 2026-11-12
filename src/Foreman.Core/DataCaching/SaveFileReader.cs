@@ -179,12 +179,24 @@ namespace Foreman.DataCaching {
             foreach (JsonNode node in PresetJson.EnumerateArray(export, "mods"))
                 if (PresetJson.GetString(node, "name") is string name && PresetJson.GetString(node, "version") is string version)
                     info.Mods.Add(name, version);
-            foreach (JsonNode node in PresetJson.EnumerateArray(export, "technologies"))
-                if (PresetJson.GetString(node, "name") is string name && PresetJson.GetBool(node, "enabled") is bool enabled)
+            foreach (JsonNode node in PresetJson.EnumerateArray(export, "technologies")) {
+                if (PresetJson.GetString(node, "name") is string name && PresetJson.GetBool(node, "enabled") is bool enabled) {
                     info.Technologies.Add(name, enabled);
+                    if (PresetJson.GetInt32(node, "level") is int level && PresetJson.GetInt32(node, "min_level") is int minLevel && PresetJson.GetDouble(node, "max_level") is double maxLevel)
+                        info.TechnologyLevels[name] = new SaveTechnologyLevel(level, minLevel, (long)maxLevel);
+                }
+            }
             foreach (JsonNode node in PresetJson.EnumerateArray(export, "recipes"))
                 if (PresetJson.GetString(node, "name") is string name && PresetJson.GetBool(node, "enabled") is bool enabled)
                     info.Recipes.Add(name, enabled);
+            foreach (string key in PresetJson.GetObjectPropertyNames(export["research"]))
+                if (PresetJson.GetDouble(export, "research", key) is double bonus)
+                    info.ResearchBonuses[key] = bonus;
+            foreach (string recipe in PresetJson.GetObjectPropertyNames(export["recipe_productivity"]))
+                if (PresetJson.GetDouble(export, "recipe_productivity", recipe) is double productivity)
+                    info.RecipeProductivity[recipe] = productivity;
+            if (PresetJson.GetDouble(export, "ticks_played") is double ticksPlayed)
+                info.TicksPlayed = (long)ticksPlayed;
             return info;
         }
     }

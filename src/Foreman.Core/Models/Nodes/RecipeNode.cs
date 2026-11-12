@@ -76,6 +76,8 @@ namespace Foreman {
 
         private readonly DataCache RecipeOwner;
 
+        internal void OnResearchChanged() { ioUpdateRequired = true; UpdateState(); OnNodeValuesChanged(); }
+
         public AssemblerQualityPair SelectedAssembler {
             get;
             set { if (value && field != value) { field = value; ioUpdateRequired = true; UpdateState(); OnNodeStateChanged(); } }
@@ -416,9 +418,27 @@ namespace Foreman {
 
         public double GetProductivityBonus() //unlike most of the others, this is the bonus (aka: starts from 0%, not 100%) //also: quality bonus is rounded down to 2 decimal places (1 percent)
         {
+            return Math.Min(Math.Max(0, ProductivityBeforeCap()), recipeDefinition.MaxProductivityBonus) + MiningResearchBonus();
+        }
+
+        public double MaxProductivityBonus => recipeDefinition.MaxProductivityBonus;
+
+        public bool ProductivityAtRecipeLimit => Math.Max(0, ProductivityBeforeCap()) >= recipeDefinition.MaxProductivityBonus;
+
+        public double ResearchProductivityBonus => RecipeResearchBonus() + MiningResearchBonus();
+
+        public bool HasResearchProductivity => ResearchProductivityBonus > 0;
+
+        private double RecipeResearchBonus() =>
+            BaseRecipe.Recipe is { } recipe && MyGraph.Research.RecipeProductivity.TryGetValue(recipe.Name, out double bonus) ? bonus : 0;
+
+        private double MiningResearchBonus() =>
+            SelectedAssembler.Assembler.EntityType == EntityType.Miner ? MyGraph.Research.MiningProductivity ?? 0 : 0;
+
+        private double ProductivityBeforeCap() {
             EffectLimits limits = SelectedAssembler.Assembler.EffectLimits;
             if (limits.IsLegacy)
-                return Math.Min(Math.Max(0, LegacyProductivitySum()), recipeDefinition.MaxProductivityBonus);
+                return LegacyProductivitySum();
 
             double multiplier = SelectedAssembler.Assembler.BaseProductivityBonus;
             double beaconTransmission = BeaconTransmissionFromModules();
@@ -426,12 +446,11 @@ namespace Foreman {
                 multiplier += module.Module.GetProductivityBonus(module.Quality);
             foreach (ModuleQualityPair beaconModule in BeaconModules)
                 multiplier += beaconModule.Module.GetProductivityBonus(beaconModule.Quality) * beaconTransmission;
-            multiplier = Math.Clamp(multiplier, limits.Productivity.Low, limits.Productivity.High) + ExtraProductivityBonus;
-            return Math.Min(Math.Max(0, multiplier), recipeDefinition.MaxProductivityBonus);
+            return Math.Clamp(multiplier, limits.Productivity.Low, limits.Productivity.High) + RecipeResearchBonus() + ExtraProductivityBonus;
         }
 
         private double LegacyProductivitySum() {
-            double multiplier = SelectedAssembler.Assembler.BaseProductivityBonus + ExtraProductivityBonus;
+            double multiplier = SelectedAssembler.Assembler.BaseProductivityBonus + RecipeResearchBonus() + ExtraProductivityBonus;
             double beaconTransmission = BeaconTransmissionFromModules();
             foreach (ModuleQualityPair module in AssemblerModules)
                 multiplier += module.Module.GetProductivityBonus(module.Quality);

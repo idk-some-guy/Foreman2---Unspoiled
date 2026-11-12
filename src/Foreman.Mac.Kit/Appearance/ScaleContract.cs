@@ -102,6 +102,7 @@ namespace Foreman.Mac.Kit.Appearance {
             "Foreman.Metrics.FindPanMargin",
             "Foreman.Size.SearchFieldGlyph",
             "Foreman.Size.StepperFieldWidth",
+            "Foreman.Size.StepperFieldWidthWide",
             "Foreman.Size.StepperArrowColumn",
             "Foreman.Size.SliderTrack",
             "Foreman.Size.SliderThumbNormal",

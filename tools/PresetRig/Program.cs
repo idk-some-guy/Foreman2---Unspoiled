@@ -27,6 +27,7 @@ namespace PresetRig {
                 return args[0] switch {
                     "probe" => await ProbeAsync(flags, cancel.Token),
                     "export" => await ExportAsync(flags, cancel.Token),
+                    "readsave" => await ReadSaveAsync(flags, cancel.Token),
                     "build" => await BuildAsync(flags, cancel.Token),
                     "pngs" => CountPngs(flags),
                     _ => Usage(),
@@ -43,6 +44,7 @@ namespace PresetRig {
         static int Usage() {
             Console.Error.WriteLine("probe --source docker|steam [--image <tag>] [--install <path>] [--binary <path>] --out <file> [--log <file>] [--keep]");
             Console.Error.WriteLine("export --source docker|steam [--image <tag>] [--install <path>] [--binary <path>] --set vanilla|space-age --mod <folder> [--out <file>] [--evidence <file>] [--keep]");
+            Console.Error.WriteLine("readsave --source docker|steam [--image <tag>] [--install <path>] [--binary <path>] --set vanilla|space-age --reader <mod folder> [--test-research] --out <file> [--keep]");
             Console.Error.WriteLine("build --export <file> --data <Factorio data folder> --name <preset name> --out <folder>");
             Console.Error.WriteLine("pngs --install <path>");
             return 2;
@@ -161,6 +163,30 @@ namespace PresetRig {
             if (instrument.Output.Contains("<<<END-EXPORT-P1>>>", StringComparison.Ordinal) && instrument.Output.Contains("<<<END-EXPORT-P2>>>", StringComparison.Ordinal))
                 return 0;
             return instrument.ExitCode != 0 ? instrument.ExitCode : 1;
+        }
+
+        static async Task<int> ReadSaveAsync(Dictionary<string, string> flags, CancellationToken token) {
+            if (!flags.TryGetValue("reader", out string? readerFolder) || !flags.TryGetValue("out", out string? outPath))
+                return Usage();
+            ModSet set = flags.GetValueOrDefault("set", "vanilla") == "space-age" ? ModSet.SpaceAge : ModSet.Vanilla;
+            RigOptions options = BuildOptions(flags, set);
+            using var run = new RigRun(options);
+            ProcessResult create = await run.CreateSaveAsync(token);
+            if (!File.Exists(run.SavePath))
+                return Fail(run, flags, "Factorio did not create the test save (exit " + create.ExitCode.ToString(CultureInfo.InvariantCulture) + ").", create.Output);
+
+            string readerName = run.InstallMod(readerFolder);
+            run.WriteBoolStartupSetting("foreman-savereader-test-research", flags.ContainsKey("test-research"));
+            ProcessResult instrument = await run.InstrumentAsync(readerName, ExportTicks, token);
+            const string startMarker = "<<<START-EXPORT-P0>>>";
+            const string endMarker = "<<<END-EXPORT-P0>>>";
+            int start = instrument.Output.IndexOf(startMarker, StringComparison.Ordinal);
+            int end = instrument.Output.IndexOf(endMarker, StringComparison.Ordinal);
+            if (start < 0 || end < start)
+                return Fail(run, flags, "The reader printed no export block (exit " + instrument.ExitCode.ToString(CultureInfo.InvariantCulture) + ").", instrument.Output);
+            File.WriteAllText(outPath, run.Scrub(instrument.Output.Substring(start, end + endMarker.Length - start)) + "\n");
+            Console.WriteLine("Wrote " + outPath);
+            return 0;
         }
 
         static async Task<int> BuildAsync(Dictionary<string, string> flags, CancellationToken token) {

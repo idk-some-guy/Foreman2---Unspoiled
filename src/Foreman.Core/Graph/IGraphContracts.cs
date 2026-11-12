@@ -98,6 +98,10 @@ namespace Foreman.Graph {
         IReadOnlyList<ModuleQualityPair> BeaconModules { get; }
         double NeighbourCount { get; }
         double ExtraProductivity { get; }
+        double ResearchProductivity { get; }
+        bool HasResearchProductivity { get; }
+        bool ProductivityAtRecipeLimit { get; }
+        double MaxProductivityBonus { get; }
         double BeaconCount { get; }
         double BeaconsPerAssembler { get; }
         double BeaconsConst { get; }

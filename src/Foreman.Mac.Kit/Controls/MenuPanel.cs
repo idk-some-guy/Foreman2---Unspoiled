@@ -174,7 +174,7 @@ namespace Foreman.Mac.Kit.Controls {
                     IsEnabled = item.IsEnabled,
                     Child = content,
                 };
-                AutomationProperties.SetName(row, item.Text);
+                AutomationProperties.SetName(row, item.AnnouncesCheckedState ? $"{item.Text}, {(item.IsChecked ? "checked" : "unchecked")}" : item.Text);
 
                 MenuRow captured = item;
                 row.PointerEntered += (_, _) => { if (captured.IsEnabled) HighlightedIndex = rows.FindIndex(r => r.Model == captured); };

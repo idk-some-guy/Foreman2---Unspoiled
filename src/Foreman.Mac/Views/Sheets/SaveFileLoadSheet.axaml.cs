@@ -7,8 +7,6 @@ using Foreman.Mac.Kit.Composites;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -158,23 +156,10 @@ namespace Foreman.Mac.Views.Sheets {
         }
 
         internal async Task ProcessSaveDataAsync() {
-            var notInSave = new List<string>();
-            var differentVersion = new List<string>();
-            var notInPreset = new List<string>();
+            (IReadOnlyList<string> notInSave, IReadOnlyList<string> differentVersion, IReadOnlyList<string> notInPreset) =
+                SaveModComparison.Compare(dCache.IncludedMods, SaveFileInfo?.Mods ?? []);
 
-            foreach (KeyValuePair<string, string> mod in dCache.IncludedMods) {
-                if (mod.Key is "foremanexport" or "foremansavereader" or "core")
-                    continue;
-                if (SaveFileInfo?.Mods.ContainsKey(mod.Key) is false)
-                    notInSave.Add(mod.Key);
-                else if (SaveFileInfo?.Mods[mod.Key] != mod.Value)
-                    differentVersion.Add(mod.Key);
-            }
-            foreach (KeyValuePair<string, string> mod in SaveFileInfo?.Mods ?? [])
-                if (mod.Key is not ("foremanexport" or "foremansavereader" or "core") && !dCache.IncludedMods.ContainsKey(mod.Key))
-                    notInPreset.Add(mod.Key);
-
-            string lines = MismatchLines(notInSave, differentVersion, notInPreset);
+            string lines = SaveModComparison.MismatchLines(notInSave, differentVersion, notInPreset);
             if (lines.Length > 0) {
                 ErrorLogging.LogLine("Save file mods differ from the preset. Not in the save: " + string.Join(", ", notInSave) +
                     "; different version: " + string.Join(", ", differentVersion) + "; not in the preset: " + string.Join(", ", notInPreset));
@@ -189,26 +174,6 @@ namespace Foreman.Mac.Views.Sheets {
                 if (recipe.Name.StartsWith("§§", StringComparison.Ordinal) || (SaveFileInfo?.Recipes.ContainsKey(recipe.Name) is true && SaveFileInfo.Recipes[recipe.Name]))
                     enabledObjects.Add(recipe);
             EnabledObjectsDerivation.DeriveAssemblersBeaconsModules(dCache, enabledObjects);
-        }
-
-        internal static string MismatchLines(IReadOnlyList<string> notInSave, IReadOnlyList<string> differentVersion, IReadOnlyList<string> notInPreset) {
-            var lines = new StringBuilder();
-            foreach ((string label, IReadOnlyList<string> mods) in new[] { ("Not in the save: ", notInSave), ("Different version: ", differentVersion), ("Not in the preset: ", notInPreset) })
-                if (mods.Count > 0)
-                    lines.Append('\n').Append(label).Append(NameList(mods));
-            return lines.ToString();
-        }
-
-        private static string NameList(IReadOnlyList<string> names) {
-            const int Shown = 5;
-            List<string> items = [.. names.Take(Shown)];
-            if (names.Count > Shown)
-                items.Add(string.Create(DisplayCulture.Format, $"{names.Count - Shown} more"));
-            return items.Count switch {
-                1 => items[0],
-                2 => items[0] + " and " + items[1],
-                _ => string.Join(", ", items.Take(items.Count - 1)) + ", and " + items[^1],
-            };
         }
 
         private Task<bool> ShowConfirmAsync(string title, string message) =>

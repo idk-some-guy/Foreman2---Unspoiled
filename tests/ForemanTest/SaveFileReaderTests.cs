@@ -90,6 +90,70 @@ namespace ForemanTest {
             Assert.IsFalse(info.Recipes["copper-plate"]);
         }
 
+        static readonly string[] ResearchKeys = [
+            "mining_drill_productivity_bonus", "laboratory_speed_modifier", "laboratory_productivity_bonus",
+            "inserter_stack_size_bonus", "bulk_inserter_capacity_bonus", "belt_stack_size_bonus",
+            "worker_robots_speed_modifier", "worker_robots_storage_bonus", "worker_robots_battery_modifier",
+            "train_braking_force_bonus",
+        ];
+
+        [TestMethod]
+        [DataRow("2.0")]
+        [DataRow("2.1")]
+        public void ParseP0Export_ResearchedFixture_ReadsBonusesAndLevels(string line) {
+            SaveFileInfo info = SaveFileReader.ParseP0Export(File.ReadAllText(TestAssets.ResolvePath($"save-reader-{line}-researched.txt")));
+
+            Assert.IsTrue(info.ResearchBonuses["mining_drill_productivity_bonus"] > 0);
+            Assert.IsTrue(info.RecipeProductivity["steel-plate"] > 0);
+            Assert.AreEqual(new SaveTechnologyLevel(Level: 5, MinLevel: 3, MaxLevel: 4294967295), info.TechnologyLevels["mining-productivity-3"]);
+            Assert.IsNotNull(info.TicksPlayed);
+            Assert.IsTrue(info.TicksPlayed.Value >= 0);
+        }
+
+        [TestMethod]
+        [DataRow("2.0")]
+        [DataRow("2.1")]
+        public void ParseP0Export_FreshFixture_HasEveryKeyAndNoRecipeProductivity(string line) {
+            SaveFileInfo info = SaveFileReader.ParseP0Export(File.ReadAllText(TestAssets.ResolvePath($"save-reader-{line}-fresh.txt")));
+
+            foreach (string key in ResearchKeys)
+                Assert.IsTrue(info.ResearchBonuses.ContainsKey(key), key);
+            Assert.AreEqual(0, info.RecipeProductivity.Count);
+        }
+
+        [TestMethod]
+        public void ParseP0Export_MissingResearchKey_IsAbsent() {
+            string output =
+                "<<<START-EXPORT-P0>>>\n" +
+                "{\"research\":{\"mining_drill_productivity_bonus\":0.1,\"laboratory_speed_modifier\":0,\"laboratory_productivity_bonus\":0," +
+                "\"inserter_stack_size_bonus\":1,\"bulk_inserter_capacity_bonus\":1,\"worker_robots_speed_modifier\":0," +
+                "\"worker_robots_storage_bonus\":0,\"worker_robots_battery_modifier\":0,\"train_braking_force_bonus\":0}," +
+                "\"mods\":[],\"technologies\":[],\"recipes\":[]}\n" +
+                "<<<END-EXPORT-P0>>>\n";
+
+            SaveFileInfo info = SaveFileReader.ParseP0Export(output);
+
+            Assert.IsFalse(info.ResearchBonuses.ContainsKey("belt_stack_size_bonus"));
+            Assert.AreEqual(9, info.ResearchBonuses.Count);
+        }
+
+        [TestMethod]
+        public void ParseP0Export_ExportWithoutResearch_ParsesAsToday() {
+            string output =
+                "<<<START-EXPORT-P0>>>\n" +
+                "{\"mods\":[{\"name\":\"base\",\"version\":\"2.0.76\"}]," +
+                "\"technologies\":[{\"name\":\"automation\",\"enabled\":true}]," +
+                "\"recipes\":[{\"name\":\"iron-plate\",\"enabled\":true},{\"name\":\"copper-plate\",\"enabled\":false}]}\n" +
+                "<<<END-EXPORT-P0>>>\n";
+
+            SaveFileInfo info = SaveFileReader.ParseP0Export(output);
+
+            Assert.AreEqual(0, info.ResearchBonuses.Count);
+            Assert.AreEqual(0, info.RecipeProductivity.Count);
+            Assert.AreEqual(0, info.TechnologyLevels.Count);
+            Assert.IsNull(info.TicksPlayed);
+        }
+
         //Regression guard (docs/upstream-divergences.md): upstream's own marker slicing only produces valid
         //JSON on CRLF-terminated output, a Windows-Factorio assumption. ParseP0Export instead finds the
         //marker's actual length and trims surrounding whitespace, which must keep working under CRLF too -

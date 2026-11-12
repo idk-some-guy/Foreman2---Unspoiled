@@ -179,7 +179,7 @@ namespace ForemanTest {
 
             var graph = new ProductionGraph();
             GraphSaveTestUi.ApplyViewerUiToGraph(saveDocument, cache, graph);
-            GraphSaveLoader.LoadProductionGraph(graph, cache, saveDocument.ProductionGraph, applySolverSettings: true);
+            GraphSaveLoader.LoadProductionGraph(graph, cache, saveDocument.ProductionGraph, applySolverSettings: true, applyResearch: true);
             graph.UpdateNodeValues();
 
             string once = GraphSaveCodec.WriteProductionGraphToString(graph, writeIndented: true);
@@ -231,6 +231,21 @@ namespace ForemanTest {
 
             Assert.AreEqual(1, json.GetProperty("Nodes").GetArrayLength());
             Assert.AreEqual(0, json.GetProperty("NodeLinks").GetArrayLength());
+        }
+
+        [TestMethod]
+        public void SerializeProductionGraph_FragmentOmitsResearchAndFullDocumentKeepsIt() {
+            var data = BuildSimpleChain();
+            data.Graph.Research = Foreman.Models.Research.ResearchState.None.WithValue(Foreman.Models.Research.ResearchField.MiningProductivity, 0.5);
+            var recipeNode = data.Graph.Nodes.OfType<RecipeNode>().Single();
+
+            JsonElement full = JsonDocument.Parse(GraphSaveCodec.WriteProductionGraphToString(data.Graph, writeIndented: false)).RootElement;
+            data.Graph.SerializeNodeIdSet = [recipeNode.NodeID];
+            JsonElement fragment = JsonDocument.Parse(GraphSaveCodec.WriteProductionGraphToString(data.Graph, writeIndented: false)).RootElement;
+            data.Graph.SerializeNodeIdSet = null;
+
+            Assert.IsTrue(full.TryGetProperty("Research", out _));
+            Assert.IsFalse(fragment.TryGetProperty("Research", out _));
         }
 
         // Note: the domain-level NodeCopyOptions round-trip (constructing from an IRecipeNodeViewModel and

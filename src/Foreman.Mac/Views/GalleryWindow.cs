@@ -110,6 +110,7 @@ namespace Foreman.Mac.Views {
             registry.Register(new GalleryTile("Kit", "Text field", "Default", BuildTextFieldTile));
             registry.Register(new GalleryTile("Kit", "Search field", "Default", BuildSearchFieldTile));
             registry.Register(new GalleryTile("Kit", "Stepper", "Default", BuildStepperTile));
+            registry.Register(new GalleryTile("Kit", "Revert button", "Default", BuildRevertButtonTile));
             registry.Register(new GalleryTile("Kit", "Slider", "Default", BuildSliderTile));
             registry.Register(new GalleryTile("Kit", "Text field, Search field, Stepper & Slider (150%)", "150%", BuildFieldControlsScaledTile));
             registry.Register(new GalleryTile("Kit", "List rows", "Default", BuildListRowsTile));
@@ -206,6 +207,7 @@ namespace Foreman.Mac.Views {
             "Settings.Advanced", "Settings.Annotations", "Settings.Appearance",
             "Category.Mods", "Category.Items", "Category.Recipes", "Category.Assemblers",
             "Category.Miners", "Category.Power", "Category.Modules",
+            "Sync", "Research", "Revert",
             "Node.Over", "Node.Short", "Node.Error", "Node.Key", "Canvas.Paused", "Link.Orthogonal", "Link.Rounded",
         ];
 
@@ -676,6 +678,21 @@ namespace Foreman.Mac.Views {
             return new StackPanel {
                 Spacing = 8,
                 Children = { KitText("Plain", "caption", "tertiary"), plain, KitText("With unit", "caption", "tertiary"), withUnit },
+            };
+        }
+
+        private static StackPanel BuildRevertButtonTile() {
+            var normal = new RevertButton { Theme = KitTheme("Kit.RevertButton") };
+            var reserved = new RevertButton { Theme = KitTheme("Kit.RevertButton"), IsReserved = true };
+            var disabled = new RevertButton { Theme = KitTheme("Kit.RevertButton"), IsEnabled = false };
+
+            return new StackPanel {
+                Spacing = 8,
+                Children = {
+                    KitText("Default", "caption", "tertiary"), normal,
+                    KitText("Reserved slot", "caption", "tertiary"), reserved,
+                    KitText("Disabled", "caption", "tertiary"), disabled,
+                },
             };
         }
 

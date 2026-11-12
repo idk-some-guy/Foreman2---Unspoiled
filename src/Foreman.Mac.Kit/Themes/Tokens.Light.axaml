@@ -271,6 +271,7 @@
   <Thickness x:Key="Foreman.Thickness.SearchFieldClearMargin">0,0,4,0</Thickness>
 
   <x:Double x:Key="Foreman.Size.StepperFieldWidth">40</x:Double>
+  <x:Double x:Key="Foreman.Size.StepperFieldWidthWide">72</x:Double>
   <x:Double x:Key="Foreman.Size.StepperArrowColumn">15</x:Double>
 
   <x:Double x:Key="Foreman.Size.SliderTrack">3</x:Double>

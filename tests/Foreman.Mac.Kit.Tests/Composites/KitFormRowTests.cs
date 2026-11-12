@@ -44,6 +44,19 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             row.GetVisualDescendants().OfType<Panel>().Single(p => p.Name == "PART_ControlHost");
 
         [AvaloniaFact]
+        public void KitFormRow_IsEmphasized_SetsTheLabelWeightTo600() {
+            using var fixture = new KitFixture();
+            FormRow row = Themed("Mining productivity");
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(FontWeight.Normal, LabelText(row).FontWeight);
+
+            row.IsEmphasized = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(FontWeight.SemiBold, LabelText(row).FontWeight);
+        }
+
+        [AvaloniaFact]
         public void KitFormRow_IsAControlThemeTargetingFormRow() {
             using var fixture = new KitFixture();
             Assert.Equal(typeof(FormRow), KitFormRowTheme().TargetType);
@@ -729,6 +742,24 @@ namespace Foreman.Mac.Kit.Tests.Composites {
             Dispatcher.UIThread.RunJobs();
 
             AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(content);
+            Assert.Equal("Beacon count", peer.GetName());
+        }
+
+        [AvaloniaFact]
+        public void VoiceOver_SpokenLabelOverridesLabelAndClearingFallsBack() {
+            using var fixture = new KitFixture();
+            var content = new TextBox();
+            FormRow row = Themed("Beacon count", content);
+            fixture.Window.Content = row;
+            Dispatcher.UIThread.RunJobs();
+            AutomationPeer peer = ControlAutomationPeer.CreatePeerForElement(content);
+
+            row.SpokenLabel = "Number of beacons";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Number of beacons", peer.GetName());
+
+            row.SpokenLabel = null;
+            Dispatcher.UIThread.RunJobs();
             Assert.Equal("Beacon count", peer.GetName());
         }
 

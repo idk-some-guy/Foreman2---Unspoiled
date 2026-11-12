@@ -1,0 +1,62 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:kit="using:Foreman.Mac.Kit.Controls"
+                    xmlns:m="using:Foreman.Mac.Kit">
+
+  <ControlTheme x:Key="Kit.RevertButton" TargetType="kit:RevertButton">
+    <Setter Property="Width" Value="20" />
+    <Setter Property="Height" Value="20" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource Foreman.Color.TextSecondary}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="kit:FocusRing.IsEnabled" Value="True" />
+    <Setter Property="kit:FocusRing.CornerRadius" Value="5" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel>
+          <Border x:Name="PART_HoverFill"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Background="{DynamicResource Foreman.Color.ControlBackgroundHover}"
+                  Opacity="0"
+                  IsHitTestVisible="False"
+                  Transitions="{x:Static m:Motion.ToolbarItemHoverTransitions}" />
+          <Border x:Name="PART_ContrastRing"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  BorderBrush="{DynamicResource Foreman.Color.BorderStrong}"
+                  BorderThickness="1"
+                  Opacity="{DynamicResource Foreman.Opacity.SplitGripIdle}"
+                  IsHitTestVisible="False" />
+          <Path x:Name="PART_Glyph"
+                Data="{StaticResource Kit.Glyph.Revert.12}"
+                Width="12" Height="12"
+                Stretch="None"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Stroke="{TemplateBinding Foreground}"
+                StrokeThickness="1.5"
+                StrokeLineCap="Round"
+                StrokeJoin="Round"
+                IsHitTestVisible="False" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+    <Style Selector="^:pointerover /template/ Border#PART_HoverFill">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="^:disabled">
+      <Setter Property="Opacity" Value="{DynamicResource Foreman.Opacity.Disabled}" />
+    </Style>
+    <Style Selector="^:reserved">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="IsTabStop" Value="False" />
+      <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
+    </Style>
+  </ControlTheme>
+</ResourceDictionary>
