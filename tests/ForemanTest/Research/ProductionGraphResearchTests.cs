@@ -25,6 +25,16 @@ namespace ForemanTest.Research {
         }
 
         [TestMethod]
+        public void ClearGraph_ResetsResearchToNone() {
+            GraphBuilder.BuiltData data = GraphSessionTestHelper.BuildSimpleChain();
+            data.Graph.Research = Mined(0.2);
+
+            data.Graph.ClearGraph();
+
+            Assert.AreSame(ResearchState.None, data.Graph.Research);
+        }
+
+        [TestMethod]
         public void Research_Set_RequestsExactlyOneSolve() {
             GraphBuilder.BuiltData data = GraphSessionTestHelper.BuildSimpleChain();
             (ManualTaskScheduler worker, ManualSyncContext ctx, List<string> events) = SolveWiring.Wire(data.Graph);

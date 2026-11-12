@@ -196,6 +196,7 @@ namespace Foreman.Mac {
             ActualSizeCommand = new RelayCommand(MenuActualSize);
             ResearchSync = new ResearchSyncFlow(() => GraphCanvas.Viewer.Graph, () => DataCache!, () => Settings) {
                 Announce = Announce,
+                DocumentIdentity = () => Library?.OpenGraphId,
                 ShowResearch = () => {
                     ShowResearch();
                     researchWindow?.SelectSegment(0);
@@ -216,7 +217,8 @@ namespace Foreman.Mac {
                 onGraphSummary: ShowGraphSummary,
                 onSyncResearch: () => SyncResearch(chooseAnother: false),
                 onSyncResearchFromAnotherSave: () => SyncResearch(chooseAnother: true),
-                onResearchWindow: ToggleResearch,
+                onResearchWindow: ShowResearch,
+                onToggleResearchWindow: ToggleResearch,
                 canExecuteAlignSelection: () => GraphCanvas.Viewer.SelectedNodes.Count > 0,
                 canExecuteSyncResearch: () => isDocumentOpen && !ResearchSync.IsRunning,
                 canExecuteResearchWindow: () => isDocumentOpen);
@@ -315,7 +317,7 @@ namespace Foreman.Mac {
                 ],
             });
             syncResearchItem = ToolbarButton("SyncResearchButton", "Sync", "Sync", Commands.SyncResearchCommand, automationName: "Sync Research", acceleratorKey: "⌘R", overflowLabel: "Sync Research");
-            researchItem = ToolbarButton("ResearchButton", "Research", "Research", Commands.ResearchWindowCommand, automationName: "Research", overflowLabel: "Research");
+            researchItem = ToolbarButton("ResearchButton", "Research", "Research", Commands.ResearchWindowToggleCommand, automationName: "Research", overflowLabel: "Research");
             researchItem.IsToggle = true;
             toolbar.Groups.Add(new ToolbarGroup {
                 Role = ToolbarGroupRole.Research,
@@ -1366,6 +1368,7 @@ namespace Foreman.Mac {
             }
             researchMenuItem.IsEnabled = isDocumentOpen;
             Commands.ResearchWindowCommand.NotifyCanExecuteChanged();
+            Commands.ResearchWindowToggleCommand.NotifyCanExecuteChanged();
             researchWindow?.Refresh();
             Commands.SyncResearchCommand.NotifyCanExecuteChanged();
             Commands.SyncResearchFromAnotherSaveCommand.NotifyCanExecuteChanged();

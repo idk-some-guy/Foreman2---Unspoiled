@@ -94,6 +94,7 @@ namespace Foreman.Mac.Views.Sheets {
         internal Func<Task>? ShowLogStub { get; set; }
         internal TimeProvider Clock { get; set; } = TimeProvider.System;
         internal Action<string>? Announce { get; set; }
+        internal Func<object?>? DocumentIdentity { get; set; }
         internal bool StoredSaveMissing { get; set; }
         internal ResearchSyncReport? Report { get; private set; }
         internal Task LastRun { get; private set; } = Task.CompletedTask;
@@ -118,7 +119,7 @@ namespace Foreman.Mac.Views.Sheets {
                 return;
             disposed = true;
             StopAnnouncing();
-            cts.Dispose();
+            LastRun.ContinueWith(_ => cts.Dispose(), TaskScheduler.Default);
             GC.SuppressFinalize(this);
         }
 
@@ -147,6 +148,7 @@ namespace Foreman.Mac.Views.Sheets {
             phase = Phase.Running;
             showLogButton.IsVisible = false;
             bool firstSync = graph.Research.Source is null;
+            object? document = DocumentIdentity?.Invoke();
             CancellationToken token = cts.Token;
             string progress = $"Reading {quoted} — running Factorio.";
             ReportProgress(progress);
@@ -174,6 +176,11 @@ namespace Foreman.Mac.Views.Sheets {
                 return;
             }
 
+            if (!Equals(document, DocumentIdentity?.Invoke())) {
+                Finish(ResearchSyncOutcome.Cancelled);
+                return;
+            }
+
             bool clearTyped = false;
             IReadOnlyList<RecipeNode> typed = ResearchSync.NodesWithTypedProductivity(graph);
             if (firstSync && typed.Count > 0) {
@@ -186,6 +193,10 @@ namespace Foreman.Mac.Views.Sheets {
                     return;
                 }
                 clearTyped = choice == FirstSyncChoice.Clear;
+                if (!Equals(document, DocumentIdentity?.Invoke())) {
+                    Finish(ResearchSyncOutcome.Cancelled);
+                    return;
+                }
             }
 
             Report = ResearchSync.Apply(graph, read.State!, clearTyped);

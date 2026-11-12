@@ -15,6 +15,10 @@ namespace Foreman.Mac.ViewModels {
             double? stored = displayValue is double shown ? FromDisplay(shown, ResearchFields.IsCount(field)) : null;
             if (stored == State.Get(field) || SameDisplay(DisplayValue(field), displayValue))
                 return;
+            if (State.SyncedValues.TryGetValue(field, out double synced) && SameDisplay(ToDisplay(synced, ResearchFields.IsCount(field)), displayValue)) {
+                graph.Research = State.Revert(field);
+                return;
+            }
             graph.Research = State.WithValue(field, stored);
         }
 
@@ -25,6 +29,10 @@ namespace Foreman.Mac.ViewModels {
         public void SetRecipe(string recipe, double displayPercent) {
             if (SameDisplay(State.RecipeProductivity.ContainsKey(recipe) ? RecipeDisplayPercent(recipe) : null, displayPercent))
                 return;
+            if (State.SyncedRecipeProductivity.TryGetValue(recipe, out double synced) && SameDisplay(ToDisplay(synced, isCount: false), displayPercent)) {
+                graph.Research = State.RevertRecipe(recipe);
+                return;
+            }
             graph.Research = State.WithRecipe(recipe, FromDisplay(displayPercent, isCount: false));
         }
 

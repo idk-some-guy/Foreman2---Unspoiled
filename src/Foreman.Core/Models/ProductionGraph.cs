@@ -314,6 +314,7 @@ namespace Foreman {
             foreach (BaseNode node in nodes.ToList())
                 DeleteNode(node);
 
+            Research = ResearchState.None;
             SerializeNodeIdSet = null;
             lastNodeID = 0;
             Bump();

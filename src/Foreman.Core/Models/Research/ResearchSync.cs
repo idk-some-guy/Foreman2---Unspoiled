@@ -39,7 +39,7 @@ namespace Foreman.Models.Research {
         }
 
         public static ResearchSyncReport Apply(ProductionGraph graph, ResearchState read, bool clearTypedBonuses) {
-            bool firstSync = graph.Research.Source is null;
+            bool firstSync = graph.Research.Source is null && graph.Research.HandEditCount == 0;
             IReadOnlyList<ResearchChange> changes = firstSync ? [] : Changes(graph.Research, read);
 
             int cleared = 0;

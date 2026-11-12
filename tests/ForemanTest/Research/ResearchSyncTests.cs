@@ -155,6 +155,23 @@ namespace ForemanTest.Research {
         }
 
         [TestMethod]
+        public void Apply_NeverSyncedWithHandEdits_ReportsReplacedEdits() {
+            ProductionGraph graph = TwoRecipeGraph();
+            graph.Research = graph.Research.WithValue(ResearchField.MiningProductivity, 0.5).WithRecipe("iron-gear-wheel", 0.1);
+
+            var info = new SaveFileInfo();
+            info.ResearchBonuses[ResearchFields.ExportKey(ResearchField.MiningProductivity)] = 1.2;
+
+            ResearchSyncReport report = ResearchSync.Apply(graph, ResearchStateMapper.FromSave(info, SavePath, SyncedAt), false);
+
+            Assert.IsFalse(report.FirstSync);
+            Assert.HasCount(2, report.Changes);
+            Assert.AreEqual(new ResearchChange(ResearchField.MiningProductivity, null, 0.5, 1.2, true), report.Changes[0]);
+            Assert.AreEqual(new ResearchChange(null, "iron-gear-wheel", 0.1, null, true), report.Changes[1]);
+            Assert.AreEqual(2, report.ReplacedEditCount);
+        }
+
+        [TestMethod]
         public void Apply_SecondSync_ListsChangedFieldsInOrder() {
             ProductionGraph graph = TwoRecipeGraph();
             ResearchSync.Apply(graph, Synced(1.0, 0.1), false);

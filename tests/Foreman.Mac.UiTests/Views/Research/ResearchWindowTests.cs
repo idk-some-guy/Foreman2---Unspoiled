@@ -288,6 +288,26 @@ namespace Foreman.Mac.UiTests.Views.Research {
         }
 
         [AvaloniaFact]
+        public void ResearchWindow_MenuCommand_OpensOrFocusesAndNeverCloses() {
+            using var rig = new Rig();
+            rig.Open(Synced());
+            ResearchWindow window = rig.Research;
+            rig.Window.Activate();
+            Dispatcher.UIThread.RunJobs();
+
+            rig.Window.Commands.ResearchWindowCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(window, rig.Window.CurrentResearchWindow);
+            Assert.True(window.IsVisible);
+            Assert.True(rig.ResearchButton.IsOn);
+
+            rig.ResearchButton.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(rig.Window.CurrentResearchWindow);
+        }
+
+        [AvaloniaFact]
         public void ResearchWindow_SyncSheet_ShowResearchOpensTheWindow() {
             using var rig = new Rig();
             Assert.NotNull(rig.Window.ResearchSync.ShowResearch);

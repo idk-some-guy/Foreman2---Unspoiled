@@ -24,7 +24,7 @@ namespace Foreman.Serialization {
                 IncludedModules = Sort(included.Modules),
                 IncludedBeacons = Sort(included.Beacons),
                 Solver = WriteSolver(graph),
-                Research = graph.Research.Equals(ResearchState.None) ? null : WriteResearch(graph.Research),
+                Research = graph.SerializeNodeIdSet is not null || graph.Research.Equals(ResearchState.None) ? null : WriteResearch(graph.Research),
                 Nodes = [.. includedNodes.Select(WriteNode)],
                 Links = [.. includedLinks.Select(WriteLink)]
             };

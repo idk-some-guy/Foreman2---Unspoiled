@@ -512,6 +512,50 @@ namespace Foreman.Mac.UiTests.Sheets {
         }
 
         [AvaloniaFact]
+        public async Task SyncSheet_NeverSyncedWithHandEdits_ListsThemAsReplacedEdits() {
+            using var rig = new Rig();
+            rig.Graph.Research = ResearchState.None.WithValue(ResearchField.MiningProductivity, 0.5).WithRecipe("iron-gear-wheel", 0.1);
+            ResearchSyncSheet sheet = rig.Sheet((_, _) => Ok(Info(new() { [ResearchField.MiningProductivity] = 1.2 })));
+
+            await sheet.RunAsync().WaitAsync(Timeout);
+
+            Assert.Equal("41 h 7 min played. Two values changed, and two of them were edits made by hand.", sheet.LedeText);
+            Assert.False(sheet.Report!.FirstSync);
+            Assert.All(sheet.ChangeRows, row => Assert.True(row.ReplacedEdit));
+        }
+
+        [AvaloniaFact]
+        public async Task FirstSync_Notice_ShownForNeverSyncedGraphWithHandEditsAndTypedBonuses() {
+            using var rig = new Rig();
+            rig.AddTyped("iron-gear-wheel");
+            rig.Graph.Research = ResearchState.None.WithValue(ResearchField.MiningProductivity, 0.5);
+            bool shown = false;
+            ResearchSyncSheet sheet = rig.Sheet((_, _) => Ok(AfterInfo()));
+            sheet.FirstSyncStub = _ => { shown = true; return Task.FromResult(FirstSyncChoice.Keep); };
+
+            await sheet.RunAsync().WaitAsync(Timeout);
+
+            Assert.True(shown);
+        }
+
+        [AvaloniaFact]
+        public async Task SyncSheet_DocumentChangesDuringRun_ReplacesNothing() {
+            using var rig = new Rig();
+            ResearchState before = rig.Graph.Research;
+            object document = "first";
+            ResearchSyncSheet sheet = rig.Sheet((_, _) => {
+                document = "second";
+                return Ok(AfterInfo());
+            });
+            sheet.DocumentIdentity = () => document;
+
+            await sheet.RunAsync().WaitAsync(Timeout);
+
+            Assert.Same(before, rig.Graph.Research);
+            Assert.Null(sheet.Report);
+        }
+
+        [AvaloniaFact]
         public async Task FirstSync_Notice_FourNodes() {
             using var rig = new Rig();
             rig.AddTyped("electronic-circuit", "copper-cable", "plastic-bar", "steel-plate");

@@ -25,6 +25,8 @@ namespace Foreman.Mac.Views.Research {
 
         internal Action<string>? Announce { get; set; }
 
+        internal Func<object?>? DocumentIdentity { get; set; }
+
         public async Task RunAsync(Window owner, bool chooseAnother) {
             if (IsRunning)
                 return;
@@ -56,7 +58,7 @@ namespace Foreman.Mac.Views.Research {
         private Task<string?> ChooseAsync(string? startFolder) => ChooseSavePath(startFolder);
 
         private Task<ResearchSyncOutcome> ShowSheetAsync(Window host, string path, bool missing) {
-            var sheet = new ResearchSyncSheet(graph(), cache(), path) { StoredSaveMissing = missing, Announce = Announce };
+            var sheet = new ResearchSyncSheet(graph(), cache(), path) { StoredSaveMissing = missing, Announce = Announce, DocumentIdentity = DocumentIdentity };
             return SheetStub is { } stub ? stub(sheet) : SheetHost.For(host).ShowAsync(sheet);
         }
 
